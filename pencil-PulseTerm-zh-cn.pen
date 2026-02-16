@@ -3057,6 +3057,42 @@
               "alignItems": "center",
               "children": [
                 {
+                  "type": "text",
+                  "id": "B33Ny",
+                  "name": "sbTermType",
+                  "fill": "$text-muted",
+                  "content": "xterm-256color",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 10,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "bjaNS",
+                  "name": "sbDivTerm",
+                  "width": 1,
+                  "height": 12,
+                  "fill": "$border-secondary"
+                },
+                {
+                  "type": "text",
+                  "id": "p60xV",
+                  "name": "sbWinSize",
+                  "fill": "$text-muted",
+                  "content": "120×36",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 10,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "qtWRC",
+                  "name": "sbDivSize",
+                  "width": 1,
+                  "height": 12,
+                  "fill": "$border-secondary"
+                },
+                {
                   "type": "frame",
                   "id": "Sl1xR",
                   "name": "sbCpuWrap",
