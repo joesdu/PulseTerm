@@ -1,14 +1,21 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Styling;
+using PulseTerm.Core.Services;
 
 namespace PulseTerm.App;
 
 public partial class App : Application
 {
+    public static IThemeService ThemeService { get; } = new ThemeService("dark");
+
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
+
+        ThemeService.ThemeChanged += OnThemeChanged;
+        ApplyThemeVariant(ThemeService.CurrentTheme);
     }
 
     public override void OnFrameworkInitializationCompleted()
@@ -19,5 +26,19 @@ public partial class App : Application
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private void OnThemeChanged(string themeName)
+    {
+        ApplyThemeVariant(themeName);
+    }
+
+    private void ApplyThemeVariant(string themeName)
+    {
+        RequestedThemeVariant = themeName.ToLowerInvariant() switch
+        {
+            "light" => ThemeVariant.Light,
+            _ => ThemeVariant.Dark,
+        };
     }
 }
