@@ -1,0 +1,8 @@
+{
+  "configProperties": {
+    "System.Globalization.Invariant": false
+  },
+  "runtimeOptions": {
+    "rollForward": "LatestMajor"
+  }
+}

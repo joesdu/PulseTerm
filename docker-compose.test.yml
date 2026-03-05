@@ -1,0 +1,14 @@
+services:
+  openssh-server:
+    image: linuxserver/openssh-server:latest
+    container_name: pulseterm-test-ssh
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+      - PASSWORD_ACCESS=true
+      - USER_PASSWORD=testpass
+      - USER_NAME=testuser
+    ports:
+      - "2222:2222"
+    restart: unless-stopped
