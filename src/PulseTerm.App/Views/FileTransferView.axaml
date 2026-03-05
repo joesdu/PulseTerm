@@ -1,0 +1,203 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:PulseTerm.App.ViewModels"
+             xmlns:res="clr-namespace:PulseTerm.Core.Resources;assembly=PulseTerm.Core"
+             mc:Ignorable="d" d:DesignWidth="280" d:DesignHeight="400"
+             x:Class="PulseTerm.App.Views.FileTransferView"
+             x:DataType="vm:FileTransferViewModel"
+             Width="280">
+
+  <UserControl.Styles>
+    <Style Selector="TextBlock.panel-title">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource PulseTextSecondary}" />
+    </Style>
+
+    <Style Selector="Border.transfer-item">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Padding" Value="10,8" />
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+      <Setter Property="BorderBrush" Value="{DynamicResource PulseBorderSecondary}" />
+    </Style>
+    <Style Selector="Border.transfer-item:pointerover">
+      <Setter Property="Background" Value="{DynamicResource PulseBgHover}" />
+    </Style>
+
+    <Style Selector="Button.transfer-action">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Padding" Value="4" />
+      <Setter Property="MinWidth" Value="24" />
+      <Setter Property="MinHeight" Value="24" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.transfer-action:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource PulseBgActive}" />
+    </Style>
+
+    <Style Selector="ProgressBar.transfer-progress">
+      <Setter Property="Height" Value="3" />
+      <Setter Property="CornerRadius" Value="1.5" />
+      <Setter Property="Background" Value="{DynamicResource PulseBorderSecondary}" />
+      <Setter Property="Foreground" Value="{DynamicResource PulseAccent}" />
+      <Setter Property="Minimum" Value="0" />
+      <Setter Property="Maximum" Value="100" />
+    </Style>
+
+    <Style Selector="Button.clear-btn">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource PulseTextTertiary}" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Padding" Value="8,4" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="BorderBrush" Value="{DynamicResource PulseBorderSecondary}" />
+    </Style>
+    <Style Selector="Button.clear-btn:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource PulseBgHover}" />
+    </Style>
+  </UserControl.Styles>
+
+  <Border Background="{DynamicResource PulseBgSurface}"
+          BorderBrush="{DynamicResource PulseBorderPrimary}"
+          BorderThickness="1"
+          CornerRadius="6">
+    <DockPanel>
+
+      <!-- Header -->
+      <Border DockPanel.Dock="Top"
+              Padding="12,10"
+              BorderThickness="0,0,0,1"
+              BorderBrush="{DynamicResource PulseBorderPrimary}">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Classes="panel-title" Text="TRANSFERS"
+                     VerticalAlignment="Center" />
+          <TextBlock Grid.Column="1"
+                     FontSize="10"
+                     Foreground="{DynamicResource PulseTextMuted}"
+                     VerticalAlignment="Center">
+            <TextBlock.Text>
+              <MultiBinding StringFormat="{}({0})">
+                <Binding Path="Transfers.Count" />
+              </MultiBinding>
+            </TextBlock.Text>
+          </TextBlock>
+        </Grid>
+      </Border>
+
+      <!-- Footer: Clear Completed -->
+      <Border DockPanel.Dock="Bottom"
+              Padding="10,8"
+              BorderThickness="0,1,0,0"
+              BorderBrush="{DynamicResource PulseBorderPrimary}">
+        <Button Classes="clear-btn"
+                Command="{Binding ClearCompletedCommand}"
+                Content="{x:Static res:Strings.ClearAll}" />
+      </Border>
+
+      <!-- Transfer list -->
+      <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                    VerticalScrollBarVisibility="Auto">
+        <ItemsControl ItemsSource="{Binding Transfers}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:TransferItemViewModel">
+              <Border Classes="transfer-item">
+                <Grid RowDefinitions="Auto,Auto,Auto">
+
+                  <!-- Row 0: File name + direction + action button -->
+                  <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto">
+                    <!-- Direction arrow -->
+                    <TextBlock Grid.Column="0"
+                               Text="{Binding Direction}"
+                               FontSize="13"
+                               FontWeight="Bold"
+                               Foreground="{DynamicResource PulseAccentText}"
+                               VerticalAlignment="Center"
+                               Margin="0,0,6,0" />
+
+                    <!-- File name -->
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding FileName}"
+                               FontSize="12"
+                               Foreground="{DynamicResource PulseTextPrimary}"
+                               TextTrimming="CharacterEllipsis"
+                               VerticalAlignment="Center" />
+
+                    <Button Grid.Column="2"
+                            Classes="transfer-action"
+                            Command="{Binding $parent[ItemsControl].((vm:FileTransferViewModel)DataContext).CancelTransferCommand}"
+                            CommandParameter="{Binding Id}"
+                            IsVisible="{Binding IsActive}"
+                            ToolTip.Tip="{x:Static res:Strings.Cancel}">
+                      <PathIcon Data="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+                                Width="12" Height="12"
+                                Foreground="{DynamicResource PulseError}" />
+                    </Button>
+
+                    <Button Grid.Column="2"
+                            Classes="transfer-action"
+                            Command="{Binding $parent[ItemsControl].((vm:FileTransferViewModel)DataContext).RetryTransferCommand}"
+                            CommandParameter="{Binding Id}"
+                            IsVisible="{Binding IsFailed}"
+                            ToolTip.Tip="Retry">
+                      <PathIcon Data="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"
+                                Width="12" Height="12"
+                                Foreground="{DynamicResource PulseWarning}" />
+                    </Button>
+
+                    <PathIcon Grid.Column="2"
+                              Data="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"
+                              Width="14" Height="14"
+                              Foreground="{DynamicResource PulseStatusConnected}"
+                              VerticalAlignment="Center"
+                              Margin="4,0"
+                              IsVisible="{Binding IsCompleted}" />
+                  </Grid>
+
+                  <!-- Row 1: Progress bar -->
+                  <ProgressBar Grid.Row="1"
+                               Classes="transfer-progress"
+                               Value="{Binding Progress}"
+                               Margin="0,6,0,4" />
+
+                  <!-- Row 2: Percentage + Speed + ETA -->
+                  <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto">
+                    <TextBlock Grid.Column="0"
+                               FontSize="10"
+                               Foreground="{DynamicResource PulseTextTertiary}">
+                      <TextBlock.Text>
+                        <MultiBinding StringFormat="{}{0}%">
+                          <Binding Path="Progress" />
+                        </MultiBinding>
+                      </TextBlock.Text>
+                    </TextBlock>
+
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding Speed}"
+                               FontSize="10"
+                               Foreground="{DynamicResource PulseTextMuted}"
+                               HorizontalAlignment="Center" />
+
+                    <TextBlock Grid.Column="2"
+                               Text="{Binding TimeRemaining}"
+                               FontSize="10"
+                               Foreground="{DynamicResource PulseTextMuted}"
+                               HorizontalAlignment="Right" />
+                  </Grid>
+
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+
+    </DockPanel>
+  </Border>
+</UserControl>
