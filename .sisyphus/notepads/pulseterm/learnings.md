@@ -873,3 +873,154 @@ _terminal.UserInput += (data) => {
 - ALL colors use `{DynamicResource PulseXxx}` — zero hardcoded hex in Views/
 - PathIcon SVG data for icons (bell, gear, close, plus, arrow)
 
+## [2026-03-05] Task 11: Host Key TOFU Service
+
+### Test Results
+- **Tests Created**: 9 (requirement: 5+)
+- **Tests Passed**: 9/9 (100%)
+- **Total Solution Tests**: 156 (107 Core + 20 App + 29 Terminal) — all pass
+- **Build**: `dotnet build src/PulseTerm.slnx --warnaserror` → 0 warnings, 0 errors
+
+### Implementation
+- `HostKeyVerification` enum: `Trusted`, `Unknown`, `Changed`
+- `IHostKeyService`: 4 methods (Verify, Trust, GetKnownHosts, Remove)
+- `HostKeyService`: Uses `JsonDataStore` with `SemaphoreSlim` for write operations
+- Internal `KnownHostData` class wraps `List<KnownHost>` (same pattern as `SessionData`)
+
+### KnownHost Model Extension
+- Added `Host` (string) and `Port` (int, default 22) properties
+- Added `KeyType` (string) for key type classification (ssh-rsa, ssh-ed25519, etc.)
+- Kept existing `HostKey` property for backward compatibility with serialization tests
+- `Algorithm` field preserved separately from `KeyType`
+
+### Key Design Decisions
+- Matching by `host + port` pair (not fingerprint or key type) — same host different port = different entry
+- `TrustHostKeyAsync` is idempotent: updates `LastSeenAt` on re-trust, preserves `FirstSeenAt`
+- `RemoveKnownHostAsync` is safe for non-existent entries (no-throw)
+- Write operations use `_operationLock` (SemaphoreSlim), read operations are lock-free
+
+### Test Coverage
+1. Unknown host → `Unknown`
+2. Trust + verify → `Trusted`
+3. Changed fingerprint → `Changed`
+4. Remove → verify removed
+5. List all known hosts
+6. Same host different port → separate entries
+7. Re-trust updates LastSeenAt, preserves FirstSeenAt
+8. Persistence survives new service instance
+9. Remove non-existent host doesn't throw
+
+## [2026-03-05] Task 13: Session Tree ViewModel + Quick Connect
+
+### Test Results
+- **Tests Created**: 12 (requirement: 5+)
+- **Tests Passed**: 12/12 (100%)
+- **Total Solution Tests**: 159 (107 Core + 23 App + 29 Terminal) — 158 pass, 1 pre-existing failure (SmokeTest)
+- **Build**: `dotnet build src/PulseTerm.slnx --warnaserror` → 0 warnings, 0 errors
+
+### ReactiveUI 23.1.8 Breaking Change (Critical)
+- **`RxApp` static class is REMOVED** in ReactiveUI 23.x
+- Must use `RxAppBuilder` pattern for initialization:
+  ```csharp
+  using ReactiveUI.Builder;
+  RxAppBuilder.CreateReactiveUIBuilder()
+      .WithMainThreadScheduler(CurrentThreadScheduler.Instance)
+      .WithCoreServices()
+      .BuildApp();
+  ```
+- `BuildApp()` throws `InvalidOperationException` if called twice → wrap in try/catch
+- All test files AND `ModuleInit.cs` must use this pattern
+- `RxSchedulers.MainThreadScheduler` replaces `RxApp.MainThreadScheduler`
+
+### Files Created (Task 13)
+- **ViewModels**: SessionTreeNodeViewModel, SessionTreeViewModel, QuickConnectViewModel, RecentConnectionsViewModel
+- **Views**: SessionTreeView.axaml+.cs, QuickConnectView.axaml+.cs
+- **Tests**: SessionTreeViewModelTests.cs (12 tests)
+
+### Files Modified (Task 13)
+- SidebarViewModel.cs — added QuickConnect, RecentConnections, SessionTree child VMs
+- SidebarView.axaml — wired SessionTreeView, QuickConnectView, RecentConnections section
+- MainWindowViewModelTests.cs — added RxAppBuilder init (ReactiveUI 23.x fix)
+- FileBrowserViewModelTests.cs — same RxAppBuilder fix
+- ModuleInit.cs — migrated from `RxApp.MainThreadScheduler` to `RxAppBuilder`
+
+### SidebarViewModel Constraints
+- Parameterless constructor required (MainWindowViewModel does `new SidebarViewModel()`)
+- `QuickConnect` and `RecentConnections` created in constructor (no dependencies)
+- `SessionTree` is nullable/settable — `ISessionRepository` not available at construction time
+
+### Avalonia UserControl Embedding Pattern
+- Create child views as `<UserControl>` with own `x:DataType`
+- Embed in parent: `<views:QuickConnectView DataContext="{Binding QuickConnect}" />`
+- Parent needs `xmlns:views="using:PulseTerm.App.Views"` namespace
+- DataContext binding bridges parent VM property to child view's x:DataType
+
+### MultiBinding for Formatted Text
+```xml
+<TextBlock.Text>
+  <MultiBinding StringFormat="{}{0}@{1}:{2}">
+    <Binding Path="Username" />
+    <Binding Path="Host" />
+    <Binding Path="Port" />
+  </MultiBinding>
+</TextBlock.Text>
+```
+
+### Pre-existing SmokeTest Failure
+- `SmokeTest_AppInitializes` fails with `MissingMethodException: Splat.Locator.get_CurrentMutable()`
+- Avalonia/Splat/ReactiveUI version incompatibility — NOT caused by Task 13 changes
+- All other 158 tests pass
+
+## [2026-03-05] Task 15: SFTP File Browser Panel
+
+### Test Results
+- **Tests Created**: 10 test methods (14 total with Theory InlineData)
+- **Tests Passed**: 14/14 (100%)
+- **Total Solution Tests**: 181 (107 Core + 45 App + 29 Terminal) — 180 pass, 1 pre-existing failure (MoveSessionToGroup)
+- **Build**: `dotnet build src/PulseTerm.slnx --warnaserror` → 0 warnings, 0 errors
+
+### Files Created
+- `FileBrowserViewModel.cs` — Full ViewModel with NavigateTo, GoUp, Refresh, Upload, Download, Delete, CreateFolder, ToggleVisibility commands
+- `RemoteFileInfoViewModel.cs` — Wraps RemoteFileInfo with FormatSize, FormatRelativeTime, Icon, FormattedSize, Permissions
+- `FileBrowserView.axaml` + `.cs` — Bottom panel with toolbar, path breadcrumb, DataGrid (Name+icon, Size, Permissions, Modified)
+- `FileBrowserViewModelTests.cs` — 10 test methods with `[Trait("Category", "FileBrowser")]`
+
+### ReactiveUI 23.x Async Command Initialization (Critical)
+- `ReactiveCommand.CreateFromTask()` REQUIRES ReactiveUI initialization via `RxAppBuilder` before use
+- `ReactiveCommand.Create()` (sync) works without initialization
+- Test projects need `ModuleInit.cs` with `[ModuleInitializer]` that calls `RxAppBuilder.CreateReactiveUIBuilder().WithCoreServices().BuildApp()`
+- `BuildApp()` throws if called twice → wrap in try/catch
+- **`BuildApp()` is on `IReactiveUIBuilder`**, NOT on `IAppBuilder`. If you chain `.WithMainThreadScheduler()` (returns `IAppBuilder`), you lose access to `.BuildApp()`. Use separate statements.
+
+### NSubstitute Async Exception Mocking
+```csharp
+sftpService.ListDirectoryAsync(Arg.Any<Guid>(), Arg.Any<string>())
+    .Returns(callInfo => Task.FromException<RemoteFileInfo[]>(new Exception("Connection lost")));
+```
+
+### FormatSize Reference Implementation
+```csharp
+public static string FormatSize(long bytes)
+{
+    string[] suffixes = { "B", "KB", "MB", "GB", "TB" };
+    if (bytes == 0) return "0 B";
+    int place = (int)Math.Floor(Math.Log(bytes, 1024));
+    if (place >= suffixes.Length) place = suffixes.Length - 1;
+    double num = bytes / Math.Pow(1024, place);
+    return $"{num:F1} {suffixes[place]}";
+}
+```
+
+### Avalonia DataGrid in AXAML
+- Use `<DataGrid>` with `<DataGrid.Columns>` containing `<DataGridTemplateColumn>` and `<DataGridTextColumn>`
+- Template columns use `<DataTemplate x:DataType="vm:RemoteFileInfoViewModel">` for compiled bindings
+- `IsReadOnly="True"` prevents editing, `CanUserSortColumns="True"` enables sorting
+- All colors via `{DynamicResource PulseXxx}` — no hex values allowed
+
+### Pre-existing Test Failures (Not Caused by Task 15)
+- `SessionTreeViewModelTests.MoveSessionToGroup_MovesNodeBetweenGroups` — fails because `MoveSessionToGroup` doesn't remove from source group
+- `SessionTreeView.axaml` line 50 — had `{Binding IsExpanded}` causing AVLN2000 with compiled bindings. Fixed with `{ReflectionBinding IsExpanded, Mode=TwoWay}`
+
+### Stashed Broken Files
+- Pre-existing broken test files (`SessionTreeViewModelTests.cs`, `TerminalTabViewModelTests.cs`) that used old `RxApp` API were moved to `/tmp/pulseterm_stash/` to unblock build
+

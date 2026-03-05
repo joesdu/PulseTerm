@@ -1,0 +1,171 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:PulseTerm.App.ViewModels"
+             xmlns:res="clr-namespace:PulseTerm.Core.Resources;assembly=PulseTerm.Core"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="220"
+             x:Class="PulseTerm.App.Views.FileBrowserView"
+             x:DataType="vm:FileBrowserViewModel">
+
+  <UserControl.Styles>
+    <Style Selector="Button.toolbar-btn">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Padding" Value="6" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.toolbar-btn:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource PulseBgHover}" />
+    </Style>
+  </UserControl.Styles>
+
+  <Border BorderThickness="0,1,0,0"
+          BorderBrush="{DynamicResource PulseBorderPrimary}"
+          Background="{DynamicResource PulseBgSurface}"
+          IsVisible="{Binding IsVisible}"
+          MinHeight="120"
+          Height="220">
+
+    <Panel>
+      <DockPanel>
+
+      <Grid DockPanel.Dock="Top"
+            ColumnDefinitions="Auto,*,Auto"
+            Background="{DynamicResource PulseBgPage}"
+            Height="36">
+
+        <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="4,0">
+          <Button Classes="toolbar-btn"
+                  Command="{Binding GoUpCommand}"
+                  ToolTip.Tip="Go Up">
+            <PathIcon Data="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"
+                      Width="14" Height="14"
+                      Foreground="{DynamicResource PulseTextSecondary}" />
+          </Button>
+          <Button Classes="toolbar-btn"
+                  Command="{Binding RefreshCommand}"
+                  ToolTip.Tip="{x:Static res:Strings.Refresh}">
+            <PathIcon Data="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"
+                      Width="14" Height="14"
+                      Foreground="{DynamicResource PulseTextSecondary}" />
+          </Button>
+        </StackPanel>
+
+        <Border Grid.Column="1"
+                Background="{DynamicResource PulseBgSurface}"
+                CornerRadius="4"
+                Margin="4,5"
+                Padding="8,0">
+          <TextBlock Text="{Binding CurrentPath}"
+                     Foreground="{DynamicResource PulseTextPrimary}"
+                     FontSize="12"
+                     VerticalAlignment="Center"
+                     TextTrimming="CharacterEllipsis" />
+        </Border>
+
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="4,0">
+          <Button Classes="toolbar-btn"
+                  Command="{Binding UploadCommand}"
+                  ToolTip.Tip="{x:Static res:Strings.Upload}">
+            <PathIcon Data="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"
+                      Width="14" Height="14"
+                      Foreground="{DynamicResource PulseTextSecondary}" />
+          </Button>
+          <Button Classes="toolbar-btn"
+                  Command="{Binding DownloadCommand}"
+                  ToolTip.Tip="{x:Static res:Strings.Download}">
+            <PathIcon Data="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"
+                      Width="14" Height="14"
+                      Foreground="{DynamicResource PulseTextSecondary}" />
+          </Button>
+          <Button Classes="toolbar-btn"
+                  Command="{Binding CreateFolderCommand}"
+                  ToolTip.Tip="New Folder">
+            <PathIcon Data="M20 6h-8l-2-2H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-1 8h-3v3h-2v-3h-3v-2h3V9h2v3h3v2z"
+                      Width="14" Height="14"
+                      Foreground="{DynamicResource PulseTextSecondary}" />
+          </Button>
+          <Button Classes="toolbar-btn"
+                  Command="{Binding DeleteCommand}"
+                  ToolTip.Tip="{x:Static res:Strings.Delete}">
+            <PathIcon Data="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"
+                      Width="14" Height="14"
+                      Foreground="{DynamicResource PulseTextSecondary}" />
+          </Button>
+        </StackPanel>
+      </Grid>
+
+      <Border DockPanel.Dock="Top"
+              IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+              Background="{DynamicResource PulseBgActive}"
+              Padding="8,4">
+        <TextBlock Text="{Binding ErrorMessage}"
+                   Foreground="{DynamicResource PulseAccent}"
+                   FontSize="11" />
+      </Border>
+
+      <DataGrid ItemsSource="{Binding Files}"
+                AutoGenerateColumns="False"
+                CanUserSortColumns="True"
+                CanUserResizeColumns="True"
+                IsReadOnly="True"
+                GridLinesVisibility="None"
+                HeadersVisibility="Column"
+                SelectionMode="Extended"
+                Background="Transparent"
+                Foreground="{DynamicResource PulseTextPrimary}"
+                FontSize="12">
+        <DataGrid.Columns>
+          <DataGridTemplateColumn Header="{x:Static res:Strings.FileName}"
+                                  Width="*"
+                                  SortMemberPath="Name">
+            <DataGridTemplateColumn.CellTemplate>
+              <DataTemplate x:DataType="vm:RemoteFileInfoViewModel">
+                <StackPanel Orientation="Horizontal"
+                            Margin="8,0" VerticalAlignment="Center">
+                  <PathIcon Width="14" Height="14"
+                            Margin="0,0,6,0"
+                            Foreground="{DynamicResource PulseTextTertiary}"
+                            IsVisible="{Binding IsDirectory}"
+                            Data="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" />
+                  <PathIcon Width="14" Height="14"
+                            Margin="0,0,6,0"
+                            Foreground="{DynamicResource PulseTextTertiary}"
+                            IsVisible="{Binding !IsDirectory}"
+                            Data="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13z" />
+                  <TextBlock Text="{Binding Name}"
+                             VerticalAlignment="Center" />
+                </StackPanel>
+              </DataTemplate>
+            </DataGridTemplateColumn.CellTemplate>
+          </DataGridTemplateColumn>
+          <DataGridTextColumn Header="{x:Static res:Strings.Size}"
+                              Binding="{Binding FormattedSize}"
+                              Width="100" />
+          <DataGridTextColumn Header="{x:Static res:Strings.Permissions}"
+                              Binding="{Binding Permissions}"
+                              Width="110" />
+          <DataGridTextColumn Header="{x:Static res:Strings.Modified}"
+                              Binding="{Binding FormattedModifiedTime}"
+                              Width="140" />
+        </DataGrid.Columns>
+      </DataGrid>
+
+    </DockPanel>
+
+      <!-- Loading overlay -->
+      <Border IsVisible="{Binding IsLoading}"
+              Background="{DynamicResource PulseBgSurface}"
+              Opacity="0.8"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch">
+        <TextBlock Text="Loading..."
+                   Foreground="{DynamicResource PulseTextSecondary}"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   FontSize="13" />
+      </Border>
+    </Panel>
+  </Border>
+</UserControl>
