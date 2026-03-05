@@ -8,7 +8,16 @@
 
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="11.3.12" />
+    <PackageReference Include="AvaloniaTerminal" Version="1.0.0-alpha.7" />
     <PackageReference Include="ReactiveUI" Version="23.1.8" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PulseTerm.Core\PulseTerm.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="PulseTerm.Terminal.Tests" />
   </ItemGroup>
 
 </Project>
