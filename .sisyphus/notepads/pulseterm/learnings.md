@@ -752,3 +752,86 @@ _terminal.UserInput += (data) => {
 4. Task 9 (Scrollback) — build custom circular buffer on top of validated terminal
 5. Task 10 (Application Shell) — embed TerminalControl in MainWindow with full Avalonia resources
 
+## [2026-03-05] Task 9: Custom Scrollback Buffer
+
+### Test Results
+- **Tests Created**: 15 (10 required + 5 extra edge cases)
+- **Tests Passed**: 15/15 (100%)
+- **Existing Tests**: All 14 terminal tests still pass (29 total)
+- **Build**: `dotnet build src/PulseTerm.slnx --warnaserror` → 0 warnings, 0 errors
+
+### Circular Buffer Implementation
+- Array-based `TerminalLine[]` of fixed size `maxLines`
+- Head pointer advances with modulo wrap: `_head = (_head + 1) % MaxLines`
+- Index translation: `startIndex = (_head - _count + MaxLines) % MaxLines`, then `(startIndex + absoluteRow) % MaxLines`
+- O(1) append, O(1) random access by absolute row
+- `_count` tracks actual fill level (capped at `MaxLines`)
+
+### Key Design Decisions
+- `ScrollTo` uses `Math.Clamp` to prevent out-of-bounds viewport positions
+- `Search` uses `string.IndexOf` with `StringComparison.Ordinal` for non-overlapping matches
+- `Clear` uses `Array.Clear` + resets head/count/viewport
+- `GetLine` throws `ArgumentOutOfRangeException` for invalid indices (consistent with .NET conventions)
+
+### Interface Extension Pattern
+- Added `ScrollbackBuffer`, `TotalLines`, `ViewportRow` to `ITerminalEmulator`
+- NSubstitute auto-implements new interface members with default values — existing mock-based tests unaffected
+- `AvaloniaTerminalEmulator` creates `ScrollbackBuffer` in constructor using existing `ScrollbackLines` property
+
+### Integration Notes
+- Buffer is instantiated but NOT wired to actual terminal line interception yet
+- Real line capture from XtermSharp `Terminal.Buffer` will be wired in Task 12 (terminal tab integration)
+- `VisibleRows` must be set externally to compute `TotalLines` correctly
+
+
+## [2026-03-05] Task 8: Theme System + Design Tokens
+
+### Implementation Summary
+- **Build**: `dotnet build src/PulseTerm.slnx --warnaserror` → 0 warnings, 0 errors
+- **Files created**: 4 new (DarkTheme.axaml, LightTheme.axaml, IThemeService.cs, ThemeService.cs)
+- **Files modified**: 2 (App.axaml, App.axaml.cs)
+
+### Avalonia ThemeDictionaries Pattern
+```xml
+<Application.Resources>
+    <ResourceDictionary>
+        <ResourceDictionary.ThemeDictionaries>
+            <ResourceDictionary x:Key="Dark">
+                <ResourceDictionary.MergedDictionaries>
+                    <ResourceInclude Source="/Themes/DarkTheme.axaml" />
+                </ResourceDictionary.MergedDictionaries>
+            </ResourceDictionary>
+        </ResourceDictionary.ThemeDictionaries>
+    </ResourceDictionary>
+</Application.Resources>
+```
+
+### Runtime Theme Switching
+- Set `Application.RequestedThemeVariant = ThemeVariant.Dark` or `ThemeVariant.Light`
+- Avalonia automatically resolves `{DynamicResource PulseXxx}` from the active ThemeDictionary
+- `ThemeVariant` lives in `Avalonia.Styling` namespace
+
+### ThemeService Architecture
+- Interface + implementation in `PulseTerm.Core/Services/` (no Avalonia dependency)
+- `ThemeChanged` event bridges Core → App layer
+- App.axaml.cs subscribes to event and calls `RequestedThemeVariant` setter
+- Static `App.ThemeService` property for quick access (will move to DI in Task 10)
+
+### Design Token Naming Convention
+- All tokens prefixed with `Pulse` to avoid conflicts with FluentTheme built-in resources
+- Categories: Bg, Text, Border, Status, Accent, semantic (Warning/Error/Info), Tab
+- 23 color tokens + 1 font token per theme as SolidColorBrush resources
+
+### Key Pattern: Keeping Core Avalonia-Free
+- `IThemeService` and `ThemeService` have zero Avalonia dependencies
+- Only `App.axaml.cs` references `Avalonia.Styling.ThemeVariant`
+- Core remains testable without Avalonia headless infrastructure
+
+### Usage in Views
+```xml
+<Border Background="{DynamicResource PulseBgSidebar}"
+        BorderBrush="{DynamicResource PulseBorderPrimary}">
+    <TextBlock Foreground="{DynamicResource PulseTextPrimary}" />
+</Border>
+```
+
