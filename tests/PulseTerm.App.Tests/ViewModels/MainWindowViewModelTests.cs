@@ -1,10 +1,26 @@
+using System.Reactive.Concurrency;
 using FluentAssertions;
 using PulseTerm.App.ViewModels;
+using ReactiveUI.Builder;
 
 namespace PulseTerm.App.Tests.ViewModels;
 
 public class MainWindowViewModelTests
 {
+    static MainWindowViewModelTests()
+    {
+        try
+        {
+            RxAppBuilder.CreateReactiveUIBuilder()
+                .WithMainThreadScheduler(CurrentThreadScheduler.Instance)
+                .WithCoreServices()
+                .BuildApp();
+        }
+        catch (InvalidOperationException)
+        {
+            // Already initialized
+        }
+    }
     [Fact]
     [Trait("Category", "UI")]
     public void MainWindowViewModel_Initializes_WithAllSubViewModels()
