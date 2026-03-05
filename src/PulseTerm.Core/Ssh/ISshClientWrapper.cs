@@ -1,3 +1,4 @@
+using Renci.SshNet;
 using Renci.SshNet.Common;
 
 namespace PulseTerm.Core.Ssh;
@@ -19,4 +20,7 @@ public interface ISshClientWrapper : IDisposable
         uint height,
         int bufferSize,
         IDictionary<TerminalModes, uint>? terminalModeValues = null);
+
+    void AddForwardedPort(ForwardedPort port);
+    void RemoveForwardedPort(ForwardedPort port);
 }

@@ -56,6 +56,16 @@ public class SshClientWrapper : ISshClientWrapper
         return new ShellStreamWrapper(shellStream);
     }
 
+    public void AddForwardedPort(ForwardedPort port)
+    {
+        _client.AddForwardedPort(port);
+    }
+
+    public void RemoveForwardedPort(ForwardedPort port)
+    {
+        _client.RemoveForwardedPort(port);
+    }
+
     public void Dispose()
     {
         _client?.Dispose();
