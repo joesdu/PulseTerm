@@ -30,7 +30,7 @@ public class SshConnectionServiceTests
         session.Should().NotBeNull();
         session.Status.Should().Be(SessionStatus.Connected);
         session.ConnectionInfo.Should().Be(connectionInfo);
-        mockClientWrapper.Received(1).ConnectAsync(Arg.Any<CancellationToken>());
+        await mockClientWrapper.Received(1).ConnectAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -53,7 +53,7 @@ public class SshConnectionServiceTests
 
         session.Should().NotBeNull();
         session.Status.Should().Be(SessionStatus.Connected);
-        mockClientWrapper.Received(1).ConnectAsync(Arg.Any<CancellationToken>());
+        await mockClientWrapper.Received(1).ConnectAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
