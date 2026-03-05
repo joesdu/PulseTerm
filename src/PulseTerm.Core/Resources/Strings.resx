@@ -123,6 +123,24 @@
   <data name="Custom" xml:space="preserve">
     <value>Custom</value>
   </data>
+  <data name="QuickCommands" xml:space="preserve">
+    <value>Quick Commands</value>
+  </data>
+  <data name="AddCommand" xml:space="preserve">
+    <value>Add Command</value>
+  </data>
+  <data name="Description" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="Command" xml:space="preserve">
+    <value>Command</value>
+  </data>
+  <data name="Category" xml:space="preserve">
+    <value>Category</value>
+  </data>
+  <data name="System" xml:space="preserve">
+    <value>System</value>
+  </data>
   
   <!-- Status Bar (4) -->
   <data name="Connected" xml:space="preserve">

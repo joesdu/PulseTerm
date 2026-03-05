@@ -1,0 +1,255 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:PulseTerm.App.ViewModels"
+             xmlns:res="clr-namespace:PulseTerm.Core.Resources;assembly=PulseTerm.Core"
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="600"
+             x:Class="PulseTerm.App.Views.QuickCommandsView"
+             x:DataType="vm:QuickCommandsViewModel"
+             Width="300">
+
+  <UserControl.Styles>
+    <Style Selector="Button.cmd-btn">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Padding" Value="4" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="MinWidth" Value="24" />
+      <Setter Property="MinHeight" Value="24" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.cmd-btn:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource PulseBgHover}" />
+    </Style>
+    <Style Selector="TextBox.cmd-input">
+      <Setter Property="Background" Value="{DynamicResource PulseBgInput}" />
+      <Setter Property="Foreground" Value="{DynamicResource PulseTextPrimary}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource PulseBorderSecondary}" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Padding" Value="6,4" />
+      <Setter Property="CornerRadius" Value="4" />
+    </Style>
+    <Style Selector="TextBlock.section-header">
+      <Setter Property="Foreground" Value="{DynamicResource PulseTextSecondary}" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Margin" Value="12,8,12,4" />
+    </Style>
+    <Style Selector="TextBlock.label">
+      <Setter Property="Foreground" Value="{DynamicResource PulseTextSecondary}" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Margin" Value="0,0,0,2" />
+    </Style>
+  </UserControl.Styles>
+
+  <Border Background="{DynamicResource PulseBgSidebar}"
+          BorderBrush="{DynamicResource PulseBorderPrimary}"
+          BorderThickness="1,0,0,0">
+    <DockPanel>
+
+      <!-- Header -->
+      <Border DockPanel.Dock="Top"
+              Background="{DynamicResource PulseBgPage}"
+              Padding="12,8">
+        <TextBlock Text="{x:Static res:Strings.QuickCommands}"
+                   Foreground="{DynamicResource PulseTextPrimary}"
+                   FontSize="13"
+                   FontWeight="SemiBold" />
+      </Border>
+
+      <!-- Search box -->
+      <Border DockPanel.Dock="Top"
+              Padding="8,4">
+        <TextBox Classes="cmd-input"
+                 Text="{Binding SearchQuery}"
+                 Watermark="{x:Static res:Strings.SearchCommands}" />
+      </Border>
+
+      <!-- Add Command form (bottom, toggled) -->
+      <Border DockPanel.Dock="Bottom"
+              IsVisible="{Binding IsAddingCommand}"
+              Background="{DynamicResource PulseBgSurface}"
+              BorderBrush="{DynamicResource PulseBorderPrimary}"
+              BorderThickness="0,1,0,0"
+              Padding="12,8">
+        <StackPanel Spacing="6">
+          <TextBlock Classes="section-header"
+                     Text="{x:Static res:Strings.AddCommand}"
+                     Margin="0,0,0,4" />
+
+          <!-- Name -->
+          <StackPanel>
+            <TextBlock Classes="label" Text="{x:Static res:Strings.Name}" />
+            <TextBox Classes="cmd-input"
+                     Text="{Binding NewName}"
+                     Watermark="{x:Static res:Strings.Name}" />
+          </StackPanel>
+
+          <!-- Category -->
+          <StackPanel>
+            <TextBlock Classes="label" Text="{x:Static res:Strings.Category}" />
+            <TextBox Classes="cmd-input"
+                     Text="{Binding NewCategory}"
+                     Watermark="{x:Static res:Strings.Category}" />
+          </StackPanel>
+
+          <!-- Command -->
+          <StackPanel>
+            <TextBlock Classes="label" Text="{x:Static res:Strings.Command}" />
+            <TextBox Classes="cmd-input"
+                     Text="{Binding NewCommandText}"
+                     Watermark="{x:Static res:Strings.Command}"
+                     FontFamily="Cascadia Mono,Consolas,Menlo,monospace" />
+          </StackPanel>
+
+          <!-- Description -->
+          <StackPanel>
+            <TextBlock Classes="label" Text="{x:Static res:Strings.Description}" />
+            <TextBox Classes="cmd-input"
+                     Text="{Binding NewDescription}"
+                     Watermark="{x:Static res:Strings.Description}" />
+          </StackPanel>
+
+          <!-- Save / Cancel buttons -->
+          <Grid ColumnDefinitions="*,8,*">
+            <Button Grid.Column="0"
+                    Command="{Binding SaveNewCommandCommand}"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Center"
+                    Background="{DynamicResource PulseAccent}"
+                    Foreground="{DynamicResource PulseTextPrimary}"
+                    Padding="8,6"
+                    CornerRadius="4"
+                    FontSize="12"
+                    Cursor="Hand">
+              <TextBlock Text="{x:Static res:Strings.Save}" />
+            </Button>
+            <Button Grid.Column="2"
+                    Command="{Binding CancelAddCommand}"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Center"
+                    Background="{DynamicResource PulseBgSurface}"
+                    Foreground="{DynamicResource PulseTextSecondary}"
+                    BorderBrush="{DynamicResource PulseBorderSecondary}"
+                    BorderThickness="1"
+                    Padding="8,6"
+                    CornerRadius="4"
+                    FontSize="12"
+                    Cursor="Hand">
+              <TextBlock Text="{x:Static res:Strings.Cancel}" />
+            </Button>
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <!-- Add Command button (bottom, when form hidden) -->
+      <Border DockPanel.Dock="Bottom"
+              IsVisible="{Binding !IsAddingCommand}"
+              Padding="8,6">
+        <Button Command="{Binding AddCommandCommand}"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Center"
+                Background="{DynamicResource PulseAccent}"
+                Foreground="{DynamicResource PulseTextPrimary}"
+                Padding="8,6"
+                CornerRadius="4"
+                FontSize="12"
+                Cursor="Hand">
+          <TextBlock Text="{x:Static res:Strings.AddCommand}" />
+        </Button>
+      </Border>
+
+      <!-- Command list (fills remaining space) -->
+      <ScrollViewer>
+        <ItemsControl ItemsSource="{Binding FilteredCommands}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:QuickCommandViewModel">
+              <Button Command="{Binding $parent[ItemsControl].((vm:QuickCommandsViewModel)DataContext).ExecuteCommandCommand}"
+                      CommandParameter="{Binding}"
+                      Background="Transparent"
+                      HorizontalAlignment="Stretch"
+                      HorizontalContentAlignment="Stretch"
+                      Padding="8,6"
+                      Margin="8,1"
+                      CornerRadius="4"
+                      Cursor="Hand"
+                      BorderThickness="0">
+                <DockPanel>
+
+                  <!-- Action buttons (right side, custom commands only) -->
+                  <StackPanel DockPanel.Dock="Right"
+                              Orientation="Horizontal"
+                              Spacing="2"
+                              VerticalAlignment="Center"
+                              IsVisible="{Binding !IsBuiltIn}">
+                    <!-- Edit button -->
+                    <Button Classes="cmd-btn"
+                            Command="{Binding $parent[ItemsControl].((vm:QuickCommandsViewModel)DataContext).BeginEditCommand}"
+                            CommandParameter="{Binding}"
+                            ToolTip.Tip="{x:Static res:Strings.Edit}">
+                      <PathIcon Data="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+                                Width="12" Height="12"
+                                Foreground="{DynamicResource PulseTextSecondary}" />
+                    </Button>
+                    <!-- Delete button -->
+                    <Button Classes="cmd-btn"
+                            Command="{Binding $parent[ItemsControl].((vm:QuickCommandsViewModel)DataContext).DeleteCommandCommand}"
+                            CommandParameter="{Binding}"
+                            ToolTip.Tip="{x:Static res:Strings.Delete}">
+                      <PathIcon Data="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"
+                                Width="12" Height="12"
+                                Foreground="{DynamicResource PulseTextSecondary}" />
+                    </Button>
+                  </StackPanel>
+
+                  <!-- Command info (left side) -->
+                  <StackPanel Spacing="1">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                      <!-- Terminal icon -->
+                      <PathIcon Data="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V8h16v12zm-2-1h-6v-2h6v2zM7.5 17l-1.41-1.41L8.67 13l-2.59-2.59L7.5 9l4 4-4 4z"
+                                Width="12" Height="12"
+                                Foreground="{DynamicResource PulseAccent}"
+                                VerticalAlignment="Center" />
+                      <!-- Name -->
+                      <TextBlock Text="{Binding Name}"
+                                 Foreground="{DynamicResource PulseTextPrimary}"
+                                 FontSize="12"
+                                 FontWeight="SemiBold"
+                                 TextTrimming="CharacterEllipsis" />
+                      <!-- Category badge -->
+                      <Border Background="{DynamicResource PulseBgHover}"
+                              CornerRadius="2"
+                              Padding="4,1">
+                        <TextBlock Text="{Binding Category}"
+                                   Foreground="{DynamicResource PulseTextTertiary}"
+                                   FontSize="10" />
+                      </Border>
+                    </StackPanel>
+
+                    <!-- Command text (monospace) -->
+                    <TextBlock Text="{Binding CommandText}"
+                               Foreground="{DynamicResource PulseAccentText}"
+                               FontFamily="Cascadia Mono,Consolas,Menlo,monospace"
+                               FontSize="11"
+                               TextTrimming="CharacterEllipsis"
+                               Margin="18,0,0,0" />
+
+                    <!-- Description -->
+                    <TextBlock Text="{Binding Description}"
+                               Foreground="{DynamicResource PulseTextTertiary}"
+                               FontSize="10"
+                               TextTrimming="CharacterEllipsis"
+                               Margin="18,0,0,0"
+                               IsVisible="{Binding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                  </StackPanel>
+
+                </DockPanel>
+              </Button>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+
+    </DockPanel>
+  </Border>
+</UserControl>

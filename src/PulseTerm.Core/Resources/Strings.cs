@@ -45,6 +45,12 @@ public static class Strings
     public static string Network => ResourceManager.GetString(nameof(Network), CultureInfo.CurrentUICulture) ?? nameof(Network);
     public static string Docker => ResourceManager.GetString(nameof(Docker), CultureInfo.CurrentUICulture) ?? nameof(Docker);
     public static string Custom => ResourceManager.GetString(nameof(Custom), CultureInfo.CurrentUICulture) ?? nameof(Custom);
+    public static string QuickCommands => ResourceManager.GetString(nameof(QuickCommands), CultureInfo.CurrentUICulture) ?? nameof(QuickCommands);
+    public static string AddCommand => ResourceManager.GetString(nameof(AddCommand), CultureInfo.CurrentUICulture) ?? nameof(AddCommand);
+    public static string Description => ResourceManager.GetString(nameof(Description), CultureInfo.CurrentUICulture) ?? nameof(Description);
+    public static string Command => ResourceManager.GetString(nameof(Command), CultureInfo.CurrentUICulture) ?? nameof(Command);
+    public static string Category => ResourceManager.GetString(nameof(Category), CultureInfo.CurrentUICulture) ?? nameof(Category);
+    public static string System => ResourceManager.GetString(nameof(System), CultureInfo.CurrentUICulture) ?? nameof(System);
     
     public static string Connected => ResourceManager.GetString(nameof(Connected), CultureInfo.CurrentUICulture) ?? nameof(Connected);
     public static string Connecting => ResourceManager.GetString(nameof(Connecting), CultureInfo.CurrentUICulture) ?? nameof(Connecting);

@@ -123,6 +123,24 @@
   <data name="Custom" xml:space="preserve">
     <value>自定义</value>
   </data>
+  <data name="QuickCommands" xml:space="preserve">
+    <value>快捷命令</value>
+  </data>
+  <data name="AddCommand" xml:space="preserve">
+    <value>添加命令</value>
+  </data>
+  <data name="Description" xml:space="preserve">
+    <value>描述</value>
+  </data>
+  <data name="Command" xml:space="preserve">
+    <value>命令</value>
+  </data>
+  <data name="Category" xml:space="preserve">
+    <value>分类</value>
+  </data>
+  <data name="System" xml:space="preserve">
+    <value>系统</value>
+  </data>
   
   <!-- Status Bar (4) -->
   <data name="Connected" xml:space="preserve">
