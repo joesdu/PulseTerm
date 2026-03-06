@@ -1155,3 +1155,50 @@ _uptimeSubscription = Observable
 - Tab cycling wraps around: `(index + 1) % Tabs.Count` and `(index - 1 + Tabs.Count) % Tabs.Count`
 - `CloseActiveTab` delegates to existing `CloseTab(TabViewModel)` method
 
+## [2026-03-06] Task 24: Polish + Edge Cases + Final QA
+
+### Test Results
+- **New Tests**: 11 (2 corrupt JSON + 3 SSH + 2 UTF-8 + 3 empty state + 1 window state)
+- **Total Tests**: 313 (115 Core + 29 Terminal + 169 App) — all pass
+- **Build**: `dotnet build src/PulseTerm.slnx --warnaserror` → 0 warnings, 0 errors
+
+### Edge Cases Implemented
+
+**Corrupt JSON → Reset to Defaults**:
+- `JsonDataStore.LoadAsync<T>()` catches `JsonException`, logs warning via `ILogger<JsonDataStore>`, returns `new T()`
+- Constructor now accepts optional `ILogger<JsonDataStore>?` (backward compatible)
+- Updated existing test `Load_InvalidJson` from `Should().ThrowAsync<JsonException>()` to `Should().NotBeNull()` + defaults check
+- Added tests for truncated JSON and empty JSON files
+
+**SSH Timeout → Clear Error + Retry**:
+- `SshConnectionService.ConnectAsync()` catches `OperationCanceledException` separately
+- Wraps it in `TimeoutException` with user-friendly message: "Connection to {host}:{port} timed out. Please check the host and port, then retry."
+- Session is cleaned up (removed from list, client disposed)
+
+**Rapid Connect/Disconnect → No Race Conditions**:
+- Added `SemaphoreSlim _connectionLock` to `SshConnectionService`
+- Both `ConnectAsync` and `DisconnectAsync` acquire the lock before proceeding
+- `DisconnectAsync` now checks `session.Status == Disconnected` to short-circuit redundant disconnect calls
+- Prevents concurrent connect/disconnect operations from interleaving
+
+**Invalid UTF-8 → Replacement Character U+FFFD**:
+- `Utf8StreamDecoder` constructor creates `UTF8Encoding(false, false)` with explicit `DecoderReplacementFallback("\uFFFD")`
+- Invalid bytes (e.g., `0xFF`, `0xFE`) immediately produce U+FFFD during `DecodeBytes()`
+- Added `Flush()` method: calls `_decoder.Convert(flush: true)` to emit U+FFFD for any incomplete sequences held in decoder's internal state
+- Key insight: `Decoder.Convert(flush: false)` consumes incomplete bytes from our buffer into decoder's internal state. `Flush()` must call `Convert(flush: true)` even when `_buffer` is empty to drain the decoder.
+
+**Empty State → "Add your first connection"**:
+- Added `HasNoSessions` reactive property to `SessionTreeViewModel` (defaults `true`)
+- Added `EmptyStateMessage` property returning "Add your first connection"
+- `HasNoSessions` updated in `LoadTreeAsync`, `AddSession`, and `DeleteSelectedSessionAsync`
+- Logic: `!Nodes.Any(g => g.Children.Count > 0)`
+
+**Window State Persistence**:
+- Already fully implemented via `SettingsService.GetStateAsync()/SaveStateAsync()` + `AppState.WindowPosition`/`WindowSize` models
+- Added dedicated test verifying persistence across service instance recreation
+
+### Key Technical Insights
+- `Decoder.Convert(flush: false)` consumes bytes into internal state even when chars aren't produced yet. Buffer tracking must account for this.
+- `SemaphoreSlim.WaitAsync(cancelledToken)` throws `TaskCanceledException` immediately — handle timeout at the inner method level, not the lock acquisition level.
+- `DecoderReplacementFallback` with `UTF8Encoding(false, false)` produces U+FFFD for each invalid byte, not per invalid sequence.
+

@@ -144,4 +144,28 @@ public class SettingsServiceTests : IDisposable
         retrievedSettings.Language.Should().Be("fr");
         retrievedState.LastActiveTab.Should().Be("tab1");
     }
+
+    [Fact]
+    [Trait("Category", "EdgeCase")]
+    public async Task WindowState_PersistsPositionAndSize_AcrossReloads()
+    {
+        var service1 = new SettingsService(_dataStore, _testDirectory);
+        var state = new AppState
+        {
+            WindowPosition = new WindowPosition { X = 150, Y = 250 },
+            WindowSize = new WindowSize { Width = 1280, Height = 720 }
+        };
+
+        await service1.SaveStateAsync(state);
+
+        var service2 = new SettingsService(_dataStore, _testDirectory);
+        var retrieved = await service2.GetStateAsync();
+
+        retrieved.WindowPosition.Should().NotBeNull();
+        retrieved.WindowPosition!.X.Should().Be(150);
+        retrieved.WindowPosition.Y.Should().Be(250);
+        retrieved.WindowSize.Should().NotBeNull();
+        retrieved.WindowSize!.Width.Should().Be(1280);
+        retrieved.WindowSize.Height.Should().Be(720);
+    }
 }

@@ -11,6 +11,7 @@ public class SshConnectionService : ISshConnectionService
     private readonly Func<Models.ConnectionInfo, ISshClientWrapper> _clientFactory;
     private readonly SourceList<SshSession> _sessions = new();
     private readonly ConcurrentDictionary<Guid, ISshClientWrapper> _clients = new();
+    private readonly SemaphoreSlim _connectionLock = new(1, 1);
 
     public SshConnectionService(
         Func<Models.ConnectionInfo, ISshClientWrapper> clientFactory,
@@ -23,6 +24,19 @@ public class SshConnectionService : ISshConnectionService
     public IObservableList<SshSession> Sessions => _sessions.AsObservableList();
 
     public async Task<SshSession> ConnectAsync(Models.ConnectionInfo connectionInfo, CancellationToken cancellationToken = default)
+    {
+        await _connectionLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            return await ConnectInternalAsync(connectionInfo, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _connectionLock.Release();
+        }
+    }
+
+    private async Task<SshSession> ConnectInternalAsync(Models.ConnectionInfo connectionInfo, CancellationToken cancellationToken)
     {
         var session = new SshSession
         {
@@ -55,6 +69,19 @@ public class SshConnectionService : ISshConnectionService
 
             return session;
         }
+        catch (OperationCanceledException)
+        {
+            client?.Dispose();
+
+            session.Status = SessionStatus.Error;
+            session.ErrorMessage = $"Connection to {connectionInfo.Host}:{connectionInfo.Port} timed out. Please check the host and port, then retry.";
+            _sessions.Remove(session);
+
+            _logger?.LogWarning("SSH session {SessionId} to {Host}:{Port} timed out or was cancelled",
+                session.SessionId, connectionInfo.Host, connectionInfo.Port);
+
+            throw new TimeoutException(session.ErrorMessage);
+        }
         catch (Exception ex)
         {
             client?.Dispose();
@@ -72,24 +99,37 @@ public class SshConnectionService : ISshConnectionService
 
     public async Task DisconnectAsync(Guid sessionId, CancellationToken cancellationToken = default)
     {
-        var session = GetSession(sessionId);
-        if (session == null)
+        await _connectionLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
-            throw new InvalidOperationException($"Session {sessionId} not found");
-        }
-
-        if (_clients.TryRemove(sessionId, out var client))
-        {
-            await Task.Run(() =>
+            var session = GetSession(sessionId);
+            if (session == null)
             {
-                client.Disconnect();
-                client.Dispose();
-            }, cancellationToken).ConfigureAwait(false);
+                throw new InvalidOperationException($"Session {sessionId} not found");
+            }
+
+            if (session.Status == SessionStatus.Disconnected)
+            {
+                return;
+            }
+
+            if (_clients.TryRemove(sessionId, out var client))
+            {
+                await Task.Run(() =>
+                {
+                    client.Disconnect();
+                    client.Dispose();
+                }, cancellationToken).ConfigureAwait(false);
+            }
+
+            session.Status = SessionStatus.Disconnected;
+
+            _logger?.LogInformation("SSH session {SessionId} disconnected", sessionId);
         }
-
-        session.Status = SessionStatus.Disconnected;
-
-        _logger?.LogInformation("SSH session {SessionId} disconnected", sessionId);
+        finally
+        {
+            _connectionLock.Release();
+        }
     }
 
     public SshSession? GetSession(Guid sessionId)

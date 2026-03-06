@@ -1,4 +1,3 @@
-using System.Text.Json;
 using FluentAssertions;
 using PulseTerm.Core.Data;
 using PulseTerm.Core.Models;
@@ -86,14 +85,16 @@ public class JsonDataStoreTests : IDisposable
     }
 
     [Fact]
-    public async Task Load_InvalidJson_ShouldThrowJsonException()
+    public async Task Load_InvalidJson_ShouldReturnDefaultsInsteadOfThrowing()
     {
         var filePath = Path.Combine(_testDirectory, "invalid.json");
         await File.WriteAllTextAsync(filePath, "{ invalid json }");
 
-        var act = async () => await _dataStore.LoadAsync<AppSettings>(filePath);
+        var result = await _dataStore.LoadAsync<AppSettings>(filePath);
 
-        await act.Should().ThrowAsync<JsonException>();
+        result.Should().NotBeNull();
+        result!.Language.Should().Be("en");
+        result.Theme.Should().Be("dark");
     }
 
     [Fact]
@@ -189,5 +190,31 @@ public class JsonDataStoreTests : IDisposable
 
         loaded1!.Language.Should().Be("en");
         loaded2!.Language.Should().Be("zh");
+    }
+
+    [Fact]
+    [Trait("Category", "EdgeCase")]
+    public async Task Load_TruncatedJson_ShouldReturnDefaults()
+    {
+        var filePath = Path.Combine(_testDirectory, "truncated.json");
+        await File.WriteAllTextAsync(filePath, "{ \"language\": \"fr\", \"theme\":");
+
+        var result = await _dataStore.LoadAsync<AppSettings>(filePath);
+
+        result.Should().NotBeNull();
+        result!.Language.Should().Be("en");
+    }
+
+    [Fact]
+    [Trait("Category", "EdgeCase")]
+    public async Task Load_EmptyJsonFile_ShouldReturnDefaults()
+    {
+        var filePath = Path.Combine(_testDirectory, "empty.json");
+        await File.WriteAllTextAsync(filePath, "");
+
+        var result = await _dataStore.LoadAsync<AppSettings>(filePath);
+
+        result.Should().NotBeNull();
+        result!.Language.Should().Be("en");
     }
 }

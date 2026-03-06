@@ -132,4 +132,35 @@ public class Utf8StreamDecoderTests
         var finalResult = decoder.DecodeBytes(new[] { bytes.Last() });
         finalResult.Should().Be("界");
     }
+
+    [Fact]
+    [Trait("Category", "EdgeCase")]
+    public void DecodeBytes_InvalidUtf8_ProducesReplacementCharacter()
+    {
+        var decoder = new Utf8StreamDecoder();
+
+        // 0xFF is never valid in UTF-8
+        var invalidBytes = new byte[] { 0xFF, 0xFE };
+        var result = decoder.DecodeBytes(invalidBytes);
+
+        // Flush to force any buffered invalid bytes to emit
+        result += decoder.Flush();
+
+        result.Should().Contain("\uFFFD");
+    }
+
+    [Fact]
+    [Trait("Category", "EdgeCase")]
+    public void Flush_IncompleteSequence_ProducesReplacementCharacter()
+    {
+        var decoder = new Utf8StreamDecoder();
+
+        // First byte of a 3-byte sequence (0xE4 starts 你)
+        var incompleteBytes = new byte[] { 0xE4 };
+        var result = decoder.DecodeBytes(incompleteBytes);
+        result.Should().BeEmpty();
+
+        var flushed = decoder.Flush();
+        flushed.Should().Contain("\uFFFD");
+    }
 }

@@ -16,11 +16,13 @@ public class SessionTreeViewModel : ReactiveObject
     private readonly ISessionRepository _repository;
     private SessionTreeNodeViewModel? _selectedNode;
     private readonly Dictionary<Guid, SessionProfile> _sessionCache = new();
+    private bool _hasNoSessions;
 
     public SessionTreeViewModel(ISessionRepository repository)
     {
         _repository = repository;
         Nodes = new ObservableCollection<SessionTreeNodeViewModel>();
+        _hasNoSessions = true;
 
         LoadCommand = ReactiveCommand.CreateFromTask(LoadTreeAsync);
 
@@ -33,6 +35,14 @@ public class SessionTreeViewModel : ReactiveObject
     }
 
     public ObservableCollection<SessionTreeNodeViewModel> Nodes { get; }
+
+    public bool HasNoSessions
+    {
+        get => _hasNoSessions;
+        private set => this.RaiseAndSetIfChanged(ref _hasNoSessions, value);
+    }
+
+    public string EmptyStateMessage => "Add your first connection";
 
     public SessionTreeNodeViewModel? SelectedNode
     {
@@ -55,6 +65,8 @@ public class SessionTreeViewModel : ReactiveObject
             var childNode = new SessionTreeNodeViewModel(session.Id, session.Name, isGroup: false);
             groupNode.Children.Add(childNode);
         }
+
+        HasNoSessions = !Nodes.Any(g => g.Children.Count > 0);
     }
 
     public void MoveSessionToGroup(Guid sessionId, Guid targetGroupId)
@@ -111,6 +123,8 @@ public class SessionTreeViewModel : ReactiveObject
 
             Nodes.Add(groupNode);
         }
+
+        HasNoSessions = !Nodes.Any(g => g.Children.Count > 0);
     }
 
     private async Task DeleteSelectedSessionAsync()
@@ -132,5 +146,6 @@ public class SessionTreeViewModel : ReactiveObject
         }
 
         SelectedNode = null;
+        HasNoSessions = !Nodes.Any(g => g.Children.Count > 0);
     }
 }

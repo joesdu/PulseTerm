@@ -309,4 +309,84 @@ public class SshConnectionServiceTests
         mockClient2.Received(1).Disconnect();
         mockClient2.Received(1).Dispose();
     }
+
+    [Fact]
+    [Trait("Category", "EdgeCase")]
+    public async Task ConnectAsync_CancellationToken_ThrowsTimeoutException()
+    {
+        var mockClientWrapper = Substitute.For<ISshClientWrapper>();
+        mockClientWrapper.When(x => x.ConnectAsync(Arg.Any<CancellationToken>()))
+            .Do(callInfo =>
+            {
+                throw new OperationCanceledException("The operation was canceled.");
+            });
+
+        var connectionInfo = new ConnectionInfo
+        {
+            Host = "slow.example.com",
+            Port = 22,
+            Username = "testuser",
+            AuthMethod = AuthMethod.Password,
+            Password = "testpass"
+        };
+
+        var service = new SshConnectionService(_ => mockClientWrapper);
+
+        var ex = await Assert.ThrowsAsync<TimeoutException>(
+            async () => await service.ConnectAsync(connectionInfo));
+
+        ex.Message.Should().Contain("slow.example.com");
+        ex.Message.Should().Contain("timed out");
+        service.Sessions.Count.Should().Be(0);
+    }
+
+    [Fact]
+    [Trait("Category", "EdgeCase")]
+    public async Task RapidConnectDisconnect_NoRaceCondition()
+    {
+        var mockClient = Substitute.For<ISshClientWrapper>();
+        mockClient.IsConnected.Returns(true);
+
+        var service = new SshConnectionService(_ => mockClient);
+
+        var connectionInfo = new ConnectionInfo
+        {
+            Host = "localhost",
+            Port = 2222,
+            Username = "testuser",
+            AuthMethod = AuthMethod.Password,
+            Password = "testpass"
+        };
+
+        var session = await service.ConnectAsync(connectionInfo);
+        await service.DisconnectAsync(session.SessionId);
+
+        session.Status.Should().Be(SessionStatus.Disconnected);
+        service.GetClient(session.SessionId).Should().BeNull();
+    }
+
+    [Fact]
+    [Trait("Category", "EdgeCase")]
+    public async Task DisconnectAsync_AlreadyDisconnected_DoesNotThrow()
+    {
+        var mockClient = Substitute.For<ISshClientWrapper>();
+        mockClient.IsConnected.Returns(true);
+
+        var service = new SshConnectionService(_ => mockClient);
+
+        var connectionInfo = new ConnectionInfo
+        {
+            Host = "localhost",
+            Port = 2222,
+            Username = "testuser",
+            AuthMethod = AuthMethod.Password,
+            Password = "testpass"
+        };
+
+        var session = await service.ConnectAsync(connectionInfo);
+        await service.DisconnectAsync(session.SessionId);
+        await service.DisconnectAsync(session.SessionId);
+
+        session.Status.Should().Be(SessionStatus.Disconnected);
+    }
 }

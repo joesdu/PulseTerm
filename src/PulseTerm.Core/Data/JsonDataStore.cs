@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 
 namespace PulseTerm.Core.Data;
 
@@ -6,12 +7,18 @@ public class JsonDataStore
 {
     private readonly Dictionary<string, SemaphoreSlim> _fileLocks = new();
     private readonly SemaphoreSlim _dictionaryLock = new(1, 1);
+    private readonly ILogger<JsonDataStore>? _logger;
     
     private readonly JsonSerializerOptions _options = new()
     {
         WriteIndented = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
+
+    public JsonDataStore(ILogger<JsonDataStore>? logger = null)
+    {
+        _logger = logger;
+    }
 
     public async Task<T?> LoadAsync<T>(string filePath, CancellationToken cancellationToken = default) where T : class, new()
     {
@@ -32,6 +39,11 @@ public class JsonDataStore
                 FileShare.Read);
                 
             return await JsonSerializer.DeserializeAsync<T>(stream, _options, cancellationToken).ConfigureAwait(false);
+        }
+        catch (JsonException ex)
+        {
+            _logger?.LogWarning(ex, "Corrupt JSON detected in {FilePath}, resetting to defaults", filePath);
+            return new T();
         }
         finally
         {

@@ -195,4 +195,46 @@ public class SessionTreeViewModelTests
         node.IsExpanded.Should().BeTrue();
         node.Children.Should().BeEmpty();
     }
+
+    [Fact]
+    [Trait("Category", "EdgeCase")]
+    public void HasNoSessions_DefaultsToTrue_WhenNoSessionsLoaded()
+    {
+        _vm.HasNoSessions.Should().BeTrue();
+        _vm.EmptyStateMessage.Should().Be("Add your first connection");
+    }
+
+    [Fact]
+    [Trait("Category", "EdgeCase")]
+    public async Task HasNoSessions_FalseAfterLoadingSessionsFromRepository()
+    {
+        var session = CreateSession("WebServer");
+        var group = CreateGroup("Production", 0, session.Id);
+
+        _repository.GetAllGroupsAsync().Returns(Task.FromResult(new List<ServerGroup> { group }));
+        _repository.GetSessionAsync(session.Id).Returns(Task.FromResult<SessionProfile?>(session));
+
+        await _vm.LoadCommand.Execute().FirstAsync();
+
+        _vm.HasNoSessions.Should().BeFalse();
+    }
+
+    [Fact]
+    [Trait("Category", "EdgeCase")]
+    public async Task HasNoSessions_TrueWhenAllSessionsDeleted()
+    {
+        var session = CreateSession("OnlyServer");
+        var group = CreateGroup("Production", 0, session.Id);
+
+        _repository.GetAllGroupsAsync().Returns(Task.FromResult(new List<ServerGroup> { group }));
+        _repository.GetSessionAsync(session.Id).Returns(Task.FromResult<SessionProfile?>(session));
+
+        await _vm.LoadCommand.Execute().FirstAsync();
+        _vm.HasNoSessions.Should().BeFalse();
+
+        _vm.SelectedNode = _vm.Nodes[0].Children[0];
+        await _vm.DeleteSessionCommand.Execute().FirstAsync();
+
+        _vm.HasNoSessions.Should().BeTrue();
+    }
 }
