@@ -1,0 +1,41 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:PulseTerm.App.ViewModels"
+             xmlns:views="using:PulseTerm.App.Views"
+             xmlns:res="clr-namespace:PulseTerm.Core.Resources;assembly=PulseTerm.Core"
+             mc:Ignorable="d" d:DesignWidth="1100" d:DesignHeight="800"
+             x:Class="PulseTerm.App.Views.TerminalTabView"
+             x:DataType="vm:TerminalTabViewModel">
+
+  <Grid RowDefinitions="Auto,*">
+
+    <!-- Row 0: Toolbar -->
+    <views:TerminalToolbarView Grid.Row="0"
+                               DataContext="{Binding}" />
+
+    <!-- Row 1: Terminal area with scrollbar -->
+    <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
+
+      <!-- Terminal emulator control -->
+      <Border Grid.Column="0"
+              Background="{DynamicResource PulseBgTerminal}"
+              ClipToBounds="True">
+        <ContentControl Content="{Binding TerminalEmulator.Control}" />
+      </Border>
+
+      <!-- Scrollbar for scrollback navigation -->
+      <ScrollBar Grid.Column="1"
+                 Orientation="Vertical"
+                 Minimum="0"
+                 Maximum="{Binding TerminalEmulator.TotalLines}"
+                 Value="{Binding TerminalEmulator.ViewportRow}"
+                 ViewportSize="{Binding TerminalEmulator.Rows}"
+                 Background="{DynamicResource PulseBgSurface}"
+                 Width="12"
+                 Opacity="0.6" />
+
+    </Grid>
+  </Grid>
+</UserControl>

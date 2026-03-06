@@ -1,0 +1,45 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:PulseTerm.App.ViewModels"
+             xmlns:res="clr-namespace:PulseTerm.Core.Resources;assembly=PulseTerm.Core"
+             mc:Ignorable="d" d:DesignWidth="230" d:DesignHeight="60"
+             x:Class="PulseTerm.App.Views.QuickConnectView"
+             x:DataType="vm:QuickConnectViewModel">
+
+  <StackPanel Spacing="8">
+    <TextBlock Text="{x:Static res:Strings.QuickConnect}"
+               Foreground="{DynamicResource PulseTextSecondary}"
+               FontSize="11"
+               FontWeight="SemiBold"
+               Margin="0,0,0,2" />
+    <Grid ColumnDefinitions="*,Auto">
+      <TextBox Grid.Column="0"
+               Text="{Binding Input, Mode=TwoWay}"
+               Watermark="{x:Static res:Strings.QuickConnectPlaceholder}"
+               Background="{DynamicResource PulseBgInput}"
+               Foreground="{DynamicResource PulseTextPrimary}"
+               BorderBrush="{DynamicResource PulseBorderPrimary}"
+               FontSize="12"
+               Height="32"
+               Padding="8,6"
+               CornerRadius="4,0,0,4"
+               BorderThickness="1,1,0,1" />
+      <Button Grid.Column="1"
+              Command="{Binding ConnectCommand}"
+              ToolTip.Tip="{x:Static res:Strings.Connect}"
+              Background="{DynamicResource PulseAccent}"
+              Foreground="{DynamicResource PulseBgPage}"
+              Height="32"
+              Width="36"
+              CornerRadius="0,4,4,0"
+              Padding="0"
+              Cursor="Hand">
+        <PathIcon Data="M5 12h14M12 5l7 7-7 7"
+                  Width="14" Height="14"
+                  Foreground="{DynamicResource PulseBgPage}" />
+      </Button>
+    </Grid>
+  </StackPanel>
+</UserControl>

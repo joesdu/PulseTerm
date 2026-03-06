@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=PulseTerm
+Comment=Cross-platform SSH terminal client
+Exec=/opt/pulseterm/PulseTerm.App
+Icon=pulseterm
+Type=Application
+Categories=System;TerminalEmulator;Network;
+Terminal=false
+StartupWMClass=PulseTerm.App

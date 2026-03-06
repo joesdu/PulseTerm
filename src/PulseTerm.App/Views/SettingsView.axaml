@@ -1,0 +1,149 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:PulseTerm.App.ViewModels"
+        xmlns:res="clr-namespace:PulseTerm.Core.Resources;assembly=PulseTerm.Core"
+        mc:Ignorable="d" d:DesignWidth="480" d:DesignHeight="520"
+        x:Class="PulseTerm.App.Views.SettingsView"
+        x:DataType="vm:SettingsViewModel"
+        Title="{x:Static res:Strings.Settings}"
+        Width="480" Height="520"
+        CanResize="False"
+        Background="{DynamicResource PulseBgPage}"
+        WindowStartupLocation="CenterOwner">
+
+  <Window.Styles>
+    <Style Selector="TextBlock.field-label">
+      <Setter Property="Foreground" Value="{DynamicResource PulseTextSecondary}" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Margin" Value="0,0,0,6" />
+    </Style>
+    <Style Selector="ComboBox">
+      <Setter Property="Background" Value="{DynamicResource PulseBgInput}" />
+      <Setter Property="Foreground" Value="{DynamicResource PulseTextPrimary}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource PulseBorderPrimary}" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="Height" Value="34" />
+    </Style>
+    <Style Selector="TextBox">
+      <Setter Property="Background" Value="{DynamicResource PulseBgInput}" />
+      <Setter Property="Foreground" Value="{DynamicResource PulseTextPrimary}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource PulseBorderPrimary}" />
+      <Setter Property="Height" Value="34" />
+    </Style>
+    <Style Selector="NumericUpDown">
+      <Setter Property="Background" Value="{DynamicResource PulseBgInput}" />
+      <Setter Property="Foreground" Value="{DynamicResource PulseTextPrimary}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource PulseBorderPrimary}" />
+      <Setter Property="Height" Value="34" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="Button.primary">
+      <Setter Property="Background" Value="{DynamicResource PulseAccent}" />
+      <Setter Property="Foreground" Value="{DynamicResource PulseBgPage}" />
+      <Setter Property="Padding" Value="24,8" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.secondary">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource PulseTextSecondary}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource PulseBorderPrimary}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="24,8" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+  </Window.Styles>
+
+  <DockPanel Margin="24">
+
+    <!-- Header -->
+    <TextBlock DockPanel.Dock="Top"
+               Text="{x:Static res:Strings.Settings}"
+               Foreground="{DynamicResource PulseTextPrimary}"
+               FontSize="20"
+               FontWeight="Bold"
+               Margin="0,0,0,20" />
+
+    <!-- Buttons at bottom -->
+    <StackPanel DockPanel.Dock="Bottom"
+                Orientation="Horizontal"
+                HorizontalAlignment="Right"
+                Spacing="12"
+                Margin="0,20,0,0">
+      <Button Classes="secondary"
+              Content="{x:Static res:Strings.Cancel}"
+              Command="{Binding CancelCommand}" />
+      <Button Classes="primary"
+              Content="{x:Static res:Strings.Save}"
+              Command="{Binding SaveCommand}" />
+    </StackPanel>
+
+    <!-- Separator -->
+    <Border DockPanel.Dock="Bottom"
+            Height="1"
+            Background="{DynamicResource PulseBorderSecondary}"
+            Margin="0,16,0,0" />
+
+    <!-- Form fields -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+      <StackPanel Spacing="16">
+
+        <!-- Language -->
+        <StackPanel>
+          <TextBlock Classes="field-label" Text="{x:Static res:Strings.Language}" />
+          <ComboBox ItemsSource="{Binding AvailableLanguages}"
+                    SelectedItem="{Binding Language}" />
+        </StackPanel>
+
+        <!-- Theme -->
+        <StackPanel>
+          <TextBlock Classes="field-label" Text="{x:Static res:Strings.Theme}" />
+          <ComboBox ItemsSource="{Binding AvailableThemes}"
+                    SelectedItem="{Binding Theme}" />
+        </StackPanel>
+
+        <!-- Terminal Font -->
+        <StackPanel>
+          <TextBlock Classes="field-label" Text="{x:Static res:Strings.Font}" />
+          <TextBox Text="{Binding TerminalFont}" />
+        </StackPanel>
+
+        <!-- Font Size -->
+        <StackPanel>
+          <TextBlock Classes="field-label" Text="{x:Static res:Strings.FontSize}" />
+          <NumericUpDown Value="{Binding TerminalFontSize}"
+                         Minimum="8"
+                         Maximum="72"
+                         Increment="1"
+                         FormatString="0" />
+        </StackPanel>
+
+        <!-- Scrollback Lines -->
+        <StackPanel>
+          <TextBlock Classes="field-label" Text="{x:Static res:Strings.ScrollbackLines}" />
+          <NumericUpDown Value="{Binding ScrollbackLines}"
+                         Minimum="100"
+                         Maximum="100000"
+                         Increment="1000"
+                         FormatString="0" />
+        </StackPanel>
+
+        <!-- Default Port -->
+        <StackPanel>
+          <TextBlock Classes="field-label" Text="{x:Static res:Strings.DefaultPort}" />
+          <NumericUpDown Value="{Binding DefaultPort}"
+                         Minimum="1"
+                         Maximum="65535"
+                         Increment="1"
+                         FormatString="0" />
+        </StackPanel>
+
+      </StackPanel>
+    </ScrollViewer>
+
+  </DockPanel>
+</Window>

@@ -1,0 +1,285 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  
+  <!-- App Shell -->
+  <data name="AppName" xml:space="preserve">
+    <value>PulseTerm</value>
+  </data>
+  <data name="Ready" xml:space="preserve">
+    <value>Ready</value>
+  </data>
+  <data name="QuickConnectPlaceholder" xml:space="preserve">
+    <value>user@host:port</value>
+  </data>
+  
+  <!-- Sidebar (5) -->
+  <data name="QuickConnect" xml:space="preserve">
+    <value>Quick Connect</value>
+  </data>
+  <data name="RecentConnections" xml:space="preserve">
+    <value>Recent Connections</value>
+  </data>
+  <data name="ServerGroups" xml:space="preserve">
+    <value>Server Groups</value>
+  </data>
+  <data name="Settings" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="Notifications" xml:space="preserve">
+    <value>Notifications</value>
+  </data>
+  
+  <!-- Terminal (7) -->
+  <data name="NewTab" xml:space="preserve">
+    <value>New Tab</value>
+  </data>
+  <data name="CloseTab" xml:space="preserve">
+    <value>Close Tab</value>
+  </data>
+  <data name="Search" xml:space="preserve">
+    <value>Search</value>
+  </data>
+  <data name="Copy" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="Split" xml:space="preserve">
+    <value>Split</value>
+  </data>
+  <data name="Broadcast" xml:space="preserve">
+    <value>Broadcast</value>
+  </data>
+  <data name="SyncGroup" xml:space="preserve">
+    <value>Sync Group</value>
+  </data>
+  
+  <!-- File Browser (7) -->
+  <data name="FileName" xml:space="preserve">
+    <value>File Name</value>
+  </data>
+  <data name="Size" xml:space="preserve">
+    <value>Size</value>
+  </data>
+  <data name="Permissions" xml:space="preserve">
+    <value>Permissions</value>
+  </data>
+  <data name="Modified" xml:space="preserve">
+    <value>Modified</value>
+  </data>
+  <data name="Upload" xml:space="preserve">
+    <value>Upload</value>
+  </data>
+  <data name="Download" xml:space="preserve">
+    <value>Download</value>
+  </data>
+  <data name="Refresh" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  
+  <!-- Tunnel (6) -->
+  <data name="LocalForward" xml:space="preserve">
+    <value>Local Forward</value>
+  </data>
+  <data name="RemoteForward" xml:space="preserve">
+    <value>Remote Forward</value>
+  </data>
+  <data name="LocalPort" xml:space="preserve">
+    <value>Local Port</value>
+  </data>
+  <data name="RemoteAddress" xml:space="preserve">
+    <value>Remote Address</value>
+  </data>
+  <data name="NewTunnel" xml:space="preserve">
+    <value>New Tunnel</value>
+  </data>
+  <data name="ActiveTunnels" xml:space="preserve">
+    <value>Active Tunnels</value>
+  </data>
+  
+  <!-- Quick Commands (5) -->
+  <data name="SearchCommands" xml:space="preserve">
+    <value>Search Commands</value>
+  </data>
+  <data name="SystemMonitor" xml:space="preserve">
+    <value>System Monitor</value>
+  </data>
+  <data name="Network" xml:space="preserve">
+    <value>Network</value>
+  </data>
+  <data name="Docker" xml:space="preserve">
+    <value>Docker</value>
+  </data>
+  <data name="Custom" xml:space="preserve">
+    <value>Custom</value>
+  </data>
+  <data name="QuickCommands" xml:space="preserve">
+    <value>Quick Commands</value>
+  </data>
+  <data name="AddCommand" xml:space="preserve">
+    <value>Add Command</value>
+  </data>
+  <data name="Description" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="Command" xml:space="preserve">
+    <value>Command</value>
+  </data>
+  <data name="Category" xml:space="preserve">
+    <value>Category</value>
+  </data>
+  <data name="System" xml:space="preserve">
+    <value>System</value>
+  </data>
+  
+  <!-- Status Bar (4) -->
+  <data name="Connected" xml:space="preserve">
+    <value>Connected</value>
+  </data>
+  <data name="Connecting" xml:space="preserve">
+    <value>Connecting</value>
+  </data>
+  <data name="Disconnected" xml:space="preserve">
+    <value>Disconnected</value>
+  </data>
+  <data name="Latency" xml:space="preserve">
+    <value>Latency</value>
+  </data>
+  
+  <!-- Session Tree -->
+  <data name="Sessions" xml:space="preserve">
+    <value>Sessions</value>
+  </data>
+  <data name="NoSavedSessions" xml:space="preserve">
+    <value>No saved sessions</value>
+  </data>
+  <data name="MoveToGroup" xml:space="preserve">
+    <value>Move to Group</value>
+  </data>
+  <data name="ClearAll" xml:space="preserve">
+    <value>Clear All</value>
+  </data>
+  
+  <!-- General (9) -->
+  <data name="Connect" xml:space="preserve">
+    <value>Connect</value>
+  </data>
+  <data name="Disconnect" xml:space="preserve">
+    <value>Disconnect</value>
+  </data>
+  <data name="Save" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="Delete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="Edit" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="OK" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Error" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="Warning" xml:space="preserve">
+    <value>Warning</value>
+  </data>
+  
+  <!-- Settings (5) -->
+  <data name="Language" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="Theme" xml:space="preserve">
+    <value>Theme</value>
+  </data>
+  <data name="Font" xml:space="preserve">
+    <value>Font</value>
+  </data>
+  <data name="FontSize" xml:space="preserve">
+    <value>Font Size</value>
+  </data>
+  <data name="ScrollbackLines" xml:space="preserve">
+    <value>Scrollback Lines</value>
+  </data>
+  
+  <!-- Auth (7) -->
+  <data name="Password" xml:space="preserve">
+    <value>Password</value>
+  </data>
+  <data name="PrivateKey" xml:space="preserve">
+    <value>Private Key</value>
+  </data>
+  <data name="Username" xml:space="preserve">
+    <value>Username</value>
+  </data>
+  <data name="Host" xml:space="preserve">
+    <value>Host</value>
+  </data>
+  <data name="Port" xml:space="preserve">
+    <value>Port</value>
+  </data>
+  <data name="HostKeyVerification" xml:space="preserve">
+    <value>Host Key Verification</value>
+  </data>
+  <data name="TrustThisHost" xml:space="preserve">
+    <value>Trust This Host</value>
+  </data>
+  
+  <!-- Settings Dialog -->
+  <data name="TestConnection" xml:space="preserve">
+    <value>Test Connection</value>
+  </data>
+  <data name="BrowseKeyFile" xml:space="preserve">
+    <value>Browse...</value>
+  </data>
+  <data name="ConnectionProfile" xml:space="preserve">
+    <value>Connection Profile</value>
+  </data>
+  <data name="AuthMethodLabel" xml:space="preserve">
+    <value>Authentication</value>
+  </data>
+  <data name="DefaultPort" xml:space="preserve">
+    <value>Default Port</value>
+  </data>
+  <data name="HostKeyChanged" xml:space="preserve">
+    <value>WARNING: Host key has changed!</value>
+  </data>
+  <data name="HostKeyUnknown" xml:space="preserve">
+    <value>First connection to this host</value>
+  </data>
+  <data name="Fingerprint" xml:space="preserve">
+    <value>Fingerprint</value>
+  </data>
+  <data name="KeyType" xml:space="preserve">
+    <value>Key Type</value>
+  </data>
+  <data name="Trust" xml:space="preserve">
+    <value>Trust</value>
+  </data>
+  <data name="Reject" xml:space="preserve">
+    <value>Reject</value>
+  </data>
+  <data name="Name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="Group" xml:space="preserve">
+    <value>Group</value>
+  </data>
+  <data name="Passphrase" xml:space="preserve">
+    <value>Passphrase</value>
+  </data>
+</root>

@@ -1,0 +1,159 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:PulseTerm.App.ViewModels"
+        xmlns:views="using:PulseTerm.App.Views"
+        xmlns:res="clr-namespace:PulseTerm.Core.Resources;assembly=PulseTerm.Core"
+        mc:Ignorable="d" d:DesignWidth="1440" d:DesignHeight="900"
+        x:Class="PulseTerm.App.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="{x:Static res:Strings.AppName}"
+        Width="1440" Height="900"
+        MinWidth="800" MinHeight="500"
+        Background="{DynamicResource PulseBgPage}"
+        WindowStartupLocation="CenterScreen">
+
+  <Window.KeyBindings>
+    <KeyBinding Gesture="Ctrl+T" Command="{Binding TabBar.AddTabCommand}" />
+    <KeyBinding Gesture="Ctrl+W" Command="{Binding TabBar.CloseActiveTabCommand}" />
+    <KeyBinding Gesture="Ctrl+Tab" Command="{Binding TabBar.NextTabCommand}" />
+    <KeyBinding Gesture="Ctrl+Shift+Tab" Command="{Binding TabBar.PreviousTabCommand}" />
+    <KeyBinding Gesture="Ctrl+OemComma" Command="{Binding OpenSettingsCommand}" />
+  </Window.KeyBindings>
+
+  <Grid RowDefinitions="*,Auto">
+
+    <!-- Row 0: Content area (sidebar + main) -->
+    <Grid Grid.Row="0" ColumnDefinitions="260,Auto,*">
+
+      <!-- Sidebar -->
+      <views:SidebarView Grid.Column="0" DataContext="{Binding Sidebar}" />
+
+      <!-- Sidebar border -->
+      <Border Grid.Column="1"
+              Width="1"
+              Background="{DynamicResource PulseBorderPrimary}" />
+
+      <!-- Main area (tab bar + terminal) -->
+      <Grid Grid.Column="2" RowDefinitions="36,*">
+
+        <!-- Tab bar -->
+        <views:TabBarView Grid.Row="0" DataContext="{Binding TabBar}" />
+
+        <!-- Terminal area placeholder -->
+        <Border Grid.Row="1"
+                Background="{DynamicResource PulseBgPage}">
+          <TextBlock Text="{x:Static res:Strings.AppName}"
+                     Foreground="{DynamicResource PulseTextMuted}"
+                     FontSize="24"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Center"
+                     Opacity="0.3" />
+        </Border>
+
+      </Grid>
+    </Grid>
+
+    <!-- Row 1: Status bar -->
+    <Border Grid.Row="1"
+            Height="24"
+            Background="{DynamicResource PulseBgSurface}"
+            BorderThickness="0,1,0,0"
+            BorderBrush="{DynamicResource PulseBorderSecondary}"
+            Padding="12,0"
+            DataContext="{Binding StatusBar}">
+      <Border.DataTemplates>
+        <DataTemplate DataType="vm:StatusBarViewModel"
+                      x:DataType="vm:StatusBarViewModel">
+          <Grid ColumnDefinitions="Auto,*,Auto">
+
+            <!-- Left: Connection info + status dot + latency -->
+            <StackPanel Grid.Column="0"
+                        Orientation="Horizontal"
+                        Spacing="8"
+                        VerticalAlignment="Center">
+              <Ellipse Width="6" Height="6"
+                       VerticalAlignment="Center">
+                <Ellipse.Styles>
+                  <Style Selector="Ellipse">
+                    <Setter Property="Fill" Value="{DynamicResource PulseStatusDisconnected}" />
+                  </Style>
+                </Ellipse.Styles>
+                <Ellipse.IsVisible>
+                  <Binding Path="ConnectionInfo">
+                    <Binding.Converter>
+                      <x:Static Member="StringConverters.IsNotNullOrEmpty" />
+                    </Binding.Converter>
+                  </Binding>
+                </Ellipse.IsVisible>
+              </Ellipse>
+              <TextBlock Text="{Binding ConnectionInfo}"
+                         Foreground="{DynamicResource PulseTextSecondary}"
+                         FontSize="11"
+                         VerticalAlignment="Center" />
+              <TextBlock Text="{Binding Status}"
+                         Foreground="{DynamicResource PulseTextTertiary}"
+                         FontSize="11"
+                         VerticalAlignment="Center" />
+              <TextBlock Text="{Binding Latency}"
+                         Foreground="{DynamicResource PulseTextTertiary}"
+                         FontSize="11"
+                         VerticalAlignment="Center">
+                <TextBlock.IsVisible>
+                  <Binding Path="Latency">
+                    <Binding.Converter>
+                      <x:Static Member="StringConverters.IsNotNullOrEmpty" />
+                    </Binding.Converter>
+                  </Binding>
+                </TextBlock.IsVisible>
+              </TextBlock>
+            </StackPanel>
+
+            <!-- Center: Terminal type + window size -->
+            <StackPanel Grid.Column="1"
+                        Orientation="Horizontal"
+                        Spacing="12"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center">
+              <TextBlock Text="{Binding TerminalType}"
+                         Foreground="{DynamicResource PulseTextTertiary}"
+                         FontSize="11"
+                         VerticalAlignment="Center" />
+              <TextBlock Text="{Binding WindowSize}"
+                         Foreground="{DynamicResource PulseTextTertiary}"
+                         FontSize="11"
+                         VerticalAlignment="Center" />
+            </StackPanel>
+
+            <!-- Right: Encoding + uptime -->
+            <StackPanel Grid.Column="2"
+                        Orientation="Horizontal"
+                        Spacing="12"
+                        VerticalAlignment="Center">
+              <TextBlock Text="{Binding Encoding}"
+                         Foreground="{DynamicResource PulseTextTertiary}"
+                         FontSize="11"
+                         VerticalAlignment="Center" />
+              <TextBlock Text="{Binding Uptime}"
+                         Foreground="{DynamicResource PulseTextTertiary}"
+                         FontSize="11"
+                         VerticalAlignment="Center">
+                <TextBlock.IsVisible>
+                  <Binding Path="Uptime">
+                    <Binding.Converter>
+                      <x:Static Member="StringConverters.IsNotNullOrEmpty" />
+                    </Binding.Converter>
+                  </Binding>
+                </TextBlock.IsVisible>
+              </TextBlock>
+            </StackPanel>
+
+          </Grid>
+        </DataTemplate>
+      </Border.DataTemplates>
+      <ContentControl Content="{Binding}" />
+    </Border>
+
+  </Grid>
+</Window>

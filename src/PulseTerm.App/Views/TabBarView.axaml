@@ -1,0 +1,105 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:PulseTerm.App.ViewModels"
+             xmlns:res="clr-namespace:PulseTerm.Core.Resources;assembly=PulseTerm.Core"
+             mc:Ignorable="d" d:DesignWidth="1100" d:DesignHeight="36"
+             x:Class="PulseTerm.App.Views.TabBarView"
+             x:DataType="vm:TabBarViewModel">
+
+  <Border Background="{DynamicResource PulseBgSurface}"
+          BorderThickness="0,0,0,1"
+          BorderBrush="{DynamicResource PulseBorderSecondary}">
+    <DockPanel>
+
+      <!-- Add tab button -->
+      <Button DockPanel.Dock="Right"
+              Command="{Binding AddTabCommand}"
+              ToolTip.Tip="{x:Static res:Strings.NewTab}"
+              Background="Transparent"
+              Foreground="{DynamicResource PulseTextSecondary}"
+              Width="36" Height="36"
+              Padding="0"
+              VerticalContentAlignment="Center"
+              HorizontalContentAlignment="Center"
+              Cursor="Hand">
+        <PathIcon Data="M12 5v14M5 12h14"
+                  Width="14" Height="14"
+                  Foreground="{DynamicResource PulseTextSecondary}" />
+      </Button>
+
+      <!-- Tab strip -->
+      <ItemsControl ItemsSource="{Binding Tabs}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <StackPanel Orientation="Horizontal" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:TabViewModel">
+            <Button Background="Transparent"
+                    Padding="0"
+                    CornerRadius="0"
+                    Height="36"
+                    MinWidth="120"
+                    MaxWidth="200"
+                    Cursor="Hand"
+                    Command="{Binding $parent[ItemsControl].((vm:TabBarViewModel)DataContext).CloseTabCommand}"
+                    CommandParameter="{Binding}"
+                    Tag="{Binding}">
+              <Button.Styles>
+                <Style Selector="Button">
+                  <Setter Property="Background" Value="{DynamicResource PulseTabInactiveBg}" />
+                </Style>
+                <Style Selector="Button:pointerover">
+                  <Setter Property="Background" Value="{DynamicResource PulseBgHover}" />
+                </Style>
+              </Button.Styles>
+              <Border Padding="12,0" VerticalAlignment="Stretch">
+                <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+                  <!-- Status dot -->
+                  <Ellipse Grid.Column="0"
+                           Width="7" Height="7"
+                           Margin="0,0,8,0"
+                           VerticalAlignment="Center">
+                    <Ellipse.Styles>
+                      <Style Selector="Ellipse">
+                        <Setter Property="Fill" Value="{DynamicResource PulseStatusDisconnected}" />
+                      </Style>
+                    </Ellipse.Styles>
+                  </Ellipse>
+
+                  <!-- Title -->
+                  <TextBlock Grid.Column="1"
+                             Text="{Binding Title}"
+                             Foreground="{DynamicResource PulseTextPrimary}"
+                             FontSize="12"
+                             VerticalAlignment="Center"
+                             TextTrimming="CharacterEllipsis"
+                             Margin="0,0,8,0" />
+
+                  <!-- Close button -->
+                  <Button Grid.Column="2"
+                          Command="{Binding $parent[ItemsControl].((vm:TabBarViewModel)DataContext).CloseTabCommand}"
+                          CommandParameter="{Binding}"
+                          ToolTip.Tip="{x:Static res:Strings.CloseTab}"
+                          Background="Transparent"
+                          Padding="4"
+                          Width="20" Height="20"
+                          VerticalAlignment="Center"
+                          Cursor="Hand">
+                    <PathIcon Data="M18 6L6 18M6 6l12 12"
+                              Width="10" Height="10"
+                              Foreground="{DynamicResource PulseTextTertiary}" />
+                  </Button>
+                </Grid>
+              </Border>
+            </Button>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+    </DockPanel>
+  </Border>
+</UserControl>

@@ -1,0 +1,46 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- PulseTerm Light Theme — Derived from dark tokens for light backgrounds -->
+
+    <!-- Background tokens -->
+    <SolidColorBrush x:Key="PulseBgPage" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="PulseBgSidebar" Color="#F6F8FA" />
+    <SolidColorBrush x:Key="PulseBgTerminal" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="PulseBgSurface" Color="#F0F3F6" />
+    <SolidColorBrush x:Key="PulseBgActive" Color="#0969DA1A" />
+    <SolidColorBrush x:Key="PulseBgHover" Color="#D0D7DE33" />
+    <SolidColorBrush x:Key="PulseBgInput" Color="#FFFFFF" />
+
+    <!-- Accent tokens (adjusted for light background contrast) -->
+    <SolidColorBrush x:Key="PulseAccent" Color="#00A88A" />
+    <SolidColorBrush x:Key="PulseAccentDim" Color="#00A88A1A" />
+    <SolidColorBrush x:Key="PulseAccentText" Color="#008568" />
+
+    <!-- Text tokens -->
+    <SolidColorBrush x:Key="PulseTextPrimary" Color="#24292F" />
+    <SolidColorBrush x:Key="PulseTextSecondary" Color="#57606A" />
+    <SolidColorBrush x:Key="PulseTextTertiary" Color="#6E7781" />
+    <SolidColorBrush x:Key="PulseTextMuted" Color="#8C959F" />
+
+    <!-- Border tokens -->
+    <SolidColorBrush x:Key="PulseBorderPrimary" Color="#D0D7DE" />
+    <SolidColorBrush x:Key="PulseBorderSecondary" Color="#E1E4E8" />
+
+    <!-- Status tokens -->
+    <SolidColorBrush x:Key="PulseStatusConnected" Color="#00A88A" />
+    <SolidColorBrush x:Key="PulseStatusConnecting" Color="#BF8700" />
+    <SolidColorBrush x:Key="PulseStatusDisconnected" Color="#CF222E" />
+
+    <!-- Semantic tokens -->
+    <SolidColorBrush x:Key="PulseWarning" Color="#BF8700" />
+    <SolidColorBrush x:Key="PulseError" Color="#CF222E" />
+    <SolidColorBrush x:Key="PulseInfo" Color="#0969DA" />
+
+    <!-- Tab tokens -->
+    <SolidColorBrush x:Key="PulseTabInactiveBg" Color="#F6F8FA" />
+
+    <!-- Font tokens -->
+    <FontFamily x:Key="PulseTerminalFont">JetBrains Mono, Cascadia Mono, Consolas, monospace</FontFamily>
+
+</ResourceDictionary>

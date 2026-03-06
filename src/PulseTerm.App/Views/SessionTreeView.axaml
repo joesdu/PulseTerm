@@ -1,0 +1,75 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:PulseTerm.App.ViewModels"
+             xmlns:res="clr-namespace:PulseTerm.Core.Resources;assembly=PulseTerm.Core"
+             xmlns:models="clr-namespace:PulseTerm.Core.Models;assembly=PulseTerm.Core"
+             mc:Ignorable="d" d:DesignWidth="260" d:DesignHeight="400"
+             x:Class="PulseTerm.App.Views.SessionTreeView"
+             x:DataType="vm:SessionTreeViewModel">
+
+  <DockPanel>
+    <TreeView ItemsSource="{Binding Nodes}"
+              SelectedItem="{Binding SelectedNode, Mode=TwoWay}"
+              Background="Transparent"
+              Padding="0">
+      <TreeView.ItemTemplate>
+        <TreeDataTemplate ItemsSource="{Binding Children}"
+                          x:DataType="vm:SessionTreeNodeViewModel">
+          <Grid ColumnDefinitions="Auto,*" Height="28">
+
+            <!-- Status dot for session nodes -->
+            <Ellipse x:Name="StatusDot"
+                     Grid.Column="0"
+                     Width="7" Height="7"
+                     Margin="0,0,8,0"
+                     VerticalAlignment="Center"
+                     IsVisible="{Binding !IsGroup}"
+                     Fill="{DynamicResource PulseStatusDisconnected}" />
+
+            <!-- Folder icon for group nodes -->
+            <PathIcon Grid.Column="0"
+                      Width="14" Height="14"
+                      Margin="0,0,8,0"
+                      VerticalAlignment="Center"
+                      IsVisible="{Binding IsGroup}"
+                      Data="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"
+                      Foreground="{DynamicResource PulseTextTertiary}" />
+
+            <TextBlock Grid.Column="1"
+                       Text="{Binding Name}"
+                       Foreground="{DynamicResource PulseTextPrimary}"
+                       FontSize="12"
+                       VerticalAlignment="Center"
+                       TextTrimming="CharacterEllipsis" />
+
+            <Grid.ContextMenu>
+              <ContextMenu x:DataType="vm:SessionTreeNodeViewModel">
+                <MenuItem Header="{x:Static res:Strings.Connect}"
+                          Command="{Binding $parent[TreeView].((vm:SessionTreeViewModel)DataContext).ConnectCommand}"
+                          IsVisible="{Binding !IsGroup}" />
+                <MenuItem Header="{x:Static res:Strings.Edit}"
+                          Command="{Binding $parent[TreeView].((vm:SessionTreeViewModel)DataContext).EditSessionCommand}"
+                          IsVisible="{Binding !IsGroup}" />
+                <Separator IsVisible="{Binding !IsGroup}" />
+                <MenuItem Header="{x:Static res:Strings.Delete}"
+                          Command="{Binding $parent[TreeView].((vm:SessionTreeViewModel)DataContext).DeleteSessionCommand}"
+                          IsVisible="{Binding !IsGroup}" />
+              </ContextMenu>
+            </Grid.ContextMenu>
+          </Grid>
+        </TreeDataTemplate>
+      </TreeView.ItemTemplate>
+      <TreeView.Styles>
+        <Style Selector="TreeViewItem">
+          <Setter Property="IsExpanded" Value="{ReflectionBinding IsExpanded, Mode=TwoWay}" />
+          <Setter Property="Padding" Value="4,0" />
+        </Style>
+        <Style Selector="TreeViewItem:selected /template/ Border#PART_LayoutRoot">
+          <Setter Property="Background" Value="{DynamicResource PulseBgHover}" />
+        </Style>
+      </TreeView.Styles>
+    </TreeView>
+  </DockPanel>
+</UserControl>

@@ -1,0 +1,28 @@
+services:
+  openssh-server:
+    image: linuxserver/openssh-server:latest
+    container_name: pulseterm-test-ssh
+    hostname: pulseterm-test-ssh
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+      - PASSWORD_ACCESS=true
+      - USER_PASSWORD=testpass
+      - USER_NAME=testuser
+      - SUDO_ACCESS=false
+      - LOG_STDOUT=true
+    ports:
+      - "2222:2222"
+    volumes:
+      - ssh-test-config:/config
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 2222 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  ssh-test-config:

@@ -1,0 +1,285 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  
+  <!-- App Shell -->
+  <data name="AppName" xml:space="preserve">
+    <value>PulseTerm</value>
+  </data>
+  <data name="Ready" xml:space="preserve">
+    <value>就绪</value>
+  </data>
+  <data name="QuickConnectPlaceholder" xml:space="preserve">
+    <value>用户名@主机名:端口</value>
+  </data>
+  
+  <!-- Sidebar (5) -->
+  <data name="QuickConnect" xml:space="preserve">
+    <value>快速连接</value>
+  </data>
+  <data name="RecentConnections" xml:space="preserve">
+    <value>最近连接</value>
+  </data>
+  <data name="ServerGroups" xml:space="preserve">
+    <value>服务器分组</value>
+  </data>
+  <data name="Settings" xml:space="preserve">
+    <value>设置</value>
+  </data>
+  <data name="Notifications" xml:space="preserve">
+    <value>通知</value>
+  </data>
+  
+  <!-- Terminal (7) -->
+  <data name="NewTab" xml:space="preserve">
+    <value>新标签页</value>
+  </data>
+  <data name="CloseTab" xml:space="preserve">
+    <value>关闭标签页</value>
+  </data>
+  <data name="Search" xml:space="preserve">
+    <value>搜索</value>
+  </data>
+  <data name="Copy" xml:space="preserve">
+    <value>复制</value>
+  </data>
+  <data name="Split" xml:space="preserve">
+    <value>拆分</value>
+  </data>
+  <data name="Broadcast" xml:space="preserve">
+    <value>广播</value>
+  </data>
+  <data name="SyncGroup" xml:space="preserve">
+    <value>同步组</value>
+  </data>
+  
+  <!-- File Browser (7) -->
+  <data name="FileName" xml:space="preserve">
+    <value>文件名</value>
+  </data>
+  <data name="Size" xml:space="preserve">
+    <value>大小</value>
+  </data>
+  <data name="Permissions" xml:space="preserve">
+    <value>权限</value>
+  </data>
+  <data name="Modified" xml:space="preserve">
+    <value>修改时间</value>
+  </data>
+  <data name="Upload" xml:space="preserve">
+    <value>上传</value>
+  </data>
+  <data name="Download" xml:space="preserve">
+    <value>下载</value>
+  </data>
+  <data name="Refresh" xml:space="preserve">
+    <value>刷新</value>
+  </data>
+  
+  <!-- Tunnel (6) -->
+  <data name="LocalForward" xml:space="preserve">
+    <value>本地转发</value>
+  </data>
+  <data name="RemoteForward" xml:space="preserve">
+    <value>远程转发</value>
+  </data>
+  <data name="LocalPort" xml:space="preserve">
+    <value>本地端口</value>
+  </data>
+  <data name="RemoteAddress" xml:space="preserve">
+    <value>远程地址</value>
+  </data>
+  <data name="NewTunnel" xml:space="preserve">
+    <value>新建隧道</value>
+  </data>
+  <data name="ActiveTunnels" xml:space="preserve">
+    <value>活动隧道</value>
+  </data>
+  
+  <!-- Quick Commands (5) -->
+  <data name="SearchCommands" xml:space="preserve">
+    <value>搜索命令</value>
+  </data>
+  <data name="SystemMonitor" xml:space="preserve">
+    <value>系统监控</value>
+  </data>
+  <data name="Network" xml:space="preserve">
+    <value>网络</value>
+  </data>
+  <data name="Docker" xml:space="preserve">
+    <value>Docker</value>
+  </data>
+  <data name="Custom" xml:space="preserve">
+    <value>自定义</value>
+  </data>
+  <data name="QuickCommands" xml:space="preserve">
+    <value>快捷命令</value>
+  </data>
+  <data name="AddCommand" xml:space="preserve">
+    <value>添加命令</value>
+  </data>
+  <data name="Description" xml:space="preserve">
+    <value>描述</value>
+  </data>
+  <data name="Command" xml:space="preserve">
+    <value>命令</value>
+  </data>
+  <data name="Category" xml:space="preserve">
+    <value>分类</value>
+  </data>
+  <data name="System" xml:space="preserve">
+    <value>系统</value>
+  </data>
+  
+  <!-- Status Bar (4) -->
+  <data name="Connected" xml:space="preserve">
+    <value>已连接</value>
+  </data>
+  <data name="Connecting" xml:space="preserve">
+    <value>连接中</value>
+  </data>
+  <data name="Disconnected" xml:space="preserve">
+    <value>已断开</value>
+  </data>
+  <data name="Latency" xml:space="preserve">
+    <value>延迟</value>
+  </data>
+  
+  <!-- Session Tree -->
+  <data name="Sessions" xml:space="preserve">
+    <value>会话</value>
+  </data>
+  <data name="NoSavedSessions" xml:space="preserve">
+    <value>没有保存的会话</value>
+  </data>
+  <data name="MoveToGroup" xml:space="preserve">
+    <value>移动到分组</value>
+  </data>
+  <data name="ClearAll" xml:space="preserve">
+    <value>全部清除</value>
+  </data>
+  
+  <!-- General (9) -->
+  <data name="Connect" xml:space="preserve">
+    <value>连接</value>
+  </data>
+  <data name="Disconnect" xml:space="preserve">
+    <value>断开</value>
+  </data>
+  <data name="Save" xml:space="preserve">
+    <value>保存</value>
+  </data>
+  <data name="Cancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="Delete" xml:space="preserve">
+    <value>删除</value>
+  </data>
+  <data name="Edit" xml:space="preserve">
+    <value>编辑</value>
+  </data>
+  <data name="OK" xml:space="preserve">
+    <value>确定</value>
+  </data>
+  <data name="Error" xml:space="preserve">
+    <value>错误</value>
+  </data>
+  <data name="Warning" xml:space="preserve">
+    <value>警告</value>
+  </data>
+  
+  <!-- Settings (5) -->
+  <data name="Language" xml:space="preserve">
+    <value>语言</value>
+  </data>
+  <data name="Theme" xml:space="preserve">
+    <value>主题</value>
+  </data>
+  <data name="Font" xml:space="preserve">
+    <value>字体</value>
+  </data>
+  <data name="FontSize" xml:space="preserve">
+    <value>字体大小</value>
+  </data>
+  <data name="ScrollbackLines" xml:space="preserve">
+    <value>回滚行数</value>
+  </data>
+  
+  <!-- Auth (7) -->
+  <data name="Password" xml:space="preserve">
+    <value>密码</value>
+  </data>
+  <data name="PrivateKey" xml:space="preserve">
+    <value>私钥</value>
+  </data>
+  <data name="Username" xml:space="preserve">
+    <value>用户名</value>
+  </data>
+  <data name="Host" xml:space="preserve">
+    <value>主机</value>
+  </data>
+  <data name="Port" xml:space="preserve">
+    <value>端口</value>
+  </data>
+  <data name="HostKeyVerification" xml:space="preserve">
+    <value>主机密钥验证</value>
+  </data>
+  <data name="TrustThisHost" xml:space="preserve">
+    <value>信任此主机</value>
+  </data>
+  
+  <!-- Settings Dialog -->
+  <data name="TestConnection" xml:space="preserve">
+    <value>测试连接</value>
+  </data>
+  <data name="BrowseKeyFile" xml:space="preserve">
+    <value>浏览...</value>
+  </data>
+  <data name="ConnectionProfile" xml:space="preserve">
+    <value>连接配置</value>
+  </data>
+  <data name="AuthMethodLabel" xml:space="preserve">
+    <value>认证方式</value>
+  </data>
+  <data name="DefaultPort" xml:space="preserve">
+    <value>默认端口</value>
+  </data>
+  <data name="HostKeyChanged" xml:space="preserve">
+    <value>警告：主机密钥已更改！</value>
+  </data>
+  <data name="HostKeyUnknown" xml:space="preserve">
+    <value>首次连接此主机</value>
+  </data>
+  <data name="Fingerprint" xml:space="preserve">
+    <value>指纹</value>
+  </data>
+  <data name="KeyType" xml:space="preserve">
+    <value>密钥类型</value>
+  </data>
+  <data name="Trust" xml:space="preserve">
+    <value>信任</value>
+  </data>
+  <data name="Reject" xml:space="preserve">
+    <value>拒绝</value>
+  </data>
+  <data name="Name" xml:space="preserve">
+    <value>名称</value>
+  </data>
+  <data name="Group" xml:space="preserve">
+    <value>分组</value>
+  </data>
+  <data name="Passphrase" xml:space="preserve">
+    <value>密码短语</value>
+  </data>
+</root>

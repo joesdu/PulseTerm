@@ -1,0 +1,247 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:PulseTerm.App.ViewModels"
+             xmlns:res="clr-namespace:PulseTerm.Core.Resources;assembly=PulseTerm.Core"
+             xmlns:models="clr-namespace:PulseTerm.Core.Models;assembly=PulseTerm.Core"
+             mc:Ignorable="d" d:DesignWidth="320" d:DesignHeight="600"
+             x:Class="PulseTerm.App.Views.TunnelPanelView"
+             x:DataType="vm:TunnelPanelViewModel"
+             Width="320">
+
+  <UserControl.Styles>
+    <Style Selector="Button.tunnel-btn">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Padding" Value="4" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="MinWidth" Value="24" />
+      <Setter Property="MinHeight" Value="24" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.tunnel-btn:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource PulseBgHover}" />
+    </Style>
+    <Style Selector="TextBox.tunnel-input">
+      <Setter Property="Background" Value="{DynamicResource PulseBgInput}" />
+      <Setter Property="Foreground" Value="{DynamicResource PulseTextPrimary}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource PulseBorderSecondary}" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Padding" Value="6,4" />
+      <Setter Property="CornerRadius" Value="4" />
+    </Style>
+    <Style Selector="TextBlock.section-header">
+      <Setter Property="Foreground" Value="{DynamicResource PulseTextSecondary}" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+
+      <Setter Property="Margin" Value="12,8,12,4" />
+    </Style>
+    <Style Selector="TextBlock.label">
+      <Setter Property="Foreground" Value="{DynamicResource PulseTextSecondary}" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Margin" Value="0,0,0,2" />
+    </Style>
+  </UserControl.Styles>
+
+  <Border Background="{DynamicResource PulseBgSidebar}"
+          BorderBrush="{DynamicResource PulseBorderPrimary}"
+          BorderThickness="1,0,0,0">
+    <DockPanel>
+
+      <!-- Error message bar -->
+      <Border DockPanel.Dock="Top"
+              IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+              Background="{DynamicResource PulseBgActive}"
+              Padding="8,4">
+        <TextBlock Text="{Binding ErrorMessage}"
+                   Foreground="{DynamicResource PulseError}"
+                   FontSize="11"
+                   TextWrapping="Wrap" />
+      </Border>
+
+      <!-- New Tunnel form (bottom) -->
+      <Border DockPanel.Dock="Bottom"
+              Background="{DynamicResource PulseBgSurface}"
+              BorderBrush="{DynamicResource PulseBorderPrimary}"
+              BorderThickness="0,1,0,0"
+              Padding="12,8">
+        <StackPanel Spacing="6">
+          <TextBlock Classes="section-header"
+                     Text="{x:Static res:Strings.NewTunnel}"
+                     Margin="0,0,0,4" />
+
+          <!-- Tunnel Type -->
+          <StackPanel>
+            <TextBlock Classes="label" Text="Type" />
+            <ComboBox SelectedIndex="0"
+                      HorizontalAlignment="Stretch"
+                      Background="{DynamicResource PulseBgInput}"
+                      Foreground="{DynamicResource PulseTextPrimary}"
+                      BorderBrush="{DynamicResource PulseBorderSecondary}"
+                      FontSize="12"
+                      CornerRadius="4">
+              <ComboBoxItem Content="{x:Static res:Strings.LocalForward}"
+                            Tag="{x:Static models:TunnelType.LocalForward}"
+                            IsSelected="{Binding NewTunnelType, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static models:TunnelType.LocalForward}}" />
+              <ComboBoxItem Content="{x:Static res:Strings.RemoteForward}"
+                            Tag="{x:Static models:TunnelType.RemoteForward}" />
+            </ComboBox>
+          </StackPanel>
+
+          <!-- Tunnel Name -->
+          <StackPanel>
+            <TextBlock Classes="label" Text="{x:Static res:Strings.Name}" />
+            <TextBox Classes="tunnel-input"
+                     Text="{Binding NewTunnelName}"
+                     Watermark="my-tunnel" />
+          </StackPanel>
+
+          <!-- Local Host/Port row -->
+          <StackPanel>
+            <TextBlock Classes="label" Text="Local" />
+            <Grid ColumnDefinitions="*,8,80">
+              <TextBox Grid.Column="0"
+                       Classes="tunnel-input"
+                       Text="{Binding NewLocalHost}"
+                       Watermark="localhost" />
+              <TextBox Grid.Column="2"
+                       Classes="tunnel-input"
+                       Text="{Binding NewLocalPort}"
+                       Watermark="{x:Static res:Strings.LocalPort}" />
+            </Grid>
+          </StackPanel>
+
+          <!-- Remote Host/Port row -->
+          <StackPanel>
+            <TextBlock Classes="label" Text="{x:Static res:Strings.RemoteAddress}" />
+            <Grid ColumnDefinitions="*,8,80">
+              <TextBox Grid.Column="0"
+                       Classes="tunnel-input"
+                       Text="{Binding NewRemoteHost}"
+                       Watermark="host" />
+              <TextBox Grid.Column="2"
+                       Classes="tunnel-input"
+                       Text="{Binding NewRemotePort}"
+                       Watermark="{x:Static res:Strings.Port}" />
+            </Grid>
+          </StackPanel>
+
+          <!-- Create button -->
+          <Button Command="{Binding CreateTunnelCommand}"
+                  HorizontalAlignment="Stretch"
+                  HorizontalContentAlignment="Center"
+                  Background="{DynamicResource PulseAccent}"
+                  Foreground="{DynamicResource PulseTextPrimary}"
+                  Padding="8,6"
+                  CornerRadius="4"
+                  FontSize="12"
+                  Cursor="Hand">
+            <TextBlock Text="{x:Static res:Strings.NewTunnel}" />
+          </Button>
+        </StackPanel>
+      </Border>
+
+      <!-- Active Tunnels list (fills remaining space) -->
+      <DockPanel>
+        <TextBlock DockPanel.Dock="Top"
+                   Classes="section-header"
+                   Text="{x:Static res:Strings.ActiveTunnels}" />
+
+        <ScrollViewer>
+          <ItemsControl ItemsSource="{Binding Tunnels}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:TunnelItemViewModel">
+                <Border Background="{DynamicResource PulseBgSurface}"
+                        CornerRadius="4"
+                        Margin="8,2"
+                        Padding="8,6">
+                  <DockPanel>
+
+                    <!-- Action buttons (right side) -->
+                    <StackPanel DockPanel.Dock="Right"
+                                Orientation="Horizontal"
+                                Spacing="2"
+                                VerticalAlignment="Center">
+                      <!-- Stop button (visible when Active) -->
+                      <Button Classes="tunnel-btn"
+                              Command="{Binding $parent[ItemsControl].((vm:TunnelPanelViewModel)DataContext).StopTunnelCommand}"
+                              CommandParameter="{Binding Id}"
+                              IsVisible="{Binding IsActive}"
+                              ToolTip.Tip="Stop">
+                        <PathIcon Data="M6 6h12v12H6z"
+                                  Width="12" Height="12"
+                                  Foreground="{DynamicResource PulseTextSecondary}" />
+                      </Button>
+                      <!-- Start button (visible when Stopped) -->
+                      <Button Classes="tunnel-btn"
+                              Command="{Binding $parent[ItemsControl].((vm:TunnelPanelViewModel)DataContext).StartTunnelCommand}"
+                              CommandParameter="{Binding Id}"
+                              IsVisible="{Binding !IsActive}"
+                              ToolTip.Tip="Start">
+                        <PathIcon Data="M8 5v14l11-7z"
+                                  Width="12" Height="12"
+                                  Foreground="{DynamicResource PulseTextSecondary}" />
+                      </Button>
+                      <!-- Delete button -->
+                      <Button Classes="tunnel-btn"
+                              Command="{Binding $parent[ItemsControl].((vm:TunnelPanelViewModel)DataContext).DeleteTunnelCommand}"
+                              CommandParameter="{Binding Id}"
+                              ToolTip.Tip="{x:Static res:Strings.Delete}">
+                        <PathIcon Data="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"
+                                  Width="12" Height="12"
+                                  Foreground="{DynamicResource PulseTextSecondary}" />
+                      </Button>
+                    </StackPanel>
+
+                    <!-- Tunnel info (left side) -->
+                    <StackPanel Spacing="2">
+                      <StackPanel Orientation="Horizontal" Spacing="6">
+                        <!-- Status dot -->
+                        <Ellipse Width="8" Height="8"
+                                 VerticalAlignment="Center">
+                          <Ellipse.Styles>
+                            <Style Selector="Ellipse">
+                              <Setter Property="Fill" Value="{DynamicResource PulseStatusDisconnected}" />
+                            </Style>
+                          </Ellipse.Styles>
+                        </Ellipse>
+                        <!-- Type badge -->
+                        <Border Background="{DynamicResource PulseBgHover}"
+                                CornerRadius="2"
+                                Padding="4,1">
+                          <TextBlock Text="{Binding TypeBadge}"
+                                     Foreground="{DynamicResource PulseTextTertiary}"
+                                     FontSize="10"
+                                     FontWeight="Bold" />
+                        </Border>
+                        <!-- Name -->
+                        <TextBlock Text="{Binding Name}"
+                                   Foreground="{DynamicResource PulseTextPrimary}"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"
+                                   TextTrimming="CharacterEllipsis" />
+                      </StackPanel>
+
+                      <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="{Binding DisplayRoute}"
+                                   Foreground="{DynamicResource PulseTextTertiary}"
+                                   FontSize="11" />
+                        <TextBlock Text="{Binding FormattedBytes}"
+                                   Foreground="{DynamicResource PulseTextTertiary}"
+                                   FontSize="10"
+                                   VerticalAlignment="Center" />
+                      </StackPanel>
+                    </StackPanel>
+
+                  </DockPanel>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </DockPanel>
+
+    </DockPanel>
+  </Border>
+</UserControl>

@@ -1,0 +1,132 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:PulseTerm.App.ViewModels"
+        xmlns:res="clr-namespace:PulseTerm.Core.Resources;assembly=PulseTerm.Core"
+        mc:Ignorable="d" d:DesignWidth="460" d:DesignHeight="360"
+        x:Class="PulseTerm.App.Views.HostKeyPromptView"
+        x:DataType="vm:HostKeyPromptViewModel"
+        Title="{x:Static res:Strings.HostKeyVerification}"
+        Width="460" Height="360"
+        CanResize="False"
+        Background="{DynamicResource PulseBgPage}"
+        WindowStartupLocation="CenterOwner">
+
+  <Window.Styles>
+    <Style Selector="TextBlock.mono">
+      <Setter Property="FontFamily" Value="JetBrains Mono, Cascadia Code, Consolas, monospace" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Foreground" Value="{DynamicResource PulseAccentText}" />
+    </Style>
+    <Style Selector="TextBlock.info-label">
+      <Setter Property="Foreground" Value="{DynamicResource PulseTextSecondary}" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Margin" Value="0,0,12,0" />
+    </Style>
+    <Style Selector="TextBlock.info-value">
+      <Setter Property="Foreground" Value="{DynamicResource PulseTextPrimary}" />
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+    <Style Selector="Button.trust">
+      <Setter Property="Background" Value="{DynamicResource PulseAccent}" />
+      <Setter Property="Foreground" Value="{DynamicResource PulseBgPage}" />
+      <Setter Property="Padding" Value="28,10" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.reject">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource PulseError}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource PulseError}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="28,10" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+  </Window.Styles>
+
+  <DockPanel Margin="24">
+
+    <!-- Buttons at bottom -->
+    <StackPanel DockPanel.Dock="Bottom"
+                Orientation="Horizontal"
+                HorizontalAlignment="Right"
+                Spacing="12"
+                Margin="0,20,0,0">
+      <Button Classes="reject"
+              Content="{x:Static res:Strings.Reject}"
+              Command="{Binding RejectCommand}" />
+      <Button Classes="trust"
+              Content="{x:Static res:Strings.Trust}"
+              Command="{Binding TrustCommand}" />
+    </StackPanel>
+
+    <!-- Separator -->
+    <Border DockPanel.Dock="Bottom"
+            Height="1"
+            Background="{DynamicResource PulseBorderSecondary}"
+            Margin="0,16,0,0" />
+
+    <StackPanel Spacing="16">
+
+      <!-- Warning banner -->
+      <Border Background="{DynamicResource PulseBgActive}"
+              CornerRadius="6"
+              Padding="16,12">
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <!-- Warning icon -->
+          <PathIcon Width="20" Height="20"
+                    VerticalAlignment="Top"
+                    Foreground="{DynamicResource PulseWarning}"
+                    Data="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" />
+          <TextBlock Text="{Binding WarningText}"
+                     Foreground="{DynamicResource PulseWarning}"
+                     FontSize="13"
+                     FontWeight="SemiBold"
+                     TextWrapping="Wrap"
+                     VerticalAlignment="Center"
+                     IsVisible="{Binding !IsChanged}" />
+          <TextBlock Text="{Binding WarningText}"
+                     Foreground="{DynamicResource PulseError}"
+                     FontSize="13"
+                     FontWeight="SemiBold"
+                     TextWrapping="Wrap"
+                     VerticalAlignment="Center"
+                     IsVisible="{Binding IsChanged}" />
+        </StackPanel>
+      </Border>
+
+      <!-- Host info -->
+      <Border Background="{DynamicResource PulseBgSurface}"
+              CornerRadius="6"
+              Padding="16,12">
+        <StackPanel Spacing="8">
+
+          <Grid ColumnDefinitions="100,*">
+            <TextBlock Grid.Column="0" Classes="info-label" Text="{x:Static res:Strings.Host}" />
+            <TextBlock Grid.Column="1" Classes="info-value">
+              <Run Text="{Binding Host}" /><Run Text=":" /><Run Text="{Binding Port}" />
+            </TextBlock>
+          </Grid>
+
+          <Grid ColumnDefinitions="100,*">
+            <TextBlock Grid.Column="0" Classes="info-label" Text="{x:Static res:Strings.KeyType}" />
+            <TextBlock Grid.Column="1" Classes="info-value" Text="{Binding KeyType}" />
+          </Grid>
+
+          <Grid ColumnDefinitions="100,*">
+            <TextBlock Grid.Column="0" Classes="info-label" Text="{x:Static res:Strings.Fingerprint}" />
+            <TextBlock Grid.Column="1" Classes="mono"
+                       Text="{Binding Fingerprint}"
+                       TextWrapping="Wrap" />
+          </Grid>
+
+        </StackPanel>
+      </Border>
+
+    </StackPanel>
+
+  </DockPanel>
+</Window>

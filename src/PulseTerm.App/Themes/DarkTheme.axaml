@@ -1,0 +1,46 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- PulseTerm Dark Theme — Design tokens from PulseTerm-zh.pen -->
+
+    <!-- Background tokens -->
+    <SolidColorBrush x:Key="PulseBgPage" Color="#0D1117" />
+    <SolidColorBrush x:Key="PulseBgSidebar" Color="#161B22" />
+    <SolidColorBrush x:Key="PulseBgTerminal" Color="#0D1117" />
+    <SolidColorBrush x:Key="PulseBgSurface" Color="#1C2128" />
+    <SolidColorBrush x:Key="PulseBgActive" Color="#1F6FEB33" />
+    <SolidColorBrush x:Key="PulseBgHover" Color="#FFFFFF0D" />
+    <SolidColorBrush x:Key="PulseBgInput" Color="#0D1117" />
+
+    <!-- Accent tokens -->
+    <SolidColorBrush x:Key="PulseAccent" Color="#00D4AA" />
+    <SolidColorBrush x:Key="PulseAccentDim" Color="#00D4AA33" />
+    <SolidColorBrush x:Key="PulseAccentText" Color="#00D4AA" />
+
+    <!-- Text tokens -->
+    <SolidColorBrush x:Key="PulseTextPrimary" Color="#E6EDF3" />
+    <SolidColorBrush x:Key="PulseTextSecondary" Color="#8B949E" />
+    <SolidColorBrush x:Key="PulseTextTertiary" Color="#6E7681" />
+    <SolidColorBrush x:Key="PulseTextMuted" Color="#484F58" />
+
+    <!-- Border tokens -->
+    <SolidColorBrush x:Key="PulseBorderPrimary" Color="#30363D" />
+    <SolidColorBrush x:Key="PulseBorderSecondary" Color="#21262D" />
+
+    <!-- Status tokens -->
+    <SolidColorBrush x:Key="PulseStatusConnected" Color="#00D4AA" />
+    <SolidColorBrush x:Key="PulseStatusConnecting" Color="#F0C000" />
+    <SolidColorBrush x:Key="PulseStatusDisconnected" Color="#F85149" />
+
+    <!-- Semantic tokens -->
+    <SolidColorBrush x:Key="PulseWarning" Color="#F0C000" />
+    <SolidColorBrush x:Key="PulseError" Color="#F85149" />
+    <SolidColorBrush x:Key="PulseInfo" Color="#58A6FF" />
+
+    <!-- Tab tokens -->
+    <SolidColorBrush x:Key="PulseTabInactiveBg" Color="#161B22" />
+
+    <!-- Font tokens -->
+    <FontFamily x:Key="PulseTerminalFont">JetBrains Mono, Cascadia Mono, Consolas, monospace</FontFamily>
+
+</ResourceDictionary>
