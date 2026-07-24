@@ -98,7 +98,7 @@
       </Border>
 
       <!-- 编辑器 -->
-      <Border Grid.Row="1" Background="{DynamicResource VelaBgTerminal}">
+      <Border Grid.Row="1" Background="{DynamicResource VelaBgSftpPanel}">
         <ae:TextEditor Name="Editor"
                        FontFamily="{DynamicResource VelaTerminalFont}"
                        FontSize="13"

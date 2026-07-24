@@ -174,7 +174,8 @@
     </Style>
   </Window.Styles>
 
-  <Border CornerRadius="8"
+  <Border x:Name="RootBorder"
+          CornerRadius="8"
           Background="{DynamicResource VelaBgSurface}"
           BorderBrush="{DynamicResource VelaBorderSecondary}"
           BorderThickness="1"

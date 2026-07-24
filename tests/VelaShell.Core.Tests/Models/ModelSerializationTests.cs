@@ -105,6 +105,27 @@ public class ModelSerializationTests
     }
 
     [TestMethod]
+    public void AppearanceOptions_BackgroundImage_DefaultsAndRoundTrip()
+    {
+        // 默认:无背景图,行为与旧版一致(路径空、图片不透明度 100、内容背景不透明度 85 但仅在设图后生效)。
+        var fresh = new AppearanceOptions();
+        Assert.AreEqual("", fresh.BackgroundImagePath);
+        Assert.AreEqual(100, fresh.BackgroundImageOpacity);
+        Assert.AreEqual(85, fresh.ContentBackgroundOpacity);
+
+        var settings = new AppSettings();
+        settings.Appearance.BackgroundImagePath = "/home/user/wall.png";
+        settings.Appearance.BackgroundImageOpacity = 60;
+        settings.Appearance.ContentBackgroundOpacity = 40;
+        string json = JsonSerializer.Serialize(settings, _options);
+        Assert.Contains("\"backgroundImagePath\":", json);
+        var back = JsonSerializer.Deserialize<AppSettings>(json, _options)!;
+        Assert.AreEqual("/home/user/wall.png", back.Appearance.BackgroundImagePath);
+        Assert.AreEqual(60, back.Appearance.BackgroundImageOpacity);
+        Assert.AreEqual(40, back.Appearance.ContentBackgroundOpacity);
+    }
+
+    [TestMethod]
     public void AppSettings_ShouldSerializeWithCamelCase()
     {
         var settings = new AppSettings

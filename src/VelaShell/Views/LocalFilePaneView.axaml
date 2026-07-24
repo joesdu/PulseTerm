@@ -54,7 +54,7 @@
     </Style>
   </UserControl.Styles>
 
-  <Border Background="{DynamicResource VelaBgTerminal}"
+  <Border Background="{DynamicResource VelaBgSftpPanel}"
           BorderBrush="{DynamicResource VelaBorderPrimary}"
           BorderThickness="0,1,0,0">
     <DockPanel>
@@ -128,7 +128,7 @@
         </Grid>
       </Border>
       <Border DockPanel.Dock="Top" Height="26" Padding="14,0"
-              Background="{DynamicResource VelaBgSurface}"
+              Background="{DynamicResource VelaBgContentHeader}"
               BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,0,0,1">
         <Grid ColumnDefinitions="*,90,130">
           <TextBlock Text="{x:Static res:Strings.FileName}" FontFamily="{DynamicResource VelaTerminalFont}"

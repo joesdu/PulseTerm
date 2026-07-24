@@ -7,6 +7,7 @@
   <StreamGeometry x:Key="Icon.copy">M10 8h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2V10a2 2 0 0 1 2-2Z M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2</StreamGeometry>
   <StreamGeometry x:Key="Icon.columns-2">M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z M12 3v18</StreamGeometry>
   <StreamGeometry x:Key="Icon.route">M6 16a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z M18 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15</StreamGeometry>
+  <StreamGeometry x:Key="Icon.map-pin">M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z M15 10a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z</StreamGeometry>
   <StreamGeometry x:Key="Icon.zap">M13 2 3 14h9l-1 8 10-12h-9l1-8Z</StreamGeometry>
   <StreamGeometry x:Key="Icon.link-2">M9 17H7A5 5 0 0 1 7 7h2 M15 7h2a5 5 0 1 1 0 10h-2 M8 12h8</StreamGeometry>
   <StreamGeometry x:Key="Icon.send">M22 2 15 22l-4-9-9-4Z M22 2 11 13</StreamGeometry>

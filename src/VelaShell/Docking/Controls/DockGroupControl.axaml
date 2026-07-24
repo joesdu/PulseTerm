@@ -113,7 +113,7 @@
 
     <!-- 内容区:终端视图经工作区缓存复用,ReparentingHost 保证单父级。
          组为空时(拆分留下的空面板)显示拖放提示。 -->
-    <Border Background="{DynamicResource VelaBgTerminal}" ClipToBounds="True">
+    <Border Background="{DynamicResource VelaBgDockDocument}" ClipToBounds="True">
       <Panel>
         <TextBlock x:Name="EmptyHint"
                    Text="{loc:Localize Dock_DropTabHere}"

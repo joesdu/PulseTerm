@@ -316,15 +316,17 @@
                        Foreground="{DynamicResource VelaTextSecondary}"
                        FontFamily="{DynamicResource VelaUiFont}" FontSize="11" />
           </Button>
-          <Button Padding="10,4" CornerRadius="3"
-                  Background="{DynamicResource VelaAccent}"
+          <!-- 主操作按钮沿用 SFTP「上传」的强调药丸方案:半透明 VelaAccentDim 底 + 强调色描边/图标/文字,
+               而非实心 VelaAccent(过于突兀、且不与背景图融合)。Padding 保持 10,4 以与左侧取消按钮等高。 -->
+          <Button Padding="10,4" Cursor="Hand"
+                  Theme="{DynamicResource VelaAccentPillButtonTheme}"
                   Command="{Binding CreateTunnelCommand}">
-            <StackPanel Orientation="Horizontal" Spacing="4">
+            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
               <pc:LucideIcon Width="11" Height="11"
                              Data="{StaticResource Icon.plus}"
-                             Foreground="{DynamicResource VelaAccentText}" VerticalAlignment="Center" />
+                             Foreground="{DynamicResource VelaAccent}" VerticalAlignment="Center" />
               <TextBlock Text="{Binding SubmitButtonText}"
-                         Foreground="{DynamicResource VelaAccentText}"
+                         Foreground="{DynamicResource VelaAccent}"
                          FontFamily="{DynamicResource VelaUiFont}" FontSize="11" FontWeight="Medium" />
             </StackPanel>
           </Button>

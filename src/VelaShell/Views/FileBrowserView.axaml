@@ -10,62 +10,6 @@
              x:Class="VelaShell.Views.FileBrowserView"
              x:DataType="vm:FileBrowserViewModel">
 
-  <UserControl.Resources>
-    <ControlTheme x:Key="VelaUploadPillButtonTheme" TargetType="Button">
-      <Setter Property="Background" Value="{DynamicResource VelaAccentDim}" />
-      <Setter Property="BorderBrush" Value="{DynamicResource VelaAccent}" />
-      <Setter Property="BorderThickness" Value="0" />
-      <Setter Property="CornerRadius" Value="3" />
-      <Setter Property="Padding" Value="8,0" />
-      <Setter Property="FocusAdorner" Value="{x:Null}" />
-      <Setter Property="Template">
-        <ControlTemplate>
-          <Border x:Name="PART_UploadPillRoot"
-                  Background="{TemplateBinding Background}"
-                  BorderBrush="{TemplateBinding BorderBrush}"
-                  BorderThickness="{TemplateBinding BorderThickness}"
-                  CornerRadius="{TemplateBinding CornerRadius}"
-                  Padding="{TemplateBinding Padding}">
-            <ContentPresenter x:Name="PART_ContentPresenter"
-                              Content="{TemplateBinding Content}"
-                              ContentTemplate="{TemplateBinding ContentTemplate}"
-                              Foreground="{TemplateBinding Foreground}"
-                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
-          </Border>
-        </ControlTemplate>
-      </Setter>
-      <Style Selector="^:pointerover">
-        <Setter Property="Background" Value="{DynamicResource VelaAccentDim}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource VelaAccent}" />
-      </Style>
-      <Style Selector="^:pressed">
-        <Setter Property="Background" Value="{DynamicResource VelaAccentDim}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource VelaAccent}" />
-      </Style>
-      <Style Selector="^:focus">
-        <Setter Property="Background" Value="{DynamicResource VelaAccentDim}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource VelaAccent}" />
-        <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="Foreground" Value="{DynamicResource VelaAccent}" />
-      </Style>
-      <Style Selector="^:focus:pointerover">
-        <Setter Property="Background" Value="{DynamicResource VelaAccentDim}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource VelaAccent}" />
-        <Setter Property="BorderThickness" Value="1" />
-      </Style>
-      <Style Selector="^:focus:pressed">
-        <Setter Property="Background" Value="{DynamicResource VelaAccentDim}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource VelaAccent}" />
-        <Setter Property="BorderThickness" Value="1" />
-      </Style>
-      <Style Selector="^:disabled">
-        <Setter Property="Background" Value="{DynamicResource VelaBgSurface}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
-        <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />
-      </Style>
-    </ControlTheme>
-  </UserControl.Resources>
 
   <UserControl.Styles>
     <Style Selector="Button.toolbar-btn">
@@ -75,6 +19,30 @@
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
     <Style Selector="Button.toolbar-btn:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+    </Style>
+    <!-- 「跟随终端目录」开关钮:安静图标钮,开启(checked)时图标染强调色;中和 Fluent ToggleButton
+         默认选中背景,使外观与其它工具栏图标钮一致(仅颜色区分开/关)。 -->
+    <Style Selector="ToggleButton.follow-pin">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextTertiary}" />
+    </Style>
+    <Style Selector="ToggleButton.follow-pin:checked">
+      <Setter Property="Foreground" Value="{DynamicResource VelaAccent}" />
+    </Style>
+    <Style Selector="ToggleButton.follow-pin /template/ ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="ToggleButton.follow-pin:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+    </Style>
+    <Style Selector="ToggleButton.follow-pin:checked /template/ ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="ToggleButton.follow-pin:checked:pointerover /template/ ContentPresenter">
       <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
     </Style>
     <Style Selector="Button.col-header">
@@ -112,7 +80,7 @@
   <!-- SFTP 面板底色与终端一致(#282A36 家族),而非窗口铬色。 -->
   <Border BorderThickness="0,1,0,0"
           BorderBrush="{DynamicResource VelaBorderPrimary}"
-          Background="{DynamicResource VelaBgTerminal}"
+          Background="{DynamicResource VelaBgSftpPanel}"
           IsVisible="{Binding IsVisible}"
           VerticalAlignment="Stretch"
           MinHeight="120">
@@ -187,7 +155,7 @@
           <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
             <Button Classes="upload-pill" Height="24" Cursor="Hand"
                     FocusAdorner="{x:Null}"
-                    Theme="{StaticResource VelaUploadPillButtonTheme}"
+                    Theme="{DynamicResource VelaAccentPillButtonTheme}"
                     Command="{Binding UploadCommand}"
                     ToolTip.Tip="{x:Static res:Strings.Upload}">
               <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
@@ -201,6 +169,16 @@
                            VerticalAlignment="Center" />
               </StackPanel>
             </Button>
+            <!-- 「跟随终端目录」(map-pin):开启后本会话终端 cd 到新目录时文件浏览器自动同步;
+                 关闭则不同步。手动切目录不改开关,终端下次 cd 再同步到最新(见 FileBrowserViewModel.FollowTerminal)。 -->
+            <ToggleButton Classes="follow-pin" Width="24" Height="24" Padding="0"
+                          HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                          IsChecked="{Binding FollowTerminal}"
+                          ToolTip.Tip="{loc:Localize Sftp_FollowTerminal}">
+              <pc:LucideIcon Width="13" Height="13"
+                             Data="{StaticResource Icon.map-pin}"
+                             Foreground="{Binding $parent[ToggleButton].Foreground}" />
+            </ToggleButton>
             <Button Classes="toolbar-btn" Width="24" Height="24" Padding="0"
                     HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
                     Command="{Binding ShowTransfersCommand}"
@@ -267,7 +245,7 @@
       <Grid RowDefinitions="26,*">
 
         <Border Grid.Row="0"
-                Background="{DynamicResource VelaBgSurface}"
+                Background="{DynamicResource VelaBgContentHeader}"
                 BorderBrush="{DynamicResource VelaBorderPrimary}"
                 BorderThickness="0,0,0,1"
                 Padding="14,0">

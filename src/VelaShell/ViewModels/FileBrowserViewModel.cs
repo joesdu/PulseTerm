@@ -284,6 +284,58 @@ public class FileBrowserViewModel : ReactiveObject
     /// <summary>成功进入不同目录后触发,视图据此把滚动条重置到顶部。</summary>
     public event EventHandler? DirectoryChanged;
 
+    private bool _followTerminal;
+    private string? _pendingTerminalPath;
+
+    /// <summary>
+    /// 「跟随终端目录」(map-pin 按钮):开启时,本会话终端 shell 的 cwd 变化(经 OSC 7)会自动把文件浏览器
+    /// 切到该目录。开启当下立即同步到终端当前目录;关闭则不同步。手动切换目录不影响开关——终端下次 cd 到
+    /// 新目录时再同步到最新。仅在 shell 发出 OSC 7 时有效(VelaShell 注入的 bash 提示符脚本会发)。
+    /// </summary>
+    public bool FollowTerminal
+    {
+        get => _followTerminal;
+        set
+        {
+            if (_followTerminal == value)
+            {
+                return;
+            }
+            this.RaiseAndSetIfChanged(ref _followTerminal, value);
+            if (value && _pendingTerminalPath is { Length: > 0 } path)
+            {
+                SyncToTerminalPath(path); // 开启当下立即同步到终端当前目录
+            }
+        }
+    }
+
+    /// <summary>本会话终端 cwd 变化时由宿主调用(仅在终端 cd 到新目录时,已在 TerminalTabViewModel 去重)。
+    /// 记住最新终端目录(供开启开关时立即同步);若正在跟随则立刻切换。</summary>
+    public void OnTerminalWorkingDirectoryChanged(string path)
+    {
+        if (string.IsNullOrEmpty(path))
+        {
+            return;
+        }
+        _pendingTerminalPath = path;
+        if (_followTerminal)
+        {
+            SyncToTerminalPath(path);
+        }
+    }
+
+    private void SyncToTerminalPath(string path)
+    {
+        // OSC 7 事件源自终端 feed 线程;导航须在 UI 线程。目录相同则不折腾。
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_sessionId != Guid.Empty && !string.Equals(path, CurrentPath, StringComparison.Ordinal))
+            {
+                NavigateToCommand.Execute(path).Subscribe(_ => { }, _ => { });
+            }
+        });
+    }
+
     /// <summary>当前浏览的远程目录绝对路径;赋值时同步刷新 <see cref="Breadcrumbs" />。</summary>
     public string CurrentPath
     {

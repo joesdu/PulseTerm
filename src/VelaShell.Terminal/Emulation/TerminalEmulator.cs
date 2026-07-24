@@ -445,8 +445,41 @@ public sealed class TerminalEmulator : IVtActions
                     }
                 }
                 break;
+            case 7:
+                // OSC 7:shell 上报当前工作目录(file://host/path)。用于「文件浏览器跟随终端目录」。
+                // 由 VelaShell 注入的 bash 提示符脚本发出(见 MainWindowViewModel.PromptNewlineFix)。
+                if (p.Count > 1 && ParseOsc7Path(p[1]) is { Length: > 0 } dir)
+                {
+                    WorkingDirectoryChanged?.Invoke(dir);
+                }
+                break;
                 // 4(调色板)、8(超链接)目前有意接受并忽略。
         }
+    }
+
+    /// <summary>从 OSC 7 载荷 file://host/path 提取绝对路径(百分号编码按需解码);非法/非绝对路径返回 null。</summary>
+    private static string? ParseOsc7Path(string payload)
+    {
+        const string scheme = "file://";
+        if (!payload.StartsWith(scheme, StringComparison.Ordinal))
+        {
+            return null;
+        }
+        int slash = payload.IndexOf('/', scheme.Length); // 跳过 host,定位路径起点(file:///abs 时即第三个斜杠)
+        if (slash < 0)
+        {
+            return null;
+        }
+        string path = payload[slash..];
+        try
+        {
+            path = Uri.UnescapeDataString(path); // VTE 等会百分号编码;我们注入的脚本发原始路径,解码对纯 ASCII 无副作用
+        }
+        catch (Exception)
+        {
+            // 解码失败:用原始路径。
+        }
+        return path.StartsWith('/') ? path : null;
     }
 
     /// <summary>分发 DCS 序列;目前处理 DECRQSS 状态请求,其余静默消费。</summary>
@@ -477,6 +510,9 @@ public sealed class TerminalEmulator : IVtActions
 
     /// <summary>OSC 0/2 窗口标题变更。</summary>
     public event Action<string>? TitleChanged;
+
+    /// <summary>OSC 7 当前工作目录变更(绝对路径)。事件来自 feed 线程,消费者需自行编组到 UI 线程。</summary>
+    public event Action<string>? WorkingDirectoryChanged;
 
     /// <summary>收到 BEL(0x07)。</summary>
     public event Action? Bell;

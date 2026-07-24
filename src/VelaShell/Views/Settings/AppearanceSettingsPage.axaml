@@ -51,6 +51,51 @@
       </StackPanel>
     </Grid>
 
+    <!-- 背景图片(设计新增,放在主题色下):图片铺在应用最底层,透过半透明的终端/文件面板显示。 -->
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetAppear_BackgroundImage}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetAppear_BackgroundImageDesc}" />
+      </StackPanel>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <TextBox Width="200" Text="{Binding Appearance.BackgroundImagePath}"
+                 IsReadOnly="True" ToolTip.Tip="{Binding Appearance.BackgroundImagePath}" />
+        <Button Classes="dlg-outline" Content="{loc:Localize SetAppear_BackgroundImageBrowse}"
+                Click="PickBackgroundImage_Click" />
+        <Button Classes="dlg-outline" Content="{loc:Localize SetAppear_BackgroundImageClear}"
+                Click="ClearBackgroundImage_Click" />
+      </StackPanel>
+    </Grid>
+    <!-- 背景图相关滑块仅在设置了背景图后才有意义:未设图时隐藏,避免误导。 -->
+    <Grid ColumnDefinitions="*,Auto"
+          IsVisible="{Binding Appearance.BackgroundImagePath, Converter={x:Static conv:StringNotEmptyConverter.Instance}}">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetAppear_BackgroundImageOpacity}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetAppear_BackgroundImageOpacityDesc}" />
+      </StackPanel>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <Slider Width="120" Minimum="0" Maximum="100"
+                Value="{Binding Appearance.BackgroundImageOpacity}" VerticalAlignment="Center" />
+        <TextBlock Width="40" TextAlignment="Right" VerticalAlignment="Center"
+                   Foreground="{DynamicResource VelaTextSecondary}" FontSize="12"
+                   Text="{Binding Appearance.BackgroundImageOpacity, StringFormat={}{0}%}" />
+      </StackPanel>
+    </Grid>
+    <Grid ColumnDefinitions="*,Auto"
+          IsVisible="{Binding Appearance.BackgroundImagePath, Converter={x:Static conv:StringNotEmptyConverter.Instance}}">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetAppear_ContentBgOpacity}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetAppear_ContentBgOpacityDesc}" />
+      </StackPanel>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <Slider Width="120" Minimum="20" Maximum="100"
+                Value="{Binding Appearance.ContentBackgroundOpacity}" VerticalAlignment="Center" />
+        <TextBlock Width="40" TextAlignment="Right" VerticalAlignment="Center"
+                   Foreground="{DynamicResource VelaTextSecondary}" FontSize="12"
+                   Text="{Binding Appearance.ContentBackgroundOpacity, StringFormat={}{0}%}" />
+      </StackPanel>
+    </Grid>
+
     <Border Classes="sep" />
 
     <!-- 字体 -->

@@ -179,7 +179,7 @@ public class SettingsViewModel : ReactiveObject
     {
         get;
         set => this.RaiseAndSetIfChanged(ref field, value);
-    } = "JetBrains Mono";
+    } = "Cascadia Mono";
 
     /// <summary>终端字号(磅)。</summary>
     public int TerminalFontSize
@@ -1116,6 +1116,20 @@ public class SettingsViewModel : ReactiveObject
             }
             _previewed = true;
             _previewService.PreviewWindowOpacity(Appearance.WindowOpacityPercent);
+            return;
+        }
+        // 背景图/终端背景不透明度走即时通道:与窗口不透明度同理,绕过防抖 JSON 快照,拖动线性平滑,
+        // 且不触发背景图重新解码(否则每帧读盘,滑杆卡顿、数值跳变)。
+        if (e.PropertyName is nameof(AppearanceOptions.BackgroundImageOpacity)
+            or nameof(AppearanceOptions.ContentBackgroundOpacity))
+        {
+            if (_suppressPreview || _previewService is null)
+            {
+                return;
+            }
+            _previewed = true;
+            _previewService.PreviewBackgroundOpacity(
+                Appearance.BackgroundImageOpacity, Appearance.ContentBackgroundOpacity);
             return;
         }
         SchedulePreviewBroadcast();

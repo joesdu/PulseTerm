@@ -1,5 +1,7 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Media;
 using VelaShell.Core.Resources;
 using VelaShell.ViewModels;
 
@@ -14,12 +16,39 @@ public partial class SettingsView : Window
     public SettingsView()
     {
         InitializeComponent();
+        ApplyMacOsOpaqueWindow();
         DataContextChanged += (_, _) =>
         {
             _viewModel?.CloseRequested -= OnCloseRequested;
             _viewModel = DataContext as SettingsViewModel;
             _viewModel?.CloseRequested += OnCloseRequested;
         };
+    }
+
+    /// <summary>
+    /// macOS 上把设置窗口改为【不透明】,消除滚动卡顿。透明窗口(TransparencyLevelHint=Transparent)
+    /// 在 macOS 上会让整窗每帧走全表面 alpha 合成,滚动时(即便内容只是纯文本行)明显掉帧;
+    /// 不透明的主窗口则顺滑。代价是自绘的圆角/外投影浮层观感——故一并抹平外边距、圆角、外框与投影,
+    /// 让窗口成为干净的矩形。其他平台保持原透明浮层不变。
+    /// </summary>
+    private void ApplyMacOsOpaqueWindow()
+    {
+        if (!OperatingSystem.IsMacOS())
+        {
+            return;
+        }
+        TransparencyLevelHint = [WindowTransparencyLevel.None];
+        if (this.TryFindResource("VelaBgSurface", out object? surface) && surface is IBrush brush)
+        {
+            Background = brush; // 不透明窗口须有不透明底色,避免未覆盖区域露黑
+        }
+        if (this.FindControl<Border>("RootBorder") is { } root)
+        {
+            root.Margin = new Thickness(0);
+            root.CornerRadius = new CornerRadius(0);
+            root.BorderThickness = new Thickness(0);
+            root.BoxShadow = default; // 清空 32px 模糊投影(实心底上无意义且徒增开销)
+        }
     }
 
     // CloseRequested 由保存/取消命令(按钮点击)触发,仍在输入事件栈内:推迟关闭,

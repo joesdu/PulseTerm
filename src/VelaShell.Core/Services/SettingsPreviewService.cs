@@ -20,6 +20,15 @@ public interface ISettingsPreviewService
 
     /// <summary>广播窗口不透明度百分比(钳位到 10..100),不产生 AppSettings/JSON 开销。</summary>
     void PreviewWindowOpacity(int percent);
+
+    /// <summary>
+    /// 背景图/内容背景不透明度即时预览事件(均为百分比)。绕过防抖的 JSON 快照路径,
+    /// 使拖动滑杆时不透明度线性平滑跟随、且不重复解码图片。在 UI 线程触发。
+    /// </summary>
+    event Action<(int Image, int Content)>? BackgroundOpacityPreviewRequested;
+
+    /// <summary>广播背景图/内容背景不透明度百分比,不产生 AppSettings/JSON 开销。</summary>
+    void PreviewBackgroundOpacity(int imageOpacity, int contentOpacity);
 }
 
 /// <summary><see cref="ISettingsPreviewService" /> 的默认实现:将预览请求同步转发给订阅者。</summary>
@@ -42,5 +51,15 @@ public sealed class SettingsPreviewService : ISettingsPreviewService
     public void PreviewWindowOpacity(int percent)
     {
         WindowOpacityPreviewRequested?.Invoke(Math.Clamp(percent, 10, 100));
+    }
+
+    /// <inheritdoc />
+    public event Action<(int Image, int Content)>? BackgroundOpacityPreviewRequested;
+
+    /// <inheritdoc />
+    public void PreviewBackgroundOpacity(int imageOpacity, int contentOpacity)
+    {
+        BackgroundOpacityPreviewRequested?.Invoke(
+            (Math.Clamp(imageOpacity, 0, 100), Math.Clamp(contentOpacity, 0, 100)));
     }
 }

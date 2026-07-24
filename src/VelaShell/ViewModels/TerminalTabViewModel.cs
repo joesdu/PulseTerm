@@ -49,6 +49,9 @@ public class TerminalTabViewModel : TabViewModel, IDisposable
         InputTracker.CommandSubmitted += OnTrackedCommandSubmitted;
         InputTracker.UnknownLineSubmitted += OnUnknownLineSubmitted;
 
+        // OSC 7:shell 上报当前工作目录 → 供「文件浏览器跟随终端目录」用。仅在 cwd 真正变化时向外播报。
+        TerminalEmulator.WorkingDirectoryChanged += OnEmulatorWorkingDirectoryChanged;
+
         // 工具栏快捷操作:拆除传输但保留标签,
         // 或请求宿主就地重连(#19 流程)。
         DisconnectCommand = ReactiveCommand.Create(
@@ -377,6 +380,24 @@ public class TerminalTabViewModel : TabViewModel, IDisposable
     /// <summary>本标签持有的终端模拟器,跨重连保持不变(拥有滚动缓冲区)。</summary>
     public ITerminalEmulator TerminalEmulator { get; }
 
+    /// <summary>该终端 shell 当前工作目录(经 OSC 7 上报);未知/未上报时为 null。</summary>
+    public string? TerminalWorkingDirectory { get; private set; }
+
+    /// <summary>终端 shell 工作目录【变化】时触发(去重:同值不重复触发)。参数为绝对路径。</summary>
+    public event Action<string>? WorkingDirectoryChanged;
+
+    private void OnEmulatorWorkingDirectoryChanged(string path)
+    {
+        // OSC 7 每次提示符都发(即使 cwd 未变);只在真正变化时对外播报,避免把用户在文件浏览器里
+        // 的手动切换在每次回车时都拽回终端目录(仅当终端 cd 到新目录才同步)。
+        if (string.IsNullOrEmpty(path) || string.Equals(path, TerminalWorkingDirectory, StringComparison.Ordinal))
+        {
+            return;
+        }
+        TerminalWorkingDirectory = path;
+        WorkingDirectoryChanged?.Invoke(path);
+    }
+
     /// <summary>当前挂载的 shell 数据流;未连接或断开后为 null。</summary>
     public IShellStreamWrapper? ShellStream { get; private set; }
 
@@ -508,6 +529,7 @@ public class TerminalTabViewModel : TabViewModel, IDisposable
         IsConnected = false;
         TerminalEmulator.PtySizeChanged -= OnPtySizeChanged;
         TerminalEmulator.TypedInput -= OnUserInputForTracker;
+        TerminalEmulator.WorkingDirectoryChanged -= OnEmulatorWorkingDirectoryChanged;
         InputTracker.CommandSubmitted -= OnTrackedCommandSubmitted;
         InputTracker.UnknownLineSubmitted -= OnUnknownLineSubmitted;
 

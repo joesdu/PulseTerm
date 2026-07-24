@@ -183,6 +183,9 @@
   <data name="Sftp_RefreshRemotePane" xml:space="preserve">
     <value>刷新远程栏</value>
   </data>
+  <data name="Sftp_FollowTerminal" xml:space="preserve">
+    <value>跟随终端目录(同步到终端当前路径)</value>
+  </data>
   <data name="TransferHistory" xml:space="preserve">
     <value>传输记录</value>
   </data>
@@ -1471,6 +1474,30 @@
   </data>
   <data name="SetAppear_AccentColorDesc" xml:space="preserve">
     <value>// 应用程序的强调色(留空用主题默认)</value>
+  </data>
+  <data name="SetAppear_BackgroundImage" xml:space="preserve">
+    <value>背景图片</value>
+  </data>
+  <data name="SetAppear_BackgroundImageDesc" xml:space="preserve">
+    <value>// 铺在应用背后的图片,配合下方不透明度滑块调节</value>
+  </data>
+  <data name="SetAppear_BackgroundImageBrowse" xml:space="preserve">
+    <value>浏览…</value>
+  </data>
+  <data name="SetAppear_BackgroundImageClear" xml:space="preserve">
+    <value>清除</value>
+  </data>
+  <data name="SetAppear_BackgroundImageOpacity" xml:space="preserve">
+    <value>背景图不透明度</value>
+  </data>
+  <data name="SetAppear_BackgroundImageOpacityDesc" xml:space="preserve">
+    <value>// 越低图片越淡</value>
+  </data>
+  <data name="SetAppear_ContentBgOpacity" xml:space="preserve">
+    <value>内容背景不透明度</value>
+  </data>
+  <data name="SetAppear_ContentBgOpacityDesc" xml:space="preserve">
+    <value>// 遮罩整窗内容(终端、SFTP、侧栏等)后的背景图,越低越透出背景图</value>
   </data>
   <data name="SetAppear_Ansi16" xml:space="preserve">
     <value>终端 ANSI 16 色</value>

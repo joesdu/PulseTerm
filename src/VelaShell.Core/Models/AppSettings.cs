@@ -273,6 +273,33 @@ public class AppearanceOptions : ObservableOptions
         set => Set(ref field, value);
     } = 100;
 
+    /// <summary>
+    /// 应用背景图片的本地文件绝对路径。空 = 不使用背景图(默认,行为与旧版完全一致)。
+    /// 设置后图片铺在窗口最底层(UniformToFill),透过半透明的终端与文件面板背景显示。
+    /// </summary>
+    public string BackgroundImagePath
+    {
+        get;
+        set => Set(ref field, value ?? "");
+    } = "";
+
+    /// <summary>背景图片图层的不透明度(百分比,0-100);越低图片越淡。仅在设置了背景图时生效。</summary>
+    public int BackgroundImageOpacity
+    {
+        get;
+        set => Set(ref field, value);
+    } = 100;
+
+    /// <summary>
+    /// 内容背景(整窗遮罩)的不透明度(百分比,20-100);越高越盖住背景图、内容越实,越低越透出背景图。
+    /// 统一作用于终端、SFTP 面板、侧边栏等所有内容区(由一层整窗 scrim 遮罩承担,不分区)。仅在设置了背景图时生效。
+    /// </summary>
+    public int ContentBackgroundOpacity
+    {
+        get;
+        set => Set(ref field, value);
+    } = 85;
+
     /// <summary>标签栏位置(如 top / bottom)。</summary>
     public string TabBarPosition
     {

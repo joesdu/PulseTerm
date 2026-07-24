@@ -42,8 +42,10 @@ public class MainWindowViewModel : ReactiveObject
     /// bash 提示符补行脚本(内置,静默注入):命令输出末尾无换行时,经 DSR(ESC[6n)
     /// 查询光标列,不在行首则先补一个换行再画提示符(zsh 的默认行为)。
     /// </summary>
+    // 末尾 printf 发 OSC 7(file://主机/当前目录),供「文件浏览器跟随终端目录」(map-pin)读取 shell cwd。
+    // 仅 bash 会调用 prompt_nl(经 PROMPT_COMMAND),故 \e/\$PWD 等 bash-only 语法对 dash/sh 无副作用(它们从不调用)。
     private const string PromptNewlineFix =
-        """prompt_nl() { local c; IFS='[;' read -p $'\e[6n' -d R -rs _ _ c; ((c>1)) && echo; }; PROMPT_COMMAND=prompt_nl""";
+        """prompt_nl() { local c; IFS='[;' read -p $'\e[6n' -d R -rs _ _ c; ((c>1)) && echo; printf '\e]7;file://%s%s\e\\' "$HOSTNAME" "$PWD"; }; PROMPT_COMMAND=prompt_nl""";
 
     /// <summary>RIS(ESC c)完全重置序列:重开会话前清掉旧进程的残留缓冲。</summary>
     private static readonly byte[] RisResetSequence = [0x1B, (byte)'c']; // ESC c
@@ -861,6 +863,14 @@ public class MainWindowViewModel : ReactiveObject
             ServerDisplayName = serverName,
             AccentBrush = tab.Profile is { } p ? ConnectionAccent.BrushFor(p.Id) : null,
         };
+        // 「文件浏览器跟随终端目录」(map-pin):该会话终端 shell 的 cwd(OSC 7)变化 → 面板同步(仅在开启跟随时)。
+        // 先播种当前已知 cwd(供开启开关时立即同步),再订阅后续变化。二者同会话、同生共死,eviction 时解绑。
+        if (tab.TerminalWorkingDirectory is { } cwd)
+        {
+            browser.OnTerminalWorkingDirectoryChanged(cwd);
+        }
+        tab.WorkingDirectoryChanged += browser.OnTerminalWorkingDirectoryChanged;
+
         _fileBrowserCache[tab.SessionId] = browser;
         FileBrowser = browser;
         if (wasVisible)
@@ -882,6 +892,11 @@ public class MainWindowViewModel : ReactiveObject
         }
         if (_fileBrowserCache.Remove(sessionId, out FileBrowserViewModel? cached))
         {
+            // 解绑「跟随终端目录」订阅(该会话的终端标签 → 面板),再拆除面板。
+            if (TabBar.Tabs.OfType<TerminalTabViewModel>().FirstOrDefault(t => t.SessionId == sessionId) is { } tab)
+            {
+                tab.WorkingDirectoryChanged -= cached.OnTerminalWorkingDirectoryChanged;
+            }
             cached.Detach();
         }
         if (FileBrowser.SessionId != sessionId)
@@ -2544,6 +2559,11 @@ public class MainWindowViewModel : ReactiveObject
         {
             control.FontSize = settings.TerminalFontSize;
         }
+        // 背景图开启时,终端控件自绘填充置全透明(不画背景),终端 tint 改由 TerminalHost 边框单层承担
+        // (VelaBgTerminal 令牌半透明,MainWindow 负责)。若这里仍按不透明度上色,会与该边框两层叠加、
+        // 保存后终端又变得几乎不透明。未开启背景图则恒为不透明(行为不变)。
+        bool backgroundImageActive = !string.IsNullOrWhiteSpace(settings.Appearance.BackgroundImagePath);
+        control.BackgroundOpacity = backgroundImageActive ? 0.0 : 1.0;
         TerminalBehaviorOptions behavior = settings.TerminalBehavior;
         control.LineHeight = behavior.LineHeight;
         control.CursorStyle = behavior.CursorStyle;
@@ -2582,6 +2602,21 @@ public class MainWindowViewModel : ReactiveObject
         control.PaletteOverrides = TerminalAppearanceMapper.BuildPaletteOverrides(
             settings.Appearance
         );
+    }
+
+    /// <summary>
+    /// 把终端默认背景不透明度实时应用到所有已打开的终端标签(背景图即时预览用:拖动滑杆时视图层直接调,
+    /// 不经保存/重建标签)。opacity=1 即不透明,还原默认。
+    /// </summary>
+    public void ApplyTerminalBackgroundOpacityToAllTabs(double opacity)
+    {
+        foreach (TerminalTabViewModel tab in TabBar.Tabs.OfType<TerminalTabViewModel>())
+        {
+            if (tab.TerminalEmulator.Control is VelaTerminalControl control)
+            {
+                control.BackgroundOpacity = opacity;
+            }
+        }
     }
 
     private void OnSettingsSaved(AppSettings settings)

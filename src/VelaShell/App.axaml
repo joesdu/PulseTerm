@@ -26,6 +26,7 @@
                 <ResourceInclude Source="avares://VelaShell.Controls/Themes/VelaTokens.axaml" />
                 <ResourceInclude Source="avares://VelaShell.Controls/Themes/VelaShellTokens.axaml" />
                 <ResourceInclude Source="avares://VelaShell.Controls/Themes/Icons.axaml" />
+                <ResourceInclude Source="avares://VelaShell/Themes/ButtonThemes.axaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <!-- 界面字号默认值(设计 font-ui 13);运行时被 ApplyWindowAppearance 覆盖。 -->

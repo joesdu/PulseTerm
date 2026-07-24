@@ -9,7 +9,9 @@
              mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="600"
              x:Class="VelaShell.Views.SftpDocumentView"
              x:DataType="vm:SftpDocumentViewModel">
-  <Border Background="{DynamicResource VelaBgTerminal}">
+  <!-- 外层包裹用 VelaBgDockDocument(有背景图时置透明),避免与内部 LocalFilePaneView/FileBrowserView
+       的 VelaBgSftpPanel 底叠加成双层(双列 SFTP 曾因此完全不透明)。tint 由内部各面板单层承担。 -->
+  <Border Background="{DynamicResource VelaBgDockDocument}">
     <DockPanel>
       <Grid MinWidth="564">
         <Grid.ColumnDefinitions>

@@ -42,9 +42,10 @@ public partial class FileBrowserView : UserControl
     /// <summary>表头/行的左右内边距合计(axaml 里 Padding="14,0")。</summary>
     private const double HorizontalPadding = 28;
 
-    private static readonly FontFamily TerminalFont = new(
-        "JetBrains Mono, Cascadia Mono, Consolas, monospace"
-    );
+    // 必须与 axaml 里渲染用的 VelaTerminalFont 令牌(内置 Cascadia Mono 打头)一致:
+    // 列宽是用这个字体度量的,若度量字体与实际渲染字体不同(旧值以 JetBrains Mono 打头,
+    // 且不含内置 Cascadia),字形步进不一致会导致列自适应/截断错位。
+    private static readonly FontFamily TerminalFont = new("fonts:VelaShell#Cascadia Mono, JetBrains Mono, Consolas, monospace");
     private static readonly Typeface TerminalTypeface = new(TerminalFont);
     private string? _activeSplitter;
     private double _dragStartX;

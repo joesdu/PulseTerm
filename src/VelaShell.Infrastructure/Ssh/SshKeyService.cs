@@ -85,14 +85,21 @@ public sealed class SshKeyService(string? sshDirectory = null) : ISshKeyService
                 throw new IOException(Strings.Format("KeySvc_AlreadyExists", name));
             }
             using var rsa = RSA.Create(bits);
-            File.WriteAllText(privatePath, rsa.ExportRSAPrivateKeyPem() + Environment.NewLine);
+            RSAParameters parameters = rsa.ExportParameters(true);
+            string comment = $"velashell@{Environment.MachineName}";
+
+            // 私钥必须写 OpenSSH 格式(-----BEGIN OPENSSH PRIVATE KEY-----)。
+            // Tmds.Ssh 0.23 的私钥解析器只认 OpenSSH 格式,ExportRSAPrivateKeyPem() 产出的 PKCS#1
+            // (-----BEGIN RSA PRIVATE KEY-----)与 PKCS#8 都会被判 "Unsupported format" 而当作
+            // 无可用凭据【跳过】——认证遂以 "These methods were skipped: publickey" 失败,用户表现为
+            // 用本应用生成的密钥怎么都登不上(排障线索:诊断第 4 步 no methods failed、skipped publickey)。
+            File.WriteAllText(privatePath, OpenSshPrivateKey.SerializeRsa(parameters, comment));
             if (!OperatingSystem.IsWindows())
             {
                 File.SetUnixFileMode(privatePath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
             }
-            RSAParameters parameters = rsa.ExportParameters(false);
             byte[] blob = BuildRsaPublicBlob(parameters);
-            string publicLine = $"ssh-rsa {Convert.ToBase64String(blob)} velashell@{Environment.MachineName}";
+            string publicLine = $"ssh-rsa {Convert.ToBase64String(blob)} {comment}";
             File.WriteAllText(publicPath, publicLine + Environment.NewLine);
             return new SshKeyInfo(name, $"RSA {bits}", Fingerprint(blob), privatePath, publicLine);
         }, cancellationToken);
