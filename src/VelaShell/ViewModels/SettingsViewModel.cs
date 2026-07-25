@@ -157,12 +157,26 @@ public class SettingsViewModel : ReactiveObject
         });
         RepairUpdateCommand = ReactiveCommand.CreateFromTask(RepairUpdateStateAsync);
 
+        // 商店版(MSIX)装在只读的 WindowsApps 下,更新由 Microsoft Store 接管:
+        // 应用内的检查/下载/换版/修复一律无意义,整块换成一句说明,免得用户白点。
+        UpdatesManagedByStore = _updateService?.IsStoreManaged ?? false;
+        ShowInAppUpdateControls = !UpdatesManagedByStore;
+        if (UpdatesManagedByStore)
+        {
+            UpdateStatus = Strings.Get("SetAbout_StoreManagedUpdates");
+        }
         // 上一轮换版由外置进程执行,它报的错没法当场弹给用户,只能落盘留到这时候如实展示。
-        if (_updateService?.LastUpdateError is { Length: > 0 } lastError)
+        else if (_updateService?.LastUpdateError is { Length: > 0 } lastError)
         {
             UpdateStatus = Strings.Format("SetAbout_PreviousUpdateFailed", lastError);
         }
     }
+
+    /// <summary>更新由 Microsoft Store 接管(商店版 MSIX);为真时关于页只显示说明,不提供更新操作。</summary>
+    public bool UpdatesManagedByStore { get; }
+
+    /// <summary>是否展示应用内更新操作(检查更新 / 重启并更新 / 修复更新状态)。</summary>
+    public bool ShowInAppUpdateControls { get; }
 
     /// <summary>
     /// 强制重置更新状态:回滚没换完的换版、清掉暂存目录与遗留文件,让下一次检查更新从干净起点开始。
@@ -562,6 +576,11 @@ public class SettingsViewModel : ReactiveObject
         if (_updateService is null)
         {
             UpdateStatus = Strings.Get("Msg_UpdateServiceNotAvailable");
+            return;
+        }
+        if (UpdatesManagedByStore)
+        {
+            UpdateStatus = Strings.Get("SetAbout_StoreManagedUpdates");
             return;
         }
         UpdateReady = false;

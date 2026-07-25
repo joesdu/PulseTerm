@@ -1165,6 +1165,9 @@ Paste anyway?</value>
   <data name="SetAbout_RestartToUpdate" xml:space="preserve">
     <value>Restart &amp; update</value>
   </data>
+  <data name="SetAbout_StoreManagedUpdates" xml:space="preserve">
+    <value>Updates are managed by the Microsoft Store. Check for updates there.</value>
+  </data>
   <data name="SetAbout_RepairUpdate" xml:space="preserve">
     <value>Repair update state</value>
   </data>

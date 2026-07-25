@@ -1256,6 +1256,9 @@
   <data name="SetAbout_RestartToUpdate" xml:space="preserve">
     <value>重启并更新</value>
   </data>
+  <data name="SetAbout_StoreManagedUpdates" xml:space="preserve">
+    <value>更新由 Microsoft Store 管理,请在商店中检查更新。</value>
+  </data>
   <data name="SetAbout_RepairUpdate" xml:space="preserve">
     <value>修复更新状态</value>
   </data>

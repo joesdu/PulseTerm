@@ -6,6 +6,7 @@ using Avalonia;
 using ReactiveUI.Avalonia;
 using VelaShell.Core.Resources;
 using VelaShell.Infrastructure.Persistence;
+using VelaShell.Services;
 using VelaShell.Services.Update;
 
 // ReSharper disable InconsistentNaming
@@ -66,6 +67,12 @@ internal static partial class Program
     /// </summary>
     private static void FinalizePendingUpdate()
     {
+        if (AppPackaging.IsPackaged)
+        {
+            // 商店版从不自更新,安装目录(WindowsApps)也只读:没有换版现场要收拾,
+            // 更不该每次启动都去递归枚举一遍安装目录。
+            return;
+        }
         string appDir = Path.GetDirectoryName(Environment.ProcessPath) ?? AppContext.BaseDirectory;
         UpdateApplier applier = new(appDir);
         if (applier.TryFinalizeStartup())

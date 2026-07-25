@@ -10,10 +10,17 @@ public interface IUpdateService
     string? AvailableVersion { get; }
 
     /// <summary>
-    /// 能否原地自更新:应用目录可写且平台受支持时为 true。装在 Program Files 等
+    /// 能否原地自更新:应用目录可写、平台受支持且非商店版时为 true。装在 Program Files 等
     /// 只读位置时为 false,发现新版本后只能提示用户手动下载。
     /// </summary>
     bool CanSelfUpdate { get; }
+
+    /// <summary>
+    /// 更新是否由 Microsoft Store 接管(即本进程以 MSIX 包身份运行)。为 true 时应用内的
+    /// 检查/下载/换版一律不做:安装目录只读,且商店政策要求包应用只能经商店更新。
+    /// 界面应据此把更新相关操作换成一句"更新由 Microsoft Store 管理"。
+    /// </summary>
+    bool IsStoreManaged { get; }
 
     /// <summary>检查是否有可用更新;返回 true 表示存在比当前版本更新的版本。</summary>
     Task<bool> CheckForUpdateAsync();
