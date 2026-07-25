@@ -131,6 +131,14 @@
                            IsVisible="{Binding FileBrowser.IsVisible}" />
           </Panel>
         </Button>
+        <!-- 任务管理器:绑定命令本身而不是 RunCommand,CanExecute 才能把按钮变灰
+             (本地终端与 SFTP 标签下无远端进程可管)。 -->
+        <Button Theme="{StaticResource VelaTitleActionButton}"
+                ToolTip.Tip="{loc:Localize Menu_ProcessManagerTip}"
+                Command="{Binding OpenProcessManagerCommand}">
+          <pc:LucideIcon Width="12" Height="12" Data="{StaticResource Icon.activity}"
+                         Foreground="{DynamicResource VelaTextMuted}" />
+        </Button>
         <Button Theme="{StaticResource VelaTitleActionButton}"
                 ToolTip.Tip="{loc:Localize Menu_TunnelTip}"
                 Command="{Binding RunCommand}" CommandParameter="tools.tunnel">

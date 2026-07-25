@@ -1167,7 +1167,13 @@
     <value>SFTP 服务不可用。</value>
   </data>
   <data name="Msg_SshConnectionLostDetail" xml:space="preserve">
-    <value>// 与 {0} 的 SSH 连接已丢失</value>
+    <value>与 {0} 的连接已断开</value>
+  </data>
+  <data name="Msg_LocalShellExitedDetail" xml:space="preserve">
+    <value>本地终端 {0} 的会话已结束</value>
+  </data>
+  <data name="Msg_DisconnectOverlayKeyHint" xml:space="preserve">
+    <value>Enter 重新连接 · Esc 关闭标签页</value>
   </data>
   <data name="Msg_SshServiceNotConfigured" xml:space="preserve">
     <value>SSH 连接服务未配置。</value>
@@ -2972,5 +2978,149 @@ Windows 填 exe 完整路径或命令名(如 notepad);Linux 填命令名(如 ged
   </data>
   <data name="Transfer_ClearCompleted" xml:space="preserve">
     <value>清除已结束</value>
+  </data>
+  <data name="Cmd_ProcessManager" xml:space="preserve">
+    <value>任务管理器</value>
+  </data>
+  <data name="Menu_ProcessManagerTip" xml:space="preserve">
+    <value>当前 SSH 会话的任务管理器</value>
+  </data>
+  <data name="Proc_TitleFormat" xml:space="preserve">
+    <value>{0} — 任务管理器</value>
+  </data>
+  <data name="Proc_SearchPlaceholder" xml:space="preserve">
+    <value>搜索名称、命令行或 PID</value>
+  </data>
+  <data name="Proc_ColName" xml:space="preserve">
+    <value>名称</value>
+  </data>
+  <data name="Proc_ColPid" xml:space="preserve">
+    <value>PID</value>
+  </data>
+  <data name="Proc_ColUser" xml:space="preserve">
+    <value>用户</value>
+  </data>
+  <data name="Proc_ColCpu" xml:space="preserve">
+    <value>CPU</value>
+  </data>
+  <data name="Proc_ColMemory" xml:space="preserve">
+    <value>内存</value>
+  </data>
+  <data name="Proc_ColThreads" xml:space="preserve">
+    <value>线程</value>
+  </data>
+  <data name="Proc_ColState" xml:space="preserve">
+    <value>状态</value>
+  </data>
+  <data name="Proc_ColTime" xml:space="preserve">
+    <value>运行时长</value>
+  </data>
+  <data name="Proc_ColCommand" xml:space="preserve">
+    <value>命令行</value>
+  </data>
+  <data name="Proc_EndTask" xml:space="preserve">
+    <value>结束任务</value>
+  </data>
+  <data name="Proc_EndTree" xml:space="preserve">
+    <value>结束进程树</value>
+  </data>
+  <data name="Proc_ForceEnd" xml:space="preserve">
+    <value>强制结束</value>
+  </data>
+  <data name="Proc_SetPriority" xml:space="preserve">
+    <value>设置优先级</value>
+  </data>
+  <data name="Proc_CopyCommand" xml:space="preserve">
+    <value>复制命令行</value>
+  </data>
+  <data name="Proc_PriorityRealtime" xml:space="preserve">
+    <value>实时</value>
+  </data>
+  <data name="Proc_PriorityHigh" xml:space="preserve">
+    <value>高</value>
+  </data>
+  <data name="Proc_PriorityAboveNormal" xml:space="preserve">
+    <value>高于标准</value>
+  </data>
+  <data name="Proc_PriorityNormal" xml:space="preserve">
+    <value>标准</value>
+  </data>
+  <data name="Proc_PriorityBelowNormal" xml:space="preserve">
+    <value>低于标准</value>
+  </data>
+  <data name="Proc_PriorityLow" xml:space="preserve">
+    <value>低</value>
+  </data>
+  <data name="Proc_Speed" xml:space="preserve">
+    <value>更新速度</value>
+  </data>
+  <data name="Proc_SpeedHigh" xml:space="preserve">
+    <value>高</value>
+  </data>
+  <data name="Proc_SpeedNormal" xml:space="preserve">
+    <value>普通</value>
+  </data>
+  <data name="Proc_SpeedLow" xml:space="preserve">
+    <value>低</value>
+  </data>
+  <data name="Proc_SpeedPaused" xml:space="preserve">
+    <value>已暂停</value>
+  </data>
+  <data name="Proc_ShowKernelThreads" xml:space="preserve">
+    <value>显示内核线程</value>
+  </data>
+  <data name="Proc_TreeView" xml:space="preserve">
+    <value>树形视图</value>
+  </data>
+  <data name="Proc_Refresh" xml:space="preserve">
+    <value>立即刷新</value>
+  </data>
+  <data name="Proc_Unavailable" xml:space="preserve">
+    <value>无法获取远端进程列表</value>
+  </data>
+  <data name="Proc_UnavailableHint" xml:space="preserve">
+    <value>该视图读取远端的 /proc 与 ps,需要一个已连接的 Linux 会话。</value>
+  </data>
+  <data name="Proc_ConfirmEndTitle" xml:space="preserve">
+    <value>结束进程</value>
+  </data>
+  <data name="Proc_ConfirmEndTreeTitle" xml:space="preserve">
+    <value>结束进程树</value>
+  </data>
+  <data name="Proc_ConfirmForceEndTitle" xml:space="preserve">
+    <value>强制结束进程</value>
+  </data>
+  <data name="Proc_ConfirmEndBody" xml:space="preserve">
+    <value>确定结束 {0}(PID {1})吗?未保存的数据将会丢失。</value>
+  </data>
+  <data name="Proc_ConfirmEndTreeBody" xml:space="preserve">
+    <value>确定结束 {0}(PID {1})及其全部子进程,共 {2} 个进程吗?未保存的数据将会丢失。</value>
+  </data>
+  <data name="Proc_EndSucceeded" xml:space="preserve">
+    <value>已向 {0} 及其进程树共 {1} 个进程发送结束信号</value>
+  </data>
+  <data name="Proc_EndFailed" xml:space="preserve">
+    <value>结束 {0} 失败:{1}</value>
+  </data>
+  <data name="Proc_PriorityChanged" xml:space="preserve">
+    <value>{0} 的优先级已设为 nice {1}</value>
+  </data>
+  <data name="Proc_PriorityFailed" xml:space="preserve">
+    <value>调整 {0} 的优先级失败:{1}</value>
+  </data>
+  <data name="Proc_ReasonUnknown" xml:space="preserve">
+    <value>原因未知(可能需要 root 权限)</value>
+  </data>
+  <data name="Proc_CommandCopied" xml:space="preserve">
+    <value>命令行已复制</value>
+  </data>
+  <data name="Proc_CountFormat" xml:space="preserve">
+    <value>进程:{0} / {1}</value>
+  </data>
+  <data name="Proc_CoresFormat" xml:space="preserve">
+    <value>{0} 核</value>
+  </data>
+  <data name="Proc_CpuNormalisedTip" xml:space="preserve">
+    <value>按总容量归一:全核满载为 100%,与 Windows 任务管理器口径一致</value>
   </data>
 </root>

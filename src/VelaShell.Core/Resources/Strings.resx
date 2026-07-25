@@ -1076,7 +1076,13 @@ Paste anyway?</value>
     <value>SFTP service is unavailable.</value>
   </data>
   <data name="Msg_SshConnectionLostDetail" xml:space="preserve">
-    <value>// The SSH connection to {0} was lost</value>
+    <value>The connection to {0} has been closed</value>
+  </data>
+  <data name="Msg_LocalShellExitedDetail" xml:space="preserve">
+    <value>The local shell session {0} has ended</value>
+  </data>
+  <data name="Msg_DisconnectOverlayKeyHint" xml:space="preserve">
+    <value>Enter to reconnect · Esc to close this tab</value>
   </data>
   <data name="Msg_SshServiceNotConfigured" xml:space="preserve">
     <value>SSH connection service is not configured.</value>
@@ -2881,5 +2887,149 @@ Overwrite it?</value>
   </data>
   <data name="Transfer_ClearCompleted" xml:space="preserve">
     <value>Clear finished</value>
+  </data>
+  <data name="Cmd_ProcessManager" xml:space="preserve">
+    <value>Task Manager</value>
+  </data>
+  <data name="Menu_ProcessManagerTip" xml:space="preserve">
+    <value>Task Manager for the focused SSH session</value>
+  </data>
+  <data name="Proc_TitleFormat" xml:space="preserve">
+    <value>{0} — Task Manager</value>
+  </data>
+  <data name="Proc_SearchPlaceholder" xml:space="preserve">
+    <value>Search by name, command line or PID</value>
+  </data>
+  <data name="Proc_ColName" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="Proc_ColPid" xml:space="preserve">
+    <value>PID</value>
+  </data>
+  <data name="Proc_ColUser" xml:space="preserve">
+    <value>User</value>
+  </data>
+  <data name="Proc_ColCpu" xml:space="preserve">
+    <value>CPU</value>
+  </data>
+  <data name="Proc_ColMemory" xml:space="preserve">
+    <value>Memory</value>
+  </data>
+  <data name="Proc_ColThreads" xml:space="preserve">
+    <value>Threads</value>
+  </data>
+  <data name="Proc_ColState" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="Proc_ColTime" xml:space="preserve">
+    <value>Uptime</value>
+  </data>
+  <data name="Proc_ColCommand" xml:space="preserve">
+    <value>Command line</value>
+  </data>
+  <data name="Proc_EndTask" xml:space="preserve">
+    <value>End task</value>
+  </data>
+  <data name="Proc_EndTree" xml:space="preserve">
+    <value>End process tree</value>
+  </data>
+  <data name="Proc_ForceEnd" xml:space="preserve">
+    <value>Force end</value>
+  </data>
+  <data name="Proc_SetPriority" xml:space="preserve">
+    <value>Set priority</value>
+  </data>
+  <data name="Proc_CopyCommand" xml:space="preserve">
+    <value>Copy command line</value>
+  </data>
+  <data name="Proc_PriorityRealtime" xml:space="preserve">
+    <value>Realtime</value>
+  </data>
+  <data name="Proc_PriorityHigh" xml:space="preserve">
+    <value>High</value>
+  </data>
+  <data name="Proc_PriorityAboveNormal" xml:space="preserve">
+    <value>Above normal</value>
+  </data>
+  <data name="Proc_PriorityNormal" xml:space="preserve">
+    <value>Normal</value>
+  </data>
+  <data name="Proc_PriorityBelowNormal" xml:space="preserve">
+    <value>Below normal</value>
+  </data>
+  <data name="Proc_PriorityLow" xml:space="preserve">
+    <value>Low</value>
+  </data>
+  <data name="Proc_Speed" xml:space="preserve">
+    <value>Update speed</value>
+  </data>
+  <data name="Proc_SpeedHigh" xml:space="preserve">
+    <value>High</value>
+  </data>
+  <data name="Proc_SpeedNormal" xml:space="preserve">
+    <value>Normal</value>
+  </data>
+  <data name="Proc_SpeedLow" xml:space="preserve">
+    <value>Low</value>
+  </data>
+  <data name="Proc_SpeedPaused" xml:space="preserve">
+    <value>Paused</value>
+  </data>
+  <data name="Proc_ShowKernelThreads" xml:space="preserve">
+    <value>Show kernel threads</value>
+  </data>
+  <data name="Proc_TreeView" xml:space="preserve">
+    <value>Tree view</value>
+  </data>
+  <data name="Proc_Refresh" xml:space="preserve">
+    <value>Refresh now</value>
+  </data>
+  <data name="Proc_Unavailable" xml:space="preserve">
+    <value>Remote process list unavailable</value>
+  </data>
+  <data name="Proc_UnavailableHint" xml:space="preserve">
+    <value>This view reads /proc and ps on the remote host, so it needs a connected Linux session.</value>
+  </data>
+  <data name="Proc_ConfirmEndTitle" xml:space="preserve">
+    <value>End process</value>
+  </data>
+  <data name="Proc_ConfirmEndTreeTitle" xml:space="preserve">
+    <value>End process tree</value>
+  </data>
+  <data name="Proc_ConfirmForceEndTitle" xml:space="preserve">
+    <value>Force end process</value>
+  </data>
+  <data name="Proc_ConfirmEndBody" xml:space="preserve">
+    <value>End {0} (PID {1})? Unsaved data will be lost.</value>
+  </data>
+  <data name="Proc_ConfirmEndTreeBody" xml:space="preserve">
+    <value>End {0} (PID {1}) together with its descendants, {2} processes in total? Unsaved data will be lost.</value>
+  </data>
+  <data name="Proc_EndSucceeded" xml:space="preserve">
+    <value>Sent the end signal to {0} and its tree, {1} process(es)</value>
+  </data>
+  <data name="Proc_EndFailed" xml:space="preserve">
+    <value>Could not end {0}: {1}</value>
+  </data>
+  <data name="Proc_PriorityChanged" xml:space="preserve">
+    <value>Priority of {0} set to nice {1}</value>
+  </data>
+  <data name="Proc_PriorityFailed" xml:space="preserve">
+    <value>Could not change the priority of {0}: {1}</value>
+  </data>
+  <data name="Proc_ReasonUnknown" xml:space="preserve">
+    <value>unknown reason (root privileges may be required)</value>
+  </data>
+  <data name="Proc_CommandCopied" xml:space="preserve">
+    <value>Command line copied</value>
+  </data>
+  <data name="Proc_CountFormat" xml:space="preserve">
+    <value>Processes: {0} / {1}</value>
+  </data>
+  <data name="Proc_CoresFormat" xml:space="preserve">
+    <value>{0} cores</value>
+  </data>
+  <data name="Proc_CpuNormalisedTip" xml:space="preserve">
+    <value>Normalised to total capacity: all cores busy is 100%, same as Windows Task Manager</value>
   </data>
 </root>

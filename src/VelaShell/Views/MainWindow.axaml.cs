@@ -1,5 +1,4 @@
 using System.Reactive.Linq;
-using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
@@ -12,12 +11,14 @@ using Microsoft.Extensions.DependencyInjection;
 using ReactiveUI;
 using VelaShell.Core.Data;
 using VelaShell.Core.Models;
+using VelaShell.Core.Processes;
 using VelaShell.Core.Resources;
 using VelaShell.Core.Services;
 using VelaShell.Core.Ssh;
 using VelaShell.Docking;
 using VelaShell.Presentation.Services;
 using VelaShell.Security;
+using VelaShell.Services;
 using VelaShell.Services.ZModem;
 using VelaShell.ViewModels;
 
@@ -26,13 +27,18 @@ namespace VelaShell.Views;
 /// <summary>应用主窗口:自绘无边框标题栏、侧边栏与终端主区的宿主,统筹连接、设置、会话恢复与关闭链路。</summary>
 public partial class MainWindow : Window
 {
+    /// <summary>任务管理器窗口尺寸在文档存储里的键。</summary>
+    private const string ProcessManagerLayoutKey = "processManager";
+
+    /// <summary>每个会话至多一扇任务管理器窗口,按会话标识去重。</summary>
+    private readonly Dictionary<Guid, ProcessManagerView> _processManagers = [];
+
     private IDisposable? _fileBrowserVisibilitySub;
     private bool _forceClose;
     private bool _confirmationInProgress;
     private bool _standaloneSftpShutdownInProgress;
     private bool _standaloneSftpShutdownComplete;
     private bool _openedInitialized;
-    private bool _snapLayoutsInitialized;
 
     /// <summary>自绘缩放抓取区:普通状态按下即进入原生缩放;最大化时整层隐藏(见 OnPropertyChanged)。</summary>
     private void ResizeEdge_PointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
@@ -94,201 +100,20 @@ public partial class MainWindow : Window
         ActualThemeVariantChanged += (_, _) =>
             ApplyBackgroundOpacities(_lastImageOpacity, _lastContentOpacity);
         Opened += OnWindowOpened;
-        if (OperatingSystem.IsWindows())
-        {
-            Opened += (_, _) => SetupSnapLayouts();
-        }
+        Opened += (_, _) =>
+            Win32WindowChrome.Attach(
+                this,
+                () => TitleBar?.MaximizeButtonControl,
+                hover => TitleBar?.SetMaximizeNcHover(hover),
+                () => TitleBar?.ToggleMaximize()
+            );
     }
 
-    // ---- 原生窗口效果(WindowChrome 手法) --------------------------------------
-    // WindowDecorations="None" 的自绘窗体默认失去 DWM 框架语义。这里补回
-    // WS_CAPTION|WS_THICKFRAME|WS_MIN/MAXIMIZEBOX(样式回调,防 Avalonia 重算时
-    // 清掉),再用 WM_NCCALCSIZE 让客户区占满窗口(无可视系统标题/边框)——
-    // 由此找回:DWM 阴影、Win11 圆角、最小化/最大化动画、悬停最大化按钮的
-    // 贴靠布局面板(还需 WM_NCHITTEST 对按钮报 HTMAXBUTTON)。
-    // WM_NCHITTEST 其余区域强制 HTCLIENT,防止系统按 WS_CAPTION 在顶部划出
-    // 非客户带吞掉自绘标题栏的输入(Avalonia 12 extend 模式踩过的坑)。
-
-    private const int HTMAXBUTTON = 9;
+    // ---- 原生窗口效果 ----------------------------------------------------------
+    // 自绘窗体的 DWM 框架语义(阴影、Win11 圆角、最大化动画、贴靠布局面板)统一由
+    // Win32WindowChrome 负责,任务管理器等其他自绘窗体共用同一套,外观才一致。
 
     private TitleBarView? TitleBar => this.FindControl<TitleBarView>("TitleBarHost");
-
-    [LibraryImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
-    private static partial long GetWindowLongPtrW(IntPtr hWnd, int index);
-
-    [LibraryImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
-    private static partial long SetWindowLongPtrW(IntPtr hWnd, int index, long value);
-
-    [LibraryImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
-
-    [LibraryImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool IsZoomed(IntPtr hWnd);
-
-    [LibraryImport("user32.dll")]
-    private static partial IntPtr MonitorFromWindow(IntPtr hWnd, uint flags);
-
-    [LibraryImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool GetMonitorInfoW(IntPtr hMonitor, ref MONITORINFO info);
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct WINRECT
-    {
-        public int Left,
-            Top,
-            Right,
-            Bottom;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct MONITORINFO
-    {
-        public int Size;
-        public WINRECT Monitor;
-        public WINRECT Work;
-        public uint Flags;
-    }
-
-    private const long StyleWsCaption = 0x00C00000,
-        StyleWsThickFrame = 0x00040000,
-        StyleWsMinimizeBox = 0x00020000,
-        StyleWsMaximizeBox = 0x00010000;
-
-    private void SetupSnapLayouts()
-    {
-        // 只装一次:Opened 每次 Show() 都会重发(从托盘重开亦然),否则每次重开都会再追加一份
-        // 样式回调与 WndProc 钩子,越积越多、白白重复处理每条窗口消息。
-        if (_snapLayoutsInitialized)
-        {
-            return;
-        }
-        _snapLayoutsInitialized = true;
-        // 样式回调:Avalonia 每次重算窗口样式后追加 DWM 框架位。
-        Win32Properties.AddWindowStylesCallback(
-            this,
-            (style, exStyle) =>
-                (
-                    (uint)(
-                        style
-                        | StyleWsCaption
-                        | StyleWsThickFrame
-                        | StyleWsMinimizeBox
-                        | StyleWsMaximizeBox
-                    ),
-                    exStyle
-                )
-        );
-        Win32Properties.AddWndProcHookCallback(this, SnapLayoutsWndProc);
-
-        // 立即应用一次并触发 FRAMECHANGED,当前会话即刻生效。
-        if (TryGetPlatformHandle() is { } handle)
-        {
-            const int GWL_STYLE = -16;
-            const uint SWP_FRAMECHANGED = 0x0020,
-                SWP_NOMOVE = 0x0002,
-                SWP_NOSIZE = 0x0001,
-                SWP_NOZORDER = 0x0004;
-            long style = GetWindowLongPtrW(handle.Handle, GWL_STYLE);
-            SetWindowLongPtrW(
-                handle.Handle,
-                GWL_STYLE,
-                style | StyleWsCaption | StyleWsThickFrame | StyleWsMinimizeBox | StyleWsMaximizeBox
-            );
-            SetWindowPos(
-                handle.Handle,
-                IntPtr.Zero,
-                0,
-                0,
-                0,
-                0,
-                SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER
-            );
-        }
-    }
-
-    private IntPtr SnapLayoutsWndProc(
-        IntPtr hWnd,
-        uint msg,
-        IntPtr wParam,
-        IntPtr lParam,
-        ref bool handled
-    )
-    {
-        const uint WM_NCCALCSIZE = 0x0083,
-            WM_NCHITTEST = 0x0084,
-            WM_NCMOUSELEAVE = 0x02A2,
-            WM_NCLBUTTONDOWN = 0x00A1,
-            WM_NCLBUTTONUP = 0x00A2;
-        const int HTCLIENT = 1;
-        switch (msg)
-        {
-            case WM_NCCALCSIZE when wParam != IntPtr.Zero:
-                // 客户区占满窗口(去掉可视的系统标题/边框,保留 DWM 框架语义)。
-                // 最大化时窗口矩形按惯例大出边框宽度,须裁回工作区,否则四周越屏。
-                if (IsZoomed(hWnd))
-                {
-                    IntPtr monitor = MonitorFromWindow(
-                        hWnd,
-                        2 /* MONITOR_DEFAULTTONEAREST */
-                    );
-                    var info = new MONITORINFO { Size = Marshal.SizeOf<MONITORINFO>() };
-                    if (monitor != IntPtr.Zero && GetMonitorInfoW(monitor, ref info))
-                    {
-                        Marshal.StructureToPtr(info.Work, lParam, false);
-                    }
-                }
-                handled = true;
-                return IntPtr.Zero;
-            case WM_NCHITTEST:
-                if (IsPointOverMaximizeButton(lParam))
-                {
-                    TitleBar?.SetMaximizeNcHover(true);
-                    handled = true;
-                    return HTMAXBUTTON;
-                }
-                TitleBar?.SetMaximizeNcHover(false);
-                // 其余全部按客户区处理:拖动/双击由自绘标题栏负责,缩放由自绘抓取区负责;
-                // 不拦截会让 DefWindowProc 按 WS_CAPTION 在顶部划非客户带吞掉输入。
-                handled = true;
-                return HTCLIENT;
-            case WM_NCMOUSELEAVE:
-                TitleBar?.SetMaximizeNcHover(false);
-                break;
-            case WM_NCLBUTTONDOWN when wParam.ToInt64() == HTMAXBUTTON:
-                handled = true; // 吞掉按下,防 DefWindowProc 的历史行为
-                return IntPtr.Zero;
-            case WM_NCLBUTTONUP when wParam.ToInt64() == HTMAXBUTTON:
-                handled = true;
-                TitleBar?.SetMaximizeNcHover(false);
-                TitleBar?.ToggleMaximize();
-                return IntPtr.Zero;
-        }
-        return IntPtr.Zero;
-    }
-
-    private bool IsPointOverMaximizeButton(IntPtr lParam)
-    {
-        if (TitleBar?.MaximizeButtonControl is not { IsVisible: true } button || !button.IsAttachedToVisualTree())
-        {
-            return false;
-        }
-        // lParam:屏幕物理坐标(低 16 位 x / 高 16 位 y,有符号)。
-        long packed = lParam.ToInt64();
-        int screenX = unchecked((short)(packed & 0xFFFF));
-        int screenY = unchecked((short)((packed >> 16) & 0xFFFF));
-        PixelPoint topLeft = button.PointToScreen(new Point(0, 0));
-        var rect = new PixelRect(
-            topLeft,
-            new PixelSize(
-                (int)(button.Bounds.Width * RenderScaling),
-                (int)(button.Bounds.Height * RenderScaling)
-            )
-        );
-        return rect.Contains(new PixelPoint(screenX, screenY));
-    }
 
     /// <summary>
     /// 随 FileBrowser.IsVisible 切换折叠/展开文件区行。WhenAnyValue
@@ -358,6 +183,9 @@ public partial class MainWindow : Window
             // 工具菜单“连接诊断”:对当前标签的配置打开诊断中心(设计 RGXg1)。
             vm.DiagnosticsRequested += profile =>
                 Dispatcher.UIThread.Post(() => _ = OpenDiagnosticsDialogAsync(profile));
+            // 标题栏“任务管理器”:每个会话最多一扇窗,非模态。
+            vm.ProcessManagerRequested += (sessionId, label) =>
+                Dispatcher.UIThread.Post(() => _ = OpenProcessManagerAsync(sessionId, label));
 
             // 资源管理器树:右键连接/双击连接 + 右键编辑。
             if (vm.Sidebar.SessionTree is { } tree)
@@ -967,6 +795,38 @@ public partial class MainWindow : Window
         // TryConnectProfileAsync 永不抛异常 —— 连接失败已在标签页内以覆盖层提示(设计 yxjmg),
         // 不再弹全局框。
         await mainWindowViewModel.TryConnectProfileAsync(profile);
+    }
+
+    /// <summary>
+    /// 打开(或前置)某个会话的任务管理器窗口。非模态 —— 用户要一边看进程一边在终端里
+    /// 敲命令;同一会话重复点击只把已开的窗口激活,不再叠一扇。
+    /// </summary>
+    private async Task OpenProcessManagerAsync(Guid sessionId, string label)
+    {
+        if (_processManagers.TryGetValue(sessionId, out ProcessManagerView? existing))
+        {
+            existing.Activate();
+            return;
+        }
+        if (Application.Current is not App app
+            || app.Services?.GetService<IRemoteProcessService>() is not { } processService)
+        {
+            return;
+        }
+        var window = new ProcessManagerView
+        {
+            DataContext = new ProcessManagerViewModel(processService, sessionId, label),
+        };
+        _processManagers[sessionId] = window;
+        window.Closed += (_, _) => _processManagers.Remove(sessionId);
+
+        // 尺寸记忆:所有会话共用一条记录 —— 用户调的是"这个面板多大",不是"这台服务器的面板多大"。
+        if (app.Services?.GetService<WindowLayoutStore>() is { } layoutStore)
+        {
+            WindowLayoutStore.Apply(window, await layoutStore.LoadAsync(ProcessManagerLayoutKey));
+            window.Closing += (_, _) => _ = layoutStore.SaveAsync(ProcessManagerLayoutKey, window);
+        }
+        window.Show(this);
     }
 
     /// <summary>打开连接诊断中心(设计 RGXg1):打开即自动执行一轮四步检测。</summary>

@@ -870,7 +870,13 @@
     <value>SFTP 서비스를 사용할 수 없습니다.</value>
   </data>
   <data name="Msg_SshConnectionLostDetail" xml:space="preserve">
-    <value>// {0}과(와)의 SSH 연결이 끊어졌습니다</value>
+    <value>{0}과(와)의 연결이 끊어졌습니다</value>
+  </data>
+  <data name="Msg_LocalShellExitedDetail" xml:space="preserve">
+    <value>로컬 터미널 {0} 세션이 종료되었습니다</value>
+  </data>
+  <data name="Msg_DisconnectOverlayKeyHint" xml:space="preserve">
+    <value>Enter 다시 연결 · Esc 탭 닫기</value>
   </data>
   <data name="Msg_SshServiceNotConfigured" xml:space="preserve">
     <value>SSH 연결 서비스가 구성되지 않았습니다.</value>
@@ -2853,5 +2859,176 @@ Windows는 exe 전체 경로 또는 명령 이름(예: notepad), Linux는 명령
   </data>
   <data name="Transfer_ClearCompleted" xml:space="preserve">
     <value>완료 항목 지우기</value>
+  </data>
+  <data name="SetAppear_BackgroundImage" xml:space="preserve">
+    <value>배경 이미지</value>
+  </data>
+  <data name="SetAppear_BackgroundImageBrowse" xml:space="preserve">
+    <value>찾아보기…</value>
+  </data>
+  <data name="SetAppear_BackgroundImageClear" xml:space="preserve">
+    <value>지우기</value>
+  </data>
+  <data name="SetAppear_BackgroundImageDesc" xml:space="preserve">
+    <value>// 앱 뒤에 표시할 이미지. 아래 불투명도 슬라이더로 조절합니다</value>
+  </data>
+  <data name="SetAppear_BackgroundImageOpacity" xml:space="preserve">
+    <value>배경 이미지 불투명도</value>
+  </data>
+  <data name="SetAppear_BackgroundImageOpacityDesc" xml:space="preserve">
+    <value>// 낮을수록 이미지가 흐려집니다</value>
+  </data>
+  <data name="SetAppear_ContentBgOpacity" xml:space="preserve">
+    <value>콘텐츠 배경 불투명도</value>
+  </data>
+  <data name="SetAppear_ContentBgOpacityDesc" xml:space="preserve">
+    <value>// 모든 콘텐츠(터미널, SFTP, 사이드바) 뒤의 이미지를 덮습니다. 낮을수록 이미지가 잘 보입니다</value>
+  </data>
+  <data name="Sftp_FollowTerminal" xml:space="preserve">
+    <value>터미널 디렉터리 따라가기(현재 경로에 동기화)</value>
+  </data>
+  <data name="Cmd_ProcessManager" xml:space="preserve">
+    <value>작업 관리자</value>
+  </data>
+  <data name="Menu_ProcessManagerTip" xml:space="preserve">
+    <value>활성 SSH 세션의 작업 관리자</value>
+  </data>
+  <data name="Proc_TitleFormat" xml:space="preserve">
+    <value>{0} — 작업 관리자</value>
+  </data>
+  <data name="Proc_SearchPlaceholder" xml:space="preserve">
+    <value>이름, 명령줄 또는 PID로 검색</value>
+  </data>
+  <data name="Proc_ColName" xml:space="preserve">
+    <value>이름</value>
+  </data>
+  <data name="Proc_ColPid" xml:space="preserve">
+    <value>PID</value>
+  </data>
+  <data name="Proc_ColUser" xml:space="preserve">
+    <value>사용자</value>
+  </data>
+  <data name="Proc_ColCpu" xml:space="preserve">
+    <value>CPU</value>
+  </data>
+  <data name="Proc_ColMemory" xml:space="preserve">
+    <value>메모리</value>
+  </data>
+  <data name="Proc_ColThreads" xml:space="preserve">
+    <value>스레드</value>
+  </data>
+  <data name="Proc_ColState" xml:space="preserve">
+    <value>상태</value>
+  </data>
+  <data name="Proc_ColTime" xml:space="preserve">
+    <value>실행 시간</value>
+  </data>
+  <data name="Proc_ColCommand" xml:space="preserve">
+    <value>명령줄</value>
+  </data>
+  <data name="Proc_EndTask" xml:space="preserve">
+    <value>작업 끝내기</value>
+  </data>
+  <data name="Proc_EndTree" xml:space="preserve">
+    <value>프로세스 트리 끝내기</value>
+  </data>
+  <data name="Proc_ForceEnd" xml:space="preserve">
+    <value>강제 종료</value>
+  </data>
+  <data name="Proc_SetPriority" xml:space="preserve">
+    <value>우선순위 설정</value>
+  </data>
+  <data name="Proc_CopyCommand" xml:space="preserve">
+    <value>명령줄 복사</value>
+  </data>
+  <data name="Proc_PriorityRealtime" xml:space="preserve">
+    <value>실시간</value>
+  </data>
+  <data name="Proc_PriorityHigh" xml:space="preserve">
+    <value>높음</value>
+  </data>
+  <data name="Proc_PriorityAboveNormal" xml:space="preserve">
+    <value>보통 초과</value>
+  </data>
+  <data name="Proc_PriorityNormal" xml:space="preserve">
+    <value>보통</value>
+  </data>
+  <data name="Proc_PriorityBelowNormal" xml:space="preserve">
+    <value>보통 미만</value>
+  </data>
+  <data name="Proc_PriorityLow" xml:space="preserve">
+    <value>낮음</value>
+  </data>
+  <data name="Proc_Speed" xml:space="preserve">
+    <value>업데이트 속도</value>
+  </data>
+  <data name="Proc_SpeedHigh" xml:space="preserve">
+    <value>높음</value>
+  </data>
+  <data name="Proc_SpeedNormal" xml:space="preserve">
+    <value>보통</value>
+  </data>
+  <data name="Proc_SpeedLow" xml:space="preserve">
+    <value>낮음</value>
+  </data>
+  <data name="Proc_SpeedPaused" xml:space="preserve">
+    <value>일시 중지됨</value>
+  </data>
+  <data name="Proc_ShowKernelThreads" xml:space="preserve">
+    <value>커널 스레드 표시</value>
+  </data>
+  <data name="Proc_TreeView" xml:space="preserve">
+    <value>트리 보기</value>
+  </data>
+  <data name="Proc_Refresh" xml:space="preserve">
+    <value>지금 새로 고침</value>
+  </data>
+  <data name="Proc_Unavailable" xml:space="preserve">
+    <value>원격 프로세스 목록을 가져올 수 없습니다</value>
+  </data>
+  <data name="Proc_UnavailableHint" xml:space="preserve">
+    <value>이 화면은 원격 호스트의 /proc과 ps를 읽으므로 연결된 Linux 세션이 필요합니다.</value>
+  </data>
+  <data name="Proc_ConfirmEndTitle" xml:space="preserve">
+    <value>프로세스 끝내기</value>
+  </data>
+  <data name="Proc_ConfirmEndTreeTitle" xml:space="preserve">
+    <value>프로세스 트리 끝내기</value>
+  </data>
+  <data name="Proc_ConfirmForceEndTitle" xml:space="preserve">
+    <value>프로세스 강제 종료</value>
+  </data>
+  <data name="Proc_ConfirmEndBody" xml:space="preserve">
+    <value>{0}(PID {1})을(를) 끝낼까요? 저장하지 않은 데이터는 사라집니다.</value>
+  </data>
+  <data name="Proc_ConfirmEndTreeBody" xml:space="preserve">
+    <value>{0}(PID {1})과(와) 하위 프로세스를 포함해 총 {2}개를 끝낼까요? 저장하지 않은 데이터는 사라집니다.</value>
+  </data>
+  <data name="Proc_EndSucceeded" xml:space="preserve">
+    <value>{0}과(와) 그 프로세스 트리 총 {1}개에 종료 신호를 보냈습니다</value>
+  </data>
+  <data name="Proc_EndFailed" xml:space="preserve">
+    <value>{0}을(를) 끝내지 못했습니다: {1}</value>
+  </data>
+  <data name="Proc_PriorityChanged" xml:space="preserve">
+    <value>{0}의 우선순위를 nice {1}(으)로 설정했습니다</value>
+  </data>
+  <data name="Proc_PriorityFailed" xml:space="preserve">
+    <value>{0}의 우선순위를 변경하지 못했습니다: {1}</value>
+  </data>
+  <data name="Proc_ReasonUnknown" xml:space="preserve">
+    <value>원인 불명(root 권한이 필요할 수 있음)</value>
+  </data>
+  <data name="Proc_CommandCopied" xml:space="preserve">
+    <value>명령줄을 복사했습니다</value>
+  </data>
+  <data name="Proc_CountFormat" xml:space="preserve">
+    <value>프로세스: {0} / {1}</value>
+  </data>
+  <data name="Proc_CoresFormat" xml:space="preserve">
+    <value>{0}코어</value>
+  </data>
+  <data name="Proc_CpuNormalisedTip" xml:space="preserve">
+    <value>전체 용량 기준: 모든 코어 사용 시 100%, Windows 작업 관리자와 동일</value>
   </data>
 </root>

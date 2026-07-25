@@ -102,10 +102,22 @@ public partial class TerminalTabView : UserControl
             e.Handled = true;
             return;
         }
-        if (
-            DataContext
-            is not TerminalTabViewModel { ConnectionStatus: SessionStatus.Disconnected } vm
-        )
+        if (DataContext is not TerminalTabViewModel vm)
+        {
+            return;
+        }
+
+        // Esc 关闭一个已经断开的标签页。条件挂在覆盖层可见性上而非单看连接状态:
+        // 连接正常时 Esc 必须原样透传给远端(vim/less 等重度依赖),只有覆盖层挡在
+        // 终端前面、按键本就到不了 PTY 时才改写它的语义。
+        if (e is { Key: Key.Escape, KeyModifiers: Avalonia.Input.KeyModifiers.None }
+            && vm.ShowDisconnectedOverlay)
+        {
+            vm.RequestClose();
+            e.Handled = true;
+            return;
+        }
+        if (vm.ConnectionStatus != SessionStatus.Disconnected)
         {
             return;
         }
@@ -1031,7 +1043,7 @@ public partial class TerminalTabView : UserControl
             case ShortcutAction.NewTab:
                 return vm.Commands.Execute("session.new");
             case ShortcutAction.CloseTab:
-                vm.TabBar.CloseActiveTabCommand.Execute().Subscribe();
+                vm.CloseActiveTabCommand.Execute().Subscribe();
                 return true;
             case ShortcutAction.NextTab:
                 vm.TabBar.NextTabCommand.Execute().Subscribe();

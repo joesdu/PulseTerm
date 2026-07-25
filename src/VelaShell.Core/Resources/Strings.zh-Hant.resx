@@ -870,7 +870,13 @@
     <value>SFTP 服務無法使用。</value>
   </data>
   <data name="Msg_SshConnectionLostDetail" xml:space="preserve">
-    <value>// 與 {0} 的 SSH 連線已中斷</value>
+    <value>與 {0} 的連線已中斷</value>
+  </data>
+  <data name="Msg_LocalShellExitedDetail" xml:space="preserve">
+    <value>本機終端 {0} 的工作階段已結束</value>
+  </data>
+  <data name="Msg_DisconnectOverlayKeyHint" xml:space="preserve">
+    <value>Enter 重新連線 · Esc 關閉分頁</value>
   </data>
   <data name="Msg_SshServiceNotConfigured" xml:space="preserve">
     <value>SSH 連線服務未設定。</value>
@@ -2853,5 +2859,176 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   </data>
   <data name="Transfer_ClearCompleted" xml:space="preserve">
     <value>清除已結束</value>
+  </data>
+  <data name="SetAppear_BackgroundImage" xml:space="preserve">
+    <value>背景圖片</value>
+  </data>
+  <data name="SetAppear_BackgroundImageBrowse" xml:space="preserve">
+    <value>瀏覽…</value>
+  </data>
+  <data name="SetAppear_BackgroundImageClear" xml:space="preserve">
+    <value>清除</value>
+  </data>
+  <data name="SetAppear_BackgroundImageDesc" xml:space="preserve">
+    <value>// 鋪在應用程式背後的圖片,可搭配下方的不透明度滑桿調整</value>
+  </data>
+  <data name="SetAppear_BackgroundImageOpacity" xml:space="preserve">
+    <value>背景圖不透明度</value>
+  </data>
+  <data name="SetAppear_BackgroundImageOpacityDesc" xml:space="preserve">
+    <value>// 越低圖片越淡</value>
+  </data>
+  <data name="SetAppear_ContentBgOpacity" xml:space="preserve">
+    <value>內容背景不透明度</value>
+  </data>
+  <data name="SetAppear_ContentBgOpacityDesc" xml:space="preserve">
+    <value>// 遮罩整個視窗內容(終端機、SFTP、側邊欄等)後的背景圖,越低越能透出背景圖</value>
+  </data>
+  <data name="Sftp_FollowTerminal" xml:space="preserve">
+    <value>跟隨終端機目錄(同步到終端機目前路徑)</value>
+  </data>
+  <data name="Cmd_ProcessManager" xml:space="preserve">
+    <value>工作管理員</value>
+  </data>
+  <data name="Menu_ProcessManagerTip" xml:space="preserve">
+    <value>目前 SSH 工作階段的工作管理員</value>
+  </data>
+  <data name="Proc_TitleFormat" xml:space="preserve">
+    <value>{0} — 工作管理員</value>
+  </data>
+  <data name="Proc_SearchPlaceholder" xml:space="preserve">
+    <value>搜尋名稱、命令列或 PID</value>
+  </data>
+  <data name="Proc_ColName" xml:space="preserve">
+    <value>名稱</value>
+  </data>
+  <data name="Proc_ColPid" xml:space="preserve">
+    <value>PID</value>
+  </data>
+  <data name="Proc_ColUser" xml:space="preserve">
+    <value>使用者</value>
+  </data>
+  <data name="Proc_ColCpu" xml:space="preserve">
+    <value>CPU</value>
+  </data>
+  <data name="Proc_ColMemory" xml:space="preserve">
+    <value>記憶體</value>
+  </data>
+  <data name="Proc_ColThreads" xml:space="preserve">
+    <value>執行緒</value>
+  </data>
+  <data name="Proc_ColState" xml:space="preserve">
+    <value>狀態</value>
+  </data>
+  <data name="Proc_ColTime" xml:space="preserve">
+    <value>執行時間</value>
+  </data>
+  <data name="Proc_ColCommand" xml:space="preserve">
+    <value>命令列</value>
+  </data>
+  <data name="Proc_EndTask" xml:space="preserve">
+    <value>結束工作</value>
+  </data>
+  <data name="Proc_EndTree" xml:space="preserve">
+    <value>結束處理程序樹</value>
+  </data>
+  <data name="Proc_ForceEnd" xml:space="preserve">
+    <value>強制結束</value>
+  </data>
+  <data name="Proc_SetPriority" xml:space="preserve">
+    <value>設定優先順序</value>
+  </data>
+  <data name="Proc_CopyCommand" xml:space="preserve">
+    <value>複製命令列</value>
+  </data>
+  <data name="Proc_PriorityRealtime" xml:space="preserve">
+    <value>即時</value>
+  </data>
+  <data name="Proc_PriorityHigh" xml:space="preserve">
+    <value>高</value>
+  </data>
+  <data name="Proc_PriorityAboveNormal" xml:space="preserve">
+    <value>高於一般</value>
+  </data>
+  <data name="Proc_PriorityNormal" xml:space="preserve">
+    <value>一般</value>
+  </data>
+  <data name="Proc_PriorityBelowNormal" xml:space="preserve">
+    <value>低於一般</value>
+  </data>
+  <data name="Proc_PriorityLow" xml:space="preserve">
+    <value>低</value>
+  </data>
+  <data name="Proc_Speed" xml:space="preserve">
+    <value>更新速度</value>
+  </data>
+  <data name="Proc_SpeedHigh" xml:space="preserve">
+    <value>高</value>
+  </data>
+  <data name="Proc_SpeedNormal" xml:space="preserve">
+    <value>一般</value>
+  </data>
+  <data name="Proc_SpeedLow" xml:space="preserve">
+    <value>低</value>
+  </data>
+  <data name="Proc_SpeedPaused" xml:space="preserve">
+    <value>已暫停</value>
+  </data>
+  <data name="Proc_ShowKernelThreads" xml:space="preserve">
+    <value>顯示核心執行緒</value>
+  </data>
+  <data name="Proc_TreeView" xml:space="preserve">
+    <value>樹狀檢視</value>
+  </data>
+  <data name="Proc_Refresh" xml:space="preserve">
+    <value>立即重新整理</value>
+  </data>
+  <data name="Proc_Unavailable" xml:space="preserve">
+    <value>無法取得遠端處理程序清單</value>
+  </data>
+  <data name="Proc_UnavailableHint" xml:space="preserve">
+    <value>此檢視會讀取遠端的 /proc 與 ps,需要一個已連線的 Linux 工作階段。</value>
+  </data>
+  <data name="Proc_ConfirmEndTitle" xml:space="preserve">
+    <value>結束處理程序</value>
+  </data>
+  <data name="Proc_ConfirmEndTreeTitle" xml:space="preserve">
+    <value>結束處理程序樹</value>
+  </data>
+  <data name="Proc_ConfirmForceEndTitle" xml:space="preserve">
+    <value>強制結束處理程序</value>
+  </data>
+  <data name="Proc_ConfirmEndBody" xml:space="preserve">
+    <value>確定要結束 {0}(PID {1})嗎?未儲存的資料將會遺失。</value>
+  </data>
+  <data name="Proc_ConfirmEndTreeBody" xml:space="preserve">
+    <value>確定要結束 {0}(PID {1})及其所有子處理程序,共 {2} 個嗎?未儲存的資料將會遺失。</value>
+  </data>
+  <data name="Proc_EndSucceeded" xml:space="preserve">
+    <value>已向 {0} 及其處理程序樹共 {1} 個處理程序送出結束訊號</value>
+  </data>
+  <data name="Proc_EndFailed" xml:space="preserve">
+    <value>結束 {0} 失敗:{1}</value>
+  </data>
+  <data name="Proc_PriorityChanged" xml:space="preserve">
+    <value>{0} 的優先順序已設為 nice {1}</value>
+  </data>
+  <data name="Proc_PriorityFailed" xml:space="preserve">
+    <value>調整 {0} 的優先順序失敗:{1}</value>
+  </data>
+  <data name="Proc_ReasonUnknown" xml:space="preserve">
+    <value>原因不明(可能需要 root 權限)</value>
+  </data>
+  <data name="Proc_CommandCopied" xml:space="preserve">
+    <value>命令列已複製</value>
+  </data>
+  <data name="Proc_CountFormat" xml:space="preserve">
+    <value>處理程序:{0} / {1}</value>
+  </data>
+  <data name="Proc_CoresFormat" xml:space="preserve">
+    <value>{0} 核</value>
+  </data>
+  <data name="Proc_CpuNormalisedTip" xml:space="preserve">
+    <value>依總容量正規化:全核滿載為 100%,與 Windows 工作管理員口徑一致</value>
   </data>
 </root>

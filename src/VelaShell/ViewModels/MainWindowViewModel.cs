@@ -12,6 +12,7 @@ using Avalonia.Threading;
 using ReactiveUI;
 using VelaShell.Core.Data;
 using VelaShell.Core.Models;
+using VelaShell.Core.Processes;
 using VelaShell.Core.Recording;
 using VelaShell.Core.Resources;
 using VelaShell.Core.Services;
@@ -52,6 +53,7 @@ public class MainWindowViewModel : ReactiveObject
 
     private readonly IConnectionWorkflowService? _connectionWorkflowService;
     private readonly ISessionMetricsService? _metricsService;
+    private readonly IRemoteProcessService? _remoteProcessService;
 
     // ---- 会话日志(设置 → 常规 → 数据与存储) ----
 
@@ -144,9 +146,11 @@ public class MainWindowViewModel : ReactiveObject
         IAppDataStore? appDataStore = null,
         ISessionRecordingStore? recordingStore = null,
         QuickCommandsViewModel? quickCommands = null,
-        IQuickCommandRepository? quickCommandRepository = null
+        IQuickCommandRepository? quickCommandRepository = null,
+        IRemoteProcessService? remoteProcessService = null
     )
     {
+        _remoteProcessService = remoteProcessService;
         _appDataStore = appDataStore;
         _recordingStore = recordingStore;
         _quickCommands = quickCommands;
@@ -236,7 +240,11 @@ public class MainWindowViewModel : ReactiveObject
                     : tab.WhenAnyValue(t => t.IsConnected).Select(_ => Unit.Default)
             )
             .Switch()
-            .Subscribe(_ => this.RaisePropertyChanged(nameof(CanToggleFileBrowser)));
+            .Subscribe(_ =>
+            {
+                this.RaisePropertyChanged(nameof(CanToggleFileBrowser));
+                this.RaisePropertyChanged(nameof(CanOpenProcessManager));
+            });
 
         // 已保存的设置即时应用到所有已打开的终端(#3/#15/#21) —— 回滚、字体、
         // 字号与编码实时生效;TERM 按会话保持(在连接时协商)。
@@ -285,6 +293,15 @@ public class MainWindowViewModel : ReactiveObject
             )
             .Switch();
         ToggleFileBrowserCommand = ReactiveCommand.Create(ToggleFileBrowser, canToggleFileBrowser);
+        IObservable<bool> canOpenProcessManager = this.WhenAnyValue(x => x.ActiveTerminalTab)
+            .Select(tab =>
+                tab is null
+                    ? Observable.Return(false)
+                    : tab.WhenAnyValue(t => t.IsConnected).Select(_ => CanOpenProcessManager)
+            )
+            .Switch();
+        OpenProcessManagerCommand = ReactiveCommand.Create(OpenProcessManager, canOpenProcessManager);
+        CloseActiveTabCommand = ReactiveCommand.Create(CloseActiveTab);
         RegisterCommands();
         RunCommand = ReactiveCommand.Create<string>(id => Commands.Execute(id));
     }
@@ -328,6 +345,16 @@ public class MainWindowViewModel : ReactiveObject
     public bool CanToggleFileBrowser =>
         _sftpService is not null
         && ActiveTerminalTab is { IsConnected: true, Profile: not null } tab
+        && tab.SessionId != Guid.Empty;
+
+    /// <summary>
+    /// 任务管理器是否可用:必须是一个已连接的 SSH 终端标签。本地终端(LocalShell 非空)
+    /// 没有远端可管;聚焦 SFTP 标签时 ActiveTerminalTab 已被置空(见 SetActiveFromDocument),
+    /// 两种情况按钮都自动变灰。
+    /// </summary>
+    public bool CanOpenProcessManager =>
+        _remoteProcessService is not null
+        && ActiveTerminalTab is { IsConnected: true, Profile: not null, LocalShell: null } tab
         && tab.SessionId != Guid.Empty;
 
     /// <summary>
@@ -424,6 +451,31 @@ public class MainWindowViewModel : ReactiveObject
     /// <summary>打开设置窗口的命令(Ctrl+, / 菜单 / 侧边栏齿轮)。</summary>
     public ReactiveCommand<Unit, Unit> OpenSettingsCommand { get; }
 
+    /// <summary>关闭当前活动标签(Ctrl+W);走停靠层的关闭语义,保证传输层同时拆除。</summary>
+    public ReactiveCommand<Unit, Unit> CloseActiveTabCommand { get; }
+
+    /// <summary>打开当前 SSH 会话的任务管理器;本地终端与 SFTP 标签下不可用。</summary>
+    public ReactiveCommand<Unit, Unit> OpenProcessManagerCommand { get; }
+
+    /// <summary>
+    /// 请求为某个会话打开任务管理器窗口。参数依次为会话标识与窗口标题用的会话名称;
+    /// 由 MainWindow 承接(视图层才建得了窗口)。
+    /// </summary>
+    public event Action<Guid, string>? ProcessManagerRequested;
+
+    /// <summary>把打开任务管理器的请求转交视图层;条件不满足时是空操作。</summary>
+    private void OpenProcessManager()
+    {
+        if (!CanOpenProcessManager || ActiveTerminalTab is not { Profile: { } profile } tab)
+        {
+            return;
+        }
+        string label = string.IsNullOrWhiteSpace(profile.Name)
+                           ? $"{profile.Host}:{profile.Port}"
+                           : profile.Name;
+        ProcessManagerRequested?.Invoke(tab.SessionId, label);
+    }
+
     private void RegisterCommands()
     {
         Commands.Register(
@@ -441,8 +493,8 @@ public class MainWindowViewModel : ReactiveObject
                 "session.close",
                 Strings.Get("Cmd_CloseCurrentSession"),
                 Strings.Get("CmdCat_Session"),
-                () => TabBar.CloseActiveTabCommand.Execute().Subscribe(),
-                () => TabBar.ActiveTab is not null,
+                () => CloseActiveTabCommand.Execute().Subscribe(),
+                () => TabBar.ActiveTab is not null || Layout.ActiveDocument is not null,
                 "Ctrl+W"
             )
         );
@@ -553,6 +605,16 @@ public class MainWindowViewModel : ReactiveObject
                 () => CanToggleFileBrowser,
                 "Ctrl+Shift+F",
                 "Icon.folder"
+            )
+        );
+        Commands.Register(
+            new(
+                "tools.processes",
+                Strings.Get("Cmd_ProcessManager"),
+                Strings.Get("CmdCat_Tools"),
+                () => OpenProcessManagerCommand.Execute().Subscribe(),
+                () => CanOpenProcessManager,
+                Icon: "Icon.activity"
             )
         );
         Commands.Register(
@@ -682,6 +744,9 @@ public class MainWindowViewModel : ReactiveObject
         };
         terminalTab.ReconnectRequested += (_, _) => _ = ReconnectTabAsync(terminalTab);
         terminalTab.Disconnected += (_, _) => OnTabDisconnected(terminalTab);
+        // shell 退出(exit)后覆盖层上的“关闭标签”按钮靠这条订阅生效;缺了它本地终端
+        // 标签退出后点关闭没有任何反应。
+        terminalTab.CloseRequested += (_, _) => CloseTerminalTab(terminalTab);
 
         // 命令补全:注入建议提供器;提交(已回显校验)的命令进全局历史。
         terminalTab.SuggestionProvider = _suggestionProvider;
@@ -1735,7 +1800,7 @@ public class MainWindowViewModel : ReactiveObject
         }
         var document = new TerminalDocument(terminalTab);
         // 标签页内失败覆盖层(设计 yxjmg)的“关闭标签页”按钮:闭包捕获 document 以整体移除。
-        terminalTab.CloseRequested += (_, _) => RemoveTerminalTab(terminalTab, document);
+        terminalTab.CloseRequested += (_, _) => CloseTerminalTab(terminalTab);
         TabBar.AddTab(terminalTab);
         ActiveTerminalTab = terminalTab;
         Layout.AddDocument(document);
@@ -2107,6 +2172,46 @@ public class MainWindowViewModel : ReactiveObject
             ? PromptNewlineFix
             : PromptNewlineFix + "; " + user;
         tab.SendSilentCommand(payload);
+    }
+
+    /// <summary>
+    /// 用户语义的关闭标签统一入口(覆盖层关闭按钮 / Esc / Ctrl+W / 命令面板)。
+    /// 必须走 <see cref="DockWorkspace.CloseDocument" />:只有它会触发 DocumentClosed,
+    /// 从而把逻辑标签、停靠文档、会话日志与底层 SSH/PTY 传输一并拆干净。
+    /// 直接调 TabBar.CloseTab 只删逻辑标签,会留下可见的僵尸标签并泄漏传输层。
+    /// </summary>
+    public void CloseTerminalTab(TerminalTabViewModel tab)
+    {
+        ArgumentNullException.ThrowIfNull(tab);
+        TerminalDocument? document = Layout
+            .AllDocuments()
+            .OfType<TerminalDocument>()
+            .FirstOrDefault(d => ReferenceEquals(d.Terminal, tab));
+        if (document is not null)
+        {
+            Layout.CloseDocument(document);
+            return;
+        }
+
+        // 文档已被静默移除(连接失败路径)时只剩逻辑标签需要收尾。
+        if (TabBar.Tabs.Contains(tab))
+        {
+            TabBar.CloseTabCommand.Execute(tab).Subscribe();
+        }
+    }
+
+    /// <summary>关闭当前活动标签,终端与 SFTP 文档同等对待(Ctrl+W / session.close)。</summary>
+    private void CloseActiveTab()
+    {
+        if (Layout.ActiveDocument is { } document)
+        {
+            Layout.CloseDocument(document);
+            return;
+        }
+        if (TabBar.ActiveTab is TerminalTabViewModel tab)
+        {
+            CloseTerminalTab(tab);
+        }
     }
 
     private void RemoveTerminalTab(TerminalTabViewModel tab, TerminalDocument document)

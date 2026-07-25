@@ -25,7 +25,9 @@
     <!-- Ctrl+N:菜单与命令面板一直标注的“新建连接”键位,此前只有提示没有真实绑定
          (设置审计 C-10),补上使提示与行为一致。 -->
     <KeyBinding Gesture="Ctrl+N" Command="{Binding RunCommand}" CommandParameter="session.new" />
-    <KeyBinding Gesture="Ctrl+W" Command="{Binding TabBar.CloseActiveTabCommand}" />
+    <!-- Ctrl+W 必须走宿主的关闭命令:TabBar.CloseActiveTabCommand 只删逻辑标签,
+         会留下仍在显示的停靠标签并泄漏 SSH/PTY 传输。 -->
+    <KeyBinding Gesture="Ctrl+W" Command="{Binding CloseActiveTabCommand}" />
     <KeyBinding Gesture="Ctrl+Tab" Command="{Binding TabBar.NextTabCommand}" />
     <KeyBinding Gesture="Ctrl+Shift+Tab" Command="{Binding TabBar.PreviousTabCommand}" />
     <KeyBinding Gesture="Ctrl+OemComma" Command="{Binding OpenSettingsCommand}" />
