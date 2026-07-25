@@ -50,6 +50,79 @@ public class UpdateApplierTests : IDisposable
     private string ReadAppFile(string relativePath) =>
         File.ReadAllText(Path.Combine(_appDir, relativePath));
 
+    private bool AppFileExists(string relativePath) =>
+        File.Exists(Path.Combine(_appDir, relativePath));
+
+    private string BackupPath(string relativePath) =>
+        Path.Combine(_applier.BackupDirectory, relativePath);
+
+    private void WriteJournal(string phase, params (string Path, bool Existed)[] files)
+    {
+        Directory.CreateDirectory(_applier.StagingDirectory);
+        string entries = string.Join(",\n", files.Select(f =>
+            $$"""{ "Path": "{{f.Path}}", "Existed": {{(f.Existed ? "true" : "false")}} }"""));
+        File.WriteAllText(
+            Path.Combine(_applier.StagingDirectory, UpdateApplier.JournalFileName),
+            $$"""{ "Phase": "{{phase}}", "Files": [ {{entries}} ] }""");
+    }
+
+    // ———————————————————— 解包(Stage) ————————————————————
+
+    [TestMethod]
+    [TestCategory("Update")]
+    public void Stage_LeavesApplicationDirectoryUntouched()
+    {
+        WriteAppFile("app.exe", "old-exe");
+        string zip = CreateZip(("app.exe", "new-exe"), ("lib/helper.dll", "new-dll"));
+
+        IReadOnlyList<string> entries = _applier.Stage(zip);
+
+        // 解包只往 payload 里写,应用目录一个字节都不动 —— 这是"升级失败也能原样重试"的基础。
+        Assert.AreEqual("old-exe", ReadAppFile("app.exe"));
+        Assert.IsFalse(AppFileExists(Path.Combine("lib", "helper.dll")));
+        Assert.HasCount(2, entries);
+        Assert.AreEqual("new-exe", File.ReadAllText(Path.Combine(_applier.PayloadDirectory, "app.exe")));
+    }
+
+    [TestMethod]
+    [TestCategory("Update")]
+    public void Stage_CorruptPackage_LeavesApplicationIntact_AndNextAttemptStillWorks()
+    {
+        // 老实现在这里会永久卡死:一次失败留下删不掉的残骸,之后每次升级都在同一处抛异常。
+        WriteAppFile("app.exe", "old-exe");
+        string corrupt = Path.Combine(_applier.PrepareStagingDirectory(), "package.zip");
+        File.WriteAllText(corrupt, "not a zip at all");
+
+        Assert.ThrowsExactly<InvalidDataException>(() => _applier.Stage(corrupt));
+        Assert.AreEqual("old-exe", ReadAppFile("app.exe"));
+
+        // 同一个 applier 立刻重试一个好包:必须照常成功,不需要任何人工清理。
+        string good = CreateZip(("app.exe", "new-exe"));
+        _applier.Apply(good);
+        Assert.AreEqual("new-exe", ReadAppFile("app.exe"));
+    }
+
+    [TestMethod]
+    [TestCategory("Update")]
+    public void Stage_StalePayloadAndBackup_AreRebuilt()
+    {
+        WriteAppFile("app.exe", "current");
+        string zip = CreateZip(("app.exe", "new-exe"));
+        // 上一轮中断留下的解包内容与备份,绝不能混进本轮(否则回滚会拿古董版本覆盖新版)。
+        Directory.CreateDirectory(_applier.PayloadDirectory);
+        Directory.CreateDirectory(_applier.BackupDirectory);
+        File.WriteAllText(Path.Combine(_applier.PayloadDirectory, "ancient.txt"), "ancient");
+        File.WriteAllText(BackupPath("app.exe"), "ancient");
+
+        _applier.Apply(zip);
+
+        Assert.AreEqual("new-exe", ReadAppFile("app.exe"));
+        Assert.AreEqual("current", File.ReadAllText(BackupPath("app.exe")));
+        Assert.IsFalse(AppFileExists("ancient.txt"));
+    }
+
+    // ———————————————————— 换版(SwapFromPayload) ————————————————————
+
     [TestMethod]
     [TestCategory("Update")]
     public void Apply_ReplacesPackagedFiles_AndLeavesUserFilesAlone()
@@ -62,12 +135,13 @@ public class UpdateApplierTests : IDisposable
 
         Assert.AreEqual("new-exe", ReadAppFile("app.exe"));
         Assert.AreEqual("new-dll", ReadAppFile(Path.Combine("lib", "helper.dll")));
-        // 包外文件绝不动:既不重命名也不删除。
+        // 包外文件绝不动:既不移动也不删除。
         Assert.AreEqual("user data", ReadAppFile("user-notes.txt"));
-        Assert.IsFalse(File.Exists(Path.Combine(_appDir, "user-notes.txt.old")));
-        // 被替换的旧文件以 .old 留存,待下次启动清理;新增文件没有 .old。
-        Assert.AreEqual("old-exe", ReadAppFile("app.exe.old"));
-        Assert.IsFalse(File.Exists(Path.Combine(_appDir, "lib", "helper.dll.old")));
+        // 旧版文件进备份目录,而不是就地改名成 .old —— 应用目录始终干净。
+        Assert.AreEqual("old-exe", File.ReadAllText(BackupPath("app.exe")));
+        Assert.IsFalse(AppFileExists("app.exe.old"));
+        Assert.IsFalse(File.Exists(BackupPath(Path.Combine("lib", "helper.dll"))), "新增文件没有旧版可备份");
+        Assert.IsEmpty(Directory.GetFiles(_appDir, "*.old", SearchOption.AllDirectories));
     }
 
     [TestMethod]
@@ -89,22 +163,31 @@ public class UpdateApplierTests : IDisposable
         _applier.Apply(tarPath);
 
         Assert.AreEqual("new", ReadAppFile("app"));
-        Assert.AreEqual("old", ReadAppFile("app.old"));
+        Assert.AreEqual("old", File.ReadAllText(BackupPath("app")));
     }
 
     [TestMethod]
     [TestCategory("Update")]
-    public void Apply_ThenFinalize_CleansOldFilesAndStaging()
+    public void SwapFromPayload_StagedFileMissing_RollsBackToPreviousVersion()
     {
-        WriteAppFile("app.exe", "old-exe");
-        string zip = CreateZip(("app.exe", "new-exe"));
-        _applier.Apply(zip);
+        WriteAppFile("a.txt", "a-old");
+        WriteAppFile("b.txt", "b-old");
+        _applier.Stage(CreateZip(("a.txt", "a-new"), ("b.txt", "b-new")));
+        // 抽掉一个解包产物,模拟换版进行到一半才发现内容缺失。
+        File.Delete(Path.Combine(_applier.PayloadDirectory, "b.txt"));
 
-        Assert.IsTrue(_applier.TryFinalizeStartup());
+        Assert.ThrowsExactly<InvalidDataException>(_applier.SwapFromPayload);
 
-        Assert.AreEqual("new-exe", ReadAppFile("app.exe"));
-        Assert.IsFalse(File.Exists(Path.Combine(_appDir, "app.exe.old")));
-        Assert.IsFalse(Directory.Exists(_applier.StagingDirectory));
+        // 已换入的 a 必须退回旧版,应用整体停在换版前的状态。
+        Assert.AreEqual("a-old", ReadAppFile("a.txt"));
+        Assert.AreEqual("b-old", ReadAppFile("b.txt"));
+    }
+
+    [TestMethod]
+    [TestCategory("Update")]
+    public void SwapFromPayload_WithoutStage_Throws()
+    {
+        Assert.ThrowsExactly<InvalidOperationException>(_applier.SwapFromPayload);
     }
 
     [TestMethod]
@@ -138,69 +221,147 @@ public class UpdateApplierTests : IDisposable
 
     [TestMethod]
     [TestCategory("Update")]
-    public void Apply_StaleOldAndNewLeftovers_ArePrecleaned()
+    public void Apply_PackageEntryInsideStagingDirectory_IsIgnored()
     {
-        // 历史残留的 .old/.new(上次清理失败)不能污染本次换版与回滚判定。
-        WriteAppFile("app.exe", "current");
-        WriteAppFile("app.exe.old", "ancient");
-        WriteAppFile("app.exe.new", "stale");
-        string zip = CreateZip(("app.exe", "new-exe"));
+        WriteAppFile("app.exe", "old-exe");
+        string zip = CreateZip(
+            ("app.exe", "new-exe"),
+            ($"{UpdateApplier.StagingDirectoryName}/{UpdateApplier.JournalFileName}", "malicious journal"));
 
         _applier.Apply(zip);
 
         Assert.AreEqual("new-exe", ReadAppFile("app.exe"));
-        Assert.AreEqual("current", ReadAppFile("app.exe.old"));
+    }
+
+    // ———————————————————— 启动期收尾 ————————————————————
+
+    [TestMethod]
+    [TestCategory("Update")]
+    public void Apply_ThenFinalize_ClearsBackupAndPayload()
+    {
+        WriteAppFile("app.exe", "old-exe");
+        string zip = CreateZip(("app.exe", "new-exe"));
+        _applier.Apply(zip);
+
+        Assert.IsTrue(_applier.TryFinalizeStartup());
+
+        Assert.AreEqual("new-exe", ReadAppFile("app.exe"));
+        Assert.IsFalse(Directory.Exists(_applier.BackupDirectory));
+        Assert.IsFalse(Directory.Exists(_applier.PayloadDirectory));
+        Assert.IsFalse(File.Exists(Path.Combine(_applier.StagingDirectory, UpdateApplier.JournalFileName)));
+        // 已下载的包留着:下次检查更新时校验通过即免下载复用(分段续传同理)。
+        Assert.IsTrue(File.Exists(zip));
     }
 
     [TestMethod]
     [TestCategory("Update")]
     public void TryFinalizeStartup_CrashDuringSwap_RollsBack()
     {
-        // 模拟换版中途崩溃后的现场:a 已换入新版(a.old 在),b(新增文件)已换入,
-        // c 尚未换(仅 .new)。日志停留在 applying。
+        // 模拟换版中途崩溃的现场:a 已换入新版(备份在),b(新增文件)已换入,c 尚未换。
         WriteAppFile("a.txt", "a-new");
-        WriteAppFile("a.txt.old", "a-old");
         WriteAppFile("b.txt", "b-new");
         WriteAppFile("c.txt", "c-old");
-        WriteAppFile("c.txt.new", "c-new");
-        Directory.CreateDirectory(_applier.StagingDirectory);
-        File.WriteAllText(Path.Combine(_applier.StagingDirectory, "apply.json"), """
-            {
-              "Phase": "applying",
-              "Files": [
-                { "Path": "a.txt", "Existed": true },
-                { "Path": "b.txt", "Existed": false },
-                { "Path": "c.txt", "Existed": true }
-              ]
-            }
-            """);
+        Directory.CreateDirectory(_applier.BackupDirectory);
+        File.WriteAllText(BackupPath("a.txt"), "a-old");
+        Directory.CreateDirectory(_applier.PayloadDirectory);
+        File.WriteAllText(Path.Combine(_applier.PayloadDirectory, "c.txt"), "c-new");
+        WriteJournal(UpdateJournal.PhaseApplying, ("a.txt", true), ("b.txt", false), ("c.txt", true));
 
         Assert.IsTrue(_applier.TryFinalizeStartup());
 
         Assert.AreEqual("a-old", ReadAppFile("a.txt"));
-        Assert.IsFalse(File.Exists(Path.Combine(_appDir, "b.txt")), "新增文件应被回滚删除");
+        Assert.IsFalse(AppFileExists("b.txt"), "新增文件应被回滚删除");
         Assert.AreEqual("c-old", ReadAppFile("c.txt"));
-        Assert.IsFalse(File.Exists(Path.Combine(_appDir, "a.txt.old")));
-        Assert.IsFalse(File.Exists(Path.Combine(_appDir, "c.txt.new")));
         Assert.IsFalse(Directory.Exists(_applier.StagingDirectory));
     }
 
     [TestMethod]
     [TestCategory("Update")]
-    public void TryFinalizeStartup_CrashBeforeSwap_RemovesStagedFiles()
+    public void TryFinalizeStartup_CrashBeforeSwap_DiscardsPayload()
     {
         WriteAppFile("a.txt", "a-old");
-        WriteAppFile("a.txt.new", "a-new");
-        Directory.CreateDirectory(_applier.StagingDirectory);
-        File.WriteAllText(Path.Combine(_applier.StagingDirectory, "apply.json"), """
-            { "Phase": "staged", "Files": [ { "Path": "a.txt", "Existed": true } ] }
-            """);
+        Directory.CreateDirectory(_applier.PayloadDirectory);
+        File.WriteAllText(Path.Combine(_applier.PayloadDirectory, "a.txt"), "a-new");
+        WriteJournal(UpdateJournal.PhaseStaged, ("a.txt", true));
 
         Assert.IsTrue(_applier.TryFinalizeStartup());
 
         Assert.AreEqual("a-old", ReadAppFile("a.txt"));
-        Assert.IsFalse(File.Exists(Path.Combine(_appDir, "a.txt.new")));
         Assert.IsFalse(Directory.Exists(_applier.StagingDirectory));
+    }
+
+    [TestMethod]
+    [TestCategory("Update")]
+    public void TryFinalizeStartup_HandoffNeverRan_KeepsCurrentVersion()
+    {
+        // 外置更新器被杀/没起来:应用目录从未被触碰,收尾只需丢掉解包内容。
+        WriteAppFile("a.txt", "a-old");
+        Directory.CreateDirectory(_applier.PayloadDirectory);
+        File.WriteAllText(Path.Combine(_applier.PayloadDirectory, "a.txt"), "a-new");
+        WriteJournal(UpdateJournal.PhaseHandoff, ("a.txt", true));
+
+        Assert.IsTrue(_applier.TryFinalizeStartup());
+
+        Assert.AreEqual("a-old", ReadAppFile("a.txt"));
+        Assert.IsFalse(Directory.Exists(_applier.StagingDirectory));
+    }
+
+    [TestMethod]
+    [TestCategory("Update")]
+    public void TryFinalizeStartup_PurgesLegacyOldFiles_ButKeepsUnrelatedOnes()
+    {
+        // 老换版机制遗留的 .old:去掉后缀后同名文件存在的才是残骸,才删。
+        WriteAppFile("app.exe", "current");
+        WriteAppFile("app.exe.old", "ancient");
+        WriteAppFile("lib/helper.dll", "current");
+        WriteAppFile("lib/helper.dll.old", "ancient");
+        WriteAppFile("backup-of-something.old", "user's own file");
+
+        Assert.IsTrue(_applier.TryFinalizeStartup());
+
+        Assert.IsFalse(AppFileExists("app.exe.old"));
+        Assert.IsFalse(AppFileExists(Path.Combine("lib", "helper.dll.old")));
+        Assert.AreEqual("current", ReadAppFile("app.exe"));
+        // 没有对应正片的 .old 是用户自己的文件,不许碰。
+        Assert.AreEqual("user's own file", ReadAppFile("backup-of-something.old"));
+    }
+
+    [TestMethod]
+    [TestCategory("Update")]
+    public void TryFinalizeStartup_RollbackIncomplete_KeepsBackupAndJournal()
+    {
+        // 回滚失败(目标位置被占着还不掉)时,backup 是还原旧版的唯一副本,日志是"还有待办"
+        // 的唯一凭据 —— 谁都不能删,否则用户的旧版本就此蒸发,下次启动也不知道该做什么。
+        Directory.CreateDirectory(_applier.BackupDirectory);
+        File.WriteAllText(BackupPath("a.txt"), "a-old");
+        Directory.CreateDirectory(Path.Combine(_appDir, "a.txt")); // 目标位置被一个同名目录占住
+        WriteJournal(UpdateJournal.PhaseApplying, ("a.txt", true));
+
+        Assert.IsFalse(_applier.TryFinalizeStartup());
+
+        Assert.AreEqual("a-old", File.ReadAllText(BackupPath("a.txt")));
+        Assert.IsTrue(File.Exists(Path.Combine(_applier.StagingDirectory, UpdateApplier.JournalFileName)));
+
+        // 障碍排除后,下一次启动收尾必须能把旧版本还原回去。
+        Directory.Delete(Path.Combine(_appDir, "a.txt"));
+        Assert.IsTrue(_applier.TryFinalizeStartup());
+        Assert.AreEqual("a-old", ReadAppFile("a.txt"));
+        Assert.IsFalse(Directory.Exists(_applier.StagingDirectory));
+    }
+
+    [TestMethod]
+    [TestCategory("Update")]
+    public void TryRepair_RollbackIncomplete_DoesNotDestroyBackup()
+    {
+        Directory.CreateDirectory(_applier.BackupDirectory);
+        File.WriteAllText(BackupPath("a.txt"), "a-old");
+        Directory.CreateDirectory(Path.Combine(_appDir, "a.txt"));
+        WriteJournal(UpdateJournal.PhaseApplying, ("a.txt", true));
+
+        Assert.IsFalse(_applier.TryRepair());
+
+        // 修复是为了恢复可用状态,不是把用户仅剩的退路一并清空。
+        Assert.AreEqual("a-old", File.ReadAllText(BackupPath("a.txt")));
     }
 
     [TestMethod]
@@ -228,6 +389,42 @@ public class UpdateApplierTests : IDisposable
         Assert.IsTrue(_applier.TryFinalizeStartup());
     }
 
+    // ———————————————————— 自愈 ————————————————————
+
+    [TestMethod]
+    [TestCategory("Update")]
+    public void TryRepair_RollsBackAndClearsEverything()
+    {
+        WriteAppFile("a.txt", "a-new");
+        WriteAppFile("app.exe", "current");
+        WriteAppFile("app.exe.old", "ancient");
+        Directory.CreateDirectory(_applier.BackupDirectory);
+        File.WriteAllText(BackupPath("a.txt"), "a-old");
+        File.WriteAllText(Path.Combine(_applier.StagingDirectory, "package.zip"), "downloaded");
+        WriteJournal(UpdateJournal.PhaseApplying, ("a.txt", true));
+        _applier.WriteLastError("boom");
+
+        Assert.IsTrue(_applier.TryRepair());
+
+        Assert.AreEqual("a-old", ReadAppFile("a.txt"), "未完成的换版必须先回滚");
+        Assert.IsFalse(Directory.Exists(_applier.StagingDirectory), "连已下载的包一起清掉,下次重新下载");
+        Assert.IsFalse(AppFileExists("app.exe.old"));
+        Assert.IsNull(_applier.ReadLastError());
+    }
+
+    [TestMethod]
+    [TestCategory("Update")]
+    public void LastError_RoundTripsAndClears()
+    {
+        Assert.IsNull(_applier.ReadLastError());
+
+        _applier.WriteLastError("disk full");
+        Assert.AreEqual("disk full", _applier.ReadLastError());
+
+        _applier.ClearLastError();
+        Assert.IsNull(_applier.ReadLastError());
+    }
+
     [TestMethod]
     [TestCategory("Update")]
     public void IsApplicationDirectoryWritable_TempDir_IsTrue()
@@ -237,15 +434,23 @@ public class UpdateApplierTests : IDisposable
 
     [TestMethod]
     [TestCategory("Update")]
-    public void Apply_PackageEntryInsideStagingDirectory_IsIgnored()
+    public void TryHandOffToExternalUpdater_NonSingleFilePayload_FallsBackInProcess()
     {
-        WriteAppFile("app.exe", "old-exe");
-        string zip = CreateZip(
-            ("app.exe", "new-exe"),
-            ($"{UpdateApplier.StagingDirectoryName}/apply.json", "malicious journal"));
+        // 开发构建(非单文件)下包里会躺着同名托管程序集,此时不能把主程序复制去当更新器。
+        string launcher = Path.GetFileName(Environment.ProcessPath)!;
+        _applier.Stage(CreateZip(
+            (launcher, "new-launcher"),
+            (Path.ChangeExtension(launcher, ".dll"), "managed assembly")));
 
-        _applier.Apply(zip);
+        Assert.IsFalse(_applier.TryHandOffToExternalUpdater(Environment.ProcessId));
+    }
 
-        Assert.AreEqual("new-exe", ReadAppFile("app.exe"));
+    [TestMethod]
+    [TestCategory("Update")]
+    public void TryHandOffToExternalUpdater_PackageWithoutLauncher_FallsBackInProcess()
+    {
+        _applier.Stage(CreateZip(("some-other-file.txt", "content")));
+
+        Assert.IsFalse(_applier.TryHandOffToExternalUpdater(Environment.ProcessId));
     }
 }

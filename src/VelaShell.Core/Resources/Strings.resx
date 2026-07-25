@@ -1165,6 +1165,24 @@ Paste anyway?</value>
   <data name="SetAbout_RestartToUpdate" xml:space="preserve">
     <value>Restart &amp; update</value>
   </data>
+  <data name="SetAbout_RepairUpdate" xml:space="preserve">
+    <value>Repair update state</value>
+  </data>
+  <data name="SetAbout_RepairUpdateTip" xml:space="preserve">
+    <value>Clears leftover update files and downloads so checking for updates can start fresh. Use this if updating got stuck.</value>
+  </data>
+  <data name="SetAbout_Repairing" xml:space="preserve">
+    <value>Clearing update leftovers…</value>
+  </data>
+  <data name="SetAbout_RepairDone" xml:space="preserve">
+    <value>Update state has been reset. You can check for updates again.</value>
+  </data>
+  <data name="SetAbout_RepairFailed" xml:space="preserve">
+    <value>Some leftover files are still in use. Close any other copy of VelaShell, then try again.</value>
+  </data>
+  <data name="SetAbout_PreviousUpdateFailed" xml:space="preserve">
+    <value>The last update couldn't be completed and the previous version was restored ({0}).</value>
+  </data>
   <data name="Msg_Uploaded" xml:space="preserve">
     <value>Uploaded</value>
   </data>

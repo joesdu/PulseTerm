@@ -11,8 +11,8 @@ namespace VelaShell.Services;
 /// <summary>
 /// 便携式自更新服务:从 GitHub Releases 读取 CI 生成的 latest.json 清单,下载与当前
 /// 平台匹配的压缩包到应用目录下的暂存目录,SHA-256 校验后由 <see cref="UpdateApplier" />
-/// 原地换版并重启。应用装在哪里就更新哪里,不强制安装位置,也绝不触碰
-/// %LocalAppData%/VelaShell 数据目录。
+/// 解包,再交由本进程退出后才动手的外置换版进程完成换版与重启(见 <see cref="UpdateRunner" />)。
+/// 应用装在哪里就更新哪里,不强制安装位置,也绝不触碰 %LocalAppData%/VelaShell 数据目录。
 /// </summary>
 public class UpdateService : IUpdateService
 {
@@ -127,18 +127,19 @@ public class UpdateService : IUpdateService
         string metaPath = partialPath + ".meta";
         foreach (string file in Directory.EnumerateFiles(staging))
         {
-            if (!file.Equals(archivePath, StringComparison.OrdinalIgnoreCase)
-                && !file.Equals(partialPath, StringComparison.OrdinalIgnoreCase)
-                && !file.Equals(metaPath, StringComparison.OrdinalIgnoreCase))
+            if (file.Equals(archivePath, StringComparison.OrdinalIgnoreCase)
+                || file.Equals(partialPath, StringComparison.OrdinalIgnoreCase)
+                || file.Equals(metaPath, StringComparison.OrdinalIgnoreCase)
+                // 换版日志归 UpdateApplier 管:删掉它,上一轮没收尾的备份就此失去归属,
+                // 既没人回滚也没人清理——这正是老版本"升级失败后再也升不上去"的成因之一。
+                || Path.GetFileName(file).StartsWith(UpdateApplier.JournalFileName, StringComparison.OrdinalIgnoreCase))
             {
-                TryDeleteFile(file);
+                continue;
             }
+            TryDeleteFile(file);
         }
-        foreach (string directory in Directory.EnumerateDirectories(staging))
-        {
-            // 子目录只可能是上次换版中断留下的解压残留,与下载无关,直接清掉。
-            TryDeleteDirectory(directory);
-        }
+        // 子目录(payload/backup)同样归 UpdateApplier 管:换版前由 Stage 重建,
+        // 启动时由 TryFinalizeStartup 收尾,下载流程一概不碰。
         if (File.Exists(archivePath))
         {
             if (await IsChecksumValidAsync(archivePath, _asset.Sha256))
@@ -184,22 +185,26 @@ public class UpdateService : IUpdateService
         }
     }
 
-    private static void TryDeleteDirectory(string path)
+    /// <inheritdoc />
+    public string? LastUpdateError => _applier.ReadLastError();
+
+    /// <inheritdoc />
+    public void ClearUpdateError() => _applier.ClearLastError();
+
+    /// <inheritdoc />
+    public bool RepairUpdateState()
     {
-        try
-        {
-            Directory.Delete(path, true);
-        }
-        catch
-        {
-            // 清理旧残留失败不阻断下载,留待下次再清。
-        }
+        _manifest = null;
+        _asset = null;
+        _downloadedArchivePath = null;
+        return _applier.TryRepair();
     }
 
     /// <summary>
-    /// 原地换版 → 拉起新进程(带 --after-update,新进程会等待本进程释放单实例锁)→
-    /// 关闭当前应用。若尚未下载更新则抛出异常;换版失败时 <see cref="UpdateApplier" />
-    /// 已回滚,异常原样上抛,应用继续以当前版本运行。
+    /// 解包 → 把换版交给外置进程 → 关闭当前应用。解包(<see cref="UpdateApplier.Stage" />)
+    /// 不改动应用目录里的任何文件,因此磁盘不足、包损坏之类的失败都发生在"应用仍然完好"的状态下,
+    /// 异常上抛后重试即可。换版本身由退出后才动手的外置进程完成(应用目录无文件被占用,
+    /// 移动必然成功);非单文件发布或外置进程拉不起来时退回本进程原地换版。
     /// </summary>
     public void ApplyUpdateAndRestart()
     {
@@ -208,7 +213,15 @@ public class UpdateService : IUpdateService
             throw new InvalidOperationException(
                 "No update has been downloaded. Call CheckForUpdateAsync and DownloadUpdateAsync first.");
         }
-        _applier.Apply(_downloadedArchivePath);
+        _applier.ClearLastError();
+        _applier.Stage(_downloadedArchivePath);
+        if (_applier.TryHandOffToExternalUpdater(Environment.ProcessId))
+        {
+            // 换版与重启都交给它了,本进程只管干净退出——退得越快,它等得越短。
+            _shutdownForRestart();
+            return;
+        }
+        _applier.SwapFromPayload();
         string exePath = Environment.ProcessPath
             ?? Path.Combine(_applier.ApplicationDirectory, "VelaShell" + (OperatingSystem.IsWindows() ? ".exe" : ""));
         if (!OperatingSystem.IsWindows())

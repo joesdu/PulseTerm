@@ -143,17 +143,42 @@ public class SettingsViewModel : ReactiveObject
             UpdateStatus = Strings.Get("SetAbout_Applying");
             try
             {
-                // 解压换版是磁盘密集操作,放到线程池执行,UI 保持响应;
-                // 成功后服务内部拉起新进程并请求本进程退出。
+                // 解包是磁盘密集操作,放到线程池执行,UI 保持响应;
+                // 成功后服务内部拉起外置换版进程并请求本进程退出。
                 await Task.Run(() => _updateService?.ApplyUpdateAndRestart());
             }
             catch
             {
-                // 换版失败时 UpdateApplier 已自动回滚,应用仍以当前版本运行,如实提示即可。
+                // 解包失败时应用目录一个字节都没动(换版尚未开始),应用继续以当前版本运行。
+                // 这一步之后的失败发生在外置进程里,由它回滚并落盘原因,下次启动时展示。
                 UpdateReady = false;
                 UpdateStatus = Strings.Get("SetAbout_ApplyFailed");
             }
         });
+        RepairUpdateCommand = ReactiveCommand.CreateFromTask(RepairUpdateStateAsync);
+
+        // 上一轮换版由外置进程执行,它报的错没法当场弹给用户,只能落盘留到这时候如实展示。
+        if (_updateService?.LastUpdateError is { Length: > 0 } lastError)
+        {
+            UpdateStatus = Strings.Format("SetAbout_PreviousUpdateFailed", lastError);
+        }
+    }
+
+    /// <summary>
+    /// 强制重置更新状态:回滚没换完的换版、清掉暂存目录与遗留文件,让下一次检查更新从干净起点开始。
+    /// 意外中断(断电、强杀进程、杀软拦截)后更新流程卡住时的自愈出口。
+    /// </summary>
+    private async Task RepairUpdateStateAsync()
+    {
+        if (_updateService is null)
+        {
+            UpdateStatus = Strings.Get("Msg_UpdateServiceNotAvailable");
+            return;
+        }
+        UpdateReady = false;
+        UpdateStatus = Strings.Get("SetAbout_Repairing");
+        bool clean = await Task.Run(_updateService.RepairUpdateState);
+        UpdateStatus = Strings.Get(clean ? "SetAbout_RepairDone" : "SetAbout_RepairFailed");
     }
 
     // ———— 顶层字段(既有行为:保存后立即生效) ————
@@ -511,6 +536,9 @@ public class SettingsViewModel : ReactiveObject
     /// <summary>重启并应用已下载更新命令(仅在 <see cref="UpdateReady" /> 为真时有意义)。</summary>
     public ReactiveCommand<Unit, Unit> RestartToUpdateCommand { get; }
 
+    /// <summary>修复更新状态命令:清掉卡住的更新残留,让检查更新能重新走通。</summary>
+    public ReactiveCommand<Unit, Unit> RepairUpdateCommand { get; }
+
     /// <summary>检查更新的状态提示文本。</summary>
     public string UpdateStatus
     {
@@ -538,6 +566,8 @@ public class SettingsViewModel : ReactiveObject
         }
         UpdateReady = false;
         UpdateStatus = Strings.Get("SetAbout_Checking");
+        // 上一轮的失败提示到此为止:用户已经在重新尝试,再挂着旧错误只会误导。
+        _updateService.ClearUpdateError();
         bool hasUpdate;
         try
         {
