@@ -104,7 +104,7 @@ internal static class UpdateRunner
     {
         try
         {
-            using Process process = Process.GetProcessById(pid);
+            using var process = Process.GetProcessById(pid);
             return process.WaitForExit((int)ParentExitTimeout.TotalMilliseconds);
         }
         catch (ArgumentException)
