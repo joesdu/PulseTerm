@@ -111,6 +111,10 @@
               Command="{Binding RestartToUpdateCommand}"
               IsVisible="{Binding UpdateReady}" />
       <Button Classes="dlg-outline" Content="{loc:Localize SetAbout_Changelog}" IsEnabled="False" ToolTip.Tip="{loc:Localize SetAbout_ChangelogTip}" />
+      <!-- 更新流程被意外中断卡住时的自愈出口:清掉残留,让检查更新重新走通。 -->
+      <Button Classes="dlg-outline" Content="{loc:Localize SetAbout_RepairUpdate}"
+              Command="{Binding RepairUpdateCommand}"
+              ToolTip.Tip="{loc:Localize SetAbout_RepairUpdateTip}" />
       <TextBlock Classes="row-desc" Text="{Binding UpdateStatus}" VerticalAlignment="Center"
                  IsVisible="{Binding UpdateStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
     </StackPanel>

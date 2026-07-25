@@ -959,6 +959,24 @@
   <data name="SetAbout_RestartToUpdate" xml:space="preserve">
     <value>再起動して更新</value>
   </data>
+  <data name="SetAbout_RepairUpdate" xml:space="preserve">
+    <value>更新状態を修復</value>
+  </data>
+  <data name="SetAbout_RepairUpdateTip" xml:space="preserve">
+    <value>更新の残存ファイルとダウンロード済みパッケージを削除し、更新の確認をやり直せる状態に戻します。更新が進まなくなったときに使用してください。</value>
+  </data>
+  <data name="SetAbout_Repairing" xml:space="preserve">
+    <value>更新の残存ファイルを削除しています…</value>
+  </data>
+  <data name="SetAbout_RepairDone" xml:space="preserve">
+    <value>更新状態をリセットしました。もう一度更新を確認できます。</value>
+  </data>
+  <data name="SetAbout_RepairFailed" xml:space="preserve">
+    <value>使用中の残存ファイルがあります。他の VelaShell を閉じてから再試行してください。</value>
+  </data>
+  <data name="SetAbout_PreviousUpdateFailed" xml:space="preserve">
+    <value>前回の更新を完了できず、以前のバージョンに戻しました({0})。</value>
+  </data>
   <data name="Msg_Uploaded" xml:space="preserve">
     <value>アップロード済み</value>
   </data>

@@ -959,6 +959,24 @@
   <data name="SetAbout_RestartToUpdate" xml:space="preserve">
     <value>다시 시작하여 업데이트</value>
   </data>
+  <data name="SetAbout_RepairUpdate" xml:space="preserve">
+    <value>업데이트 상태 복구</value>
+  </data>
+  <data name="SetAbout_RepairUpdateTip" xml:space="preserve">
+    <value>남아 있는 업데이트 파일과 내려받은 패키지를 지워 업데이트 확인을 처음부터 다시 시작할 수 있게 합니다. 업데이트가 멈췄을 때 사용하세요.</value>
+  </data>
+  <data name="SetAbout_Repairing" xml:space="preserve">
+    <value>남은 업데이트 파일을 지우는 중…</value>
+  </data>
+  <data name="SetAbout_RepairDone" xml:space="preserve">
+    <value>업데이트 상태를 초기화했습니다. 업데이트를 다시 확인할 수 있습니다.</value>
+  </data>
+  <data name="SetAbout_RepairFailed" xml:space="preserve">
+    <value>사용 중인 파일이 남아 있습니다. 다른 VelaShell 창을 닫고 다시 시도하세요.</value>
+  </data>
+  <data name="SetAbout_PreviousUpdateFailed" xml:space="preserve">
+    <value>지난 업데이트를 완료하지 못해 이전 버전으로 되돌렸습니다({0}).</value>
+  </data>
   <data name="Msg_Uploaded" xml:space="preserve">
     <value>업로드됨</value>
   </data>

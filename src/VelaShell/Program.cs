@@ -20,6 +20,14 @@ internal static partial class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        // 外置换版模式必须排在最前:此时跑的是更新包里新版主程序的一份临时副本,
+        // 身边没有任何本机依赖(单文件发布只打包托管程序集),碰一下 Avalonia 就起不来。
+        // 它等主进程退出后换版、拉起应用,然后本进程结束——不走下面任何一行。
+        if (UpdateRunner.TryRun(args))
+        {
+            return;
+        }
+
         // 启用旧代码页(GBK、Big5、Shift_JIS 等)以支持终端编码选项。
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         InstallGlobalExceptionGuards();
@@ -52,9 +60,9 @@ internal static partial class Program
     }
 
     /// <summary>
-    /// 完成上一轮留下的自更新:删除成功交换后遗留的 *.old 文件,或回滚中途崩溃的交换。
-    /// 旧进程可能仍在退出并持有其(已重命名的)映像文件,因此删除失败会在后台短暂重试,
-    /// 若仍失败则留待下次启动再处理。永不抛异常。
+    /// 完成上一轮留下的自更新:清掉换版备份与解包内容,或回滚中途中断的换版,并顺带清扫
+    /// 更新器临时目录与历史版本遗留的 *.old。刚退出的旧进程或更新器进程可能仍持有某些文件,
+    /// 因此失败会在后台按退避节奏重试约两分钟,仍不成的留待下次启动。永不抛异常。
     /// </summary>
     private static void FinalizePendingUpdate()
     {
@@ -64,15 +72,21 @@ internal static partial class Program
         {
             return;
         }
+        // 退避而非固定 1 秒 ×10:占用方多半是正在退出的进程或杀软扫描,几秒内就放手;
+        // 真拖久了(旧机械盘上的全盘扫描)也得给够时间,否则残留就要多留一整轮启动。
         _ = Task.Run(async () =>
         {
-            for (int i = 0; i < 10; i++)
+            var delay = TimeSpan.FromSeconds(1);
+            TimeSpan elapsed = TimeSpan.Zero;
+            while (elapsed < TimeSpan.FromMinutes(2))
             {
-                await Task.Delay(TimeSpan.FromSeconds(1));
+                await Task.Delay(delay);
+                elapsed += delay;
                 if (applier.TryFinalizeStartup())
                 {
                     return;
                 }
+                delay = TimeSpan.FromSeconds(Math.Min(delay.TotalSeconds * 2, 15));
             }
         });
     }
