@@ -3072,6 +3072,15 @@ Windows 填 exe 完整路径或命令名(如 notepad);Linux 填命令名(如 ged
   <data name="Proc_TreeView" xml:space="preserve">
     <value>树形视图</value>
   </data>
+  <data name="SetAppear_RenderSection" xml:space="preserve">
+    <value>渲染</value>
+  </data>
+  <data name="SetAppear_HardwareAcceleration" xml:space="preserve">
+    <value>硬件加速</value>
+  </data>
+  <data name="SetAppear_HardwareAccelerationDesc" xml:space="preserve">
+    <value>// 用 GPU 绘制。关闭后改用软件渲染,可省约 170MB 内存——显卡驱动不再把自己的模块映射进本进程。重启后生效。</value>
+  </data>
   <data name="Proc_Refresh" xml:space="preserve">
     <value>立即刷新</value>
   </data>

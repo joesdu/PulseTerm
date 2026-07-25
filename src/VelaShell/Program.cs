@@ -157,10 +157,40 @@ internal static partial class Program
             Trace.WriteLine($"[VelaShell] Unhandled domain exception: {e.ExceptionObject}");
     }
 
+    /// <summary>
+    /// 解析渲染后端(设置 → 外观 → 硬件加速)。渲染模式必须在 Avalonia 初始化之前定下来,
+    /// 那时 DI 与 SonnetDB 都还没起来,因此读的是设置保存时镜像出来的单行小文件,
+    /// 而不是数据库 —— 启动路径上只有一次 File.ReadAllText。
+    /// </summary>
+    /// <remarks>
+    /// 关掉硬件加速能省下约 170MB 常驻内存:GPU 后端会把显卡驱动的一整套模块映射进本进程
+    /// (Intel 核显上 igc64.dll 一个就 82MB)。代价是绘制交给 CPU。
+    /// </remarks>
+    private static IReadOnlyList<Win32RenderingMode> ResolveRenderingMode()
+    {
+        // 软件渲染兜底始终留在列表末尾:GPU 初始化失败(远程桌面、驱动异常)时不至于起不来。
+        IReadOnlyList<Win32RenderingMode> gpu = [Win32RenderingMode.AngleEgl, Win32RenderingMode.Software];
+        IReadOnlyList<Win32RenderingMode> software = [Win32RenderingMode.Software];
+        if (Environment.GetEnvironmentVariable("VELASHELL_SOFTWARE_RENDER") == "1")
+        {
+            return software; // 测量与排障用的强制开关
+        }
+        try
+        {
+            string path = new VelaShellStoragePaths().RenderModeFile;
+            return File.Exists(path) && File.ReadAllText(path).Trim() is "software" ? software : gpu;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return gpu;
+        }
+    }
+
     // Avalonia 配置,勿删除;可视化设计器也用到。
     private static AppBuilder BuildAvaloniaApp() =>
         AppBuilder.Configure<App>()
                   .UsePlatformDetect()
+                  .With(new Win32PlatformOptions { RenderingMode = ResolveRenderingMode() })
 #if LINUX
                   .UseWayland()
 #endif

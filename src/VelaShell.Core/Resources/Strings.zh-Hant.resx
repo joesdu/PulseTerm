@@ -2980,6 +2980,15 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   <data name="Proc_TreeView" xml:space="preserve">
     <value>樹狀檢視</value>
   </data>
+  <data name="SetAppear_RenderSection" xml:space="preserve">
+    <value>轉譯</value>
+  </data>
+  <data name="SetAppear_HardwareAcceleration" xml:space="preserve">
+    <value>硬體加速</value>
+  </data>
+  <data name="SetAppear_HardwareAccelerationDesc" xml:space="preserve">
+    <value>// 用 GPU 繪製。關閉後改用軟體轉譯,可省約 170MB 記憶體——顯示卡驅動不再把自己的模組對應進本行程。重新啟動後生效。</value>
+  </data>
   <data name="Proc_Refresh" xml:space="preserve">
     <value>立即重新整理</value>
   </data>
