@@ -3,8 +3,11 @@
   VelaShell 的 MSIX 包清单模板。占位符由 build/msix/Build-Msix.ps1 在打包时替换:
     {IDENTITY_NAME} {PUBLISHER} {PUBLISHER_DISPLAY_NAME}
       三者必须与 Partner Center → 产品管理 → 产品标识 页面上的
-      Package/Identity/Name、Package/Identity/Publisher、Package/Identity/PublisherDisplayName
-      逐字一致,否则上传直接被拒。本地自测可用脚本的默认占位值。
+      Package/Identity/Name、Package/Identity/Publisher、Package/Properties/PublisherDisplayName
+      逐字一致(含大小写与非 ASCII 字符),否则上传直接被验证拒绝。
+      其中 PublisherDisplayName 跟随账户的发布者显示名,不是随便起的:要改它得去
+      账户设置改账户级别的发布者显示名(影响名下所有产品),而不是改这里迁就代码。
+      本地自测可用脚本的默认占位值。
     {VERSION}  四段纯数字。商店要求第四段(修订号)保留给商店使用,必须为 0。
     {ARCH}     x64 / arm64,每个架构单独出一个 .msix,最后 bundle 成一个 .msixbundle。
 

@@ -29,10 +29,13 @@ param(
     # 要打包的运行时标识;每个出一个 .msix,最后合成一个 .msixbundle。
     [string[]]$Runtimes = @('win-x64', 'win-arm64'),
 
-    # 以下三项必须与 Partner Center → 产品管理 → 产品标识 完全一致,否则上传被拒。
-    [string]$IdentityName = 'VelaShell',
-    [string]$Publisher = 'CN=VelaShell',
-    [string]$PublisherDisplayName = 'joesdu',
+    # 以下三项必须与 Partner Center → 产品管理 → 产品标识 逐字一致(含大小写与非 ASCII 字符),
+    # 否则上传会被验证拒绝。默认值即本产品的真实标识,可直接出可提交的包。
+    # 这些不是机密:任何人从商店下载的包里都能读到,提交到公开仓库无妨。
+    # 包系列名(PFN)由 Name + Publisher 哈希而来,故这两项一旦写错,PFN 也跟着错。
+    [string]$IdentityName = 'B0B5EDED.VelaShell',
+    [string]$Publisher = 'CN=3CDE21EE-6AB1-414B-BD2D-EDE8A225854B',
+    [string]$PublisherDisplayName = '鹿宝丶',
 
     [string]$OutputDirectory = 'dist',
     [string]$IntermediateDirectory = 'out/msix',
@@ -62,6 +65,27 @@ function ConvertTo-MsixVersion {
         Write-Warning "MSIX 版本号不支持预发布后缀,'$Semver' 已截断为 $($parts[0]).$($parts[1]).$($parts[2]).0"
     }
     return '{0}.{1}.{2}.0' -f $parts[0], $parts[1], $parts[2]
+}
+
+function Get-PublisherIdHash {
+    <#  按 MSIX 的公开算法推导包系列名后半段:对 UTF-16LE 编码的 Publisher 串取 SHA-256,
+        截前 8 字节(64 位),末尾补一个 0 位凑成 65 位,再按 13 组 5 位做 base32 编码。
+        字母表刻意去掉了 i/l/o/u(避免与 1/0 混淆,也避免拼出脏词)。 #>
+    param([string]$PublisherString)
+
+    $bytes = [System.Text.Encoding]::Unicode.GetBytes($PublisherString)
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try { $hash = $sha.ComputeHash($bytes) } finally { $sha.Dispose() }
+
+    $alphabet = '0123456789abcdefghjkmnpqrstvwxyz'
+    $bits = ''
+    foreach ($b in $hash[0..7]) { $bits += [Convert]::ToString($b, 2).PadLeft(8, '0') }
+    $bits += '0'
+    $result = ''
+    for ($i = 0; $i -lt 65; $i += 5) {
+        $result += $alphabet[[Convert]::ToInt32($bits.Substring($i, 5), 2)]
+    }
+    return $result
 }
 
 function Get-MakeAppxPath {
@@ -151,7 +175,17 @@ $msixVersion = ConvertTo-MsixVersion $Version
 $makeappx = Get-MakeAppxPath
 Write-Host "MSIX 版本号 : $msixVersion"
 Write-Host "包标识      : $IdentityName / $Publisher"
+Write-Host "发布者显示名: $PublisherDisplayName"
 Write-Host "makeappx    : $makeappx"
+
+# 包系列名由 Name + Publisher 推导,是"标识填对了没有"的唯一可验证凭据。就地算出来打印,
+# 与 Partner Center 产品标识页上的 Package Family Name 一比即知,不必靠上传失败才发现填错。
+$publisherHash = Get-PublisherIdHash $Publisher
+Write-Host "包系列名    : ${IdentityName}_$publisherHash"
+if ($publisherHash -ne 'xj3aay9s28z3c') {
+    Write-Warning ("包系列名与 Partner Center 登记的 B0B5EDED.VelaShell_xj3aay9s28z3c 不符," +
+        "Publisher 多半填错了。上传会被拒,请核对 Partner Center → 产品管理 → 产品标识。")
+}
 
 $outDir = Join-Path $repoRoot $OutputDirectory
 $intermediateRoot = Join-Path $repoRoot $IntermediateDirectory
