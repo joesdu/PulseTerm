@@ -33,13 +33,14 @@ public class UpdateService : IUpdateService
         : this(new GitHubReleaseSource(repositoryUrl), channelProvider)
     { }
 
-    /// <summary>核心构造,测试可注入更新源、应用目录、版本号与"关闭应用"动作。</summary>
+    /// <summary>核心构造,测试可注入更新源、应用目录、版本号、"关闭应用"动作与商店版标志。</summary>
     public UpdateService(
         IUpdateSource source,
         Func<Task<string>>? channelProvider = null,
         string? applicationDirectory = null,
         string? currentVersionOverride = null,
-        Action? shutdownForRestart = null)
+        Action? shutdownForRestart = null,
+        bool? storeManagedOverride = null)
     {
         ArgumentNullException.ThrowIfNull(source);
         _source = source;
@@ -49,7 +50,11 @@ public class UpdateService : IUpdateService
             ?? AppContext.BaseDirectory);
         CurrentVersion = currentVersionOverride;
         _shutdownForRestart = shutdownForRestart ?? DefaultShutdown;
+        IsStoreManaged = storeManagedOverride ?? AppPackaging.IsPackaged;
     }
+
+    /// <inheritdoc />
+    public bool IsStoreManaged { get; }
 
     /// <summary>当前运行版本:程序集 InformationalVersion(含预发布后缀),读不到退回四段数字版。</summary>
     public string? CurrentVersion
@@ -71,15 +76,16 @@ public class UpdateService : IUpdateService
 
     /// <inheritdoc />
     public bool CanSelfUpdate =>
-        UpdateManifest.CurrentRid() != null && _applier.IsApplicationDirectoryWritable();
+        !IsStoreManaged && UpdateManifest.CurrentRid() != null && _applier.IsApplicationDirectoryWritable();
 
-    /// <summary>检查是否存在可用更新;平台不受支持或检查失败时返回 false。</summary>
+    /// <summary>检查是否存在可用更新;商店版、平台不受支持或检查失败时返回 false。</summary>
     public async Task<bool> CheckForUpdateAsync()
     {
         _manifest = null;
         _asset = null;
         _downloadedArchivePath = null;
-        if (UpdateManifest.CurrentRid() == null)
+        // 商店版连网络都不必发:更新归商店管,查到了也无从安装,徒增一次请求和一条误导提示。
+        if (IsStoreManaged || UpdateManifest.CurrentRid() == null)
         {
             return false;
         }

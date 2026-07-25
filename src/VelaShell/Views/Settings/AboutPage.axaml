@@ -105,7 +105,9 @@
 
     <!-- 按钮 -->
     <StackPanel Orientation="Horizontal" Spacing="8">
-      <Button Classes="dlg-primary" Content="{loc:Localize SetAbout_CheckUpdates}" Command="{Binding CheckUpdatesCommand}" />
+      <!-- 商店版(MSIX)更新由 Microsoft Store 接管,以下三个操作全部隐藏,只留状态说明。 -->
+      <Button Classes="dlg-primary" Content="{loc:Localize SetAbout_CheckUpdates}" Command="{Binding CheckUpdatesCommand}"
+              IsVisible="{Binding ShowInAppUpdateControls}" />
       <!-- 更新下载完毕后出现:点击重启应用完成安装。 -->
       <Button Classes="dlg-primary" Content="{loc:Localize SetAbout_RestartToUpdate}"
               Command="{Binding RestartToUpdateCommand}"
@@ -114,6 +116,7 @@
       <!-- 更新流程被意外中断卡住时的自愈出口:清掉残留,让检查更新重新走通。 -->
       <Button Classes="dlg-outline" Content="{loc:Localize SetAbout_RepairUpdate}"
               Command="{Binding RepairUpdateCommand}"
+              IsVisible="{Binding ShowInAppUpdateControls}"
               ToolTip.Tip="{loc:Localize SetAbout_RepairUpdateTip}" />
       <TextBlock Classes="row-desc" Text="{Binding UpdateStatus}" VerticalAlignment="Center"
                  IsVisible="{Binding UpdateStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />

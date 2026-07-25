@@ -309,6 +309,48 @@ public class UpdateServiceTests : IDisposable
 
     [TestMethod]
     [TestCategory("Update")]
+    public async Task StoreManaged_SkipsUpdateCheckEntirely()
+    {
+        // 商店版(MSIX)装在只读的 WindowsApps 下,更新归 Microsoft Store 管:连请求都不该发,
+        // 查到了也无从安装,只会给用户一条装不上的"有新版本"提示。
+        byte[] zip = CreateZipBytes(("app.txt", "new"));
+        _source.Manifest = CreateManifest("2.0.0", zip);
+        _source.AssetBytes = zip;
+        UpdateService service = new(
+            _source,
+            applicationDirectory: _appDir,
+            currentVersionOverride: "1.0.0",
+            shutdownForRestart: static () => { },
+            storeManagedOverride: true);
+
+        Assert.IsTrue(service.IsStoreManaged);
+        Assert.IsFalse(service.CanSelfUpdate, "商店版不得声称能自更新");
+        Assert.IsFalse(await service.CheckForUpdateAsync(), "有新版本也要返回 false");
+        Assert.AreEqual(0, _source.ManifestCalls, "商店版不该访问更新源");
+    }
+
+    [TestMethod]
+    [TestCategory("Update")]
+    public async Task PortableBuild_StillChecksForUpdates()
+    {
+        // 同一份二进制在便携形态下行为不变:商店判定只关掉商店版,不影响 GitHub 分发的那份。
+        byte[] zip = CreateZipBytes(("app.txt", "new"));
+        _source.Manifest = CreateManifest("2.0.0", zip);
+        _source.AssetBytes = zip;
+        UpdateService service = new(
+            _source,
+            applicationDirectory: _appDir,
+            currentVersionOverride: "1.0.0",
+            shutdownForRestart: static () => { },
+            storeManagedOverride: false);
+
+        Assert.IsFalse(service.IsStoreManaged);
+        Assert.IsTrue(await service.CheckForUpdateAsync());
+        Assert.IsTrue(service.CanSelfUpdate);
+    }
+
+    [TestMethod]
+    [TestCategory("Update")]
     public void ApplyUpdateAndRestart_WithoutDownload_ThrowsInvalidOperation()
     {
         Assert.ThrowsExactly<InvalidOperationException>(() => CreateService().ApplyUpdateAndRestart());
@@ -348,9 +390,11 @@ public class UpdateServiceTests : IDisposable
         public bool ThrowOnManifest { get; set; }
         public bool LastIncludePreRelease { get; private set; }
         public int DownloadCalls { get; private set; }
+        public int ManifestCalls { get; private set; }
 
         public Task<UpdateManifest?> GetLatestManifestAsync(bool includePreRelease, CancellationToken cancellationToken = default)
         {
+            ManifestCalls++;
             LastIncludePreRelease = includePreRelease;
             return ThrowOnManifest
                 ? Task.FromException<UpdateManifest?>(new HttpRequestException("offline"))
