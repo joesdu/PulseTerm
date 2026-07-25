@@ -134,6 +134,12 @@ public partial class TraceRouteWindow : Window
     }
 
     /// <summary>
+    /// 卡片外圆角 8 与 1px 边框;子元素被布局在边框内侧,内侧圆弧半径是 8−1=7。
+    /// 子元素若也用 8,它的圆角背景会盖住外框在圆弧处的描边 —— 表现为四个角"断线"。
+    /// </summary>
+    private const double InnerRadius = 7;
+
+    /// <summary>
     /// 切换卡片形态。标题栏与状态栏必须跟着改:它们的方角背景会遮掉外框圆角处的描边,
     /// 表现为四个角"断线"。
     /// </summary>
@@ -143,7 +149,7 @@ public partial class TraceRouteWindow : Window
         RootCard.Margin = rounded ? new Thickness(8) : default;
         RootCard.BorderThickness = rounded ? new Thickness(1) : default;
         RootCard.CornerRadius = rounded ? new CornerRadius(8) : default;
-        TitleBarStrip.CornerRadius = rounded ? new CornerRadius(8, 8, 0, 0) : default;
-        StatusStrip.CornerRadius = rounded ? new CornerRadius(0, 0, 8, 8) : default;
+        TitleBarStrip.CornerRadius = rounded ? new CornerRadius(InnerRadius, InnerRadius, 0, 0) : default;
+        StatusStrip.CornerRadius = rounded ? new CornerRadius(0, 0, InnerRadius, InnerRadius) : default;
     }
 }

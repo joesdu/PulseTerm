@@ -3041,7 +3041,7 @@ Windows는 exe 전체 경로 또는 명령 이름(예: notepad), Linux는 명령
     <value>전체 용량 기준: 모든 코어 사용 시 100%, Windows 작업 관리자와 동일</value>
   </data>
   <data name="Trace_Title" xml:space="preserve">
-    <value>링크 추적</value>
+    <value>경로 추적</value>
   </data>
   <data name="Trace_Target" xml:space="preserve">
     <value>대상</value>
@@ -3113,7 +3113,7 @@ Windows는 exe 전체 경로 또는 명령 이름(예: notepad), Linux는 명령
     <value>추적 완료</value>
   </data>
   <data name="Trace_TitleFormat" xml:space="preserve">
-    <value>{0} — 링크 추적</value>
+    <value>{0} — 경로 추적</value>
   </data>
   <data name="Trace_ColLocation" xml:space="preserve">
     <value>위치</value>

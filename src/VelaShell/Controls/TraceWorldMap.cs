@@ -56,7 +56,9 @@ public sealed class TraceWorldMap : Control
             return;
         }
         var view = MapView.Fit(full, Hops);
-        IBrush land = Brush("VelaTraceLand", Color.FromRgb(0x3B, 0x41, 0x5C));
+        IBrush land = Brush("VelaTraceLand", Color.FromRgb(0x33, 0x38, 0x50));
+        IBrush border = Brush("VelaTraceBorder", Color.FromRgb(0x5C, 0x64, 0x88));
+        IBrush labelBg = Brush("VelaTraceLabelBg", Color.FromArgb(0xD2, 0x15, 0x1A, 0x28));
         IBrush grid = Brush("VelaBorderPrimary", Colors.DimGray);
         IBrush muted = Brush("VelaTextMuted", Colors.Gray);
         IBrush route = Brush("VelaTraceLine", Color.FromRgb(0x8B, 0xE9, 0xFD));
@@ -65,7 +67,7 @@ public sealed class TraceWorldMap : Control
         IBrush labelBrush = Brush("VelaTextSecondary", Colors.LightGray);
         context.FillRectangle(Brush("VelaBgTerminal", Colors.Black), full);
 
-        DrawLand(context, view, land, grid);
+        DrawLand(context, view, land, border);
         DrawGraticule(context, view, grid);
 
         List<(Point Point, TraceHopViewModel Hop)> located = [];
@@ -112,11 +114,15 @@ public sealed class TraceWorldMap : Control
             double radius = endpoint ? 5 : 3.5;
             context.DrawEllipse(fill, pen, point, radius, radius);
 
-            string text = hop.LocationText.Length > 0 ? hop.LocationText : hop.Host;
+            string place = hop.LocationText.Length > 0 ? hop.LocationText : hop.Host;
             string number = last > i
                                 ? string.Create(CultureInfo.CurrentCulture, $"{located[i].Hop.Ttl}-{located[last].Hop.Ttl}")
                                 : located[i].Hop.Ttl.ToString(CultureInfo.CurrentCulture);
-            DrawLabel(context, full, taken, point, $"{number}  {text}", labelBrush, radius);
+            // 带上延迟:地图上最想一眼看出的就是"哪一跳开始变慢",光有地名说明不了问题。
+            string latency = located[last].Hop.Average is { Length: > 0 } and not "-"
+                                 ? $"  {located[last].Hop.Average}ms"
+                                 : string.Empty;
+            DrawLabel(context, full, taken, point, $"{number}  {place}{latency}", labelBrush, labelBg, radius);
             i = last;
         }
     }
@@ -135,6 +141,7 @@ public sealed class TraceWorldMap : Control
         Point anchor,
         string text,
         IBrush brush,
+        IBrush background,
         double radius
     )
     {
@@ -165,7 +172,10 @@ public sealed class TraceWorldMap : Control
             {
                 continue;
             }
-            taken.Add(box.Inflate(2));
+            // 先垫一层半透明底片再写字:标注经常压在陆地上,直接写字会糊进底图。
+            Rect chip = box.Inflate(new Thickness(5, 2));
+            context.DrawRectangle(background, null, chip, 3, 3);
+            taken.Add(chip.Inflate(2));
             context.DrawText(label, candidate);
             return;
         }
@@ -269,17 +279,66 @@ public sealed class TraceWorldMap : Control
     }
 
     /// <summary>
-    /// 画大陆轮廓。数据是 Natural Earth 110m 陆地边界(公有领域),构建时已转成紧凑的
-    /// "经度,纬度 经度,纬度 …" 逐环文本(5143 个点 / 64KB),避免运行时解析 GeoJSON。
+    /// 画各国轮廓。数据是 Natural Earth 110m 国家边界(公有领域),构建时已转成紧凑的
+    /// "经度,纬度 经度,纬度 …" 逐环文本(284 环 / 10630 点 / 128KB),避免运行时解析 GeoJSON。
+    /// 用国家而不是整块陆地:逐国填充 + 描边,国境线才画得出来 —— 只用陆地轮廓的话,
+    /// 整个欧亚大陆就是一坨没有内部分界的色块。
     /// </summary>
-    private static void DrawLand(DrawingContext context, MapView view, IBrush fill, IBrush stroke)
+    private void DrawLand(DrawingContext context, MapView view, IBrush fill, IBrush stroke)
     {
-        IReadOnlyList<double[]> rings = LandRings.Value;
-        if (rings.Count == 0)
+        // 省界只在放大到区域尺度后才画:全球视图下它们只是密密麻麻的噪点,还白白多画 5 万个点。
+        var pen = new Pen(stroke, 0.6);
+        if (view.Scale >= ProvinceDetailScale)
         {
+            var thin = new Pen(stroke, 0.4) { LineCap = PenLineCap.Round };
+            foreach (Geometry geometry in Cached(view, ProvinceRings.Value, ref _provinceCache))
+            {
+                context.DrawGeometry(fill, thin, geometry);
+            }
+            // 省界层已经把陆地铺满,国界层只补一道更重的描边。
+            foreach (Geometry geometry in Cached(view, CountryRings.Value, ref _countryCache))
+            {
+                context.DrawGeometry(null, pen, geometry);
+            }
             return;
         }
-        var pen = new Pen(stroke, 0.6);
+        foreach (Geometry geometry in Cached(view, CountryRings.Value, ref _countryCache))
+        {
+            context.DrawGeometry(fill, pen, geometry);
+        }
+    }
+
+    /// <summary>省界起画的缩放门槛(像素/度)。低于此值是全球/洲际视图,画省界只会糊。</summary>
+    private const double ProvinceDetailScale = 2.2;
+
+    private LayerCache? _countryCache;
+    private LayerCache? _provinceCache;
+
+    /// <summary>一层边界在某个视图下投影好的几何,视图不变就一直复用。</summary>
+    private sealed record LayerCache(MapView View, IReadOnlyList<Geometry> Geometries);
+
+    /// <summary>
+    /// 取某一层在当前视图下的几何。视图是值相等的记录,只要取景没变(链路稳定后就不再变),
+    /// 每帧都直接复用上次投影的结果 —— 两层加起来 11 万个点,每轮重投一次是不能接受的。
+    /// </summary>
+    private static IReadOnlyList<Geometry> Cached(MapView view, IReadOnlyList<double[]> rings, ref LayerCache? cache)
+    {
+        if (cache is { } hit && hit.View == view)
+        {
+            return hit.Geometries;
+        }
+        IReadOnlyList<Geometry> built = Build(view, rings);
+        cache = new(view, built);
+        return built;
+    }
+
+    private static IReadOnlyList<Geometry> Build(MapView view, IReadOnlyList<double[]> rings)
+    {
+        List<Geometry> result = [];
+        if (rings.Count == 0)
+        {
+            return result;
+        }
         double world = 360 * view.Scale;
         double[] dLon = [];
         foreach (double[] ring in rings)
@@ -323,10 +382,11 @@ public sealed class TraceWorldMap : Control
                 // 整体在屏外的副本直接跳过,省掉大部分绘制。
                 if (maxX >= view.Panel.X && minX <= view.Panel.Right)
                 {
-                    context.DrawGeometry(fill, pen, geometry);
+                    result.Add(geometry);
                 }
             }
         }
+        return result;
 
         // 用展开后的经度差直接定位,绕过 Project 里的归一化。
         static Point Plot(MapView view, double dLon, double latitude, double shift) =>
@@ -336,16 +396,19 @@ public sealed class TraceWorldMap : Control
             );
     }
 
-    /// <summary>陆地环的懒加载缓存:每个环是扁平的 [lon, lat, lon, lat, …]。</summary>
-    private static readonly Lazy<IReadOnlyList<double[]>> LandRings = new(LoadLandRings);
+    /// <summary>国界环(Natural Earth 50m,公有领域)。每个环是扁平的 [lon, lat, lon, lat, …]。</summary>
+    private static readonly Lazy<IReadOnlyList<double[]>> CountryRings =
+        new(() => LoadRings("avares://VelaShell/Assets/world-countries.txt"));
 
-    private static IReadOnlyList<double[]> LoadLandRings()
+    /// <summary>省/州界环(Natural Earth 50m admin-1)。</summary>
+    private static readonly Lazy<IReadOnlyList<double[]>> ProvinceRings =
+        new(() => LoadRings("avares://VelaShell/Assets/world-provinces.txt"));
+
+    private static IReadOnlyList<double[]> LoadRings(string uri)
     {
         try
         {
-            using Stream stream = Avalonia.Platform.AssetLoader.Open(
-                new("avares://VelaShell/Assets/world-land.txt")
-            );
+            using Stream stream = Avalonia.Platform.AssetLoader.Open(new(uri));
             using StreamReader reader = new(stream);
             List<double[]> rings = [];
             while (reader.ReadLine() is { } line)

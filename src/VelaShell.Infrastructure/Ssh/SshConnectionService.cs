@@ -55,9 +55,12 @@ public class SshConnectionService(
     /// </summary>
     public async Task DisconnectAsync(Guid sessionId, CancellationToken cancellationToken = default)
     {
-        SshSession? session = GetSession(sessionId) ?? throw new InvalidOperationException($"Session {sessionId} not found");
-        if (session.Status == SessionStatus.Disconnected)
+        // 断开一个已经不存在的会话是幂等的无操作,不是错误:关闭应用时标签关闭与会话拆除
+        // 是两条并发路径,后到的那条必然找不到会话。此前这里抛 InvalidOperationException,
+        // 调用方一律 catch 吞掉,只在调试器里留下一条噪声异常。
+        if (GetSession(sessionId) is not { } session || session.Status == SessionStatus.Disconnected)
         {
+            _clients.TryRemove(sessionId, out _);
             return;
         }
         if (_clients.TryRemove(sessionId, out ISshClientWrapper? client))

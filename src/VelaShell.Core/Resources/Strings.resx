@@ -3042,7 +3042,7 @@ Overwrite it?</value>
     <value>Normalised to total capacity: all cores busy is 100%, same as Windows Task Manager</value>
   </data>
   <data name="Trace_Title" xml:space="preserve">
-    <value>Link trace</value>
+    <value>Route trace</value>
   </data>
   <data name="Trace_Target" xml:space="preserve">
     <value>Target</value>
@@ -3114,7 +3114,7 @@ Overwrite it?</value>
     <value>Trace complete</value>
   </data>
   <data name="Trace_TitleFormat" xml:space="preserve">
-    <value>{0} — Link trace</value>
+    <value>{0} — Route trace</value>
   </data>
   <data name="Trace_ColLocation" xml:space="preserve">
     <value>Location</value>

@@ -63,6 +63,33 @@ public sealed class TraceRouteUiTests
     }
 
     [TestMethod]
+    public void RegionalRoute_ZoomsInFarEnoughForProvinceDetail()
+    {
+        OnUi(() =>
+        {
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("zh-CN");
+            _localization.SetLanguage("zh-CN");
+
+            // 一条国内短链路:取景会放大到省界该画出来的尺度。
+            var vm = new TraceRouteViewModel(null);
+            vm.PointAt("202.97.43.42", "华南节点");
+            AddHop(vm, 1, "192.168.1.1", null, null, null);
+            AddHop(vm, 2, "202.97.94.114", 39.9042, 116.4074, "中国/北京");
+            AddHop(vm, 3, "202.97.43.42", 23.1291, 113.2644, "中国/广州");
+            AddHop(vm, 4, "14.147.205.98", 30.5728, 104.0668, "中国/成都");
+
+            var window = new TraceRouteWindow { DataContext = vm };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Assert.AreEqual(3, vm.Hops.Count(h => h.HasLocation));
+            SaveFrame(window, "trace-route-regional.png");
+            window.Close();
+        });
+    }
+
+    [TestMethod]
     public void HopsWithoutLocation_AreNotPlottedOnTheMap()
     {
         OnUi(() =>
@@ -98,6 +125,21 @@ public sealed class TraceRouteUiTests
             }
             vm.Hops.Add(row);
         }
+    }
+
+    /// <summary>往面板里塞一跳(可带归属地)。</summary>
+    private static void AddHop(TraceRouteViewModel vm, int ttl, string ip, double? lat, double? lon, string? place)
+    {
+        var hop = new TraceHop(ttl);
+        hop.Add(new(ttl, IPAddress.Parse(ip), TimeSpan.FromMilliseconds(8 * ttl), false, false));
+        var row = new TraceHopViewModel(hop);
+        row.Update(hop);
+        if (lat is { } latitude && lon is { } longitude)
+        {
+            string[] parts = place!.Split('/');
+            row.SetLocation(new(latitude, longitude, parts[1], parts[0], null));
+        }
+        vm.Hops.Add(row);
     }
 
     private static void SaveFrame(TopLevel topLevel, string fileName)

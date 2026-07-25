@@ -89,7 +89,7 @@
               Background="{DynamicResource VelaBgSurface}"
               BorderBrush="{DynamicResource VelaBorderSecondary}"
               BorderThickness="0,0,0,1"
-              CornerRadius="8,8,0,0"
+              CornerRadius="7,7,0,0"
               PointerPressed="Header_PointerPressed">
         <Grid ColumnDefinitions="*,Auto" Margin="12,0,0,0">
           <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
@@ -247,7 +247,7 @@
               Background="{DynamicResource VelaBgSurface}"
               BorderBrush="{DynamicResource VelaBorderSecondary}"
               BorderThickness="0,1,0,0"
-              CornerRadius="0,0,8,8"
+              CornerRadius="0,0,7,7"
               Padding="12,0">
         <TextBlock Text="{Binding Status}"
                    Foreground="{DynamicResource VelaTextMuted}"

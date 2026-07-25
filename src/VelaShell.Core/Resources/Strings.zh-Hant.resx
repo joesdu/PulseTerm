@@ -3041,7 +3041,7 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
     <value>依總容量正規化:全核滿載為 100%,與 Windows 工作管理員口徑一致</value>
   </data>
   <data name="Trace_Title" xml:space="preserve">
-    <value>鏈路追蹤</value>
+    <value>路由追蹤</value>
   </data>
   <data name="Trace_Target" xml:space="preserve">
     <value>目標</value>
@@ -3113,7 +3113,7 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
     <value>追蹤完成</value>
   </data>
   <data name="Trace_TitleFormat" xml:space="preserve">
-    <value>{0} — 鏈路追蹤</value>
+    <value>{0} — 路由追蹤</value>
   </data>
   <data name="Trace_ColLocation" xml:space="preserve">
     <value>位置</value>
