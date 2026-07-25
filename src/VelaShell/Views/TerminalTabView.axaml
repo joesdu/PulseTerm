@@ -305,6 +305,13 @@
               </Button>
             </StackPanel>
 
+            <!-- 键位提示:两个按钮各自都有等效快捷键,不写出来没人会去试。 -->
+            <TextBlock Text="{loc:Localize Msg_DisconnectOverlayKeyHint}"
+                       Foreground="{DynamicResource VelaTextMuted}"
+                       FontSize="11"
+                       TextAlignment="Center"
+                       HorizontalAlignment="Center" />
+
           </StackPanel>
         </Border>
       </Border>

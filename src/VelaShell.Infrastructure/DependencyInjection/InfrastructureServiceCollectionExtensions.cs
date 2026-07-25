@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Tmds.Ssh;
 using VelaShell.Core.Data;
 using VelaShell.Core.Models;
+using VelaShell.Core.Processes;
 using VelaShell.Core.Recording;
 using VelaShell.Core.Resources;
 using VelaShell.Core.Services;
@@ -106,6 +107,8 @@ public static class InfrastructureServiceCollectionExtensions
             sp.GetRequiredService<ISecretProtector>()));
         services.AddSingleton<ISessionMetricsService>(sp =>
             new SessionMetricsService(sp.GetRequiredService<ISshConnectionService>()));
+        services.AddSingleton<IRemoteProcessService>(sp =>
+            new RemoteProcessService(sp.GetRequiredService<ISshConnectionService>()));
         services.AddSingleton<ITunnelService>(sp =>
         {
             ISshConnectionService connSvc = sp.GetRequiredService<ISshConnectionService>();

@@ -465,9 +465,20 @@ public class TerminalTabViewModel : TabViewModel, IDisposable
     public string DisconnectOverlayDetail =>
         HasConnectionError
             ? ConnectionError!
-            : Strings.Format("Msg_SshConnectionLostDetail", OverlayHostLabel);
+            : Profile is null && LocalShell is not null
+                ? Strings.Format("Msg_LocalShellExitedDetail", OverlayHostLabel)
+                : Strings.Format("Msg_SshConnectionLostDetail", OverlayHostLabel);
 
-    private string OverlayHostLabel => Profile is { } p ? $"{p.Host}:{p.Port}" : Title;
+    /// <summary>
+    /// 覆盖层中指代本会话的名称:优先用配置的显示名称(用户认得的那个),
+    /// 没起名时才退回 host:port;本地终端用 shell 名称。
+    /// </summary>
+    private string OverlayHostLabel =>
+        Profile is { } p
+            ? string.IsNullOrWhiteSpace(p.Name) ? $"{p.Host}:{p.Port}" : p.Name
+            : LocalShell is { } shell && !string.IsNullOrWhiteSpace(shell.Name)
+                ? shell.Name
+                : Title;
 
     /// <summary>最近一次测得的连接延迟;未知时为 null。</summary>
     public TimeSpan? Latency
@@ -569,6 +580,9 @@ public class TerminalTabViewModel : TabViewModel, IDisposable
             ReconnectRequested?.Invoke(this, EventArgs.Empty);
         }
     }
+
+    /// <summary>请求宿主关闭本标签(覆盖层按钮与 Esc 快捷键共用)。</summary>
+    public void RequestClose() => CloseRequested?.Invoke(this, EventArgs.Empty);
 
     /// <summary>
     /// 通过正常用户输入通道把快捷命令文本发送到终端。只发正文不附加回车——

@@ -20,6 +20,15 @@
       <!-- 文件浏览器行(design frame dyuii):橙色文件夹图标,青色目录名。 -->
       <SolidColorBrush x:Key="VelaFileFolderIcon" Color="#FFB86C" />
       <SolidColorBrush x:Key="VelaFileDirName" Color="#8BE9FD" />
+      <!-- 资源占用条(任务管理器概览):CPU 与内存用不同色相区分,越界时统一转黄/红。
+           取 Dracula 的 cyan/purple/yellow/red,与状态点同一套色板。 -->
+      <SolidColorBrush x:Key="VelaGaugeCpu" Color="#8BE9FD" />
+      <SolidColorBrush x:Key="VelaGaugeMemory" Color="#BD93F9" />
+      <SolidColorBrush x:Key="VelaGaugeWarn" Color="#F1FA8C" />
+      <SolidColorBrush x:Key="VelaGaugeCritical" Color="#FF5555" />
+      <!-- 轨道要比概览条底色(#343746)明显亮一档,否则未填充段看不见,
+           占用条会变成一颗孤零零的胶囊,读不出"占了多少"。 -->
+      <SolidColorBrush x:Key="VelaGaugeTrack" Color="#44475A" />
       <!-- 终端字体:内置 Cascadia Mono 打头(三平台一致、无连字、含制表/框线字形),
            系统装了 JetBrains Mono 的用户仍可在设置里切回;CJK 走系统回退。 -->
       <FontFamily x:Key="VelaTerminalFont">fonts:VelaShell#Cascadia Mono, JetBrains Mono, Consolas, monospace</FontFamily>
@@ -43,6 +52,12 @@
       <!-- 文件浏览器行:Alucard 黄色文件夹,青色目录名。 -->
       <SolidColorBrush x:Key="VelaFileFolderIcon" Color="#9E841A" />
       <SolidColorBrush x:Key="VelaFileDirName" Color="#036A96" />
+      <!-- 资源占用条:Alucard 亮色下取同色相的深色版,保证白底上的对比度。 -->
+      <SolidColorBrush x:Key="VelaGaugeCpu" Color="#036A96" />
+      <SolidColorBrush x:Key="VelaGaugeMemory" Color="#644AC9" />
+      <SolidColorBrush x:Key="VelaGaugeWarn" Color="#846E15" />
+      <SolidColorBrush x:Key="VelaGaugeCritical" Color="#CB3A2A" />
+      <SolidColorBrush x:Key="VelaGaugeTrack" Color="#E3DCBF" />
       <!-- 终端字体:内置 Cascadia Mono 打头(三平台一致、无连字、含制表/框线字形),
            系统装了 JetBrains Mono 的用户仍可在设置里切回;CJK 走系统回退。 -->
       <FontFamily x:Key="VelaTerminalFont">fonts:VelaShell#Cascadia Mono, JetBrains Mono, Consolas, monospace</FontFamily>

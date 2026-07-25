@@ -1,6 +1,7 @@
 using NSubstitute;
 using VelaShell.Core.Models;
 using VelaShell.Core.Ssh;
+using VelaShell.Services;
 using VelaShell.Terminal;
 using VelaShell.ViewModels;
 
@@ -259,5 +260,64 @@ public class TerminalTabViewModelTests
         _vm.ConnectionStatus = SessionStatus.Disconnected;
         _vm.RequestReconnect();
         Assert.AreEqual(1, count);
+    }
+
+    [TestMethod]
+    [TestCategory("TerminalTab")]
+    public void RequestClose_RaisesCloseRequested()
+    {
+        int count = 0;
+        _vm.CloseRequested += (_, _) => count++;
+        _vm.RequestClose();
+        Assert.AreEqual(1, count);
+    }
+
+    [TestMethod]
+    [TestCategory("TerminalTab")]
+    public void DisconnectOverlayDetail_PrefersProfileName_OverHostPort()
+    {
+        _vm.Profile = new()
+        {
+            Name = "生产数据库",
+            Host = "192.168.16.123",
+            Port = 22
+        };
+        _vm.ConnectionStatus = SessionStatus.Disconnected;
+        Assert.IsTrue(_vm.DisconnectOverlayDetail.Contains("生产数据库", StringComparison.Ordinal));
+        Assert.IsFalse(_vm.DisconnectOverlayDetail.Contains("192.168.16.123", StringComparison.Ordinal));
+        // 设计稿注释前缀曾漏进用户可见文案,回归守卫。
+        Assert.IsFalse(_vm.DisconnectOverlayDetail.StartsWith("//", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    [TestCategory("TerminalTab")]
+    public void DisconnectOverlayDetail_UnnamedProfile_FallsBackToHostPort()
+    {
+        _vm.Profile = new() { Name = "", Host = "10.0.0.5", Port = 2222 };
+        _vm.ConnectionStatus = SessionStatus.Disconnected;
+        Assert.IsTrue(_vm.DisconnectOverlayDetail.Contains("10.0.0.5:2222", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    [TestCategory("TerminalTab")]
+    public void DisconnectOverlayDetail_LocalShell_DoesNotClaimSshConnection()
+    {
+        _vm.LocalShell = new("pwsh", "PowerShell", "pwsh.exe");
+        _vm.ConnectionStatus = SessionStatus.Disconnected;
+        Assert.IsTrue(_vm.DisconnectOverlayDetail.Contains("PowerShell", StringComparison.Ordinal));
+        Assert.IsFalse(
+            _vm.DisconnectOverlayDetail.Contains("SSH", StringComparison.OrdinalIgnoreCase)
+        );
+    }
+
+    [TestMethod]
+    [TestCategory("TerminalTab")]
+    public void ShowDisconnectedOverlay_TrueForExitedLocalShell()
+    {
+        _vm.LocalShell = new("cmd", "命令提示符", "cmd.exe");
+        _vm.ConnectionStatus = SessionStatus.Connected;
+        Assert.IsFalse(_vm.ShowDisconnectedOverlay);
+        _vm.ConnectionStatus = SessionStatus.Disconnected;
+        Assert.IsTrue(_vm.ShowDisconnectedOverlay);
     }
 }

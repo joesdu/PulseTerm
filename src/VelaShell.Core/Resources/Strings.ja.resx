@@ -870,7 +870,13 @@
     <value>SFTP サービスを利用できません。</value>
   </data>
   <data name="Msg_SshConnectionLostDetail" xml:space="preserve">
-    <value>// {0} との SSH 接続が失われました</value>
+    <value>{0} との接続が切断されました</value>
+  </data>
+  <data name="Msg_LocalShellExitedDetail" xml:space="preserve">
+    <value>ローカルターミナル {0} のセッションが終了しました</value>
+  </data>
+  <data name="Msg_DisconnectOverlayKeyHint" xml:space="preserve">
+    <value>Enter で再接続 · Esc でタブを閉じる</value>
   </data>
   <data name="Msg_SshServiceNotConfigured" xml:space="preserve">
     <value>SSH 接続サービスが設定されていません。</value>
@@ -2853,5 +2859,176 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   </data>
   <data name="Transfer_ClearCompleted" xml:space="preserve">
     <value>完了分をクリア</value>
+  </data>
+  <data name="SetAppear_BackgroundImage" xml:space="preserve">
+    <value>背景画像</value>
+  </data>
+  <data name="SetAppear_BackgroundImageBrowse" xml:space="preserve">
+    <value>参照…</value>
+  </data>
+  <data name="SetAppear_BackgroundImageClear" xml:space="preserve">
+    <value>クリア</value>
+  </data>
+  <data name="SetAppear_BackgroundImageDesc" xml:space="preserve">
+    <value>// アプリの背後に表示する画像。下の不透明度スライダーで調整します</value>
+  </data>
+  <data name="SetAppear_BackgroundImageOpacity" xml:space="preserve">
+    <value>背景画像の不透明度</value>
+  </data>
+  <data name="SetAppear_BackgroundImageOpacityDesc" xml:space="preserve">
+    <value>// 低いほど画像が薄くなります</value>
+  </data>
+  <data name="SetAppear_ContentBgOpacity" xml:space="preserve">
+    <value>コンテンツ背景の不透明度</value>
+  </data>
+  <data name="SetAppear_ContentBgOpacityDesc" xml:space="preserve">
+    <value>// すべてのコンテンツ(ターミナル・SFTP・サイドバー)の背後にある画像を覆います。低いほど画像がよく見えます</value>
+  </data>
+  <data name="Sftp_FollowTerminal" xml:space="preserve">
+    <value>ターミナルのディレクトリに追従(現在のパスに同期)</value>
+  </data>
+  <data name="Cmd_ProcessManager" xml:space="preserve">
+    <value>タスクマネージャー</value>
+  </data>
+  <data name="Menu_ProcessManagerTip" xml:space="preserve">
+    <value>フォーカス中の SSH セッションのタスクマネージャー</value>
+  </data>
+  <data name="Proc_TitleFormat" xml:space="preserve">
+    <value>{0} — タスクマネージャー</value>
+  </data>
+  <data name="Proc_SearchPlaceholder" xml:space="preserve">
+    <value>名前・コマンドライン・PID で検索</value>
+  </data>
+  <data name="Proc_ColName" xml:space="preserve">
+    <value>名前</value>
+  </data>
+  <data name="Proc_ColPid" xml:space="preserve">
+    <value>PID</value>
+  </data>
+  <data name="Proc_ColUser" xml:space="preserve">
+    <value>ユーザー</value>
+  </data>
+  <data name="Proc_ColCpu" xml:space="preserve">
+    <value>CPU</value>
+  </data>
+  <data name="Proc_ColMemory" xml:space="preserve">
+    <value>メモリ</value>
+  </data>
+  <data name="Proc_ColThreads" xml:space="preserve">
+    <value>スレッド</value>
+  </data>
+  <data name="Proc_ColState" xml:space="preserve">
+    <value>状態</value>
+  </data>
+  <data name="Proc_ColTime" xml:space="preserve">
+    <value>稼働時間</value>
+  </data>
+  <data name="Proc_ColCommand" xml:space="preserve">
+    <value>コマンドライン</value>
+  </data>
+  <data name="Proc_EndTask" xml:space="preserve">
+    <value>タスクの終了</value>
+  </data>
+  <data name="Proc_EndTree" xml:space="preserve">
+    <value>プロセスツリーの終了</value>
+  </data>
+  <data name="Proc_ForceEnd" xml:space="preserve">
+    <value>強制終了</value>
+  </data>
+  <data name="Proc_SetPriority" xml:space="preserve">
+    <value>優先度の設定</value>
+  </data>
+  <data name="Proc_CopyCommand" xml:space="preserve">
+    <value>コマンドラインをコピー</value>
+  </data>
+  <data name="Proc_PriorityRealtime" xml:space="preserve">
+    <value>リアルタイム</value>
+  </data>
+  <data name="Proc_PriorityHigh" xml:space="preserve">
+    <value>高</value>
+  </data>
+  <data name="Proc_PriorityAboveNormal" xml:space="preserve">
+    <value>通常以上</value>
+  </data>
+  <data name="Proc_PriorityNormal" xml:space="preserve">
+    <value>通常</value>
+  </data>
+  <data name="Proc_PriorityBelowNormal" xml:space="preserve">
+    <value>通常以下</value>
+  </data>
+  <data name="Proc_PriorityLow" xml:space="preserve">
+    <value>低</value>
+  </data>
+  <data name="Proc_Speed" xml:space="preserve">
+    <value>更新速度</value>
+  </data>
+  <data name="Proc_SpeedHigh" xml:space="preserve">
+    <value>高</value>
+  </data>
+  <data name="Proc_SpeedNormal" xml:space="preserve">
+    <value>通常</value>
+  </data>
+  <data name="Proc_SpeedLow" xml:space="preserve">
+    <value>低</value>
+  </data>
+  <data name="Proc_SpeedPaused" xml:space="preserve">
+    <value>一時停止</value>
+  </data>
+  <data name="Proc_ShowKernelThreads" xml:space="preserve">
+    <value>カーネルスレッドを表示</value>
+  </data>
+  <data name="Proc_TreeView" xml:space="preserve">
+    <value>ツリー表示</value>
+  </data>
+  <data name="Proc_Refresh" xml:space="preserve">
+    <value>今すぐ更新</value>
+  </data>
+  <data name="Proc_Unavailable" xml:space="preserve">
+    <value>リモートのプロセス一覧を取得できません</value>
+  </data>
+  <data name="Proc_UnavailableHint" xml:space="preserve">
+    <value>このビューはリモートの /proc と ps を読み取るため、接続済みの Linux セッションが必要です。</value>
+  </data>
+  <data name="Proc_ConfirmEndTitle" xml:space="preserve">
+    <value>プロセスの終了</value>
+  </data>
+  <data name="Proc_ConfirmEndTreeTitle" xml:space="preserve">
+    <value>プロセスツリーの終了</value>
+  </data>
+  <data name="Proc_ConfirmForceEndTitle" xml:space="preserve">
+    <value>プロセスの強制終了</value>
+  </data>
+  <data name="Proc_ConfirmEndBody" xml:space="preserve">
+    <value>{0}(PID {1})を終了しますか？保存していないデータは失われます。</value>
+  </data>
+  <data name="Proc_ConfirmEndTreeBody" xml:space="preserve">
+    <value>{0}(PID {1})とその子プロセスを含む計 {2} 個のプロセスを終了しますか？保存していないデータは失われます。</value>
+  </data>
+  <data name="Proc_EndSucceeded" xml:space="preserve">
+    <value>{0} とそのプロセスツリー計 {1} 個に終了シグナルを送信しました</value>
+  </data>
+  <data name="Proc_EndFailed" xml:space="preserve">
+    <value>{0} を終了できませんでした: {1}</value>
+  </data>
+  <data name="Proc_PriorityChanged" xml:space="preserve">
+    <value>{0} の優先度を nice {1} に設定しました</value>
+  </data>
+  <data name="Proc_PriorityFailed" xml:space="preserve">
+    <value>{0} の優先度を変更できませんでした: {1}</value>
+  </data>
+  <data name="Proc_ReasonUnknown" xml:space="preserve">
+    <value>原因不明(root 権限が必要な可能性があります)</value>
+  </data>
+  <data name="Proc_CommandCopied" xml:space="preserve">
+    <value>コマンドラインをコピーしました</value>
+  </data>
+  <data name="Proc_CountFormat" xml:space="preserve">
+    <value>プロセス: {0} / {1}</value>
+  </data>
+  <data name="Proc_CoresFormat" xml:space="preserve">
+    <value>{0} コア</value>
+  </data>
+  <data name="Proc_CpuNormalisedTip" xml:space="preserve">
+    <value>全体容量で正規化:全コア占有で 100%(Windows タスクマネージャーと同じ基準)</value>
   </data>
 </root>
