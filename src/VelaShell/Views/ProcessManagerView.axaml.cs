@@ -21,7 +21,7 @@ public partial class ProcessManagerView : Window
         InitializeComponent();
 
         // macOS 上透明窗口会让整窗每帧走全表面 alpha 合成,滚动明显掉帧(与设置窗口同一处
-         // 结论)。那里改用不透明窗口,并把自绘的圆角/外边距/投影一并抹平成干净矩形 ——
+        // 结论)。那里改用不透明窗口,并把自绘的圆角/外边距/投影一并抹平成干净矩形 ——
         // macOS 本身会给窗口圆角,观感不吃亏。
         if (OperatingSystem.IsMacOS())
         {

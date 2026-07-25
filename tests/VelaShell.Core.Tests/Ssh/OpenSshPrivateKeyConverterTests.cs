@@ -18,7 +18,7 @@ public class OpenSshPrivateKeyConverterTests
     // Tmds.Ssh 真正加载一遍转换结果;不抛即证明格式被接受。
     private static async Task AssertTmdsLoads(char[] openSshPem)
     {
-        var cred = new PrivateKeyCredential(openSshPem, (string?)null, "test");
+        var cred = new PrivateKeyCredential(openSshPem, null, "test");
         MethodInfo load = typeof(PrivateKeyCredential).GetMethod("LoadKeyAsync",
             BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)!;
         object valueTask = load.Invoke(cred, [CancellationToken.None])!;

@@ -3040,4 +3040,109 @@ Windows는 exe 전체 경로 또는 명령 이름(예: notepad), Linux는 명령
   <data name="Proc_CpuNormalisedTip" xml:space="preserve">
     <value>전체 용량 기준: 모든 코어 사용 시 100%, Windows 작업 관리자와 동일</value>
   </data>
+  <data name="Trace_Title" xml:space="preserve">
+    <value>링크 추적</value>
+  </data>
+  <data name="Trace_Target" xml:space="preserve">
+    <value>대상</value>
+  </data>
+  <data name="Trace_Start" xml:space="preserve">
+    <value>시작</value>
+  </data>
+  <data name="Trace_Stop" xml:space="preserve">
+    <value>중지</value>
+  </data>
+  <data name="Trace_ColHost" xml:space="preserve">
+    <value>호스트</value>
+  </data>
+  <data name="Trace_ColLoss" xml:space="preserve">
+    <value>손실%</value>
+  </data>
+  <data name="Trace_ColSent" xml:space="preserve">
+    <value>보냄</value>
+  </data>
+  <data name="Trace_ColLast" xml:space="preserve">
+    <value>최근</value>
+  </data>
+  <data name="Trace_ColAvg" xml:space="preserve">
+    <value>평균</value>
+  </data>
+  <data name="Trace_ColBest" xml:space="preserve">
+    <value>최고</value>
+  </data>
+  <data name="Trace_ColWorst" xml:space="preserve">
+    <value>최악</value>
+  </data>
+  <data name="Trace_ColStdDev" xml:space="preserve">
+    <value>표준편차</value>
+  </data>
+  <data name="Trace_Running" xml:space="preserve">
+    <value>추적 중…</value>
+  </data>
+  <data name="Trace_Stopped" xml:space="preserve">
+    <value>중지됨</value>
+  </data>
+  <data name="Trace_HintOk" xml:space="preserve">
+    <value>정상입니다.</value>
+  </data>
+  <data name="Trace_HintRateLimited" xml:space="preserve">
+    <value>이 홉은 응답을 버리지만 이후 홉은 정상입니다. 라우터가 ICMP 응답을 제한할 뿐 전달은 정상입니다.</value>
+  </data>
+  <data name="Trace_HintNoResponse" xml:space="preserve">
+    <value>이 노드는 ICMP에 전혀 응답하지 않습니다. 이후 홉은 응답하므로 경로가 끊긴 것은 아닙니다.</value>
+  </data>
+  <data name="Trace_HintSuspectedLoss" xml:space="preserve">
+    <value>마지막 홉까지 손실이 이어집니다. 실제 종단 간 패킷 손실일 수 있습니다.</value>
+  </data>
+  <data name="Trace_HintUnreachable" xml:space="preserve">
+    <value>이 홉에서 대상에 연결할 수 없음이 반환되었습니다.</value>
+  </data>
+  <data name="Trace_ReachedFormat" xml:space="preserve">
+    <value>대상 도달 · {0}홉 · {1}번째 라운드</value>
+  </data>
+  <data name="Trace_ProbingFormat" xml:space="preserve">
+    <value>탐색 중 · 현재 {0}홉 · {1}번째 라운드</value>
+  </data>
+  <data name="Trace_Failed" xml:space="preserve">
+    <value>추적 실패: {0}</value>
+  </data>
+  <data name="Trace_Continuous" xml:space="preserve">
+    <value>계속 추적</value>
+  </data>
+  <data name="Trace_Completed" xml:space="preserve">
+    <value>추적 완료</value>
+  </data>
+  <data name="Trace_TitleFormat" xml:space="preserve">
+    <value>{0} — 링크 추적</value>
+  </data>
+  <data name="Trace_ColLocation" xml:space="preserve">
+    <value>위치</value>
+  </data>
+  <data name="Trace_MapNoData" xml:space="preserve">
+    <value>아직 지도에 표시할 홉이 없습니다.</value>
+  </data>
+  <data name="Trace_MapNeedsDatabase" xml:space="preserve">
+    <value>오프라인 IP 위치 데이터베이스를 찾을 수 없습니다. .mmdb 파일을 %LocalAppData%/VelaShell/geoip/에 두거나 설정에서 경로를 지정하세요. 없어도 추적은 동작하며 지도만 비어 있습니다.</value>
+  </data>
+  <data name="Trace_LocationHint" xml:space="preserve">
+    <value>IP 등록 정보를 기반으로 추정합니다. 백본 라우터는 장비의 실제 위치가 아닌 사업자 등록 주소로 등록된 경우가 많아 중간 홉은 참고용입니다.</value>
+  </data>
+  <data name="Trace_GeoDownload" xml:space="preserve">
+    <value>데이터베이스 다운로드</value>
+  </data>
+  <data name="Trace_GeoPick" xml:space="preserve">
+    <value>로컬 파일 선택…</value>
+  </data>
+  <data name="Trace_GeoFileType" xml:space="preserve">
+    <value>IP 위치 데이터베이스 (*.mmdb, *.gz)</value>
+  </data>
+  <data name="Trace_GeoExtracting" xml:space="preserve">
+    <value>압축 푸는 중…</value>
+  </data>
+  <data name="Trace_GeoLoadFailed" xml:space="preserve">
+    <value>해당 파일을 불러올 수 없습니다. 압축되지 않은 .mmdb 또는 다운로드한 .mmdb.gz가 필요합니다.</value>
+  </data>
+  <data name="Trace_GeoAttribution" xml:space="preserve">
+    <value>IP 위치 데이터 제공: DB-IP.com (CC BY 4.0)</value>
+  </data>
 </root>

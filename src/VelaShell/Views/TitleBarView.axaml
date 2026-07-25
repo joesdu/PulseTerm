@@ -131,6 +131,13 @@
                            IsVisible="{Binding FileBrowser.IsVisible}" />
           </Panel>
         </Button>
+        <!-- 链路追踪:紧挨资源管理器,启用条件与它完全相同;点开是独立窗口(同任务管理器)。 -->
+        <Button Theme="{StaticResource VelaTitleActionButton}"
+                ToolTip.Tip="{loc:Localize Trace_Title}"
+                Command="{Binding OpenTraceRouteCommand}">
+          <pc:LucideIcon Width="12" Height="12" Data="{StaticResource Icon.map-pinned}"
+                         Foreground="{DynamicResource VelaTextMuted}" />
+        </Button>
         <!-- 任务管理器:绑定命令本身而不是 RunCommand,CanExecute 才能把按钮变灰
              (本地终端与 SFTP 标签下无远端进程可管)。 -->
         <Button Theme="{StaticResource VelaTitleActionButton}"

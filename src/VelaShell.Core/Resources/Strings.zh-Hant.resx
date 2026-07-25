@@ -3040,4 +3040,109 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   <data name="Proc_CpuNormalisedTip" xml:space="preserve">
     <value>依總容量正規化:全核滿載為 100%,與 Windows 工作管理員口徑一致</value>
   </data>
+  <data name="Trace_Title" xml:space="preserve">
+    <value>鏈路追蹤</value>
+  </data>
+  <data name="Trace_Target" xml:space="preserve">
+    <value>目標</value>
+  </data>
+  <data name="Trace_Start" xml:space="preserve">
+    <value>開始</value>
+  </data>
+  <data name="Trace_Stop" xml:space="preserve">
+    <value>停止</value>
+  </data>
+  <data name="Trace_ColHost" xml:space="preserve">
+    <value>主機</value>
+  </data>
+  <data name="Trace_ColLoss" xml:space="preserve">
+    <value>遺失%</value>
+  </data>
+  <data name="Trace_ColSent" xml:space="preserve">
+    <value>已送出</value>
+  </data>
+  <data name="Trace_ColLast" xml:space="preserve">
+    <value>最近</value>
+  </data>
+  <data name="Trace_ColAvg" xml:space="preserve">
+    <value>平均</value>
+  </data>
+  <data name="Trace_ColBest" xml:space="preserve">
+    <value>最快</value>
+  </data>
+  <data name="Trace_ColWorst" xml:space="preserve">
+    <value>最慢</value>
+  </data>
+  <data name="Trace_ColStdDev" xml:space="preserve">
+    <value>標準差</value>
+  </data>
+  <data name="Trace_Running" xml:space="preserve">
+    <value>追蹤中…</value>
+  </data>
+  <data name="Trace_Stopped" xml:space="preserve">
+    <value>已停止</value>
+  </data>
+  <data name="Trace_HintOk" xml:space="preserve">
+    <value>正常。</value>
+  </data>
+  <data name="Trace_HintRateLimited" xml:space="preserve">
+    <value>本跳遺失但後續跳不遺失:該路由器對 ICMP 回覆限速,轉送正常。</value>
+  </data>
+  <data name="Trace_HintNoResponse" xml:space="preserve">
+    <value>該節點完全不回應 ICMP。後續跳仍有回應,鏈路沒斷。</value>
+  </data>
+  <data name="Trace_HintSuspectedLoss" xml:space="preserve">
+    <value>遺失一直延續到最後一跳:這才可能是真實的端對端遺失。</value>
+  </data>
+  <data name="Trace_HintUnreachable" xml:space="preserve">
+    <value>該跳傳回了目標無法連線。</value>
+  </data>
+  <data name="Trace_ReachedFormat" xml:space="preserve">
+    <value>已抵達目標 · {0} 跳 · 第 {1} 輪</value>
+  </data>
+  <data name="Trace_ProbingFormat" xml:space="preserve">
+    <value>探測中 · 已 {0} 跳 · 第 {1} 輪</value>
+  </data>
+  <data name="Trace_Failed" xml:space="preserve">
+    <value>追蹤失敗:{0}</value>
+  </data>
+  <data name="Trace_Continuous" xml:space="preserve">
+    <value>持續追蹤</value>
+  </data>
+  <data name="Trace_Completed" xml:space="preserve">
+    <value>追蹤完成</value>
+  </data>
+  <data name="Trace_TitleFormat" xml:space="preserve">
+    <value>{0} — 鏈路追蹤</value>
+  </data>
+  <data name="Trace_ColLocation" xml:space="preserve">
+    <value>位置</value>
+  </data>
+  <data name="Trace_MapNoData" xml:space="preserve">
+    <value>尚無可落到地圖上的躍點。</value>
+  </data>
+  <data name="Trace_MapNeedsDatabase" xml:space="preserve">
+    <value>未找到離線 IP 歸屬地資料庫。請將 .mmdb 放到 %LocalAppData%/VelaShell/geoip/,或在設定中指定路徑。沒有它追蹤照常運作,只是地圖為空。</value>
+  </data>
+  <data name="Trace_LocationHint" xml:space="preserve">
+    <value>依據 IP 網段登記資訊推斷。骨幹路由器登記的多為業者註冊地址而非裝置實際位置,中繼躍點僅供參考。</value>
+  </data>
+  <data name="Trace_GeoDownload" xml:space="preserve">
+    <value>下載資料庫</value>
+  </data>
+  <data name="Trace_GeoPick" xml:space="preserve">
+    <value>選擇本機檔案…</value>
+  </data>
+  <data name="Trace_GeoFileType" xml:space="preserve">
+    <value>IP 歸屬地資料庫 (*.mmdb, *.gz)</value>
+  </data>
+  <data name="Trace_GeoExtracting" xml:space="preserve">
+    <value>正在解壓…</value>
+  </data>
+  <data name="Trace_GeoLoadFailed" xml:space="preserve">
+    <value>無法載入該檔案。需要是未壓縮的 .mmdb,或下載得到的 .mmdb.gz。</value>
+  </data>
+  <data name="Trace_GeoAttribution" xml:space="preserve">
+    <value>IP 歸屬地資料由 DB-IP.com 提供 (CC BY 4.0)</value>
+  </data>
 </root>

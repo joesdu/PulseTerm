@@ -9,6 +9,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="MaxMind.Db" />
     <PackageReference Include="SonnetDB.Core" />
     <PackageReference Include="Tmds.Ssh" />
     <!-- DPAPI(CurrentUser)包裹本地 AES 密钥文件;仅 Windows 运行时可用,其余平台已代码守卫。 -->
