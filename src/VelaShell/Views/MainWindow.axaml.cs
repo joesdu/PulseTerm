@@ -10,6 +10,7 @@ using Avalonia.VisualTree;
 using Microsoft.Extensions.DependencyInjection;
 using ReactiveUI;
 using VelaShell.Core.Data;
+using VelaShell.Core.Diagnostics;
 using VelaShell.Core.Models;
 using VelaShell.Core.Processes;
 using VelaShell.Core.Resources;
@@ -30,8 +31,14 @@ public partial class MainWindow : Window
     /// <summary>任务管理器窗口尺寸在文档存储里的键。</summary>
     private const string ProcessManagerLayoutKey = "processManager";
 
+    /// <summary>链路追踪窗口尺寸在文档存储里的键。</summary>
+    private const string TraceRouteLayoutKey = "traceRoute";
+
     /// <summary>每个会话至多一扇任务管理器窗口,按会话标识去重。</summary>
     private readonly Dictionary<Guid, ProcessManagerView> _processManagers = [];
+
+    /// <summary>每个追踪目标至多一扇窗口,按目标主机去重。</summary>
+    private readonly Dictionary<string, TraceRouteWindow> _traceWindows = new(StringComparer.OrdinalIgnoreCase);
 
     private IDisposable? _fileBrowserVisibilitySub;
     private bool _forceClose;
@@ -186,6 +193,9 @@ public partial class MainWindow : Window
             // 标题栏“任务管理器”:每个会话最多一扇窗,非模态。
             vm.ProcessManagerRequested += (sessionId, label) =>
                 Dispatcher.UIThread.Post(() => _ = OpenProcessManagerAsync(sessionId, label));
+            // 标题栏"链路追踪":每个目标最多一扇窗,非模态。
+            vm.TraceRouteRequested += (host, label) =>
+                Dispatcher.UIThread.Post(() => _ = OpenTraceRouteAsync(vm, host, label));
 
             // 资源管理器树:右键连接/双击连接 + 右键编辑。
             if (vm.Sidebar.SessionTree is { } tree)
@@ -827,6 +837,54 @@ public partial class MainWindow : Window
             window.Closing += (_, _) => _ = layoutStore.SaveAsync(ProcessManagerLayoutKey, window);
         }
         window.Show(this);
+    }
+
+    /// <summary>打开(或前置)某个目标的链路追踪窗口。非模态,尺寸与任务管理器一样记忆。</summary>
+    private async Task OpenTraceRouteAsync(MainWindowViewModel vm, string host, string label)
+    {
+        if (_traceWindows.TryGetValue(host, out TraceRouteWindow? existing))
+        {
+            existing.Activate();
+            return;
+        }
+        IServiceProvider? services = (Application.Current as App)?.Services;
+        IIpGeolocationService? geo = services?.GetService<Core.Diagnostics.IIpGeolocationService>();
+        ISettingsService? settings = services?.GetService<ISettingsService>();
+        var viewModel = new TraceRouteViewModel(
+            vm.TraceRouteService,
+            geo,
+            // 用户选过一次就记住,下次开窗直接加载 —— 这一项不进设置页,入口只在追踪窗口里。
+            path => _ = RememberGeoDatabaseAsync(settings, path)
+        );
+        viewModel.PointAt(host, label);
+        var window = new TraceRouteWindow { DataContext = viewModel };
+        _traceWindows[host] = window;
+        window.Closed += (_, _) => _traceWindows.Remove(host);
+        if (Application.Current is App app && app.Services?.GetService<WindowLayoutStore>() is { } layoutStore)
+        {
+            WindowLayoutStore.Apply(window, await layoutStore.LoadAsync(TraceRouteLayoutKey));
+            window.Closing += (_, _) => _ = layoutStore.SaveAsync(TraceRouteLayoutKey, window);
+        }
+        window.Show(this);
+    }
+
+    /// <summary>记住用户选定的归属地数据库路径;写失败只影响下次是否要重选,不打扰用户。</summary>
+    private static async Task RememberGeoDatabaseAsync(ISettingsService? settings, string path)
+    {
+        if (settings is null)
+        {
+            return;
+        }
+        try
+        {
+            AppSettings current = await settings.GetSettingsAsync();
+            current.General.GeoIpDatabasePath = path;
+            await settings.SaveSettingsAsync(current);
+        }
+        catch
+        {
+            // 尽力而为。
+        }
     }
 
     /// <summary>打开连接诊断中心(设计 RGXg1):打开即自动执行一轮四步检测。</summary>

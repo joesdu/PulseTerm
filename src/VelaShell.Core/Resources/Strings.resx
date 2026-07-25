@@ -3041,4 +3041,109 @@ Overwrite it?</value>
   <data name="Proc_CpuNormalisedTip" xml:space="preserve">
     <value>Normalised to total capacity: all cores busy is 100%, same as Windows Task Manager</value>
   </data>
+  <data name="Trace_Title" xml:space="preserve">
+    <value>Route trace</value>
+  </data>
+  <data name="Trace_Target" xml:space="preserve">
+    <value>Target</value>
+  </data>
+  <data name="Trace_Start" xml:space="preserve">
+    <value>Start</value>
+  </data>
+  <data name="Trace_Stop" xml:space="preserve">
+    <value>Stop</value>
+  </data>
+  <data name="Trace_ColHost" xml:space="preserve">
+    <value>Host</value>
+  </data>
+  <data name="Trace_ColLoss" xml:space="preserve">
+    <value>Loss%</value>
+  </data>
+  <data name="Trace_ColSent" xml:space="preserve">
+    <value>Sent</value>
+  </data>
+  <data name="Trace_ColLast" xml:space="preserve">
+    <value>Last</value>
+  </data>
+  <data name="Trace_ColAvg" xml:space="preserve">
+    <value>Avg</value>
+  </data>
+  <data name="Trace_ColBest" xml:space="preserve">
+    <value>Best</value>
+  </data>
+  <data name="Trace_ColWorst" xml:space="preserve">
+    <value>Worst</value>
+  </data>
+  <data name="Trace_ColStdDev" xml:space="preserve">
+    <value>StDev</value>
+  </data>
+  <data name="Trace_Running" xml:space="preserve">
+    <value>Tracing…</value>
+  </data>
+  <data name="Trace_Stopped" xml:space="preserve">
+    <value>Stopped</value>
+  </data>
+  <data name="Trace_HintOk" xml:space="preserve">
+    <value>Normal.</value>
+  </data>
+  <data name="Trace_HintRateLimited" xml:space="preserve">
+    <value>This hop drops probes but later hops do not: the router rate-limits its ICMP replies, forwarding is fine.</value>
+  </data>
+  <data name="Trace_HintNoResponse" xml:space="preserve">
+    <value>This node does not answer ICMP at all. Later hops still answer, so the path is not broken.</value>
+  </data>
+  <data name="Trace_HintSuspectedLoss" xml:space="preserve">
+    <value>Loss continues to the last hop: this is likely real end-to-end packet loss.</value>
+  </data>
+  <data name="Trace_HintUnreachable" xml:space="preserve">
+    <value>Destination unreachable was returned for this hop.</value>
+  </data>
+  <data name="Trace_ReachedFormat" xml:space="preserve">
+    <value>Reached the target · {0} hops · round {1}</value>
+  </data>
+  <data name="Trace_ProbingFormat" xml:space="preserve">
+    <value>Probing · {0} hops so far · round {1}</value>
+  </data>
+  <data name="Trace_Failed" xml:space="preserve">
+    <value>Trace failed: {0}</value>
+  </data>
+  <data name="Trace_Continuous" xml:space="preserve">
+    <value>Keep tracing</value>
+  </data>
+  <data name="Trace_Completed" xml:space="preserve">
+    <value>Trace complete</value>
+  </data>
+  <data name="Trace_TitleFormat" xml:space="preserve">
+    <value>{0} — Route trace</value>
+  </data>
+  <data name="Trace_ColLocation" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="Trace_MapNoData" xml:space="preserve">
+    <value>No hop can be placed on the map yet.</value>
+  </data>
+  <data name="Trace_MapNeedsDatabase" xml:space="preserve">
+    <value>No offline IP location database found. Put a .mmdb file in %LocalAppData%/VelaShell/geoip/ or set its path in Settings. Tracing works without it — only the map stays empty.</value>
+  </data>
+  <data name="Trace_LocationHint" xml:space="preserve">
+    <value>Inferred from IP registration data. Backbone routers are often registered to the operator's address rather than where the device physically sits, so intermediate hops are approximate.</value>
+  </data>
+  <data name="Trace_GeoDownload" xml:space="preserve">
+    <value>Download database</value>
+  </data>
+  <data name="Trace_GeoPick" xml:space="preserve">
+    <value>Choose local file…</value>
+  </data>
+  <data name="Trace_GeoFileType" xml:space="preserve">
+    <value>IP location database (*.mmdb, *.gz)</value>
+  </data>
+  <data name="Trace_GeoExtracting" xml:space="preserve">
+    <value>Extracting…</value>
+  </data>
+  <data name="Trace_GeoLoadFailed" xml:space="preserve">
+    <value>Could not load that file. It must be an uncompressed .mmdb or the .mmdb.gz straight from the download.</value>
+  </data>
+  <data name="Trace_GeoAttribution" xml:space="preserve">
+    <value>IP location data by DB-IP.com (CC BY 4.0)</value>
+  </data>
 </root>

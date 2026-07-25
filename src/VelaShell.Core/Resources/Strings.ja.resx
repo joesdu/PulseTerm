@@ -3040,4 +3040,109 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   <data name="Proc_CpuNormalisedTip" xml:space="preserve">
     <value>全体容量で正規化:全コア占有で 100%(Windows タスクマネージャーと同じ基準)</value>
   </data>
+  <data name="Trace_Title" xml:space="preserve">
+    <value>ルート追跡</value>
+  </data>
+  <data name="Trace_Target" xml:space="preserve">
+    <value>ターゲット</value>
+  </data>
+  <data name="Trace_Start" xml:space="preserve">
+    <value>開始</value>
+  </data>
+  <data name="Trace_Stop" xml:space="preserve">
+    <value>停止</value>
+  </data>
+  <data name="Trace_ColHost" xml:space="preserve">
+    <value>ホスト</value>
+  </data>
+  <data name="Trace_ColLoss" xml:space="preserve">
+    <value>損失%</value>
+  </data>
+  <data name="Trace_ColSent" xml:space="preserve">
+    <value>送信</value>
+  </data>
+  <data name="Trace_ColLast" xml:space="preserve">
+    <value>直近</value>
+  </data>
+  <data name="Trace_ColAvg" xml:space="preserve">
+    <value>平均</value>
+  </data>
+  <data name="Trace_ColBest" xml:space="preserve">
+    <value>最速</value>
+  </data>
+  <data name="Trace_ColWorst" xml:space="preserve">
+    <value>最遅</value>
+  </data>
+  <data name="Trace_ColStdDev" xml:space="preserve">
+    <value>標準偏差</value>
+  </data>
+  <data name="Trace_Running" xml:space="preserve">
+    <value>トレース中…</value>
+  </data>
+  <data name="Trace_Stopped" xml:space="preserve">
+    <value>停止しました</value>
+  </data>
+  <data name="Trace_HintOk" xml:space="preserve">
+    <value>正常です。</value>
+  </data>
+  <data name="Trace_HintRateLimited" xml:space="preserve">
+    <value>このホップは応答を落としますが後続は正常です。ルーターが ICMP 応答をレート制限しているだけで、転送は正常です。</value>
+  </data>
+  <data name="Trace_HintNoResponse" xml:space="preserve">
+    <value>このノードは ICMP に一切応答しません。後続のホップは応答しているため、経路は切れていません。</value>
+  </data>
+  <data name="Trace_HintSuspectedLoss" xml:space="preserve">
+    <value>最後のホップまで損失が続いています。実際のエンドツーエンドのパケット損失の可能性があります。</value>
+  </data>
+  <data name="Trace_HintUnreachable" xml:space="preserve">
+    <value>このホップから到達不能が返されました。</value>
+  </data>
+  <data name="Trace_ReachedFormat" xml:space="preserve">
+    <value>ターゲットに到達 · {0} ホップ · 第 {1} ラウンド</value>
+  </data>
+  <data name="Trace_ProbingFormat" xml:space="preserve">
+    <value>探索中 · 現在 {0} ホップ · 第 {1} ラウンド</value>
+  </data>
+  <data name="Trace_Failed" xml:space="preserve">
+    <value>トレースに失敗しました: {0}</value>
+  </data>
+  <data name="Trace_Continuous" xml:space="preserve">
+    <value>継続追跡</value>
+  </data>
+  <data name="Trace_Completed" xml:space="preserve">
+    <value>トレース完了</value>
+  </data>
+  <data name="Trace_TitleFormat" xml:space="preserve">
+    <value>{0} — ルート追跡</value>
+  </data>
+  <data name="Trace_ColLocation" xml:space="preserve">
+    <value>位置</value>
+  </data>
+  <data name="Trace_MapNoData" xml:space="preserve">
+    <value>地図に配置できるホップはまだありません。</value>
+  </data>
+  <data name="Trace_MapNeedsDatabase" xml:space="preserve">
+    <value>オフライン IP 位置データベースが見つかりません。.mmdb を %LocalAppData%/VelaShell/geoip/ に置くか、設定でパスを指定してください。無くてもトレースは動作し、地図が空になるだけです。</value>
+  </data>
+  <data name="Trace_LocationHint" xml:space="preserve">
+    <value>IP 登録情報からの推定です。バックボーンルーターは事業者の登録住所で登録されていることが多く、中間ホップの位置は目安です。</value>
+  </data>
+  <data name="Trace_GeoDownload" xml:space="preserve">
+    <value>データベースをダウンロード</value>
+  </data>
+  <data name="Trace_GeoPick" xml:space="preserve">
+    <value>ローカルファイルを選択…</value>
+  </data>
+  <data name="Trace_GeoFileType" xml:space="preserve">
+    <value>IP 位置データベース (*.mmdb, *.gz)</value>
+  </data>
+  <data name="Trace_GeoExtracting" xml:space="preserve">
+    <value>展開中…</value>
+  </data>
+  <data name="Trace_GeoLoadFailed" xml:space="preserve">
+    <value>そのファイルを読み込めません。非圧縮の .mmdb か、ダウンロードした .mmdb.gz が必要です。</value>
+  </data>
+  <data name="Trace_GeoAttribution" xml:space="preserve">
+    <value>IP 位置データ提供: DB-IP.com (CC BY 4.0)</value>
+  </data>
 </root>

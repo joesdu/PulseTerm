@@ -102,6 +102,17 @@ public abstract class ObservableOptions : INotifyPropertyChanged
 /// <summary>设置 - 常规(设计 2BIRD)。</summary>
 public class GeneralOptions : ObservableOptions
 {
+    /// <summary>
+    /// 离线 IP 归属地数据库(*.mmdb)的绝对路径;留空则自动使用
+    /// <c>%LocalAppData%/VelaShell/geoip/</c> 下的第一个 .mmdb。
+    /// 缺库时链路追踪照常工作,只是地图上没有落点。
+    /// </summary>
+    public string GeoIpDatabasePath
+    {
+        get;
+        set => Set(ref field, value);
+    } = string.Empty;
+
     // 启动
     /// <summary>是否开机自启动应用。</summary>
     public bool LaunchAtStartup

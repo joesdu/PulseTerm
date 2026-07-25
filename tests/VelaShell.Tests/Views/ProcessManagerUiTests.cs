@@ -40,7 +40,7 @@ public sealed class ProcessManagerUiTests
     {
         OnUi(() =>
         {
-            using Fixture fixture = Fixture.Show();
+            using var fixture = Fixture.Show();
 
             // 无边框窗口没有系统边框可拖:少了这层 Panel,窗口就完全不能缩放。
             Assert.IsTrue(fixture.Window.CanResize);
@@ -57,7 +57,7 @@ public sealed class ProcessManagerUiTests
     {
         OnUi(() =>
         {
-            using Fixture fixture = Fixture.Show();
+            using var fixture = Fixture.Show();
 
             // 圆角靠自己画:窗口透明,里面是一张 8px 圆角卡片。指望 DWM 给被拥有的
             // 弹出窗加圆角是不成立的,那正是这个窗口曾经四角发方的原因。
@@ -72,7 +72,7 @@ public sealed class ProcessManagerUiTests
     {
         OnUi(() =>
         {
-            using Fixture fixture = Fixture.Show();
+            using var fixture = Fixture.Show();
 
             ProgressBar cpu = fixture.Find<ProgressBar>("CpuGauge");
             ProgressBar memory = fixture.Find<ProgressBar>("MemoryGauge");
@@ -95,7 +95,7 @@ public sealed class ProcessManagerUiTests
     {
         OnUi(() =>
         {
-            using Fixture fixture = Fixture.Show();
+            using var fixture = Fixture.Show();
 
             ProgressBar cpu = fixture.Find<ProgressBar>("CpuGauge");
             IBrush? normal = cpu.Foreground;
@@ -119,7 +119,7 @@ public sealed class ProcessManagerUiTests
     {
         OnUi(() =>
         {
-            using Fixture fixture = Fixture.Show();
+            using var fixture = Fixture.Show();
 
             Grid header = fixture.Find<Grid>("HeaderColumns");
             Grid row = fixture.Window.GetVisualDescendants()
@@ -143,7 +143,7 @@ public sealed class ProcessManagerUiTests
     {
         OnUi(() =>
         {
-            using Fixture fixture = Fixture.Show();
+            using var fixture = Fixture.Show();
 
             // 数字靠右、表头靠左是最初的表现;两者必须对齐到同一条边。
             List<Button> numeric = [.. fixture.Window.GetVisualDescendants()
@@ -163,7 +163,7 @@ public sealed class ProcessManagerUiTests
     {
         OnUi(() =>
         {
-            using Fixture fixture = Fixture.Show();
+            using var fixture = Fixture.Show();
 
             TextBlock cpuLabel = fixture.Find<TextBlock>("CpuSummaryLabel");
             Assert.IsTrue(cpuLabel.IsVisible);
@@ -177,7 +177,7 @@ public sealed class ProcessManagerUiTests
     {
         OnUi(() =>
         {
-            using Fixture fixture = Fixture.Show();
+            using var fixture = Fixture.Show();
 
             TextBlock label = fixture.Find<TextBlock>("CpuSummaryLabel");
             ProgressBar gauge = fixture.Find<ProgressBar>("CpuGauge");
@@ -215,7 +215,7 @@ public sealed class ProcessManagerUiTests
     {
         OnUi(() =>
         {
-            using Fixture fixture = Fixture.Show();
+            using var fixture = Fixture.Show();
 
             // 内核线程默认不显示,所以 4 个样本里只出 3 行。
             Assert.AreEqual(3, fixture.ViewModel.Processes.Count);

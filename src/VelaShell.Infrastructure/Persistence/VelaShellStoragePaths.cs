@@ -21,6 +21,7 @@ public sealed class VelaShellStoragePaths
         SonnetDbDirectory = Path.Combine(root, "sonnetdb");
         SecretKeyFile = Path.Combine(root, "secret.key");
         RenderModeFile = Path.Combine(root, "render.mode");
+        GeoIpDirectory = Path.Combine(root, "geoip");
         LegacyDotDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
             ".velashell"
@@ -37,6 +38,9 @@ public sealed class VelaShellStoragePaths
     /// 启动路径只做一次 File.ReadAllText,不引入任何数据库初始化开销。
     /// </summary>
     public string RenderModeFile { get; }
+
+    /// <summary>离线 IP 归属地数据库(*.mmdb)的存放目录。</summary>
+    public string GeoIpDirectory { get; }
 
     /// <summary>历史 JSON 设置文件(仅用于一次性迁移导入)。</summary>
     public string SettingsFile { get; }

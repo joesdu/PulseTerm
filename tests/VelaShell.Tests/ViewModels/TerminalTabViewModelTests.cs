@@ -1,7 +1,6 @@
 using NSubstitute;
 using VelaShell.Core.Models;
 using VelaShell.Core.Ssh;
-using VelaShell.Services;
 using VelaShell.Terminal;
 using VelaShell.ViewModels;
 

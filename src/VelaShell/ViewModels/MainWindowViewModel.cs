@@ -11,6 +11,7 @@ using Avalonia;
 using Avalonia.Threading;
 using ReactiveUI;
 using VelaShell.Core.Data;
+using VelaShell.Core.Diagnostics;
 using VelaShell.Core.Models;
 using VelaShell.Core.Processes;
 using VelaShell.Core.Recording;
@@ -147,10 +148,12 @@ public class MainWindowViewModel : ReactiveObject
         ISessionRecordingStore? recordingStore = null,
         QuickCommandsViewModel? quickCommands = null,
         IQuickCommandRepository? quickCommandRepository = null,
-        IRemoteProcessService? remoteProcessService = null
+        IRemoteProcessService? remoteProcessService = null,
+        ITraceRouteService? traceRouteService = null
     )
     {
         _remoteProcessService = remoteProcessService;
+        TraceRouteService = traceRouteService;
         _appDataStore = appDataStore;
         _recordingStore = recordingStore;
         _quickCommands = quickCommands;
@@ -301,6 +304,7 @@ public class MainWindowViewModel : ReactiveObject
             )
             .Switch();
         OpenProcessManagerCommand = ReactiveCommand.Create(OpenProcessManager, canOpenProcessManager);
+        OpenTraceRouteCommand = ReactiveCommand.Create(OpenTraceRoute, canToggleFileBrowser);
         CloseActiveTabCommand = ReactiveCommand.Create(CloseActiveTab);
         RegisterCommands();
         RunCommand = ReactiveCommand.Create<string>(id => Commands.Execute(id));
@@ -441,6 +445,9 @@ public class MainWindowViewModel : ReactiveObject
         set => this.RaiseAndSetIfChanged(ref _fileBrowser, value);
     }
 
+    /// <summary>链路追踪服务;窗口打开时用它构造面板视图模型。</summary>
+    public ITraceRouteService? TraceRouteService { get; }
+
     /// <summary>文件传输面板视图模型:承载上传/下载任务队列与进度。</summary>
     public FileTransferViewModel FileTransfer
     {
@@ -456,6 +463,9 @@ public class MainWindowViewModel : ReactiveObject
 
     /// <summary>打开当前 SSH 会话的任务管理器;本地终端与 SFTP 标签下不可用。</summary>
     public ReactiveCommand<Unit, Unit> OpenProcessManagerCommand { get; }
+
+    /// <summary>打开链路追踪窗口;启用条件与 SFTP 资源管理器一致。</summary>
+    public ReactiveCommand<Unit, Unit> OpenTraceRouteCommand { get; }
 
     /// <summary>
     /// 请求为某个会话打开任务管理器窗口。参数依次为会话标识与窗口标题用的会话名称;
@@ -1020,6 +1030,26 @@ public class MainWindowViewModel : ReactiveObject
         {
             RefreshOrLoadFileBrowser();
         }
+    }
+
+    /// <summary>
+    /// 请求为当前会话打开链路追踪窗口。参数依次为目标主机与窗口标题用的会话名称;
+    /// 与任务管理器一样由 MainWindow 承接(视图层才建得了窗口)。
+    /// </summary>
+    public event Action<string, string>? TraceRouteRequested;
+
+    /// <summary>打开链路追踪窗口,目标默认取当前会话的主机。</summary>
+    private void OpenTraceRoute()
+    {
+        if (!CanToggleFileBrowser || ActiveTerminalTab?.Profile is not { } profile)
+        {
+            return;
+        }
+        string label = string.IsNullOrWhiteSpace(profile.Name)
+                           ? $"{profile.Host}:{profile.Port}"
+                           : profile.Name;
+        // 目标不用用户再抄一遍 IP —— 这正是内建追踪相对 mtr 的意义。
+        TraceRouteRequested?.Invoke(profile.Host, label);
     }
 
     /// <summary>已加载过的面板静默刷新(保留旧列表秒显),从未加载过的走完整初始加载。</summary>

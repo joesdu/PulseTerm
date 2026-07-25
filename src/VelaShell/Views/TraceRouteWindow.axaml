@@ -1,0 +1,271 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:VelaShell.ViewModels"
+        xmlns:conv="using:VelaShell.Converters"
+        xmlns:pc="using:VelaShell.Controls.Controls"
+        xmlns:ctl="using:VelaShell.Controls"
+        xmlns:loc="using:VelaShell.Localization"
+        mc:Ignorable="d" d:DesignWidth="940" d:DesignHeight="520"
+        x:Class="VelaShell.Views.TraceRouteWindow"
+        x:DataType="vm:TraceRouteViewModel"
+        Icon="/Assets/velashell.ico"
+        Title="{loc:Localize Trace_Title}"
+        Width="940" Height="520"
+        MinWidth="820" MinHeight="360"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        WindowStartupLocation="CenterOwner"
+        WindowDecorations="None">
+
+  <!-- 链路追踪窗口。窗体规格与任务管理器完全一致:透明窗口 + 自绘 8px 圆角卡片 + 自绘缩放
+       抓取区;贴角的标题栏/状态栏跟着圆角,否则方角背景会把外框描边遮出四个缺口。 -->
+
+  <Window.Styles>
+    <Style Selector="Button.caption">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="Width" Value="42" />
+      <Setter Property="Height" Value="34" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.caption:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+    </Style>
+    <Style Selector="Button.caption-close:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#E81123" />
+    </Style>
+    <Style Selector="Button.tool">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderSecondary}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Height" Value="28" />
+      <Setter Property="MinHeight" Value="28" />
+      <Setter Property="Padding" Value="12,0" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.tool:disabled">
+      <Setter Property="Opacity" Value="0.4" />
+    </Style>
+    <Style Selector="TextBlock.col">
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />
+      <Setter Property="FontSize" Value="10" />
+      <Setter Property="LetterSpacing" Value="1" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.cell">
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaTerminalFont}" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="TextAlignment" Value="Right" />
+    </Style>
+    <Style Selector="TextBlock.host">
+      <Setter Property="TextAlignment" Value="Left" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
+      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+  </Window.Styles>
+
+  <Panel>
+  <Border x:Name="RootCard"
+          Margin="8" CornerRadius="8" ClipToBounds="True"
+          Background="{DynamicResource VelaBgPage}"
+          BorderBrush="{DynamicResource VelaBorderSecondary}"
+          BorderThickness="1"
+          BoxShadow="0 8 32 0 #80000000">
+    <Grid RowDefinitions="34,Auto,*,26">
+
+      <!-- 标题栏 -->
+      <Border x:Name="TitleBarStrip" Grid.Row="0"
+              Background="{DynamicResource VelaBgSurface}"
+              BorderBrush="{DynamicResource VelaBorderSecondary}"
+              BorderThickness="0,0,0,1"
+              CornerRadius="7,7,0,0"
+              PointerPressed="Header_PointerPressed">
+        <Grid ColumnDefinitions="*,Auto" Margin="12,0,0,0">
+          <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <pc:LucideIcon Width="14" Height="14" Data="{StaticResource Icon.map-pinned}"
+                           Foreground="{DynamicResource VelaAccent}" VerticalAlignment="Center" />
+            <TextBlock Text="{Binding SessionLabel}"
+                       Foreground="{DynamicResource VelaTextPrimary}"
+                       FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
+            <Button Classes="caption" Click="Minimize_Click">
+              <pc:LucideIcon Width="12" Height="12" Data="{StaticResource Icon.minus}"
+                             Foreground="{DynamicResource VelaTextSecondary}" />
+            </Button>
+            <Button x:Name="MaximizeButton" Classes="caption" Click="Maximize_Click">
+              <pc:LucideIcon Width="10" Height="10" Data="{StaticResource Icon.square}"
+                             Foreground="{DynamicResource VelaTextSecondary}" />
+            </Button>
+            <Button Classes="caption caption-close" Click="Close_Click">
+              <pc:LucideIcon Width="12" Height="12" Data="{StaticResource Icon.x}"
+                             Foreground="{DynamicResource VelaTextSecondary}" />
+            </Button>
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <!-- 工具栏 -->
+      <Border Grid.Row="1"
+              Background="{DynamicResource VelaBgSurface}"
+              BorderBrush="{DynamicResource VelaBorderSecondary}"
+              BorderThickness="0,0,0,1"
+              Padding="12,8">
+        <Grid ColumnDefinitions="Auto,240,Auto,Auto,Auto,*">
+          <TextBlock Grid.Column="0" Classes="col" Text="{loc:Localize Trace_Target}" Margin="0,0,8,0" />
+          <TextBox Grid.Column="1" Text="{Binding Target}"
+                   Height="28" MinHeight="28" FontSize="11" Padding="8,0"
+                   VerticalAlignment="Center" VerticalContentAlignment="Center" />
+          <Button Grid.Column="2" Classes="tool" Margin="8,0,0,0"
+                  Command="{Binding StartCommand}" Content="{loc:Localize Trace_Start}" />
+          <Button Grid.Column="3" Classes="tool" Margin="6,0,0,0"
+                  Command="{Binding StopCommand}" Content="{loc:Localize Trace_Stop}" />
+          <CheckBox Grid.Column="4" Margin="12,0,0,0"
+                    IsChecked="{Binding Continuous}"
+                    Content="{loc:Localize Trace_Continuous}"
+                    FontSize="11"
+                    Foreground="{DynamicResource VelaTextSecondary}"
+                    VerticalAlignment="Center" />
+        </Grid>
+      </Border>
+
+      <!-- 左:世界地图(落点为推断位置)   右:跃点列表,随每轮采样刷新 -->
+      <Grid Grid.Row="2" ColumnDefinitions="*,1,520">
+        <Panel Grid.Column="0">
+          <ctl:TraceWorldMap Hops="{Binding Hops}" Revision="{Binding Revision}" />
+          <!-- 缺库时的引导:说明 + 官方下载直链 + 选择本地文件。放在窗口里而不是设置页 ——
+               用户是在这儿发现地图空的,修复入口就该在这儿。 -->
+          <Border VerticalAlignment="Bottom" HorizontalAlignment="Stretch"
+                  Background="#C0000000" Padding="10,8"
+                  IsVisible="{Binding GeoDatabaseMissing}">
+            <StackPanel Spacing="6">
+              <TextBlock Text="{loc:Localize Trace_MapNeedsDatabase}"
+                         Foreground="{DynamicResource VelaTextSecondary}"
+                         FontSize="10" TextWrapping="Wrap" />
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Classes="tool" Height="24" MinHeight="24"
+                        Command="{Binding OpenDatabaseUrlCommand}"
+                        Content="{loc:Localize Trace_GeoDownload}" />
+                <Button Classes="tool" Height="24" MinHeight="24"
+                        Command="{Binding PickDatabaseCommand}"
+                        Content="{loc:Localize Trace_GeoPick}" />
+              </StackPanel>
+              <TextBlock Text="{Binding GeoDatabaseUrl}"
+                         Foreground="{DynamicResource VelaTextMuted}"
+                         FontFamily="{DynamicResource VelaTerminalFont}"
+                         FontSize="9" TextWrapping="Wrap" />
+              <TextBlock Text="{Binding GeoDatabaseStatus}"
+                         Foreground="{DynamicResource VelaError}"
+                         FontSize="10" TextWrapping="Wrap"
+                         IsVisible="{Binding GeoDatabaseStatus, Converter={x:Static conv:StringNotEmptyConverter.Instance}}" />
+            </StackPanel>
+          </Border>
+          <!-- 已加载时只在角落标一行来源,CC BY 4.0 要求署名。 -->
+          <Border VerticalAlignment="Bottom" HorizontalAlignment="Right"
+                  Background="#80000000" Padding="6,3" Margin="0,0,6,6"
+                  IsVisible="{Binding !GeoDatabaseMissing}">
+            <TextBlock Text="{loc:Localize Trace_GeoAttribution}"
+                       Foreground="{DynamicResource VelaTextMuted}" FontSize="9" />
+          </Border>
+        </Panel>
+        <Border Grid.Column="1" Background="{DynamicResource VelaBorderPrimary}" />
+
+        <Grid Grid.Column="2" RowDefinitions="22,*">
+      <!-- 列头 -->
+      <Border Grid.Row="0"
+              Background="{DynamicResource VelaBgContentHeader}"
+              BorderBrush="{DynamicResource VelaBorderSecondary}"
+              BorderThickness="0,0,0,1" Padding="12,0">
+        <Grid ColumnDefinitions="30,*,150,58,58,58">
+          <TextBlock Grid.Column="0" Classes="col" Text="#" />
+          <TextBlock Grid.Column="1" Classes="col" Text="{loc:Localize Trace_ColHost}" />
+          <TextBlock Grid.Column="2" Classes="col" Text="{loc:Localize Trace_ColLocation}" />
+          <TextBlock Grid.Column="3" Classes="col" TextAlignment="Right" Text="{loc:Localize Trace_ColLoss}" />
+          <TextBlock Grid.Column="4" Classes="col" TextAlignment="Right" Text="{loc:Localize Trace_ColAvg}" />
+          <TextBlock Grid.Column="5" Classes="col" TextAlignment="Right" Text="{loc:Localize Trace_ColLast}" />
+        </Grid>
+      </Border>
+
+      <ListBox Grid.Row="1" ItemsSource="{Binding Hops}"
+               Background="Transparent" BorderThickness="0"
+               ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+        <ListBox.Styles>
+          <Style Selector="ListBoxItem">
+            <Setter Property="Padding" Value="12,0" />
+            <Setter Property="MinHeight" Value="22" />
+          </Style>
+        </ListBox.Styles>
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:TraceHopViewModel">
+            <Grid ColumnDefinitions="30,*,150,58,58,58"
+                  ToolTip.Tip="{Binding VerdictHint}">
+              <TextBlock Grid.Column="0" Classes="cell" TextAlignment="Left" Text="{Binding Ttl}" />
+              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                <!-- 判定着色:限速/不回应是灰(不算故障),疑似真实丢包才是红。 -->
+                <TextBlock Classes="cell host" Text="{Binding Host}"
+                           Foreground="{DynamicResource VelaTextPrimary}"
+                           IsVisible="{Binding !IsQuiet}" />
+                <TextBlock Classes="cell host" Text="{Binding Host}"
+                           Foreground="{DynamicResource VelaTextMuted}"
+                           IsVisible="{Binding IsQuiet}" />
+                <Border Background="{DynamicResource VelaBgHover}" CornerRadius="3" Padding="4,0"
+                        VerticalAlignment="Center"
+                        IsVisible="{Binding ExtraAddresses, Converter={x:Static conv:StringNotEmptyConverter.Instance}}">
+                  <TextBlock Text="{Binding ExtraAddresses}" FontSize="9"
+                             Foreground="{DynamicResource VelaTextMuted}" />
+                </Border>
+              </StackPanel>
+              <TextBlock Grid.Column="2" Classes="cell host" Text="{Binding LocationText}"
+                         Foreground="{DynamicResource VelaTextMuted}" Margin="0,0,10,0"
+                         ToolTip.Tip="{loc:Localize Trace_LocationHint}" />
+              <TextBlock Grid.Column="3" Classes="cell" Text="{Binding Loss}" Margin="0,0,10,0"
+                         Foreground="{DynamicResource VelaError}" IsVisible="{Binding IsSuspect}" />
+              <TextBlock Grid.Column="3" Classes="cell" Text="{Binding Loss}" Margin="0,0,10,0"
+                         IsVisible="{Binding !IsSuspect}" />
+              <TextBlock Grid.Column="4" Classes="cell" Text="{Binding Average}" Margin="0,0,10,0" />
+              <TextBlock Grid.Column="5" Classes="cell" Text="{Binding Last}" />
+            </Grid>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+        </Grid>
+      </Grid>
+
+      <!-- 状态栏 -->
+      <Border x:Name="StatusStrip" Grid.Row="3"
+              Background="{DynamicResource VelaBgSurface}"
+              BorderBrush="{DynamicResource VelaBorderSecondary}"
+              BorderThickness="0,1,0,0"
+              CornerRadius="0,0,7,7"
+              Padding="12,0">
+        <TextBlock Text="{Binding Status}"
+                   Foreground="{DynamicResource VelaTextMuted}"
+                   FontSize="10" VerticalAlignment="Center"
+                   TextTrimming="CharacterEllipsis" />
+      </Border>
+    </Grid>
+  </Border>
+
+  <Panel x:Name="ResizeGrips" ZIndex="200">
+    <Border Tag="North" Height="5" VerticalAlignment="Top" Margin="10,0" Background="Transparent" Cursor="TopSide" PointerPressed="ResizeEdge_PointerPressed" />
+    <Border Tag="South" Height="5" VerticalAlignment="Bottom" Margin="10,0" Background="Transparent" Cursor="BottomSide" PointerPressed="ResizeEdge_PointerPressed" />
+    <Border Tag="West" Width="5" HorizontalAlignment="Left" Margin="0,10" Background="Transparent" Cursor="LeftSide" PointerPressed="ResizeEdge_PointerPressed" />
+    <Border Tag="East" Width="5" HorizontalAlignment="Right" Margin="0,10" Background="Transparent" Cursor="RightSide" PointerPressed="ResizeEdge_PointerPressed" />
+    <Border Tag="NorthWest" Width="10" Height="10" HorizontalAlignment="Left" VerticalAlignment="Top" Background="Transparent" Cursor="TopLeftCorner" PointerPressed="ResizeEdge_PointerPressed" />
+    <Border Tag="NorthEast" Width="10" Height="10" HorizontalAlignment="Right" VerticalAlignment="Top" Background="Transparent" Cursor="TopRightCorner" PointerPressed="ResizeEdge_PointerPressed" />
+    <Border Tag="SouthWest" Width="10" Height="10" HorizontalAlignment="Left" VerticalAlignment="Bottom" Background="Transparent" Cursor="BottomLeftCorner" PointerPressed="ResizeEdge_PointerPressed" />
+    <Border Tag="SouthEast" Width="10" Height="10" HorizontalAlignment="Right" VerticalAlignment="Bottom" Background="Transparent" Cursor="BottomRightCorner" PointerPressed="ResizeEdge_PointerPressed" />
+  </Panel>
+  </Panel>
+</Window>

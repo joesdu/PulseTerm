@@ -29,6 +29,14 @@
       <!-- 轨道要比概览条底色(#343746)明显亮一档,否则未填充段看不见,
            占用条会变成一颗孤零零的胶囊,读不出"占了多少"。 -->
       <SolidColorBrush x:Key="VelaGaugeTrack" Color="#44475A" />
+      <!-- 链路追踪地图:路径用青色(和紫色强调、红色告警都拉得开),已到达段更亮。 -->
+      <SolidColorBrush x:Key="VelaTraceLine" Color="#8BE9FD" />
+      <SolidColorBrush x:Key="VelaTraceLineDim" Color="#4A7C8C" />
+      <SolidColorBrush x:Key="VelaTraceLand" Color="#333850" />
+      <!-- 国境线要比陆地填充明显亮一档,否则整块大陆看不出内部分界。 -->
+      <SolidColorBrush x:Key="VelaTraceBorder" Color="#5C6488" />
+      <!-- 标注底片:压在陆地上也要读得清,故用半透明深色垫底。 -->
+      <SolidColorBrush x:Key="VelaTraceLabelBg" Color="#D2151A28" />
       <!-- 终端字体:内置 Cascadia Mono 打头(三平台一致、无连字、含制表/框线字形),
            系统装了 JetBrains Mono 的用户仍可在设置里切回;CJK 走系统回退。 -->
       <FontFamily x:Key="VelaTerminalFont">fonts:VelaShell#Cascadia Mono, JetBrains Mono, Consolas, monospace</FontFamily>
@@ -58,6 +66,12 @@
       <SolidColorBrush x:Key="VelaGaugeWarn" Color="#846E15" />
       <SolidColorBrush x:Key="VelaGaugeCritical" Color="#CB3A2A" />
       <SolidColorBrush x:Key="VelaGaugeTrack" Color="#E3DCBF" />
+      <!-- 链路追踪地图:亮色主题下取同色相的深青。 -->
+      <SolidColorBrush x:Key="VelaTraceLine" Color="#036A96" />
+      <SolidColorBrush x:Key="VelaTraceLineDim" Color="#7FA8BC" />
+      <SolidColorBrush x:Key="VelaTraceLand" Color="#EFE9D2" />
+      <SolidColorBrush x:Key="VelaTraceBorder" Color="#BDB392" />
+      <SolidColorBrush x:Key="VelaTraceLabelBg" Color="#E6FFFBEB" />
       <!-- 终端字体:内置 Cascadia Mono 打头(三平台一致、无连字、含制表/框线字形),
            系统装了 JetBrains Mono 的用户仍可在设置里切回;CJK 走系统回退。 -->
       <FontFamily x:Key="VelaTerminalFont">fonts:VelaShell#Cascadia Mono, JetBrains Mono, Consolas, monospace</FontFamily>

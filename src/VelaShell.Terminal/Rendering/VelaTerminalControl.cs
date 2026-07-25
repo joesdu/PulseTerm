@@ -968,20 +968,19 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     /// </summary>
     public double BackgroundOpacity
     {
-        get => _backgroundOpacity;
+        get;
         set
         {
             double clamped = Math.Clamp(value, 0.0, 1.0);
-            if (Math.Abs(clamped - _backgroundOpacity) < 0.001)
+            if (Math.Abs(clamped - field) < 0.001)
             {
                 return;
             }
-            _backgroundOpacity = clamped;
+            field = clamped;
             InvalidateVisual();
         }
-    }
+    } = 1.0;
 
-    private double _backgroundOpacity = 1.0;
     private ImmutableSolidColorBrush? _bgFillBrush;
     private uint _bgFillPacked;
     private int _bgFillOp = -1;
@@ -989,14 +988,14 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     /// <summary>整屏默认背景填充画刷:不透明时走共享缓存,半透明时按(颜色×不透明度)缓存一支专用画刷。</summary>
     private ImmutableSolidColorBrush DefaultBackgroundBrush(Rgba bg)
     {
-        if (_backgroundOpacity >= 0.999)
+        if (BackgroundOpacity >= 0.999)
         {
             return BrushFor(bg);
         }
-        int op = (int)Math.Round(_backgroundOpacity * 1000);
+        int op = (int)Math.Round(BackgroundOpacity * 1000);
         if (_bgFillBrush is null || _bgFillPacked != bg.Packed || _bgFillOp != op)
         {
-            byte a = (byte)Math.Round(bg.A * _backgroundOpacity);
+            byte a = (byte)Math.Round(bg.A * BackgroundOpacity);
             _bgFillBrush = new(Color.FromArgb(a, bg.R, bg.G, bg.B));
             _bgFillPacked = bg.Packed;
             _bgFillOp = op;

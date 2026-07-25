@@ -284,7 +284,6 @@ public class FileBrowserViewModel : ReactiveObject
     /// <summary>成功进入不同目录后触发,视图据此把滚动条重置到顶部。</summary>
     public event EventHandler? DirectoryChanged;
 
-    private bool _followTerminal;
     private string? _pendingTerminalPath;
 
     /// <summary>
@@ -294,14 +293,14 @@ public class FileBrowserViewModel : ReactiveObject
     /// </summary>
     public bool FollowTerminal
     {
-        get => _followTerminal;
+        get;
         set
         {
-            if (_followTerminal == value)
+            if (field == value)
             {
                 return;
             }
-            this.RaiseAndSetIfChanged(ref _followTerminal, value);
+            this.RaiseAndSetIfChanged(ref field, value);
             if (value && _pendingTerminalPath is { Length: > 0 } path)
             {
                 SyncToTerminalPath(path); // 开启当下立即同步到终端当前目录
@@ -318,7 +317,7 @@ public class FileBrowserViewModel : ReactiveObject
             return;
         }
         _pendingTerminalPath = path;
-        if (_followTerminal)
+        if (FollowTerminal)
         {
             SyncToTerminalPath(path);
         }
@@ -1705,7 +1704,7 @@ public class FileBrowserViewModel : ReactiveObject
             PlannedFileTransfer? settled =
                 item.Type == TransferType.Download
                     ? await ResolveLocalConflictAsync(item, conflictDecision)
-                    : await ResolveRemoteConflictAsync(item, remoteNames, ct, conflictDecision);
+                    : await ResolveRemoteConflictAsync(item, remoteNames, conflictDecision, ct);
             if (settled is not null)
             {
                 resolved.Add(settled);
@@ -1888,17 +1887,14 @@ public class FileBrowserViewModel : ReactiveObject
         {
             return item;
         }
-        switch (TransferOptions.ConflictPolicy)
+        return TransferOptions.ConflictPolicy switch
         {
-            case "overwrite":
-                return item;
-            case "skip":
-                return null;
-            case "rename":
-                return item with { LocalPath = NextAvailableLocalName(item.LocalPath) };
-            default: // ask
-                return await AskConflictAsync(item, item.LocalPath, ConfirmOverwrite, decision);
-        }
+            "overwrite" => item,
+            "skip" => null,
+            "rename" => item with { LocalPath = NextAvailableLocalName(item.LocalPath) },
+            // ask
+            _ => await AskConflictAsync(item, item.LocalPath, ConfirmOverwrite, decision),
+        };
     }
 
     /// <summary>本批次“全部覆盖/全部跳过”的粘性决定(见 <see cref="FileConflictResolution" />)。</summary>
@@ -2028,8 +2024,8 @@ public class FileBrowserViewModel : ReactiveObject
     private async Task<PlannedFileTransfer?> ResolveRemoteConflictAsync(
         PlannedFileTransfer item,
         Dictionary<string, HashSet<string>> remoteNames,
-        CancellationToken ct,
-        BatchConflictDecision decision
+        BatchConflictDecision decision,
+        CancellationToken ct
     )
     {
         if (item.Type != TransferType.Upload || TransferOptions.ConflictPolicy == "overwrite")
@@ -2040,27 +2036,25 @@ public class FileBrowserViewModel : ReactiveObject
         {
             return item;
         }
-        switch (TransferOptions.ConflictPolicy)
+        return TransferOptions.ConflictPolicy switch
         {
-            case "skip":
-                return null;
-            case "rename":
-                return item with
-                {
-                    RemotePath = await NextAvailableRemoteNameAsync(
-                        item.RemotePath,
-                        remoteNames,
-                        ct
-                    ),
-                };
-            default: // ask
-                return await AskConflictAsync(
-                    item,
-                    item.RemotePath,
-                    ConfirmRemoteOverwrite,
-                    decision
-                );
-        }
+            "skip" => null,
+            "rename" => item with
+            {
+                RemotePath = await NextAvailableRemoteNameAsync(
+                                    item.RemotePath,
+                                    remoteNames,
+                                    ct
+                                ),
+            },
+            // ask
+            _ => await AskConflictAsync(
+                                item,
+                                item.RemotePath,
+                                ConfirmRemoteOverwrite,
+                                decision
+                            ),
+        };
     }
 
     /// <summary>

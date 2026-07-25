@@ -119,7 +119,7 @@ public class ModelSerializationTests
         settings.Appearance.ContentBackgroundOpacity = 40;
         string json = JsonSerializer.Serialize(settings, _options);
         Assert.Contains("\"backgroundImagePath\":", json);
-        var back = JsonSerializer.Deserialize<AppSettings>(json, _options)!;
+        AppSettings back = JsonSerializer.Deserialize<AppSettings>(json, _options)!;
         Assert.AreEqual("/home/user/wall.png", back.Appearance.BackgroundImagePath);
         Assert.AreEqual(60, back.Appearance.BackgroundImageOpacity);
         Assert.AreEqual(40, back.Appearance.ContentBackgroundOpacity);
