@@ -74,10 +74,12 @@ jobs:
   # 全部由运行时的包身份判定驱动(Services/AppPackaging.cs),装成 MSIX 就自动关掉应用内
   # 自更新、改由商店接管,因此这里不需要任何特殊编译配置。
   # 产物刻意不签名:提交到商店的 MSIX 由微软在认证通过后用商店证书签名,自己签会被替换掉。
-  # 上架前须在仓库变量里填好 Partner Center 的产品标识,否则打出来的包只能本地自测:
+  # 包标识默认值即本产品在 Partner Center 的真实标识(非机密,商店包里人人可读),
+  # 无需额外配置即可出可提交的包。如需改用别的产品(换账户/换产品条目),用仓库变量覆盖:
   #   vars.MSIX_IDENTITY_NAME          ← Package/Identity/Name
   #   vars.MSIX_PUBLISHER              ← Package/Identity/Publisher(形如 CN=<GUID>)
-  #   vars.MSIX_PUBLISHER_DISPLAY_NAME ← Package/Identity/PublisherDisplayName
+  #   vars.MSIX_PUBLISHER_DISPLAY_NAME ← Package/Properties/PublisherDisplayName
+  # 三者填错时上传会被拒;脚本会就地算出包系列名(PFN)打印出来,与产品标识页一比即知。
   build-msix:
     runs-on: windows-latest
     steps:
@@ -97,9 +99,9 @@ jobs:
         run: |
           $version = '${{ github.event.release.tag_name }}'.TrimStart('v')
           ./build/msix/Build-Msix.ps1 -Version $version `
-            -IdentityName '${{ vars.MSIX_IDENTITY_NAME || 'VelaShell' }}' `
-            -Publisher '${{ vars.MSIX_PUBLISHER || 'CN=VelaShell' }}' `
-            -PublisherDisplayName '${{ vars.MSIX_PUBLISHER_DISPLAY_NAME || 'joesdu' }}'
+            -IdentityName '${{ vars.MSIX_IDENTITY_NAME || 'B0B5EDED.VelaShell' }}' `
+            -Publisher '${{ vars.MSIX_PUBLISHER || 'CN=3CDE21EE-6AB1-414B-BD2D-EDE8A225854B' }}' `
+            -PublisherDisplayName '${{ vars.MSIX_PUBLISHER_DISPLAY_NAME || '鹿宝丶' }}'
       # 单独上传,不并入 dist:.msixbundle 是给 Partner Center 手动提交用的,既不进
       # latest.json(那是便携版自更新器的清单),也不该被当成可下载的安装包挂在 Release 上。
       - uses: actions/upload-artifact@v4
