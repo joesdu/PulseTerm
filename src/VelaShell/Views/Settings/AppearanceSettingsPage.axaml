@@ -98,6 +98,18 @@
 
     <Border Classes="sep" />
 
+    <!-- 渲染 -->
+    <TextBlock Classes="section-title" Text="{loc:Localize SetAppear_RenderSection}" />
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetAppear_HardwareAcceleration}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetAppear_HardwareAccelerationDesc}" TextWrapping="Wrap" />
+      </StackPanel>
+      <ToggleSwitch Grid.Column="1" IsChecked="{Binding Appearance.HardwareAcceleration}" VerticalAlignment="Center" />
+    </Grid>
+
+    <Border Classes="sep" />
+
     <!-- 字体 -->
     <TextBlock Classes="section-title" Text="{loc:Localize Font}" />
     <Grid ColumnDefinitions="*,Auto">

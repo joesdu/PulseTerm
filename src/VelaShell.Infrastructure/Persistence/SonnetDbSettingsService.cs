@@ -48,6 +48,7 @@ public sealed class SonnetDbSettingsService(SonnetDbEngine engine, IReadOnlyList
         string json = SonnetDbJson.Serialize(settings);
         await UpsertJsonAsync(SettingsDocId, json).ConfigureAwait(false);
         _settingsJsonCache = json;
+        MirrorRenderMode(settings);
         SettingsSaved?.Invoke(settings);
     }
 
@@ -115,5 +116,27 @@ public sealed class SonnetDbSettingsService(SonnetDbEngine engine, IReadOnlyList
             }
         }
         return null;
+    }
+
+    /// <summary>
+    /// 把渲染模式镜像成一个单行文件。渲染后端要在 Avalonia 初始化前定下,那时数据库还没起来,
+    /// 启动路径读不了这份设置 —— 见 <see cref="VelaShellStoragePaths.RenderModeFile" />。
+    /// 写失败只意味着下次启动沿用上一次的模式,不值得打断保存。
+    /// </summary>
+    private static void MirrorRenderMode(AppSettings settings)
+    {
+        try
+        {
+            var paths = new VelaShellStoragePaths();
+            Directory.CreateDirectory(paths.RootDirectory);
+            File.WriteAllText(
+                paths.RenderModeFile,
+                settings.Appearance.HardwareAcceleration ? "gpu" : "software"
+            );
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // 尽力而为。
+        }
     }
 }

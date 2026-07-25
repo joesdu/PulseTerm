@@ -2981,6 +2981,15 @@ Overwrite it?</value>
   <data name="Proc_TreeView" xml:space="preserve">
     <value>Tree view</value>
   </data>
+  <data name="SetAppear_RenderSection" xml:space="preserve">
+    <value>Rendering</value>
+  </data>
+  <data name="SetAppear_HardwareAcceleration" xml:space="preserve">
+    <value>Hardware acceleration</value>
+  </data>
+  <data name="SetAppear_HardwareAccelerationDesc" xml:space="preserve">
+    <value>// Draws with the GPU. Turning it off switches to software rendering and frees around 170 MB, because the graphics driver stops mapping its modules into this process. Restart to apply.</value>
+  </data>
   <data name="Proc_Refresh" xml:space="preserve">
     <value>Refresh now</value>
   </data>

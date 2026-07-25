@@ -2980,6 +2980,15 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   <data name="Proc_TreeView" xml:space="preserve">
     <value>ツリー表示</value>
   </data>
+  <data name="SetAppear_RenderSection" xml:space="preserve">
+    <value>レンダリング</value>
+  </data>
+  <data name="SetAppear_HardwareAcceleration" xml:space="preserve">
+    <value>ハードウェアアクセラレーション</value>
+  </data>
+  <data name="SetAppear_HardwareAccelerationDesc" xml:space="preserve">
+    <value>// GPU で描画します。オフにするとソフトウェアレンダリングに切り替わり、グラフィックスドライバーのモジュールがプロセスに読み込まれなくなるため約 170MB を節約できます。再起動後に有効。</value>
+  </data>
   <data name="Proc_Refresh" xml:space="preserve">
     <value>今すぐ更新</value>
   </data>
