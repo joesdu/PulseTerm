@@ -26,7 +26,7 @@ public class FileTransferViewModel : ReactiveObject
 
     private const string HistoryId = "recent";
 
-    /// <summary>历史最多保留的记录数,超出丢弃最旧的。</summary>
+    /// <summary>历史最多保留的记录数(既是落盘上限,也是面板里同时存在的行数上限),超出丢弃最旧的。</summary>
     private const int HistoryLimit = 100;
 
     // 可空:无参构造的宿主(单元测试/无 SFTP 服务的场景)不提供传输管理器。
@@ -477,13 +477,53 @@ public class FileTransferViewModel : ReactiveObject
         }
     }
 
+    // 落盘合流:一个大目录的传输会在几秒内打出成百上千次"新增行 / 行落定"的变更,
+    // 每次都独立发起一次全量写会把存储引擎(以及它背后的锁)按在地上打,IO 争用又反过来
+    // 拖慢传输本身。这里改为"同时最多一个写在飞":飞行期间的变更只置脏标记,
+    // 写完再补最后一次 —— 落盘结果与逐次写完全一致,只是省掉了中间那些注定被覆盖的版本。
+    private bool _saveDirty;
+    private bool _saveRunning;
+
     private void SaveTransferHistory()
     {
         if (_dataStore is null || _restoringHistory)
         {
             return;
         }
-        var doc = new TransferHistoryDocument
+        _saveDirty = true;
+        if (_saveRunning)
+        {
+            return;
+        }
+        _saveRunning = true;
+        _ = SaveAsync();
+
+        async Task SaveAsync()
+        {
+            try
+            {
+                while (_saveDirty)
+                {
+                    _saveDirty = false;
+
+                    // 快照必须在续回 UI 线程后取:Transfers 只在 UI 线程上被增删。
+                    TransferHistoryDocument doc = BuildHistoryDocument();
+                    await _dataStore.UpsertAsync(HistoryCollection, HistoryId, doc).ConfigureAwait(true);
+                }
+            }
+            catch
+            {
+                // 历史记不上不影响传输本身;下一次状态变化会再试。
+            }
+            finally
+            {
+                _saveRunning = false;
+            }
+        }
+    }
+
+    private TransferHistoryDocument BuildHistoryDocument() =>
+        new()
         {
             Items = Transfers.Take(HistoryLimit)
                              .Select(t => new TransferHistoryRecord
@@ -496,20 +536,6 @@ public class FileTransferViewModel : ReactiveObject
                              })
                              .ToList()
         };
-        _ = SaveAsync();
-
-        async Task SaveAsync()
-        {
-            try
-            {
-                await _dataStore.UpsertAsync(HistoryCollection, HistoryId, doc).ConfigureAwait(false);
-            }
-            catch
-            {
-                // 历史记不上不影响传输本身;下一次状态变化会再试。
-            }
-        }
-    }
 
     private void ScheduleAutoHide()
     {
@@ -530,6 +556,29 @@ public class FileTransferViewModel : ReactiveObject
         var item = new TransferItemViewModel(task);
         // 新任务出现在顶部,这样进行中的上传无需滚动即可看到。
         Transfers.Insert(0, item);
+        TrimToLimit();
+    }
+
+    /// <summary>
+    /// 把面板里的行数压在 <see cref="HistoryLimit" /> 条以内。一次传几千个文件时这个列表
+    /// 原本会无限增长,而落盘的历史早就只留最近 100 条 —— 多出来的行既进不了历史,还要
+    /// 每新增一条就重新布局一次面板,拖窗口与敲命令都跟着卡。
+    ///
+    /// 只丢弃"用户已经知道结果、也不需要再处理"的旧行:已完成与已取消。
+    /// 失败行必须留着 —— 它是用户唯一能看到"哪些文件没传成功"的地方,还挂着重试入口;
+    /// 传 5000 个文件挤掉那几条失败记录,用户会以为全部成功。进行中的行同理不能丢。
+    /// 代价是失败/进行中的行超过 100 条时列表会突破上限,这是刻意的:
+    /// 宁可多渲染几行,也不能把失败悄悄吞掉。
+    /// </summary>
+    private void TrimToLimit()
+    {
+        for (int i = Transfers.Count - 1; i >= 0 && Transfers.Count > HistoryLimit; i--)
+        {
+            if (Transfers[i].Status is TransferStatus.Completed or TransferStatus.Cancelled)
+            {
+                Transfers.RemoveAt(i);
+            }
+        }
     }
 
     /// <summary>按 Id 查找传输项,未找到时返回 <see langword="null" />。</summary>

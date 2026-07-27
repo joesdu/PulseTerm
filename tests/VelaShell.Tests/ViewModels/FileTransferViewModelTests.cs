@@ -225,6 +225,57 @@ public class FileTransferViewModelTests
 
     [TestMethod]
     [TestCategory("FileTransfer")]
+    public void AddTransfer_CapsListAtHistoryLimit_DroppingOldestSettledRows()
+    {
+        // 传一个几千文件的目录时,面板列表原本会无限增长,每加一行都要重排整个面板 ——
+        // 传输期间拖窗口 / 敲命令的卡顿正出在这里。上限与落盘历史一致:100 条。
+        for (int i = 0; i < 150; i++)
+        {
+            _vm.AddTransfer(CreateTask(status: TransferStatus.Completed, remotePath: $"/srv/f{i}.bin"));
+        }
+
+        Assert.HasCount(100, _vm.Transfers);
+        // 新的在前:最后加进来的那条必须还在,被丢掉的是最旧的。
+        Assert.AreEqual("f149.bin", _vm.Transfers[0].FileName);
+        Assert.AreEqual("f50.bin", _vm.Transfers[99].FileName);
+    }
+
+    [TestMethod]
+    [TestCategory("FileTransfer")]
+    public void AddTransfer_OverLimit_NeverDropsInFlightOrFailedTransfers()
+    {
+        // 超限时只能丢"已完成/已取消"这类用户已知结果的行。
+        // 失败行是用户唯一能看到"哪些文件没传成功"的地方(还挂着重试入口),
+        // 被后续几千个成功的文件挤掉就等于谎报全部成功;进行中的行同理不能丢。
+        TransferTask running = CreateTask(status: TransferStatus.InProgress, remotePath: "/srv/live.bin");
+        TransferTask failed = CreateTask(status: TransferStatus.Failed, remotePath: "/srv/broken.bin");
+        _vm.AddTransfer(running);
+        _vm.AddTransfer(failed);
+        for (int i = 0; i < 150; i++)
+        {
+            _vm.AddTransfer(CreateTask(status: TransferStatus.Completed, remotePath: $"/srv/f{i}.bin"));
+        }
+
+        Assert.Contains(t => t.Id == running.Id, _vm.Transfers);
+        Assert.Contains(t => t.Id == failed.Id, _vm.Transfers);
+        Assert.HasCount(100, _vm.Transfers);
+    }
+
+    [TestMethod]
+    [TestCategory("FileTransfer")]
+    public void AddTransfer_WhenFailuresExceedLimit_KeepsThemAllRatherThanSwallowingThem()
+    {
+        // 失败多到超过上限时,宁可让列表突破 100 行,也不能悄悄吞掉失败记录。
+        for (int i = 0; i < 120; i++)
+        {
+            _vm.AddTransfer(CreateTask(status: TransferStatus.Failed, remotePath: $"/srv/bad{i}.bin"));
+        }
+
+        Assert.HasCount(120, _vm.Transfers);
+    }
+
+    [TestMethod]
+    [TestCategory("FileTransfer")]
     public void TimeRemainingFormatting_ShowsReadableString()
     {
         // Arrange

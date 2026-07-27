@@ -2654,10 +2654,19 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
             && MultilinePasteConfirmation is { } confirm
             && text.IndexOfAny(['\r', '\n']) >= 0
             && text.TrimEnd('\r', '\n').IndexOfAny(['\r', '\n']) >= 0
-            && !await confirm(text)
         )
         {
-            return;
+            bool approved = await confirm(text);
+
+            // 确认框是模态窗口:它关闭后 Avalonia 只把焦点还给宿主窗口,不会回到弹窗前的焦点
+            // 控件,于是粘贴完终端是失焦的 —— 用户必须先点一下才能敲回车执行。这里主动把焦点
+            // 收回来(取消粘贴时同样收回,否则一样敲不了键)。用 Post 而不是直接 Focus():
+            // 关窗时的焦点还原发生在本延续之后,同步抢焦点会被它覆盖掉。
+            Dispatcher.UIThread.Post(() => Focus(), DispatcherPriority.Input);
+            if (!approved)
+            {
+                return;
+            }
         }
         WritePasteInput(text);
     }
