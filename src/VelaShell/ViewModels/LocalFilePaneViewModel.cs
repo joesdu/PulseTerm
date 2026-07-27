@@ -1,6 +1,6 @@
 using System.Collections.ObjectModel;
-using System.Reactive;
 using ReactiveUI;
+using ReactiveUI.Primitives;
 using VelaShell.Core.Models;
 using VelaShell.Core.Resources;
 
@@ -66,46 +66,46 @@ public sealed class LocalFilePaneViewModel : ReactiveObject
     public ObservableCollection<LocalFileEntry> SelectedEntries { get; }
 
     /// <summary>导航到规范化的本地目录。</summary>
-    public ReactiveCommand<string, Unit> NavigateToCommand { get; }
+    public ReactiveCommand<string, RxVoid> NavigateToCommand { get; }
 
     /// <summary>进入一个被激活的目录行。</summary>
-    public ReactiveCommand<LocalFileEntry, Unit> ActivateCommand { get; }
+    public ReactiveCommand<LocalFileEntry, RxVoid> ActivateCommand { get; }
 
     /// <summary>导航到父目录。</summary>
-    public ReactiveCommand<Unit, Unit> GoUpCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> GoUpCommand { get; }
 
     /// <summary>刷新当前目录列举。</summary>
-    public ReactiveCommand<Unit, Unit> RefreshCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> RefreshCommand { get; }
 
     /// <summary>将当前目录切换到所选根目录。</summary>
-    public ReactiveCommand<LocalRootEntry, Unit> SwitchRootCommand { get; }
+    public ReactiveCommand<LocalRootEntry, RxVoid> SwitchRootCommand { get; }
 
     /// <summary>重新加载可用的本地根列表。</summary>
-    public ReactiveCommand<Unit, Unit> RefreshRootsCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> RefreshRootsCommand { get; }
 
     /// <summary>经确认后永久删除单个本地条目。</summary>
-    public ReactiveCommand<LocalFileEntry, Unit> DeleteItemCommand { get; }
+    public ReactiveCommand<LocalFileEntry, RxVoid> DeleteItemCommand { get; }
 
     /// <summary>经确认后永久删除选中的本地条目。</summary>
-    public ReactiveCommand<Unit, Unit> DeleteSelectedCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> DeleteSelectedCommand { get; }
 
     /// <summary>由宿主提供的上传委托,用于独立 SFTP 文档。</summary>
-    public ReactiveCommand<Unit, Unit> UploadSelectedCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> UploadSelectedCommand { get; }
 
     /// <summary>就地重命名选中的本地条目。</summary>
-    public ReactiveCommand<LocalFileEntry, Unit> RenameCommand { get; }
+    public ReactiveCommand<LocalFileEntry, RxVoid> RenameCommand { get; }
 
     /// <summary>在当前目录中创建新文件夹。</summary>
-    public ReactiveCommand<Unit, Unit> NewFolderCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> NewFolderCommand { get; }
 
     /// <summary>用默认程序打开本地文件,或进入某个目录。</summary>
-    public ReactiveCommand<LocalFileEntry, Unit> OpenItemCommand { get; }
+    public ReactiveCommand<LocalFileEntry, RxVoid> OpenItemCommand { get; }
 
     /// <summary>由宿主提供、被 UploadSelectedCommand 调用的上传委托。</summary>
     public Func<Task>? UploadSelectedAsync { get; set; }
 
     /// <summary>按名称、大小或修改时间对可见行排序。</summary>
-    public ReactiveCommand<string, Unit> SortCommand { get; }
+    public ReactiveCommand<string, RxVoid> SortCommand { get; }
 
     /// <summary>注入的破坏性操作确认回调。</summary>
     public Func<string, Task<bool>>? ConfirmDelete { get; set; }

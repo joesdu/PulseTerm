@@ -1,5 +1,5 @@
-using System.Reactive.Linq;
 using NSubstitute;
+using ReactiveUI.Primitives;
 using VelaShell.Behaviors;
 using VelaShell.Core.Data;
 using VelaShell.Core.Models;

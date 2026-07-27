@@ -1,6 +1,7 @@
-using System.Reactive.Concurrency;
 using NSubstitute;
 using ReactiveUI.Builder;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Concurrency;
 using VelaShell.Core.Data;
 using VelaShell.Core.Models;
 using VelaShell.Core.Sftp;
@@ -23,7 +24,7 @@ public class MainWindowViewModelTests
         {
             RxAppBuilder
                 .CreateReactiveUIBuilder()
-                .WithMainThreadScheduler(CurrentThreadScheduler.Instance)
+                .WithMainThreadScheduler(CurrentThreadSequencer.Instance)
                 .WithCoreServices()
                 .BuildApp();
         }

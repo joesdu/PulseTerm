@@ -1,5 +1,5 @@
-using System.Reactive;
 using ReactiveUI;
+using ReactiveUI.Primitives;
 using VelaShell.Core.Models;
 using VelaShell.Core.Sftp;
 using VelaShell.Presentation.Services;
@@ -76,11 +76,11 @@ public sealed class SftpDocumentViewModel : ReactiveObject, IAsyncDisposable
     /// <summary>远程文件浏览器面板。</summary>
     public FileBrowserViewModel RemoteFiles { get; }
     /// <summary>将选中的本地文件上传到远程服务器的命令。</summary>
-    public ReactiveCommand<Unit, Unit> UploadSelectedCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> UploadSelectedCommand { get; }
     /// <summary>将选中的远程文件下载到本机的命令。</summary>
-    public ReactiveCommand<Unit, Unit> DownloadSelectedCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> DownloadSelectedCommand { get; }
     /// <summary>删除选中的本地文件的命令。</summary>
-    public ReactiveCommand<Unit, Unit> DeleteLocalSelectedCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> DeleteLocalSelectedCommand { get; }
     /// <summary>确认本地文件删除的回调。</summary>
     public Func<string, Task<bool>>? ConfirmLocalDelete { get; set; }
 

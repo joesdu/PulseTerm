@@ -1,9 +1,9 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Reactive;
 using System.Reflection;
 using System.Text.Json;
 using ReactiveUI;
+using ReactiveUI.Primitives;
 using VelaShell.Core.Data;
 using VelaShell.Core.Localization;
 using VelaShell.Core.Models;
@@ -333,7 +333,7 @@ public class SettingsViewModel : ReactiveObject
     } = true;
 
     /// <summary>删除一条已信任主机指纹;下次连接该主机将重新执行首次指纹流程。</summary>
-    public ReactiveCommand<KnownHost, Unit> RemoveKnownHostCommand { get; }
+    public ReactiveCommand<KnownHost, RxVoid> RemoveKnownHostCommand { get; }
 
     /// <summary>代码片段页(quick_commands 集合);无存储时为 null。</summary>
     public QuickCommandsViewModel? Snippets { get; }
@@ -527,31 +527,31 @@ public class SettingsViewModel : ReactiveObject
     ];
 
     /// <summary>载入设置命令:从服务读取配置并回填视图模型。</summary>
-    public ReactiveCommand<Unit, Unit> LoadCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> LoadCommand { get; }
 
     /// <summary>保存设置命令:回写并落盘,主题/语言即时生效后关闭窗口。</summary>
-    public ReactiveCommand<Unit, Unit> SaveCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> SaveCommand { get; }
 
     /// <summary>取消命令:请求关闭窗口(未保存改动由关闭流程回滚)。</summary>
-    public ReactiveCommand<Unit, Unit> CancelCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> CancelCommand { get; }
 
     /// <summary>恢复默认命令:将所有设置回到出厂值并即时预览。</summary>
-    public ReactiveCommand<Unit, Unit> ResetCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ResetCommand { get; }
 
     /// <summary>设置强调色命令:以传入的十六进制色值更新 <see cref="AccentColor" />。</summary>
-    public ReactiveCommand<string, Unit> SetAccentCommand { get; }
+    public ReactiveCommand<string, RxVoid> SetAccentCommand { get; }
 
     /// <summary>清除历史记录命令:清空连接历史。</summary>
-    public ReactiveCommand<Unit, Unit> ClearHistoryCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ClearHistoryCommand { get; }
 
     /// <summary>检查更新命令:检查 → 下载(带进度)→ 就绪后提示重启。</summary>
-    public ReactiveCommand<Unit, Unit> CheckUpdatesCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> CheckUpdatesCommand { get; }
 
     /// <summary>重启并应用已下载更新命令(仅在 <see cref="UpdateReady" /> 为真时有意义)。</summary>
-    public ReactiveCommand<Unit, Unit> RestartToUpdateCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> RestartToUpdateCommand { get; }
 
     /// <summary>修复更新状态命令:清掉卡住的更新残留,让检查更新能重新走通。</summary>
-    public ReactiveCommand<Unit, Unit> RepairUpdateCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> RepairUpdateCommand { get; }
 
     /// <summary>检查更新的状态提示文本。</summary>
     public string UpdateStatus

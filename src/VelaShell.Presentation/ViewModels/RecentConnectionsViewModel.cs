@@ -1,6 +1,6 @@
 using System.Collections.ObjectModel;
-using System.Reactive;
 using ReactiveUI;
+using ReactiveUI.Primitives;
 using VelaShell.Core.Data;
 using VelaShell.Core.Models;
 
@@ -36,10 +36,10 @@ public sealed class RecentConnectionsViewModel : ReactiveObject
     }
 
     /// <summary>快速连接头部 history 按钮:重新加载最近连接。</summary>
-    public ReactiveCommand<Unit, Unit> RefreshCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> RefreshCommand { get; }
 
     /// <summary>清空最近连接历史,并同步清除当前列表。</summary>
-    public ReactiveCommand<Unit, Unit> ClearCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ClearCommand { get; }
 
     /// <summary>从连接历史重新加载列表;存储故障时保留现有内容,不影响主流程。</summary>
     public async Task RefreshAsync()

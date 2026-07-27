@@ -1,6 +1,6 @@
 using System.Collections.ObjectModel;
-using System.Reactive;
 using ReactiveUI;
+using ReactiveUI.Primitives;
 
 namespace VelaShell.Presentation.ViewModels;
 
@@ -34,19 +34,19 @@ public sealed class TabBarViewModel : ReactiveObject
     }
 
     /// <summary>关闭指定标签的命令;关闭活动标签时会自动选中相邻标签。</summary>
-    public ReactiveCommand<TabViewModel, Unit> CloseTabCommand { get; }
+    public ReactiveCommand<TabViewModel, RxVoid> CloseTabCommand { get; }
 
     /// <summary>将指定标签设为活动标签的命令。</summary>
-    public ReactiveCommand<TabViewModel, Unit> SelectTabCommand { get; }
+    public ReactiveCommand<TabViewModel, RxVoid> SelectTabCommand { get; }
 
     /// <summary>关闭当前活动标签的命令。</summary>
-    public ReactiveCommand<Unit, Unit> CloseActiveTabCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> CloseActiveTabCommand { get; }
 
     /// <summary>循环切换到下一个标签的命令。</summary>
-    public ReactiveCommand<Unit, Unit> NextTabCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> NextTabCommand { get; }
 
     /// <summary>循环切换到上一个标签的命令。</summary>
-    public ReactiveCommand<Unit, Unit> PreviousTabCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> PreviousTabCommand { get; }
 
     /// <summary>向标签集合追加一个标签,并将其设为当前活动标签。</summary>
     /// <param name="tab">要添加的标签视图模型,不能为 <see langword="null" />。</param>

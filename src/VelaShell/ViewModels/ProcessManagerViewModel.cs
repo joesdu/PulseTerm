@@ -1,10 +1,9 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
-using System.Reactive;
-using System.Reactive.Linq;
 using Avalonia;
 using Avalonia.Threading;
 using ReactiveUI;
+using ReactiveUI.Primitives;
 using VelaShell.Core.Processes;
 using VelaShell.Core.Resources;
 
@@ -253,31 +252,31 @@ public sealed class ProcessManagerViewModel : ReactiveObject, IDisposable
     }
 
     /// <summary>手动刷新一次(F5 与刷新按钮)。</summary>
-    public ReactiveCommand<Unit, Unit> RefreshCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> RefreshCommand { get; }
 
     /// <summary>按列排序;同列再次点击切换升/降序。</summary>
-    public ReactiveCommand<string, Unit> SortCommand { get; }
+    public ReactiveCommand<string, RxVoid> SortCommand { get; }
 
     /// <summary>切换刷新速度;参数为 <see cref="ProcessRefreshSpeed" /> 的枚举名。</summary>
-    public ReactiveCommand<string, Unit> SetSpeedCommand { get; }
+    public ReactiveCommand<string, RxVoid> SetSpeedCommand { get; }
 
     /// <summary>结束选中进程(SIGTERM)。</summary>
-    public ReactiveCommand<Unit, Unit> EndTaskCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> EndTaskCommand { get; }
 
     /// <summary>结束选中进程及其全部子孙(SIGTERM)。</summary>
-    public ReactiveCommand<Unit, Unit> EndTaskTreeCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> EndTaskTreeCommand { get; }
 
     /// <summary>强制结束选中进程(SIGKILL)。</summary>
-    public ReactiveCommand<Unit, Unit> ForceEndTaskCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ForceEndTaskCommand { get; }
 
     /// <summary>把选中进程的完整命令行复制到剪贴板。</summary>
-    public ReactiveCommand<Unit, Unit> CopyCommandLineCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> CopyCommandLineCommand { get; }
 
     /// <summary>设置选中进程的优先级;参数为 nice 值的字符串形式。</summary>
-    public ReactiveCommand<string, Unit> SetPriorityCommand { get; }
+    public ReactiveCommand<string, RxVoid> SetPriorityCommand { get; }
 
     /// <summary>展开/折叠树形视图中的一个节点。</summary>
-    public ReactiveCommand<ProcessRowViewModel, Unit> ToggleExpandCommand { get; }
+    public ReactiveCommand<ProcessRowViewModel, RxVoid> ToggleExpandCommand { get; }
 
     private void ToggleExpand(ProcessRowViewModel row)
     {

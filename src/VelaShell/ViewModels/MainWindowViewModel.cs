@@ -1,15 +1,15 @@
 using System.ComponentModel;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
-using System.Reactive;
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Text;
 using Avalonia;
 using Avalonia.Threading;
 using ReactiveUI;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Concurrency;
+using ReactiveUI.Primitives.Signals;
 using VelaShell.Core.Data;
 using VelaShell.Core.Diagnostics;
 using VelaShell.Core.Models;
@@ -240,9 +240,9 @@ public class MainWindowViewModel : ReactiveObject
         this.WhenAnyValue(x => x.ActiveTerminalTab)
             .Select(tab =>
                 tab is null
-                    ? Observable.Return(Unit.Default)
+                    ? Signal.Emit(RxVoid.Default)
                     : tab.WhenAnyValue(t => t.ConnectionStatus, t => t.Latency)
-                        .Select(_ => Unit.Default)
+                        .Select(_ => RxVoid.Default)
             )
             .Switch()
             .Subscribe(_ => UpdateStatusBarForActiveTab());
@@ -250,8 +250,8 @@ public class MainWindowViewModel : ReactiveObject
         this.WhenAnyValue(x => x.ActiveTerminalTab)
             .Select(tab =>
                 tab is null
-                    ? Observable.Return(Unit.Default)
-                    : tab.WhenAnyValue(t => t.IsConnected).Select(_ => Unit.Default)
+                    ? Signal.Emit(RxVoid.Default)
+                    : tab.WhenAnyValue(t => t.IsConnected).Select(_ => RxVoid.Default)
             )
             .Switch()
             .Subscribe(_ =>
@@ -267,32 +267,21 @@ public class MainWindowViewModel : ReactiveObject
         // 外观即时预览(设置窗口广播,未持久化):只重刷已打开标签的终端外观,
         // 不动 _latestSettings(新建标签仍用已保存的设置)。
         settingsPreviewService?.PreviewRequested += settings =>
-            RxSchedulers.MainThreadScheduler.Schedule(
-                Unit.Default,
-                (_, _) =>
-                {
-                    ApplyLiveSettingsToOpenTabs(settings);
-                    return Disposable.Empty;
-                }
-            );
+            RxSchedulers.MainThreadScheduler.Schedule(() => ApplyLiveSettingsToOpenTabs(settings));
 
         // 安全告警(设置 → 安全审计 → 告警通道):应用内 → 状态栏;提示音 → 系统提示音。
         securityAlertService?.Alerted += notice =>
-            RxSchedulers.MainThreadScheduler.Schedule(
-                Unit.Default,
-                (_, _) =>
+            RxSchedulers.MainThreadScheduler.Schedule(() =>
+            {
+                if (notice.InApp)
                 {
-                    if (notice.InApp)
-                    {
-                        StatusBar.Status = notice.Message;
-                    }
-                    if (notice.Sound)
-                    {
-                        SystemSound.Alert();
-                    }
-                    return Disposable.Empty;
+                    StatusBar.Status = notice.Message;
                 }
-            );
+                if (notice.Sound)
+                {
+                    SystemSound.Alert();
+                }
+            });
         StartStatusMetricsPolling();
         OpenSettingsCommand = ReactiveCommand.Create(() =>
             SettingsRequested?.Invoke(this, EventArgs.Empty)
@@ -302,7 +291,7 @@ public class MainWindowViewModel : ReactiveObject
         IObservable<bool> canToggleFileBrowser = this.WhenAnyValue(x => x.ActiveTerminalTab)
             .Select(tab =>
                 tab is null
-                    ? Observable.Return(false)
+                    ? Signal.Emit(false)
                     : tab.WhenAnyValue(t => t.IsConnected).Select(_ => CanToggleFileBrowser)
             )
             .Switch();
@@ -310,7 +299,7 @@ public class MainWindowViewModel : ReactiveObject
         IObservable<bool> canOpenProcessManager = this.WhenAnyValue(x => x.ActiveTerminalTab)
             .Select(tab =>
                 tab is null
-                    ? Observable.Return(false)
+                    ? Signal.Emit(false)
                     : tab.WhenAnyValue(t => t.IsConnected).Select(_ => CanOpenProcessManager)
             )
             .Switch();
@@ -327,7 +316,7 @@ public class MainWindowViewModel : ReactiveObject
     public ICommandRegistry Commands { get; } = new CommandRegistry();
 
     /// <summary>通过 id 执行一条注册命令(菜单项通过 CommandParameter 使用)。</summary>
-    public ReactiveCommand<string, Unit>? RunCommand { get; private set; }
+    public ReactiveCommand<string, RxVoid>? RunCommand { get; private set; }
 
     /// <summary>活动会话的隧道管理面板(设计 fuXS7,规范 §10)。</summary>
     public TunnelPanelViewModel? TunnelPanel
@@ -351,10 +340,10 @@ public class MainWindowViewModel : ReactiveObject
     public CommandPaletteViewModel CommandPalette { get; }
 
     /// <summary>打开命令面板(Ctrl+P / Ctrl+K)的命令。</summary>
-    public ReactiveCommand<Unit, Unit> OpenCommandPaletteCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> OpenCommandPaletteCommand { get; }
 
     /// <summary>显示或隐藏当前 SSH 会话的远程文件面板。</summary>
-    public ReactiveCommand<Unit, Unit> ToggleFileBrowserCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ToggleFileBrowserCommand { get; }
 
     /// <summary>当前活动标签是否支持打开远程文件面板。</summary>
     public bool CanToggleFileBrowser =>
@@ -467,16 +456,16 @@ public class MainWindowViewModel : ReactiveObject
     }
 
     /// <summary>打开设置窗口的命令(Ctrl+, / 菜单 / 侧边栏齿轮)。</summary>
-    public ReactiveCommand<Unit, Unit> OpenSettingsCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> OpenSettingsCommand { get; }
 
     /// <summary>关闭当前活动标签(Ctrl+W);走停靠层的关闭语义,保证传输层同时拆除。</summary>
-    public ReactiveCommand<Unit, Unit> CloseActiveTabCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> CloseActiveTabCommand { get; }
 
     /// <summary>打开当前 SSH 会话的任务管理器;本地终端与 SFTP 标签下不可用。</summary>
-    public ReactiveCommand<Unit, Unit> OpenProcessManagerCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> OpenProcessManagerCommand { get; }
 
     /// <summary>打开链路追踪窗口;启用条件与 SFTP 资源管理器一致。</summary>
-    public ReactiveCommand<Unit, Unit> OpenTraceRouteCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> OpenTraceRouteCommand { get; }
 
     /// <summary>
     /// 请求为某个会话打开任务管理器窗口。参数依次为会话标识与窗口标题用的会话名称;
@@ -1669,7 +1658,7 @@ public class MainWindowViewModel : ReactiveObject
         {
             try
             {
-                await tree.LoadCommand.Execute();
+                await tree.LoadCommand.Execute().FirstAsync();
             }
             catch
             {
@@ -2771,9 +2760,7 @@ public class MainWindowViewModel : ReactiveObject
 
         // SaveSettingsAsync 可能在线程池的回调中完成;字体/字号涉及布局,
         // 因此编组到 UI 线程(主调度器即 Avalonia 的 Dispatcher)。
-        RxSchedulers.MainThreadScheduler.Schedule(
-            Unit.Default,
-            (_, _) =>
+        RxSchedulers.MainThreadScheduler.Schedule(() =>
             {
                 ApplyShellPreferences(settings);
                 ApplyLiveSettingsToOpenTabs(settings);
@@ -2791,7 +2778,6 @@ public class MainWindowViewModel : ReactiveObject
                     ApplyColumnVisibility(browser, settings.Transfer);
                 }
                 RevealActiveSessionInSidebar();
-                return Disposable.Empty;
             }
         );
     }

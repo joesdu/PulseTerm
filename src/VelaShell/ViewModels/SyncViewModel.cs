@@ -1,6 +1,6 @@
 using System.Collections.ObjectModel;
-using System.Reactive;
 using ReactiveUI;
+using ReactiveUI.Primitives;
 using VelaShell.Core.Resources;
 using VelaShell.Core.Sync;
 
@@ -142,22 +142,22 @@ public class SyncViewModel : ReactiveObject
     }
 
     /// <summary>保存当前同步配置(含令牌/口令输入)的命令。</summary>
-    public ReactiveCommand<Unit, Unit> SaveConfigCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> SaveConfigCommand { get; }
 
     /// <summary>立即执行一次双向同步的命令。</summary>
-    public ReactiveCommand<Unit, Unit> SyncNowCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> SyncNowCommand { get; }
 
     /// <summary>将本地数据推送到云端的命令。</summary>
-    public ReactiveCommand<Unit, Unit> PushCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> PushCommand { get; }
 
     /// <summary>从云端拉取数据到本地的命令。</summary>
-    public ReactiveCommand<Unit, Unit> PullCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> PullCommand { get; }
 
     /// <summary>加载云端版本历史列表的命令。</summary>
-    public ReactiveCommand<Unit, Unit> LoadRevisionsCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> LoadRevisionsCommand { get; }
 
     /// <summary>将数据恢复到指定历史版本的命令。</summary>
-    public ReactiveCommand<GistRevision, Unit> RestoreRevisionCommand { get; }
+    public ReactiveCommand<GistRevision, RxVoid> RestoreRevisionCommand { get; }
 
     /// <summary>设置窗口打开时载入当前同步配置。</summary>
     public async Task LoadAsync()

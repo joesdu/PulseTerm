@@ -1,7 +1,6 @@
 using System.Collections.ObjectModel;
-using System.Reactive;
-using System.Reactive.Linq;
 using ReactiveUI;
+using ReactiveUI.Primitives;
 using VelaShell.Core.Data;
 using VelaShell.Core.Models;
 using VelaShell.Core.Resources;
@@ -97,35 +96,35 @@ public sealed class SessionTreeViewModel : ReactiveObject
     public ObservableCollection<SessionTreeNodeViewModel> GroupNodes { get; } = [];
 
     /// <summary>从仓储加载并重建整棵会话树。</summary>
-    public ReactiveCommand<Unit, Unit> LoadCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> LoadCommand { get; }
 
     /// <summary>连接选中的会话,触发 <see cref="ConnectRequested" />。</summary>
-    public ReactiveCommand<Unit, Unit> ConnectCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ConnectCommand { get; }
 
     /// <summary>编辑选中的会话,触发 <see cref="EditRequested" />。</summary>
-    public ReactiveCommand<Unit, Unit> EditSessionCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> EditSessionCommand { get; }
 
     /// <summary>删除选中的会话(含落库与树节点移除)。</summary>
-    public ReactiveCommand<Unit, Unit> DeleteSessionCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> DeleteSessionCommand { get; }
 
     // 复制选中的连接为“<名称> (副本)”并落库
     /// <summary>复制选中的会话为“&lt;名称&gt; (副本)”并落库,随后重建树。</summary>
-    public ReactiveCommand<Unit, Unit> DuplicateSessionCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> DuplicateSessionCommand { get; }
 
     /// <summary>为选中的会话打开 SFTP,触发 <see cref="OpenSftpRequested" />。</summary>
-    public ReactiveCommand<Unit, Unit> OpenSftpCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> OpenSftpCommand { get; }
 
     /// <summary>为选中的会话打开端口转发,触发 <see cref="PortForwardRequested" />。</summary>
-    public ReactiveCommand<Unit, Unit> PortForwardCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> PortForwardCommand { get; }
 
     /// <summary>断开选中会话的连接,触发 <see cref="DisconnectRequested" />。</summary>
-    public ReactiveCommand<Unit, Unit> DisconnectCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> DisconnectCommand { get; }
 
     /// <summary>对选中的会话发起连接诊断,触发 <see cref="DiagnoseRequested" />。</summary>
-    public ReactiveCommand<Unit, Unit> DiagnoseCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> DiagnoseCommand { get; }
 
     /// <summary>把选中的会话移动到指定分组节点(参数为“移动到分组”子菜单项)。</summary>
-    public ReactiveCommand<SessionTreeNodeViewModel, Unit> MoveToGroupCommand { get; }
+    public ReactiveCommand<SessionTreeNodeViewModel, RxVoid> MoveToGroupCommand { get; }
 
     /// <summary>右键“连接”或双击会话时触发,由宿主发起 SSH 连接。</summary>
     public event Action<SessionProfile>? ConnectRequested;

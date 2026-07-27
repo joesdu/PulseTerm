@@ -1,9 +1,9 @@
 using System.Collections.ObjectModel;
 using System.Net.Sockets;
-using System.Reactive;
 using Avalonia;
 using Avalonia.Threading;
 using ReactiveUI;
+using ReactiveUI.Primitives;
 using VelaShell.Core.Data;
 using VelaShell.Core.Models;
 using VelaShell.Core.Resources;
@@ -264,28 +264,28 @@ public class TunnelPanelViewModel : ReactiveObject, IDisposable
     public string SubmitButtonText => IsEditing ? Strings.Get("Save") : Strings.Get("Msg_Create");
 
     /// <summary>按表单当前配置创建新隧道(或保存正在编辑的隧道)。</summary>
-    public ReactiveCommand<Unit, Unit> CreateTunnelCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> CreateTunnelCommand { get; }
 
     /// <summary>停止指定隧道(按隧道 Id)。</summary>
-    public ReactiveCommand<Guid, Unit> StopTunnelCommand { get; }
+    public ReactiveCommand<Guid, RxVoid> StopTunnelCommand { get; }
 
     /// <summary>启动一条已停止的隧道(按隧道 Id),必要时先建立后台连接。</summary>
-    public ReactiveCommand<Guid, Unit> StartTunnelCommand { get; }
+    public ReactiveCommand<Guid, RxVoid> StartTunnelCommand { get; }
 
     /// <summary>删除指定隧道(按隧道 Id),并在无隧道时释放后台连接。</summary>
-    public ReactiveCommand<Guid, Unit> DeleteTunnelCommand { get; }
+    public ReactiveCommand<Guid, RxVoid> DeleteTunnelCommand { get; }
 
     /// <summary>由视图设置:向用户确认删除某条隧道;返回 false 或未设置则取消。</summary>
     public Func<string, Task<bool>>? ConfirmDelete { get; set; }
 
     /// <summary>把某条隧道的配置填回表单进入编辑模式;保存时按新配置重建。</summary>
-    public ReactiveCommand<Guid, Unit> EditTunnelCommand { get; }
+    public ReactiveCommand<Guid, RxVoid> EditTunnelCommand { get; }
 
     /// <summary>取消按钮:清空表单与错误提示,并退出编辑模式。</summary>
-    public ReactiveCommand<Unit, Unit> ResetFormCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ResetFormCommand { get; }
 
     /// <summary>收起面板。</summary>
-    public ReactiveCommand<Unit, Unit> CloseCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> CloseCommand { get; }
 
     /// <summary>释放面板资源:停止实时刷新计时器。</summary>
     public void Dispose()

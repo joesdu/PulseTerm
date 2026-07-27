@@ -1,5 +1,5 @@
-using System.Reactive;
 using ReactiveUI;
+using ReactiveUI.Primitives;
 using VelaShell.Core.Data;
 
 namespace VelaShell.Presentation.ViewModels;
@@ -59,6 +59,6 @@ public sealed class SidebarViewModel(
     }
 
     /// <summary>打开通知的命令。</summary>
-    public ReactiveCommand<Unit, Unit> NotificationsCommand { get; } =
+    public ReactiveCommand<RxVoid, RxVoid> NotificationsCommand { get; } =
         ReactiveCommand.Create(() => { });
 }

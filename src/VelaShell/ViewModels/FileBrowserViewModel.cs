@@ -1,8 +1,8 @@
 using System.Collections.ObjectModel;
-using System.Reactive;
 using Avalonia.Controls;
 using Avalonia.Threading;
 using ReactiveUI;
+using ReactiveUI.Primitives;
 using VelaShell.Core.Models;
 using VelaShell.Core.Resources;
 using VelaShell.Core.Sftp;
@@ -687,91 +687,91 @@ public class FileBrowserViewModel : ReactiveObject
     }
 
     /// <summary>导航到指定绝对路径的目录(面包屑点击等)。</summary>
-    public ReactiveCommand<string, Unit> NavigateToCommand { get; }
+    public ReactiveCommand<string, RxVoid> NavigateToCommand { get; }
 
     /// <summary>
     /// 行激活(双击 / Enter):进入目录,或将文件下载到临时文件夹并用
     /// 操作系统默认程序打开(§6)。
     /// </summary>
-    public ReactiveCommand<RemoteFileInfoViewModel, Unit> ActivateCommand { get; }
+    public ReactiveCommand<RemoteFileInfoViewModel, RxVoid> ActivateCommand { get; }
 
     /// <summary>返回上一级目录(已在根目录时无操作)。</summary>
-    public ReactiveCommand<Unit, Unit> GoUpCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> GoUpCommand { get; }
 
     /// <summary>重新列举当前目录。</summary>
-    public ReactiveCommand<Unit, Unit> RefreshCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> RefreshCommand { get; }
 
     /// <summary>加载账户的主目录(规范:落在 ~,而非文件系统根)。</summary>
-    public ReactiveCommand<Unit, Unit> LoadInitialCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> LoadInitialCommand { get; }
 
     /// <summary>将系统选中的文件上传到当前目录(工具栏 + 右键)。</summary>
-    public ReactiveCommand<Unit, Unit> UploadCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> UploadCommand { get; }
 
     /// <summary>将系统选中的文件夹(递归)上传到当前目录。</summary>
-    public ReactiveCommand<Unit, Unit> UploadFolderCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> UploadFolderCommand { get; }
 
     // 右键上下文菜单动作(规范:文件操作置于 SFTP 上下文菜单中)。
     /// <summary>在当前目录下新建文件夹(提示输入名称)。</summary>
-    public ReactiveCommand<Unit, Unit> NewFolderCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> NewFolderCommand { get; }
 
     /// <summary>在当前目录下新建空文件(提示输入名称)。</summary>
-    public ReactiveCommand<Unit, Unit> NewFileCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> NewFileCommand { get; }
 
     /// <summary>下载选中的单个文件或目录到本地(目录递归)。</summary>
-    public ReactiveCommand<RemoteFileInfoViewModel, Unit> DownloadItemCommand { get; }
+    public ReactiveCommand<RemoteFileInfoViewModel, RxVoid> DownloadItemCommand { get; }
 
     /// <summary>在同目录内重命名选中的条目(提示输入新名称)。</summary>
-    public ReactiveCommand<RemoteFileInfoViewModel, Unit> RenameCommand { get; }
+    public ReactiveCommand<RemoteFileInfoViewModel, RxVoid> RenameCommand { get; }
 
     /// <summary>把选中条目移动到输入的目标路径。</summary>
-    public ReactiveCommand<RemoteFileInfoViewModel, Unit> MoveCommand { get; }
+    public ReactiveCommand<RemoteFileInfoViewModel, RxVoid> MoveCommand { get; }
 
     /// <summary>把选中条目复制到另一个远程目录。</summary>
-    public ReactiveCommand<RemoteFileInfoViewModel, Unit> CopyToCommand { get; }
+    public ReactiveCommand<RemoteFileInfoViewModel, RxVoid> CopyToCommand { get; }
 
     /// <summary>把选中条目的完整远程路径复制到剪贴板。</summary>
-    public ReactiveCommand<RemoteFileInfoViewModel, Unit> CopyPathCommand { get; }
+    public ReactiveCommand<RemoteFileInfoViewModel, RxVoid> CopyPathCommand { get; }
 
     /// <summary>把选中条目的名称复制到剪贴板。</summary>
-    public ReactiveCommand<RemoteFileInfoViewModel, Unit> CopyNameCommand { get; }
+    public ReactiveCommand<RemoteFileInfoViewModel, RxVoid> CopyNameCommand { get; }
 
     /// <summary>属性弹窗(合并了 chmod 权限编辑,确定时应用变更)。</summary>
-    public ReactiveCommand<RemoteFileInfoViewModel, Unit> PropertiesCommand { get; }
+    public ReactiveCommand<RemoteFileInfoViewModel, RxVoid> PropertiesCommand { get; }
 
     /// <summary>删除选中的单个文件或目录(先弹确认)。</summary>
-    public ReactiveCommand<RemoteFileInfoViewModel, Unit> DeleteItemCommand { get; }
+    public ReactiveCommand<RemoteFileInfoViewModel, RxVoid> DeleteItemCommand { get; }
 
     /// <summary>「打开」:下载到临时副本后交给内置 AvaloniaEdit 编辑器(保存即上传)。</summary>
-    public ReactiveCommand<RemoteFileInfoViewModel, Unit> OpenItemCommand { get; }
+    public ReactiveCommand<RemoteFileInfoViewModel, RxVoid> OpenItemCommand { get; }
 
     /// <summary>「使用默认编辑器打开」:下载到 temp 交给设置里配置的编辑器,保存即上传。</summary>
-    public ReactiveCommand<RemoteFileInfoViewModel, Unit> OpenWithDefaultEditorCommand { get; }
+    public ReactiveCommand<RemoteFileInfoViewModel, RxVoid> OpenWithDefaultEditorCommand { get; }
 
     /// <summary>批量下载所有选中的条目的本地文件夹(§6 多选)。</summary>
-    public ReactiveCommand<Unit, Unit> DownloadSelectedCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> DownloadSelectedCommand { get; }
 
     /// <summary>一次确认后批量删除所有选中的条目(§6 多选)。</summary>
-    public ReactiveCommand<Unit, Unit> DeleteSelectedCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> DeleteSelectedCommand { get; }
 
     /// <summary>取消进行中的删除,已完成的条目保留不移除。</summary>
-    public ReactiveCommand<Unit, Unit> CancelDeleteCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> CancelDeleteCommand { get; }
 
     /// <summary>
     /// 重新打开传输浮窗,以便回顾历史/活动传输记录(上传按钮旁的工具栏按钮)。
     /// 没有它浮窗自动隐藏后就再也回不到传输历史了。
     /// </summary>
-    public ReactiveCommand<Unit, Unit> ShowTransfersCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ShowTransfersCommand { get; }
 
     /// <summary>切换文件浏览面板的显示/隐藏。</summary>
-    public ReactiveCommand<Unit, Unit> ToggleVisibilityCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ToggleVisibilityCommand { get; }
 
     /// <summary>切换点文件可见性(§6 头部开关)。</summary>
-    public ReactiveCommand<Unit, Unit> ToggleHiddenFilesCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ToggleHiddenFilesCommand { get; }
 
     /// <summary>
     /// 按列键排序("name" | "size" | "permissions" | "modified");再次点击当前排序列则翻转方向。
     /// </summary>
-    public ReactiveCommand<string, Unit> SortCommand { get; }
+    public ReactiveCommand<string, RxVoid> SortCommand { get; }
 
     /// <summary>列表当前按哪一列排序。</summary>
     public string SortColumn

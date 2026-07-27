@@ -1,7 +1,6 @@
-using System.Reactive;
-using System.Reactive.Linq;
 using System.Security;
 using ReactiveUI;
+using ReactiveUI.Primitives;
 using VelaShell.Core.Models;
 using VelaShell.Core.Resources;
 
@@ -183,25 +182,25 @@ public class AuthenticationDialogViewModel : ReactiveObject
     }
 
     /// <summary>从第 1 步进入第 2 步的命令(用户名非空时可用)。</summary>
-    public ReactiveCommand<Unit, Unit> NextCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> NextCommand { get; }
 
     /// <summary>从第 2 步返回第 1 步的命令。</summary>
-    public ReactiveCommand<Unit, Unit> BackCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> BackCommand { get; }
 
     /// <summary>取消弹窗的命令,返回空结果。</summary>
-    public ReactiveCommand<Unit, AuthenticationResult?> CancelCommand { get; }
+    public ReactiveCommand<RxVoid, AuthenticationResult?> CancelCommand { get; }
 
     /// <summary>确认登录的命令,构建并返回完整凭据结果(凭据齐备时可用)。</summary>
-    public ReactiveCommand<Unit, AuthenticationResult> LoginCommand { get; }
+    public ReactiveCommand<RxVoid, AuthenticationResult> LoginCommand { get; }
 
     /// <summary>切换到密码认证方式的命令。</summary>
-    public ReactiveCommand<Unit, Unit> SelectPasswordCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> SelectPasswordCommand { get; }
 
     /// <summary>切换到密钥认证方式的命令。</summary>
-    public ReactiveCommand<Unit, Unit> SelectKeyCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> SelectKeyCommand { get; }
 
     /// <summary>切换密码明文/密文显示状态的命令。</summary>
-    public ReactiveCommand<Unit, Unit> TogglePasswordVisibilityCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> TogglePasswordVisibilityCommand { get; }
 
     private AuthenticationResult BuildResult()
     {

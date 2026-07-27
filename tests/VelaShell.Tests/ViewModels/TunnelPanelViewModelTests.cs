@@ -1,6 +1,5 @@
-using System.Reactive.Linq;
-using System.Reactive.Threading.Tasks;
 using NSubstitute;
+using ReactiveUI.Primitives;
 using VelaShell.Core.Data;
 using VelaShell.Core.Models;
 using VelaShell.Core.Resources;
@@ -248,7 +247,7 @@ public class TunnelPanelViewModelTests
             return true;
         };
 
-        Task deleteTask = _vm.DeleteTunnelCommand.Execute(tunnelInfo.Id).FirstAsync().ToTask();
+        Task deleteTask = _vm.DeleteTunnelCommand.Execute(tunnelInfo.Id).FirstAsync();
         await confirmationStarted.Task;
         _vm.Tunnels.Clear();
         releaseConfirmation.SetResult(true);
@@ -274,9 +273,9 @@ public class TunnelPanelViewModelTests
         _workflowService.RemoveTunnelAsync(tunnelInfo.Id, Arg.Any<CancellationToken>())
                         .Returns(Task.CompletedTask);
 
-        Task first = _vm.DeleteTunnelCommand.Execute(tunnelInfo.Id).FirstAsync().ToTask();
+        Task first = _vm.DeleteTunnelCommand.Execute(tunnelInfo.Id).FirstAsync();
         await Task.Delay(20);
-        Task second = _vm.DeleteTunnelCommand.Execute(tunnelInfo.Id).FirstAsync().ToTask();
+        Task second = _vm.DeleteTunnelCommand.Execute(tunnelInfo.Id).FirstAsync();
         releaseConfirmation.SetResult(true);
         await Task.WhenAll(first, second);
 
