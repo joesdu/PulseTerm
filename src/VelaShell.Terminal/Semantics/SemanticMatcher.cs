@@ -8,13 +8,13 @@ public enum SemanticKind
     /// <summary>URL,例如 http 或 https 链接。</summary>
     Url,
 
-    /// <summary>错误相关关键词(error、failed、fatal、panic 等)。</summary>
+    /// <summary>错误或否定关键词(error、failed、fatal、panic、no 等)。</summary>
     Error,
 
     /// <summary>警告相关关键词(warn、deprecated、caution 等)。</summary>
     Warning,
 
-    /// <summary>成功或健康状态关键词(ok、done、ready 等)。</summary>
+    /// <summary>成功、健康或肯定关键词(ok、done、ready、yes 等)。</summary>
     Success,
 
     /// <summary>点分 IPv4 地址。</summary>
@@ -50,13 +50,15 @@ public sealed partial class SemanticMatcher
     [GeneratedRegex(@"\b(?:\d{1,3}\.){3}\d{1,3}\b")]
     private static partial Regex IpRegex();
 
-    [GeneratedRegex(@"\b(?:error|errors|failed|failure|fatal|panic|exception|denied)\b", RegexOptions.IgnoreCase)]
+    // no 一并算作否定态:大量工具的表格输出(sshd -T、systemctl show、docker inspect)用 yes/no
+    // 成对表达开关,把 no 标红后一眼能看出哪一项没开(yes 见 SuccessRegex)。
+    [GeneratedRegex(@"\b(?:error|errors|failed|failure|fatal|panic|exception|denied|no)\b", RegexOptions.IgnoreCase)]
     private static partial Regex ErrorRegex();
 
-    [GeneratedRegex(@"\b(?:warn|warning|deprecated|caution|notice)\b", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"\b(?:warn|warning|warnings|deprecated|caution|notice)\b", RegexOptions.IgnoreCase)]
     private static partial Regex WarningRegex();
 
-    [GeneratedRegex(@"\b(?:success|successful|successfully|succeeded|ok|done|enabled|active|running|started|listening|pass|passed|ready|healthy|online|connected)\b", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"\b(?:success|successful|successfully|succeeded|ok|done|yes|enabled|active|running|started|listening|pass|passed|ready|healthy|online|connected)\b", RegexOptions.IgnoreCase)]
     private static partial Regex SuccessRegex();
 
     // 命令行选项标志,如 -x、--now、--color=auto。做了锚定,因此绝不会在一个单词或带连字符的词内误触发(如 well-known、re-run)。

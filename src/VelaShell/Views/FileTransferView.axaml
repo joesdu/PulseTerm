@@ -105,6 +105,15 @@
                     HorizontalScrollBarVisibility="Disabled"
                     MaxHeight="280">
         <ItemsControl ItemsSource="{Binding Transfers}">
+          <!-- 虚拟化:面板最多只露出约 5 行,但列表可以攒到 100 条。默认的 StackPanel 会把
+               每一条都实现成一整棵可视树(边框 + 网格 + 三段文本 + 进度条),于是每新增一个
+               文件都要重新布局全部行 —— 传输期间拖窗口、敲命令的卡顿正出在这里。
+               换成 VirtualizingStackPanel 后开销只跟"看得见的行数"有关,与历史条数无关。 -->
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <VirtualizingStackPanel />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:TransferItemViewModel">
               <Border Padding="12,8"
