@@ -1,6 +1,6 @@
 using System.Collections.ObjectModel;
-using System.Reactive;
 using ReactiveUI;
+using ReactiveUI.Primitives;
 using VelaShell.Core.Data;
 using VelaShell.Core.Models;
 using VelaShell.Core.Resources;
@@ -110,25 +110,25 @@ public class QuickCommandsViewModel : ReactiveObject
     }
 
     /// <summary>打开新增片段表单。</summary>
-    public ReactiveCommand<Unit, Unit> AddCommandCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> AddCommandCommand { get; }
 
     /// <summary>删除指定自定义片段。</summary>
-    public ReactiveCommand<QuickCommandViewModel, Unit> DeleteCommandCommand { get; }
+    public ReactiveCommand<QuickCommandViewModel, RxVoid> DeleteCommandCommand { get; }
 
     /// <summary>保存新增片段。</summary>
-    public ReactiveCommand<Unit, Unit> SaveNewCommandCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> SaveNewCommandCommand { get; }
 
     /// <summary>取消新增片段。</summary>
-    public ReactiveCommand<Unit, Unit> CancelAddCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> CancelAddCommand { get; }
 
     /// <summary>开始编辑指定自定义片段。</summary>
-    public ReactiveCommand<QuickCommandViewModel, Unit> BeginEditCommand { get; }
+    public ReactiveCommand<QuickCommandViewModel, RxVoid> BeginEditCommand { get; }
 
     /// <summary>保存当前片段编辑。</summary>
-    public ReactiveCommand<Unit, Unit> SaveEditCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> SaveEditCommand { get; }
 
     /// <summary>取消当前片段编辑。</summary>
-    public ReactiveCommand<Unit, Unit> CancelEditCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> CancelEditCommand { get; }
 
     /// <summary>加载并迁移自定义快捷命令。</summary>
     public async Task LoadAsync()

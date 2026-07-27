@@ -1,4 +1,4 @@
-using System.Reactive.Linq;
+using ReactiveUI.Primitives;
 using VelaShell.Core.Models;
 using VelaShell.Core.Resources;
 using VelaShell.Security;

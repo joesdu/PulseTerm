@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Input;
+using ReactiveUI.Primitives;
 using VelaShell.ViewModels;
 
 namespace VelaShell.Views;

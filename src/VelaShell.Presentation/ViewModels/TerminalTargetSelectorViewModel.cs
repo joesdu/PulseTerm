@@ -1,7 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Reactive;
 using ReactiveUI;
+using ReactiveUI.Primitives;
 
 namespace VelaShell.Presentation.ViewModels;
 
@@ -38,10 +38,10 @@ public sealed class TerminalTargetSelectorViewModel : ReactiveObject
     public bool CanSend => ResolveTargetIds().Count > 0;
 
     /// <summary>选择全部已连接终端。</summary>
-    public ReactiveCommand<Unit, Unit> SelectAllCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> SelectAllCommand { get; }
 
     /// <summary>清除显式终端选择。</summary>
-    public ReactiveCommand<Unit, Unit> ClearSelectionCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ClearSelectionCommand { get; }
 
     /// <summary>刷新终端快照,保留仍存在终端的选中状态。</summary>
     public void UpdateTargets(IEnumerable<(Guid Id, string DisplayName)> targets)

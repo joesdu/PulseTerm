@@ -13,7 +13,6 @@
     <PackageVersion Include="Avalonia.Headless" Version="12.1.0" />
     <!-- 菜单等控件的模板由主题提供:没有它 MenuItem 无模板、不可命中,真实点击测不了。 -->
     <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.0" />
-    <PackageVersion Include="Microsoft.Reactive.Testing" Version="7.0.0" />
     <PackageVersion Include="ReactiveUI.Testing" Version="24.0.0" />
   </ItemGroup>
 </Project>

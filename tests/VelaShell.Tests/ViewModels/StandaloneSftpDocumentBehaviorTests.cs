@@ -1,10 +1,10 @@
 using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Reactive.Linq;
 using System.Reflection;
 using Avalonia.Headless;
 using Avalonia.Threading;
 using NSubstitute;
+using ReactiveUI.Primitives;
 using VelaShell.Core.Data;
 using VelaShell.Core.Models;
 using VelaShell.Core.Sftp;

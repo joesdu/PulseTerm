@@ -1,8 +1,8 @@
 using System.Collections.ObjectModel;
-using System.Reactive;
 using System.Text;
 using Avalonia.Threading;
 using ReactiveUI;
+using ReactiveUI.Primitives;
 using VelaShell.Core.Models;
 using VelaShell.Presentation.Services;
 
@@ -128,7 +128,7 @@ public class ConnectionDiagnosticsViewModel : ReactiveObject
     public ObservableCollection<string> Suggestions { get; }
 
     /// <summary>启动一次连接诊断的命令。</summary>
-    public ReactiveCommand<Unit, Unit> RunCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> RunCommand { get; }
 
     /// <summary>是否正在执行诊断,用于禁用重复触发并显示进度。</summary>
     public bool IsBusy

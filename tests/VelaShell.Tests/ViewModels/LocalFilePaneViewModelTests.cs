@@ -1,3 +1,4 @@
+using ReactiveUI.Primitives;
 using VelaShell.Core.Models;
 using VelaShell.ViewModels;
 

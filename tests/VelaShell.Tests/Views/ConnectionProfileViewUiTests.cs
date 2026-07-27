@@ -5,6 +5,7 @@ using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using ReactiveUI.Primitives;
 using VelaShell.Behaviors;
 using VelaShell.Core.Models;
 using VelaShell.Security;

@@ -1,7 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Reactive;
 using ReactiveUI;
+using ReactiveUI.Primitives;
 
 namespace VelaShell.Presentation.ViewModels;
 
@@ -48,13 +48,13 @@ public sealed class QuickCommandRunnerViewModel : ReactiveObject
     public bool CanRun => TargetSelector.CanSend;
 
     /// <summary>把命令文本发送到解析出的目标终端(不附加回车,由用户补全后自行执行)。</summary>
-    public ReactiveCommand<QuickCommandViewModel, Unit> SendCommand { get; }
+    public ReactiveCommand<QuickCommandViewModel, RxVoid> SendCommand { get; }
 
     /// <summary>选择全部目标终端。</summary>
-    public ReactiveCommand<Unit, Unit> SelectAllCommand => TargetSelector.SelectAllCommand;
+    public ReactiveCommand<RxVoid, RxVoid> SelectAllCommand => TargetSelector.SelectAllCommand;
 
     /// <summary>清除显式目标选择。</summary>
-    public ReactiveCommand<Unit, Unit> ClearSelectionCommand =>
+    public ReactiveCommand<RxVoid, RxVoid> ClearSelectionCommand =>
         TargetSelector.ClearSelectionCommand;
 
     /// <summary>命令及目标解析完成后发出的执行请求。</summary>
