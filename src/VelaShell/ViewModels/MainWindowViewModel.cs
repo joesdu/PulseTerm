@@ -44,10 +44,21 @@ public class MainWindowViewModel : ReactiveObject
     /// bash 提示符补行脚本(内置,静默注入):命令输出末尾无换行时,经 DSR(ESC[6n)
     /// 查询光标列,不在行首则先补一个换行再画提示符(zsh 的默认行为)。
     /// </summary>
-    // 末尾 printf 发 OSC 7(file://主机/当前目录),供「文件浏览器跟随终端目录」(map-pin)读取 shell cwd。
+    // 函数体末尾的 printf 发 OSC 7(file://主机/当前目录),供「文件浏览器跟随终端目录」(map-pin)读取 shell cwd。
     // 仅 bash 会调用 prompt_nl(经 PROMPT_COMMAND),故 \e/\$PWD 等 bash-only 语法对 dash/sh 无副作用(它们从不调用)。
+    //
+    // 整行最后的 printf '\r\033[2K' 是"登录时提示符出现两次"的解药:注入这一行本身要占掉 shell
+    // 的一个提示符周期 —— 登录提示符先画出来(还带上 tty 回显里没被抑制针覆盖的那个前导空格),
+    // 命令执行完 shell 再画一个新的,于是屏幕上并排两行 [root@host ~]#。
+    // 这里在新提示符画出来之前把光标所在的整行擦掉(\r 回到行首 + CSI 2K 清整行),
+    // 旧提示符与残留空格一并消失;随后 prompt_nl 查到光标已在第 1 列,不会再补换行,
+    // 新提示符正好落在被清空的那一行 —— 净效果就是只剩一个提示符,与 WindTerm 等工具一致。
+    // 放在整行末尾(而不是 SendSilentCommand 里)是为了让用户配置的"连接后执行命令"
+    // 接在它后面:先清行,用户命令的输出才从干净的行首开始。
+    // 转义用八进制 \033 而不是 \e:这一句由对端的任意 shell 执行(函数体只被 bash 调用,它不是),
+    // 而 \e 是 bash/zsh 扩展 —— dash/busybox ash 的 printf 会把它原样打成字面量 "\e[2K"。
     private const string PromptNewlineFix =
-        """prompt_nl() { local c; IFS='[;' read -p $'\e[6n' -d R -rs _ _ c; ((c>1)) && echo; printf '\e]7;file://%s%s\e\\' "$HOSTNAME" "$PWD"; }; PROMPT_COMMAND=prompt_nl""";
+        """prompt_nl() { local c; IFS='[;' read -p $'\e[6n' -d R -rs _ _ c; ((c>1)) && echo; printf '\e]7;file://%s%s\e\\' "$HOSTNAME" "$PWD"; }; PROMPT_COMMAND=prompt_nl; printf '\r\033[2K'""";
 
     /// <summary>RIS(ESC c)完全重置序列:重开会话前清掉旧进程的残留缓冲。</summary>
     private static readonly byte[] RisResetSequence = [0x1B, (byte)'c']; // ESC c
