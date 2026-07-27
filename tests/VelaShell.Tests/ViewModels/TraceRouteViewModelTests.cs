@@ -1,7 +1,8 @@
 using System.Net;
-using System.Reactive.Linq;
 using System.Runtime.CompilerServices;
 using ReactiveUI;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Concurrency;
 using VelaShell.Core.Diagnostics;
 using VelaShell.ViewModels;
 
@@ -22,7 +23,7 @@ public class TraceRouteViewModelTests
     /// </summary>
     [ClassInitialize]
     public static void Init(TestContext _) =>
-        RxSchedulers.MainThreadScheduler = System.Reactive.Concurrency.ImmediateScheduler.Instance;
+        RxSchedulers.MainThreadScheduler = ImmediateSequencer.Instance;
 
     [TestMethod]
     public async Task Restart_KeepsRunningFlag_WhenTheOldRunFinishesLate()

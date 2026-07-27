@@ -6,6 +6,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using ReactiveUI.Primitives;
 using VelaShell.Core.Models;
 using VelaShell.Security;
 using VelaShell.ViewModels;

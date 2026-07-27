@@ -10,6 +10,7 @@ using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Microsoft.Extensions.DependencyInjection;
+using ReactiveUI.Primitives;
 using VelaShell.Controls.Controls;
 using VelaShell.Core.Resources;
 using VelaShell.Core.Sftp;

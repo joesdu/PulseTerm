@@ -1,9 +1,8 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
-using System.Reactive;
-using System.Reactive.Linq;
 using Avalonia.Threading;
 using ReactiveUI;
+using ReactiveUI.Primitives;
 using VelaShell.Core.Diagnostics;
 using VelaShell.Core.Resources;
 
@@ -262,10 +261,10 @@ public sealed class TraceRouteViewModel : ReactiveObject, IDisposable
     public static string GeoDatabaseUrl => "https://download.db-ip.com/free/dbip-city-lite-2026-07.mmdb.gz";
 
     /// <summary>选择本地 .mmdb / .mmdb.gz 文件。</summary>
-    public ReactiveCommand<Unit, Unit> PickDatabaseCommand { get; private set; } = null!;
+    public ReactiveCommand<RxVoid, RxVoid> PickDatabaseCommand { get; private set; } = null!;
 
     /// <summary>在浏览器里打开数据库下载地址。</summary>
-    public ReactiveCommand<Unit, Unit> OpenDatabaseUrlCommand { get; private set; } = null!;
+    public ReactiveCommand<RxVoid, RxVoid> OpenDatabaseUrlCommand { get; private set; } = null!;
 
     /// <summary>由视图注入的文件选择器,返回选中文件的绝对路径;取消返回 null。</summary>
     public Func<Task<string?>>? DatabaseFilePicker { get; set; }
@@ -337,10 +336,10 @@ public sealed class TraceRouteViewModel : ReactiveObject, IDisposable
     }
 
     /// <summary>开始追踪。</summary>
-    public ReactiveCommand<Unit, Unit> StartCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> StartCommand { get; }
 
     /// <summary>停止追踪。</summary>
-    public ReactiveCommand<Unit, Unit> StopCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> StopCommand { get; }
 
     /// <summary>停止追踪并释放取消源。</summary>
     public void Dispose()

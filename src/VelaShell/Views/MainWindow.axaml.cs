@@ -1,4 +1,3 @@
-using System.Reactive.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
@@ -9,6 +8,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Microsoft.Extensions.DependencyInjection;
 using ReactiveUI;
+using ReactiveUI.Primitives;
 using VelaShell.Core.Data;
 using VelaShell.Core.Diagnostics;
 using VelaShell.Core.Models;
@@ -38,7 +38,7 @@ public partial class MainWindow : Window
     private readonly Dictionary<Guid, ProcessManagerView> _processManagers = [];
 
     /// <summary>每个追踪目标至多一扇窗口,按目标主机去重。</summary>
-    private readonly Dictionary<string, TraceRouteWindow> _traceWindows = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, TraceRouteWindow> _traceWindows = [with(StringComparer.OrdinalIgnoreCase)];
 
     private IDisposable? _fileBrowserVisibilitySub;
     private bool _forceClose;
@@ -908,7 +908,7 @@ public partial class MainWindow : Window
         {
             return;
         }
-        await settingsViewModel.LoadCommand.Execute();
+        await settingsViewModel.LoadCommand.Execute().FirstAsync();
         var dialog = new SettingsView { DataContext = settingsViewModel };
         await dialog.ShowDialog(this);
     }

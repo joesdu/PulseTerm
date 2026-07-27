@@ -1,8 +1,8 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
-using System.Reactive;
 using Avalonia.Threading;
 using ReactiveUI;
+using ReactiveUI.Primitives;
 using VelaShell.Core.Data;
 using VelaShell.Core.Models;
 using VelaShell.Core.Resources;
@@ -109,22 +109,22 @@ public class FileTransferViewModel : ReactiveObject
     }
 
     /// <summary>隐藏传输面板(点击关闭按钮),任务继续在后台运行。</summary>
-    public ReactiveCommand<Unit, Unit> HidePanelCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> HidePanelCommand { get; }
 
     /// <summary>取消指定 Id 的单个传输。</summary>
-    public ReactiveCommand<Guid, Unit> CancelTransferCommand { get; }
+    public ReactiveCommand<Guid, RxVoid> CancelTransferCommand { get; }
 
     /// <summary>重试指定 Id 的失败传输,将其重新排队。</summary>
-    public ReactiveCommand<Guid, Unit> RetryTransferCommand { get; }
+    public ReactiveCommand<Guid, RxVoid> RetryTransferCommand { get; }
 
     /// <summary>清除列表中所有已完成或已取消的传输项。</summary>
-    public ReactiveCommand<Unit, Unit> ClearCompletedCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ClearCompletedCommand { get; }
 
     /// <summary>
     /// 取消当前批次中所有剩余文件:中止正在传输的那个并跳过其余
     /// (规范 §9:取消剩余传输)。
     /// </summary>
-    public ReactiveCommand<Unit, Unit> CancelAllCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> CancelAllCommand { get; }
 
     /// <summary>
     /// 进入准备(目录扫描)状态:浮窗立即弹出并显示实时文件计数,

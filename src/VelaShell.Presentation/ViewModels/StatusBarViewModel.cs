@@ -1,15 +1,16 @@
-using System.Reactive.Concurrency;
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
 using ReactiveUI;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Concurrency;
+using ReactiveUI.Primitives.Disposables;
+using ReactiveUI.Primitives.Signals;
 using VelaShell.Core.Resources;
 
 namespace VelaShell.Presentation.ViewModels;
 
 /// <summary>状态栏视图模型:维护连接状态、终端信息与 CPU/内存/磁盘/网络等实时指标,并驱动运行时长计时。</summary>
-public sealed class StatusBarViewModel(IScheduler scheduler) : ReactiveObject, IDisposable
+public sealed class StatusBarViewModel(ISequencer scheduler) : ReactiveObject, IDisposable
 {
-    private readonly CompositeDisposable _disposables = [];
+    private readonly MultipleDisposable _disposables = [];
 
     private DateTimeOffset _uptimeStart;
 
@@ -17,7 +18,7 @@ public sealed class StatusBarViewModel(IScheduler scheduler) : ReactiveObject, I
 
     /// <summary>使用默认调度器构造状态栏视图模型(供设计期/无注入场景使用)。</summary>
     public StatusBarViewModel()
-        : this(DefaultScheduler.Instance) { }
+        : this(ThreadPoolSequencer.Instance) { }
 
     // 指标分段始终可见;在首个采样前(或无已连接会话时)显示空闲占位符。
 
@@ -232,8 +233,8 @@ public sealed class StatusBarViewModel(IScheduler scheduler) : ReactiveObject, I
     {
         StopUptimeTimer();
         _uptimeStart = scheduler.Now;
-        _uptimeSubscription = Observable
-                              .Interval(TimeSpan.FromSeconds(1), scheduler)
+        _uptimeSubscription = Signal
+                              .Every(TimeSpan.FromSeconds(1), scheduler)
                               .Subscribe(_ =>
                               {
                                   TimeSpan elapsed = scheduler.Now - _uptimeStart;
