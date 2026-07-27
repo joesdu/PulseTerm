@@ -42,6 +42,13 @@ public class SshTerminalBridge : IDisposable
 
     // 连接初始化命令的回显抑制器(静默执行);仅在 UI 线程读写(Arm 与 FlushPending 同线程)。
     private EchoSuppressor? _echoSuppressor;
+
+    // 同一个抑制针的第二份实例,专供旁路记录(DataReceived → 会话日志 / 会话录制)。
+    // 记录挂在读线程的原始流上,拿不到显示路径抑制后的结果 —— 于是注入的初始化脚本
+    // 在终端里看不见,回放时却整行冒出来。两条路径看的是同一份字节流,但在不同线程上消费,
+    // 共用一个实例会踩坏 EchoSuppressor 的 _held/_hitsLeft 状态,故各持一份。
+    // volatile:由 UI 线程装配(SuppressEchoOnce),由读线程消费。
+    private volatile EchoSuppressor? _tapEchoSuppressor;
     private int _flushScheduled;
     private Task? _readTask;
     private int _started;
@@ -108,8 +115,10 @@ public class SshTerminalBridge : IDisposable
     public event Action<Exception>? Error;
 
     /// <summary>
-    /// 原始主机输出分块,在读线程上触发 —— 供会话日志使用
-    /// (设置 → 常规 → 会话日志)。订阅者必须快速返回且绝不抛异常。
+    /// 主机输出分块,在读线程上触发 —— 供会话日志(设置 → 常规)与会话录制
+    /// (设置 → 安全审计)使用。订阅者必须快速返回且绝不抛异常。
+    /// 与显示路径一样剥除了连接初始化命令的回显(见 <see cref="SuppressEchoOnce" />):
+    /// 注入的脚本在终端里既然是隐形的,记录与回放里也不该冒出来。
     /// </summary>
     public event Action<byte[]>? DataReceived;
 
@@ -178,8 +187,13 @@ public class SshTerminalBridge : IDisposable
     /// <summary>
     /// 在输出流上剥除即将注入的命令回显(见 <see cref="EchoSuppressor" />)。
     /// 回显最多出现两次(内核规范模式 + readline 预输入重绘),窗口过后自动失效。
+    /// 显示路径与旁路记录路径(<see cref="DataReceived" />)各装一份实例,理由见字段注释。
     /// </summary>
-    public void SuppressEchoOnce(byte[] needle) => _echoSuppressor = new(needle, 2, TimeSpan.FromSeconds(10));
+    public void SuppressEchoOnce(byte[] needle)
+    {
+        _echoSuppressor = new(needle, 2, TimeSpan.FromSeconds(10));
+        _tapEchoSuppressor = new(needle, 2, TimeSpan.FromSeconds(10));
+    }
 
     /// <summary>
     /// 程序化注入:直写 PTY,不经终端控件的输入事件。连接初始化命令(提示符补行脚本、
@@ -242,13 +256,20 @@ public class SshTerminalBridge : IDisposable
                 }
                 byte[] data = new byte[bytesRead];
                 Array.Copy(buffer, data, bytesRead);
-                try
+                // 记录/回放拿到的流与屏幕一致:注入的初始化脚本回显在此剥除。
+                // 无论有无订阅者都要跑,否则抑制器的跨块状态会与实际流脱节。
+                // 整块被剥光(或被扣下等下一块续判)时无事可记。
+                byte[] logged = SuppressTapEcho(data);
+                if (logged.Length > 0)
                 {
-                    DataReceived?.Invoke(data);
-                }
-                catch
-                {
-                    // 日志订阅者异常不允许打断读循环。
+                    try
+                    {
+                        DataReceived?.Invoke(logged);
+                    }
+                    catch
+                    {
+                        // 日志订阅者异常不允许打断读循环。
+                    }
                 }
 
                 // 不要为每次读取都 await 一次 UI 跳转。把分块入队并合并;读线程
@@ -296,6 +317,23 @@ public class SshTerminalBridge : IDisposable
         {
             Closed?.Invoke();
         }
+    }
+
+    /// <summary>
+    /// 旁路记录路径的回显抑制(读线程独占该实例)。未装配或已失效时原样返回,零开销。
+    /// </summary>
+    private byte[] SuppressTapEcho(byte[] data)
+    {
+        if (_tapEchoSuppressor is not { } suppressor)
+        {
+            return data;
+        }
+        byte[] result = suppressor.Process(data);
+        if (suppressor.Expired)
+        {
+            _tapEchoSuppressor = null;
+        }
+        return result;
     }
 
     private void EnqueueForFeed(byte[] data)
