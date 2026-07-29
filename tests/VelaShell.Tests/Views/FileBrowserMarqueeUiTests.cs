@@ -54,6 +54,30 @@ public sealed class FileBrowserMarqueeUiTests
     }
 
     [TestMethod]
+    public void DualPaneMode_HidesTheRemotePaneCloseButton()
+    {
+        RunWithBrowser(dragEnabled: true, (window, _, _) =>
+        {
+            Button closeButton = window.GetVisualDescendants().OfType<Button>()
+                .Single(button => button.Name == "RemotePaneCloseButton");
+
+            Assert.IsFalse(closeButton.IsVisible, "独立 SFTP 双栏模式不能关闭远端栏。");
+        });
+    }
+
+    [TestMethod]
+    public void TerminalMode_KeepsTheFileBrowserCloseButton()
+    {
+        RunWithBrowser(dragEnabled: false, (window, _, _) =>
+        {
+            Button closeButton = window.GetVisualDescendants().OfType<Button>()
+                .Single(button => button.Name == "RemotePaneCloseButton");
+
+            Assert.IsTrue(closeButton.IsVisible, "终端内嵌文件浏览器仍需保留关闭入口。");
+        });
+    }
+
+    [TestMethod]
     public void DualPaneMode_DraggingFromARow_DoesNotMarquee_SoCrossPaneDragKeepsWorking()
     {
         // 双栏模式(IsDragEnabled=true):按住行拖是"拖去另一栏",不能被框选抢走。
