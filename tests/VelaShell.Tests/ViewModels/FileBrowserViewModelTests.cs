@@ -662,6 +662,110 @@ public class FileBrowserViewModelTests
 
     [TestMethod]
     [TestCategory("FileBrowser")]
+    public async Task Move_WithSeveralSelected_AsksOnceForAFolderAndMovesThemAllIntoIt()
+    {
+        // 框选一片再"移动到":逐个问完整路径没法用,只问一次目标目录,各自按原名落进去。
+        int prompts = 0;
+        _vm.PromptForText = (_, _) =>
+        {
+            prompts++;
+            return Task.FromResult<string?>("/srv/archive");
+        };
+        _sftpService
+            .ListDirectoryAsync(_sessionId, Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new List<RemoteFileInfo>()));
+        List<RemoteFileInfo> files = CreateTestFiles();
+        _vm.SelectedFiles.Add(new(files[1])); // readme.txt
+        _vm.SelectedFiles.Add(new(files[2]));
+
+        await _vm.MoveCommand.Execute(new(files[1])).FirstAsync();
+
+        Assert.AreEqual(1, prompts, "批量移动只该问一次目标目录。");
+        await _sftpService.Received(1).RenameAsync(
+            _sessionId, files[1].FullPath, $"/srv/archive/{files[1].Name}", Arg.Any<CancellationToken>());
+        await _sftpService.Received(1).RenameAsync(
+            _sessionId, files[2].FullPath, $"/srv/archive/{files[2].Name}", Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    [TestCategory("FileBrowser")]
+    public async Task Move_WhenOneItemFails_StillMovesTheRestAndReportsTheFailure()
+    {
+        // 批量半途中断比"跑完再报告"更难收拾:一条失败不该把剩下的也拦住。
+        _vm.PromptForText = (_, _) => Task.FromResult<string?>("/srv/archive");
+        _sftpService
+            .ListDirectoryAsync(_sessionId, Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new List<RemoteFileInfo>()));
+        List<RemoteFileInfo> files = CreateTestFiles();
+        _sftpService
+            .RenameAsync(_sessionId, files[1].FullPath, Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException(new IOException("permission denied")));
+        _vm.SelectedFiles.Add(new(files[1]));
+        _vm.SelectedFiles.Add(new(files[2]));
+
+        await _vm.MoveCommand.Execute(new(files[1])).FirstAsync();
+
+        // 失败的那条不该挡住后面的。
+        await _sftpService.Received(1).RenameAsync(
+            _sessionId, files[2].FullPath, $"/srv/archive/{files[2].Name}", Arg.Any<CancellationToken>());
+        Assert.IsNotNull(_vm.ErrorMessage);
+        StringAssert.Contains(_vm.ErrorMessage, "permission denied");
+    }
+
+    [TestMethod]
+    [TestCategory("FileBrowser")]
+    public async Task Move_WithASingleItem_KeepsTheFullPathPromptSoRenamingStillWorks()
+    {
+        // n=1 时保留老用法:提示的是完整目标路径,可以顺手改名。
+        string? prompted = null;
+        _vm.PromptForText = (_, initial) =>
+        {
+            prompted = initial;
+            return Task.FromResult<string?>("/tmp/renamed.txt");
+        };
+        _sftpService
+            .ListDirectoryAsync(_sessionId, Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new List<RemoteFileInfo>()));
+        List<RemoteFileInfo> files = CreateTestFiles();
+        _vm.SelectedFiles.Add(new(files[1]));
+
+        await _vm.MoveCommand.Execute(new(files[1])).FirstAsync();
+
+        Assert.AreEqual(files[1].FullPath, prompted, "单个移动应预填完整路径,而不是目录。");
+        await _sftpService.Received(1).RenameAsync(
+            _sessionId, files[1].FullPath, "/tmp/renamed.txt", Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    [TestCategory("FileBrowser")]
+    public async Task CopyTo_WithSeveralSelected_AsksOnceAndCopiesEachIntoTheFolder()
+    {
+        int prompts = 0;
+        _vm.PromptForText = (_, _) =>
+        {
+            prompts++;
+            return Task.FromResult<string?>("/srv/backup");
+        };
+        _sftpService
+            .ListDirectoryAsync(_sessionId, Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new List<RemoteFileInfo>()));
+        List<RemoteFileInfo> files = CreateTestFiles();
+        _vm.SelectedFiles.Add(new(files[1]));
+        _vm.SelectedFiles.Add(new(files[2]));
+
+        await _vm.CopyToCommand.Execute(new(files[1])).FirstAsync();
+
+        Assert.AreEqual(1, prompts, "批量复制只该问一次目标目录。");
+        await _sftpService.Received(1).CopyAsync(
+            _sessionId, files[1].FullPath, $"/srv/backup/{files[1].Name}",
+            Arg.Any<IProgress<TransferProgress>?>(), Arg.Any<CancellationToken>());
+        await _sftpService.Received(1).CopyAsync(
+            _sessionId, files[2].FullPath, $"/srv/backup/{files[2].Name}",
+            Arg.Any<IProgress<TransferProgress>?>(), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    [TestCategory("FileBrowser")]
     public async Task CopyPath_And_CopyName_WriteToClipboard()
     {
         string? copied = null;
@@ -1719,7 +1823,7 @@ public class FileBrowserViewModelTests
         );
 
         // nested 已经被 root 包住,再单列一次就会把同一个文件传两遍、写同一个远端路径。
-        CollectionAssert.AreEquivalent(new[] { root, sibling }, kept.ToArray());
+        Assert.AreSequenceEqual([root, sibling], [.. kept], Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
     }
 
     [TestMethod]
@@ -1732,6 +1836,6 @@ public class FileBrowserViewModelTests
 
         IReadOnlyList<string> kept = FileBrowserViewModel.NormalizeUploadRoots([a, b]);
 
-        CollectionAssert.AreEquivalent(new[] { a, b }, kept.ToArray());
+        Assert.AreSequenceEqual([a, b], [.. kept], Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
     }
 }

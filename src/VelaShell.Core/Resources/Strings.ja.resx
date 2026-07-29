@@ -641,6 +641,15 @@
   <data name="MoveToPrompt" xml:space="preserve">
     <value>移動先(完全パス)</value>
   </data>
+  <data name="MoveSelectedToPrompt" xml:space="preserve">
+    <value>選択項目の移動先(フォルダー)</value>
+  </data>
+  <data name="CopySelectedToPrompt" xml:space="preserve">
+    <value>選択項目のコピー先(フォルダー)</value>
+  </data>
+  <data name="BatchOpPartialFailure" xml:space="preserve">
+    <value>{0} 件が失敗しました。最初のエラー: {1}</value>
+  </data>
   <data name="CopyTo" xml:space="preserve">
     <value>コピー先…</value>
   </data>

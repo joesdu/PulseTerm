@@ -1,5 +1,7 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
+using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using VelaShell.Core.Models;
@@ -56,6 +58,85 @@ public sealed class LocalFilePaneViewUiTests
                 window.Close();
             }
         }, CancellationToken.None);
+    }
+
+    [TestMethod]
+    public async Task DraggingFromRowWhitespace_MarqueesAcrossLocalRows()
+    {
+        await _session.Dispatch(async () =>
+        {
+            using var root = new TempDirectory();
+            for (int i = 0; i < 5; i++)
+            {
+                File.WriteAllText(Path.Combine(root.Path, $"f{i}.txt"), $"file {i}");
+            }
+
+            var accessible = new LocalRootEntry("~", root.Path, true, root.Path);
+            var viewModel = new LocalFilePaneViewModel(
+                new TransferOptions { LocalDownloadDirectory = root.Path },
+                rootProvider: new TestRootProvider(accessible));
+            await viewModel.LoadInitialAsync();
+
+            var view = new LocalFilePaneView { DataContext = viewModel };
+            var window = new Window { Width = 700, Height = 450, Content = view };
+            try
+            {
+                window.Show();
+                Pump(window);
+
+                ListBox list = view.GetVisualDescendants().OfType<ListBox>().Single(l => l.Name == "FileList");
+                Assert.IsGreaterThanOrEqualTo(4, list.ItemCount);
+                viewModel.SelectedEntries.Clear();
+
+                const int firstRow = 1;
+                const int lastRow = 3;
+                Control first = list.ContainerFromIndex(firstRow)!;
+                Control last = list.ContainerFromIndex(lastRow)!;
+                Point start = first.TranslatePoint(FindWhitespacePoint(first), window)!.Value;
+                Point end = last.TranslatePoint(FindWhitespacePoint(last), window)!.Value;
+                Border overlay = view.GetVisualDescendants().OfType<Border>()
+                    .Single(border => border.Name == "MarqueeOverlay");
+
+                window.MouseDown(start, MouseButton.Left);
+                Pump(window);
+                window.MouseMove(end);
+                Pump(window);
+
+                Assert.IsTrue(overlay.IsVisible, "本地栏行内空白拖动应显示框选矩形。");
+
+                window.MouseUp(end, MouseButton.Left);
+                Pump(window);
+
+                Assert.AreSequenceEqual(
+                    [.. viewModel.Entries.Skip(firstRow).Take(lastRow - firstRow + 1).Select(entry => entry.Name)], [.. viewModel.SelectedEntries.Select(entry => entry.Name)], Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
+            }
+            finally
+            {
+                window.Close();
+                Dispatcher.UIThread.RunJobs();
+            }
+        }, CancellationToken.None);
+    }
+
+    private static Point FindWhitespacePoint(Control row)
+    {
+        double y = row.Bounds.Height / 2;
+        for (double x = 40; x < row.Bounds.Width - 10; x += 10)
+        {
+            var point = new Point(x, y);
+            if (!MarqueeSelection.IsDndSurface(row, row, point))
+            {
+                return point;
+            }
+        }
+
+        throw new InvalidOperationException("本地文件行中没有找到可用于框选的视觉空白区域。");
+    }
+
+    private static void Pump(Window window)
+    {
+        Dispatcher.UIThread.RunJobs();
+        window.UpdateLayout();
     }
 
     private sealed class TestRootProvider(params LocalRootEntry[] roots) : ILocalRootProvider

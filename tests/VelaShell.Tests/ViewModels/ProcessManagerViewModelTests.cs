@@ -136,7 +136,7 @@ public class ProcessManagerViewModelTests
         await _vm.EndTaskCommand.Execute().FirstAsync();
 
         (IReadOnlyList<int> pids, ProcessSignal signal) = _service.Signals.Single();
-        CollectionAssert.AreEqual(new[] { 100 }, pids.ToArray());
+        Assert.AreSequenceEqual([100], [.. pids]);
         Assert.AreEqual(ProcessSignal.Terminate, signal);
     }
 
@@ -167,7 +167,7 @@ public class ProcessManagerViewModelTests
 
         await _vm.EndTaskTreeCommand.Execute().FirstAsync();
 
-        CollectionAssert.AreEqual(new[] { 300, 200, 100 }, _service.Signals.Single().Pids.ToArray());
+        Assert.AreSequenceEqual([300, 200, 100], [.. _service.Signals.Single().Pids]);
     }
 
     [TestMethod]
@@ -237,13 +237,11 @@ public class ProcessManagerViewModelTests
         await _vm.RefreshAsync();
         _vm.ShowTree = true;
 
-        CollectionAssert.AreEqual(
-            new[] { 1, 100, 200, 300 },
-            _vm.Processes.Select(row => row.Pid).ToArray()
+        Assert.AreSequenceEqual(
+            [1, 100, 200, 300], [.. _vm.Processes.Select(row => row.Pid)]
         );
-        CollectionAssert.AreEqual(
-            new[] { 0, 1, 2, 3 },
-            _vm.Processes.Select(row => row.Depth).ToArray()
+        Assert.AreSequenceEqual(
+            [0, 1, 2, 3], [.. _vm.Processes.Select(row => row.Depth)]
         );
         Assert.IsTrue(_vm.Processes.Single(row => row.Pid == 200).HasChildren);
         Assert.IsFalse(_vm.Processes.Single(row => row.Pid == 300).HasChildren);
@@ -263,11 +261,11 @@ public class ProcessManagerViewModelTests
         ProcessRowViewModel parent = _vm.Processes.Single(row => row.Pid == 100);
         _vm.ToggleExpandCommand.Execute(parent).Subscribe();
 
-        CollectionAssert.AreEqual(new[] { 1, 100 }, _vm.Processes.Select(row => row.Pid).ToArray());
+        Assert.AreSequenceEqual([1, 100], [.. _vm.Processes.Select(row => row.Pid)]);
 
         // 折叠状态挂在复用的行对象上,刷新之后仍然保持。
         await _vm.RefreshAsync();
-        CollectionAssert.AreEqual(new[] { 1, 100 }, _vm.Processes.Select(row => row.Pid).ToArray());
+        Assert.AreSequenceEqual([1, 100], [.. _vm.Processes.Select(row => row.Pid)]);
     }
 
     [TestMethod]
@@ -283,7 +281,7 @@ public class ProcessManagerViewModelTests
         _vm.ShowTree = true;
         _vm.SearchText = "needle";
 
-        CollectionAssert.AreEqual(new[] { 1, 100, 200 }, _vm.Processes.Select(row => row.Pid).ToArray());
+        Assert.AreSequenceEqual([1, 100, 200], [.. _vm.Processes.Select(row => row.Pid)]);
         Assert.AreEqual(2, _vm.Processes.Single(row => row.Pid == 200).Depth);
     }
 
@@ -298,7 +296,7 @@ public class ProcessManagerViewModelTests
         await _vm.RefreshAsync();
         _vm.ShowTree = true;
 
-        CollectionAssert.AreEqual(new[] { 500 }, _vm.Processes.Select(row => row.Pid).ToArray());
+        Assert.AreSequenceEqual([500], [.. _vm.Processes.Select(row => row.Pid)]);
         Assert.AreEqual(0, _vm.Processes[0].Depth);
     }
 

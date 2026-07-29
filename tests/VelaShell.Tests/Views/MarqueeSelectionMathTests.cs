@@ -14,6 +14,125 @@ public class MarqueeSelectionMathTests
     private const double RowHeight = 28;
 
     [TestMethod]
+    public void CtrlMarquee_MergesTheMouseDownSnapshotWithSweptRows()
+    {
+        IReadOnlyList<string> result = MarqueeSelectionMath.MergeSelection(
+            ["already-selected.txt"],
+            ["already-selected.txt", "swept.txt"]);
+
+        Assert.AreSequenceEqual(
+            ["already-selected.txt", "swept.txt"], [.. result], Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
+    }
+
+    [TestMethod]
+    public void DragPayload_WhenSourceIsSelected_ContainsAllSelectedNonParentItems()
+    {
+        string parent = "..";
+        string source = "b.txt";
+        string[] selected = [parent, source, "a.txt"];
+
+        IReadOnlyList<string> result = DragSelectionResolver.Resolve(
+            selected,
+            source,
+            item => item == parent);
+
+        Assert.AreSequenceEqual(["a.txt", "b.txt"], [.. result], Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
+    }
+
+    [TestMethod]
+    public void DragPayload_WhenSourceIsNotSelected_ContainsOnlyTheSource()
+    {
+        string parent = "..";
+        string source = "c.txt";
+        string[] selected = [parent, "a.txt", "b.txt"];
+
+        IReadOnlyList<string> result = DragSelectionResolver.Resolve(
+            selected,
+            source,
+            item => item == parent);
+
+        Assert.AreSequenceEqual([source], [.. result]);
+    }
+
+    [TestMethod]
+    public void DragPayload_WhenSourceIsParent_IsEmpty()
+    {
+        IReadOnlyList<string> result = DragSelectionResolver.Resolve(
+            ["a.txt"],
+            "..",
+            item => item == "..");
+
+        Assert.IsEmpty(result);
+    }
+
+    [TestMethod]
+    public void DragPayload_UsesPressSnapshotWhenSourceWasSelectedBeforeListBoxMutation()
+    {
+        IReadOnlyList<string> result = DragSelectionResolver.ResolveAtDragStart(
+            ["a.txt", "b.txt"],
+            ["b.txt"],
+            "b.txt",
+            item => item == "..");
+
+        Assert.AreSequenceEqual(["a.txt", "b.txt"], [.. result], Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
+    }
+
+    [TestMethod]
+    public void DragPayload_UsesCurrentSelectionWhenPressSnapshotDidNotContainSource()
+    {
+        IReadOnlyList<string> result = DragSelectionResolver.ResolveAtDragStart(
+            ["a.txt", "b.txt"],
+            ["c.txt"],
+            "c.txt",
+            item => item == "..");
+
+        Assert.AreSequenceEqual(["c.txt"], [.. result]);
+    }
+
+    [TestMethod]
+    public void DragSelectionSynchronization_RestoresEveryPayloadItemToTheVisibleSelection()
+    {
+        List<string> visibleSelection = ["b.txt"];
+        string[] dragItems = ["a.txt", "b.txt", "folder"];
+
+        DragSelectionResolver.SynchronizeSelection(visibleSelection, dragItems);
+
+        Assert.AreSequenceEqual(
+            dragItems,
+            [.. visibleSelection],
+            Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
+    }
+
+    [TestMethod]
+    public void ModifierDrag_DoesNotRestoreAStalePressSnapshot()
+    {
+        IReadOnlyList<string> result = DragSelectionResolver.ResolveAtDragStart(
+            ["a.txt", "b.txt"],
+            ["a.txt"],
+            "b.txt",
+            item => item == "..",
+            usePressSnapshot: false);
+
+        Assert.AreSequenceEqual(["b.txt"], [.. result]);
+    }
+
+    [TestMethod]
+    public void ModifierDrag_UsesTheCurrentRangeSelection()
+    {
+        IReadOnlyList<string> result = DragSelectionResolver.ResolveAtDragStart(
+            ["a.txt", "b.txt"],
+            ["b.txt", "c.txt"],
+            "b.txt",
+            item => item == "..",
+            usePressSnapshot: false);
+
+        Assert.AreSequenceEqual(
+            ["b.txt", "c.txt"],
+            [.. result],
+            Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
+    }
+
+    [TestMethod]
     public void BandCoveringTwoRows_SelectsBothInclusive()
     {
         // 第 1 行中间拖到第 3 行中间:1、2、3 三行都该选中。

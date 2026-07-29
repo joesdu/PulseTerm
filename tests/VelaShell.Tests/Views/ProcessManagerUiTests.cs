@@ -218,7 +218,7 @@ public sealed class ProcessManagerUiTests
             using var fixture = Fixture.Show();
 
             // 内核线程默认不显示,所以 4 个样本里只出 3 行。
-            Assert.AreEqual(3, fixture.ViewModel.Processes.Count);
+            Assert.HasCount(3, fixture.ViewModel.Processes);
             SaveFrame(fixture.Window, "process-manager-tree.png");
 
             fixture.ViewModel.ShowTree = false;

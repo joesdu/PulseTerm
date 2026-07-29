@@ -51,10 +51,8 @@ public sealed class LocalPathPickerMarqueeUiTests
             // 从第 1 行(".." 之后的头一个真实条目)拖到第 3 行。
             Drag(dialog, list, fromRow: 1, toRow: 3);
 
-            CollectionAssert.AreEquivalent(
-                new[] { "a0.txt", "a1.txt", "a2.txt" },
-                Names(vm),
-                "框选划过的三行都该选中。"
+            Assert.AreSequenceEqual(
+                ["a0.txt", "a1.txt", "a2.txt"], Names(vm), SequenceOrder.InAnyOrder, "框选划过的三行都该选中。"
             );
         });
     }
@@ -84,10 +82,8 @@ public sealed class LocalPathPickerMarqueeUiTests
         {
             Drag(dialog, list, fromRow: 3, toRow: 1);
 
-            CollectionAssert.AreEquivalent(
-                new[] { "a0.txt", "a1.txt", "a2.txt" },
-                Names(vm),
-                "向上拖应与向下拖选中同一批行。"
+            Assert.AreSequenceEqual(
+                ["a0.txt", "a1.txt", "a2.txt"], Names(vm), Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder, "向上拖应与向下拖选中同一批行。"
             );
         });
     }
@@ -100,11 +96,11 @@ public sealed class LocalPathPickerMarqueeUiTests
             // 从 ".." 那一行(下标 0)往下拖:".." 不是真实条目,不能被框进来。
             Drag(dialog, list, fromRow: 0, toRow: 2);
 
-            Assert.IsFalse(
-                vm.SelectedEntries.Any(entry => entry.IsParentEntry),
+            Assert.DoesNotContain(
+                entry => entry.IsParentEntry, vm.SelectedEntries,
                 "合成的 \"..\" 行不该被框选选中。"
             );
-            CollectionAssert.AreEquivalent(new[] { "a0.txt", "a1.txt" }, Names(vm));
+            Assert.AreSequenceEqual(["a0.txt", "a1.txt"], Names(vm), Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
         });
     }
 
@@ -119,7 +115,7 @@ public sealed class LocalPathPickerMarqueeUiTests
             dialog.MouseUp(point, MouseButton.Left);
             Pump(dialog);
 
-            CollectionAssert.AreEquivalent(new[] { "a1.txt" }, Names(vm));
+            Assert.AreSequenceEqual(["a1.txt"], Names(vm), Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
         });
     }
 
@@ -187,7 +183,7 @@ public sealed class LocalPathPickerMarqueeUiTests
                 dialog.UpdateLayout();
 
                 ListBox list = dialog.GetVisualDescendants().OfType<ListBox>().Single();
-                Assert.AreEqual(7, vm.Entries.Count, "应为 \"..\" 加 6 个文件。");
+                Assert.HasCount(7, vm.Entries, "应为 \"..\" 加 6 个文件。");
                 Assert.IsTrue(vm.Entries[0].IsParentEntry, "首行应是合成的 \"..\"。");
                 vm.SelectedEntries.Clear();
 
