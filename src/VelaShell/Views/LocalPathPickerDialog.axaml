@@ -198,7 +198,9 @@
         <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource VelaError}" FontSize="11" />
       </Border>
 
-      <!-- 文件与文件夹同列表混选:这正是系统对话框做不到、也是拆成两个菜单项的原因。 -->
+      <!-- 文件与文件夹同列表混选:这正是系统对话框做不到、也是拆成两个菜单项的原因。
+           列表外面套一层 Panel,是为了在它上面叠一个框选矩形(见 Marquee)。 -->
+      <Panel>
       <ListBox Name="FileList" ItemsSource="{Binding Entries}" SelectedItems="{Binding SelectedEntries}"
                SelectionMode="Multiple" Background="Transparent" BorderThickness="0"
                DoubleTapped="OnFileDoubleTapped">
@@ -230,6 +232,15 @@
           </DataTemplate>
         </ListBox.ItemTemplate>
       </ListBox>
+
+        <!-- 框选矩形。IsHitTestVisible=False:它盖在列表上,不能把指针事件吃掉。
+             位置用 Margin 落点(左/上对齐),尺寸用 Width/Height。 -->
+        <Border Name="Marquee" IsVisible="False" IsHitTestVisible="False"
+                HorizontalAlignment="Left" VerticalAlignment="Top"
+                Background="{DynamicResource VelaAccent}" Opacity="0.18"
+                BorderBrush="{DynamicResource VelaAccent}" BorderThickness="1"
+                CornerRadius="1" />
+      </Panel>
     </DockPanel>
   </Border>
 </Window>
