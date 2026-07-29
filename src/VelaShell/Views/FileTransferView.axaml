@@ -100,20 +100,18 @@
                    FontSize="10" />
       </Border>
 
-      <!-- 传输行:限制面板高度(约 5 行)并对溢出内容滚动。 -->
+      <!-- 传输行:限制面板高度(约 5 行)并对溢出内容滚动。
+           这里刻意不做虚拟化(默认的 StackPanel 就是要的那个)。曾经为了性能换成
+           VirtualizingStackPanel,结果面板顶到 280px 上限却只画出头几行,下面空出一大片:
+           虚拟化面板算出的实现窗口跟真实视口对不上,ScrollViewer 套在外面、放进模板里
+           (与 ListBox 同形)都一样翻车。
+           而这里本来就不需要它:行数已经在 FileTransferViewModel 里压到 100 条以内,
+           一次最多也就实现 100 行;真正拖慢传输期界面的是无上限增长的历史,那条已经由
+           上限本身解决了。宁可多渲染几十行,也不能让用户看着一片空白。 -->
       <ScrollViewer VerticalScrollBarVisibility="Auto"
                     HorizontalScrollBarVisibility="Disabled"
                     MaxHeight="280">
         <ItemsControl ItemsSource="{Binding Transfers}">
-          <!-- 虚拟化:面板最多只露出约 5 行,但列表可以攒到 100 条。默认的 StackPanel 会把
-               每一条都实现成一整棵可视树(边框 + 网格 + 三段文本 + 进度条),于是每新增一个
-               文件都要重新布局全部行 —— 传输期间拖窗口、敲命令的卡顿正出在这里。
-               换成 VirtualizingStackPanel 后开销只跟"看得见的行数"有关,与历史条数无关。 -->
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-              <VirtualizingStackPanel />
-            </ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:TransferItemViewModel">
               <Border Padding="12,8"
