@@ -293,11 +293,20 @@
     <value>Passphrase</value>
   </data>
   <!-- File Browser / SFTP (§6) -->
-  <data name="UploadFilesHere" xml:space="preserve">
-    <value>Upload Files Here</value>
+  <data name="UploadHere" xml:space="preserve">
+    <value>Upload Here</value>
   </data>
-  <data name="UploadFolderHere" xml:space="preserve">
-    <value>Upload Folder Here</value>
+  <data name="Sftp_PickUploadTitle" xml:space="preserve">
+    <value>Select files and folders to upload</value>
+  </data>
+  <data name="Sftp_PickUploadHint" xml:space="preserve">
+    <value>Select files and folders — both can be picked together</value>
+  </data>
+  <data name="Sftp_PickUploadSelected" xml:space="preserve">
+    <value>{0} file(s), {1} folder(s) selected</value>
+  </data>
+  <data name="Sftp_GoUp" xml:space="preserve">
+    <value>Go up</value>
   </data>
   <data name="NewFolder" xml:space="preserve">
     <value>New Folder</value>
@@ -373,12 +382,6 @@
   </data>
   <data name="DeletingProgress" xml:space="preserve">
     <value>Deleting… {0}/{1} removed</value>
-  </data>
-  <data name="SelectFilesToUpload" xml:space="preserve">
-    <value>Select files to upload</value>
-  </data>
-  <data name="SelectFolderToUpload" xml:space="preserve">
-    <value>Select a folder to upload</value>
   </data>
   <data name="SelectDownloadFolder" xml:space="preserve">
     <value>Select a destination folder</value>

@@ -1,0 +1,235 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:VelaShell.ViewModels"
+        xmlns:res="clr-namespace:VelaShell.Core.Resources;assembly=VelaShell.Core"
+        xmlns:loc="using:VelaShell.Localization"
+        xmlns:pc="using:VelaShell.Controls.Controls"
+        mc:Ignorable="d" d:DesignWidth="640" d:DesignHeight="520"
+        x:Class="VelaShell.Views.LocalPathPickerDialog"
+        x:DataType="vm:LocalFilePaneViewModel"
+        Title="{loc:Localize Sftp_PickUploadTitle}"
+        Width="640" Height="520"
+        MinWidth="420" MinHeight="320"
+        WindowDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner">
+
+  <!-- 上传选择器。系统对话框在 Windows/Linux 上只能"要么文件、要么文件夹",上传因此
+       长期被拆成两个菜单项;这个应用内选择器把两者放进同一个列表,混选多选一次搞定。
+       外观沿用 MessageDialog/TunnelHelpDialog 那套无边框圆角弹窗规格。 -->
+
+  <Window.Styles>
+    <Style Selector="Border.file-row:pointerover">
+      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+    </Style>
+    <Style Selector="Border.file-row.parent">
+      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+    </Style>
+    <Style Selector="ListBoxItem">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="MinHeight" Value="0" />
+    </Style>
+    <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource VelaBgActive}" />
+    </Style>
+    <Style Selector="ListBoxItem:selected:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource VelaBgActive}" />
+    </Style>
+    <Style Selector="Button.crumb">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="2,1" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaTerminalFont}" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontWeight" Value="Medium" />
+    </Style>
+    <Style Selector="Button.crumb:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaAccent}" />
+    </Style>
+    <Style Selector="Button.toolbar-btn">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Padding" Value="6" />
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Button.toolbar-btn:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+    </Style>
+  </Window.Styles>
+
+  <Border Background="{DynamicResource VelaBgSurface}"
+          BorderBrush="{DynamicResource VelaBorderSecondary}"
+          BorderThickness="1"
+          CornerRadius="8"
+          BoxShadow="0 8 32 0 #80000000">
+    <DockPanel>
+
+      <!-- 标题栏(可拖动) -->
+      <Border Name="TitleBar" DockPanel.Dock="Top" Height="40" Padding="16,0"
+              Background="Transparent"
+              PointerPressed="OnTitleBarPointerPressed"
+              BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,0,0,1">
+        <Grid ColumnDefinitions="Auto,*,Auto">
+          <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <pc:LucideIcon Width="14" Height="14" Data="{StaticResource Icon.upload}"
+                           Foreground="{DynamicResource VelaAccent}" />
+            <TextBlock Text="{loc:Localize Sftp_PickUploadTitle}"
+                       Foreground="{DynamicResource VelaTextPrimary}"
+                       FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
+          </StackPanel>
+          <Button Grid.Column="2" Classes="toolbar-btn" Width="24" Height="24" Padding="0"
+                  Click="OnCancelClick"
+                  ToolTip.Tip="{x:Static res:Strings.Cancel}"
+                  ToolTip.Placement="Top">
+            <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.x}"
+                           Foreground="{DynamicResource VelaTextTertiary}" />
+          </Button>
+        </Grid>
+      </Border>
+
+      <!-- 底部动作条:选中计数 + 取消/上传 -->
+      <Border DockPanel.Dock="Bottom" Height="48" Padding="16,0"
+              BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,1,0,0">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Name="SelectionSummary"
+                     Foreground="{DynamicResource VelaTextMuted}"
+                     FontFamily="{DynamicResource VelaTerminalFont}"
+                     FontSize="10" VerticalAlignment="Center" />
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <Button Height="26" Padding="14,0" Cursor="Hand" Click="OnCancelClick"
+                    Content="{x:Static res:Strings.Cancel}" FontSize="11" />
+            <Button Name="ConfirmButton" Height="26" Padding="14,0" Cursor="Hand"
+                    Theme="{DynamicResource VelaAccentPillButtonTheme}"
+                    Click="OnConfirmClick" IsDefault="True"
+                    Content="{x:Static res:Strings.Upload}" FontSize="11" />
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <!-- 导航条:面包屑 + 根切换 + 上一级 + 刷新 -->
+      <Border DockPanel.Dock="Top" Height="36" Padding="16,0"
+              BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,0,0,1">
+        <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+          <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" ClipToBounds="True">
+            <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.hard-drive}"
+                           Foreground="{DynamicResource VelaTextTertiary}" VerticalAlignment="Center" />
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" ClipToBounds="True">
+              <Button Classes="crumb" Content="{Binding RootBreadcrumbLabel}"
+                      Command="{Binding NavigateToCommand}"
+                      CommandParameter="{Binding RootBreadcrumbPath}" />
+              <ItemsControl ItemsSource="{Binding Breadcrumbs}" VerticalAlignment="Center">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal" />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:LocalBreadcrumbSegment">
+                    <StackPanel Orientation="Horizontal">
+                      <Button Classes="crumb" Content="{Binding Name}"
+                              Command="{Binding $parent[ItemsControl].((vm:LocalFilePaneViewModel)DataContext).NavigateToCommand}"
+                              CommandParameter="{Binding Path}" />
+                      <TextBlock Text="{Binding $parent[ItemsControl].((vm:LocalFilePaneViewModel)DataContext).PathSeparator}"
+                                 Foreground="{DynamicResource VelaTextMuted}"
+                                 FontFamily="{DynamicResource VelaTerminalFont}"
+                                 FontSize="11" VerticalAlignment="Center" />
+                    </StackPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+            <ComboBox MinHeight="0" Height="22" Padding="6,0" FontSize="11"
+                      ItemsSource="{Binding Roots}" SelectedItem="{Binding SelectedRoot, Mode=OneWay}"
+                      SelectionChanged="OnRootSelectionChanged"
+                      VerticalContentAlignment="Center" MaxDropDownHeight="320">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:LocalRootEntry">
+                  <TextBlock Text="{Binding DisplayName}" ToolTip.Tip="{Binding Tooltip}"
+                             TextTrimming="CharacterEllipsis" FontSize="11" Padding="2,1" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+            <Button Classes="toolbar-btn" Width="24" Height="24" Padding="0"
+                    Command="{Binding GoUpCommand}"
+                    ToolTip.Tip="{loc:Localize Sftp_GoUp}" ToolTip.Placement="Top">
+              <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.corner-left-up}"
+                             Foreground="{DynamicResource VelaTextTertiary}" />
+            </Button>
+            <Button Classes="toolbar-btn" Width="24" Height="24" Padding="0"
+                    Command="{Binding RefreshCommand}"
+                    ToolTip.Tip="{x:Static res:Strings.Refresh}" ToolTip.Placement="Top">
+              <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.refresh-cw}"
+                             Foreground="{DynamicResource VelaTextTertiary}" />
+            </Button>
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <!-- 列头 -->
+      <Border DockPanel.Dock="Top" Height="26" Padding="16,0"
+              Background="{DynamicResource VelaBgContentHeader}"
+              BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,0,0,1">
+        <Grid ColumnDefinitions="*,90,130">
+          <TextBlock Text="{x:Static res:Strings.FileName}" FontFamily="{DynamicResource VelaTerminalFont}"
+                     FontSize="10" LetterSpacing="1" Foreground="{DynamicResource VelaTextMuted}"
+                     VerticalAlignment="Center" />
+          <TextBlock Grid.Column="1" Text="{x:Static res:Strings.Size}" FontFamily="{DynamicResource VelaTerminalFont}"
+                     FontSize="10" LetterSpacing="1" Foreground="{DynamicResource VelaTextMuted}"
+                     VerticalAlignment="Center" />
+          <TextBlock Grid.Column="2" Text="{x:Static res:Strings.Modified}" FontFamily="{DynamicResource VelaTerminalFont}"
+                     FontSize="10" LetterSpacing="1" Foreground="{DynamicResource VelaTextMuted}"
+                     VerticalAlignment="Center" />
+        </Grid>
+      </Border>
+
+      <Border DockPanel.Dock="Top"
+              IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+              Background="{DynamicResource VelaBgActive}" Padding="10,4">
+        <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource VelaError}" FontSize="11" />
+      </Border>
+
+      <!-- 文件与文件夹同列表混选:这正是系统对话框做不到、也是拆成两个菜单项的原因。 -->
+      <ListBox Name="FileList" ItemsSource="{Binding Entries}" SelectedItems="{Binding SelectedEntries}"
+               SelectionMode="Multiple" Background="Transparent" BorderThickness="0"
+               DoubleTapped="OnFileDoubleTapped">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:LocalFileEntry">
+            <Border Classes="file-row" Classes.parent="{Binding IsParentEntry}" Height="28" Padding="16,0"
+                    BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,0,0,1">
+              <Grid ColumnDefinitions="*,90,130">
+                <Grid ColumnDefinitions="Auto,*" MinWidth="0" ClipToBounds="True" VerticalAlignment="Center">
+                  <pc:LucideIcon Width="13" Height="13" Margin="0,0,7,0"
+                                 Data="{StaticResource Icon.folder}" Foreground="{DynamicResource VelaFileFolderIcon}"
+                                 IsVisible="{Binding IsRegularDirectory}" />
+                  <pc:LucideIcon Width="13" Height="13" Margin="0,0,7,0"
+                                 Data="{StaticResource Icon.file}" Foreground="{DynamicResource VelaTextTertiary}"
+                                 IsVisible="{Binding IsRegularFile}" />
+                  <pc:LucideIcon Width="13" Height="13" Margin="0,0,7,0"
+                                 Data="{StaticResource Icon.corner-left-up}" Foreground="{DynamicResource VelaTextTertiary}"
+                                 IsVisible="{Binding IsParentEntry}" />
+                  <TextBlock Grid.Column="1" Text="{Binding DisplayName}" FontFamily="{DynamicResource VelaTerminalFont}"
+                             FontSize="11" Foreground="{DynamicResource VelaTextSecondary}"
+                             VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                </Grid>
+                <TextBlock Grid.Column="1" Text="{Binding FormattedSize}" FontFamily="{DynamicResource VelaTerminalFont}"
+                           FontSize="11" Foreground="{DynamicResource VelaTextTertiary}" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" Text="{Binding FormattedModifiedTime}" FontFamily="{DynamicResource VelaTerminalFont}"
+                           FontSize="11" Foreground="{DynamicResource VelaTextTertiary}" VerticalAlignment="Center" />
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </DockPanel>
+  </Border>
+</Window>

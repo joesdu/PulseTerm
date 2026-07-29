@@ -269,11 +269,8 @@ public static class Strings
     /// <summary>“传输历史”面板标题文案。</summary>
     public static string TransferHistory => ResourceManager.GetString(nameof(TransferHistory), CultureInfo.CurrentUICulture) ?? nameof(TransferHistory);
 
-    /// <summary>“上传文件到此处”菜单文案。</summary>
-    public static string UploadFilesHere => ResourceManager.GetString(nameof(UploadFilesHere), CultureInfo.CurrentUICulture) ?? nameof(UploadFilesHere);
-
-    /// <summary>“上传文件夹到此处”菜单文案。</summary>
-    public static string UploadFolderHere => ResourceManager.GetString(nameof(UploadFolderHere), CultureInfo.CurrentUICulture) ?? nameof(UploadFolderHere);
+    /// <summary>“上传到此处”菜单文案(文件与文件夹共用一个入口)。</summary>
+    public static string UploadHere => ResourceManager.GetString(nameof(UploadHere), CultureInfo.CurrentUICulture) ?? nameof(UploadHere);
 
     /// <summary>“新建文件夹”菜单/按钮文案。</summary>
     public static string NewFolder => ResourceManager.GetString(nameof(NewFolder), CultureInfo.CurrentUICulture) ?? nameof(NewFolder);
@@ -349,12 +346,6 @@ public static class Strings
 
     /// <summary>删除进度文案(含进度占位符)。</summary>
     public static string DeletingProgress => ResourceManager.GetString(nameof(DeletingProgress), CultureInfo.CurrentUICulture) ?? nameof(DeletingProgress);
-
-    /// <summary>“选择要上传的文件”对话框标题文案。</summary>
-    public static string SelectFilesToUpload => ResourceManager.GetString(nameof(SelectFilesToUpload), CultureInfo.CurrentUICulture) ?? nameof(SelectFilesToUpload);
-
-    /// <summary>“选择要上传的文件夹”对话框标题文案。</summary>
-    public static string SelectFolderToUpload => ResourceManager.GetString(nameof(SelectFolderToUpload), CultureInfo.CurrentUICulture) ?? nameof(SelectFolderToUpload);
 
     /// <summary>“选择下载目录”对话框标题文案。</summary>
     public static string SelectDownloadFolder => ResourceManager.GetString(nameof(SelectDownloadFolder), CultureInfo.CurrentUICulture) ?? nameof(SelectDownloadFolder);

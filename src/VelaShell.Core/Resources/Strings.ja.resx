@@ -1260,12 +1260,6 @@
   <data name="SelectDownloadFolder" xml:space="preserve">
     <value>保存先フォルダーを選択</value>
   </data>
-  <data name="SelectFilesToUpload" xml:space="preserve">
-    <value>アップロードするファイルを選択</value>
-  </data>
-  <data name="SelectFolderToUpload" xml:space="preserve">
-    <value>アップロードするフォルダーを選択</value>
-  </data>
   <data name="ServerGroups" xml:space="preserve">
     <value>サーバーグループ</value>
   </data>
@@ -2688,11 +2682,20 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   <data name="Upload" xml:space="preserve">
     <value>アップロード</value>
   </data>
-  <data name="UploadFilesHere" xml:space="preserve">
-    <value>このフォルダーへファイルをアップロード</value>
+  <data name="UploadHere" xml:space="preserve">
+    <value>このフォルダーへアップロード</value>
   </data>
-  <data name="UploadFolderHere" xml:space="preserve">
-    <value>このフォルダーへフォルダーをアップロード</value>
+  <data name="Sftp_PickUploadTitle" xml:space="preserve">
+    <value>アップロードするファイルとフォルダーを選択</value>
+  </data>
+  <data name="Sftp_PickUploadHint" xml:space="preserve">
+    <value>ファイルとフォルダーを選択 —— 同時に選べます</value>
+  </data>
+  <data name="Sftp_PickUploadSelected" xml:space="preserve">
+    <value>ファイル {0} 個、フォルダー {1} 個を選択中</value>
+  </data>
+  <data name="Sftp_GoUp" xml:space="preserve">
+    <value>上の階層へ</value>
   </data>
   <data name="Username" xml:space="preserve">
     <value>ユーザー名</value>
