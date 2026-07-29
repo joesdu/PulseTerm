@@ -102,7 +102,6 @@ public class FileBrowserViewModel : ReactiveObject
         RefreshCommand = ReactiveCommand.CreateFromTask(RefreshAsync);
         LoadInitialCommand = ReactiveCommand.CreateFromTask(LoadInitialAsync);
         UploadCommand = ReactiveCommand.CreateFromTask(UploadAsync);
-        UploadFolderCommand = ReactiveCommand.CreateFromTask(UploadFolderAsync);
         NewFolderCommand = ReactiveCommand.CreateFromTask(NewFolderAsync);
         NewFileCommand = ReactiveCommand.CreateFromTask(NewFileAsync);
         DownloadItemCommand = ReactiveCommand.CreateFromTask<RemoteFileInfoViewModel>(
@@ -705,11 +704,11 @@ public class FileBrowserViewModel : ReactiveObject
     /// <summary>加载账户的主目录(规范:落在 ~,而非文件系统根)。</summary>
     public ReactiveCommand<RxVoid, RxVoid> LoadInitialCommand { get; }
 
-    /// <summary>将系统选中的文件上传到当前目录(工具栏 + 右键)。</summary>
+    /// <summary>
+    /// 上传到当前目录(工具栏 + 右键)。文件与文件夹走同一个入口:选择器可以混选,
+    /// 文件夹按整棵目录递归上传,文件直接传,由 <see cref="UploadLocalPathsAsync" /> 分派。
+    /// </summary>
     public ReactiveCommand<RxVoid, RxVoid> UploadCommand { get; }
-
-    /// <summary>将系统选中的文件夹(递归)上传到当前目录。</summary>
-    public ReactiveCommand<RxVoid, RxVoid> UploadFolderCommand { get; }
 
     // 右键上下文菜单动作(规范:文件操作置于 SFTP 上下文菜单中)。
     /// <summary>在当前目录下新建文件夹(提示输入名称)。</summary>
@@ -812,11 +811,15 @@ public class FileBrowserViewModel : ReactiveObject
     /// <summary>当前路径按 "/" 拆分后的各级目录名(用于面包屑等)。</summary>
     public string[] PathSegments => CurrentPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
 
-    /// <summary>由视图设置:打开系统文件选择器(多选)并返回本地路径。</summary>
-    public Func<Task<IReadOnlyList<string>>>? PickFilesForUpload { get; set; }
-
-    /// <summary>由视图设置:打开系统文件夹选择器并返回选中的文件夹,或 null。</summary>
-    public Func<Task<string?>>? PickFolderForUpload { get; set; }
+    /// <summary>
+    /// 由视图设置:打开本地路径选择器,返回用户选中的文件与文件夹(可混选、可多选)。
+    /// <para>
+    /// 用的是应用内的选择器而不是系统对话框:系统对话框在 Windows/Linux 上只能"要么选文件、
+    /// 要么选文件夹"(Avalonia 的 IStorageProvider 也只有 OpenFilePicker / OpenFolderPicker
+    /// 两个入口),这正是上传以前被迫拆成两个菜单项的原因。
+    /// </para>
+    /// </summary>
+    public Func<Task<IReadOnlyList<string>>>? PickLocalPathsForUpload { get; set; }
 
     /// <summary>由视图设置:询问下载保存位置(参数 = 建议的文件名)。</summary>
     public Func<string, Task<string?>>? PickSavePathForDownload { get; set; }
@@ -1393,28 +1396,19 @@ public class FileBrowserViewModel : ReactiveObject
     private async Task RefreshAsync(CancellationToken ct = default) =>
         await NavigateToAsync(CurrentPath, ct);
 
+    /// <summary>
+    /// 上传入口:选一次,文件和文件夹一起选。选完原样交给
+    /// <see cref="UploadLocalPathsAsync" /> —— 它本来就按每个路径的实际类型分派,
+    /// 所以这里不需要(也不该)预先把两类分开。
+    /// </summary>
     private async Task UploadAsync(CancellationToken ct = default)
     {
-        if (PickFilesForUpload is null)
+        if (PickLocalPathsForUpload is null)
         {
             return;
         }
-        IReadOnlyList<string> files = await PickFilesForUpload();
-        await UploadLocalPathsAsync(files, ct);
-    }
-
-    private async Task UploadFolderAsync(CancellationToken ct = default)
-    {
-        if (PickFolderForUpload is null)
-        {
-            return;
-        }
-        string? folder = await PickFolderForUpload();
-        if (string.IsNullOrEmpty(folder))
-        {
-            return;
-        }
-        await UploadLocalPathsAsync([folder], ct);
+        IReadOnlyList<string> picked = await PickLocalPathsForUpload();
+        await UploadLocalPathsAsync(picked, ct);
     }
 
     /// <summary>
@@ -1426,7 +1420,8 @@ public class FileBrowserViewModel : ReactiveObject
         CancellationToken ct = default
     )
     {
-        if (localPaths.Count == 0)
+        IReadOnlyList<string> roots = NormalizeUploadRoots(localPaths);
+        if (roots.Count == 0)
         {
             return;
         }
@@ -1436,7 +1431,7 @@ public class FileBrowserViewModel : ReactiveObject
             // 扫描大文件夹可能耗时:先让传输面板进入"准备中",徽标随发现的文件数递增。
             TransferSink?.BeginPreparing();
             var plan = new List<PlannedFileTransfer>();
-            foreach (string path in localPaths)
+            foreach (string path in roots)
             {
                 await BuildUploadPlanAsync(path, CurrentPath, plan, ct);
             }
@@ -1457,6 +1452,56 @@ public class FileBrowserViewModel : ReactiveObject
         }
         await RefreshAsync(ct);
     }
+
+    /// <summary>
+    /// 把一批用户选中的本地路径收拾成互不重叠的上传根:去掉重复项,并丢掉那些已经被
+    /// 同批次某个文件夹包住的路径。
+    /// <para>
+    /// 不做这一步,"文件夹 + 它里面的某个文件"一起选(拖放里很常见)会把同一个文件传两遍、
+    /// 写同一个远端路径 —— 白费带宽还自己跟自己抢。比较用
+    /// <see cref="StringComparison.OrdinalIgnoreCase" />:Windows 与 macOS 的默认卷都不区分大小写,
+    /// 而在区分大小写的文件系统上这最多是少传一份重复,不会传错。
+    /// </para>
+    /// </summary>
+    internal static IReadOnlyList<string> NormalizeUploadRoots(IReadOnlyList<string> localPaths)
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var roots = new List<string>(localPaths.Count);
+        foreach (string path in localPaths)
+        {
+            if (!string.IsNullOrWhiteSpace(path) && seen.Add(TrimTrailingSeparators(path)))
+            {
+                roots.Add(path);
+            }
+        }
+
+        // 长的路径才可能被短的包住,按长度升序扫一遍即可:每个候选只需对已保留的根做前缀判断。
+        roots.Sort(static (a, b) => TrimTrailingSeparators(a).Length - TrimTrailingSeparators(b).Length);
+        var kept = new List<string>(roots.Count);
+        foreach (string path in roots)
+        {
+            if (!kept.Any(root => IsUnder(path, root)))
+            {
+                kept.Add(path);
+            }
+        }
+        return kept;
+    }
+
+    /// <summary>路径 <paramref name="path" /> 是否位于目录 <paramref name="root" /> 之下(不含自身)。</summary>
+    private static bool IsUnder(string path, string root)
+    {
+        string prefix = TrimTrailingSeparators(root) + Path.DirectorySeparatorChar;
+        return TrimTrailingSeparators(path)
+            .Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar)
+            .StartsWith(
+                prefix.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar),
+                StringComparison.OrdinalIgnoreCase
+            );
+    }
+
+    private static string TrimTrailingSeparators(string path) =>
+        path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
     /// <summary>
     /// 遍历本地文件/文件夹,把每个文件的一条计划上传追加到 <paramref name="plan" /> 中,

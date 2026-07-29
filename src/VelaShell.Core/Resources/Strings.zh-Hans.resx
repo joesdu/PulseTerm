@@ -385,11 +385,20 @@
   <data name="Passphrase" xml:space="preserve">
     <value>密码短语</value>
   </data>
-  <data name="UploadFilesHere" xml:space="preserve">
-    <value>上传文件到当前目录</value>
+  <data name="UploadHere" xml:space="preserve">
+    <value>上传到当前目录</value>
   </data>
-  <data name="UploadFolderHere" xml:space="preserve">
-    <value>上传文件夹到当前目录</value>
+  <data name="Sftp_PickUploadTitle" xml:space="preserve">
+    <value>选择要上传的文件与文件夹</value>
+  </data>
+  <data name="Sftp_PickUploadHint" xml:space="preserve">
+    <value>选择文件与文件夹 —— 两者可以一起选</value>
+  </data>
+  <data name="Sftp_PickUploadSelected" xml:space="preserve">
+    <value>已选 {0} 个文件、{1} 个文件夹</value>
+  </data>
+  <data name="Sftp_GoUp" xml:space="preserve">
+    <value>上一级</value>
   </data>
   <data name="NewFolder" xml:space="preserve">
     <value>新建文件夹</value>
@@ -465,12 +474,6 @@
   </data>
   <data name="DeletingProgress" xml:space="preserve">
     <value>正在删除… 已删除 {0}/{1} 项</value>
-  </data>
-  <data name="SelectFilesToUpload" xml:space="preserve">
-    <value>选择要上传的文件</value>
-  </data>
-  <data name="SelectFolderToUpload" xml:space="preserve">
-    <value>选择要上传的文件夹</value>
   </data>
   <data name="SelectDownloadFolder" xml:space="preserve">
     <value>选择保存位置</value>

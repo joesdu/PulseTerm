@@ -76,8 +76,7 @@ public partial class FileBrowserView : UserControl
                 return;
             }
             vm.DirectoryChanged += OnDirectoryChanged;
-            vm.PickFilesForUpload = PickFilesAsync;
-            vm.PickFolderForUpload = PickFolderAsync;
+            vm.PickLocalPathsForUpload = PickLocalPathsAsync;
             vm.PickSavePathForDownload = PickSavePathAsync;
             vm.PickFolderForDownload = PickDownloadFolderAsync;
             vm.PromptForText = PromptForTextAsync;
@@ -289,40 +288,18 @@ public partial class FileBrowserView : UserControl
         await top.Launcher.LaunchFileInfoAsync(new(localPath));
     }
 
-    private async Task<IReadOnlyList<string>> PickFilesAsync()
+    /// <summary>
+    /// 上传的选择步骤:开应用内的选择器,文件与文件夹一次混选。
+    /// 系统对话框做不到混选(见 <see cref="LocalPathPickerDialog" />),上传以前正是因此
+    /// 被拆成"上传文件""上传文件夹"两个入口。
+    /// </summary>
+    private async Task<IReadOnlyList<string>> PickLocalPathsAsync()
     {
-        var top = TopLevel.GetTopLevel(this);
-        if (top is null)
+        if (TopLevel.GetTopLevel(this) is not Window owner || _viewModel is not { } vm)
         {
             return [];
         }
-        IReadOnlyList<IStorageFile> files = await top.StorageProvider.OpenFilePickerAsync(
-            new() { Title = Strings.SelectFilesToUpload, AllowMultiple = true }
-        );
-        return
-        [
-            .. files
-                .Select(f => f.TryGetLocalPath())
-                .Where(p => !string.IsNullOrEmpty(p))
-                .Select(p => p!),
-        ];
-    }
-
-    private async Task<string?> PickFolderAsync()
-    {
-        var top = TopLevel.GetTopLevel(this);
-        if (top is null)
-        {
-            return null;
-        }
-        IReadOnlyList<IStorageFolder> folders = await top.StorageProvider.OpenFolderPickerAsync(
-            new()
-            {
-                Title = Strings.SelectFolderToUpload,
-                AllowMultiple = false
-            }
-        );
-        return folders.Count > 0 ? folders[0].TryGetLocalPath() : null;
+        return await LocalPathPickerDialog.PickAsync(owner, vm.TransferOptions);
     }
 
     /// <summary>

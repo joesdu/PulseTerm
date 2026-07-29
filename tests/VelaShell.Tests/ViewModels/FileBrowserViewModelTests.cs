@@ -1552,7 +1552,7 @@ public class FileBrowserViewModelTests
             await File.WriteAllTextAsync(fileA, "A");
             await File.WriteAllTextAsync(fileB, "B");
             _vm.CurrentPath = "/home/user";
-            _vm.PickFilesForUpload = () => Task.FromResult<IReadOnlyList<string>>([fileA, fileB]);
+            _vm.PickLocalPathsForUpload = () => Task.FromResult<IReadOnlyList<string>>([fileA, fileB]);
             _sftpService
                 .ListDirectoryAsync(_sessionId, "/home/user", Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult(new List<RemoteFileInfo>()));
@@ -1587,7 +1587,7 @@ public class FileBrowserViewModelTests
 
     [TestMethod]
     [TestCategory("FileBrowser")]
-    public async Task UploadFolderCommand_RecursivelyUploadsFolderTree()
+    public async Task UploadCommand_RecursivelyUploadsFolderTree()
     {
         string tempRoot = Path.Combine(
             Path.GetTempPath(),
@@ -1603,11 +1603,11 @@ public class FileBrowserViewModelTests
             await File.WriteAllTextAsync(rootFile, "root");
             await File.WriteAllTextAsync(nestedFile, "child");
             _vm.CurrentPath = "/home/user";
-            _vm.PickFolderForUpload = () => Task.FromResult<string?>(folder);
+            _vm.PickLocalPathsForUpload = () => Task.FromResult<IReadOnlyList<string>>([folder]);
             _sftpService
                 .ListDirectoryAsync(_sessionId, "/home/user", Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult(new List<RemoteFileInfo>()));
-            await _vm.UploadFolderCommand.Execute().FirstAsync();
+            await _vm.UploadCommand.Execute().FirstAsync();
             await _sftpService
                 .Received(1)
                 .EnsureDirectoryAsync(
@@ -1648,5 +1648,90 @@ public class FileBrowserViewModelTests
                 Directory.Delete(tempRoot, true);
             }
         }
+    }
+
+    [TestMethod]
+    [TestCategory("FileBrowser")]
+    public async Task UploadCommand_MixedSelection_HandlesEachPathByItsOwnKind()
+    {
+        // 合并成一个上传入口的关键:一次选择里同时有文件和文件夹时,
+        // 文件直接传,文件夹整棵递归 —— 不需要用户先想清楚"这次要点哪个菜单项"。
+        string tempRoot = Path.Combine(Path.GetTempPath(), $"vela-mixed-upload-{Guid.NewGuid():N}");
+        string folder = Path.Combine(tempRoot, "assets");
+        Directory.CreateDirectory(folder);
+        try
+        {
+            string looseFile = Path.Combine(tempRoot, "notes.txt");
+            string folderFile = Path.Combine(folder, "logo.png");
+            await File.WriteAllTextAsync(looseFile, "notes");
+            await File.WriteAllTextAsync(folderFile, "png");
+            _vm.CurrentPath = "/home/user";
+            _vm.PickLocalPathsForUpload = () => Task.FromResult<IReadOnlyList<string>>([looseFile, folder]);
+            _sftpService
+                .ListDirectoryAsync(_sessionId, "/home/user", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(new List<RemoteFileInfo>()));
+
+            await _vm.UploadCommand.Execute().FirstAsync();
+
+            // 散落的文件:直接落在当前目录下。
+            await _sftpService
+                .Received(1)
+                .UploadFileAsync(
+                    _sessionId,
+                    looseFile,
+                    "/home/user/notes.txt",
+                    Arg.Any<IProgress<TransferProgress>?>(),
+                    cancellationToken: Arg.Any<CancellationToken>()
+                );
+            // 文件夹:建对应远端目录,内容按原结构传进去。
+            await _sftpService
+                .Received(1)
+                .EnsureDirectoryAsync(_sessionId, "/home/user/assets", Arg.Any<CancellationToken>());
+            await _sftpService
+                .Received(1)
+                .UploadFileAsync(
+                    _sessionId,
+                    folderFile,
+                    "/home/user/assets/logo.png",
+                    Arg.Any<IProgress<TransferProgress>?>(),
+                    cancellationToken: Arg.Any<CancellationToken>()
+                );
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, true);
+            }
+        }
+    }
+
+    [TestMethod]
+    [TestCategory("FileBrowser")]
+    public void NormalizeUploadRoots_DropsDuplicatesAndPathsAlreadyInsideAPickedFolder()
+    {
+        string root = Path.Combine("C:", "work");
+        string nested = Path.Combine(root, "src", "main.cs");
+        string sibling = Path.Combine("C:", "work-notes", "todo.txt");
+
+        IReadOnlyList<string> kept = FileBrowserViewModel.NormalizeUploadRoots(
+            [root, nested, root + Path.DirectorySeparatorChar, sibling]
+        );
+
+        // nested 已经被 root 包住,再单列一次就会把同一个文件传两遍、写同一个远端路径。
+        CollectionAssert.AreEquivalent(new[] { root, sibling }, kept.ToArray());
+    }
+
+    [TestMethod]
+    [TestCategory("FileBrowser")]
+    public void NormalizeUploadRoots_KeepsSiblingsWhoseNamesSharePrefix()
+    {
+        // "work" 不该把 "work-notes" 吞掉 —— 前缀判断必须落在目录分隔符上。
+        string a = Path.Combine("C:", "work");
+        string b = Path.Combine("C:", "work-notes");
+
+        IReadOnlyList<string> kept = FileBrowserViewModel.NormalizeUploadRoots([a, b]);
+
+        CollectionAssert.AreEquivalent(new[] { a, b }, kept.ToArray());
     }
 }

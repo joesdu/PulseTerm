@@ -1260,12 +1260,6 @@
   <data name="SelectDownloadFolder" xml:space="preserve">
     <value>選擇儲存位置</value>
   </data>
-  <data name="SelectFilesToUpload" xml:space="preserve">
-    <value>選擇要上傳的檔案</value>
-  </data>
-  <data name="SelectFolderToUpload" xml:space="preserve">
-    <value>選擇要上傳的資料夾</value>
-  </data>
   <data name="ServerGroups" xml:space="preserve">
     <value>伺服器群組</value>
   </data>
@@ -2688,11 +2682,20 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   <data name="Upload" xml:space="preserve">
     <value>上傳</value>
   </data>
-  <data name="UploadFilesHere" xml:space="preserve">
-    <value>上傳檔案到目前目錄</value>
+  <data name="UploadHere" xml:space="preserve">
+    <value>上傳到目前目錄</value>
   </data>
-  <data name="UploadFolderHere" xml:space="preserve">
-    <value>上傳資料夾到目前目錄</value>
+  <data name="Sftp_PickUploadTitle" xml:space="preserve">
+    <value>選擇要上傳的檔案與資料夾</value>
+  </data>
+  <data name="Sftp_PickUploadHint" xml:space="preserve">
+    <value>選擇檔案與資料夾 —— 兩者可以一起選</value>
+  </data>
+  <data name="Sftp_PickUploadSelected" xml:space="preserve">
+    <value>已選 {0} 個檔案、{1} 個資料夾</value>
+  </data>
+  <data name="Sftp_GoUp" xml:space="preserve">
+    <value>上一層</value>
   </data>
   <data name="Username" xml:space="preserve">
     <value>使用者名稱</value>
