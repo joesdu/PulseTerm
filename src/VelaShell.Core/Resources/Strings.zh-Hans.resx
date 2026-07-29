@@ -2977,10 +2977,10 @@ Windows 填 exe 完整路径或命令名(如 notepad);Linux 填命令名(如 ged
     <value>关闭</value>
   </data>
   <data name="SftpSvc_ResumeUploadMismatch" xml:space="preserve">
-    <value>无法续传 {0}:远端已有的文件并不是本地文件的开头部分。请删除远端文件,或整份重新上传。</value>
+    <value>远端文件 {0} 在本次传输排队期间发生了变化,已无法续传。重试即可按覆盖/跳过的冲突方式处理。</value>
   </data>
   <data name="SftpSvc_ResumeDownloadMismatch" xml:space="preserve">
-    <value>无法续传 {0}:本地残留的文件并不是远端文件的开头部分。请删除本地文件,或整份重新下载。</value>
+    <value>{0} 的本地文件在本次传输排队期间发生了变化,已无法续传。重试即可按覆盖/跳过的冲突方式处理。</value>
   </data>
   <data name="SetTransfer_Resume" xml:space="preserve">
     <value>恢复中断的传输</value>

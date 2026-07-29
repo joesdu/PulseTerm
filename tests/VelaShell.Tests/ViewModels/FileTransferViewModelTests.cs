@@ -179,57 +179,59 @@ public class FileTransferViewModelTests
 
     [TestMethod]
     [TestCategory("FileTransfer")]
-    public void TransferHistory_SavedOnAdd_AndOnFinalStatus()
+    public void TransferPanel_StartsEmpty_AndNeverRestoresRecordsFromDisk()
     {
+        // 这是个浮动 toast,只反映本次会话:重启后不该还挂着上次的已完成/已失败记录。
+        // 曾经把最近 100 条落盘再恢复进面板,除了不是用户要的,还引出一片渲染不出来的空白 ——
+        // 那 100 行是在面板隐藏期间加进集合的,占着高度却画不出来。
         IAppDataStore store = Substitute.For<IAppDataStore>();
+
         var vm = new FileTransferViewModel(_transferManager, store);
-        TransferTask task = CreateTask(status: TransferStatus.InProgress);
 
-        vm.AddTransfer(task);
-        vm.Transfers[0].Status = TransferStatus.Completed;
-
-        store.Received().UpsertAsync(
-            "transfer-history",
-            "recent",
-            Arg.Is<TransferHistoryDocument>(d =>
-                d.Items.Count == 1
-                && d.Items[0].Id == task.Id
-                && d.Items[0].Status == TransferStatus.Completed),
-            Arg.Any<CancellationToken>());
+        Assert.IsEmpty(vm.Transfers, "启动时面板必须是空的 —— 任何一行都只能来自本次会话。");
+        Assert.IsFalse(vm.IsPanelVisible);
+        // 存储里除了面板位置,不该再有任何一次读取:历史那条路径已经整条拆掉。
+        store.DidNotReceive().GetAsync<object>("transfer-history", Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [TestMethod]
     [TestCategory("FileTransfer")]
-    public void TransferHistory_RestoredOnStartup_InterruptedItemsShownAsFailed_WithoutPoppingPanel()
+    public void AddTransfer_ShowsPanelBeforeTheRowLands_SoNoRowIsEverAddedWhileHidden()
     {
-        IAppDataStore store = Substitute.For<IAppDataStore>();
-        var doc = new TransferHistoryDocument
-        {
-            Items =
-            [
-                new() { Id = Guid.NewGuid(), Type = TransferType.Download, LocalPath = @"C:\dl\a.bin", RemotePath = "/srv/a.bin", Status = TransferStatus.InProgress },
-                new() { Id = Guid.NewGuid(), Type = TransferType.Upload, LocalPath = @"C:\ul\b.bin", RemotePath = "/srv/b.bin", Status = TransferStatus.Completed }
-            ]
-        };
-        store.GetAsync<TransferHistoryDocument>("transfer-history", "recent", Arg.Any<CancellationToken>())
-             .Returns(Task.FromResult<TransferHistoryDocument?>(doc));
+        // 这条是空白区的真正修复点。面板隐藏期间加进来的行会占住高度(面板因此顶到
+        // 280px 上限、滚动条也在)却渲染不出来 —— 之前 100 条历史正是这么进来的。
+        // 只要"集合非空 ⇔ 面板可见"这条不变量成立,就再没有行能在隐藏状态下入列。
+        bool visibleWhenRowLanded = false;
+        _vm.Transfers.CollectionChanged += (_, _) => visibleWhenRowLanded = _vm.IsPanelVisible;
 
-        var vm = new FileTransferViewModel(_transferManager, store);
+        _vm.AddTransfer(CreateTask(status: TransferStatus.InProgress));
 
-        Assert.HasCount(2, vm.Transfers);
-        // 退出瞬间仍在传输的项恢复为失败(会话已不存在);半截文件仍在,重新发起会自动续传。
-        Assert.AreEqual(TransferStatus.Failed, vm.Transfers[0].Status);
-        Assert.IsFalse(vm.Transfers[0].CanRetry, "历史恢复的记录没有重试委托,不得出现指向已死会话的重试按钮。");
-        Assert.AreEqual(TransferStatus.Completed, vm.Transfers[1].Status);
-        Assert.IsFalse(vm.IsPanelVisible, "启动恢复历史不该自动弹出传输浮窗。");
+        Assert.IsTrue(visibleWhenRowLanded, "行落进集合时面板必须已经可见。");
+        Assert.IsTrue(_vm.IsPanelVisible);
+
+        // 反向:清空后面板收起,不留一个空壳挂在界面上。
+        _vm.Transfers.Clear();
+        Assert.IsFalse(_vm.IsPanelVisible);
     }
 
     [TestMethod]
     [TestCategory("FileTransfer")]
-    public void AddTransfer_CapsListAtHistoryLimit_DroppingOldestSettledRows()
+    public void TransferPanel_PurgesLegacyHistoryDocument_SoStaleRecordsDoNotLinger()
+    {
+        // 老版本已经把历史写进存储了;既然不再读它,启动时顺手清掉,别留废数据。
+        IAppDataStore store = Substitute.For<IAppDataStore>();
+
+        _ = new FileTransferViewModel(_transferManager, store);
+
+        store.Received().DeleteAsync("transfer-history", "recent", Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    [TestCategory("FileTransfer")]
+    public void AddTransfer_CapsListAtRowLimit_DroppingOldestSettledRows()
     {
         // 传一个几千文件的目录时,面板列表原本会无限增长,每加一行都要重排整个面板 ——
-        // 传输期间拖窗口 / 敲命令的卡顿正出在这里。上限与落盘历史一致:100 条。
+        // 传输期间拖窗口 / 敲命令的卡顿正出在这里。上限:100 行。
         for (int i = 0; i < 150; i++)
         {
             _vm.AddTransfer(CreateTask(status: TransferStatus.Completed, remotePath: $"/srv/f{i}.bin"));

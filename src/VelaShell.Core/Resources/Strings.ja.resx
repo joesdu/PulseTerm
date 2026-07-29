@@ -2858,10 +2858,10 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
     <value>閉じる</value>
   </data>
   <data name="SftpSvc_ResumeUploadMismatch" xml:space="preserve">
-    <value>{0} のレジューム転送はできません。リモートにある既存ファイルはこのローカルファイルの先頭部分ではありません。リモートのファイルを削除するか、全体をアップロードし直してください。</value>
+    <value>リモートファイル {0} は転送の待機中に変更されたため、レジューム転送できません。再試行すると、上書き / スキップの競合として処理されます。</value>
   </data>
   <data name="SftpSvc_ResumeDownloadMismatch" xml:space="preserve">
-    <value>{0} のレジューム転送はできません。ローカルに残っているファイルはこのリモートファイルの先頭部分ではありません。ローカルのファイルを削除するか、全体をダウンロードし直してください。</value>
+    <value>{0} のローカルファイルは転送の待機中に変更されたため、レジューム転送できません。再試行すると、上書き / スキップの競合として処理されます。</value>
   </data>
   <data name="SetTransfer_Resume" xml:space="preserve">
     <value>中断した転送を再開</value>

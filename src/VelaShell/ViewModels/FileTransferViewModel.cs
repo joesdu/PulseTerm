@@ -21,13 +21,16 @@ public class FileTransferViewModel : ReactiveObject
 
     private const string PanelPositionId = "transfer-panel";
 
-    /// <summary>传输历史的存储位置:单文档保存最近若干条记录,重启后可见(断点续传收尾 #2)。</summary>
+    /// <summary>
+    /// 旧版传输历史的存储位置。历史恢复已移除(见 <see cref="PurgeLegacyHistory" />),
+    /// 这两个常量只用来把遗留文档从存储里清掉。
+    /// </summary>
     private const string HistoryCollection = "transfer-history";
 
     private const string HistoryId = "recent";
 
-    /// <summary>历史最多保留的记录数(既是落盘上限,也是面板里同时存在的行数上限),超出丢弃最旧的。</summary>
-    private const int HistoryLimit = 100;
+    /// <summary>面板里同时存在的行数上限,超出丢弃最旧的已结束行。</summary>
+    private const int RowLimit = 100;
 
     // 可空:无参构造的宿主(单元测试/无 SFTP 服务的场景)不提供传输管理器。
     private readonly ITransferManager? _transferManager;
@@ -61,7 +64,7 @@ public class FileTransferViewModel : ReactiveObject
         RestorePanelPosition();
         Transfers = [];
         Transfers.CollectionChanged += OnTransfersChanged;
-        RestoreTransferHistory();
+        PurgeLegacyHistory();
         CancelTransferCommand = ReactiveCommand.Create<Guid>(CancelTransfer);
         RetryTransferCommand = ReactiveCommand.Create<Guid>(RetryTransfer);
         ClearCompletedCommand = ReactiveCommand.Create(ClearCompleted);
@@ -265,7 +268,7 @@ public class FileTransferViewModel : ReactiveObject
         this.RaisePropertyChanged(nameof(ActiveCount));
         this.RaisePropertyChanged(nameof(PendingCount));
 
-        // 项状态变化(完成/失败)也要触发历史落盘,故对增删的项挂/摘状态监听。
+        // 行状态变化(完成/失败)要刷新徽标计数,故对增删的项挂/摘状态监听。
         if (e.NewItems is not null)
         {
             foreach (TransferItemViewModel item in e.NewItems.OfType<TransferItemViewModel>())
@@ -280,26 +283,15 @@ public class FileTransferViewModel : ReactiveObject
                 item.PropertyChanged -= OnTransferItemChanged;
             }
         }
-        SaveTransferHistory();
-        if (Transfers.Count > 0)
-        {
-            // 启动时恢复的历史是背景信息,不该一开程序就弹传输浮窗;用户经"传输历史"按钮查看。
-            if (!_restoringHistory)
-            {
-                IsPanelVisible = true;
-            }
-        }
-        else
-        {
-            IsPanelVisible = false;
-        }
+        IsPanelVisible = Transfers.Count > 0;
     }
 
     private void OnTransferItemChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(TransferItemViewModel.Status))
         {
-            SaveTransferHistory();
+            this.RaisePropertyChanged(nameof(ActiveCount));
+            this.RaisePropertyChanged(nameof(PendingCount));
         }
     }
 
@@ -419,123 +411,37 @@ public class FileTransferViewModel : ReactiveObject
         }
     }
 
-    // ---- 传输历史持久化 ----
+    // ---- 传输历史 ----
     //
-    // 目标是"重启后未完成的传输不凭空消失":每次增删项或项落定状态就把最近 100 条快照
-    // 落进 IAppDataStore。恢复时,退出瞬间仍活动的项(传输中/排队/续传中)标为"失败"呈现——
-    // 那次会话已不存在,只能重新发起;半截文件仍在盘上,重新传同一文件会自动续传接上。
-    // 恢复出来的行没有重试委托(CanRetry=false),不会出现指向已死会话的"重试"按钮。
+    // 曾经把最近 100 条传输落盘、启动时恢复进面板(dcc4ceb),现已整体移除:
+    //   1. 这是个浮动 toast,只该反映本次会话正在发生的事;重启后还挂着上次的
+    //      已完成/已失败记录不是用户要的。
+    //   2. 恢复发生在构造期,而面板此刻还是隐藏的 —— 这 100 行加进集合后占着高度
+    //      (面板因此顶到 280px 上限、滚动条也在),却画不出来,于是列表下方一大片空白。
+    //      真正渲染出来的只有面板可见之后才加入的那几行。
+    // 面板行数上限(RowLimit)保留:它才是传输几千个文件时不卡的那一半。
 
-    private bool _restoringHistory;
-
-    private void RestoreTransferHistory()
+    /// <summary>一次性清掉旧版落盘的历史文档,免得废数据留在存储里。</summary>
+    private void PurgeLegacyHistory()
     {
         if (_dataStore is null)
         {
             return;
         }
-        _ = LoadAsync();
+        _ = PurgeAsync();
 
-        async Task LoadAsync()
+        async Task PurgeAsync()
         {
             try
             {
-                TransferHistoryDocument? doc = await _dataStore
-                                                     .GetAsync<TransferHistoryDocument>(HistoryCollection, HistoryId)
-                                                     .ConfigureAwait(true);
-                if (doc is not { Items.Count: > 0 })
-                {
-                    return;
-                }
-                _restoringHistory = true;
-                try
-                {
-                    foreach (TransferHistoryRecord record in doc.Items.Take(HistoryLimit))
-                    {
-                        var task = new TransferTask
-                        {
-                            Id = record.Id,
-                            Type = record.Type,
-                            LocalPath = record.LocalPath,
-                            RemotePath = record.RemotePath,
-                            Status = record.Status is TransferStatus.InProgress or TransferStatus.Queued or TransferStatus.Resuming
-                                ? TransferStatus.Failed // 上次退出时被打断。
-                                : record.Status
-                        };
-                        Transfers.Add(new(task));
-                    }
-                }
-                finally
-                {
-                    _restoringHistory = false;
-                }
+                await _dataStore.DeleteAsync(HistoryCollection, HistoryId).ConfigureAwait(false);
             }
             catch
             {
-                // 历史读不出来不影响新传输;下次落盘会重建文档。
+                // 清不掉也无所谓:没人再读它了。
             }
         }
     }
-
-    // 落盘合流:一个大目录的传输会在几秒内打出成百上千次"新增行 / 行落定"的变更,
-    // 每次都独立发起一次全量写会把存储引擎(以及它背后的锁)按在地上打,IO 争用又反过来
-    // 拖慢传输本身。这里改为"同时最多一个写在飞":飞行期间的变更只置脏标记,
-    // 写完再补最后一次 —— 落盘结果与逐次写完全一致,只是省掉了中间那些注定被覆盖的版本。
-    private bool _saveDirty;
-    private bool _saveRunning;
-
-    private void SaveTransferHistory()
-    {
-        if (_dataStore is null || _restoringHistory)
-        {
-            return;
-        }
-        _saveDirty = true;
-        if (_saveRunning)
-        {
-            return;
-        }
-        _saveRunning = true;
-        _ = SaveAsync();
-
-        async Task SaveAsync()
-        {
-            try
-            {
-                while (_saveDirty)
-                {
-                    _saveDirty = false;
-
-                    // 快照必须在续回 UI 线程后取:Transfers 只在 UI 线程上被增删。
-                    TransferHistoryDocument doc = BuildHistoryDocument();
-                    await _dataStore.UpsertAsync(HistoryCollection, HistoryId, doc).ConfigureAwait(true);
-                }
-            }
-            catch
-            {
-                // 历史记不上不影响传输本身;下一次状态变化会再试。
-            }
-            finally
-            {
-                _saveRunning = false;
-            }
-        }
-    }
-
-    private TransferHistoryDocument BuildHistoryDocument() =>
-        new()
-        {
-            Items = Transfers.Take(HistoryLimit)
-                             .Select(t => new TransferHistoryRecord
-                             {
-                                 Id = t.Id,
-                                 Type = t.Type,
-                                 LocalPath = t.LocalPath,
-                                 RemotePath = t.RemotePath,
-                                 Status = t.Status
-                             })
-                             .ToList()
-        };
 
     private void ScheduleAutoHide()
     {
@@ -560,9 +466,8 @@ public class FileTransferViewModel : ReactiveObject
     }
 
     /// <summary>
-    /// 把面板里的行数压在 <see cref="HistoryLimit" /> 条以内。一次传几千个文件时这个列表
-    /// 原本会无限增长,而落盘的历史早就只留最近 100 条 —— 多出来的行既进不了历史,还要
-    /// 每新增一条就重新布局一次面板,拖窗口与敲命令都跟着卡。
+    /// 把面板里的行数压在 <see cref="RowLimit" /> 条以内。一次传几千个文件时这个列表
+    /// 原本会无限增长,每新增一条就要重新布局一次面板,拖窗口与敲命令都跟着卡。
     ///
     /// 只丢弃"用户已经知道结果、也不需要再处理"的旧行:已完成与已取消。
     /// 失败行必须留着 —— 它是用户唯一能看到"哪些文件没传成功"的地方,还挂着重试入口;
@@ -572,7 +477,7 @@ public class FileTransferViewModel : ReactiveObject
     /// </summary>
     private void TrimToLimit()
     {
-        for (int i = Transfers.Count - 1; i >= 0 && Transfers.Count > HistoryLimit; i--)
+        for (int i = Transfers.Count - 1; i >= 0 && Transfers.Count > RowLimit; i--)
         {
             if (Transfers[i].Status is TransferStatus.Completed or TransferStatus.Cancelled)
             {
@@ -630,32 +535,6 @@ public class FileTransferViewModel : ReactiveObject
             Transfers.Remove(item);
         }
     }
-}
-
-/// <summary>传输历史的持久化文档:单文档保存最近若干条记录(见 <see cref="TransferHistoryRecord" />)。</summary>
-public sealed class TransferHistoryDocument
-{
-    /// <summary>历史记录,新的在前。</summary>
-    public List<TransferHistoryRecord> Items { get; set; } = [];
-}
-
-/// <summary>一条传输历史记录:恢复展示与"重启后未完成传输不丢失"所需的最小字段。</summary>
-public sealed class TransferHistoryRecord
-{
-    /// <summary>传输任务 Id。</summary>
-    public Guid Id { get; set; }
-
-    /// <summary>传输方向。</summary>
-    public TransferType Type { get; set; }
-
-    /// <summary>本地路径(远端复制时为远端源路径)。</summary>
-    public string LocalPath { get; set; } = "";
-
-    /// <summary>远端路径。</summary>
-    public string RemotePath { get; set; } = "";
-
-    /// <summary>落盘时的状态;活动状态在恢复时映射为失败(会话已不存在)。</summary>
-    public TransferStatus Status { get; set; }
 }
 
 /// <summary>

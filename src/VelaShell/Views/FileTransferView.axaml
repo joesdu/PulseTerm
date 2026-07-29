@@ -101,13 +101,11 @@
       </Border>
 
       <!-- 传输行:限制面板高度(约 5 行)并对溢出内容滚动。
-           这里刻意不做虚拟化(默认的 StackPanel 就是要的那个)。曾经为了性能换成
-           VirtualizingStackPanel,结果面板顶到 280px 上限却只画出头几行,下面空出一大片:
-           虚拟化面板算出的实现窗口跟真实视口对不上,ScrollViewer 套在外面、放进模板里
-           (与 ListBox 同形)都一样翻车。
-           而这里本来就不需要它:行数已经在 FileTransferViewModel 里压到 100 条以内,
-           一次最多也就实现 100 行;真正拖慢传输期界面的是无上限增长的历史,那条已经由
-           上限本身解决了。宁可多渲染几十行,也不能让用户看着一片空白。 -->
+           这里刻意不做虚拟化(默认的 StackPanel 就是要的那个)。它本来就换不来什么:
+           行数已在 FileTransferViewModel 里压到 100 以内,一次最多也就实现 100 行;
+           而排查那次"下方一大片空白"时,虚拟化面板的实现窗口是最先被怀疑的一环,
+           徒增一层不确定。那片空白的真凶是历史恢复(见 FileTransferViewModel 的
+           「传输历史」注释):行在面板隐藏期间入列,占着高度却画不出来。 -->
       <ScrollViewer VerticalScrollBarVisibility="Auto"
                     HorizontalScrollBarVisibility="Disabled"
                     MaxHeight="280">

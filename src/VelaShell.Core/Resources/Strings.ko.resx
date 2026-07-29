@@ -2858,10 +2858,10 @@ Windows는 exe 전체 경로 또는 명령 이름(예: notepad), Linux는 명령
     <value>닫기</value>
   </data>
   <data name="SftpSvc_ResumeUploadMismatch" xml:space="preserve">
-    <value>{0}을(를) 이어서 업로드할 수 없습니다. 원격에 있는 기존 파일이 이 로컬 파일의 앞부분이 아닙니다. 원격 파일을 삭제하거나 전체를 다시 업로드하세요.</value>
+    <value>원격 파일 {0}이(가) 전송 대기 중에 변경되어 이어서 전송할 수 없습니다. 다시 시도하면 덮어쓰기/건너뛰기 충돌로 처리됩니다.</value>
   </data>
   <data name="SftpSvc_ResumeDownloadMismatch" xml:space="preserve">
-    <value>{0}을(를) 이어서 내려받을 수 없습니다. 로컬에 남은 파일이 이 원격 파일의 앞부분이 아닙니다. 로컬 파일을 삭제하거나 전체를 다시 내려받으세요.</value>
+    <value>{0}의 로컬 파일이 전송 대기 중에 변경되어 이어서 전송할 수 없습니다. 다시 시도하면 덮어쓰기/건너뛰기 충돌로 처리됩니다.</value>
   </data>
   <data name="SetTransfer_Resume" xml:space="preserve">
     <value>중단된 전송 이어받기</value>
