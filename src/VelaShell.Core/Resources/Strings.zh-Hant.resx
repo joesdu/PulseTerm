@@ -2858,10 +2858,10 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
     <value>關閉</value>
   </data>
   <data name="SftpSvc_ResumeUploadMismatch" xml:space="preserve">
-    <value>無法續傳 {0}:遠端已有的檔案並不是本機檔案的開頭部分。請刪除遠端檔案,或整份重新上傳。</value>
+    <value>遠端檔案 {0} 在本次傳輸排隊期間發生了變化,已無法續傳。重試即可按覆蓋/略過的衝突方式處理。</value>
   </data>
   <data name="SftpSvc_ResumeDownloadMismatch" xml:space="preserve">
-    <value>無法續傳 {0}:本機殘留的檔案並不是遠端檔案的開頭部分。請刪除本機檔案,或整份重新下載。</value>
+    <value>{0} 的本機檔案在本次傳輸排隊期間發生了變化,已無法續傳。重試即可按覆蓋/略過的衝突方式處理。</value>
   </data>
   <data name="SetTransfer_Resume" xml:space="preserve">
     <value>恢復中斷的傳輸</value>

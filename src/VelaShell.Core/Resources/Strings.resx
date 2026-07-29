@@ -2886,10 +2886,10 @@ Overwrite it?</value>
     <value>Close</value>
   </data>
   <data name="SftpSvc_ResumeUploadMismatch" xml:space="preserve">
-    <value>Cannot resume the upload of {0}: the existing remote file is not the beginning of this local file. Delete the remote file, or upload it again in full.</value>
+    <value>The remote file {0} changed while this transfer was queued, so it can no longer be resumed. Retry the transfer to resolve it as an overwrite/skip conflict.</value>
   </data>
   <data name="SftpSvc_ResumeDownloadMismatch" xml:space="preserve">
-    <value>Cannot resume the download of {0}: the partial local file is not the beginning of this remote file. Delete the local file, or download it again in full.</value>
+    <value>The local file for {0} changed while this transfer was queued, so it can no longer be resumed. Retry the transfer to resolve it as an overwrite/skip conflict.</value>
   </data>
   <data name="SetTransfer_Resume" xml:space="preserve">
     <value>Resume interrupted transfers</value>

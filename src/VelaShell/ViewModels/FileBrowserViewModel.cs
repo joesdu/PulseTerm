@@ -6,6 +6,7 @@ using ReactiveUI.Primitives;
 using VelaShell.Core.Models;
 using VelaShell.Core.Resources;
 using VelaShell.Core.Sftp;
+using VelaShell.Core.Ssh;
 using VelaShell.Services;
 
 namespace VelaShell.ViewModels;
@@ -1725,7 +1726,7 @@ public class FileBrowserViewModel : ReactiveObject
             {
                 foreach (PlannedFileTransfer item in resolved)
                 {
-                    await RunTransferAsync(item.Type, item.LocalPath, item.RemotePath, item.ResumeOffset, cts.Token);
+                    await RunTransferAsync(item.Type, item.LocalPath, item.RemotePath, item.ResumeOffset, cts.Token, conflictDecision);
                     TransferSink?.NotifyBatchItemSettled();
                 }
             }
@@ -1743,7 +1744,8 @@ public class FileBrowserViewModel : ReactiveObject
                                 item.LocalPath,
                                 item.RemotePath,
                                 item.ResumeOffset,
-                                cts.Token
+                                cts.Token,
+                                conflictDecision
                             );
                             TransferSink?.NotifyBatchItemSettled();
                         }
@@ -2114,7 +2116,8 @@ public class FileBrowserViewModel : ReactiveObject
         string localPath,
         string remotePath,
         long resumeOffset,
-        CancellationToken ct
+        CancellationToken ct,
+        BatchConflictDecision? conflictDecision = null
     )
     {
         var task = new TransferTask
@@ -2142,23 +2145,51 @@ public class FileBrowserViewModel : ReactiveObject
                 item.Status = TransferStatus.InProgress;
             }
         });
+        // 目标"同名但内容对不上"时改名重传的落点(仅"重命名"策略):当前这一行按跳过收尾,
+        // 改名后的整份重传在本方法收尾之后另起一行,免得一行的标题与它实际写的目标对不上。
+        PlannedFileTransfer? renamedRetry = null;
         try
         {
-            if (type == TransferType.Upload)
+            long offset = resumeOffset;
+            while (true)
             {
-                await _sftpService.UploadFileAsync(_sessionId, localPath, remotePath, progress, resumeOffset, ct);
+                try
+                {
+                    await TransferOnceAsync(offset);
+                    item?.Status = TransferStatus.Completed;
+                    finalStatus = TransferStatus.Completed;
+                    break;
+                }
+
+                // 续传起点核实失败 = 目标那半截并不是源文件的开头 —— 文件变了,这是冲突,不是续传。
+                // 以前直接失败并让用户自己去删,现在按既有冲突策略处理(询问策略下弹的就是常规
+                // 冲突对话框,"全部覆盖/全部跳过"的粘性决定照常沿用)。
+                // when 条件保证最多重来一次:改判后的整份重传 offset 为 0,不会再走到这里。
+                catch (VelaSftpResumeMismatchException) when (offset > 0)
+                {
+                    ChangedTargetAction action = await ResolveChangedTargetAsync(
+                        type,
+                        localPath,
+                        remotePath,
+                        conflictDecision,
+                        ct
+                    );
+                    if (action.Renamed is { } target)
+                    {
+                        renamedRetry = target;
+                    }
+                    if (action.Renamed is not null || !action.Overwrite)
+                    {
+                        // 跳过:目标是用户自己的文件,绝不能顺手清掉。
+                        item?.Status = TransferStatus.Cancelled;
+                        finalStatus = TransferStatus.Cancelled;
+                        break;
+                    }
+                    // 覆盖:整份重传。
+                    offset = 0;
+                    item?.Status = TransferStatus.InProgress;
+                }
             }
-            else if (type == TransferType.Copy)
-            {
-                // For Copy: LocalPath = remote source, RemotePath = remote destination.
-                await _sftpService.CopyAsync(_sessionId, localPath, remotePath, progress, ct);
-            }
-            else
-            {
-                await _sftpService.DownloadFileAsync(_sessionId, remotePath, localPath, progress, resumeOffset, ct);
-            }
-            item?.Status = TransferStatus.Completed;
-            finalStatus = TransferStatus.Completed;
         }
         catch (OperationCanceledException)
         {
@@ -2189,7 +2220,97 @@ public class FileBrowserViewModel : ReactiveObject
                 );
             }
         }
+
+        // 改名重传另起一行(目标是新名字,不存在同名冲突,不会再撞上续传核实)。
+        if (renamedRetry is { } fresh)
+        {
+            await RunTransferAsync(fresh.Type, fresh.LocalPath, fresh.RemotePath, 0, ct, conflictDecision);
+        }
+        return;
+
+        Task TransferOnceAsync(long startAt) => type switch
+        {
+            TransferType.Upload =>
+                _sftpService.UploadFileAsync(_sessionId, localPath, remotePath, progress, startAt, ct),
+            // Copy:LocalPath = 远端源路径,RemotePath = 远端目标路径。
+            TransferType.Copy =>
+                _sftpService.CopyAsync(_sessionId, localPath, remotePath, progress, ct),
+            _ =>
+                _sftpService.DownloadFileAsync(_sessionId, remotePath, localPath, progress, startAt, ct),
+        };
     }
+
+    /// <summary>目标"同名但内容对不上"时的处置。</summary>
+    internal enum ChangedTargetChoice
+    {
+        /// <summary>整份重传,覆盖已经变了的目标。</summary>
+        Overwrite,
+
+        /// <summary>不动目标,这一项作罢。</summary>
+        Skip,
+
+        /// <summary>换一个不冲突的新名字,另传一份。</summary>
+        Rename,
+    }
+
+    /// <summary>
+    /// 决定一次"续传起点核实失败"怎么办。核实失败意味着目标那半截并不是源文件的开头,
+    /// 也就是<b>文件变了</b> —— 那是一次普通的同名冲突,不该以"请自行删除后重传"收场。
+    /// 这里沿用设置里的冲突策略(覆盖/跳过/重命名/询问);"询问"走的就是常规冲突对话框,
+    /// 并沿用本批次"全部覆盖/全部跳过"的粘性决定,免得几百个变化文件逐个弹窗。
+    /// </summary>
+    internal static async Task<ChangedTargetChoice> DecideChangedTargetAsync(
+        string? policy,
+        string displayPath,
+        Func<string, Task<FileConflictResolution>>? confirm,
+        BatchConflictDecision decision
+    ) =>
+        policy switch
+        {
+            "overwrite" => ChangedTargetChoice.Overwrite,
+            "skip" => ChangedTargetChoice.Skip,
+            "rename" => ChangedTargetChoice.Rename,
+            // ask
+            _ => await DecideConflictAsync(displayPath, confirm, decision)
+                ? ChangedTargetChoice.Overwrite
+                : ChangedTargetChoice.Skip,
+        };
+
+    /// <summary>把 <see cref="DecideChangedTargetAsync" /> 的选择落成具体动作(改名时算出新目标路径)。</summary>
+    private async Task<ChangedTargetAction> ResolveChangedTargetAsync(
+        TransferType type,
+        string localPath,
+        string remotePath,
+        BatchConflictDecision? decision,
+        CancellationToken ct
+    )
+    {
+        bool download = type == TransferType.Download;
+        ChangedTargetChoice choice = await DecideChangedTargetAsync(
+            TransferOptions.ConflictPolicy,
+            download ? localPath : remotePath,
+            download ? ConfirmOverwrite : ConfirmRemoteOverwrite,
+            decision ?? new()
+        );
+        return choice switch
+        {
+            ChangedTargetChoice.Overwrite => new(true),
+            ChangedTargetChoice.Rename => new(
+                false,
+                download
+                    ? new PlannedFileTransfer(type, NextAvailableLocalName(localPath), remotePath)
+                    : new PlannedFileTransfer(
+                        type,
+                        localPath,
+                        await NextAvailableRemoteNameAsync(remotePath, [], ct)
+                    )
+            ),
+            _ => new(false),
+        };
+    }
+
+    /// <summary>目标"同名但内容对不上"时的处置:覆盖整份重传、跳过,或改名后另传一份。</summary>
+    private readonly record struct ChangedTargetAction(bool Overwrite, PlannedFileTransfer? Renamed = null);
 
     /// <summary>
     /// 从传输面板重试一个失败项:重新探测续传起点(半截文件还在就从断点继续,起点核实与
