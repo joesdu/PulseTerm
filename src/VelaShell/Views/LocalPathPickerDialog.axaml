@@ -208,8 +208,8 @@
           <DataTemplate x:DataType="vm:LocalFileEntry">
             <Border Classes="file-row" Classes.parent="{Binding IsParentEntry}" Height="28" Padding="16,0"
                     BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,0,0,1">
-              <Grid ColumnDefinitions="*,90,130">
-                <Grid ColumnDefinitions="Auto,*" MinWidth="0" ClipToBounds="True" VerticalAlignment="Center">
+                <Grid ColumnDefinitions="*,90,130">
+                <Grid Classes="dnd-surface" ColumnDefinitions="Auto,*" MinWidth="0" ClipToBounds="True" VerticalAlignment="Center">
                   <pc:LucideIcon Width="13" Height="13" Margin="0,0,7,0"
                                  Data="{StaticResource Icon.folder}" Foreground="{DynamicResource VelaFileFolderIcon}"
                                  IsVisible="{Binding IsRegularDirectory}" />
@@ -223,9 +223,9 @@
                              FontSize="11" Foreground="{DynamicResource VelaTextSecondary}"
                              VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                 </Grid>
-                <TextBlock Grid.Column="1" Text="{Binding FormattedSize}" FontFamily="{DynamicResource VelaTerminalFont}"
+                <TextBlock Classes="dnd-surface" Grid.Column="1" Text="{Binding FormattedSize}" FontFamily="{DynamicResource VelaTerminalFont}"
                            FontSize="11" Foreground="{DynamicResource VelaTextTertiary}" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="2" Text="{Binding FormattedModifiedTime}" FontFamily="{DynamicResource VelaTerminalFont}"
+                <TextBlock Classes="dnd-surface" Grid.Column="2" Text="{Binding FormattedModifiedTime}" FontFamily="{DynamicResource VelaTerminalFont}"
                            FontSize="11" Foreground="{DynamicResource VelaTextTertiary}" VerticalAlignment="Center" />
               </Grid>
             </Border>

@@ -2532,54 +2532,145 @@ public class FileBrowserViewModel : ReactiveObject
         }
     }
 
+    /// <summary>
+    /// 菜单动作的作用对象:当前选中的真实条目,再并上右键所指的那一行。
+    /// <para>
+    /// 右键本身已经会把所指行并入选区(见 FileBrowserView.FileRow_PointerPressed),这里再兜一次底,
+    /// 好让"对着一行点菜单"和"框选一片再点菜单"走的是同一条路 —— 前者就是后者的 n=1 情形。
+    /// </para>
+    /// </summary>
+    private List<RemoteFileInfoViewModel> SelectionOrRow(RemoteFileInfoViewModel? row)
+    {
+        List<RemoteFileInfoViewModel> targets = [.. SelectedFiles.Where(f => !f.IsParentEntry)];
+        if (row is not null && !row.IsParentEntry && !targets.Any(f => f.FullPath == row.FullPath))
+        {
+            targets.Add(row);
+        }
+        return targets;
+    }
+
     private async Task MoveAsync(RemoteFileInfoViewModel? file, CancellationToken ct = default)
     {
-        if (PromptForText is null || file is null || file.IsParentEntry)
+        if (PromptForText is null)
         {
             return;
         }
-        string? destination = await PromptForText(Strings.MoveToPrompt, file.FullPath);
-        if (string.IsNullOrWhiteSpace(destination) || destination.Trim() == file.FullPath)
+        List<RemoteFileInfoViewModel> targets = SelectionOrRow(file);
+        if (targets.Count == 0)
         {
             return;
         }
-        try
+
+        // 单个:仍按"完整目标路径"提示 —— 顺手改个名是这个入口的老用法,不该因为支持批量就丢掉。
+        if (targets.Count == 1)
         {
-            ErrorMessage = null;
-            await _sftpService.RenameAsync(_sessionId, file.FullPath, destination.Trim(), ct);
-            await RefreshAsync(ct);
+            RemoteFileInfoViewModel only = targets[0];
+            string? destination = await PromptForText(Strings.MoveToPrompt, only.FullPath);
+            if (string.IsNullOrWhiteSpace(destination) || destination.Trim() == only.FullPath)
+            {
+                return;
+            }
+            try
+            {
+                ErrorMessage = null;
+                await _sftpService.RenameAsync(_sessionId, only.FullPath, destination.Trim(), ct);
+                await RefreshAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = ex.Message;
+            }
+            return;
         }
-        catch (Exception ex)
+
+        // 多个:只问一次目标目录,各自按原名落进去(逐个问完整路径没法用)。
+        string? directory = await PromptForText(Strings.Get("MoveSelectedToPrompt"), CurrentPath);
+        if (string.IsNullOrWhiteSpace(directory))
         {
-            ErrorMessage = ex.Message;
+            return;
         }
+        string destDir = directory.Trim();
+        ErrorMessage = null;
+        var failures = new List<string>();
+        foreach (RemoteFileInfoViewModel item in targets)
+        {
+            string dest = CombinePath(destDir, item.Name);
+            if (dest == item.FullPath)
+            {
+                continue;
+            }
+            try
+            {
+                await _sftpService.RenameAsync(_sessionId, item.FullPath, dest, ct);
+            }
+            catch (Exception ex)
+            {
+                // 一条失败不该把剩下的也拦住:批量操作半途而废比"跑完再报告"更难收拾。
+                failures.Add($"{item.Name}: {ex.Message}");
+            }
+        }
+        // 先刷新再报告:RefreshAsync 会把 ErrorMessage 清掉,反过来写就等于什么都没报。
+        await RefreshAsync(ct);
+        ReportBatchFailures(failures);
     }
+
+    /// <summary>把批量操作里失败的那几条汇总到错误条上(全成功则清空)。</summary>
+    private void ReportBatchFailures(List<string> failures) =>
+        ErrorMessage = failures.Count == 0
+            ? null
+            : Strings.Format("BatchOpPartialFailure", failures.Count, failures[0]);
 
     private async Task CopyToAsync(RemoteFileInfoViewModel? file, CancellationToken ct = default)
     {
-        if (PromptForText is null || file is null || file.IsParentEntry)
+        if (PromptForText is null)
         {
             return;
         }
-        // Pre-fill with current parent directory and same name for easy copy-to-same-dir.
-        string parentDir = ParentOf(file.FullPath);
-        string suggested = CombinePath(parentDir, file.Name);
-        string? destination = await PromptForText(Strings.SftpCopyToPrompt, suggested);
-        if (string.IsNullOrWhiteSpace(destination) || destination.Trim() == file.FullPath)
+        List<RemoteFileInfoViewModel> targets = SelectionOrRow(file);
+        if (targets.Count == 0)
         {
             return;
         }
+
+        List<PlannedFileTransfer> plan;
+        if (targets.Count == 1)
+        {
+            // 单个:提示完整目标路径(预填同目录同名,方便就地复制一份)。
+            RemoteFileInfoViewModel only = targets[0];
+            string suggested = CombinePath(ParentOf(only.FullPath), only.Name);
+            string? destination = await PromptForText(Strings.SftpCopyToPrompt, suggested);
+            if (string.IsNullOrWhiteSpace(destination) || destination.Trim() == only.FullPath)
+            {
+                return;
+            }
+            plan = [new(TransferType.Copy, only.FullPath, destination.Trim())];
+        }
+        else
+        {
+            // 多个:只问一次目标目录,各自按原名落进去。
+            string? directory = await PromptForText(Strings.Get("CopySelectedToPrompt"), CurrentPath);
+            if (string.IsNullOrWhiteSpace(directory))
+            {
+                return;
+            }
+            string destDir = directory.Trim();
+            plan =
+            [
+                .. targets
+                    .Select(item => new PlannedFileTransfer(TransferType.Copy, item.FullPath, CombinePath(destDir, item.Name)))
+                    .Where(item => item.RemotePath != item.LocalPath),
+            ];
+            if (plan.Count == 0)
+            {
+                return;
+            }
+        }
+
         try
         {
             ErrorMessage = null;
-            string destPath = destination.Trim();
 
-            // Route through the unified transfer pipeline for proper progress,
-            // cancellation, failure status, and toast lifecycle.
-            var plan = new List<PlannedFileTransfer>
-            {
-                new(TransferType.Copy, file.FullPath, destPath)
-            };
+            // 走统一的传输管线:进度、取消、失败状态与浮窗生命周期都是现成的。
             bool ok = await RunTransferBatchAsync(plan, ct);
             if (ok)
             {

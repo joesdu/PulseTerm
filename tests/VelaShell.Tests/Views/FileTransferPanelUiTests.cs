@@ -88,7 +88,7 @@ public sealed class FileTransferPanelUiTests
             ScrollViewer viewport = fixture.Viewport;
             double rows = fixture.RealizedRows().Sum(row => row.Bounds.Height);
 
-            Assert.AreEqual(2, fixture.RealizedRows().Count, "两条都应当实现出来。");
+            Assert.HasCount(2, fixture.RealizedRows(), "两条都应当实现出来。");
             Assert.AreEqual(
                 rows,
                 viewport.Bounds.Height,
@@ -126,7 +126,7 @@ public sealed class FileTransferPanelUiTests
 
         public static Fixture Show(int transferCount)
         {
-            var manager = Substitute.For<ITransferManager>();
+            ITransferManager manager = Substitute.For<ITransferManager>();
             manager.ActiveTransfers.Returns([]);
             manager.QueuedTransfers.Returns([]);
 

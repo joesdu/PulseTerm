@@ -641,6 +641,15 @@
   <data name="MoveToPrompt" xml:space="preserve">
     <value>移動到(目的地完整路徑)</value>
   </data>
+  <data name="MoveSelectedToPrompt" xml:space="preserve">
+    <value>將選取項目移動到(目標資料夾)</value>
+  </data>
+  <data name="CopySelectedToPrompt" xml:space="preserve">
+    <value>將選取項目複製到(目標資料夾)</value>
+  </data>
+  <data name="BatchOpPartialFailure" xml:space="preserve">
+    <value>{0} 項失敗,首個錯誤:{1}</value>
+  </data>
   <data name="CopyTo" xml:space="preserve">
     <value>複製到…</value>
   </data>

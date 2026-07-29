@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
 using ReactiveUI.Primitives;
@@ -18,6 +19,8 @@ public partial class LocalFilePaneView : UserControl
     private Point _dragOrigin;
     private LocalFileEntry? _dragRow;
     private PointerPressedEventArgs? _dragPointerArgs;
+    private readonly List<LocalFileEntry> _selectionAtPress = [];
+    private bool _selectionRestoredForPendingDrag;
     private const double DragThreshold = 5;
 
     /// <summary>初始化本地文件面板视图,并接线 VM 委托。</summary>
@@ -34,14 +37,28 @@ public partial class LocalFilePaneView : UserControl
             }
         };
 
+        // 框选与跨栏拖放使用不相交的按下表面:只有 XAML 标记的内容表面发起拖放。
+        if (this.FindControl<ListBox>("FileList") is { } list
+            && this.FindControl<Border>("MarqueeOverlay") is { } overlay)
+        {
+            MarqueeSelection.Attach(
+                list,
+                overlay,
+                item => item is LocalFileEntry { IsParentEntry: false },
+                e => !MarqueeSelection.IsDndSurface(e.Source, FileList, e.GetPosition(FileList))
+            );
+        }
+
         // 拖放:接收远端文件拖入 + 发起本地文件拖拽。
         if (this.FindControl<ListBox>("FileList") is { } fileList)
         {
             DragDrop.SetAllowDrop(fileList, true);
             fileList.AddHandler(DragDrop.DragOverEvent, OnLocalDropDragOver);
             fileList.AddHandler(DragDrop.DropEvent, OnLocalDrop);
+            fileList.AddHandler(InputElement.PointerPressedEvent, OnLocalDragPointerPressedTunnel, RoutingStrategies.Tunnel, true);
+            fileList.AddHandler(InputElement.PointerPressedEvent, OnLocalDragPointerPressedBubble, RoutingStrategies.Bubble, true);
             fileList.AddHandler(PointerMovedEvent, OnLocalDragPointerMoved);
-            fileList.AddHandler(PointerReleasedEvent, OnLocalDragPointerReleased);
+            fileList.AddHandler(PointerReleasedEvent, OnLocalDragPointerReleased, RoutingStrategies.Bubble, true);
         }
     }
 
@@ -89,7 +106,9 @@ public partial class LocalFilePaneView : UserControl
         if (!e.GetCurrentPoint(null).Properties.IsRightButtonPressed)
         {
             // 非父行上按左键:为拖往远端面板做准备。
-            if (sender is Border { DataContext: LocalFileEntry entry } && !entry.IsParentEntry)
+            if (sender is Border { DataContext: LocalFileEntry entry }
+                && !entry.IsParentEntry
+                && MarqueeSelection.IsDndSurface(e.Source, (Visual)sender, e.GetPosition((Visual)sender)))
             {
                 _dragOrigin = e.GetPosition(this.FindControl<ListBox>("FileList"));
                 _dragRow = entry;
@@ -115,6 +134,40 @@ public partial class LocalFilePaneView : UserControl
             selection.Clear();
             selection.Add(entry2);
         }
+    }
+
+    private void OnLocalDragPointerPressedTunnel(object? sender, PointerPressedEventArgs e)
+    {
+        _selectionAtPress.Clear();
+        if (!e.GetCurrentPoint(FileList).Properties.IsLeftButtonPressed
+            || FileList.SelectedItems is not { } selected)
+        {
+            return;
+        }
+
+        foreach (object? item in selected)
+        {
+            if (item is LocalFileEntry entry && !entry.IsParentEntry)
+            {
+                _selectionAtPress.Add(entry);
+            }
+        }
+    }
+
+    private void OnLocalDragPointerPressedBubble(object? sender, PointerPressedEventArgs e)
+    {
+        if (_dragRow is not { } source
+            || _selectionAtPress.Count <= 1
+            || !_selectionAtPress.Contains(source)
+            || e.KeyModifiers.HasFlag(KeyModifiers.Control)
+            || e.KeyModifiers.HasFlag(KeyModifiers.Shift)
+            || DataContext is not LocalFilePaneViewModel vm)
+        {
+            return;
+        }
+
+        DragSelectionResolver.SynchronizeSelection(vm.SelectedEntries, _selectionAtPress);
+        _selectionRestoredForPendingDrag = true;
     }
 
     private async Task<string?> PromptForTextAsync(string title, string initialValue)
@@ -144,6 +197,11 @@ public partial class LocalFilePaneView : UserControl
         {
             return;
         }
+        if (!e.GetCurrentPoint(FileList).Properties.IsLeftButtonPressed)
+        {
+            ResetLocalDragGesture();
+            return;
+        }
         Point current = e.GetPosition(this.FindControl<ListBox>("FileList"));
         if (Math.Abs(current.X - _dragOrigin.X) < DragThreshold && Math.Abs(current.Y - _dragOrigin.Y) < DragThreshold)
         {
@@ -156,33 +214,62 @@ public partial class LocalFilePaneView : UserControl
 
     private void OnLocalDragPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        _isDragging = false;
-        _dragRow = null;
-        _dragPointerArgs = null;
+        if (!_isDragging
+            && _selectionRestoredForPendingDrag
+            && _dragRow is { } source
+            && DataContext is LocalFilePaneViewModel vm)
+        {
+            DragSelectionResolver.SynchronizeSelection(vm.SelectedEntries, [source]);
+        }
+        ResetLocalDragGesture();
     }
 
     private async Task StartLocalDragAsync(LocalFileEntry source, PointerPressedEventArgs pointerArgs)
     {
-        var paths = new List<string>();
         if (DataContext is LocalFilePaneViewModel vm)
         {
-            foreach (LocalFileEntry item in vm.SelectedEntries)
-            {
-                if (!item.IsParentEntry) paths.Add(item.FullPath);
-            }
+            IReadOnlyList<LocalFileEntry> entries = DragSelectionResolver.ResolveAtDragStart(
+                _selectionAtPress,
+                vm.SelectedEntries,
+                source,
+                item => item.IsParentEntry,
+                usePressSnapshot: !pointerArgs.KeyModifiers.HasFlag(KeyModifiers.Control)
+                    && !pointerArgs.KeyModifiers.HasFlag(KeyModifiers.Shift));
+            DragSelectionResolver.SynchronizeSelection(vm.SelectedEntries, entries);
+            string[] paths = [.. entries.Select(item => item.FullPath)];
+            await StartDragAsync(paths, pointerArgs, DragDropFormats.LocalPaths);
+            return;
         }
-        if (paths.Count == 0) paths.Add(source.FullPath);
+        await StartDragAsync([source.FullPath], pointerArgs, DragDropFormats.LocalPaths);
+    }
 
+    private async Task StartDragAsync(
+        IReadOnlyList<string> paths,
+        PointerPressedEventArgs pointerArgs,
+        string format)
+    {
         var data = new DataTransfer();
         var dragItem = new DataTransferItem();
-        dragItem.SetText(DragDropFormats.LocalPaths + string.Join("\n", paths));
+        dragItem.SetText(format + string.Join("\n", paths));
         data.Add(dragItem);
 
-        await DragDrop.DoDragDropAsync(pointerArgs, data, DragDropEffects.Copy);
+        try
+        {
+            await DragDrop.DoDragDropAsync(pointerArgs, data, DragDropEffects.Copy);
+        }
+        finally
+        {
+            ResetLocalDragGesture();
+        }
+    }
 
+    private void ResetLocalDragGesture()
+    {
         _isDragging = false;
         _dragRow = null;
         _dragPointerArgs = null;
+        _selectionAtPress.Clear();
+        _selectionRestoredForPendingDrag = false;
     }
 
     // ── 放置处理(远端 → 本地) ──────────────────────────────────

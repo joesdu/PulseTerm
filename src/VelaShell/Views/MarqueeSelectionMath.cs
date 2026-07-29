@@ -10,6 +10,13 @@ namespace VelaShell.Views;
 /// </summary>
 internal static class MarqueeSelectionMath
 {
+    /// <summary>Combines the mouse-down snapshot with rows swept by a Ctrl-marquee.</summary>
+    public static IReadOnlyList<T> MergeSelection<T>(
+        IEnumerable<T> snapshot,
+        IEnumerable<T> swept,
+        IEqualityComparer<T>? comparer = null) =>
+        [.. snapshot.Concat(swept).Distinct(comparer)];
+
     /// <summary>
     /// 求内容坐标区间 <paramref name="top" />..<paramref name="bottom" /> 覆盖到的行下标(闭区间)。
     /// 两端可以任意顺序传入(向上拖时 bottom &lt; top)。没有覆盖到任何行时返回 <c>(-1, -1)</c>。

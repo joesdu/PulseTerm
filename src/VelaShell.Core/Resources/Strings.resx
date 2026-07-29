@@ -323,6 +323,15 @@
   <data name="MoveToPrompt" xml:space="preserve">
     <value>Move to (full destination path)</value>
   </data>
+  <data name="MoveSelectedToPrompt" xml:space="preserve">
+    <value>Move selected items to (destination folder)</value>
+  </data>
+  <data name="CopySelectedToPrompt" xml:space="preserve">
+    <value>Copy selected items to (destination folder)</value>
+  </data>
+  <data name="BatchOpPartialFailure" xml:space="preserve">
+    <value>{0} item(s) failed. First error — {1}</value>
+  </data>
   <data name="CopyTo" xml:space="preserve">
     <value>Copy To…</value>
   </data>

@@ -410,8 +410,9 @@
           </Grid>
         </Border>
 
-        <ListBox Grid.Row="1"
-                 x:Name="FileList"
+        <!-- 列表外面套一层 Panel,是为了在它上面叠一个框选矩形(见 MarqueeOverlay)。 -->
+        <Panel Grid.Row="1">
+        <ListBox x:Name="FileList"
                  ItemsSource="{Binding Files}"
                  SelectedItems="{Binding SelectedFiles}"
                  SelectionMode="Multiple"
@@ -645,27 +646,28 @@
                         <ColumnDefinition Width="*" />
                       </Grid.ColumnDefinitions>
                       <!-- 设计 dyuii 图标:琥珀色文件夹、素色文件、".." 用 corner-left-up。 -->
-                      <pc:LucideIcon Width="13" Height="13"
+                      <pc:LucideIcon Classes="dnd-surface" Width="13" Height="13"
                                      Foreground="{DynamicResource VelaFileFolderIcon}"
                                      IsVisible="{Binding IsRegularDirectory}"
                                      Margin="0,0,7,0"
                                      Data="{StaticResource Icon.folder}" />
-                      <pc:LucideIcon Width="13" Height="13"
+                      <pc:LucideIcon Classes="dnd-surface" Width="13" Height="13"
                                      Foreground="{DynamicResource VelaTextTertiary}"
                                      IsVisible="{Binding !IsDirectory}"
                                      Margin="0,0,7,0"
                                      Data="{StaticResource Icon.file}" />
-                      <pc:LucideIcon Width="13" Height="13"
+                      <pc:LucideIcon Classes="dnd-surface" Width="13" Height="13"
                                      Foreground="{DynamicResource VelaTextTertiary}"
                                      IsVisible="{Binding IsParentEntry}"
                                      Margin="0,0,7,0"
                                      Data="{StaticResource Icon.corner-left-up}" />
-                      <TextBlock Grid.Column="1"
+                      <TextBlock Classes="dnd-surface" Grid.Column="1"
                                  Text="{Binding DisplayName}"
                                  Foreground="{DynamicResource VelaTextSecondary}"
                                  FontFamily="{DynamicResource VelaTerminalFont}"
                                  FontSize="11"
                                  VerticalAlignment="Center"
+                                 HorizontalAlignment="Left"
                                  TextTrimming="CharacterEllipsis"
                                  Classes.dir="{Binding IsRegularDirectory}">
                         <TextBlock.Styles>
@@ -676,57 +678,71 @@
                       </TextBlock>
                     </Grid>
 
-                    <TextBlock Grid.Column="2"
+                    <TextBlock Classes="dnd-surface" Grid.Column="2"
                                Text="{Binding FormattedSize}"
                                IsVisible="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).ShowSizeColumn}"
                                Foreground="{DynamicResource VelaTextTertiary}"
                                FontFamily="{DynamicResource VelaTerminalFont}"
                                FontSize="11"
-                               VerticalAlignment="Center" />
-                    <TextBlock Grid.Column="4"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Left" />
+                    <TextBlock Classes="dnd-surface" Grid.Column="4"
                                Text="{Binding Permissions}"
                                IsVisible="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).ShowPermissionsColumn}"
                                Foreground="{DynamicResource VelaTextTertiary}"
                                FontFamily="{DynamicResource VelaTerminalFont}"
                                FontSize="11"
-                               VerticalAlignment="Center" />
-                    <TextBlock Grid.Column="6"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Left" />
+                    <TextBlock Classes="dnd-surface" Grid.Column="6"
                                Text="{Binding Owner}"
                                IsVisible="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).ShowOwnerColumn}"
                                Foreground="{DynamicResource VelaTextTertiary}"
                                FontFamily="{DynamicResource VelaTerminalFont}"
                                FontSize="11"
                                VerticalAlignment="Center"
+                               HorizontalAlignment="Left"
                                TextTrimming="CharacterEllipsis" />
-                    <TextBlock Grid.Column="8"
+                    <TextBlock Classes="dnd-surface" Grid.Column="8"
                                Text="{Binding Group}"
                                IsVisible="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).ShowGroupColumn}"
                                Foreground="{DynamicResource VelaTextTertiary}"
                                FontFamily="{DynamicResource VelaTerminalFont}"
                                FontSize="11"
                                VerticalAlignment="Center"
+                               HorizontalAlignment="Left"
                                TextTrimming="CharacterEllipsis" />
-                    <TextBlock Grid.Column="10"
+                    <TextBlock Classes="dnd-surface" Grid.Column="10"
                                Text="{Binding FileTypeDisplay}"
                                IsVisible="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).ShowTypeColumn}"
                                Foreground="{DynamicResource VelaTextTertiary}"
                                FontFamily="{DynamicResource VelaTerminalFont}"
                                FontSize="11"
                                VerticalAlignment="Center"
+                               HorizontalAlignment="Left"
                                TextTrimming="CharacterEllipsis" />
-                    <TextBlock Grid.Column="12"
+                    <TextBlock Classes="dnd-surface" Grid.Column="12"
                                Text="{Binding FormattedModifiedTime}"
                                IsVisible="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).ShowModifiedColumn}"
                                Foreground="{DynamicResource VelaTextTertiary}"
                                FontFamily="{DynamicResource VelaTerminalFont}"
                                FontSize="11"
                                VerticalAlignment="Center"
+                               HorizontalAlignment="Left"
                                TextTrimming="CharacterEllipsis" />
                   </Grid>
                 </Border>
               </DataTemplate>
           </ListBox.ItemTemplate>
         </ListBox>
+
+          <!-- 框选矩形。IsHitTestVisible=False:它盖在列表上,不能把指针事件吃掉。 -->
+          <Border Name="MarqueeOverlay" IsVisible="False" IsHitTestVisible="False"
+                  HorizontalAlignment="Left" VerticalAlignment="Top"
+                  Background="{DynamicResource VelaAccent}" Opacity="0.18"
+                  BorderBrush="{DynamicResource VelaAccent}" BorderThickness="1"
+                  CornerRadius="1" />
+        </Panel>
 
       </Grid>
 

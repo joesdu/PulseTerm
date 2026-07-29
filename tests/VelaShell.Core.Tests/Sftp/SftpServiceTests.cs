@@ -576,10 +576,8 @@ public class SftpServiceTests
         Assert.IsGreaterThanOrEqualTo(1, progressReports.Count);
         Assert.AreEqual(100, progressReports[^1].Percentage);
         Assert.AreEqual(10000, progressReports[^1].BytesTransferred);
-        CollectionAssert.AreEqual(
-            progressReports.Select(p => p.BytesTransferred).OrderBy(b => b).ToList(),
-            progressReports.Select(p => p.BytesTransferred).ToList(),
-            "进度必须单调不回退");
+        Assert.AreSequenceEqual(
+            [.. progressReports.Select(p => p.BytesTransferred).OrderBy(b => b)], [.. progressReports.Select(p => p.BytesTransferred)], "进度必须单调不回退");
 
         // Cleanup
         File.Delete(localPath);

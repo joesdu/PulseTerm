@@ -146,6 +146,8 @@
               Background="{DynamicResource VelaBgActive}" Padding="8,4">
         <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource VelaAccent}" FontSize="11" />
       </Border>
+      <!-- 列表外面套一层 Panel,是为了在它上面叠一个框选矩形(见 MarqueeOverlay)。 -->
+      <Panel>
       <ListBox x:Name="FileList" ItemsSource="{Binding Entries}" SelectedItems="{Binding SelectedEntries}"
                SelectionMode="Multiple" Background="Transparent" BorderThickness="0"
                DoubleTapped="OnFileDoubleTapped">
@@ -182,28 +184,39 @@
               <Grid ColumnDefinitions="*,90,130">
                 <Grid Classes="local-name-cell" ColumnDefinitions="Auto,*" MinWidth="0"
                       ClipToBounds="True" VerticalAlignment="Center">
-                  <pc:LucideIcon Width="13" Height="13" Margin="0,0,7,0"
+                  <pc:LucideIcon Classes="dnd-surface" Width="13" Height="13" Margin="0,0,7,0"
                                  Data="{StaticResource Icon.folder}" Foreground="{DynamicResource VelaFileFolderIcon}"
                                  IsVisible="{Binding IsRegularDirectory}" />
-                  <pc:LucideIcon Width="13" Height="13" Margin="0,0,7,0"
+                  <pc:LucideIcon Classes="dnd-surface" Width="13" Height="13" Margin="0,0,7,0"
                                  Data="{StaticResource Icon.file}" Foreground="{DynamicResource VelaTextTertiary}"
                                  IsVisible="{Binding IsRegularFile}" />
-                  <pc:LucideIcon Width="13" Height="13" Margin="0,0,7,0"
+                  <pc:LucideIcon Classes="dnd-surface" Width="13" Height="13" Margin="0,0,7,0"
                                  Data="{StaticResource Icon.corner-left-up}" Foreground="{DynamicResource VelaTextTertiary}"
                                  IsVisible="{Binding IsParentEntry}" />
-                  <TextBlock Grid.Column="1" Text="{Binding DisplayName}" FontFamily="{DynamicResource VelaTerminalFont}"
+                  <TextBlock Classes="dnd-surface" Grid.Column="1" Text="{Binding DisplayName}" FontFamily="{DynamicResource VelaTerminalFont}"
                              FontSize="11" Foreground="{DynamicResource VelaTextSecondary}"
-                             VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                             VerticalAlignment="Center" HorizontalAlignment="Left"
+                             TextTrimming="CharacterEllipsis" />
                 </Grid>
-                <TextBlock Classes="local-size-cell" Grid.Column="1" Text="{Binding FormattedSize}" FontFamily="{DynamicResource VelaTerminalFont}"
-                           FontSize="11" Foreground="{DynamicResource VelaTextTertiary}" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="2" Text="{Binding FormattedModifiedTime}" FontFamily="{DynamicResource VelaTerminalFont}"
-                           FontSize="11" Foreground="{DynamicResource VelaTextTertiary}" VerticalAlignment="Center" />
+                <TextBlock Classes="local-size-cell dnd-surface" Grid.Column="1" Text="{Binding FormattedSize}" FontFamily="{DynamicResource VelaTerminalFont}"
+                           FontSize="11" Foreground="{DynamicResource VelaTextTertiary}" VerticalAlignment="Center"
+                           HorizontalAlignment="Left" />
+                <TextBlock Classes="dnd-surface" Grid.Column="2" Text="{Binding FormattedModifiedTime}" FontFamily="{DynamicResource VelaTerminalFont}"
+                           FontSize="11" Foreground="{DynamicResource VelaTextTertiary}" VerticalAlignment="Center"
+                           HorizontalAlignment="Left" />
               </Grid>
             </Border>
           </DataTemplate>
         </ListBox.ItemTemplate>
       </ListBox>
+
+        <!-- 框选矩形。IsHitTestVisible=False:它盖在列表上,不能把指针事件吃掉。 -->
+        <Border Name="MarqueeOverlay" IsVisible="False" IsHitTestVisible="False"
+                HorizontalAlignment="Left" VerticalAlignment="Top"
+                Background="{DynamicResource VelaAccent}" Opacity="0.18"
+                BorderBrush="{DynamicResource VelaAccent}" BorderThickness="1"
+                CornerRadius="1" />
+      </Panel>
     </DockPanel>
   </Border>
 </UserControl>

@@ -641,6 +641,15 @@
   <data name="MoveToPrompt" xml:space="preserve">
     <value>이동 위치(전체 경로)</value>
   </data>
+  <data name="MoveSelectedToPrompt" xml:space="preserve">
+    <value>선택 항목을 옮길 폴더</value>
+  </data>
+  <data name="CopySelectedToPrompt" xml:space="preserve">
+    <value>선택 항목을 복사할 폴더</value>
+  </data>
+  <data name="BatchOpPartialFailure" xml:space="preserve">
+    <value>{0}개 실패. 첫 번째 오류: {1}</value>
+  </data>
   <data name="CopyTo" xml:space="preserve">
     <value>복사 대상…</value>
   </data>

@@ -56,6 +56,8 @@ public partial class FileBrowserView : UserControl
     private Point _dragOrigin;
     private RemoteFileInfoViewModel? _dragRow;
     private PointerPressedEventArgs? _dragPointerArgs;
+    private readonly List<RemoteFileInfoViewModel> _selectionAtPress = [];
+    private bool _selectionRestoredForPendingDrag;
     private const double DragThreshold = 5;
 
     /// <summary>按下拖拽条那一刻的列宽快照(列键 → 像素),拖拽期间按位移量增量应用。</summary>
@@ -90,16 +92,32 @@ public partial class FileBrowserView : UserControl
             vm.ConfirmRemoteOverwrite = ConfirmRemoteOverwriteAsync;
         };
 
+        // 框选与跨栏拖放使用不相交的按下表面。终端模式没有拖放时,
+        // 所有行内容也都留给框选。
+        if (this.FindControl<ListBox>("FileList") is { } list
+            && this.FindControl<Border>("MarqueeOverlay") is { } overlay)
+        {
+            MarqueeSelection.Attach(
+                list,
+                overlay,
+                item => item is RemoteFileInfoViewModel { IsParentEntry: false },
+                e => DataContext is not FileBrowserViewModel { IsDragEnabled: true }
+                    || !MarqueeSelection.IsDndSurface(e.Source, FileList, e.GetPosition(FileList))
+            );
+        }
+
         // 拖放接收:操作系统文件拖入(始终启用)+ 跨面板拖入。
         if (this.FindControl<ListBox>("FileList") is { } fileList)
         {
             DragDrop.SetAllowDrop(fileList, true);
             fileList.AddHandler(DragDrop.DragOverEvent, OnFileListDragOver);
             fileList.AddHandler(DragDrop.DropEvent, OnFileListDrop);
+            fileList.AddHandler(InputElement.PointerPressedEvent, OnRemoteDragPointerPressedTunnel, RoutingStrategies.Tunnel, true);
+            fileList.AddHandler(InputElement.PointerPressedEvent, OnRemoteDragPointerPressedBubble, RoutingStrategies.Bubble, true);
 
             // 跨面板拖拽发起(行 → 本地面板)。
             fileList.AddHandler(PointerMovedEvent, OnRemoteDragPointerMoved);
-            fileList.AddHandler(PointerReleasedEvent, OnRemoteDragPointerReleased);
+            fileList.AddHandler(PointerReleasedEvent, OnRemoteDragPointerReleased, RoutingStrategies.Bubble, true);
         }
         AddHandler(PointerMovedEvent, OnColumnSplitterPointerMoved, RoutingStrategies.Tunnel);
         AddHandler(PointerReleasedEvent, OnColumnSplitterReleased, RoutingStrategies.Tunnel);
@@ -578,7 +596,8 @@ public partial class FileBrowserView : UserControl
             // 左键:为可能拖往本地面板做准备(仅 SFTP 模式)。
             if (DataContext is FileBrowserViewModel { IsDragEnabled: true }
                 && sender is Border { DataContext: RemoteFileInfoViewModel file }
-                && !file.IsParentEntry)
+                && !file.IsParentEntry
+                && MarqueeSelection.IsDndSurface(e.Source, (Visual)sender, e.GetPosition((Visual)sender)))
             {
                 _dragOrigin = e.GetPosition(this.FindControl<ListBox>("FileList"));
                 _dragRow = file;
@@ -605,10 +624,49 @@ public partial class FileBrowserView : UserControl
         }
     }
 
+    private void OnRemoteDragPointerPressedTunnel(object? sender, PointerPressedEventArgs e)
+    {
+        _selectionAtPress.Clear();
+        if (!e.GetCurrentPoint(FileList).Properties.IsLeftButtonPressed
+            || FileList.SelectedItems is not { } selected)
+        {
+            return;
+        }
+
+        foreach (object? item in selected)
+        {
+            if (item is RemoteFileInfoViewModel file && !file.IsParentEntry)
+            {
+                _selectionAtPress.Add(file);
+            }
+        }
+    }
+
+    private void OnRemoteDragPointerPressedBubble(object? sender, PointerPressedEventArgs e)
+    {
+        if (_dragRow is not { } source
+            || _selectionAtPress.Count <= 1
+            || !_selectionAtPress.Contains(source)
+            || e.KeyModifiers.HasFlag(KeyModifiers.Control)
+            || e.KeyModifiers.HasFlag(KeyModifiers.Shift)
+            || DataContext is not FileBrowserViewModel vm)
+        {
+            return;
+        }
+
+        DragSelectionResolver.SynchronizeSelection(vm.SelectedFiles, _selectionAtPress);
+        _selectionRestoredForPendingDrag = true;
+    }
+
     private void OnRemoteDragPointerMoved(object? sender, PointerEventArgs e)
     {
         if (_isDragging || _dragRow is null || _dragPointerArgs is null)
         {
+            return;
+        }
+        if (!e.GetCurrentPoint(FileList).Properties.IsLeftButtonPressed)
+        {
+            ResetRemoteDragGesture();
             return;
         }
         Point current = e.GetPosition(this.FindControl<ListBox>("FileList"));
@@ -623,34 +681,61 @@ public partial class FileBrowserView : UserControl
 
     private void OnRemoteDragPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        _isDragging = false;
-        _dragRow = null;
-        _dragPointerArgs = null;
+        if (!_isDragging
+            && _selectionRestoredForPendingDrag
+            && _dragRow is { } source
+            && DataContext is FileBrowserViewModel vm)
+        {
+            DragSelectionResolver.SynchronizeSelection(vm.SelectedFiles, [source]);
+        }
+        ResetRemoteDragGesture();
     }
 
     private async Task StartRemoteDragAsync(RemoteFileInfoViewModel source, PointerPressedEventArgs pointerArgs)
     {
-        // 收集所有选中的远程文件路径。
-        var paths = new List<string>();
         if (DataContext is FileBrowserViewModel vm)
         {
-            foreach (RemoteFileInfoViewModel item in vm.SelectedFiles)
-            {
-                if (!item.IsParentEntry) paths.Add(item.FullPath);
-            }
+            IReadOnlyList<RemoteFileInfoViewModel> entries = DragSelectionResolver.ResolveAtDragStart(
+                _selectionAtPress,
+                vm.SelectedFiles,
+                source,
+                item => item.IsParentEntry,
+                usePressSnapshot: !pointerArgs.KeyModifiers.HasFlag(KeyModifiers.Control)
+                    && !pointerArgs.KeyModifiers.HasFlag(KeyModifiers.Shift));
+            DragSelectionResolver.SynchronizeSelection(vm.SelectedFiles, entries);
+            string[] paths = [.. entries.Select(item => item.FullPath)];
+            await StartRemoteDragAsync(paths, pointerArgs);
+            return;
         }
-        if (paths.Count == 0) paths.Add(source.FullPath);
+        await StartRemoteDragAsync([source.FullPath], pointerArgs);
+    }
 
+    private async Task StartRemoteDragAsync(
+        IReadOnlyList<string> paths,
+        PointerPressedEventArgs pointerArgs)
+    {
         var data = new DataTransfer();
         var dragItem = new DataTransferItem();
         dragItem.SetText(DragDropFormats.RemotePaths + string.Join("\n", paths));
         data.Add(dragItem);
 
-        await DragDrop.DoDragDropAsync(pointerArgs, data, DragDropEffects.Copy);
+        try
+        {
+            await DragDrop.DoDragDropAsync(pointerArgs, data, DragDropEffects.Copy);
+        }
+        finally
+        {
+            ResetRemoteDragGesture();
+        }
+    }
 
+    private void ResetRemoteDragGesture()
+    {
         _isDragging = false;
         _dragRow = null;
         _dragPointerArgs = null;
+        _selectionAtPress.Clear();
+        _selectionRestoredForPendingDrag = false;
     }
 
     /// <summary>
