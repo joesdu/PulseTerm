@@ -221,8 +221,10 @@
                              Data="{StaticResource Icon.refresh-cw}"
                              Foreground="{DynamicResource VelaTextTertiary}" />
             </Button>
-            <Button Classes="toolbar-btn" Width="24" Height="24" Padding="0"
+            <Button x:Name="RemotePaneCloseButton"
+                    Classes="toolbar-btn" Width="24" Height="24" Padding="0"
                     HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                    IsVisible="{Binding !IsDragEnabled}"
                     Command="{Binding ToggleVisibilityCommand}"
                     ToolTip.Tip="{loc:Localize Close}">
               <pc:LucideIcon Width="13" Height="13"
