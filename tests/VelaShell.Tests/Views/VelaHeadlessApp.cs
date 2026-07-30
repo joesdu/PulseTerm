@@ -30,6 +30,7 @@ public class VelaHeadlessApp : Application
         Resources.MergedDictionaries.Add(LoadDictionary("avares://VelaShell.Controls/Themes/VelaTokens.axaml"));
         Resources.MergedDictionaries.Add(LoadDictionary("avares://VelaShell.Controls/Themes/VelaShellTokens.axaml"));
         Resources.MergedDictionaries.Add(LoadDictionary("avares://VelaShell.Controls/Themes/Icons.axaml"));
+        Resources.MergedDictionaries.Add(LoadDictionary("avares://VelaShell/Themes/ButtonThemes.axaml"));
         Styles.Add(LoadStyles("avares://VelaShell/Themes/DockStyles.axaml"));
         Styles.Add(LoadStyles("avares://VelaShell/Themes/InputStyles.axaml"));
         // 与 App.axaml 末尾那条同源:设置 → 外观 → 界面字体/字号靠它下发到每个窗口,

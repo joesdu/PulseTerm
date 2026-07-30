@@ -153,8 +153,8 @@ public sealed class FileBrowserMarqueeUiTests
                 list.SelectedItems.Add(file);
             }
             Pump(window);
-            Assert.AreEqual(3, list.SelectedItems.Count, "测试必须先建立真实的三项控件选区。");
-            Assert.AreEqual(3, vm.SelectedFiles.Count, "控件选区应同步到视图模型。");
+            Assert.HasCount(3, list.SelectedItems, "测试必须先建立真实的三项控件选区。");
+            Assert.HasCount(3, vm.SelectedFiles, "控件选区应同步到视图模型。");
 
             Drag(window, list, fromRow: 2, toRow: 3, midDrag: () =>
                 Assert.AreSequenceEqual(

@@ -472,7 +472,7 @@ public class TerminalBridgeTests
 
         lock (written)
         {
-            Assert.IsFalse(written.Contains((byte)'q'), "ZMODEM 会话期间的击键不得写入传输流。");
+            Assert.DoesNotContain((byte)'q', written, "ZMODEM 会话期间的击键不得写入传输流。");
         }
         router.CancelActiveSession();
     }
