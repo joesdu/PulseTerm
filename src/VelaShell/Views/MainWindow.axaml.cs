@@ -11,13 +11,16 @@ using ReactiveUI;
 using ReactiveUI.Primitives;
 using VelaShell.Core.Data;
 using VelaShell.Core.Diagnostics;
+using VelaShell.Core.Import;
 using VelaShell.Core.Models;
 using VelaShell.Core.Processes;
 using VelaShell.Core.Resources;
 using VelaShell.Core.Services;
 using VelaShell.Core.Ssh;
 using VelaShell.Docking;
+using VelaShell.Infrastructure.Import;
 using VelaShell.Presentation.Services;
+using VelaShell.Presentation.ViewModels;
 using VelaShell.Security;
 using VelaShell.Services;
 using VelaShell.Services.ZModem;
@@ -100,6 +103,8 @@ public partial class MainWindow : Window
             sidebar.OpenConnectionProfileRequested += OnOpenConnectionProfileRequested;
             sidebar.RecentConnectRequested += OnSidebarRecentConnectRequested;
             sidebar.SettingsRequested += (_, _) => _ = OpenSettingsAsync();
+            sidebar.ImportXshellRequested += (_, _) => _ = OpenSessionImportDialogAsync<XshellImportService>();
+            sidebar.ImportWinScpRequested += (_, _) => _ = OpenSessionImportDialogAsync<WinScpImportService>();
         }
         DataContextChanged += (_, _) => HookFileBrowserVisibility();
         // 主题(暗/亮)切换时,按新主题色重建背景令牌覆盖画刷。否则之前设的覆盖仍持旧主题色、
@@ -751,6 +756,25 @@ public partial class MainWindow : Window
     }
 
     private void OnOpenConnectionProfileRequested(object? sender, EventArgs e) => _ = OpenProfileDialogAsync(null);
+
+    /// <summary>打开「从外部工具导入会话」弹窗(按具体来源服务);导入成功后刷新资源管理器树。</summary>
+    private async Task OpenSessionImportDialogAsync<TService>() where TService : class, ISessionImportService
+    {
+        if (DataContext is not MainWindowViewModel mainWindowViewModel)
+        {
+            return;
+        }
+        if (Application.Current is not App app || app.Services?.GetService<TService>() is not { } importService)
+        {
+            return;
+        }
+        var dialog = new SessionImportView { DataContext = new SessionImportViewModel(importService) };
+        SessionImportOutcome? outcome = await dialog.ShowDialog<SessionImportOutcome?>(this);
+        if (outcome is { Imported: > 0 })
+        {
+            await mainWindowViewModel.RefreshSessionTreeAsync();
+        }
+    }
 
     /// <summary>打开“新建连接”弹窗;传入 existing 时为编辑既有配置。</summary>
     private async Task OpenProfileDialogAsync(SessionProfile? existing)

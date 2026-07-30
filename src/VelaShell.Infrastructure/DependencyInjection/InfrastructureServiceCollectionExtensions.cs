@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Tmds.Ssh;
 using VelaShell.Core.Data;
 using VelaShell.Core.Diagnostics;
+using VelaShell.Core.Import;
 using VelaShell.Core.Models;
 using VelaShell.Core.Processes;
 using VelaShell.Core.Recording;
@@ -11,6 +12,7 @@ using VelaShell.Core.Sftp;
 using VelaShell.Core.Ssh;
 using VelaShell.Core.Sync;
 using VelaShell.Core.Tunnels;
+using VelaShell.Infrastructure.Import;
 using VelaShell.Infrastructure.Persistence;
 using VelaShell.Infrastructure.Ssh;
 using VelaShell.Infrastructure.Tunnels;
@@ -49,6 +51,11 @@ public static class InfrastructureServiceCollectionExtensions
             return new SonnetDbSettingsService(sp.GetRequiredService<SonnetDbEngine>(),
                 [paths.RootDirectory, paths.LegacyDotDirectory]);
         });
+        // 会话一键迁移:各来源(Xshell / WinSCP)解析 + 还原密码 + 写入会话仓储。
+        services.AddSingleton<XshellImportService>(sp =>
+            new(sp.GetRequiredService<ISessionRepository>()));
+        services.AddSingleton<WinScpImportService>(sp =>
+            new(sp.GetRequiredService<ISessionRepository>()));
         services.AddSingleton<IHostKeyService>(sp =>
         {
             VelaShellStoragePaths paths = sp.GetRequiredService<VelaShellStoragePaths>();

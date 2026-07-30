@@ -3178,4 +3178,79 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   <data name="Trace_GeoAttribution" xml:space="preserve">
     <value>IP 歸屬地資料由 DB-IP.com 提供 (CC BY 4.0)</value>
   </data>
+  <data name="XImport_MenuItem" xml:space="preserve">
+    <value>從 Xshell 匯入…</value>
+  </data>
+  <data name="XImport_Title" xml:space="preserve">
+    <value>從 Xshell 匯入工作階段</value>
+  </data>
+  <data name="XImport_SessionsDir" xml:space="preserve">
+    <value>Xshell 工作階段目錄</value>
+  </data>
+  <data name="XImport_Browse" xml:space="preserve">
+    <value>瀏覽…</value>
+  </data>
+  <data name="XImport_Rescan" xml:space="preserve">
+    <value>掃描</value>
+  </data>
+  <data name="XImport_MasterPwWarn" xml:space="preserve">
+    <value>此工具已啟用主密碼，無法還原已儲存的密碼；工作階段將以不含密碼的方式匯入。</value>
+  </data>
+  <data name="XImport_WinScpMenuItem" xml:space="preserve">
+    <value>從 WinSCP 匯入…</value>
+  </data>
+  <data name="XImport_TitleFmt" xml:space="preserve">
+    <value>從 {0} 匯入工作階段</value>
+  </data>
+  <data name="XImport_GroupFmt" xml:space="preserve">
+    <value>{0} 匯入</value>
+  </data>
+  <data name="XImport_SourceFolder" xml:space="preserve">
+    <value>工作階段目錄</value>
+  </data>
+  <data name="XImport_SourceFile" xml:space="preserve">
+    <value>設定檔</value>
+  </data>
+  <data name="XImport_SelectAll" xml:space="preserve">
+    <value>全選</value>
+  </data>
+  <data name="XImport_SelectNone" xml:space="preserve">
+    <value>全不選</value>
+  </data>
+  <data name="XImport_ImportButton" xml:space="preserve">
+    <value>匯入</value>
+  </data>
+  <data name="XImport_DefaultGroup" xml:space="preserve">
+    <value>Xshell 匯入</value>
+  </data>
+  <data name="XImport_NotDetected" xml:space="preserve">
+    <value>未能自動偵測到來源，請手動選擇。</value>
+  </data>
+  <data name="XImport_NoSessions" xml:space="preserve">
+    <value>此目錄下找不到工作階段。</value>
+  </data>
+  <data name="XImport_Found" xml:space="preserve">
+    <value>找到 {0} 個工作階段。</value>
+  </data>
+  <data name="XImport_DirNotFound" xml:space="preserve">
+    <value>目錄不存在。</value>
+  </data>
+  <data name="XImport_SelectedCount" xml:space="preserve">
+    <value>已選 {0} 項 · {1} 個含密碼</value>
+  </data>
+  <data name="XImport_Unsupported" xml:space="preserve">
+    <value>通訊協定不支援</value>
+  </data>
+  <data name="XImport_PwRecovered" xml:space="preserve">
+    <value>密碼已還原</value>
+  </data>
+  <data name="XImport_PwFailed" xml:space="preserve">
+    <value>需手動填寫密碼</value>
+  </data>
+  <data name="XImport_PwNone" xml:space="preserve">
+    <value>無密碼</value>
+  </data>
+  <data name="XImport_Duplicate" xml:space="preserve">
+    <value>已存在</value>
+  </data>
 </root>

@@ -3178,4 +3178,79 @@ Windows는 exe 전체 경로 또는 명령 이름(예: notepad), Linux는 명령
   <data name="Trace_GeoAttribution" xml:space="preserve">
     <value>IP 위치 데이터 제공: DB-IP.com (CC BY 4.0)</value>
   </data>
+  <data name="XImport_MenuItem" xml:space="preserve">
+    <value>Xshell에서 가져오기…</value>
+  </data>
+  <data name="XImport_Title" xml:space="preserve">
+    <value>Xshell 세션 가져오기</value>
+  </data>
+  <data name="XImport_SessionsDir" xml:space="preserve">
+    <value>Xshell 세션 폴더</value>
+  </data>
+  <data name="XImport_Browse" xml:space="preserve">
+    <value>찾아보기…</value>
+  </data>
+  <data name="XImport_Rescan" xml:space="preserve">
+    <value>검색</value>
+  </data>
+  <data name="XImport_MasterPwWarn" xml:space="preserve">
+    <value>이 도구는 마스터 암호가 설정되어 있어 저장된 암호를 복구할 수 없습니다. 세션은 암호 없이 가져옵니다.</value>
+  </data>
+  <data name="XImport_WinScpMenuItem" xml:space="preserve">
+    <value>WinSCP에서 가져오기…</value>
+  </data>
+  <data name="XImport_TitleFmt" xml:space="preserve">
+    <value>{0}에서 세션 가져오기</value>
+  </data>
+  <data name="XImport_GroupFmt" xml:space="preserve">
+    <value>{0} 가져오기</value>
+  </data>
+  <data name="XImport_SourceFolder" xml:space="preserve">
+    <value>세션 폴더</value>
+  </data>
+  <data name="XImport_SourceFile" xml:space="preserve">
+    <value>구성 파일</value>
+  </data>
+  <data name="XImport_SelectAll" xml:space="preserve">
+    <value>모두 선택</value>
+  </data>
+  <data name="XImport_SelectNone" xml:space="preserve">
+    <value>모두 해제</value>
+  </data>
+  <data name="XImport_ImportButton" xml:space="preserve">
+    <value>가져오기</value>
+  </data>
+  <data name="XImport_DefaultGroup" xml:space="preserve">
+    <value>Xshell 가져오기</value>
+  </data>
+  <data name="XImport_NotDetected" xml:space="preserve">
+    <value>가져올 원본을 자동으로 감지하지 못했습니다. 수동으로 선택하세요.</value>
+  </data>
+  <data name="XImport_NoSessions" xml:space="preserve">
+    <value>이 폴더에서 세션을 찾을 수 없습니다.</value>
+  </data>
+  <data name="XImport_Found" xml:space="preserve">
+    <value>세션 {0}개를 찾았습니다.</value>
+  </data>
+  <data name="XImport_DirNotFound" xml:space="preserve">
+    <value>폴더를 찾을 수 없습니다.</value>
+  </data>
+  <data name="XImport_SelectedCount" xml:space="preserve">
+    <value>{0}개 선택 · 암호 {1}개</value>
+  </data>
+  <data name="XImport_Unsupported" xml:space="preserve">
+    <value>지원되지 않는 프로토콜</value>
+  </data>
+  <data name="XImport_PwRecovered" xml:space="preserve">
+    <value>암호 복구됨</value>
+  </data>
+  <data name="XImport_PwFailed" xml:space="preserve">
+    <value>암호 입력 필요</value>
+  </data>
+  <data name="XImport_PwNone" xml:space="preserve">
+    <value>암호 없음</value>
+  </data>
+  <data name="XImport_Duplicate" xml:space="preserve">
+    <value>이미 있음</value>
+  </data>
 </root>
