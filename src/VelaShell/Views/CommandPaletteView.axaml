@@ -21,7 +21,7 @@
     </Style>
     <Style Selector="TextBlock.cat">
       <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />
-      <Setter Property="FontSize" Value="10" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
       <Setter Property="FontWeight" Value="Medium" />
       <Setter Property="Margin" Value="16,6,0,2" />
     </Style>
@@ -38,7 +38,7 @@
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
     <Style Selector="Border.kbd > TextBlock">
-      <Setter Property="FontSize" Value="10" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
       <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />
       <Setter Property="HorizontalAlignment" Value="Center" />
       <Setter Property="VerticalAlignment" Value="Center" />
@@ -91,12 +91,12 @@
                    Background="Transparent"
                    Foreground="{DynamicResource VelaTextPrimary}"
                    CaretBrush="{DynamicResource VelaAccent}"
-                   FontFamily="{DynamicResource VelaTerminalFont}"
-                   FontSize="14"
+                   FontFamily="{DynamicResource VelaUiMonoFont}"
+                   FontSize="{DynamicResource VelaFontSize14}"
                    VerticalContentAlignment="Center"
                    PlaceholderText="{loc:Localize Palette_SearchPlaceholder}" />
           <Border Grid.Column="2" Classes="kbd">
-            <TextBlock Text="Ctrl+K" FontFamily="{DynamicResource VelaTerminalFont}" />
+            <TextBlock Text="Ctrl+K" FontFamily="{DynamicResource VelaUiMonoFont}" />
           </Border>
         </Grid>
       </Border>
@@ -116,27 +116,27 @@
               <Border Classes="kbd">
                 <TextBlock Text="↑↓" />
               </Border>
-              <TextBlock Text="{loc:Localize Palette_Navigate}" FontSize="10" Foreground="{DynamicResource VelaTextMuted}" VerticalAlignment="Center" />
+              <TextBlock Text="{loc:Localize Palette_Navigate}" FontSize="{DynamicResource VelaFontSize10}" Foreground="{DynamicResource VelaTextMuted}" VerticalAlignment="Center" />
             </StackPanel>
             <StackPanel Orientation="Horizontal" Spacing="4">
               <Border Classes="kbd">
                 <TextBlock Text="↵" />
               </Border>
-              <TextBlock Text="{loc:Localize Palette_Confirm}" FontSize="10" Foreground="{DynamicResource VelaTextMuted}" VerticalAlignment="Center" />
+              <TextBlock Text="{loc:Localize Palette_Confirm}" FontSize="{DynamicResource VelaFontSize10}" Foreground="{DynamicResource VelaTextMuted}" VerticalAlignment="Center" />
             </StackPanel>
             <StackPanel Orientation="Horizontal" Spacing="4">
               <Border Classes="kbd">
                 <TextBlock Text="Esc" />
               </Border>
-              <TextBlock Text="{loc:Localize Palette_Close}" FontSize="10" Foreground="{DynamicResource VelaTextMuted}" VerticalAlignment="Center" />
+              <TextBlock Text="{loc:Localize Palette_Close}" FontSize="{DynamicResource VelaFontSize10}" Foreground="{DynamicResource VelaTextMuted}" VerticalAlignment="Center" />
             </StackPanel>
           </StackPanel>
           <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="3">
             <TextBlock Text="{Binding ResultCount}"
-                       FontSize="10"
+                       FontSize="{DynamicResource VelaFontSize10}"
                        Foreground="{DynamicResource VelaTextMuted}" />
             <TextBlock Text="{loc:Localize Palette_ResultsSuffix}"
-                       FontSize="10"
+                       FontSize="{DynamicResource VelaFontSize10}"
                        Foreground="{DynamicResource VelaTextMuted}" />
           </StackPanel>
         </Grid>
@@ -165,23 +165,23 @@
                                      Fill="{DynamicResource VelaStatusConnected}" />
                             <TextBlock Text="{Binding Title}"
                                        Foreground="{DynamicResource VelaTextPrimary}"
-                                       FontFamily="{DynamicResource VelaTerminalFont}"
-                                       FontSize="12"
+                                       FontFamily="{DynamicResource VelaUiMonoFont}"
+                                       FontSize="{DynamicResource VelaFontSize12}"
                                        VerticalAlignment="Center" />
                             <Border IsVisible="{Binding Tag, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                     Background="{DynamicResource VelaAccentDim}"
                                     CornerRadius="2" Padding="6,1" VerticalAlignment="Center">
                               <TextBlock Text="{Binding Tag}"
                                          Foreground="{DynamicResource VelaAccent}"
-                                         FontFamily="{DynamicResource VelaTerminalFont}"
-                                         FontSize="9" />
+                                         FontFamily="{DynamicResource VelaUiMonoFont}"
+                                         FontSize="{DynamicResource VelaFontSize9}" />
                             </Border>
                           </StackPanel>
                           <TextBlock Grid.Column="1"
                                      Text="{Binding Hint}"
                                      Foreground="{DynamicResource VelaTextMuted}"
-                                     FontFamily="{DynamicResource VelaTerminalFont}"
-                                     FontSize="10"
+                                     FontFamily="{DynamicResource VelaUiMonoFont}"
+                                     FontSize="{DynamicResource VelaFontSize10}"
                                      VerticalAlignment="Center" />
                         </Grid>
                       </Border>

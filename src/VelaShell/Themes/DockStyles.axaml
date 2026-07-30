@@ -41,7 +41,7 @@
         <Setter Property="CornerRadius" Value="6" />
         <Setter Property="Padding" Value="8,4" />
         <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
-        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
     </Style>
 
     <!-- 右键菜单(设计稿会话右键菜单样式):所有右键菜单统一外观 ——
@@ -57,8 +57,8 @@
 
     <Style Selector="ContextMenu MenuItem">
         <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
-        <Setter Property="FontFamily" Value="{DynamicResource VelaTerminalFont}" />
-        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
+        <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
         <Setter Property="Padding" Value="10,5" />
         <Setter Property="CornerRadius" Value="4" />
     </Style>
@@ -136,8 +136,8 @@
     </Style>
     <Style Selector="MenuFlyoutPresenter MenuItem">
         <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
-        <Setter Property="FontFamily" Value="{DynamicResource VelaTerminalFont}" />
-        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
+        <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
         <Setter Property="Padding" Value="10,5" />
         <Setter Property="CornerRadius" Value="4" />
     </Style>

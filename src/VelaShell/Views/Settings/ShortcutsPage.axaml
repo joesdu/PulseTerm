@@ -31,7 +31,7 @@
                       <Grid ColumnDefinitions="*,Auto">
                         <TextBlock Text="{Binding Label}"
                                    Foreground="{DynamicResource VelaTextSecondary}"
-                                   FontSize="12" VerticalAlignment="Center" />
+                                   FontSize="{DynamicResource VelaFontSize12}" VerticalAlignment="Center" />
                         <ItemsControl Grid.Column="1" ItemsSource="{Binding Keys}"
                                       VerticalAlignment="Center">
                           <ItemsControl.ItemsPanel>
@@ -44,8 +44,8 @@
                               <Border Classes="keycap">
                                 <TextBlock Text="{Binding}"
                                            Foreground="{DynamicResource VelaTextSecondary}"
-                                           FontFamily="{DynamicResource VelaTerminalFont}"
-                                           FontSize="10" FontWeight="Medium" />
+                                           FontFamily="{DynamicResource VelaUiMonoFont}"
+                                           FontSize="{DynamicResource VelaFontSize10}" FontWeight="Medium" />
                               </Border>
                             </DataTemplate>
                           </ItemsControl.ItemTemplate>

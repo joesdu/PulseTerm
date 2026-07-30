@@ -48,7 +48,7 @@
       <Setter Property="Height" Value="28" />
       <Setter Property="MinHeight" Value="28" />
       <Setter Property="Padding" Value="12,0" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
       <Setter Property="Cursor" Value="Hand" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
@@ -57,14 +57,14 @@
     </Style>
     <Style Selector="TextBlock.col">
       <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />
-      <Setter Property="FontSize" Value="10" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
       <Setter Property="LetterSpacing" Value="1" />
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
     <Style Selector="TextBlock.cell">
       <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
-      <Setter Property="FontFamily" Value="{DynamicResource VelaTerminalFont}" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
       <Setter Property="VerticalAlignment" Value="Center" />
       <Setter Property="TextAlignment" Value="Right" />
     </Style>
@@ -97,7 +97,7 @@
                            Foreground="{DynamicResource VelaAccent}" VerticalAlignment="Center" />
             <TextBlock Text="{Binding SessionLabel}"
                        Foreground="{DynamicResource VelaTextPrimary}"
-                       FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
+                       FontSize="{DynamicResource VelaFontSize12}" FontWeight="SemiBold" VerticalAlignment="Center" />
           </StackPanel>
           <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
             <Button Classes="caption" Click="Minimize_Click">
@@ -125,7 +125,7 @@
         <Grid ColumnDefinitions="Auto,240,Auto,Auto,Auto,*">
           <TextBlock Grid.Column="0" Classes="col" Text="{loc:Localize Trace_Target}" Margin="0,0,8,0" />
           <TextBox Grid.Column="1" Text="{Binding Target}"
-                   Height="28" MinHeight="28" FontSize="11" Padding="8,0"
+                   Height="28" MinHeight="28" FontSize="{DynamicResource VelaFontSize11}" Padding="8,0"
                    VerticalAlignment="Center" VerticalContentAlignment="Center" />
           <Button Grid.Column="2" Classes="tool" Margin="8,0,0,0"
                   Command="{Binding StartCommand}" Content="{loc:Localize Trace_Start}" />
@@ -134,7 +134,7 @@
           <CheckBox Grid.Column="4" Margin="12,0,0,0"
                     IsChecked="{Binding Continuous}"
                     Content="{loc:Localize Trace_Continuous}"
-                    FontSize="11"
+                    FontSize="{DynamicResource VelaFontSize11}"
                     Foreground="{DynamicResource VelaTextSecondary}"
                     VerticalAlignment="Center" />
         </Grid>
@@ -152,7 +152,7 @@
             <StackPanel Spacing="6">
               <TextBlock Text="{loc:Localize Trace_MapNeedsDatabase}"
                          Foreground="{DynamicResource VelaTextSecondary}"
-                         FontSize="10" TextWrapping="Wrap" />
+                         FontSize="{DynamicResource VelaFontSize10}" TextWrapping="Wrap" />
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <Button Classes="tool" Height="24" MinHeight="24"
                         Command="{Binding OpenDatabaseUrlCommand}"
@@ -163,11 +163,11 @@
               </StackPanel>
               <TextBlock Text="{Binding GeoDatabaseUrl}"
                          Foreground="{DynamicResource VelaTextMuted}"
-                         FontFamily="{DynamicResource VelaTerminalFont}"
-                         FontSize="9" TextWrapping="Wrap" />
+                         FontFamily="{DynamicResource VelaUiMonoFont}"
+                         FontSize="{DynamicResource VelaFontSize9}" TextWrapping="Wrap" />
               <TextBlock Text="{Binding GeoDatabaseStatus}"
                          Foreground="{DynamicResource VelaError}"
-                         FontSize="10" TextWrapping="Wrap"
+                         FontSize="{DynamicResource VelaFontSize10}" TextWrapping="Wrap"
                          IsVisible="{Binding GeoDatabaseStatus, Converter={x:Static conv:StringNotEmptyConverter.Instance}}" />
             </StackPanel>
           </Border>
@@ -176,7 +176,7 @@
                   Background="#80000000" Padding="6,3" Margin="0,0,6,6"
                   IsVisible="{Binding !GeoDatabaseMissing}">
             <TextBlock Text="{loc:Localize Trace_GeoAttribution}"
-                       Foreground="{DynamicResource VelaTextMuted}" FontSize="9" />
+                       Foreground="{DynamicResource VelaTextMuted}" FontSize="{DynamicResource VelaFontSize9}" />
           </Border>
         </Panel>
         <Border Grid.Column="1" Background="{DynamicResource VelaBorderPrimary}" />
@@ -222,7 +222,7 @@
                 <Border Background="{DynamicResource VelaBgHover}" CornerRadius="3" Padding="4,0"
                         VerticalAlignment="Center"
                         IsVisible="{Binding ExtraAddresses, Converter={x:Static conv:StringNotEmptyConverter.Instance}}">
-                  <TextBlock Text="{Binding ExtraAddresses}" FontSize="9"
+                  <TextBlock Text="{Binding ExtraAddresses}" FontSize="{DynamicResource VelaFontSize9}"
                              Foreground="{DynamicResource VelaTextMuted}" />
                 </Border>
               </StackPanel>
@@ -251,7 +251,7 @@
               Padding="12,0">
         <TextBlock Text="{Binding Status}"
                    Foreground="{DynamicResource VelaTextMuted}"
-                   FontSize="10" VerticalAlignment="Center"
+                   FontSize="{DynamicResource VelaFontSize10}" VerticalAlignment="Center"
                    TextTrimming="CharacterEllipsis" />
       </Border>
     </Grid>

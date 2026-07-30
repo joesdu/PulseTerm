@@ -45,8 +45,8 @@
                            Foreground="{DynamicResource VelaAccent}" />
             <TextBlock Text="{loc:Localize Transfer_Title}"
                        Foreground="{DynamicResource VelaTextPrimary}"
-                       FontFamily="{DynamicResource VelaTerminalFont}"
-                       FontSize="11" FontWeight="Medium"
+                       FontFamily="{DynamicResource VelaUiMonoFont}"
+                       FontSize="{DynamicResource VelaFontSize11}" FontWeight="Medium"
                        VerticalAlignment="Center" />
             <Border Background="{DynamicResource VelaAccent}"
                     CornerRadius="8" Padding="6,1"
@@ -54,8 +54,8 @@
                     IsVisible="{Binding PendingCount}">
               <TextBlock Text="{Binding PendingCount}"
                          Foreground="{DynamicResource VelaAccentText}"
-                         FontFamily="{DynamicResource VelaTerminalFont}"
-                         FontSize="9" FontWeight="Medium" />
+                         FontFamily="{DynamicResource VelaUiMonoFont}"
+                         FontSize="{DynamicResource VelaFontSize9}" FontWeight="Medium" />
             </Border>
           </StackPanel>
           <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
@@ -66,8 +66,8 @@
                     ToolTip.Tip="{loc:Localize Transfer_CancelRemainingTip}">
               <TextBlock Text="{loc:Localize Cancel}"
                          Foreground="{DynamicResource VelaError}"
-                         FontFamily="{DynamicResource VelaTerminalFont}"
-                         FontSize="10" FontWeight="Medium" />
+                         FontFamily="{DynamicResource VelaUiMonoFont}"
+                         FontSize="{DynamicResource VelaFontSize10}" FontWeight="Medium" />
             </Button>
             <!-- 清除已完成/已取消的历史行(进行中与失败行保留:失败行还带着"重试"入口)。 -->
             <Button Background="Transparent" Padding="4,1" Cursor="Hand"
@@ -75,8 +75,8 @@
                     ToolTip.Tip="{loc:Localize Transfer_ClearCompleted}">
               <TextBlock Text="{loc:Localize Transfer_ClearCompleted}"
                          Foreground="{DynamicResource VelaTextTertiary}"
-                         FontFamily="{DynamicResource VelaTerminalFont}"
-                         FontSize="10" />
+                         FontFamily="{DynamicResource VelaUiMonoFont}"
+                         FontSize="{DynamicResource VelaFontSize10}" />
             </Button>
             <Button Background="Transparent" Padding="2" Cursor="Hand"
                     Command="{Binding HidePanelCommand}"
@@ -96,8 +96,8 @@
               IsVisible="{Binding IsPreparing}">
         <TextBlock Text="{Binding PreparingText}"
                    Foreground="{DynamicResource VelaTextMuted}"
-                   FontFamily="{DynamicResource VelaTerminalFont}"
-                   FontSize="10" />
+                   FontFamily="{DynamicResource VelaUiMonoFont}"
+                   FontSize="{DynamicResource VelaFontSize10}" />
       </Border>
 
       <!-- 传输行:限制面板高度(约 5 行)并对溢出内容滚动。
@@ -122,8 +122,8 @@
                     <TextBlock Grid.Column="0"
                                Text="{Binding FileName}"
                                Foreground="{DynamicResource VelaTextPrimary}"
-                               FontFamily="{DynamicResource VelaTerminalFont}"
-                               FontSize="10" FontWeight="Medium"
+                               FontFamily="{DynamicResource VelaUiMonoFont}"
+                               FontSize="{DynamicResource VelaFontSize10}" FontWeight="Medium"
                                TextTrimming="CharacterEllipsis" />
                     <!-- 失败且原会话仍在时可重试:重新探测续传起点后单文件重跑(断点续传收尾)。 -->
                     <Button Grid.Column="1" Background="Transparent" Padding="4,0" Margin="0,0,6,0" Cursor="Hand"
@@ -133,13 +133,13 @@
                             ToolTip.Tip="{loc:Localize Transfer_Retry}">
                       <TextBlock Text="{loc:Localize Transfer_Retry}"
                                  Foreground="{DynamicResource VelaAccent}"
-                                 FontFamily="{DynamicResource VelaTerminalFont}"
-                                 FontSize="10" FontWeight="Medium" />
+                                 FontFamily="{DynamicResource VelaUiMonoFont}"
+                                 FontSize="{DynamicResource VelaFontSize10}" FontWeight="Medium" />
                     </Button>
                     <TextBlock Grid.Column="2"
                                Text="{Binding ProgressText}"
-                               FontFamily="{DynamicResource VelaTerminalFont}"
-                               FontSize="10" FontWeight="Medium"
+                               FontFamily="{DynamicResource VelaUiMonoFont}"
+                               FontSize="{DynamicResource VelaFontSize10}" FontWeight="Medium"
                                Classes.done="{Binding IsCompleted}"
                                Classes.failed="{Binding IsFailed}">
                       <TextBlock.Styles>
@@ -167,8 +167,8 @@
                   <!-- 明细行 -->
                   <TextBlock Text="{Binding InfoLine}"
                              Foreground="{DynamicResource VelaTextMuted}"
-                             FontFamily="{DynamicResource VelaTerminalFont}"
-                             FontSize="9" />
+                             FontFamily="{DynamicResource VelaUiMonoFont}"
+                             FontSize="{DynamicResource VelaFontSize9}" />
                 </StackPanel>
               </Border>
             </DataTemplate>

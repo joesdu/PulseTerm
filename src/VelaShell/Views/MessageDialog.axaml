@@ -40,18 +40,18 @@
     <!-- 自定义内容区(属性表/权限矩阵等)默认文字样式:调用方只挂类名,不在代码里取画刷。 -->
     <Style Selector="ContentControl#BodyHost TextBlock">
       <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
-      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize12}" />
     </Style>
     <Style Selector="ContentControl#BodyHost TextBlock.dim">
       <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
     </Style>
     <Style Selector="ContentControl#BodyHost TextBlock.mono">
-      <Setter Property="FontFamily" Value="{DynamicResource VelaTerminalFont}" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
     </Style>
     <Style Selector="ContentControl#BodyHost TextBlock.mono-accent">
-      <Setter Property="FontFamily" Value="{DynamicResource VelaTerminalFont}" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
       <Setter Property="Foreground" Value="{DynamicResource VelaAccentText}" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
     </Style>
     <Style Selector="ContentControl#BodyHost pc|LucideIcon.folder">
       <Setter Property="Foreground" Value="{DynamicResource VelaFileFolderIcon}" />
@@ -65,8 +65,8 @@
       <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
       <Setter Property="CornerRadius" Value="4" />
       <Setter Property="MinHeight" Value="28" />
-      <Setter Property="FontSize" Value="11" />
-      <Setter Property="FontFamily" Value="{DynamicResource VelaTerminalFont}" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
     </Style>
 
     <Style Selector="Button.dlg-outline">
@@ -78,7 +78,7 @@
       <Setter Property="Padding" Value="12,0" />
       <Setter Property="CornerRadius" Value="4" />
       <Setter Property="Cursor" Value="Hand" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
     </Style>
     <Style Selector="Button.dlg-primary">
       <Setter Property="Background" Value="{DynamicResource VelaAccent}" />
@@ -87,7 +87,7 @@
       <Setter Property="Padding" Value="14,0" />
       <Setter Property="CornerRadius" Value="4" />
       <Setter Property="Cursor" Value="Hand" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
       <Setter Property="FontWeight" Value="Medium" />
     </Style>
     <Style Selector="Button.dlg-danger">
@@ -97,7 +97,7 @@
       <Setter Property="Padding" Value="14,0" />
       <Setter Property="CornerRadius" Value="4" />
       <Setter Property="Cursor" Value="Hand" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
       <Setter Property="FontWeight" Value="Medium" />
     </Style>
   </Window.Styles>
@@ -122,7 +122,7 @@
                          VerticalAlignment="Center" Margin="0,0,10,0" />
           <TextBlock Grid.Column="1" Name="TitleText"
                      Foreground="{DynamicResource VelaTextPrimary}"
-                     FontSize="13" FontWeight="SemiBold"
+                     FontSize="{DynamicResource VelaFontSize13}" FontWeight="SemiBold"
                      VerticalAlignment="Center"
                      TextTrimming="CharacterEllipsis" />
           <Button Grid.Column="2" Width="24" Height="24"
@@ -140,14 +140,14 @@
       <StackPanel Grid.Row="1" Margin="20,16" Spacing="12">
         <TextBlock Name="MessageText"
                    Foreground="{DynamicResource VelaTextSecondary}"
-                   FontSize="12" LineHeight="19"
+                   FontSize="{DynamicResource VelaFontSize12}" LineHeight="19"
                    TextWrapping="Wrap" />
         <TextBox Name="InputBox" IsVisible="False"
                  Background="{DynamicResource VelaBgInput}"
                  Foreground="{DynamicResource VelaTextPrimary}"
                  BorderBrush="{DynamicResource VelaBorderPrimary}"
-                 CornerRadius="4" MinHeight="30" FontSize="11"
-                 FontFamily="{DynamicResource VelaTerminalFont}" />
+                 CornerRadius="4" MinHeight="30" FontSize="{DynamicResource VelaFontSize11}"
+                 FontFamily="{DynamicResource VelaUiMonoFont}" />
         <ContentControl Name="BodyHost" IsVisible="False" />
       </StackPanel>
 

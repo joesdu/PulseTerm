@@ -37,7 +37,7 @@
       <Setter Property="Padding" Value="12,0" />
       <Setter Property="CornerRadius" Value="4" />
       <Setter Property="Cursor" Value="Hand" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
       <Setter Property="FontWeight" Value="Medium" />
     </Style>
   </Window.Styles>
@@ -66,12 +66,12 @@
           <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
             <TextBlock Name="TitleText"
                        Foreground="{DynamicResource VelaTextPrimary}"
-                       FontSize="13" FontWeight="SemiBold"
+                       FontSize="{DynamicResource VelaFontSize13}" FontWeight="SemiBold"
                        TextTrimming="CharacterEllipsis" />
             <TextBlock Name="PathText"
                        Foreground="{DynamicResource VelaTextMuted}"
-                       FontFamily="{DynamicResource VelaTerminalFont}"
-                       FontSize="10"
+                       FontFamily="{DynamicResource VelaUiMonoFont}"
+                       FontSize="{DynamicResource VelaFontSize10}"
                        TextTrimming="CharacterEllipsis" />
           </StackPanel>
           <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
@@ -100,8 +100,8 @@
       <!-- 编辑器 -->
       <Border Grid.Row="1" Background="{DynamicResource VelaBgSftpPanel}">
         <ae:TextEditor Name="Editor"
-                       FontFamily="{DynamicResource VelaTerminalFont}"
-                       FontSize="13"
+                       FontFamily="{DynamicResource VelaUiMonoFont}"
+                       FontSize="{DynamicResource VelaFontSize13}"
                        ShowLineNumbers="True"
                        Background="Transparent"
                        Foreground="{DynamicResource VelaTextPrimary}"
@@ -118,8 +118,8 @@
         <Grid ColumnDefinitions="*,Auto">
           <TextBlock Name="StatusText"
                      Foreground="{DynamicResource VelaTextMuted}"
-                     FontFamily="{DynamicResource VelaTerminalFont}"
-                     FontSize="10"
+                     FontFamily="{DynamicResource VelaUiMonoFont}"
+                     FontSize="{DynamicResource VelaFontSize10}"
                      VerticalAlignment="Center"
                      TextTrimming="CharacterEllipsis" />
           <Border Grid.Column="1" Width="18" Height="18"

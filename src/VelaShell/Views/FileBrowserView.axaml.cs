@@ -43,11 +43,12 @@ public partial class FileBrowserView : UserControl
     /// <summary>表头/行的左右内边距合计(axaml 里 Padding="14,0")。</summary>
     private const double HorizontalPadding = 28;
 
-    // 必须与 axaml 里渲染用的 VelaTerminalFont 令牌(内置 Cascadia Mono 打头)一致:
-    // 列宽是用这个字体度量的,若度量字体与实际渲染字体不同(旧值以 JetBrains Mono 打头,
-    // 且不含内置 Cascadia),字形步进不一致会导致列自适应/截断错位。
-    private static readonly FontFamily TerminalFont = new("fonts:VelaShell#Cascadia Mono, JetBrains Mono, Consolas, monospace");
-    private static readonly Typeface TerminalTypeface = new(TerminalFont);
+    // 列宽靠度量文字算出来,度量字体必须与实际渲染字体一致 —— 不一致(旧值以 JetBrains Mono
+    // 打头、且不含内置 Cascadia)字形步进就对不上,列自适应/截断会错位。渲染用的是
+    // VelaUiMonoFont 令牌(跟随设置 → 外观 → 界面字体),故运行时现取(见 ResolveMonoTypeface);
+    // 这里只留取不到令牌时的兜底。
+    private static readonly FontFamily DefaultMonoFont = new("fonts:VelaShell#Cascadia Mono, JetBrains Mono, Consolas, monospace");
+    private static readonly Typeface DefaultMonoTypeface = new(DefaultMonoFont);
     private string? _activeSplitter;
     private double _dragStartX;
 
@@ -212,7 +213,7 @@ public partial class FileBrowserView : UserControl
     /// 双击拖拽条的自适应宽度:取表头与所有行里最宽的那条文本。“文件名”列还要
     /// 额外让出前导图标区(14px 图标 + 6px 间距)。上限防止一个超长名字把列撑爆。
     /// </summary>
-    private static double EstimateAutoWidth(FileBrowserViewModel vm, string columnKey)
+    private double EstimateAutoWidth(FileBrowserViewModel vm, string columnKey)
     {
         (
             string Header,
@@ -228,9 +229,12 @@ public partial class FileBrowserView : UserControl
             "type" => (Strings.FileType, f => f.FileTypeDisplay, 8d, 300d),
             _ => (Strings.FileName, f => f.DisplayName, 34d, 760d),
         };
-        double headerWidth = MeasureTextWidth(spec.Header, 10);
+        // 度量必须用【当前生效的】字体与字号:两者都跟随设置 → 外观 → 界面字体/字号,
+        // 写死就会在用户改过设置后把列算窄一截(文字被截断)。
+        Typeface typeface = ResolveMonoTypeface();
+        double headerWidth = MeasureTextWidth(spec.Header, ResolveFontSize("VelaFontSize10", 10), typeface);
         double rowsWidth = vm.Files.Any()
-            ? vm.Files.Max(f => MeasureTextWidth(spec.Cell(f), 11))
+            ? vm.Files.Max(f => MeasureTextWidth(spec.Cell(f), ResolveFontSize("VelaFontSize11", 11), typeface))
             : 0;
         return Math.Clamp(
             Math.Max(headerWidth, rowsWidth) + spec.Padding,
@@ -257,13 +261,23 @@ public partial class FileBrowserView : UserControl
         );
     }
 
-    private static double MeasureTextWidth(string text, double fontSize)
+    /// <summary>列表实际渲染用的等宽字体(VelaUiMonoFont 令牌);取不到时退回内置默认。</summary>
+    private Typeface ResolveMonoTypeface() =>
+        this.TryFindResource("VelaUiMonoFont", out object? value) && value is FontFamily family
+            ? new Typeface(family)
+            : DefaultMonoTypeface;
+
+    /// <summary>取字号令牌的当前值;取不到时退回默认基准下的磅值。</summary>
+    private double ResolveFontSize(string key, double fallback) =>
+        this.TryFindResource(key, out object? value) && value is double size ? size : fallback;
+
+    private static double MeasureTextWidth(string text, double fontSize, Typeface typeface)
     {
         var ft = new FormattedText(
             text,
             CultureInfo.CurrentCulture,
             FlowDirection.LeftToRight,
-            TerminalTypeface,
+            typeface,
             fontSize,
             Brushes.White
         );
