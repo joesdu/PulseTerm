@@ -494,7 +494,7 @@ public class SettingsViewModel : ReactiveObject
     /// </summary>
     public ContributorViewModel[] Contributors { get; } =
         [
-            new("joesdu"), new("tsaiggo"), new("pengqian089")
+            new("joesdu"), new("tsaiggo"), new("pengqian089"), new("Cyaim")
         ];
 
     /// <summary>开源依赖(真实技术栈)。</summary>
