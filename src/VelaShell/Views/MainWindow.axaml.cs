@@ -342,28 +342,68 @@ public partial class MainWindow : Window
         ApplyWindowOpacity(a.WindowOpacityPercent);
         ApplySidebarPosition(a.SidebarPosition == "right");
         ApplyBackgroundImage(a);
-        if (Application.Current is not { } app)
+        if (Application.Current is { } app)
         {
-            return;
+            ApplyUiFontTokens(app, a);
         }
-        // 界面字体:覆盖 VelaUiFont 令牌(空或默认 Inter 时还原主题字体);
-        // App 级 :is(Window) 样式让所有窗口继承,未显式指定 FontFamily 的文本统一换字体。
+    }
+
+    /// <summary>
+    /// 把设置 → 外观 → 界面字体/字号下发成应用级令牌。界面上的字体与字号【只】经由令牌
+    /// 取值(axaml 里不写字面量),所以这一处覆盖就是"界面字体/字号"这两个选项的全部实现。
+    /// </summary>
+    internal static void ApplyUiFontTokens(Application app, AppearanceOptions a)
+    {
+        // 界面字体:覆盖 VelaUiFont(比例)与 VelaUiMonoFont(界面里按列对齐的等宽部分)
+        // 两个令牌 —— 界面上的文字要么用前者要么用后者,一起换才谈得上"界面字体"生效。
+        // 空或默认 Inter 时移除覆盖,还原令牌默认值(比例 Inter + 等宽 Cascadia Mono)。
+        // App 级 :is(Window) 样式让所有窗口继承,终端画面自身不受影响(它吃终端设置)。
         string uiFont = a.UiFont.Trim();
         if (string.IsNullOrEmpty(uiFont) || string.Equals(uiFont, "Inter", StringComparison.OrdinalIgnoreCase))
         {
             app.Resources.Remove("VelaUiFont");
+            app.Resources.Remove("VelaUiMonoFont");
         }
         else
         {
-            app.Resources["VelaUiFont"] = new FontFamily($"{uiFont}, Segoe UI, Microsoft YaHei, sans-serif");
+            var family = new FontFamily($"{uiFont}, Segoe UI, Microsoft YaHei, sans-serif");
+            app.Resources["VelaUiFont"] = family;
+            app.Resources["VelaUiMonoFont"] = family;
         }
 
         // 界面字号:覆盖 VelaUiFontSize 令牌(同上,全窗口继承);同时覆盖 Fluent 的
         // ControlContentThemeFontSize,让内置控件(按钮/输入框/下拉等)一起缩放。
-        double uiFontSize = Math.Clamp(a.UiFontSize, 9, 24);
+        double uiFontSize = Math.Clamp((double)a.UiFontSize, MinUiFontSize, MaxUiFontSize);
         app.Resources["VelaUiFontSize"] = uiFontSize;
         app.Resources["ControlContentThemeFontSize"] = uiFontSize;
+
+        // 整套字号阶梯按 基准/13 等比缩放:界面各处不再写死字号,层级关系也不会因缩放走形。
+        foreach (double step in FontSizeSteps)
+        {
+            app.Resources[$"VelaFontSize{step:0}"] = ScaleFontSize(step, uiFontSize);
+        }
+        // 说明文字固定为基准字号的 85%(不参与等比阶梯,见 SettingsView 的 row-desc)。
+        app.Resources["VelaFontSizeDesc"] = ScaleFontSize(BaseUiFontSize * DescFontSizeRatio, uiFontSize);
     }
+
+    /// <summary>界面字号的取值范围(与设置页 NumericUpDown 的 Minimum/Maximum 一致)。</summary>
+    private const double MinUiFontSize = 9, MaxUiFontSize = 24;
+
+    /// <summary>设计基准字号:字号阶梯令牌名里的数字就是这个基准下的磅值。</summary>
+    private const double BaseUiFontSize = 13;
+
+    /// <summary>设置页说明文字相对基准字号的比例。</summary>
+    private const double DescFontSizeRatio = 0.85;
+
+    /// <summary>缩放后的字号下限:再小就糊了,基准取最小值时给小号字兜个底。</summary>
+    private const double MinScaledFontSize = 6;
+
+    /// <summary>VelaTokens.axaml 里定义的字号阶梯(= 基准 13 下的磅值)。</summary>
+    private static readonly double[] FontSizeSteps = [8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20];
+
+    /// <summary>把基准 13 下的设计字号换算到用户设定的基准上,取整以免落在半像素上。</summary>
+    private static double ScaleFontSize(double designSize, double uiFontSize) =>
+        Math.Max(MinScaledFontSize, Math.Round(designSize * uiFontSize / BaseUiFontSize));
 
     private Bitmap? _backgroundBitmap;
     private string? _loadedBackgroundPath;

@@ -24,18 +24,18 @@
 
   <Window.Styles>
     <Style Selector="TextBlock.mono">
-      <Setter Property="FontFamily" Value="{DynamicResource VelaTerminalFont}" />
-      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize12}" />
       <Setter Property="Foreground" Value="{DynamicResource VelaAccentText}" />
     </Style>
     <Style Selector="TextBlock.info-label">
       <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
-      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize12}" />
       <Setter Property="Margin" Value="0,0,12,0" />
     </Style>
     <Style Selector="TextBlock.info-value">
       <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
-      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize12}" />
     </Style>
     <Style Selector="Button.trust">
       <Setter Property="Background" Value="{DynamicResource VelaAccent}" />
@@ -44,7 +44,7 @@
       <Setter Property="Padding" Value="14,0" />
       <Setter Property="CornerRadius" Value="4" />
       <Setter Property="Cursor" Value="Hand" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
       <Setter Property="FontWeight" Value="Medium" />
     </Style>
     <Style Selector="Button.reject">
@@ -56,7 +56,7 @@
       <Setter Property="Padding" Value="12,0" />
       <Setter Property="CornerRadius" Value="4" />
       <Setter Property="Cursor" Value="Hand" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
     </Style>
     <Style Selector="Button.trust-once">
       <Setter Property="Background" Value="Transparent" />
@@ -67,7 +67,7 @@
       <Setter Property="Padding" Value="12,0" />
       <Setter Property="CornerRadius" Value="4" />
       <Setter Property="Cursor" Value="Hand" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
     </Style>
   </Window.Styles>
 
@@ -94,7 +94,7 @@
           <TextBlock Grid.Column="1"
                      Text="{x:Static res:Strings.HostKeyVerification}"
                      Foreground="{DynamicResource VelaTextPrimary}"
-                     FontSize="13" FontWeight="SemiBold"
+                     FontSize="{DynamicResource VelaFontSize13}" FontWeight="SemiBold"
                      VerticalAlignment="Center" />
           <Button Grid.Column="2" Width="24" Height="24"
                   Background="Transparent" Padding="0" CornerRadius="3"
@@ -121,7 +121,7 @@
                            Foreground="{DynamicResource VelaWarning}" />
             <TextBlock Text="{Binding WarningText}"
                        Foreground="{DynamicResource VelaWarning}"
-                       FontSize="12"
+                       FontSize="{DynamicResource VelaFontSize12}"
                        FontWeight="SemiBold"
                        TextWrapping="Wrap"
                        MaxWidth="360"
@@ -129,7 +129,7 @@
                        IsVisible="{Binding !IsChanged}" />
             <TextBlock Text="{Binding WarningText}"
                        Foreground="{DynamicResource VelaError}"
-                       FontSize="12"
+                       FontSize="{DynamicResource VelaFontSize12}"
                        FontWeight="SemiBold"
                        TextWrapping="Wrap"
                        MaxWidth="360"

@@ -28,10 +28,10 @@
                 BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,0,0,1"
                 Padding="12,0">
           <Grid ColumnDefinitions="130,80,*,60">
-            <TextBlock Text="{loc:Localize Name}" Foreground="{DynamicResource VelaTextMuted}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
-            <TextBlock Grid.Column="1" Text="{loc:Localize KeyType}" Foreground="{DynamicResource VelaTextMuted}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
-            <TextBlock Grid.Column="2" Text="{loc:Localize Fingerprint}" Foreground="{DynamicResource VelaTextMuted}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
-            <TextBlock Grid.Column="3" Text="{loc:Localize SetSync_Actions}" Foreground="{DynamicResource VelaTextMuted}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
+            <TextBlock Text="{loc:Localize Name}" Foreground="{DynamicResource VelaTextMuted}" FontSize="{DynamicResource VelaFontSize11}" FontWeight="SemiBold" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="1" Text="{loc:Localize KeyType}" Foreground="{DynamicResource VelaTextMuted}" FontSize="{DynamicResource VelaFontSize11}" FontWeight="SemiBold" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="2" Text="{loc:Localize Fingerprint}" Foreground="{DynamicResource VelaTextMuted}" FontSize="{DynamicResource VelaFontSize11}" FontWeight="SemiBold" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="3" Text="{loc:Localize SetSync_Actions}" Foreground="{DynamicResource VelaTextMuted}" FontSize="{DynamicResource VelaFontSize11}" FontWeight="SemiBold" VerticalAlignment="Center" />
           </Grid>
         </Border>
 
@@ -47,16 +47,16 @@
                               Foreground="{DynamicResource VelaAccent}" />
                     <TextBlock Text="{Binding Name}"
                                Foreground="{DynamicResource VelaTextPrimary}"
-                               FontFamily="{DynamicResource VelaTerminalFont}" FontSize="11"
+                               FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize11}"
                                TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                   </StackPanel>
                   <TextBlock Grid.Column="1" Text="{Binding Type}"
                              Foreground="{DynamicResource VelaTextSecondary}"
-                             FontFamily="{DynamicResource VelaTerminalFont}" FontSize="10"
+                             FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize10}"
                              VerticalAlignment="Center" />
                   <TextBlock Grid.Column="2" Text="{Binding Fingerprint}"
                              Foreground="{DynamicResource VelaTextMuted}"
-                             FontFamily="{DynamicResource VelaTerminalFont}" FontSize="10"
+                             FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize10}"
                              TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                   <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                     <Button Width="24" Height="24" Padding="0" Background="Transparent"

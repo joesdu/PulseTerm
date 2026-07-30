@@ -70,7 +70,7 @@
     </Style>
     <Style Selector="Button.col-header TextBlock">
       <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />
-      <Setter Property="FontSize" Value="10" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
       <Setter Property="LetterSpacing" Value="1" />
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
@@ -84,7 +84,7 @@
       <Setter Property="Height" Value="28" />
       <Setter Property="MinHeight" Value="28" />
       <Setter Property="Padding" Value="10,0" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
       <Setter Property="Cursor" Value="Hand" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
@@ -132,13 +132,13 @@
     <!-- 概览条上的文字:标签与数值共用一套,字号字族一致,基线才对得齐。 -->
     <Style Selector="TextBlock.gauge-label">
       <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />
-      <Setter Property="FontSize" Value="10" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
     <Style Selector="TextBlock.gauge-value">
       <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
-      <Setter Property="FontFamily" Value="{DynamicResource VelaTerminalFont}" />
-      <Setter Property="FontSize" Value="10" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
       <Setter Property="TextAlignment" Value="Right" />
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
@@ -146,12 +146,12 @@
     <!-- 数据行文本 -->
     <Style Selector="TextBlock.cell">
       <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
       <Setter Property="VerticalAlignment" Value="Center" />
       <Setter Property="TextTrimming" Value="CharacterEllipsis" />
     </Style>
     <Style Selector="TextBlock.num">
-      <Setter Property="FontFamily" Value="{DynamicResource VelaTerminalFont}" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
       <Setter Property="TextAlignment" Value="Right" />
     </Style>
   </Window.Styles>
@@ -184,7 +184,7 @@
                          VerticalAlignment="Center" />
           <TextBlock Text="{Binding HostLabel}"
                      Foreground="{DynamicResource VelaTextPrimary}"
-                     FontSize="12" FontWeight="SemiBold"
+                     FontSize="{DynamicResource VelaFontSize12}" FontWeight="SemiBold"
                      VerticalAlignment="Center" />
         </StackPanel>
         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
@@ -214,20 +214,20 @@
         <TextBox Grid.Column="0"
                  Text="{Binding SearchText}"
                  PlaceholderText="{loc:Localize Proc_SearchPlaceholder}"
-                 Height="28" MinHeight="28" FontSize="11" Padding="8,0"
+                 Height="28" MinHeight="28" FontSize="{DynamicResource VelaFontSize11}" Padding="8,0"
                  VerticalAlignment="Center"
                  VerticalContentAlignment="Center" />
 
         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
           <CheckBox IsChecked="{Binding ShowTree}"
                     Content="{loc:Localize Proc_TreeView}"
-                    FontSize="11"
+                    FontSize="{DynamicResource VelaFontSize11}"
                     Foreground="{DynamicResource VelaTextSecondary}"
                     VerticalAlignment="Center" />
 
           <CheckBox IsChecked="{Binding ShowKernelThreads}"
                     Content="{loc:Localize Proc_ShowKernelThreads}"
-                    FontSize="11"
+                    FontSize="{DynamicResource VelaFontSize11}"
                     Foreground="{DynamicResource VelaTextSecondary}"
                     VerticalAlignment="Center" />
 
@@ -384,7 +384,7 @@
           </Button>
           <TextBlock Grid.Column="8" Text="{loc:Localize Proc_ColCommand}"
                      Foreground="{DynamicResource VelaTextMuted}"
-                     FontSize="10" LetterSpacing="1" VerticalAlignment="Center" />
+                     FontSize="{DynamicResource VelaFontSize10}" LetterSpacing="1" VerticalAlignment="Center" />
         </Grid>
       </Border>
 
@@ -439,7 +439,7 @@
                           IsVisible="{Binding HasChildren}"
                           Command="{Binding $parent[ListBox].((vm:ProcessManagerViewModel)DataContext).ToggleExpandCommand}"
                           CommandParameter="{Binding}">
-                    <TextBlock Text="{Binding ExpanderGlyph}" FontSize="9"
+                    <TextBlock Text="{Binding ExpanderGlyph}" FontSize="{DynamicResource VelaFontSize9}"
                                Foreground="{DynamicResource VelaTextMuted}"
                                HorizontalAlignment="Center" VerticalAlignment="Center" />
                   </Button>
@@ -470,11 +470,11 @@
                   IsVisible="{Binding IsUnavailable}">
         <TextBlock Text="{loc:Localize Proc_Unavailable}"
                    Foreground="{DynamicResource VelaTextSecondary}"
-                   FontSize="12" FontWeight="SemiBold"
+                   FontSize="{DynamicResource VelaFontSize12}" FontWeight="SemiBold"
                    TextAlignment="Center" HorizontalAlignment="Center" />
         <TextBlock Text="{loc:Localize Proc_UnavailableHint}"
                    Foreground="{DynamicResource VelaTextMuted}"
-                   FontSize="11" TextWrapping="Wrap" TextAlignment="Center" />
+                   FontSize="{DynamicResource VelaFontSize11}" TextWrapping="Wrap" TextAlignment="Center" />
       </StackPanel>
     </Grid>
 
@@ -488,16 +488,16 @@
       <Grid ColumnDefinitions="Auto,*,Auto">
         <TextBlock Grid.Column="0" Text="{Binding CountSummary}"
                    Foreground="{DynamicResource VelaTextMuted}"
-                   FontSize="10" VerticalAlignment="Center" />
+                   FontSize="{DynamicResource VelaFontSize10}" VerticalAlignment="Center" />
         <TextBlock Grid.Column="1" Text="{Binding StatusMessage}"
                    Foreground="{DynamicResource VelaTextSecondary}"
-                   FontSize="10" Margin="16,0"
+                   FontSize="{DynamicResource VelaFontSize10}" Margin="16,0"
                    TextTrimming="CharacterEllipsis"
                    VerticalAlignment="Center"
                    IsVisible="{Binding StatusMessage, Converter={x:Static conv:StringNotEmptyConverter.Instance}}" />
         <TextBlock Grid.Column="2" Text="{Binding CoresSummary}"
                    Foreground="{DynamicResource VelaTextMuted}"
-                   FontSize="10" VerticalAlignment="Center" />
+                   FontSize="{DynamicResource VelaFontSize10}" VerticalAlignment="Center" />
       </Grid>
     </Border>
   </Grid>

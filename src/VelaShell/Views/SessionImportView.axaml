@@ -17,7 +17,7 @@
   <Window.Styles>
     <Style Selector="TextBlock.field-label">
       <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
       <Setter Property="FontWeight" Value="Medium" />
       <Setter Property="Margin" Value="0,0,0,5" />
     </Style>
@@ -27,8 +27,8 @@
       <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
       <Setter Property="CornerRadius" Value="4" />
       <Setter Property="MinHeight" Value="32" />
-      <Setter Property="FontSize" Value="11" />
-      <Setter Property="FontFamily" Value="{DynamicResource VelaTerminalFont}" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
     <Style Selector="Button.dlg-outline">
@@ -40,7 +40,7 @@
       <Setter Property="Padding" Value="14,0" />
       <Setter Property="CornerRadius" Value="4" />
       <Setter Property="Cursor" Value="Hand" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
       <Setter Property="FontWeight" Value="Medium" />
     </Style>
     <Style Selector="Button.dlg-primary">
@@ -50,7 +50,7 @@
       <Setter Property="Padding" Value="16,0" />
       <Setter Property="CornerRadius" Value="4" />
       <Setter Property="Cursor" Value="Hand" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
       <Setter Property="FontWeight" Value="Medium" />
     </Style>
     <Style Selector="Button.link">
@@ -59,7 +59,7 @@
       <Setter Property="Padding" Value="6,2" />
       <Setter Property="CornerRadius" Value="3" />
       <Setter Property="Cursor" Value="Hand" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
     </Style>
   </Window.Styles>
 
@@ -84,7 +84,7 @@
                     VerticalAlignment="Center" />
           <TextBlock Grid.Column="2" Text="{Binding Title}"
                      Foreground="{DynamicResource VelaTextPrimary}"
-                     FontSize="14" FontWeight="SemiBold"
+                     FontSize="{DynamicResource VelaFontSize14}" FontWeight="SemiBold"
                      VerticalAlignment="Center" />
           <Button Grid.Column="3" Width="24" Height="24"
                   Background="Transparent" Padding="0" CornerRadius="3"
@@ -117,7 +117,7 @@
               IsVisible="{Binding MasterPasswordEnabled}">
         <TextBlock Text="{loc:Localize XImport_MasterPwWarn}"
                    Foreground="{DynamicResource VelaTextSecondary}"
-                   FontSize="11" TextWrapping="Wrap" />
+                   FontSize="{DynamicResource VelaFontSize11}" TextWrapping="Wrap" />
       </Border>
 
       <!-- 会话列表 -->
@@ -138,26 +138,26 @@
                         <StackPanel Orientation="Horizontal" Spacing="8">
                           <TextBlock Text="{Binding Name}"
                                      Foreground="{DynamicResource VelaTextPrimary}"
-                                     FontSize="12" FontWeight="Medium" />
+                                     FontSize="{DynamicResource VelaFontSize12}" FontWeight="Medium" />
                           <Border Background="{DynamicResource VelaBgHover}"
                                   CornerRadius="3" Padding="5,1" VerticalAlignment="Center">
                             <TextBlock Text="{Binding Protocol}"
                                        Foreground="{DynamicResource VelaTextTertiary}"
-                                       FontSize="9" FontFamily="{DynamicResource VelaTerminalFont}" />
+                                       FontSize="{DynamicResource VelaFontSize9}" FontFamily="{DynamicResource VelaUiMonoFont}" />
                           </Border>
                           <TextBlock Text="{Binding ExistsHint}"
                                      IsVisible="{Binding ExistsHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                      Foreground="{DynamicResource VelaTextMuted}"
-                                     FontSize="10" VerticalAlignment="Center" />
+                                     FontSize="{DynamicResource VelaFontSize10}" VerticalAlignment="Center" />
                         </StackPanel>
                         <TextBlock Text="{Binding Endpoint}"
                                    Foreground="{DynamicResource VelaTextTertiary}"
-                                   FontSize="10.5"
-                                   FontFamily="{DynamicResource VelaTerminalFont}" />
+                                   FontSize="{DynamicResource VelaFontSize10}"
+                                   FontFamily="{DynamicResource VelaUiMonoFont}" />
                       </StackPanel>
                       <TextBlock Grid.Column="3" Text="{Binding PasswordStatus}"
                                  Foreground="{DynamicResource VelaTextMuted}"
-                                 FontSize="10" VerticalAlignment="Center" />
+                                 FontSize="{DynamicResource VelaFontSize10}" VerticalAlignment="Center" />
                     </Grid>
                   </Border>
                 </DataTemplate>
@@ -167,7 +167,7 @@
           <TextBlock Text="{Binding StatusMessage}"
                      IsVisible="{Binding HasNoItems}"
                      Foreground="{DynamicResource VelaTextMuted}"
-                     FontSize="11" TextWrapping="Wrap" TextAlignment="Center"
+                     FontSize="{DynamicResource VelaFontSize11}" TextWrapping="Wrap" TextAlignment="Center"
                      HorizontalAlignment="Center" VerticalAlignment="Center"
                      Margin="24" />
         </Grid>
@@ -188,7 +188,7 @@
                       VerticalAlignment="Center">
             <TextBlock Text="{Binding SelectionSummary}"
                        Foreground="{DynamicResource VelaTextTertiary}"
-                       FontSize="11" VerticalAlignment="Center" Margin="0,0,4,0" />
+                       FontSize="{DynamicResource VelaFontSize11}" VerticalAlignment="Center" Margin="0,0,4,0" />
             <Button Classes="dlg-outline" Content="{loc:Localize Cancel}" Click="Cancel_Click" />
             <Button Classes="dlg-primary" Content="{loc:Localize XImport_ImportButton}"
                     Command="{Binding ImportCommand}" />

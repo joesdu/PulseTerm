@@ -119,8 +119,8 @@
                    Text="{loc:Localize Dock_DropTabHere}"
                    HorizontalAlignment="Center"
                    VerticalAlignment="Center"
-                   FontFamily="{DynamicResource VelaTerminalFont}"
-                   FontSize="11"
+                   FontFamily="{DynamicResource VelaUiMonoFont}"
+                   FontSize="{DynamicResource VelaFontSize11}"
                    Foreground="{DynamicResource VelaTextMuted}"
                    IsVisible="False" />
         <controls:ReparentingHost x:Name="ContentHost">

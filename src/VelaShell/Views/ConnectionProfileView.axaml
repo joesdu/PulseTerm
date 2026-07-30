@@ -24,7 +24,7 @@
     <!-- 表单标签 -->
     <Style Selector="TextBlock.field-label">
       <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
       <Setter Property="FontWeight" Value="Medium" />
       <Setter Property="Margin" Value="0,0,0,5" />
     </Style>
@@ -34,8 +34,8 @@
       <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
       <Setter Property="CornerRadius" Value="4" />
       <Setter Property="MinHeight" Value="32" />
-      <Setter Property="FontSize" Value="11" />
-      <Setter Property="FontFamily" Value="{DynamicResource VelaTerminalFont}" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
     <Style Selector="ComboBox">
@@ -44,7 +44,7 @@
       <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
       <Setter Property="CornerRadius" Value="4" />
       <Setter Property="MinHeight" Value="32" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
       <Setter Property="HorizontalAlignment" Value="Stretch" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
@@ -54,8 +54,8 @@
       <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
       <Setter Property="CornerRadius" Value="4" />
       <Setter Property="MinHeight" Value="32" />
-      <Setter Property="FontSize" Value="11" />
-      <Setter Property="FontFamily" Value="{DynamicResource VelaTerminalFont}" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
     </Style>
     <!-- 底部按钮:描边(测试/保存)与主色(连接) -->
     <Style Selector="Button.dlg-outline">
@@ -67,7 +67,7 @@
       <Setter Property="Padding" Value="14,0" />
       <Setter Property="CornerRadius" Value="4" />
       <Setter Property="Cursor" Value="Hand" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
       <Setter Property="FontWeight" Value="Medium" />
     </Style>
     <Style Selector="Button.dlg-primary">
@@ -77,7 +77,7 @@
       <Setter Property="Padding" Value="16,0" />
       <Setter Property="CornerRadius" Value="4" />
       <Setter Property="Cursor" Value="Hand" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
       <Setter Property="FontWeight" Value="Medium" />
     </Style>
     <!-- 协议标签页 -->
@@ -87,8 +87,8 @@
       <Setter Property="VerticalAlignment" Value="Bottom" />
     </Style>
     <Style Selector="TextBlock.proto-label">
-      <Setter Property="FontFamily" Value="{DynamicResource VelaTerminalFont}" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
     <Style Selector="Button.proto-tab">
@@ -159,7 +159,7 @@
                     VerticalAlignment="Center" />
           <TextBlock Grid.Column="2" Text="{loc:Localize Profile_Title}"
                      Foreground="{DynamicResource VelaTextPrimary}"
-                     FontSize="14" FontWeight="SemiBold"
+                     FontSize="{DynamicResource VelaFontSize14}" FontWeight="SemiBold"
                      VerticalAlignment="Center" />
           <Button Grid.Column="3" Width="24" Height="24"
                   Background="Transparent" Padding="0" CornerRadius="3"
@@ -298,12 +298,12 @@
             <TextBlock Text="{loc:Localize Profile_RememberPassword}"
                        Margin="6,0,0,0"
                        Foreground="{DynamicResource VelaTextSecondary}"
-                       FontSize="11" FontWeight="Medium" />
+                       FontSize="{DynamicResource VelaFontSize11}" FontWeight="Medium" />
           </CheckBox>
           <TextBlock Text="{loc:Localize Profile_AesNote}"
                      Foreground="{DynamicResource VelaTextMuted}"
-                     FontFamily="{DynamicResource VelaTerminalFont}"
-                     FontSize="10"
+                     FontFamily="{DynamicResource VelaUiMonoFont}"
+                     FontSize="{DynamicResource VelaFontSize10}"
                      VerticalAlignment="Center" />
         </StackPanel>
 
@@ -333,16 +333,16 @@
                     ItemsSource="{Binding JumpHostOptions}"
                     SelectedItem="{Binding SelectedJumpHost}" />
           <TextBlock Text="{loc:Localize Profile_JumpHostHint}"
-                     Foreground="{DynamicResource VelaTextMuted}" FontSize="10" TextWrapping="Wrap" />
+                     Foreground="{DynamicResource VelaTextMuted}" FontSize="{DynamicResource VelaFontSize10}" TextWrapping="Wrap" />
         </StackPanel>
 
         <!-- 测试/保存反馈 -->
         <TextBlock Text="{Binding ErrorMessage}"
                    IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                   Foreground="#FF6B6B" FontSize="11" TextWrapping="Wrap" />
+                   Foreground="#FF6B6B" FontSize="{DynamicResource VelaFontSize11}" TextWrapping="Wrap" />
         <TextBlock Text="{loc:Localize Profile_TestSuccess}"
                    IsVisible="{Binding ShowTestSuccess}"
-                   Foreground="{DynamicResource VelaAccent}" FontSize="11" />
+                   Foreground="{DynamicResource VelaAccent}" FontSize="{DynamicResource VelaFontSize11}" />
       </StackPanel>
 
       <!-- Footer -->
@@ -360,7 +360,7 @@
                         Foreground="{DynamicResource VelaTextTertiary}" />
               <TextBlock Text="{loc:Localize Profile_AdvancedOptions}"
                          Foreground="{DynamicResource VelaTextTertiary}"
-                         FontSize="11" VerticalAlignment="Center" />
+                         FontSize="{DynamicResource VelaFontSize11}" VerticalAlignment="Center" />
             </StackPanel>
           </Button>
 

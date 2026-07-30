@@ -67,7 +67,7 @@
 
     <TextBlock Text="{loc:Localize SetSnippets_Intro}"
                Foreground="{DynamicResource VelaTextSecondary}"
-               FontSize="13" TextWrapping="Wrap" />
+               FontSize="{DynamicResource VelaFontSize13}" TextWrapping="Wrap" />
 
     <Grid ColumnDefinitions="*,Auto">
       <StackPanel Spacing="2">
@@ -104,14 +104,14 @@
                   </Panel>
                   <TextBlock Grid.Column="2" Text="{Binding Name}"
                              Foreground="{DynamicResource VelaTextSecondary}"
-                             FontSize="12" FontWeight="SemiBold"
+                             FontSize="{DynamicResource VelaFontSize12}" FontWeight="SemiBold"
                              VerticalAlignment="Center"
                              TextTrimming="CharacterEllipsis" />
                   <Border Grid.Column="3" Padding="6,1" CornerRadius="8"
                           Background="{DynamicResource VelaBgInput}"
                           VerticalAlignment="Center">
                     <TextBlock Text="{Binding FilteredCommands.Count}"
-                               Foreground="{DynamicResource VelaTextMuted}" FontSize="10" />
+                               Foreground="{DynamicResource VelaTextMuted}" FontSize="{DynamicResource VelaFontSize10}" />
                   </Border>
                 </Grid>
               </ToggleButton>
@@ -126,11 +126,11 @@
                         <StackPanel Spacing="3">
                           <TextBlock Text="{Binding Name}"
                                      Foreground="{DynamicResource VelaTextPrimary}"
-                                     FontSize="12" FontWeight="Medium" />
+                                     FontSize="{DynamicResource VelaFontSize12}" FontWeight="Medium" />
                           <TextBlock Text="{Binding CommandText}"
                                      Foreground="{DynamicResource VelaAccentText}"
-                                     FontFamily="{DynamicResource VelaTerminalFont}"
-                                     FontSize="10" TextWrapping="Wrap" />
+                                     FontFamily="{DynamicResource VelaUiMonoFont}"
+                                     FontSize="{DynamicResource VelaFontSize10}" TextWrapping="Wrap" />
                         </StackPanel>
                         <Button Grid.Column="2" Classes="icon-btn"
                                 ToolTip.Tip="{loc:Localize Edit}"

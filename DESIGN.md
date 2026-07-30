@@ -93,14 +93,21 @@ All colors are `SolidColorBrush` resources keyed by semantic name. XAML binds vi
 
 ## 3. Typography
 
-Two font families, both loaded as Avalonia resources.
+Two font families, both loaded as Avalonia resources. Both are *interface* fonts: they
+follow Settings → Appearance → UI Font, which overrides both at runtime. Terminal content
+is not a token — `VelaTerminalControl` takes its font straight from Settings → Terminal.
 
-| Token | Stack | Usage |
+| Token | Default stack | Usage |
 |---|---|---|
-| `VelaTerminalFont` | JetBrains Mono, Cascadia Mono, Consolas, monospace | Terminal content, hostnames, IPs, ports, paths, keybindings, values, tab names, file browser cells |
+| `VelaUiMonoFont` | Cascadia Mono, JetBrains Mono, Consolas, monospace | Column-aligned interface text: hostnames, IPs, ports, paths, keybindings, values, tab names, file browser cells |
 | `VelaUiFont` | Inter, Segoe UI, Microsoft YaHei, sans-serif | Menus, buttons, settings labels, descriptive text, group headings |
 
-### Size Scale (by context, not tokenized)
+### Size Scale (tokenized: `VelaFontSize<n>`)
+
+Every size below is a resource token whose name is its pt value at the default UI font size
+(13). Settings → Appearance → UI Font Size rescales the whole ladder by `base / 13`
+(rounded, floor 6), so the hierarchy holds at any base. Never write `FontSize="11"` in a
+view — a literal does not follow the setting.
 
 | Size | Weight | Context |
 |---|---|---|
@@ -203,7 +210,7 @@ StatusBar (24px, bg-sidebar)
 - Sizing: 24x24 for icon-only, auto for pill buttons
 
 #### BreadcrumbSegment (`Button`)
-- Class: `.crumb` -- transparent bg, no border, `FontFamily:VelaTerminalFont`, `FontSize:11`, `FontWeight:Medium`
+- Class: `.crumb` -- transparent bg, no border, `FontFamily:VelaUiMonoFont`, `FontSize:11`, `FontWeight:Medium`
 - Hover: `VelaBgHover` background, `VelaAccent` foreground
 
 ### 5.2 File Browser (`FileBrowserView.axaml`)
@@ -218,8 +225,8 @@ The existing SFTP file browser is the primary reusable component for the dual-pa
 
 **Row anatomy (28px):**
 - Icon (13px): `VelaFileFolderIcon` for directories, `VelaTextTertiary` for files, `VelaTextTertiary` corner-left-up for `..`
-- Name: `VelaTerminalFont` 11px, `VelaFileDirName` for dirs, `VelaTextSecondary` for files, `VelaTextSecondary` for parent
-- Metadata columns: `VelaTerminalFont` 11px, `VelaTextTertiary`
+- Name: `VelaUiMonoFont` 11px, `VelaFileDirName` for dirs, `VelaTextSecondary` for files, `VelaTextSecondary` for parent
+- Metadata columns: `VelaUiMonoFont` 11px, `VelaTextTertiary`
 
 **Selection:** `VelaBgHover` replaces default theme blue (style on `ListBoxItem:selected`)
 
@@ -241,7 +248,7 @@ The existing SFTP file browser is the primary reusable component for the dual-pa
 ### 5.4 Context Menus (global style in `DockStyles.axaml`)
 
 - `VelaBgSurface` background, `VelaBorderSecondary` 1px border, `CornerRadius:6`, `Padding:4`
-- Item: `VelaTerminalFont` 11px, `VelaTextSecondary`, `Padding:[10,5]`, `CornerRadius:4`
+- Item: `VelaUiMonoFont` 11px, `VelaTextSecondary`, `Padding:[10,5]`, `CornerRadius:4`
 - Selected/hover: `VelaBgHover` background, `VelaTextPrimary` foreground
 - Disabled: `VelaTextMuted` foreground, 0.6 opacity
 - Separator: `VelaBorderPrimary` 1px, `Margin:[6,4]`
@@ -370,7 +377,7 @@ A standalone dock document hosting a side-by-side local + remote file browser fo
 
 #### Header (36px, `VelaBgSidebar`)
 
-- **Left pane header**: `hard-drive` icon (14px, `VelaTextTertiary`) + root selector + full current path (`VelaTerminalFont` 11px Medium `VelaTextPrimary`) + Go Up and local refresh buttons
+- **Left pane header**: `hard-drive` icon (14px, `VelaTextTertiary`) + root selector + full current path (`VelaUiMonoFont` 11px Medium `VelaTextPrimary`) + Go Up and local refresh buttons
 - **Right pane header**: Reuses existing `FileBrowserView` header exactly (session badge + `folder-open` accent + remote breadcrumb + upload pill + toolbar)
 - **Shared header** (top bar): Session identity (if applicable) and distinct local/remote refresh actions with accessible names
 
@@ -491,7 +498,7 @@ All tokens used in the SFTP dual-pane document. Source files: `VelaTokens.axaml`
 
 **File-specific**: `VelaFileFolderIcon`, `VelaFileDirName`
 
-**Fonts**: `VelaTerminalFont`, `VelaUiFont`
+**Fonts**: `VelaUiMonoFont`, `VelaUiFont`
 
 ---
 

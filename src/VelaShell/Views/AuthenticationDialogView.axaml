@@ -20,7 +20,7 @@
   <Window.Styles>
     <Style Selector="TextBlock.field-label">
       <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
       <Setter Property="FontWeight" Value="Medium" />
       <Setter Property="Margin" Value="0,0,0,5" />
     </Style>
@@ -30,8 +30,8 @@
       <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
       <Setter Property="CornerRadius" Value="4" />
       <Setter Property="MinHeight" Value="34" />
-      <Setter Property="FontSize" Value="12" />
-      <Setter Property="FontFamily" Value="{DynamicResource VelaTerminalFont}" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize12}" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
     <Style Selector="Button.dlg-outline">
@@ -43,7 +43,7 @@
       <Setter Property="Padding" Value="16,0" />
       <Setter Property="CornerRadius" Value="4" />
       <Setter Property="Cursor" Value="Hand" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
       <Setter Property="FontWeight" Value="Medium" />
     </Style>
     <Style Selector="Button.dlg-primary">
@@ -53,7 +53,7 @@
       <Setter Property="Padding" Value="20,0" />
       <Setter Property="CornerRadius" Value="4" />
       <Setter Property="Cursor" Value="Hand" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
       <Setter Property="FontWeight" Value="Medium" />
     </Style>
     <!-- 认证方式分段选择 -->
@@ -64,7 +64,7 @@
       <Setter Property="Height" Value="28" />
       <Setter Property="HorizontalAlignment" Value="Stretch" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
       <Setter Property="Cursor" Value="Hand" />
     </Style>
     <Style Selector="Button.seg-tab.active">
@@ -95,7 +95,7 @@
                     VerticalAlignment="Center" />
           <TextBlock Grid.Column="2" Text="{Binding HeaderTitle}"
                      Foreground="{DynamicResource VelaTextPrimary}"
-                     FontSize="14" FontWeight="SemiBold"
+                     FontSize="{DynamicResource VelaFontSize14}" FontWeight="SemiBold"
                      VerticalAlignment="Center" />
           <Button Grid.Column="3" Width="24" Height="24"
                   Background="Transparent" Padding="0" CornerRadius="3"
@@ -116,18 +116,18 @@
           <StackPanel Grid.Column="2" Spacing="2" VerticalAlignment="Center">
             <TextBlock Text="{Binding TargetText}"
                        Foreground="{DynamicResource VelaTextPrimary}"
-                       FontFamily="{DynamicResource VelaTerminalFont}"
-                       FontSize="11" FontWeight="Medium" />
+                       FontFamily="{DynamicResource VelaUiMonoFont}"
+                       FontSize="{DynamicResource VelaFontSize11}" FontWeight="Medium" />
             <TextBlock Text="{Binding FingerprintText}"
                        IsVisible="{Binding IsStep1}"
                        Foreground="{DynamicResource VelaTextMuted}"
-                       FontFamily="{DynamicResource VelaTerminalFont}"
-                       FontSize="10" />
+                       FontFamily="{DynamicResource VelaUiMonoFont}"
+                       FontSize="{DynamicResource VelaFontSize10}" />
             <TextBlock Text="{Binding UsernameLine}"
                        IsVisible="{Binding IsStep2}"
                        Foreground="{DynamicResource VelaTextMuted}"
-                       FontFamily="{DynamicResource VelaTerminalFont}"
-                       FontSize="10" />
+                       FontFamily="{DynamicResource VelaUiMonoFont}"
+                       FontSize="{DynamicResource VelaFontSize10}" />
           </StackPanel>
         </Grid>
       </Border>
@@ -142,7 +142,7 @@
                   Background="{DynamicResource VelaAccent}">
             <Panel>
               <TextBlock Text="1" IsVisible="{Binding IsStep1}"
-                         Foreground="{DynamicResource VelaAccentForeground}" FontSize="10" FontWeight="SemiBold"
+                         Foreground="{DynamicResource VelaAccentForeground}" FontSize="{DynamicResource VelaFontSize10}" FontWeight="SemiBold"
                          HorizontalAlignment="Center" VerticalAlignment="Center" />
               <PathIcon Width="10" Height="10" IsVisible="{Binding IsStep2}"
                         Data="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"
@@ -167,7 +167,7 @@
             <Panel>
               <Border CornerRadius="10" Background="{DynamicResource VelaAccent}"
                       IsVisible="{Binding IsStep2}" Margin="-1" />
-              <TextBlock Text="2" FontSize="10" FontWeight="SemiBold"
+              <TextBlock Text="2" FontSize="{DynamicResource VelaFontSize10}" FontWeight="SemiBold"
                          HorizontalAlignment="Center" VerticalAlignment="Center">
                 <TextBlock.Styles>
                   <Style Selector="TextBlock">
@@ -184,10 +184,10 @@
             </Panel>
           </Border>
           <TextBlock Text="{loc:Localize Auth_EnterUsername}" IsVisible="{Binding IsStep1}"
-                     Foreground="{DynamicResource VelaTextMuted}" FontSize="11"
+                     Foreground="{DynamicResource VelaTextMuted}" FontSize="{DynamicResource VelaFontSize11}"
                      VerticalAlignment="Center" />
           <TextBlock Text="{loc:Localize Auth_SelectMethod}" IsVisible="{Binding IsStep2}"
-                     Foreground="{DynamicResource VelaTextMuted}" FontSize="11"
+                     Foreground="{DynamicResource VelaTextMuted}" FontSize="{DynamicResource VelaFontSize11}"
                      VerticalAlignment="Center" />
         </StackPanel>
 
@@ -261,7 +261,7 @@
                   <TextBlock Text="{loc:Localize Profile_RememberPassword}"
                              Margin="6,0,0,0"
                              Foreground="{DynamicResource VelaTextSecondary}"
-                             FontSize="11" />
+                             FontSize="{DynamicResource VelaFontSize11}" />
                 </CheckBox>
               </StackPanel>
               <Border Grid.Column="1" Background="{DynamicResource VelaAccentDim}"
@@ -272,8 +272,8 @@
                             Foreground="{DynamicResource VelaAccent}" />
                   <TextBlock Text="{loc:Localize Auth_AesBadge}"
                              Foreground="{DynamicResource VelaAccent}"
-                             FontFamily="{DynamicResource VelaTerminalFont}"
-                             FontSize="9" FontWeight="Medium"
+                             FontFamily="{DynamicResource VelaUiMonoFont}"
+                             FontSize="{DynamicResource VelaFontSize9}" FontWeight="Medium"
                              VerticalAlignment="Center" />
                 </StackPanel>
               </Border>

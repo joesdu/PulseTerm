@@ -78,21 +78,21 @@
                   <StackPanel Orientation="Horizontal" Spacing="8">
                     <!-- 地址脱敏:掩码为固定长度,不暴露真实地址的位数;
                          按指纹区分各条目(指纹是服务器公钥哈希,非敏感信息)。 -->
-                    <TextBlock FontSize="12" FontWeight="Medium"
+                    <TextBlock FontSize="{DynamicResource VelaFontSize12}" FontWeight="Medium"
                                Foreground="{DynamicResource VelaTextPrimary}"
                                IsVisible="{Binding !$parent[ItemsControl].((vm:SettingsViewModel)DataContext).MaskKnownHostAddresses}">
                       <Run Text="{Binding Host}" /><Run Text=":" /><Run Text="{Binding Port}" />
                     </TextBlock>
-                    <TextBlock FontSize="12" FontWeight="Medium"
+                    <TextBlock FontSize="{DynamicResource VelaFontSize12}" FontWeight="Medium"
                                Foreground="{DynamicResource VelaTextPrimary}"
                                Text="••••••••••:•••"
                                IsVisible="{Binding $parent[ItemsControl].((vm:SettingsViewModel)DataContext).MaskKnownHostAddresses}" />
-                    <TextBlock FontSize="10" VerticalAlignment="Center"
+                    <TextBlock FontSize="{DynamicResource VelaFontSize10}" VerticalAlignment="Center"
                                Foreground="{DynamicResource VelaTextMuted}"
                                Text="{Binding KeyType}" />
                   </StackPanel>
-                  <TextBlock FontSize="10"
-                             FontFamily="{DynamicResource VelaTerminalFont}"
+                  <TextBlock FontSize="{DynamicResource VelaFontSize10}"
+                             FontFamily="{DynamicResource VelaUiMonoFont}"
                              Foreground="{DynamicResource VelaTextMuted}"
                              TextWrapping="Wrap"
                              Text="{Binding Fingerprint}" />
@@ -112,7 +112,7 @@
 
     <!-- 告警通道 -->
     <TextBlock Text="{loc:Localize SetSecurity_SectionAlerts}"
-               Foreground="#74B9FF" FontSize="12" FontWeight="SemiBold" />
+               Foreground="#74B9FF" FontSize="{DynamicResource VelaFontSize12}" FontWeight="SemiBold" />
     <Grid ColumnDefinitions="*,Auto">
       <TextBlock Classes="row-label" Text="{loc:Localize SetSecurity_AlertInApp}" VerticalAlignment="Center" />
       <ToggleSwitch Grid.Column="1" IsChecked="{Binding Security.AlertInApp}" VerticalAlignment="Center" />

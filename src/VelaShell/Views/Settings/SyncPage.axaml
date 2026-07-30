@@ -17,7 +17,7 @@
     <StackPanel Spacing="14" DataContext="{Binding Sync}" IsVisible="{Binding Converter={x:Static ObjectConverters.IsNotNull}}"
                 x:DataType="vm:SyncViewModel">
 
-      <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
+      <TextBlock TextWrapping="Wrap" FontSize="{DynamicResource VelaFontSize12}" LineHeight="20"
                  Foreground="{DynamicResource VelaTextSecondary}"
                  Text="{loc:Localize SetSync_Intro}" />
 
@@ -27,38 +27,38 @@
       <!-- 令牌获取指引:链接经代码后置在系统浏览器打开(Tag = URL)。 -->
       <Border Background="{DynamicResource VelaBgActive}" CornerRadius="6" Padding="16,12">
         <StackPanel Spacing="6">
-          <TextBlock FontSize="12" FontWeight="SemiBold"
+          <TextBlock FontSize="{DynamicResource VelaFontSize12}" FontWeight="SemiBold"
                      Foreground="{DynamicResource VelaAccent}"
                      Text="{loc:Localize SetSync_TokenGuideTitle}" />
           <!-- XML 属性值中的换行会被规范化为空格,分步文案用逐条 TextBlock 排版。 -->
           <StackPanel Spacing="3">
-            <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
+            <TextBlock TextWrapping="Wrap" FontSize="{DynamicResource VelaFontSize12}" LineHeight="20"
                        Foreground="{DynamicResource VelaTextSecondary}"
                        Text="{loc:Localize SetSync_TokenGuideStep1}" />
-            <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
+            <TextBlock TextWrapping="Wrap" FontSize="{DynamicResource VelaFontSize12}" LineHeight="20"
                        Foreground="{DynamicResource VelaTextSecondary}"
                        Text="{loc:Localize SetSync_TokenGuideStep2}" />
-            <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
+            <TextBlock TextWrapping="Wrap" FontSize="{DynamicResource VelaFontSize12}" LineHeight="20"
                        Foreground="{DynamicResource VelaTextSecondary}"
                        Text="{loc:Localize SetSync_TokenGuideStep3}" />
-            <TextBlock TextWrapping="Wrap" FontSize="11" LineHeight="18"
+            <TextBlock TextWrapping="Wrap" FontSize="{DynamicResource VelaFontSize11}" LineHeight="18"
                        Foreground="{DynamicResource VelaTextMuted}"
                        Text="{loc:Localize SetSync_TokenLocalOnly}" />
           </StackPanel>
           <StackPanel Orientation="Horizontal" Spacing="16">
-            <TextBlock FontSize="12" TextDecorations="Underline" Cursor="Hand"
+            <TextBlock FontSize="{DynamicResource VelaFontSize12}" TextDecorations="Underline" Cursor="Hand"
                        Foreground="{DynamicResource VelaAccentText}"
                        Text="{loc:Localize SetSync_CreateTokenLink}"
                        ToolTip.Tip="https://github.com/settings/tokens/new?scopes=gist"
                        Tag="https://github.com/settings/tokens/new?scopes=gist&amp;description=VelaShell%20Cloud%20Sync"
                        PointerPressed="OpenLink_PointerPressed" />
-            <TextBlock FontSize="12" TextDecorations="Underline" Cursor="Hand"
+            <TextBlock FontSize="{DynamicResource VelaFontSize12}" TextDecorations="Underline" Cursor="Hand"
                        Foreground="{DynamicResource VelaAccentText}"
                        Text="{loc:Localize SetSync_WhatIsGist}"
                        ToolTip.Tip="https://docs.github.com/zh/get-started/writing-on-github/editing-and-sharing-content-with-gists/creating-gists"
                        Tag="https://docs.github.com/zh/get-started/writing-on-github/editing-and-sharing-content-with-gists/creating-gists"
                        PointerPressed="OpenLink_PointerPressed" />
-            <TextBlock FontSize="12" TextDecorations="Underline" Cursor="Hand"
+            <TextBlock FontSize="{DynamicResource VelaFontSize12}" TextDecorations="Underline" Cursor="Hand"
                        Foreground="{DynamicResource VelaAccentText}"
                        Text="{loc:Localize SetSync_TokenDocs}"
                        ToolTip.Tip="https://docs.github.com/zh/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens"
@@ -81,7 +81,7 @@
         <Grid ColumnDefinitions="*,8,Auto">
           <TextBox Grid.Column="0" PasswordChar="●" behaviors:EnglishInputLocale.Enabled="True" Text="{Binding TokenInput}"
                    PlaceholderText="{loc:Localize SetSync_TokenPlaceholder}" />
-          <TextBlock Grid.Column="2" FontSize="12" FontWeight="Medium" VerticalAlignment="Center"
+          <TextBlock Grid.Column="2" FontSize="{DynamicResource VelaFontSize12}" FontWeight="Medium" VerticalAlignment="Center"
                      Foreground="{DynamicResource VelaAccent}"
                      Text="{loc:Localize SetSync_Saved}" IsVisible="{Binding HasSavedToken}" />
         </Grid>
@@ -110,7 +110,7 @@
         <Grid ColumnDefinitions="*,8,Auto">
           <TextBox Grid.Column="0" PasswordChar="●" behaviors:EnglishInputLocale.Enabled="True" Text="{Binding PassphraseInput}"
                    PlaceholderText="{loc:Localize SetSync_PassphrasePlaceholder}" />
-          <TextBlock Grid.Column="2" FontSize="12" FontWeight="Medium" VerticalAlignment="Center"
+          <TextBlock Grid.Column="2" FontSize="{DynamicResource VelaFontSize12}" FontWeight="Medium" VerticalAlignment="Center"
                      Foreground="{DynamicResource VelaAccent}"
                      Text="{loc:Localize SetSync_Saved}" IsVisible="{Binding HasSavedPassphrase}" />
         </Grid>
@@ -187,15 +187,15 @@
                   <Grid ColumnDefinitions="*,Auto">
                     <StackPanel Spacing="2" VerticalAlignment="Center">
                       <StackPanel Orientation="Horizontal" Spacing="8">
-                        <TextBlock FontSize="12" FontWeight="Medium"
+                        <TextBlock FontSize="{DynamicResource VelaFontSize12}" FontWeight="Medium"
                                    Foreground="{DynamicResource VelaTextPrimary}"
                                    Text="{Binding DeviceName, Mode=OneWay, TargetNullValue=未知设备}" />
-                        <TextBlock FontSize="10" VerticalAlignment="Center"
-                                   FontFamily="{DynamicResource VelaTerminalFont}"
+                        <TextBlock FontSize="{DynamicResource VelaFontSize10}" VerticalAlignment="Center"
+                                   FontFamily="{DynamicResource VelaUiMonoFont}"
                                    Foreground="{DynamicResource VelaTextMuted}"
                                    Text="{Binding Version, Mode=OneWay, Converter={x:Static conv:ShortShaConverter.Instance}}" />
                       </StackPanel>
-                      <TextBlock FontSize="10" Foreground="{DynamicResource VelaTextMuted}">
+                      <TextBlock FontSize="{DynamicResource VelaFontSize10}" Foreground="{DynamicResource VelaTextMuted}">
                         <Run Text="{Binding CommittedAtUtc, Mode=OneWay, Converter={x:Static conv:UtcToLocalTextConverter.Instance}}" />
                         <Run Text="  +" /><Run Text="{Binding Additions, Mode=OneWay}" />
                         <Run Text=" -" /><Run Text="{Binding Deletions, Mode=OneWay}" />

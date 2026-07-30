@@ -22,8 +22,8 @@
       <Grid ColumnDefinitions="*,Auto">
         <TextBlock Text="{loc:Localize Sidebar_Explorer}"
                    Foreground="{DynamicResource VelaTextSecondary}"
-                   FontFamily="{DynamicResource VelaTerminalFont}"
-                   FontSize="11" FontWeight="Medium" LetterSpacing="1"
+                   FontFamily="{DynamicResource VelaUiMonoFont}"
+                   FontSize="{DynamicResource VelaFontSize11}" FontWeight="Medium" LetterSpacing="1"
                    VerticalAlignment="Center" />
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4"
                     VerticalAlignment="Center">
@@ -103,8 +103,8 @@
                   </Panel>
                   <TextBlock Grid.Column="2" Text="{loc:Localize QuickCommands}"
                              Foreground="{DynamicResource VelaTextSecondary}"
-                             FontFamily="{DynamicResource VelaTerminalFont}"
-                             FontSize="11" FontWeight="Medium" LetterSpacing="1"
+                             FontFamily="{DynamicResource VelaUiMonoFont}"
+                             FontSize="{DynamicResource VelaFontSize11}" FontWeight="Medium" LetterSpacing="1"
                              VerticalAlignment="Center" />
                 </Grid>
               </Button>
@@ -145,8 +145,8 @@
                   </Panel>
                   <TextBlock Grid.Column="2" Text="{loc:Localize RecentConnections}"
                              Foreground="{DynamicResource VelaTextSecondary}"
-                             FontFamily="{DynamicResource VelaTerminalFont}"
-                             FontSize="11" FontWeight="Medium" LetterSpacing="1"
+                             FontFamily="{DynamicResource VelaUiMonoFont}"
+                             FontSize="{DynamicResource VelaFontSize11}" FontWeight="Medium" LetterSpacing="1"
                              VerticalAlignment="Center" />
                 </Grid>
               </Button>
@@ -181,12 +181,12 @@
                       <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
                         <TextBlock Text="{Binding DisplayName}"
                                    Foreground="{DynamicResource VelaTextSecondary}"
-                                   FontFamily="{DynamicResource VelaTerminalFont}"
-                                   FontSize="11" TextTrimming="CharacterEllipsis" />
+                                   FontFamily="{DynamicResource VelaUiMonoFont}"
+                                   FontSize="{DynamicResource VelaFontSize11}" TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="{Binding RelativeTime}"
                                    Foreground="{DynamicResource VelaTextMuted}"
-                                   FontFamily="{DynamicResource VelaTerminalFont}"
-                                   FontSize="9" />
+                                   FontFamily="{DynamicResource VelaUiMonoFont}"
+                                   FontSize="{DynamicResource VelaFontSize9}" />
                       </StackPanel>
                     </Grid>
                   </Border>
@@ -210,7 +210,7 @@
                            HorizontalAlignment="Center" VerticalAlignment="Center" />
           </Border>
           <TextBlock Text="root" Foreground="{DynamicResource VelaTextSecondary}"
-                     FontFamily="{DynamicResource VelaTerminalFont}" FontSize="11"
+                     FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize11}"
                      VerticalAlignment="Center" />
         </StackPanel>
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"

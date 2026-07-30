@@ -161,16 +161,16 @@
               <!-- 分组名 -->
               <TextBlock Text="{Binding Name}"
                          Foreground="{DynamicResource VelaTextPrimary}"
-                         FontFamily="{DynamicResource VelaTerminalFont}"
-                         FontSize="12"
+                         FontFamily="{DynamicResource VelaUiMonoFont}"
+                         FontSize="{DynamicResource VelaFontSize12}"
                          FontWeight="Medium"
                          VerticalAlignment="Center" />
 
               <!-- 子项数量 -->
               <TextBlock Text="{Binding Children.Count}"
                          Foreground="{DynamicResource VelaTextTertiary}"
-                         FontFamily="{DynamicResource VelaTerminalFont}"
-                         FontSize="10"
+                         FontFamily="{DynamicResource VelaUiMonoFont}"
+                         FontSize="{DynamicResource VelaFontSize10}"
                          VerticalAlignment="Center" />
 
             </StackPanel>
@@ -306,8 +306,8 @@
               <TextBlock Text="{Binding SyncChannelLetter}"
                          IsVisible="{Binding HasSyncChannel}"
                          Foreground="{Binding SyncChannelLetter, Converter={x:Static conv:SyncChannelLetterToBrushConverter.Instance}}"
-                         FontFamily="{DynamicResource VelaTerminalFont}"
-                         FontSize="11"
+                         FontFamily="{DynamicResource VelaUiMonoFont}"
+                         FontSize="{DynamicResource VelaFontSize11}"
                          FontWeight="Bold"
                          VerticalAlignment="Center" />
 
@@ -319,8 +319,8 @@
 
               <TextBlock Classes="sessionName"
                          Text="{Binding Name}"
-                         FontFamily="{DynamicResource VelaTerminalFont}"
-                         FontSize="11"
+                         FontFamily="{DynamicResource VelaUiMonoFont}"
+                         FontSize="{DynamicResource VelaFontSize11}"
                          VerticalAlignment="Center"
                          TextTrimming="CharacterEllipsis" />
 
@@ -332,8 +332,8 @@
                       Padding="6,1"
                       VerticalAlignment="Center">
                 <TextBlock Text="{Binding StatusTagText}"
-                           FontFamily="{DynamicResource VelaTerminalFont}"
-                           FontSize="9"
+                           FontFamily="{DynamicResource VelaUiMonoFont}"
+                           FontSize="{DynamicResource VelaFontSize9}"
                            FontWeight="Medium"
                            VerticalAlignment="Center" />
               </Border>

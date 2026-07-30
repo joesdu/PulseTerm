@@ -104,7 +104,7 @@
         <Image Source="avares://VelaShell/Assets/velashell.png" Width="18" Height="18" />
         <TextBlock Text="{x:Static res:Strings.AppName}"
                    FontFamily="{DynamicResource VelaUiFont}"
-                   FontSize="12" FontWeight="Medium"
+                   FontSize="{DynamicResource VelaFontSize12}" FontWeight="Medium"
                    Foreground="{DynamicResource VelaTextSecondary}"
                    VerticalAlignment="Center" />
       </StackPanel>

@@ -1,6 +1,5 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:sys="using:System"
              x:Class="VelaShell.App"
              RequestedThemeVariant="Dark">
 
@@ -29,8 +28,8 @@
                 <ResourceInclude Source="avares://VelaShell/Themes/ButtonThemes.axaml" />
             </ResourceDictionary.MergedDictionaries>
 
-            <!-- 界面字号默认值(设计 font-ui 13);运行时被 ApplyWindowAppearance 覆盖。 -->
-            <sys:Double x:Key="VelaUiFontSize">13</sys:Double>
+            <!-- 界面字体/字号令牌(含整套字号阶梯)在 VelaTokens.axaml 里定义,
+                 运行时由 MainWindow.ApplyWindowAppearance 覆盖。 -->
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Dark">
                     <ResourceDictionary.MergedDictionaries>

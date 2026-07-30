@@ -25,7 +25,7 @@
       <Setter Property="Padding" Value="12,0" />
       <Setter Property="CornerRadius" Value="4" />
       <Setter Property="Cursor" Value="Hand" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
     </Style>
     <Style Selector="Button.dlg-accent">
       <Setter Property="Background" Value="{DynamicResource VelaAccent}" />
@@ -34,7 +34,7 @@
       <Setter Property="Padding" Value="14,0" />
       <Setter Property="CornerRadius" Value="4" />
       <Setter Property="Cursor" Value="Hand" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
       <Setter Property="FontWeight" Value="Medium" />
     </Style>
     <Style Selector="Button.dlg-danger">
@@ -44,7 +44,7 @@
       <Setter Property="Padding" Value="6,2" />
       <Setter Property="CornerRadius" Value="3" />
       <Setter Property="Cursor" Value="Hand" />
-      <Setter Property="FontSize" Value="10" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
     </Style>
     <!-- 录制列表:选中/悬停用主题令牌(与设置导航一致),替换 Fluent 默认的
          低对比蓝色选中背景;选中项标题以强调色突出。 -->
@@ -90,11 +90,11 @@
           <StackPanel Spacing="2" VerticalAlignment="Center">
             <TextBlock Text="{loc:Localize Recorder_Title}"
                        Foreground="{DynamicResource VelaTextPrimary}"
-                       FontSize="15" FontWeight="SemiBold" />
+                       FontSize="{DynamicResource VelaFontSize15}" FontWeight="SemiBold" />
             <TextBlock Text="{loc:Localize Recorder_Subtitle}"
                        Foreground="{DynamicResource VelaTextMuted}"
-                       FontFamily="{DynamicResource VelaTerminalFont}"
-                       FontSize="10" />
+                       FontFamily="{DynamicResource VelaUiMonoFont}"
+                       FontSize="{DynamicResource VelaFontSize10}" />
           </StackPanel>
           <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
             <Button Classes="dlg-outline" Content="{loc:Localize Recorder_Export}"
@@ -108,13 +108,13 @@
             <Button Width="26" Height="26" Background="Transparent" Padding="0"
                     CornerRadius="3" Cursor="Hand" Click="Maximize_Click"
                     VerticalAlignment="Center" ToolTip.Tip="{loc:Localize Recorder_MaximizeTip}">
-              <TextBlock Text="▢" FontSize="12" HorizontalAlignment="Center"
+              <TextBlock Text="▢" FontSize="{DynamicResource VelaFontSize12}" HorizontalAlignment="Center"
                          Foreground="{DynamicResource VelaTextTertiary}" />
             </Button>
             <Button Width="26" Height="26" Background="Transparent" Padding="0"
                     CornerRadius="3" Cursor="Hand" Click="Close_Click"
                     VerticalAlignment="Center">
-              <TextBlock Text="✕" FontSize="13" HorizontalAlignment="Center"
+              <TextBlock Text="✕" FontSize="{DynamicResource VelaFontSize13}" HorizontalAlignment="Center"
                          Foreground="{DynamicResource VelaTextTertiary}" />
             </Button>
           </StackPanel>
@@ -131,10 +131,10 @@
           <Grid RowDefinitions="34,*">
             <Border Grid.Row="0" Padding="12,0"
                     BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,0,0,1">
-              <TextBlock Text="{loc:Localize Recorder_ListTitle}" FontSize="12" FontWeight="Medium"
+              <TextBlock Text="{loc:Localize Recorder_ListTitle}" FontSize="{DynamicResource VelaFontSize12}" FontWeight="Medium"
                          Foreground="{DynamicResource VelaTextSecondary}" VerticalAlignment="Center" />
             </Border>
-            <TextBlock Grid.Row="1" Margin="12" TextWrapping="Wrap" FontSize="11"
+            <TextBlock Grid.Row="1" Margin="12" TextWrapping="Wrap" FontSize="{DynamicResource VelaFontSize11}"
                        Foreground="{DynamicResource VelaTextMuted}"
                        Text="{loc:Localize Recorder_Empty}"
                        IsVisible="{Binding !HasRecordings}" />
@@ -146,11 +146,11 @@
                 <DataTemplate x:DataType="vm:RecordingItemViewModel">
                   <Grid ColumnDefinitions="*,Auto">
                     <StackPanel Spacing="2">
-                      <TextBlock Classes="rec-label" FontSize="12" FontWeight="Medium"
+                      <TextBlock Classes="rec-label" FontSize="{DynamicResource VelaFontSize12}" FontWeight="Medium"
                                  Foreground="{DynamicResource VelaTextPrimary}"
                                  Text="{Binding Label}" />
-                      <TextBlock FontSize="10"
-                                 FontFamily="{DynamicResource VelaTerminalFont}"
+                      <TextBlock FontSize="{DynamicResource VelaFontSize10}"
+                                 FontFamily="{DynamicResource VelaUiMonoFont}"
                                  Foreground="{DynamicResource VelaTextMuted}">
                         <Run Text="{Binding StartText, Mode=OneWay}" />
                         <Run Text=" • " /><Run Text="{Binding DurationText, Mode=OneWay}" />
@@ -175,7 +175,7 @@
           <Grid RowDefinitions="34,*,Auto,Auto">
             <Border Grid.Row="0" Padding="12,0"
                     BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,0,0,1">
-              <TextBlock FontSize="12" FontWeight="Medium"
+              <TextBlock FontSize="{DynamicResource VelaFontSize12}" FontWeight="Medium"
                          Foreground="{DynamicResource VelaTextSecondary}" VerticalAlignment="Center"
                          Text="{Binding PlaybackTitle}" />
             </Border>
@@ -185,15 +185,15 @@
 
             <!-- 时间轴 -->
             <Grid Grid.Row="2" Margin="12,4" ColumnDefinitions="Auto,8,*,8,Auto">
-              <TextBlock Grid.Column="0" FontSize="10" VerticalAlignment="Center"
-                         FontFamily="{DynamicResource VelaTerminalFont}"
+              <TextBlock Grid.Column="0" FontSize="{DynamicResource VelaFontSize10}" VerticalAlignment="Center"
+                         FontFamily="{DynamicResource VelaUiMonoFont}"
                          Foreground="{DynamicResource VelaTextMuted}"
                          Text="{Binding PositionText}" />
               <Slider Grid.Column="2" Minimum="0" VerticalAlignment="Center"
                       Maximum="{Binding DurationMs}"
                       Value="{Binding PositionMs}" />
-              <TextBlock Grid.Column="4" FontSize="10" VerticalAlignment="Center"
-                         FontFamily="{DynamicResource VelaTerminalFont}"
+              <TextBlock Grid.Column="4" FontSize="{DynamicResource VelaFontSize10}" VerticalAlignment="Center"
+                         FontFamily="{DynamicResource VelaUiMonoFont}"
                          Foreground="{DynamicResource VelaTextMuted}"
                          Text="{Binding DurationText}" />
             </Grid>
@@ -210,10 +210,10 @@
               <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                 <ToggleSwitch IsChecked="{Binding SkipIdle}" Padding="0" MinWidth="0"
                               OnContent="" OffContent="" />
-                <TextBlock Text="{loc:Localize Recorder_SkipIdle}" FontSize="11" VerticalAlignment="Center"
+                <TextBlock Text="{loc:Localize Recorder_SkipIdle}" FontSize="{DynamicResource VelaFontSize11}" VerticalAlignment="Center"
                            Foreground="{DynamicResource VelaTextSecondary}" />
               </StackPanel>
-              <TextBlock Grid.Column="6" FontSize="10" VerticalAlignment="Center"
+              <TextBlock Grid.Column="6" FontSize="{DynamicResource VelaFontSize10}" VerticalAlignment="Center"
                          Foreground="{DynamicResource VelaTextMuted}"
                          TextWrapping="Wrap" MaxWidth="320"
                          Text="{Binding Status}" />

@@ -709,7 +709,7 @@ public class FileBrowserViewModelTests
         await _sftpService.Received(1).RenameAsync(
             _sessionId, files[2].FullPath, $"/srv/archive/{files[2].Name}", Arg.Any<CancellationToken>());
         Assert.IsNotNull(_vm.ErrorMessage);
-        StringAssert.Contains(_vm.ErrorMessage, "permission denied");
+        Assert.Contains("permission denied", _vm.ErrorMessage);
     }
 
     [TestMethod]
