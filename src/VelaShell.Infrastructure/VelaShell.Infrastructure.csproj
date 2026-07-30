@@ -20,6 +20,7 @@
        本项目的友元是 VelaShell.Core.Tests(Tmds.Ssh 包装类与异常翻译的白盒测试放在那边)。 -->
   <ItemGroup Condition="'$(SignAssembly)' != 'true'">
     <InternalsVisibleTo Include="VelaShell.Core.Tests" />
+    <InternalsVisibleTo Include="VelaShell.Infrastructure.Tests" />
   </ItemGroup>
 
 </Project>
