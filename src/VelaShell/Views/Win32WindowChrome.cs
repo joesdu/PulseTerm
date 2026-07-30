@@ -71,7 +71,7 @@ internal static partial class Win32WindowChrome
         );
         Win32Properties.AddWndProcHookCallback(
             window,
-            (IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam, ref bool handled) =>
+            (hWnd, msg, wParam, lParam, ref handled) =>
                 WndProc(
                     window,
                     hWnd,
