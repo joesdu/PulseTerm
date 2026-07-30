@@ -11,7 +11,7 @@ VelaShell is a keyboard-first, high-density SSH/SFTP terminal client for ops and
 - **Platform**: .NET 11 + Avalonia 12.1, cross-platform desktop (Windows/Linux/macOS)
 - **Window**: Self-drawn frameless (`WindowDecorations="None"`), 36px custom title bar via `TitleBarView`
 - **Icon set**: Lucide (stroke weight 2, round caps, 24x24 viewBox scaled to 11-16px)
-- **Fonts**: JetBrains Mono (terminal, data, paths, keys) + Inter (UI chrome, buttons, settings)
+- **Fonts**: Cascadia Mono (terminal, data, paths, keys) + Inter (UI chrome, buttons, settings); both interface faces follow Settings → Appearance → UI Font
 - **Theme switching**: Runtime dark/light/system, driven entirely by `DynamicResource` token swaps
 
 ---
@@ -189,7 +189,41 @@ StatusBar (24px, bg-sidebar)
 
 ## 5. Components & States
 
-### 5.1 Reusable Primitives
+### 5.1 Action Buttons (`Themes/ButtonThemes.axaml`)
+
+Every window and dialog draws its action buttons from **two shared control themes**. They are
+registered application-wide in `App.axaml`, so any view can reference them with no local setup.
+Do **not** use the Fluent default button appearance, and do **not** re-declare an equivalent
+button style inside a view — that is exactly how the same action ends up looking different in
+two places (the upload dialog's Cancel button was a bare Fluent button while the file browser's
+Upload button was an accent pill).
+
+| Role | Theme | Appearance |
+|---|---|---|
+| Primary action — upload, create, confirm | `VelaAccentPillButtonTheme` | `VelaAccentDim` fill (translucent), `VelaAccent` foreground for icon *and* label, `CornerRadius:3`, no border until focused |
+| Secondary action — cancel, close, browse | `VelaOutlineButtonTheme` | `Transparent` fill, 1px `VelaBorderPrimary`, `VelaTextSecondary` foreground, `CornerRadius:3`, `Height:28`, `Padding:[14,0]` |
+| Destructive action | `VelaOutlineButtonTheme` + `VelaError` foreground/border | Never a solid red fill |
+
+Rules:
+
+- **Primary is a translucent pill, not a solid fill.** `VelaAccentDim` is semi-transparent so it
+  blends with a user background image; a solid `VelaAccent` block reads as too loud and sits on
+  the image like a sticker.
+- **Both fills are transparent-friendly.** A row must not mix one button that blends into the
+  background with another that sits on an opaque slab.
+- **Foreground comes from the theme.** The pill theme sets `Foreground` to `VelaAccent`; content
+  inherits it. Only bind `Foreground="{Binding $parent[Button].Foreground}"` on a `LucideIcon`,
+  which does not inherit text foreground.
+- **Same action, same icon.** If an action has an icon anywhere (e.g. `Icon.upload` on the file
+  browser toolbar), the dialog that performs the same action carries that icon too.
+- **Buttons in one action row share a height.** Set it on the primary; the outline theme already
+  defaults to 28.
+- Toolbar icon buttons are a separate role — see `.toolbar-btn` below — and may override
+  `Height`/`Padding` to fit a 24px toolbar.
+
+Guarded by `DialogButtonStyleTests`.
+
+### 5.2 Reusable Primitives
 
 #### LucideIcon (`pc:LucideIcon`)
 - Custom Avalonia control rendering Lucide path data
@@ -213,7 +247,7 @@ StatusBar (24px, bg-sidebar)
 - Class: `.crumb` -- transparent bg, no border, `FontFamily:VelaUiMonoFont`, `FontSize:11`, `FontWeight:Medium`
 - Hover: `VelaBgHover` background, `VelaAccent` foreground
 
-### 5.2 File Browser (`FileBrowserView.axaml`)
+### 5.3 File Browser (`FileBrowserView.axaml`)
 
 The existing SFTP file browser is the primary reusable component for the dual-pane SFTP document.
 
@@ -238,14 +272,14 @@ The existing SFTP file browser is the primary reusable component for the dual-pa
 
 **Error banner:** `VelaBgActive` background, `VelaAccent` text, shown above column header
 
-### 5.3 Session Tree (`SessionTreeView.axaml`)
+### 5.4 Session Tree (`SessionTreeView.axaml`)
 
 - Group row (30px): chevron + folder icon (color rotates: `VelaWarning`/`VelaInfo`/`VelaAccent`) + name (`VelaTextPrimary` 12px Medium) + count (`VelaTextTertiary` 10px)
 - Session row (28px): status dot + name + optional status tag
 - Selected: `VelaBgActive` background, name switches to `VelaAccent` Medium
 - Hover: `VelaBgHover`
 
-### 5.4 Context Menus (global style in `DockStyles.axaml`)
+### 5.5 Context Menus (global style in `DockStyles.axaml`)
 
 - `VelaBgSurface` background, `VelaBorderSecondary` 1px border, `CornerRadius:6`, `Padding:4`
 - Item: `VelaUiMonoFont` 11px, `VelaTextSecondary`, `Padding:[10,5]`, `CornerRadius:4`
@@ -255,12 +289,12 @@ The existing SFTP file browser is the primary reusable component for the dual-pa
 - Danger items: `VelaError` foreground + icon
 - Primary action items: `VelaTextPrimary` Medium + `VelaAccent` icon
 
-### 5.5 Tooltips (global style in `DockStyles.axaml`)
+### 5.6 Tooltips (global style in `DockStyles.axaml`)
 
 - `VelaBgSurface` background, `VelaBorderSecondary` 1px border, `CornerRadius:6`, `Padding:[8,4]`
 - `VelaTextSecondary` foreground, 11px
 
-### 5.6 Tab Navigation Buttons (`.tab-nav` in `DockStyles.axaml`)
+### 5.7 Tab Navigation Buttons (`.tab-nav` in `DockStyles.axaml`)
 
 - 24x24, `CornerRadius:3`, transparent background
 - Hover: `VelaBgHover`

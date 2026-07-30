@@ -203,8 +203,8 @@ public class UiFontSettingsTests
                     Assert.AreEqual(TextWrapping.Wrap, desc.TextWrapping, $"说明「{desc.Text}」不会换行");
                 }
                 // 并且要真的折起来了 —— 只断言属性值的话,换行在布局上被别的容器挡掉也发现不了。
-                Assert.IsTrue(
-                    descriptions.Any(d => d.Bounds.Height > d.FontSize * 1.6),
+                Assert.Contains(
+                    d => d.Bounds.Height > d.FontSize * 1.6, descriptions,
                     "最大字号下没有任何一条说明折行,这条断言就是空的"
                 );
             }

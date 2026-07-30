@@ -103,13 +103,23 @@
                      Foreground="{DynamicResource VelaTextMuted}"
                      FontFamily="{DynamicResource VelaUiMonoFont}"
                      FontSize="{DynamicResource VelaFontSize10}" VerticalAlignment="Center" />
+          <!-- 动作按钮走全应用统一的两个按钮主题(见 Themes/ButtonThemes.axaml):
+               取消 = 描边次操作,上传 = 强调药丸 + upload 图标,与 SFTP 文件浏览器工具条上的
+               「上传」按钮同一套视觉语言 —— 同一个动作在两处不该长成两个样子。 -->
           <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-            <Button Height="26" Padding="14,0" Cursor="Hand" Click="OnCancelClick"
-                    Content="{x:Static res:Strings.Cancel}" FontSize="{DynamicResource VelaFontSize11}" />
-            <Button Name="ConfirmButton" Height="26" Padding="14,0" Cursor="Hand"
+            <Button Theme="{DynamicResource VelaOutlineButtonTheme}"
+                    Click="OnCancelClick" Content="{x:Static res:Strings.Cancel}" />
+            <Button Name="ConfirmButton" Height="28" Padding="14,0"
                     Theme="{DynamicResource VelaAccentPillButtonTheme}"
-                    Click="OnConfirmClick" IsDefault="True"
-                    Content="{x:Static res:Strings.Upload}" FontSize="{DynamicResource VelaFontSize11}" />
+                    Click="OnConfirmClick" IsDefault="True">
+              <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                <pc:LucideIcon Width="12" Height="12" VerticalAlignment="Center"
+                               Data="{StaticResource Icon.upload}"
+                               Foreground="{Binding $parent[Button].Foreground}" />
+                <TextBlock Text="{x:Static res:Strings.Upload}" VerticalAlignment="Center"
+                           FontSize="{DynamicResource VelaFontSize11}" FontWeight="Medium" />
+              </StackPanel>
+            </Button>
           </StackPanel>
         </Grid>
       </Border>
