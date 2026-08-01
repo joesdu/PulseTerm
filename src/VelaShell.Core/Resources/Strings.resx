@@ -16,6 +16,336 @@
   <data name="AppName" xml:space="preserve">
     <value>VelaShell</value>
   </data>
+  <data name="Monitor_CacheBuffers" xml:space="preserve">
+    <value>Cache / buffers</value>
+  </data>
+  <data name="Monitor_ColCapacity" xml:space="preserve">
+    <value>Used / total</value>
+  </data>
+  <data name="Monitor_ColCore" xml:space="preserve">
+    <value>Core</value>
+  </data>
+  <data name="Monitor_ColCpu" xml:space="preserve">
+    <value>CPU</value>
+  </data>
+  <data name="Monitor_ColDevice" xml:space="preserve">
+    <value>Device</value>
+  </data>
+  <data name="Monitor_ColFsType" xml:space="preserve">
+    <value>Filesystem</value>
+  </data>
+  <data name="Monitor_ColLoad" xml:space="preserve">
+    <value>Load</value>
+  </data>
+  <data name="Monitor_ColMemShare" xml:space="preserve">
+    <value>Share</value>
+  </data>
+  <data name="Monitor_ColMount" xml:space="preserve">
+    <value>Mount point</value>
+  </data>
+  <data name="Monitor_ColPeer" xml:space="preserve">
+    <value>Peer</value>
+  </data>
+  <data name="Monitor_ColProcess" xml:space="preserve">
+    <value>Process</value>
+  </data>
+  <data name="Monitor_ColRss" xml:space="preserve">
+    <value>RSS</value>
+  </data>
+  <data name="Monitor_ColShared" xml:space="preserve">
+    <value>Shared</value>
+  </data>
+  <data name="Monitor_ColSwap" xml:space="preserve">
+    <value>Swap</value>
+  </data>
+  <data name="Monitor_ColUsage" xml:space="preserve">
+    <value>Usage</value>
+  </data>
+  <data name="Monitor_ConnectionsUnavailable" xml:space="preserve">
+    <value>Per-connection rates unavailable (needs ss from iproute2; other users' processes need root)</value>
+  </data>
+  <data name="Monitor_ContextSwitches" xml:space="preserve">
+    <value>Context switches</value>
+  </data>
+  <data name="Monitor_CoreCount" xml:space="preserve">
+    <value>{0} logical cores</value>
+  </data>
+  <data name="Monitor_CoreSelected" xml:space="preserve">
+    <value>{0} cores · CPU{1} {2:F0}%</value>
+  </data>
+  <data name="Monitor_CoreSelectedLabel" xml:space="preserve">
+    <value>{0} cores · {1} {2:F0}%</value>
+  </data>
+  <data name="Monitor_Cpu" xml:space="preserve">
+    <value>CPU</value>
+  </data>
+  <data name="Monitor_CpuBreakdown" xml:space="preserve">
+    <value>user {0:F1}% · sys {1:F1}% · iowait {2:F1}%</value>
+  </data>
+  <data name="Monitor_CpuClock" xml:space="preserve">
+    <value>Clock (cur / max)</value>
+  </data>
+  <data name="Monitor_CpuCoresThreads" xml:space="preserve">
+    <value>Cores / threads</value>
+  </data>
+  <data name="Monitor_Details" xml:space="preserve">
+    <value>Details</value>
+  </data>
+  <data name="Monitor_Disk" xml:space="preserve">
+    <value>Disk</value>
+  </data>
+  <data name="Monitor_DiskActive" xml:space="preserve">
+    <value>Active time</value>
+  </data>
+  <data name="Monitor_DiskActivity" xml:space="preserve">
+    <value>Busy {0}</value>
+  </data>
+  <data name="Monitor_DiskCapacity" xml:space="preserve">
+    <value>Capacity</value>
+  </data>
+  <data name="Monitor_DiskCount" xml:space="preserve">
+    <value>{0} disks</value>
+  </data>
+  <data name="Monitor_DiskRead" xml:space="preserve">
+    <value>Read</value>
+  </data>
+  <data name="Monitor_DiskThroughput" xml:space="preserve">
+    <value>R {0} · W {1}</value>
+  </data>
+  <data name="Monitor_DiskWrite" xml:space="preserve">
+    <value>Write</value>
+  </data>
+  <data name="Monitor_Down" xml:space="preserve">
+    <value>Down</value>
+  </data>
+  <data name="Monitor_Free" xml:space="preserve">
+    <value>Free</value>
+  </data>
+  <data name="Monitor_Gpu" xml:space="preserve">
+    <value>GPU</value>
+  </data>
+  <data name="Monitor_GpuClock" xml:space="preserve">
+    <value>Core / memory clock</value>
+  </data>
+  <data name="Monitor_GpuCount" xml:space="preserve">
+    <value>{0} GPUs</value>
+  </data>
+  <data name="Monitor_GpuDetails" xml:space="preserve">
+    <value>GPU details</value>
+  </data>
+  <data name="Monitor_GpuDriver" xml:space="preserve">
+    <value>Driver</value>
+  </data>
+  <data name="Monitor_GpuFan" xml:space="preserve">
+    <value>Fan</value>
+  </data>
+  <data name="Monitor_GpuMemory" xml:space="preserve">
+    <value>VRAM</value>
+  </data>
+  <data name="Monitor_GpuPower" xml:space="preserve">
+    <value>Power</value>
+  </data>
+  <data name="Monitor_GpuProcesses" xml:space="preserve">
+    <value>GPU processes</value>
+  </data>
+  <data name="Monitor_GpuSlot" xml:space="preserve">
+    <value>PCI slot</value>
+  </data>
+  <data name="Monitor_GpuTemp" xml:space="preserve">
+    <value>Temperature</value>
+  </data>
+  <data name="Monitor_GpuUtil" xml:space="preserve">
+    <value>Compute usage</value>
+  </data>
+  <data name="Monitor_GpuVendor" xml:space="preserve">
+    <value>Vendor</value>
+  </data>
+  <data name="Monitor_GpuVirtual" xml:space="preserve">
+    <value>Virtual</value>
+  </data>
+  <data name="Monitor_Hint" xml:space="preserve">
+    <value>Collected over SSH; polling stops when this window closes.</value>
+  </data>
+  <data name="Monitor_Interval" xml:space="preserve">
+    <value>every {0}s</value>
+  </data>
+  <data name="Monitor_KernelSpace" xml:space="preserve">
+    <value>Kernel</value>
+  </data>
+  <data name="Monitor_LoadAverage" xml:space="preserve">
+    <value>Load average</value>
+  </data>
+  <data name="Monitor_LoadLegend" xml:space="preserve">
+    <value>Load</value>
+  </data>
+  <data name="Monitor_LogicalCores" xml:space="preserve">
+    <value>{0} logical cores</value>
+  </data>
+  <data name="Monitor_LogicalProcessors" xml:space="preserve">
+    <value>Logical processors</value>
+  </data>
+  <data name="Monitor_MemAvailable" xml:space="preserve">
+    <value>Available</value>
+  </data>
+  <data name="Monitor_MemCacheBuffers" xml:space="preserve">
+    <value>Cache / buffers</value>
+  </data>
+  <data name="Monitor_MemComposition" xml:space="preserve">
+    <value>Memory composition</value>
+  </data>
+  <data name="Monitor_MemDirty" xml:space="preserve">
+    <value>Dirty pages</value>
+  </data>
+  <data name="Monitor_MemShared" xml:space="preserve">
+    <value>Shared</value>
+  </data>
+  <data name="Monitor_MemSlab" xml:space="preserve">
+    <value>Reclaimable slab</value>
+  </data>
+  <data name="Monitor_MemTotal" xml:space="preserve">
+    <value>Total</value>
+  </data>
+  <data name="Monitor_MemUsed" xml:space="preserve">
+    <value>Used</value>
+  </data>
+  <data name="Monitor_Memory" xml:space="preserve">
+    <value>Memory</value>
+  </data>
+  <data name="Monitor_MetricUnavailable" xml:space="preserve">
+    <value>This GPU does not expose this metric</value>
+  </data>
+  <data name="Monitor_NavCpu" xml:space="preserve">
+    <value>{0:F0}% · {1} cores</value>
+  </data>
+  <data name="Monitor_NavGpu" xml:space="preserve">
+    <value>{0:F0}% · {1} GPUs</value>
+  </data>
+  <data name="Monitor_Network" xml:space="preserve">
+    <value>Network</value>
+  </data>
+  <data name="Monitor_NicDetails" xml:space="preserve">
+    <value>Adapter details</value>
+  </data>
+  <data name="Monitor_NicDropped" xml:space="preserve">
+    <value>Dropped rx/tx</value>
+  </data>
+  <data name="Monitor_NicErrors" xml:space="preserve">
+    <value>Errors rx/tx</value>
+  </data>
+  <data name="Monitor_NicFullDuplex" xml:space="preserve">
+    <value>full duplex</value>
+  </data>
+  <data name="Monitor_NicHalfDuplex" xml:space="preserve">
+    <value>half duplex</value>
+  </data>
+  <data name="Monitor_NicIp" xml:space="preserve">
+    <value>IPv4</value>
+  </data>
+  <data name="Monitor_NicLink" xml:space="preserve">
+    <value>Link speed</value>
+  </data>
+  <data name="Monitor_NicMac" xml:space="preserve">
+    <value>MAC address</value>
+  </data>
+  <data name="Monitor_NicMtu" xml:space="preserve">
+    <value>MTU</value>
+  </data>
+  <data name="Monitor_NicRxTotal" xml:space="preserve">
+    <value>Total received</value>
+  </data>
+  <data name="Monitor_NicTxTotal" xml:space="preserve">
+    <value>Total sent</value>
+  </data>
+  <data name="Monitor_Now" xml:space="preserve">
+    <value>now</value>
+  </data>
+  <data name="Monitor_Overview" xml:space="preserve">
+    <value>Overview</value>
+  </data>
+  <data name="Monitor_Partitions" xml:space="preserve">
+    <value>Partitions and mounts</value>
+  </data>
+  <data name="Monitor_Pause" xml:space="preserve">
+    <value>Pause</value>
+  </data>
+  <data name="Monitor_PhysicalDisks" xml:space="preserve">
+    <value>Physical disks</value>
+  </data>
+  <data name="Monitor_ProcessesThreads" xml:space="preserve">
+    <value>Processes / threads</value>
+  </data>
+  <data name="Monitor_Resume" xml:space="preserve">
+    <value>Resume</value>
+  </data>
+  <data name="Monitor_SampleInterval" xml:space="preserve">
+    <value>Sample interval</value>
+  </data>
+  <data name="Monitor_SortByIndex" xml:space="preserve">
+    <value>By core</value>
+  </data>
+  <data name="Monitor_SortByLoad" xml:space="preserve">
+    <value>By load</value>
+  </data>
+  <data name="Monitor_Stale" xml:space="preserve">
+    <value>Sampling keeps failing, retrying…</value>
+  </data>
+  <data name="Monitor_Swap" xml:space="preserve">
+    <value>Swap</value>
+  </data>
+  <data name="Monitor_Throughput" xml:space="preserve">
+    <value>Throughput</value>
+  </data>
+  <data name="Monitor_Title" xml:space="preserve">
+    <value>System Resources</value>
+  </data>
+  <data name="Monitor_TitleFormat" xml:space="preserve">
+    <value>System Resources — {0}</value>
+  </data>
+  <data name="Monitor_TopByCpu" xml:space="preserve">
+    <value>Top processes by CPU</value>
+  </data>
+  <data name="Monitor_TopByMemory" xml:space="preserve">
+    <value>Top processes by memory</value>
+  </data>
+  <data name="Monitor_TopConnections" xml:space="preserve">
+    <value>Top connections</value>
+  </data>
+  <data name="Monitor_TotalUsage" xml:space="preserve">
+    <value>Total usage</value>
+  </data>
+  <data name="Monitor_Up" xml:space="preserve">
+    <value>Up</value>
+  </data>
+  <data name="Monitor_UptimeLabel" xml:space="preserve">
+    <value>Uptime</value>
+  </data>
+  <data name="Monitor_Used" xml:space="preserve">
+    <value>Used</value>
+  </data>
+  <data name="Monitor_UserSpace" xml:space="preserve">
+    <value>User</value>
+  </data>
+  <data name="Monitor_ViewHeat" xml:space="preserve">
+    <value>Heatmap</value>
+  </data>
+  <data name="Monitor_ViewList" xml:space="preserve">
+    <value>List</value>
+  </data>
+  <data name="Monitor_ViewSpark" xml:space="preserve">
+    <value>Mini charts</value>
+  </data>
+  <data name="Monitor_Vram" xml:space="preserve">
+    <value>VRAM</value>
+  </data>
+  <data name="Monitor_WindowMinutes" xml:space="preserve">
+    <value>{0}m ago</value>
+  </data>
+  <data name="Monitor_WindowSeconds" xml:space="preserve">
+    <value>{0}s ago</value>
+  </data>
+  <data name="Monitor_WindowStart" xml:space="preserve">
+    <value>60s ago</value>
+  </data>
   <data name="Ready" xml:space="preserve">
     <value>Ready</value>
   </data>
@@ -50,6 +380,9 @@
   </data>
   <data name="Split" xml:space="preserve">
     <value>Split</value>
+  </data>
+  <data name="StatusBar_OpenMonitor" xml:space="preserve">
+    <value>Open resource monitor</value>
   </data>
   <data name="SyncGroup" xml:space="preserve">
     <value>Sync Group</value>
