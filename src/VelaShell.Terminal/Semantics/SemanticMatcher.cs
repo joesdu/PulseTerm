@@ -52,7 +52,7 @@ public sealed partial class SemanticMatcher
 
     // no 一并算作否定态:大量工具的表格输出(sshd -T、systemctl show、docker inspect)用 yes/no
     // 成对表达开关,把 no 标红后一眼能看出哪一项没开(yes 见 SuccessRegex)。
-    [GeneratedRegex(@"\b(?:error|errors|failed|failure|fatal|panic|exception|denied|no)\b", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"\b(?:error|errors|failed|failure|fatal|panic|exception|denied|no|unhealthy|offline|disconnected|disabled)\b", RegexOptions.IgnoreCase)]
     private static partial Regex ErrorRegex();
 
     [GeneratedRegex(@"\b(?:warn|warning|warnings|deprecated|caution|notice)\b", RegexOptions.IgnoreCase)]
