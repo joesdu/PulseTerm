@@ -37,8 +37,14 @@ public partial class MainWindow : Window
     /// <summary>链路追踪窗口尺寸在文档存储里的键。</summary>
     private const string TraceRouteLayoutKey = "traceRoute";
 
+    /// <summary>资源监视窗口尺寸在文档存储里的键。</summary>
+    private const string ResourceMonitorLayoutKey = "resourceMonitor";
+
     /// <summary>每个会话至多一扇任务管理器窗口,按会话标识去重。</summary>
     private readonly Dictionary<Guid, ProcessManagerView> _processManagers = [];
+
+    /// <summary>每个会话至多一扇资源监视窗口,按会话标识去重。</summary>
+    private readonly Dictionary<Guid, ResourceMonitorWindow> _resourceMonitors = [];
 
     /// <summary>每个追踪目标至多一扇窗口,按目标主机去重。</summary>
     private readonly Dictionary<string, TraceRouteWindow> _traceWindows = [with(StringComparer.OrdinalIgnoreCase)];
@@ -198,6 +204,9 @@ public partial class MainWindow : Window
             // 标题栏“任务管理器”:每个会话最多一扇窗,非模态。
             vm.ProcessManagerRequested += (sessionId, label) =>
                 Dispatcher.UIThread.Post(() => _ = OpenProcessManagerAsync(sessionId, label));
+
+            vm.ResourceMonitorRequested += (sessionId, label) =>
+                Dispatcher.UIThread.Post(() => _ = OpenResourceMonitorAsync(sessionId, label));
             // 标题栏"链路追踪":每个目标最多一扇窗,非模态。
             vm.TraceRouteRequested += (host, label) =>
                 Dispatcher.UIThread.Post(() => _ = OpenTraceRouteAsync(vm, host, label));
@@ -899,6 +908,38 @@ public partial class MainWindow : Window
         {
             WindowLayoutStore.Apply(window, await layoutStore.LoadAsync(ProcessManagerLayoutKey));
             window.Closing += (_, _) => _ = layoutStore.SaveAsync(ProcessManagerLayoutKey, window);
+        }
+        window.Show(this);
+    }
+
+    /// <summary>
+    /// 打开(或前置)某个会话的资源监视窗口。与任务管理器同样按会话去重、非模态、记忆尺寸 ——
+    /// 用户要一边盯曲线一边在终端里敲命令。
+    /// </summary>
+    private async Task OpenResourceMonitorAsync(Guid sessionId, string label)
+    {
+        if (_resourceMonitors.TryGetValue(sessionId, out ResourceMonitorWindow? existing))
+        {
+            existing.Activate();
+            return;
+        }
+        if (Application.Current is not App app
+            || app.Services?.GetService<ISessionMetricsService>() is not { } metricsService)
+        {
+            return;
+        }
+        var window = new ResourceMonitorWindow
+        {
+            DataContext = new ResourceMonitorWindowViewModel(metricsService, sessionId, label),
+        };
+        _resourceMonitors[sessionId] = window;
+        window.Closed += (_, _) => _resourceMonitors.Remove(sessionId);
+
+        // 尺寸记忆:所有会话共用一条记录(同任务管理器)。
+        if (app.Services?.GetService<WindowLayoutStore>() is { } layoutStore)
+        {
+            WindowLayoutStore.Apply(window, await layoutStore.LoadAsync(ResourceMonitorLayoutKey));
+            window.Closing += (_, _) => _ = layoutStore.SaveAsync(ResourceMonitorLayoutKey, window);
         }
         window.Show(this);
     }

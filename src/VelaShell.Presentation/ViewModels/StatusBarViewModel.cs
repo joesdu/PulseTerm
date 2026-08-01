@@ -1,3 +1,4 @@
+using System.Windows.Input;
 using ReactiveUI;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Concurrency;
@@ -107,29 +108,66 @@ public sealed class StatusBarViewModel(ISequencer scheduler) : ReactiveObject, I
     public string CpuTooltip
     {
         get;
-        set => this.RaiseAndSetIfChanged(ref field, value);
+        set
+        {
+            this.RaiseAndSetIfChanged(ref field, value);
+            this.RaisePropertyChanged(nameof(MetricsTooltip));
+        }
     } = "CPU";
 
     /// <summary>悬停提示:内存/交换分区的已用与总量。</summary>
     public string MemTooltip
     {
         get;
-        set => this.RaiseAndSetIfChanged(ref field, value);
+        set
+        {
+            this.RaiseAndSetIfChanged(ref field, value);
+            this.RaisePropertyChanged(nameof(MetricsTooltip));
+        }
     } = Strings.Get("Svc_Memory");
 
     /// <summary>悬停提示:每个磁盘(挂载点)的用量。</summary>
     public string DiskTooltip
     {
         get;
-        set => this.RaiseAndSetIfChanged(ref field, value);
+        set
+        {
+            this.RaiseAndSetIfChanged(ref field, value);
+            this.RaisePropertyChanged(nameof(MetricsTooltip));
+        }
     } = Strings.Get("Svc_Disk");
 
     /// <summary>悬停提示:每个网卡的上下行速率。</summary>
     public string NetTooltip
     {
         get;
-        set => this.RaiseAndSetIfChanged(ref field, value);
+        set
+        {
+            this.RaiseAndSetIfChanged(ref field, value);
+            this.RaisePropertyChanged(nameof(MetricsTooltip));
+        }
     } = Strings.Get("Svc_NetSpeed");
+
+    /// <summary>
+    /// 打开资源监视窗口的命令,由主窗口视图模型注入。
+    /// 命令挂在这里而不是让状态栏去 <c>$parent[Window].DataContext</c> 找 ——
+    /// 视图在窗口 DataContext 赋值之前就完成了加载,跨树查找会在启动时刷一条绑定错误。
+    /// </summary>
+    public ICommand? OpenResourceMonitorCommand
+    {
+        get;
+        set => this.RaiseAndSetIfChanged(ref field, value);
+    }
+
+    /// <summary>
+    /// 状态栏资源按钮的悬停提示:四段详情拼在一起。读数不再常驻状态栏(已收进资源监视窗口),
+    /// 但"不开窗瞄一眼"的路径必须保留 —— 否则每次看占用都要开一扇窗。
+    /// </summary>
+    public string MetricsTooltip =>
+        string.Join(
+            "\n\n",
+            new[] { CpuTooltip, MemTooltip, DiskTooltip, NetTooltip, Strings.Get("StatusBar_OpenMonitor") }
+                .Where(section => !string.IsNullOrWhiteSpace(section)));
 
     /// <summary>交换分区占用率;无交换分区或无实时会话时显示 "--"。</summary>
     public string SwapUsage

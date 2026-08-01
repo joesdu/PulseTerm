@@ -7,8 +7,9 @@ namespace VelaShell.Core.Services;
 /// <param name="MountPoint">挂载点路径(可能含空格)。</param>
 /// <param name="TotalBytes">该文件系统的总容量(字节)。</param>
 /// <param name="UsedBytes">该文件系统的已用空间(字节)。</param>
+/// <param name="FsType">文件系统类型(ext4 / xfs / nfs4…);df 不给这一列时为空串。</param>
 // ReSharper disable once NotAccessedPositionalProperty.Global
-public sealed record DiskUsage(string Source, string MountPoint, long TotalBytes, long UsedBytes)
+public sealed record DiskUsage(string Source, string MountPoint, long TotalBytes, long UsedBytes, string FsType = "")
 {
     /// <summary>已用空间占总容量的百分比(0-100);总容量为 0 时返回 0。</summary>
     public double Percent => TotalBytes > 0 ? (UsedBytes * 100.0) / TotalBytes : 0;
@@ -33,7 +34,7 @@ public sealed record NetInterfaceCounter(string Name, long RxBytes, long TxBytes
 public sealed record NetInterfaceRate(string Name, double RxBytesPerSec, double TxBytesPerSec);
 
 /// <summary>远端会话主机在某一时刻的资源快照(设计面板 EP3Gd)。</summary>
-public sealed class SessionMetrics
+public sealed partial class SessionMetrics
 {
     /// <summary>
     /// 一次性探测:每段以分隔符隔开,使得任一探针的部分失败不会拖垮其余部分。面向 Linux(规范目标为 Ubuntu/CentOS)。
@@ -53,7 +54,7 @@ public sealed class SessionMetrics
         """echo __N__; awk -F: 'NR>2 {gsub(/^ +/,"",$1); if ($1!="lo") {split($2,f," "); rx+=f[1]; tx+=f[9]}} END {print rx+0" "tx+0}' /proc/net/dev 2>/dev/null; """ +
         // __DL__:多磁盘面板/提示所用的全部真实文件系统(排除 tmpfs 等虚拟盘;
         // 需 GNU df,BusyBox 上该段为空,UI 退回 __D__ 的根分区聚合值)。
-        "echo __DL__; df -B1 -x tmpfs -x devtmpfs -x squashfs -x overlay --output=source,size,used,target 2>/dev/null | tail -n +2; " +
+        "echo __DL__; df -B1 -x tmpfs -x devtmpfs -x squashfs -x overlay --output=source,fstype,size,used,target 2>/dev/null | tail -n +2; " +
         // __C__:状态栏 CPU 提示所用的逐核心 /proc/stat 行。
         "echo __C__; grep '^cpu[0-9]' /proc/stat 2>/dev/null; " +
         // __NI__:状态栏网络提示所用的逐网卡累计 rx/tx。
@@ -146,6 +147,81 @@ public sealed class SessionMetrics
     /// <summary>各网卡的瞬时收发速率,与 <see cref="NicCounters" /> 同序;首个采样为 null。</summary>
     public IReadOnlyList<NetInterfaceRate>? NicRates { get; set; }
 
+    // ---- 以下为资源监视窗口的细分指标(MetricsScope.Detail / Gpu / Processes);
+    //      状态栏口径不采集这些段,属性保持默认值。 ----
+
+    /// <summary>1/5/15 分钟负载平均值。</summary>
+    public double Load1 { get; private init; }
+
+    /// <inheritdoc cref="Load1" />
+    public double Load5 { get; private init; }
+
+    /// <inheritdoc cref="Load1" />
+    public double Load15 { get; private init; }
+
+    /// <summary>当前可运行任务数(/proc/loadavg 第 4 段的分子)。</summary>
+    public int RunningTasks { get; private init; }
+
+    /// <summary>内核调度实体总数(线程数,/proc/loadavg 第 4 段的分母)。</summary>
+    public int ThreadCount { get; private init; }
+
+    /// <summary>当前进程数(/proc 下的数字目录数);未采集时为 0。</summary>
+    public int ProcessCount { get; private set; }
+
+    /// <summary>/proc/stat 聚合行的原始各列 jiffies,供采集器差分出用户/内核/IO 等待占比。</summary>
+    public IReadOnlyList<long> CpuStatColumns { get; private init; } = [];
+
+    /// <summary>CPU 时间细分占比,由采集器差分写入;首个采样为 null。</summary>
+    public CpuBreakdown? Cpu { get; set; }
+
+    /// <summary>内存构成明细;未采集细分段时为 null。</summary>
+    public MemoryDetail? Memory { get; private set; }
+
+    /// <summary>逐块设备的累计 IO 计数(__IO__),原始值。</summary>
+    public IReadOnlyList<DiskIoCounter> DiskIoCounters { get; private set; } = [];
+
+    /// <summary>逐块设备的瞬时 IO 速率,由采集器差分写入;首个采样为 null。</summary>
+    public IReadOnlyList<DiskIoRate>? DiskIoRates { get; set; }
+
+    /// <summary>
+    /// 各物理网卡的属性(MAC / MTU / 速率 / 链路状态 / IPv4)。放在每次采样里而不是静态信息里,
+    /// 插拔网线、WiFi 重连、IP 变更都要跟着变。
+    /// </summary>
+    public IReadOnlyList<NicInfo> NicInfos { get; private set; } = [];
+
+    /// <summary>已建立的 TCP 连接及其累计收发字节(__SS__),原始值。</summary>
+    public IReadOnlyList<ConnectionCounter> Connections { get; private set; } = [];
+
+    /// <summary>各连接的瞬时收发速率,由采集器差分写入;首个采样为 null。</summary>
+    public IReadOnlyList<ConnectionRate>? ConnectionRates { get; set; }
+
+    /// <summary>
+    /// 本次采样是否跑过连接探针。false 表示压根没采(状态栏口径),
+    /// true 但 <see cref="Connections" /> 为空表示 ss 不可用或确实没有连接 —— 界面据此给出提示。
+    /// </summary>
+    public bool HasConnectionProbe { get; private set; }
+
+    /// <summary>GPU 实时读数;无 GPU 或未采集 GPU 段时为空。</summary>
+    public IReadOnlyList<GpuDevice> Gpus { get; private set; } = [];
+
+    /// <summary>占用 GPU 的计算进程;无 GPU 时为空。</summary>
+    public IReadOnlyList<GpuProcess> GpuProcesses { get; private set; } = [];
+
+    /// <summary>按常驻内存排序的进程 Top;未采集进程段时为空。</summary>
+    public IReadOnlyList<ProcessUsage> TopByMemory { get; private set; } = [];
+
+    /// <summary>主机已运行秒数(/proc/uptime);未采集时为 0。</summary>
+    public double UptimeSeconds { get; private set; }
+
+    /// <summary>累计上下文切换次数(/proc/stat ctxt),原始值。</summary>
+    public long ContextSwitches { get; private set; }
+
+    /// <summary>每秒上下文切换次数,由采集器差分写入;首个采样为 0。</summary>
+    public double ContextSwitchesPerSec { get; set; }
+
+    /// <summary>各核心当前平均频率(MHz);未采集或不支持时为 0。</summary>
+    public double CurrentMhz { get; private set; }
+
     /// <summary>内存使用率(0-100);总量为 0 时返回 0。</summary>
     public double MemPercent => MemTotalBytes > 0 ? (MemUsedBytes * 100.0) / MemTotalBytes : 0;
 
@@ -165,11 +241,27 @@ public sealed class SessionMetrics
             return null;
         }
         int cores = int.TryParse(Section("__P__"), out int p) ? Math.Max(1, p) : 1;
-        double load1 = 0;
+        double load1 = 0, load5 = 0, load15 = 0;
+        int runningTasks = 0, threadCount = 0;
         string[] loadParts = Section("__L__").Split(' ', StringSplitOptions.RemoveEmptyEntries);
         if (loadParts.Length > 0)
         {
             _ = double.TryParse(loadParts[0], CultureInfo.InvariantCulture, out load1);
+        }
+        if (loadParts.Length > 2)
+        {
+            _ = double.TryParse(loadParts[1], CultureInfo.InvariantCulture, out load5);
+            _ = double.TryParse(loadParts[2], CultureInfo.InvariantCulture, out load15);
+        }
+        // 第 4 段形如 "1/234":可运行任务数 / 内核调度实体总数(即线程数)。
+        if (loadParts.Length > 3)
+        {
+            string[] tasks = loadParts[3].Split('/');
+            if (tasks.Length == 2)
+            {
+                _ = int.TryParse(tasks[0], out runningTasks);
+                _ = int.TryParse(tasks[1], out threadCount);
+            }
         }
         long memTotal = 0, memUsed = 0, swapTotal = 0, swapUsed = 0;
         string[] memParts = Section("__M__").Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -196,6 +288,7 @@ public sealed class SessionMetrics
         // __S__:/proc/stat 的聚合行 "cpu  user nice system idle iowait irq ..."。
         long cpuTotal = 0, cpuIdle = 0;
         bool hasCpuCounters = false;
+        var cpuColumns = new List<long>();
         string[] statParts = Section("__S__").Split(' ', StringSplitOptions.RemoveEmptyEntries);
         if (statParts is ["cpu", _, _, _, _, ..])
         {
@@ -204,6 +297,7 @@ public sealed class SessionMetrics
                 if (long.TryParse(statParts[i], out long v))
                 {
                     cpuTotal += v;
+                    cpuColumns.Add(v);
                 }
             }
             _ = long.TryParse(statParts[4], out long idle); // 空闲
@@ -227,16 +321,23 @@ public sealed class SessionMetrics
             hasNetCounters = true;
         }
 
-        // __DL__:每行一个真实文件系统 "source size used mountpoint"(挂载点可能含空格)。
+        // __DL__:每行一个真实文件系统 "source fstype size used mountpoint"(挂载点可能含空格)。
+        // 老 df 不认 --output 里的 fstype 时会少一列,因此两种列数都要能解析 —— 判据是
+        // "哪一列开始是数字",而不是列数本身。
         // 同一设备的多个挂载(bind mount / btrfs 子卷)只记第一处,避免容量重复计入。
         var disks = new List<DiskUsage>();
         var seenSources = new HashSet<string>(StringComparer.Ordinal);
         foreach (string line in Lines(Section("__DL__")))
         {
             string[] parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length < 4 ||
-                !long.TryParse(parts[1], out long dTotal) ||
-                !long.TryParse(parts[2], out long dUsed) ||
+            if (parts.Length < 4)
+            {
+                continue;
+            }
+            int sizeAt = long.TryParse(parts[1], out _) ? 1 : 2;
+            if (parts.Length < sizeAt + 3 ||
+                !long.TryParse(parts[sizeAt], out long dTotal) ||
+                !long.TryParse(parts[sizeAt + 1], out long dUsed) ||
                 dTotal <= 0)
             {
                 continue;
@@ -245,7 +346,8 @@ public sealed class SessionMetrics
             {
                 continue;
             }
-            disks.Add(new(parts[0], string.Join(' ', parts[3..]), dTotal, dUsed));
+            disks.Add(new(parts[0], string.Join(' ', parts[(sizeAt + 2)..]), dTotal, dUsed,
+                sizeAt == 2 ? parts[1] : ""));
         }
 
         // __C__:/proc/stat 的逐核心行 "cpuN user nice system idle iowait ...",
@@ -294,7 +396,7 @@ public sealed class SessionMetrics
         {
             return null;
         }
-        return new()
+        var metrics = new SessionMetrics
         {
             CpuCores = cores,
             CpuPercent = Math.Clamp((load1 / cores) * 100.0, 0, 100),
@@ -314,8 +416,17 @@ public sealed class SessionMetrics
             NetRxTotalBytes = netRx,
             NetTxTotalBytes = netTx,
             CoreCounters = coreCounters,
-            NicCounters = nicCounters
+            NicCounters = nicCounters,
+            Load1 = load1,
+            Load5 = load5,
+            Load15 = load15,
+            RunningTasks = runningTasks,
+            ThreadCount = threadCount,
+            CpuStatColumns = cpuColumns
         };
+        // 细分段(窗口口径)缺失时全部降级为默认值,状态栏路径因此零影响。
+        metrics.ParseExtras(output);
+        return metrics;
 
         string Section(string marker)
         {

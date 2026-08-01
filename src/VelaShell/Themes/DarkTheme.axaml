@@ -19,5 +19,25 @@
     <SolidColorBrush x:Key="VelaShellYellow"  Color="#F1FA8C" />
     <SolidColorBrush x:Key="VelaShellRed"     Color="#FF5555" />
     <SolidColorBrush x:Key="VelaShellMagenta" Color="#FF79C6" />
+    <SolidColorBrush x:Key="VelaShellSubtle"  Color="#6272A4" />
+
+    <!-- 资源监视图表:面积填充是同色 22% 透明,折线用上面的实色(设计规范"阈值与配色")。 -->
+    <SolidColorBrush x:Key="VelaShellGreenDim"   Color="#3850FA7B" />
+    <SolidColorBrush x:Key="VelaShellCyanDim"    Color="#388BE9FD" />
+    <SolidColorBrush x:Key="VelaShellBlueDim"    Color="#38BD93F9" />
+    <SolidColorBrush x:Key="VelaShellYellowDim"  Color="#38F1FA8C" />
+    <SolidColorBrush x:Key="VelaShellRedDim"     Color="#38FF5555" />
+    <SolidColorBrush x:Key="VelaShellMagentaDim" Color="#38FF79C6" />
+    <SolidColorBrush x:Key="VelaShellSubtleDim"  Color="#286272A4" />
+
+    <!-- 图表刻度文字的底片:曲线面积铺满时,直接写字会糊进填充里。 -->
+    <SolidColorBrush x:Key="VelaChartLabelBg" Color="#C0282A36" />
+
+    <!-- 逻辑处理器热力网格的五级色阶:空闲 → 低 → 中 → 高 → 满。 -->
+    <SolidColorBrush x:Key="VelaHeat1" Color="#6644475A" />
+    <SolidColorBrush x:Key="VelaHeat2" Color="#666272A4" />
+    <SolidColorBrush x:Key="VelaHeat3" Color="#55BD93F9" />
+    <SolidColorBrush x:Key="VelaHeat4" Color="#55F1FA8C" />
+    <SolidColorBrush x:Key="VelaHeat5" Color="#66FF5555" />
 
 </ResourceDictionary>

@@ -11,4 +11,33 @@
     <SolidColorBrush x:Key="VelaError" Color="#CB3A2A" />
     <SolidColorBrush x:Key="VelaInfo" Color="#036A96" />
 
+    <!-- 终端颜色标记(Alucard 口径)。原先只在暗色主题里定义,亮色下资源图表会拿不到画刷。 -->
+    <SolidColorBrush x:Key="VelaShellWhite"   Color="#1F1F1F" />
+    <SolidColorBrush x:Key="VelaShellGreen"   Color="#14710A" />
+    <SolidColorBrush x:Key="VelaShellCyan"    Color="#036A96" />
+    <SolidColorBrush x:Key="VelaShellBlue"    Color="#644AC9" />
+    <SolidColorBrush x:Key="VelaShellYellow"  Color="#846E15" />
+    <SolidColorBrush x:Key="VelaShellRed"     Color="#CB3A2A" />
+    <SolidColorBrush x:Key="VelaShellMagenta" Color="#A3144D" />
+    <SolidColorBrush x:Key="VelaShellSubtle"  Color="#6C664B" />
+
+    <!-- 资源监视图表:亮色底下填充要更淡一档,否则曲线糊成一片。 -->
+    <SolidColorBrush x:Key="VelaShellGreenDim"   Color="#2814710A" />
+    <SolidColorBrush x:Key="VelaShellCyanDim"    Color="#28036A96" />
+    <SolidColorBrush x:Key="VelaShellBlueDim"    Color="#28644AC9" />
+    <SolidColorBrush x:Key="VelaShellYellowDim"  Color="#28846E15" />
+    <SolidColorBrush x:Key="VelaShellRedDim"     Color="#28CB3A2A" />
+    <SolidColorBrush x:Key="VelaShellMagentaDim" Color="#28A3144D" />
+    <SolidColorBrush x:Key="VelaShellSubtleDim"  Color="#206C664B" />
+
+    <!-- 图表刻度文字的底片:曲线面积铺满时,直接写字会糊进填充里。 -->
+    <SolidColorBrush x:Key="VelaChartLabelBg" Color="#D0F8F5F0" />
+
+    <!-- 逻辑处理器热力网格的五级色阶。 -->
+    <SolidColorBrush x:Key="VelaHeat1" Color="#22644AC9" />
+    <SolidColorBrush x:Key="VelaHeat2" Color="#33036A96" />
+    <SolidColorBrush x:Key="VelaHeat3" Color="#44644AC9" />
+    <SolidColorBrush x:Key="VelaHeat4" Color="#44846E15" />
+    <SolidColorBrush x:Key="VelaHeat5" Color="#55CB3A2A" />
+
 </ResourceDictionary>

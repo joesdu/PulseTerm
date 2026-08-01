@@ -123,8 +123,8 @@ public class XshellImportTests
             return;
         }
 
-        Assert.IsTrue(
-            withPassword.Any(i => i.PasswordRecovered),
+        Assert.Contains(
+            i => i.PasswordRecovered, withPassword,
             "含加密密码的会话应至少有一条被成功还原;若全部失败,说明密钥派生或尾部校验假设与真实 Xshell 不符。");
     }
 }

@@ -4,7 +4,6 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:pvm="using:VelaShell.Presentation.ViewModels"
              xmlns:pc="using:VelaShell.Controls.Controls"
-             xmlns:views="using:VelaShell.Views"
              xmlns:loc="using:VelaShell.Localization"
              mc:Ignorable="d" d:DesignWidth="1440" d:DesignHeight="24"
              x:Class="VelaShell.Views.StatusBarView"
@@ -63,48 +62,23 @@
       <!-- 右侧分组(间距 12)。实时指标位于固定宽度的字段(终端类型 / 尺寸 / 编码)左侧,
            这样它们宽度变化时不会把静态文本挤来挤去(#4)。 -->
       <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12">
-        <!-- 悬停提示为动态详情:CPU 逐核心、内存含交换、磁盘逐挂载点、网速逐网卡。 -->
-        <StackPanel Orientation="Horizontal" Spacing="4" ToolTip.Tip="{Binding CpuTooltip}">
-          <pc:LucideIcon Width="11" Height="11" Data="{StaticResource Icon.cpu}"
-                         Foreground="{DynamicResource VelaTextTertiary}" VerticalAlignment="Center" />
-          <TextBlock Text="{Binding CpuUsage}" Foreground="{DynamicResource VelaTextSecondary}" />
-        </StackPanel>
-        <StackPanel Orientation="Horizontal" Spacing="4" ToolTip.Tip="{Binding MemTooltip}">
-          <pc:LucideIcon Width="11" Height="11" Data="{StaticResource Icon.memory-stick}"
-                         Foreground="{DynamicResource VelaTextTertiary}" VerticalAlignment="Center" />
-          <TextBlock Text="{Binding MemUsage}" Foreground="{DynamicResource VelaTextSecondary}" />
-        </StackPanel>
-        <StackPanel Orientation="Horizontal" Spacing="4" ToolTip.Tip="{loc:Localize StatusBar_Swap}">
-          <pc:LucideIcon Width="11" Height="11" Data="{StaticResource Icon.arrow-right-left}"
-                         Foreground="{DynamicResource VelaTextTertiary}" VerticalAlignment="Center" />
-          <TextBlock Text="{Binding SwapUsage}" Foreground="{DynamicResource VelaTextSecondary}" />
-        </StackPanel>
-        <StackPanel Orientation="Horizontal" Spacing="4" ToolTip.Tip="{Binding DiskTooltip}">
-          <pc:LucideIcon Width="11" Height="11" Data="{StaticResource Icon.hard-drive}"
-                         Foreground="{DynamicResource VelaTextTertiary}" VerticalAlignment="Center" />
-          <TextBlock Text="{Binding DiskUsage}" Foreground="{DynamicResource VelaTextSecondary}" />
-        </StackPanel>
-        <!-- 原上下箭头图标由两个半边重建,使每个方向在流量朝该方向流动时独立高亮(accent);
-             读数显示主导方向的速率(类 Android 风格)。 -->
-        <StackPanel Orientation="Horizontal" Spacing="4" ToolTip.Tip="{Binding NetTooltip}">
-          <StackPanel.Styles>
-            <Style Selector="pc|LucideIcon.updown">
-              <Setter Property="Foreground" Value="{DynamicResource VelaTextTertiary}" />
+        <!-- 实时指标收进资源监视窗口:状态栏只留一个图标按钮,点击开窗;
+             悬停仍给出 CPU 逐核心 / 内存含交换 / 磁盘逐挂载点 / 网速逐网卡的完整详情。 -->
+        <Button Classes="monitor" Padding="4,0" Height="20" VerticalAlignment="Center"
+                Background="Transparent" BorderThickness="0" CornerRadius="4" Cursor="Hand"
+                ToolTip.Tip="{Binding MetricsTooltip}" ToolTip.Placement="Left"
+                Command="{Binding OpenResourceMonitorCommand}">
+          <Button.Styles>
+            <Style Selector="Button.monitor:pointerover /template/ ContentPresenter">
+              <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
             </Style>
-            <Style Selector="pc|LucideIcon.updown.net-active">
-              <Setter Property="Foreground" Value="{DynamicResource VelaAccent}" />
+            <Style Selector="Button.monitor:disabled">
+              <Setter Property="Opacity" Value="0.55" />
             </Style>
-          </StackPanel.Styles>
-          <Panel Width="11" Height="11" VerticalAlignment="Center">
-            <pc:LucideIcon Width="11" Height="11" Classes="updown"
-                           Data="{StaticResource Icon.arrow-up-half}"
-                           Classes.net-active="{Binding IsNetUpActive}" />
-            <pc:LucideIcon Width="11" Height="11" Classes="updown"
-                           Data="{StaticResource Icon.arrow-down-half}"
-                           Classes.net-active="{Binding IsNetDownActive}" />
-          </Panel>
-          <TextBlock Text="{Binding NetSpeed}" Foreground="{DynamicResource VelaTextSecondary}" />
-        </StackPanel>
+          </Button.Styles>
+          <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.square-activity}"
+                         Foreground="{DynamicResource VelaAccent}" VerticalAlignment="Center" />
+        </Button>
         <Border Classes="divider" />
         <TextBlock Text="{Binding TerminalType}"
                    Foreground="{DynamicResource VelaTextMuted}" />

@@ -12,7 +12,7 @@
 |------|------|
 | `Program.cs` | 进程入口：配置 Avalonia AppBuilder、单实例锁、自更新启动期收尾（清理 `*.old` / 崩溃回滚）、启动生命周期。 |
 | `App.axaml` / `App.axaml.cs` | **组合根**：构建 DI 容器、注册所有层的服务、创建主窗口、加载主题与全局样式。 |
-| `Views/` | 全部 XAML 视图：`MainWindow`、`SettingsView` 及 11 页设置（常规/外观/终端/密钥/快捷键/传输/安全审计/片段/云同步/关于/捐赠）、认证对话框、命令面板、SFTP 文档（本地 `LocalFilePaneView` + 远程 `FileBrowserView` 双栏）、文件传输浮窗、远程文件编辑器、隧道面板、录制回放、资源监视器、连接诊断、主机指纹提示等。 |
+| `Views/` | 全部 XAML 视图：`MainWindow`、`SettingsView` 及 11 页设置（常规/外观/终端/密钥/快捷键/传输/安全审计/片段/云同步/关于/捐赠）、认证对话框、命令面板、SFTP 文档（本地 `LocalFilePaneView` + 远程 `FileBrowserView` 双栏）、文件传输浮窗、远程文件编辑器、隧道面板、录制回放、资源监视器（标签悬停面板 + `ResourceMonitorWindow` 图表窗口：总览/CPU/GPU/内存/磁盘/网络六页）、连接诊断、主机指纹提示等。 |
 | `ViewModels/` | 与窗口强绑定的 ViewModel：`MainWindowViewModel`（热点文件）、`SettingsViewModel`、`TerminalTabViewModel`、`AuthenticationDialogViewModel`、`CommandPaletteViewModel`、`FileBrowser/FileTransferViewModel`、`SshKeyManagerViewModel`、`SyncViewModel`、`RecordingPlayerViewModel` 等。 |
 | `Docking/` | 自研 VelaDock 可拖拽分屏系统：`DockWorkspace` 模型、拖拽控制器、放置覆盖层，以及 `TerminalDocument`（终端会话）与 `SftpDocument`（独立 SFTP 标签）两类文档宿主。 |
 | `Services/` | 应用级服务：`SessionRecorder`/`SessionLogService`（会话录制）、`UpdateService`（便携式自更新，GitHub Releases 清单 + 原地换版，见 `Services/Update/`）、`TrayIconService`（托盘）、`KeyboardShortcutService`（快捷键）、`CommandHistoryService`/`CommandSuggestionProvider`（命令建议）、`StartupRegistration`（开机自启）、`ExternalEditSessionManager`（外部编辑器回传）、`SyncInputCoordinator`（多终端同步输入/广播）等。 |

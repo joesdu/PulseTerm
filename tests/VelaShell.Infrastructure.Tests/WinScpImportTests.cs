@@ -63,7 +63,7 @@ public class WinScpImportTests
             SessionImportScan scan = await service.ScanAsync(ini);
 
             Assert.IsFalse(scan.MasterPasswordEnabled);
-            Assert.AreEqual(1, scan.Items.Count);
+            Assert.HasCount(1, scan.Items);
             ImportedSession item = scan.Items[0];
             Assert.AreEqual("prod box", item.Name);       // %20 已解码
             Assert.AreEqual(host, item.Host);
@@ -101,7 +101,7 @@ public class WinScpImportTests
             SessionImportScan scan = await service.ScanAsync(ini);
 
             Assert.IsTrue(scan.MasterPasswordEnabled);
-            Assert.AreEqual(1, scan.Items.Count);
+            Assert.HasCount(1, scan.Items);
             Assert.IsFalse(scan.Items[0].PasswordRecovered);
             Assert.IsTrue(scan.Items[0].HasEncryptedPassword);
         }
@@ -139,8 +139,8 @@ public class WinScpImportTests
             return;
         }
 
-        Assert.IsTrue(
-            withPassword.Any(i => i.PasswordRecovered),
+        Assert.Contains(
+            i => i.PasswordRecovered, withPassword,
             "含密码的 WinSCP 会话应至少有一条被成功解出;若全部失败,说明 0xA3 解码或字段读取与真实 WinSCP 不符。");
     }
 

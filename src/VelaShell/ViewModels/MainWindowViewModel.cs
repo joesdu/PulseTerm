@@ -304,6 +304,10 @@ public class MainWindowViewModel : ReactiveObject
             )
             .Switch();
         OpenProcessManagerCommand = ReactiveCommand.Create(OpenProcessManager, canOpenProcessManager);
+        OpenResourceMonitorCommand = ReactiveCommand.Create(OpenResourceMonitor, canOpenProcessManager);
+        // 命令注入状态栏,而不是让状态栏去 $parent[Window].DataContext 找:
+        // 视图加载早于窗口 DataContext 赋值,跨树查找会在启动时刷一条绑定错误。
+        StatusBar.OpenResourceMonitorCommand = OpenResourceMonitorCommand;
         OpenTraceRouteCommand = ReactiveCommand.Create(OpenTraceRoute, canToggleFileBrowser);
         CloseActiveTabCommand = ReactiveCommand.Create(CloseActiveTab);
         RegisterCommands();
@@ -484,6 +488,28 @@ public class MainWindowViewModel : ReactiveObject
                            ? $"{profile.Host}:{profile.Port}"
                            : profile.Name;
         ProcessManagerRequested?.Invoke(tab.SessionId, label);
+    }
+
+    /// <summary>打开当前 SSH 会话的资源监视窗口(状态栏右下角的指示器按钮)。</summary>
+    public ReactiveCommand<RxVoid, RxVoid> OpenResourceMonitorCommand { get; }
+
+    /// <summary>
+    /// 请求为某个会话打开资源监视窗口。参数依次为会话标识与窗口标题用的会话名称;
+    /// 由 MainWindow 承接(视图层才建得了窗口)。
+    /// </summary>
+    public event Action<Guid, string>? ResourceMonitorRequested;
+
+    /// <summary>把打开资源监视窗口的请求转交视图层;条件不满足时是空操作。</summary>
+    private void OpenResourceMonitor()
+    {
+        if (!CanOpenProcessManager || ActiveTerminalTab is not { Profile: { } profile } tab)
+        {
+            return;
+        }
+        string label = string.IsNullOrWhiteSpace(profile.Name)
+                           ? $"{profile.Host}:{profile.Port}"
+                           : profile.Name;
+        ResourceMonitorRequested?.Invoke(tab.SessionId, label);
     }
 
     private void RegisterCommands()
