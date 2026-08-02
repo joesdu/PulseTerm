@@ -10,9 +10,9 @@
     <PackageVersion Include="coverlet.collector" Version="10.0.1" />
     <!-- 测试辅助 -->
     <PackageVersion Include="NSubstitute" Version="6.0.0" />
-    <PackageVersion Include="Avalonia.Headless" Version="12.1.0" />
+    <PackageVersion Include="Avalonia.Headless" Version="12.1.1" />
     <!-- 菜单等控件的模板由主题提供:没有它 MenuItem 无模板、不可命中,真实点击测不了。 -->
-    <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.0" />
-    <PackageVersion Include="ReactiveUI.Testing" Version="24.0.0" />
+    <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.1" />
+    <PackageVersion Include="ReactiveUI.Testing" Version="24.1.0" />
   </ItemGroup>
 </Project>
