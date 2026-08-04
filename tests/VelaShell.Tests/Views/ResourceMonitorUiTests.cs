@@ -130,7 +130,7 @@ public sealed class ResourceMonitorUiTests
             // 型号名比卡片窄不了,只能靠换行 —— 单行硬排就会被卡片右边框切掉。
             Border host = model.GetVisualAncestors().OfType<Border>()
                 .First(b => b.Classes.Contains("card"));
-            double right = ((Visual)model).TranslatePoint(new(model.Bounds.Width, 0), host)!.Value.X;
+            double right = model.TranslatePoint(new(model.Bounds.Width, 0), host)!.Value.X;
             Assert.IsLessThanOrEqualTo(
                 host.Bounds.Width - host.Padding.Right + 0.5,
                 right,
@@ -258,7 +258,7 @@ public sealed class ResourceMonitorUiTests
         {
             UseChinese();
             // 一台只有 Intel 核显的机器:没有 nvidia-smi,sysfs 也没有 gpu_busy_percent。
-            var metrics = SessionMetrics.Parse(
+            SessionMetrics metrics = SessionMetrics.Parse(
                 "__P__\n2\n__L__\n0.5 0.4 0.3 1/200 900\n__M__\n17179869184 4509715660\n" +
                 "__GS__\ncard0|0x8086||||45000|12000000|1550000000||\n")!;
             metrics.CorePercents = [12.0, 8.0];
@@ -588,7 +588,7 @@ public sealed class ResourceMonitorUiTests
             // 表现为右侧读数只剩半个字。
             Border host = item.GetVisualAncestors().OfType<Border>()
                 .First(b => b.Classes.Contains("card"));
-            double itemRight = ((Visual)item).TranslatePoint(new(item.Bounds.Width, 0), host)!.Value.X;
+            double itemRight = item.TranslatePoint(new(item.Bounds.Width, 0), host)!.Value.X;
             Assert.IsLessThanOrEqualTo(
                 host.Bounds.Width - host.Padding.Right,
                 itemRight,
@@ -597,7 +597,7 @@ public sealed class ResourceMonitorUiTests
             // 逐个文字量右边界:型号过长时若不截断,它会压过右侧的活动率读数并被卡片边框切掉。
             foreach (TextBlock text in item.GetVisualDescendants().OfType<TextBlock>())
             {
-                double right = ((Visual)text).TranslatePoint(new(text.Bounds.Width, 0), item)!.Value.X;
+                double right = text.TranslatePoint(new(text.Bounds.Width, 0), item)!.Value.X;
                 Assert.IsLessThanOrEqualTo(
                     item.Bounds.Width,
                     right,
@@ -768,7 +768,7 @@ public sealed class ResourceMonitorUiTests
     /// <summary>带两张 GPU 的样本;逐核心/逐盘/逐网卡的瞬时值按采集器差分后的形态补齐。</summary>
     private static SessionMetrics WithGpu()
     {
-        var metrics = SessionMetrics.Parse(FullProbeOutput)!;
+        SessionMetrics metrics = SessionMetrics.Parse(FullProbeOutput)!;
         metrics.CorePercents = [42.0, 7.5];
         metrics.Cpu = new(22.0, 9.0, 1.2, 0);
         metrics.NicRates = [new("eth0", 18_400_000, 3_200_000), new("eth1", 600_000, 200_000)];
@@ -783,7 +783,7 @@ public sealed class ResourceMonitorUiTests
     private static SessionMetrics WithoutGpu()
     {
         int start = FullProbeOutput.IndexOf("__GP__", StringComparison.Ordinal);
-        var metrics = SessionMetrics.Parse(FullProbeOutput[..start])!;
+        SessionMetrics metrics = SessionMetrics.Parse(FullProbeOutput[..start])!;
         metrics.CorePercents = [42.0, 7.5];
         return metrics;
     }

@@ -22,8 +22,8 @@ internal static class WinScpCrypto
         {
             return null;
         }
-        var nibbles = new int[encrypted.Length];
-        for (var i = 0; i < encrypted.Length; i++)
+        int[] nibbles = new int[encrypted.Length];
+        for (int i = 0; i < encrypted.Length; i++)
         {
             int v = HexValue(encrypted[i]);
             if (v < 0)
@@ -33,7 +33,7 @@ internal static class WinScpCrypto
             nibbles[i] = v;
         }
 
-        var index = 0;
+        int index = 0;
         int Next()
         {
             if (index + 1 >= nibbles.Length)
@@ -73,7 +73,7 @@ internal static class WinScpCrypto
         index += skip * 2; // 跳过前导填充。
 
         var builder = new StringBuilder(length);
-        for (var i = 0; i < length; i++)
+        for (int i = 0; i < length; i++)
         {
             int value = Next();
             if (value < 0)

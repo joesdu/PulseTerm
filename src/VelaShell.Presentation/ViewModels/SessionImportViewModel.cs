@@ -211,8 +211,8 @@ public sealed class SessionImportViewModel : ReactiveObject
 
     private void RecomputeCounts()
     {
-        var selected = 0;
-        var recovered = 0;
+        int selected = 0;
+        int recovered = 0;
         foreach (SessionImportItemViewModel item in Items)
         {
             if (!item.IsSelected || !item.CanSelect)

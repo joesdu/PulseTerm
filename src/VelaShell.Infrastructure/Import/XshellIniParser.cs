@@ -19,7 +19,7 @@ internal static class XshellIniParser
         ArgumentNullException.ThrowIfNull(lines);
         string section = string.Empty;
         string? version = null, host = null, protocol = null, userName = null, password = null, userKey = null;
-        var port = 0;
+        int port = 0;
 
         foreach (string raw in lines)
         {

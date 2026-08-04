@@ -70,7 +70,7 @@ public sealed class SessionMetricsService(ISshConnectionService connectionServic
         try
         {
             string output = await client.RunCommandAsync(SessionMetrics.StaticCommand, cancellationToken).ConfigureAwait(false);
-            var info = SessionMetrics.ParseStatic(output);
+            SessionStaticInfo info = SessionMetrics.ParseStatic(output);
             _staticInfo[sessionId] = info;
             return info;
         }

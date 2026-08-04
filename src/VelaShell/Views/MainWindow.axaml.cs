@@ -417,7 +417,7 @@ public partial class MainWindow : Window
 
         // 界面字号:覆盖 VelaUiFontSize 令牌(同上,全窗口继承);同时覆盖 Fluent 的
         // ControlContentThemeFontSize,让内置控件(按钮/输入框/下拉等)一起缩放。
-        double uiFontSize = Math.Clamp((double)a.UiFontSize, MinUiFontSize, MaxUiFontSize);
+        double uiFontSize = Math.Clamp(a.UiFontSize, MinUiFontSize, MaxUiFontSize);
         app.Resources["VelaUiFontSize"] = uiFontSize;
         app.Resources["ControlContentThemeFontSize"] = uiFontSize;
 
