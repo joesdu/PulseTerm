@@ -41,7 +41,7 @@ public sealed class WinScpImportService(ISessionRepository repository) : ISessio
     {
         // 显式指向一个存在的文件 → 按 INI 解析;否则自动(优先注册表,其次默认 INI)。
         string? autoIni = FindIniFile();
-        var (rawSessions, masterPassword, sourceLabel) =
+        (List<WinScpRawSession>? rawSessions, bool masterPassword, string? sourceLabel) =
             !string.IsNullOrWhiteSpace(source) && File.Exists(source)
                 ? ReadFromIni(source)
                 : OperatingSystem.IsWindows() && RegistryHasSessions()

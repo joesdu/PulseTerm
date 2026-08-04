@@ -1,8 +1,6 @@
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Threading;
 using ReactiveUI.Primitives;
 using VelaShell.Core.Models;
 using VelaShell.Core.Resources;

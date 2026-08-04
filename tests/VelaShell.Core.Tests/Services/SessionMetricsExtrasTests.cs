@@ -287,7 +287,7 @@ public class SessionMetricsExtrasTests
             """NAME="sr0" SIZE="0" ROTA="1" TRAN="sata" MODEL="QEMU DVD-ROM" """ + "\n" +
             "__GD__\n0, 550.90.07\n1, 550.90.07\n";
 
-        var info = SessionMetrics.ParseStatic(output);
+        SessionStaticInfo info = SessionMetrics.ParseStatic(output);
 
         Assert.AreEqual("AMD EPYC 9754 96-Core Processor", info.CpuModel);
         Assert.AreEqual(1, info.Sockets);
@@ -321,7 +321,7 @@ public class SessionMetricsExtrasTests
             "__GL__\n03:00.0 \"VGA compatible controller\" \"NVIDIA Corporation\" \"GA102 [GeForce RTX 3090]\" -r a1 \"NVIDIA Corporation\" \"Device 1467\"\n" +
             "__GC__\n0000:03:00.0|0x10de|0x2204|\n";
 
-        var info = SessionMetrics.ParseStatic(output);
+        SessionStaticInfo info = SessionMetrics.ParseStatic(output);
 
         Assert.HasCount(1, info.GpuCards);
         GpuCardInfo card = info.GpuCards[0];
@@ -342,7 +342,7 @@ public class SessionMetricsExtrasTests
             "__GV__\ncard0 0000:00:01.0 0x1af4\n" +
             "__GC__\n0000:00:01.0|0x1af4|0x1050|virtio-pci\n0000:00:0f.0|0x15ad|0x0405|vmwgfx\n";
 
-        var info = SessionMetrics.ParseStatic(output);
+        SessionStaticInfo info = SessionMetrics.ParseStatic(output);
 
         Assert.HasCount(2, info.GpuCards);
         // DRM 已经采到的那张不能因为 PCI 段再出现一次。
@@ -358,7 +358,7 @@ public class SessionMetricsExtrasTests
     public void ParseStatic_Wsl_ReportsTheD3D12Device()
     {
         // WSL2 既没有 PCI 显示设备也没有 DRM,GPU 只体现为 /dev/dxg。
-        var info = SessionMetrics.ParseStatic("__GV__\n__GC__\n__GW__\ndxg\n");
+        SessionStaticInfo info = SessionMetrics.ParseStatic("__GV__\n__GC__\n__GW__\ndxg\n");
 
         Assert.HasCount(1, info.GpuCards);
         Assert.AreEqual(GpuVendor.Virtual, info.GpuCards[0].Vendor);
@@ -375,7 +375,7 @@ public class SessionMetricsExtrasTests
             "__LS__\nSocket(s)|1\nCore(s) per socket|8\n" +
             "Model name|Intel(R) Core(TM) i9-14900HX     CPU @ 2.20GHz\n";
 
-        var info = SessionMetrics.ParseStatic(output);
+        SessionStaticInfo info = SessionMetrics.ParseStatic(output);
 
         Assert.AreEqual("Intel(R) Core(TM) i9-14900HX CPU @ 2.20GHz", info.CpuModel);
     }
@@ -452,7 +452,7 @@ public class SessionMetricsExtrasTests
             "__GL__\n03:00.0 \"VGA compatible controller\" \"NVIDIA Corporation\" \"GA102 [GeForce RTX 3090]\" -ra1 \"NVIDIA\" \"Device 147d\"\n" +
             "00:02.0 \"VGA compatible controller\" \"Intel Corporation\" \"Raptor Lake-S GT1 [UHD Graphics 770]\" -r04 \"Intel\" \"Device 3000\"\n";
 
-        var info = SessionMetrics.ParseStatic(output);
+        SessionStaticInfo info = SessionMetrics.ParseStatic(output);
 
         Assert.HasCount(2, info.GpuCards);
         Assert.AreEqual(GpuVendor.Nvidia, info.GpuCards[0].Vendor);
@@ -466,7 +466,7 @@ public class SessionMetricsExtrasTests
     [TestMethod]
     public void ParseStatic_EmptyOutput_ReturnsBlankInfo()
     {
-        var info = SessionMetrics.ParseStatic("");
+        SessionStaticInfo info = SessionMetrics.ParseStatic("");
 
         Assert.AreEqual("", info.CpuModel);
         Assert.AreEqual(0, info.GpuCount);

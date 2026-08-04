@@ -12,20 +12,20 @@ internal static class Rc4
         {
             throw new ArgumentException("RC4 key must not be empty.", nameof(key));
         }
-        var s = new int[256];
-        for (var i = 0; i < 256; i++)
+        int[] s = new int[256];
+        for (int i = 0; i < 256; i++)
         {
             s[i] = i;
         }
-        var j = 0;
-        for (var i = 0; i < 256; i++)
+        int j = 0;
+        for (int i = 0; i < 256; i++)
         {
             j = (j + s[i] + key[i % key.Length]) % 256;
             (s[i], s[j]) = (s[j], s[i]);
         }
-        var output = new byte[data.Length];
+        byte[] output = new byte[data.Length];
         int a = 0, b = 0;
-        for (var i = 0; i < data.Length; i++)
+        for (int i = 0; i < data.Length; i++)
         {
             a = (a + 1) % 256;
             b = (b + s[a]) % 256;

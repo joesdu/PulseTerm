@@ -916,10 +916,7 @@ public partial class TerminalTabView : UserControl
             _termControl.LostFocus += OnTerminalLostFocus;
             // 滚动条正好铺满终端正文右侧那条留白带(RightPadding 已从列数里扣掉),
             // 于是覆盖式滚动条不再压住文字(#117)。宽度取自控件,单一事实来源。
-            if (ScrollBarView is not null)
-            {
-                ScrollBarView.Width = _termControl.RightPadding;
-            }
+            ScrollBarView?.Width = _termControl.RightPadding;
         }
         SyncScrollBar();
     }

@@ -190,7 +190,7 @@ public sealed class XshellImportService(ISessionRepository repository) : ISessio
     {
         try
         {
-            using WindowsIdentity identity = WindowsIdentity.GetCurrent();
+            using var identity = WindowsIdentity.GetCurrent();
             string fullName = identity.Name; // DOMAIN\user 或 machine\user
             int slash = fullName.LastIndexOf('\\');
             string name = slash >= 0 ? fullName[(slash + 1)..] : fullName;

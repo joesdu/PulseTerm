@@ -33,7 +33,7 @@ internal static class SessionImportWriter
             SortOrder = nextSort
         };
 
-        var recovered = 0;
+        int recovered = 0;
         foreach (ImportedSession item in toImport)
         {
             cancellationToken.ThrowIfCancellationRequested();

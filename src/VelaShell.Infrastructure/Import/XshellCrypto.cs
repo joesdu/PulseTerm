@@ -46,7 +46,7 @@ internal static class XshellCrypto
 
         foreach (byte[] key in CandidateKeys(userName, sid))
         {
-            var body = new byte[bodyLength];
+            byte[] body = new byte[bodyLength];
             Array.Copy(data, 0, body, 0, bodyLength);
             byte[] plain = Rc4.Transform(key, body);
 
