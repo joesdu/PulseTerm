@@ -87,8 +87,13 @@ public partial class TraceRouteWindow : Window
         BeginMoveDrag(e);
     }
 
+    /// <summary>缩放抓取区。只认左键:系统 sizing 模态循环只在左键弹起时退出(#116)。</summary>
     private void ResizeEdge_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
         if (WindowState == WindowState.Normal
             && sender is Border { Tag: string tag }
             && Enum.TryParse(tag, out WindowEdge edge))
