@@ -56,9 +56,18 @@ public partial class MainWindow : Window
     private bool _standaloneSftpShutdownComplete;
     private bool _openedInitialized;
 
-    /// <summary>自绘缩放抓取区:普通状态按下即进入原生缩放;最大化时整层隐藏(见 OnPropertyChanged)。</summary>
+    /// <summary>
+    /// 自绘缩放抓取区:普通状态按下即进入原生缩放;最大化时整层隐藏(见 OnPropertyChanged)。
+    /// 只认左键:BeginResizeDrag 在 Win32 上是伪造一条 WM_NCLBUTTONDOWN 进系统 sizing 模态
+    /// 循环,而该循环只在左键弹起时退出。用右/中键起手会让循环永远等不到那次弹起,
+    /// 表现为松开按键后窗口仍一直跟着光标改尺寸(#116)。标题栏拖动同此守卫。
+    /// </summary>
     private void ResizeEdge_PointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
     {
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
         if (WindowState == WindowState.Normal && sender is Border { Tag: string tag } && Enum.TryParse(tag, out WindowEdge edge)
         )
         {
