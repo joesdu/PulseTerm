@@ -899,6 +899,18 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
             return null;
         }
         string line = Emulator.Screen.ActiveLine(Emulator.CursorY).GetText();
+
+        // 光标右侧同一行还有非空白内容时一律不显示:幽灵是叠画层,画上去会与既有文字
+        // 重影,且"补全在行尾"的语义此时并不成立。典型场景是 zsh-autosuggestions ——
+        // shell 自己把建议写进了光标右侧的缓冲(#115),还有行中编辑与右提示符 RPROMPT。
+        // 判定必须落在渲染时钟上:宿主侧只在输入变化那一刻判过一次(HasTextRightOfCursor),
+        // 而 shell 自带的建议要等 PTY 往返之后才回显,那时幽灵早已设好、宿主不会再复核,
+        // 只有每帧按屏上真实状态现判才拦得住。GetText 已裁掉尾部空格,故行尾留白不误判。
+        if (line.Length > col && !string.IsNullOrWhiteSpace(line[col..]))
+        {
+            return null;
+        }
+
         // 光标左侧已回显文本(1 单元格≈1 字符,与 HasTextRightOfCursor 等既有假设一致)。
         int before = Math.Min(col, line.Length);
         // 最长 k:line 的末 k 字符 == full 的前 k 字符。先求最长(含 k==full.Length),
