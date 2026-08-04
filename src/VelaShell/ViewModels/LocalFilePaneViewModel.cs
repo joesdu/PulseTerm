@@ -227,19 +227,7 @@ public sealed class LocalFilePaneViewModel : ReactiveObject
     public async Task LoadInitialAsync(CancellationToken cancellationToken = default)
     {
         await RefreshRootsAsync(cancellationToken);
-        string configured;
-        try
-        {
-            configured = ExpandConfiguredPath(_transferOptions.LocalDownloadDirectory);
-        }
-        catch (ArgumentException)
-        {
-            configured = string.Empty;
-        }
-        catch (NotSupportedException)
-        {
-            configured = string.Empty;
-        }
+        string configured = ExpandConfiguredPath(_transferOptions.LocalDownloadDirectory);
         string home = Path.GetFullPath(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
         foreach (string candidate in new[] { configured, home }.Distinct(StringComparer.Ordinal))
         {
@@ -571,18 +559,12 @@ public sealed class LocalFilePaneViewModel : ReactiveObject
         }
     }
 
-    private static string ExpandConfiguredPath(string configured)
-    {
-        string value = configured?.Trim() ?? string.Empty;
-        if (value == "~" || value.StartsWith("~/", StringComparison.Ordinal) || value.StartsWith("~\\", StringComparison.Ordinal))
-        {
-            value = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                value[1..].TrimStart('/', '\\')
-            );
-        }
-        return string.IsNullOrWhiteSpace(value) ? string.Empty : Path.GetFullPath(value);
-    }
+    /// <summary>
+    /// 解析配置的下载目录:"~" 与相对路径一律以用户主目录为基准(见 <see cref="UserPathResolver" />),
+    /// 空值返回空串,交给调用方回退到用户主目录。
+    /// </summary>
+    private static string ExpandConfiguredPath(string configured) =>
+        UserPathResolver.Resolve(configured, string.Empty);
 
     private static bool DirectoryIsAccessible(string path)
     {

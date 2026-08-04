@@ -12,6 +12,7 @@ using Avalonia.VisualTree;
 using Microsoft.Extensions.DependencyInjection;
 using ReactiveUI.Primitives;
 using VelaShell.Controls.Controls;
+using VelaShell.Core.Models;
 using VelaShell.Core.Resources;
 using VelaShell.Core.Sftp;
 using VelaShell.ViewModels;
@@ -366,28 +367,13 @@ public partial class FileBrowserView : UserControl
         {
             return null;
         }
-        string configured = vm.TransferOptions.LocalDownloadDirectory.Trim();
-        if (string.IsNullOrEmpty(configured))
-        {
-            return null;
-        }
-        if (configured.StartsWith('~'))
-        {
-            configured = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                configured.TrimStart('~', '/', '\\')
-            );
-        }
-        try
-        {
-            return Directory.Exists(configured)
-                ? await top.StorageProvider.TryGetFolderFromPathAsync(configured)
-                : null;
-        }
-        catch
-        {
-            return null;
-        }
+        // "~" 与相对路径一律以用户主目录为基准(见 UserPathResolver);目录不存在时退回主目录,
+        // 绝不落回进程工作目录 —— 那是外部环境决定的,不是用户想要的落点(#120)。
+        return await StorageDefaults.FolderAsync(
+                   top,
+                   UserPathResolver.ResolveOrHome(vm.TransferOptions.LocalDownloadDirectory)
+               )
+               ?? await StorageDefaults.HomeAsync(top);
     }
 
     private void OnFileListDragOver(object? sender, DragEventArgs e)

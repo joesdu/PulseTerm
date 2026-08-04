@@ -1144,6 +1144,7 @@ public partial class MainWindow : Window
             {
                 Title = Strings.Get("Main_ExportTerminalTitle"),
                 SuggestedFileName = suggestedName,
+                SuggestedStartLocation = await StorageDefaults.DownloadsAsync(this),
                 DefaultExtension = "txt",
                 FileTypeChoices =
                 [
@@ -1242,7 +1243,8 @@ public partial class MainWindow : Window
                 Title = isRetryAfterCancel
                     ? Strings.Get("ZModem_ChooseUploadFilesRetry")
                     : Strings.Get("ZModem_ChooseUploadFiles"),
-                AllowMultiple = true
+                AllowMultiple = true,
+                SuggestedStartLocation = await StorageDefaults.DownloadsAsync(top)
             });
             List<string> paths = [];
             foreach (IStorageFile file in files)

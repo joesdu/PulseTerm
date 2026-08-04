@@ -56,6 +56,7 @@ public partial class TraceRouteWindow : Window
         {
             Title = Strings.Get("Trace_GeoPick"),
             AllowMultiple = false,
+            SuggestedStartLocation = await StorageDefaults.DownloadsAsync(this),
             FileTypeFilter =
             [
                 new(Strings.Get("Trace_GeoFileType")) { Patterns = ["*.mmdb", "*.gz"] }

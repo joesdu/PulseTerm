@@ -26,6 +26,7 @@ public partial class GeneralSettingsPage : UserControl
         {
             Title = Strings.Get("SetGeneral_ExportDialogTitle"),
             SuggestedFileName = "velashell-settings.json",
+            SuggestedStartLocation = await StorageDefaults.DownloadsAsync(top),
             DefaultExtension = "json"
         });
         if (file?.TryGetLocalPath() is { Length: > 0 } path)
@@ -43,7 +44,8 @@ public partial class GeneralSettingsPage : UserControl
         IReadOnlyList<IStorageFile> files = await top.StorageProvider.OpenFilePickerAsync(new()
         {
             Title = Strings.Get("SetGeneral_ImportDialogTitle"),
-            AllowMultiple = false
+            AllowMultiple = false,
+            SuggestedStartLocation = await StorageDefaults.DownloadsAsync(top)
         });
         if (files.AsParallel().FirstOrDefault()?.TryGetLocalPath() is { Length: > 0 } path && File.Exists(path))
         {
