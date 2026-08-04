@@ -110,6 +110,7 @@ public partial class RecordingPlayerView : Window
         {
             Title = Strings.Get("Recorder_Export"),
             SuggestedFileName = $"velashell-recording-{DateTime.Now:yyyyMMdd-HHmmss}.cast",
+            SuggestedStartLocation = await StorageDefaults.DownloadsAsync(this),
             DefaultExtension = "cast"
         });
         if (file?.TryGetLocalPath() is { Length: > 0 } path)

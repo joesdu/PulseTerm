@@ -63,6 +63,7 @@ public partial class ConnectionDiagnosticsView : Window
         {
             Title = Strings.Get("Diag_ExportReport"),
             SuggestedFileName = viewModel.SuggestedReportFileName,
+            SuggestedStartLocation = await StorageDefaults.DownloadsAsync(this),
             DefaultExtension = "txt",
             FileTypeChoices =
             [

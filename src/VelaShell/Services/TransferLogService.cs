@@ -11,21 +11,12 @@ public static class TransferLogService
 {
     private static readonly Lock Gate = new();
 
-    /// <summary>展开配置的日志目录("~" = 用户目录);空则退回默认 %LocalAppData%\VelaShell\logs。</summary>
-    private static string ResolveDirectory(string? configured)
-    {
-        string? dir = configured?.Trim();
-        if (string.IsNullOrEmpty(dir))
-        {
-            return SessionLogService.LogDirectory;
-        }
-        if (dir.StartsWith('~'))
-        {
-            dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                dir.TrimStart('~', '/', '\\'));
-        }
-        return dir;
-    }
+    /// <summary>
+    /// 解析配置的日志目录("~" 与相对路径均以用户目录为基准,见 <see cref="UserPathResolver" />);
+    /// 空则退回默认 %LocalAppData%\VelaShell\logs。
+    /// </summary>
+    private static string ResolveDirectory(string? configured) =>
+        UserPathResolver.Resolve(configured, SessionLogService.LogDirectory);
 
     /// <summary>向当天的 transfer 日志追加一条传输记录(写入失败静默忽略)。</summary>
     public static void Append(string? configuredDirectory, TransferType type, string localPath, string remotePath, TransferStatus status)

@@ -83,9 +83,10 @@ public partial class SessionImportView : Window
         IReadOnlyList<IStorageFolder> folders = await StorageProvider.OpenFolderPickerAsync(new()
         {
             Title = Strings.Get("XImport_Browse"),
-            AllowMultiple = false
+            AllowMultiple = false,
+            SuggestedStartLocation = await StorageDefaults.HomeAsync(this)
         });
-        return folders.FirstOrDefault()?.TryGetLocalPath();
+        return folders.AsParallel().FirstOrDefault()?.TryGetLocalPath();
     }
 
     private async Task<string?> PickFileAsync()
@@ -93,8 +94,9 @@ public partial class SessionImportView : Window
         IReadOnlyList<IStorageFile> files = await StorageProvider.OpenFilePickerAsync(new()
         {
             Title = Strings.Get("XImport_Browse"),
-            AllowMultiple = false
+            AllowMultiple = false,
+            SuggestedStartLocation = await StorageDefaults.HomeAsync(this)
         });
-        return files.FirstOrDefault()?.TryGetLocalPath();
+        return files.AsParallel().FirstOrDefault()?.TryGetLocalPath();
     }
 }

@@ -180,7 +180,12 @@ internal sealed class ExternalEditSession : IDisposable
         startInfo = new()
         {
             FileName = editor,
-            UseShellExecute = OperatingSystem.IsWindows()
+            UseShellExecute = OperatingSystem.IsWindows(),
+            // 显式指定工作目录 = 被编辑文件所在的临时目录。不指定的话子进程继承 VelaShell 的
+            // 工作目录(应用安装目录),编辑器的相对路径操作、swap/备份文件就会落到那儿 ——
+            // 商店版的安装目录还是只读的,直接写失败(#120)。
+            WorkingDirectory = Path.GetDirectoryName(filePath)
+                               ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
         };
         startInfo.ArgumentList.Add(filePath);
         return startInfo;

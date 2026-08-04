@@ -29,6 +29,8 @@ internal static partial class Program
             return;
         }
 
+        NormalizeWorkingDirectory();
+
         // 启用旧代码页(GBK、Big5、Shift_JIS 等)以支持终端编码选项。
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         InstallGlobalExceptionGuards();
@@ -57,6 +59,33 @@ internal static partial class Program
         finally
         {
             ReleaseSingleInstanceLock();
+        }
+    }
+
+    /// <summary>
+    /// 把进程的工作目录钉在应用自身目录上。
+    /// </summary>
+    /// <remarks>
+    /// 开机自启走的是 <c>HKCU\...\Run</c>,而 Explorer 拉起 Run 键里的程序时会把子进程的工作目录
+    /// 设成 <c>C:\Windows\System32</c>(继承它自己的 CWD)。应用本身从不依赖 CWD——所有持久化路径
+    /// 都以 <c>%LocalAppData%\VelaShell</c> 或 <see cref="Environment.ProcessPath" /> 为根——但
+    /// 系统层面仍有两处会踩到它:没指定起始目录的文件对话框会停在 CWD,设置里若填了相对路径也按
+    /// CWD 解析。二者都会让 System32 莫名其妙地冒出来(#120)。这里定死一次即可根除。
+    /// 外置换版进程不走这条路径(它在上面就返回了),其临时目录语义不受影响。
+    /// </remarks>
+    private static void NormalizeWorkingDirectory()
+    {
+        try
+        {
+            if (Path.GetDirectoryName(Environment.ProcessPath) is { Length: > 0 } appDirectory
+                && Directory.Exists(appDirectory))
+            {
+                Directory.SetCurrentDirectory(appDirectory);
+            }
+        }
+        catch
+        {
+            // 目录不可访问(受限环境/只读介质)时保持原样:CWD 不参与任何功能路径。
         }
     }
 
