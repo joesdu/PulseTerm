@@ -281,6 +281,33 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     }
 
     /// <summary>
+    /// 正文右侧默认留白(px)。取值同时满足两件事(参照 Windows Terminal):
+    /// 容得下覆盖式滚动条,且让最右一列离开窗口边缘 5px 的缩放抓取区。
+    /// </summary>
+    public const double DefaultRightPadding = 12;
+
+    /// <summary>
+    /// 正文右侧保留的空白带宽度(px)。这条带子不参与列数计算,于是:覆盖式滚动条落在带内
+    /// 而不再盖住文字,最右一列也不再压在窗口边缘的缩放抓取区下(那会让末列字符选不中、
+    /// 指针变成缩放光标)。写入即重排网格(可用列数 → PTY)。
+    /// </summary>
+    public double RightPadding
+    {
+        get;
+        set
+        {
+            double sanitized = Math.Max(0, value);
+            if (Math.Abs(field - sanitized) < 0.01)
+            {
+                return;
+            }
+            field = sanitized;
+            RelayoutFromBounds();
+            InvalidateVisual();
+        }
+    } = DefaultRightPadding;
+
+    /// <summary>
     /// 侧栏部件开关的公共写入:变化时重排布局(侧栏宽度→可用列数→PTY)并重绘。
     /// 不在此上报持久化——由设置应用与右键菜单区分来源,菜单侧显式触发,避免「应用设置→上报→再存」死循环。
     /// </summary>
@@ -1231,7 +1258,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         {
             return;
         }
-        int cols = (int)((size.Width - GutterWidth()) / CellWidthForTest);
+        int cols = (int)((size.Width - GutterWidth() - RightPadding) / CellWidthForTest);
         int rows = (int)(size.Height / CellHeightForTest);
 
         // 忽略过早/退化的布局过程(尺寸为零或不足一格)。在这里把网格压缩成
