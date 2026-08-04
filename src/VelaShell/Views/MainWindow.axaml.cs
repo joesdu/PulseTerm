@@ -312,21 +312,47 @@ public partial class MainWindow : Window
         {
             return;
         }
-        foreach (Guid profileId in settings.General.LastOpenProfileIds.Distinct().ToList())
+
+        // 先按记录顺序把配置取齐(本地文档库,命中缓存,很快)。顺序在这里定死,
+        // 下面并发发起时标签仍按这个次序建出来:TryConnectProfileAsync 在建标签之前
+        // 只 await 一次设置快照,而设置此刻已在缓存里、同步返回,不会打乱先后。
+        var profiles = new List<SessionProfile>(settings.General.LastOpenProfileIds.Count);
+        foreach (Guid profileId in settings.General.LastOpenProfileIds.Distinct())
         {
             try
             {
-                SessionProfile? profile = await repository.GetSessionAsync(profileId);
-                if (profile is not null)
+                if (await repository.GetSessionAsync(profileId) is { } profile)
                 {
-                    await vm.TryConnectProfileAsync(profile);
+                    profiles.Add(profile);
                 }
             }
             catch
             {
-                // 配置已删除或连接失败:跳过,继续恢复其余会话。
+                // 配置已删除或读不出来:跳过,继续恢复其余会话。
             }
         }
+
+        // 握手一次性全部发起,不再一个一个等(#118)。整条链路(TCP、认证、开 shell 通道)
+        // 都是真异步 API,底层 SshConnectionService 本就支持并发,串行 await 只是把总耗时
+        // 白白叠成各会话之和 —— N 个会话就要等 N 倍。并发后总耗时≈最慢的那一个。
+        // 缺凭据的配置仍会弹登录框,但弹窗由 PromptCredentialsAsync 的闸门串行化,
+        // 不会同时叠出多扇模态框。
+        await Task.WhenAll(
+            profiles
+                .Select(async profile =>
+                {
+                    try
+                    {
+                        await vm.TryConnectProfileAsync(profile);
+                    }
+                    catch
+                    {
+                        // 连接失败已在标签页内以覆盖层提示(设计 yxjmg);
+                        // 这里只保证一个会话的失败不会掀掉其余会话的恢复。
+                    }
+                })
+                .ToList()
+        );
     }
 
     private void OnSettingsSavedForWindow(AppSettings settings) =>
@@ -1028,10 +1054,34 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
+    /// 登录验证弹窗的串行闸门:同一时刻只允许一扇凭据对话框。启动恢复会话是并发发起的
+    /// (#118),资源管理器树的双击/右键连接也是即发即忘,两条路径都可能同时要凭据;
+    /// 同一 owner 上叠两扇模态框会互相争抢 owner 的禁用/启用,表现为对话框点不动。
+    /// </summary>
+    private readonly SemaphoreSlim _credentialPromptGate = new(1, 1);
+
+    /// <summary>
     /// 登录验证流程(设计:身份验证 第1步/第2步):补全用户名与认证凭据。
-    /// 已信任主机显示其指纹;首次连接提示握手时记录(TOFU)。取消返回 null。
+    /// 一次只弹一扇(见 <see cref="_credentialPromptGate" />),排队的连接依次拿到弹窗。
     /// </summary>
     private async Task<SessionProfile?> PromptCredentialsAsync(SessionProfile profile)
+    {
+        // 不带 ConfigureAwait(false):后续 ShowDialog 必须回到 UI 线程。
+        await _credentialPromptGate.WaitAsync();
+        try
+        {
+            return await PromptCredentialsCoreAsync(profile);
+        }
+        finally
+        {
+            _credentialPromptGate.Release();
+        }
+    }
+
+    /// <summary>
+    /// 登录验证弹窗本体:已信任主机显示其指纹;首次连接提示握手时记录(TOFU)。取消返回 null。
+    /// </summary>
+    private async Task<SessionProfile?> PromptCredentialsCoreAsync(SessionProfile profile)
     {
         string? knownFingerprint = null;
         if (Application.Current is App app && app.Services?.GetService<IHostKeyService>() is { } hostKeys)
