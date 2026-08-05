@@ -2610,6 +2610,9 @@
   <data name="SetVm_ShortcutCompletionPopup" xml:space="preserve">
     <value>명령 자동 완성 표시</value>
   </data>
+  <data name="SetVm_ShortcutDeleteWord" xml:space="preserve">
+    <value>이전 단어 삭제</value>
+  </data>
   <data name="SetVm_ShortcutNewTabAlias" xml:space="preserve">
     <value>새 탭(새 연결과 동일)</value>
   </data>

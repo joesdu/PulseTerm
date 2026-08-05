@@ -2713,6 +2713,9 @@ Paste anyway?</value>
   <data name="SetVm_ShortcutCompletionPopup" xml:space="preserve">
     <value>Show Command Completion</value>
   </data>
+  <data name="SetVm_ShortcutDeleteWord" xml:space="preserve">
+    <value>Delete Previous Word</value>
+  </data>
   <data name="SetVm_ShortcutNewTabAlias" xml:space="preserve">
     <value>New Tab (same as New Connection)</value>
   </data>

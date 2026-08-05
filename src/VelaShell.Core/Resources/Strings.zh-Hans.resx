@@ -2804,6 +2804,9 @@
   <data name="SetVm_ShortcutCompletionPopup" xml:space="preserve">
     <value>弹出命令补全</value>
   </data>
+  <data name="SetVm_ShortcutDeleteWord" xml:space="preserve">
+    <value>删除前一个单词</value>
+  </data>
   <data name="SetVm_ShortcutNewTabAlias" xml:space="preserve">
     <value>新建标签(同新建连接)</value>
   </data>

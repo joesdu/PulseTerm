@@ -778,6 +778,7 @@ public class SettingsViewModel : ReactiveObject
                     new(Strings.Get("Copy"), ["Ctrl", "Shift", "C"]),
                     new(Strings.Get("Cmd_Paste"), ["Ctrl", "Shift", "V"]),
                     new(Strings.Get("SetVm_ShortcutSendInterrupt"), ["Ctrl", "C"]),
+                    new(Strings.Get("SetVm_ShortcutDeleteWord"), ["Ctrl", "Backspace"]),
                     new(Strings.Get("SetVm_ShortcutSearchTerminal"), ["Ctrl", "F"]),
                     new(Strings.Get("SetVm_ShortcutCompletionPopup"), ["Alt", "Enter"]),
                     new(Strings.Get("SetVm_ShortcutReconnect"), ["Enter"]),

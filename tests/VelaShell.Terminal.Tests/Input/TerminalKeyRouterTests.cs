@@ -107,6 +107,33 @@ public class TerminalKeyRouterTests
     }
 
     [TestMethod]
+    public void Backspace_EncodesDelete()
+    {
+        TerminalKeyAction action = Classify(Key.Back, KeyModifiers.None);
+        Assert.AreEqual(TerminalKeyActionKind.SendBytes, action.Kind);
+        Assert.AreSequenceEqual(new byte[] { 0x7F }, action.Bytes);
+    }
+
+    [TestMethod]
+    public void CtrlBackspace_SendsEscDelete_SoReadlineKillsAWord()
+    {
+        // #127:ESC+DEL 命中 readline 的 backward-kill-word(zsh 同名绑定);
+        // 老行为 0x08(^H)只等价于退一格,与普通 Backspace 无异。
+        TerminalKeyAction action = Classify(Key.Back, KeyModifiers.Control);
+        Assert.AreEqual(TerminalKeyActionKind.SendBytes, action.Kind);
+        Assert.AreSequenceEqual(new byte[] { 0x1B, 0x7F }, action.Bytes);
+    }
+
+    [TestMethod]
+    public void AltBackspace_SendsTheSameKillWordSequence()
+    {
+        // 两种习惯(Tabby 的 Ctrl+Backspace 与 xterm 的 Alt+Backspace)必须等价。
+        Assert.AreSequenceEqual(
+            Classify(Key.Back, KeyModifiers.Control).Bytes,
+            Classify(Key.Back, KeyModifiers.Alt).Bytes);
+    }
+
+    [TestMethod]
     public void Enter_EncodesCarriageReturn()
     {
         TerminalKeyAction action = Classify(Key.Enter, KeyModifiers.None);
