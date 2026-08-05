@@ -1,0 +1,116 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VelaShell.Features.Settings"
+             xmlns:ssh="clr-namespace:VelaShell.Core.Ssh;assembly=VelaShell.Core"
+             xmlns:loc="using:VelaShell.Common.Localization"
+             x:Class="VelaShell.Features.Settings.Pages.KeyManagementPage"
+             x:DataType="vm:SettingsViewModel">
+
+  <StackPanel Spacing="14">
+    <StackPanel Spacing="2">
+      <TextBlock Classes="page-title" Text="{loc:Localize SetKeys_Title}" />
+      <TextBlock Classes="page-subtitle" Text="{loc:Localize SetKeys_Subtitle}" />
+    </StackPanel>
+
+    <!-- 工具栏 -->
+    <Grid ColumnDefinitions="200,*,Auto,8,Auto">
+      <TextBox Grid.Column="0" Text="{Binding SshKeys.SearchQuery}" PlaceholderText="{loc:Localize SetKeys_SearchPlaceholder}" />
+      <Button Grid.Column="2" Classes="dlg-outline" Content="{loc:Localize SetKeys_Import}" Click="ImportKey_Click" />
+      <Button Grid.Column="4" Classes="dlg-primary" Content="{loc:Localize SetKeys_Generate}"
+              Command="{Binding SshKeys.GenerateCommand}" />
+    </Grid>
+
+    <!-- 密钥表格 -->
+    <Border Classes="table">
+      <StackPanel>
+        <!-- 表头 -->
+        <Border Height="36" Background="{DynamicResource VelaBgSidebar}"
+                BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,0,0,1"
+                Padding="12,0">
+          <Grid ColumnDefinitions="130,80,*,60">
+            <TextBlock Text="{loc:Localize Name}" Foreground="{DynamicResource VelaTextMuted}" FontSize="{DynamicResource VelaFontSize11}" FontWeight="SemiBold" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="1" Text="{loc:Localize KeyType}" Foreground="{DynamicResource VelaTextMuted}" FontSize="{DynamicResource VelaFontSize11}" FontWeight="SemiBold" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="2" Text="{loc:Localize Fingerprint}" Foreground="{DynamicResource VelaTextMuted}" FontSize="{DynamicResource VelaFontSize11}" FontWeight="SemiBold" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="3" Text="{loc:Localize SetSync_Actions}" Foreground="{DynamicResource VelaTextMuted}" FontSize="{DynamicResource VelaFontSize11}" FontWeight="SemiBold" VerticalAlignment="Center" />
+          </Grid>
+        </Border>
+
+        <ItemsControl ItemsSource="{Binding SshKeys.FilteredKeys}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="ssh:SshKeyInfo">
+              <Border Height="40" Padding="12,0"
+                      BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,0,0,1">
+                <Grid ColumnDefinitions="130,80,*,60">
+                  <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <PathIcon Width="13" Height="13"
+                              Data="M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"
+                              Foreground="{DynamicResource VelaAccent}" />
+                    <TextBlock Text="{Binding Name}"
+                               Foreground="{DynamicResource VelaTextPrimary}"
+                               FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize11}"
+                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                  </StackPanel>
+                  <TextBlock Grid.Column="1" Text="{Binding Type}"
+                             Foreground="{DynamicResource VelaTextSecondary}"
+                             FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize10}"
+                             VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="2" Text="{Binding Fingerprint}"
+                             Foreground="{DynamicResource VelaTextMuted}"
+                             FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize10}"
+                             TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                  <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                    <Button Width="24" Height="24" Padding="0" Background="Transparent"
+                            CornerRadius="3" Cursor="Hand"
+                            ToolTip.Tip="{loc:Localize SetKeys_CopyPublicKey}"
+                            Click="CopyPublicKey_Click">
+                      <PathIcon Width="13" Height="13"
+                                Data="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"
+                                Foreground="{DynamicResource VelaTextTertiary}" />
+                    </Button>
+                    <Button Width="24" Height="24" Padding="0" Background="Transparent"
+                            CornerRadius="3" Cursor="Hand"
+                            ToolTip.Tip="{loc:Localize SetKeys_DeleteKey}"
+                            Command="{Binding $parent[ItemsControl].((vm:SettingsViewModel)DataContext).SshKeys.DeleteCommand}"
+                            CommandParameter="{Binding}">
+                      <PathIcon Width="13" Height="13"
+                                Data="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"
+                                Foreground="{DynamicResource VelaTextTertiary}" />
+                    </Button>
+                  </StackPanel>
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </Border>
+
+    <!-- 提示 -->
+    <StackPanel Orientation="Horizontal" Spacing="6">
+      <PathIcon Width="12" Height="12"
+                Data="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"
+                Foreground="{DynamicResource VelaTextMuted}" VerticalAlignment="Center" />
+      <TextBlock Classes="row-desc" Text="{loc:Localize SetKeys_StorageHint}" VerticalAlignment="Center" />
+    </StackPanel>
+    <TextBlock Classes="row-desc"
+               Text="{Binding SshKeys.StatusMessage}"
+               IsVisible="{Binding SshKeys.StatusMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
+    <Border Classes="sep" />
+
+    <!-- 默认密钥 -->
+    <TextBlock Classes="section-title" Text="{loc:Localize SetKeys_SectionDefault}" />
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetKeys_DefaultAuthKey}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetKeys_DefaultAuthKeyDesc}" />
+      </StackPanel>
+      <ComboBox Grid.Column="1" Width="160"
+                ItemsSource="{Binding SshKeys.KeyNames}"
+                SelectedItem="{Binding Keys.DefaultKeyName}"
+                VerticalAlignment="Center" />
+    </Grid>
+    <!-- 自动加载密钥到 Agent:Windows OpenSSH Agent/Pageant 集成未实现,暂不展示
+         (设置审计 R-06);当前连接时直接读取密钥文件。字段仍持久化,实现后恢复展示。 -->
+  </StackPanel>
+</UserControl>

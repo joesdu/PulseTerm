@@ -6,12 +6,12 @@ using VelaShell.Core.Data;
 using VelaShell.Core.Models;
 using VelaShell.Core.Sftp;
 using VelaShell.Core.Tunnels;
+using VelaShell.Features.Sessions;
 using VelaShell.Presentation.Commands;
 using VelaShell.Presentation.Services;
 using VelaShell.Presentation.ViewModels;
-using VelaShell.Services;
+using VelaShell.Shell;
 using VelaShell.Terminal;
-using VelaShell.ViewModels;
 
 namespace VelaShell.Tests.ViewModels;
 

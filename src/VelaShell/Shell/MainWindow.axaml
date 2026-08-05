@@ -1,0 +1,166 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:VelaShell.Shell"
+        xmlns:pvm="using:VelaShell.Presentation.ViewModels"
+        xmlns:views="using:VelaShell.Shell"
+        xmlns:tunnels="using:VelaShell.Features.Tunnels"
+        xmlns:sftp="using:VelaShell.Features.Sftp"
+        xmlns:sessions="using:VelaShell.Features.Sessions"
+        xmlns:palette="using:VelaShell.Features.CommandPalette"
+        xmlns:dockc="using:VelaShell.Docking.Controls"
+        xmlns:res="clr-namespace:VelaShell.Core.Resources;assembly=VelaShell.Core"
+        mc:Ignorable="d" d:DesignWidth="1440" d:DesignHeight="900"
+        x:Class="VelaShell.Shell.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Icon="/Assets/velashell.ico"
+        Title="{x:Static res:Strings.AppName}"
+        Width="1440" Height="900"
+        MinWidth="800" MinHeight="500"
+        Background="{DynamicResource VelaBgPage}"
+        WindowStartupLocation="CenterScreen"
+        WindowDecorations="None">
+
+  <Window.KeyBindings>
+    <!-- Ctrl+T = 新建标签:标签即 SSH 会话,与 Ctrl+N 一样打开新建连接
+         (旧绑定往已不再显示的 TabBar 集合塞空标签,§10.C 瑕疵)。 -->
+    <KeyBinding Gesture="Ctrl+T" Command="{Binding RunCommand}" CommandParameter="session.new" />
+    <!-- Ctrl+N:菜单与命令面板一直标注的“新建连接”键位,此前只有提示没有真实绑定
+         (设置审计 C-10),补上使提示与行为一致。 -->
+    <KeyBinding Gesture="Ctrl+N" Command="{Binding RunCommand}" CommandParameter="session.new" />
+    <!-- Ctrl+W 必须走宿主的关闭命令:TabBar.CloseActiveTabCommand 只删逻辑标签,
+         会留下仍在显示的停靠标签并泄漏 SSH/PTY 传输。 -->
+    <KeyBinding Gesture="Ctrl+W" Command="{Binding CloseActiveTabCommand}" />
+    <KeyBinding Gesture="Ctrl+Tab" Command="{Binding TabBar.NextTabCommand}" />
+    <KeyBinding Gesture="Ctrl+Shift+Tab" Command="{Binding TabBar.PreviousTabCommand}" />
+    <KeyBinding Gesture="Ctrl+OemComma" Command="{Binding OpenSettingsCommand}" />
+    <KeyBinding Gesture="Ctrl+P" Command="{Binding OpenCommandPaletteCommand}" />
+    <KeyBinding Gesture="Ctrl+K" Command="{Binding OpenCommandPaletteCommand}" />
+    <KeyBinding Gesture="Ctrl+Shift+N" Command="{Binding RunCommand}" CommandParameter="session.clone" />
+    <KeyBinding Gesture="Ctrl+Shift+T" Command="{Binding RunCommand}" CommandParameter="tools.tunnel" />
+    <KeyBinding Gesture="Ctrl+Shift+F" Command="{Binding RunCommand}" CommandParameter="tools.files" />
+    <KeyBinding Gesture="Ctrl+Shift+L" Command="{Binding RunCommand}" CommandParameter="terminal.linegutter" />
+  </Window.KeyBindings>
+
+  <!-- 无边框窗体:与本应用全部对话框同款的 WindowDecorations="None" 全自绘模式
+       (Avalonia 12.0.5 的 ExtendClientArea/BorderOnly 托管装饰会拦截标题栏输入,
+       按钮点不动、窗口拖不动 —— 多组合实测后弃用)。标题栏拖动/双击在
+       TitleBarView(BeginMoveDrag,原生移动循环,Win11 边缘贴靠仍有效);
+       窗口四周为自绘缩放抓取区(BeginResizeDrag)。 -->
+  <Panel>
+    <!-- 背景图层(设置→外观→背景图片):铺在窗口最底层,UniformToFill。默认无图=不可见,行为与旧版一致。 -->
+    <Image x:Name="BackgroundImageLayer" Stretch="UniformToFill" IsHitTestVisible="False" IsVisible="False" />
+    <!-- 遮罩 scrim:铺在图片之上、所有内容之下的一层半透明主题底色。有图时所有内容背景令牌置透明,
+         于是整窗内容一律透出「scrim+图片」,不存在多层嵌套叠加。Background/Opacity/可见性由 ApplyBackgroundOpacities 装配。 -->
+    <Border x:Name="BackgroundScrim" IsHitTestVisible="False" IsVisible="False" />
+    <Grid RowDefinitions="Auto,*"
+          Margin="{Binding $parent[Window].OffScreenMargin}">
+
+    <!-- 浮动传输提示(设计帧 9Ralg):右上角,非模态,仅在有传输进行时出现(规范 §9)。 -->
+    <sftp:FileTransferView Grid.Row="1"
+                            DataContext="{Binding FileTransfer}"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Top"
+                            Margin="0,12,16,0"
+                            ZIndex="50" />
+    <!-- 隧道管理面板(设计帧 fuXS7):非模态,由 tools.tunnel 切换
+         (菜单路由按钮 / Ctrl+Shift+T),锚定于菜单栏下方右侧。 -->
+    <Panel Grid.Row="1" ZIndex="60"
+           HorizontalAlignment="Right" VerticalAlignment="Top"
+           Margin="0,8,48,0"
+           IsVisible="{Binding IsTunnelPanelOpen}">
+      <tunnels:TunnelPanelView DataContext="{Binding TunnelPanel}" />
+    </Panel>
+    <!-- 自绘标题栏:logo/名称 + 全局功能图标 + 最小化/最大化/关闭 -->
+    <views:TitleBarView x:Name="TitleBarHost" Grid.Row="0" DataContext="{Binding}" />
+
+    <!-- 外壳:内容 + 状态栏 + 命令面板覆盖层 -->
+    <Grid Grid.Row="1" RowDefinitions="*,Auto">
+    <!-- Row 0: Content area (sidebar + main) -->
+    <Grid Grid.Row="0">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="260" MinWidth="180" MaxWidth="520" />
+        <ColumnDefinition Width="5" />
+        <ColumnDefinition Width="*" MinWidth="400" />
+      </Grid.ColumnDefinitions>
+
+      <!-- Sidebar -->
+      <sessions:SidebarView x:Name="SidebarHost" Grid.Column="0" DataContext="{Binding Sidebar}" />
+
+      <!-- 侧栏拖拽条:5px 透明抓取区画成 1px 细线,使侧栏宽度可拖拽调整。 -->
+      <Border Grid.Column="1" Width="1" HorizontalAlignment="Center"
+              Background="{DynamicResource VelaBorderPrimary}" />
+      <GridSplitter Grid.Column="1" Background="Transparent" ResizeDirection="Columns"
+                    HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+
+      <!-- 主区域(终端、文件浏览器)。文件行初始折叠(0),当 FileBrowser.IsVisible
+           变化时由 code-behind 打开/恢复(§6 可折叠/拖高)。 -->
+      <Grid Grid.Column="2" x:Name="MainAreaGrid">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="*" MinHeight="150" />
+          <RowDefinition Height="0" />
+          <RowDefinition Height="0" />
+        </Grid.RowDefinitions>
+
+        <!-- Top Area: 自研 VelaDock 终端工作区(拖拽重排、边缘拖放/右键拆分分屏;
+             浮动窗口按产品决策禁用)。视图按文档缓存复用 —— 切换标签不重建
+             TerminalTabView,这是多标签切换流畅度的关键。 -->
+        <dockc:DockWorkspaceControl Grid.Row="0" Workspace="{Binding Layout}" />
+
+        <!-- 水平拖拽条:5px 透明抓取区画成 1px 细线,使面板可在无粗分隔线的情况下拖拽。 -->
+        <Border Grid.Row="1" Height="1" VerticalAlignment="Center"
+                Background="{DynamicResource VelaBorderPrimary}" />
+        <GridSplitter Grid.Row="1" Background="Transparent" ResizeDirection="Rows"
+                      HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+
+        <!-- Bottom Area (Files) -->
+        <sftp:FileBrowserView Grid.Row="2" DataContext="{Binding FileBrowser}" />
+
+      </Grid>
+    </Grid>
+
+    <!-- Row 1: Status bar (design frame gzmsb) -->
+    <views:StatusBarView Grid.Row="1"
+                         DataContext="{Binding StatusBar}" />
+
+    <!-- 命令面板覆盖层(Ctrl+P / Ctrl+K)。点击遮罩或按 Esc 关闭。 -->
+    <Grid Grid.Row="0" Grid.RowSpan="2"
+          IsVisible="{Binding CommandPalette.IsOpen}">
+      <Grid.Styles>
+        <Style Selector="Button.backdrop /template/ ContentPresenter#PART_ContentPresenter">
+          <Setter Property="Background" Value="#66000000" />
+        </Style>
+        <Style Selector="Button.backdrop:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+          <Setter Property="Background" Value="#66000000" />
+        </Style>
+      </Grid.Styles>
+      <Button Classes="backdrop"
+              Command="{Binding CommandPalette.CloseCommand}"
+              Background="#66000000"
+              BorderThickness="0"
+              CornerRadius="0"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch" />
+      <palette:CommandPaletteView DataContext="{Binding CommandPalette}"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Top" />
+    </Grid>
+
+    </Grid>
+    </Grid>
+
+    <!-- 自绘窗口缩放抓取区(仅普通状态,最大化时由 code-behind 关闭):
+         四边 5px + 四角 10px,透明、置顶,按下即 BeginResizeDrag。 -->
+    <Panel x:Name="ResizeGrips" ZIndex="200">
+      <Border Tag="North" Height="5" VerticalAlignment="Top" Margin="10,0" Background="Transparent" Cursor="TopSide" PointerPressed="ResizeEdge_PointerPressed" />
+      <Border Tag="South" Height="5" VerticalAlignment="Bottom" Margin="10,0" Background="Transparent" Cursor="BottomSide" PointerPressed="ResizeEdge_PointerPressed" />
+      <Border Tag="West" Width="5" HorizontalAlignment="Left" Margin="0,10" Background="Transparent" Cursor="LeftSide" PointerPressed="ResizeEdge_PointerPressed" />
+      <Border Tag="East" Width="5" HorizontalAlignment="Right" Margin="0,10" Background="Transparent" Cursor="RightSide" PointerPressed="ResizeEdge_PointerPressed" />
+      <Border Tag="NorthWest" Width="10" Height="10" HorizontalAlignment="Left" VerticalAlignment="Top" Background="Transparent" Cursor="TopLeftCorner" PointerPressed="ResizeEdge_PointerPressed" />
+      <Border Tag="NorthEast" Width="10" Height="10" HorizontalAlignment="Right" VerticalAlignment="Top" Background="Transparent" Cursor="TopRightCorner" PointerPressed="ResizeEdge_PointerPressed" />
+      <Border Tag="SouthWest" Width="10" Height="10" HorizontalAlignment="Left" VerticalAlignment="Bottom" Background="Transparent" Cursor="BottomLeftCorner" PointerPressed="ResizeEdge_PointerPressed" />
+      <Border Tag="SouthEast" Width="10" Height="10" HorizontalAlignment="Right" VerticalAlignment="Bottom" Background="Transparent" Cursor="BottomRightCorner" PointerPressed="ResizeEdge_PointerPressed" />
+    </Panel>
+  </Panel>
+</Window>

@@ -1,4 +1,4 @@
-using VelaShell.Services;
+using VelaShell.Common.Input;
 
 namespace VelaShell.Tests.Services;
 

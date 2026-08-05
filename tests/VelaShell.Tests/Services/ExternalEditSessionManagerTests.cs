@@ -2,7 +2,7 @@ using NSubstitute;
 using VelaShell.Core.Models;
 using VelaShell.Core.Resources;
 using VelaShell.Core.Sftp;
-using VelaShell.Services;
+using VelaShell.Features.Sftp;
 
 namespace VelaShell.Tests.Services;
 

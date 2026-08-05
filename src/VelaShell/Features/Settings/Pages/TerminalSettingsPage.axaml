@@ -1,0 +1,227 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VelaShell.Features.Settings"
+             xmlns:loc="using:VelaShell.Common.Localization"
+             x:Class="VelaShell.Features.Settings.Pages.TerminalSettingsPage"
+             x:DataType="vm:SettingsViewModel">
+
+  <StackPanel Spacing="14">
+    <StackPanel Spacing="2">
+      <TextBlock Classes="page-title" Text="{loc:Localize SetTerm_Title}" />
+      <TextBlock Classes="page-subtitle" Text="{loc:Localize SetTerm_Subtitle}" />
+    </StackPanel>
+
+    <!-- 字体与显示 -->
+    <TextBlock Classes="section-title" Text="{loc:Localize SetTerm_FontDisplaySection}" />
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetTerm_Font}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetTerm_FontDesc}" />
+      </StackPanel>
+      <TextBox Grid.Column="1" Width="160" Text="{Binding TerminalFont}" VerticalAlignment="Center" />
+    </Grid>
+    <Grid ColumnDefinitions="*,Auto">
+      <TextBlock Classes="row-label" Text="{loc:Localize FontSize}" VerticalAlignment="Center" />
+      <NumericUpDown Grid.Column="1" Width="80" Value="{Binding TerminalFontSize}" Minimum="8" Maximum="72" Increment="1" FormatString="0" VerticalAlignment="Center" />
+    </Grid>
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetTerm_LineHeight}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetTerm_LineHeightDesc}" />
+      </StackPanel>
+      <NumericUpDown Grid.Column="1" Width="80" Value="{Binding TerminalBehavior.LineHeight}" Minimum="0.8" Maximum="2.0" Increment="0.1" FormatString="0.0" VerticalAlignment="Center" />
+    </Grid>
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetTerm_AutoOpenSftp}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetTerm_AutoOpenSftpDesc}" />
+      </StackPanel>
+      <ToggleSwitch Grid.Column="1" IsChecked="{Binding TerminalBehavior.AutoOpenFileBrowser}" VerticalAlignment="Center" />
+    </Grid>
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetTerm_ShowLineTimestamp}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetTerm_ShowLineTimestampDesc}" />
+      </StackPanel>
+      <ToggleSwitch Grid.Column="1" IsChecked="{Binding TerminalBehavior.ShowLineTimestamp}" VerticalAlignment="Center" />
+    </Grid>
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetTerm_ShowLineNumber}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetTerm_ShowLineNumberDesc}" />
+      </StackPanel>
+      <ToggleSwitch Grid.Column="1" IsChecked="{Binding TerminalBehavior.ShowLineNumber}" VerticalAlignment="Center" />
+    </Grid>
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetTerm_ShowFoldMarker}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetTerm_ShowFoldMarkerDesc}" />
+      </StackPanel>
+      <ToggleSwitch Grid.Column="1" IsChecked="{Binding TerminalBehavior.ShowFoldMarker}" VerticalAlignment="Center" />
+    </Grid>
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetTerm_GutterBlank}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetTerm_GutterBlankDesc}" />
+      </StackPanel>
+      <ToggleSwitch Grid.Column="1" IsChecked="{Binding TerminalBehavior.GutterBlank}" VerticalAlignment="Center" />
+    </Grid>
+    <Border Classes="sep" />
+
+    <!-- 终端类型与编码(既有能力) -->
+    <TextBlock Classes="section-title" Text="{loc:Localize SetTerm_TypeEncodingSection}" />
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetTerm_TermType}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetTerm_TermTypeDesc}" />
+      </StackPanel>
+      <ComboBox Grid.Column="1" Width="160" ItemsSource="{Binding AvailableTerminalTypes}"
+                SelectedItem="{Binding TerminalType}" VerticalAlignment="Center" />
+    </Grid>
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetTerm_OutputEncoding}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetTerm_OutputEncodingDesc}" />
+      </StackPanel>
+      <ComboBox Grid.Column="1" Width="160" ItemsSource="{Binding AvailableEncodings}"
+                SelectedItem="{Binding TerminalEncoding}" VerticalAlignment="Center" />
+    </Grid>
+
+    <Border Classes="sep" />
+
+    <!-- 光标 -->
+    <TextBlock Classes="section-title" Text="{loc:Localize SetTerm_CursorSection}" />
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetTerm_CursorStyle}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetTerm_CursorStyleDesc}" />
+      </StackPanel>
+      <ComboBox Grid.Column="1" Width="140" SelectedIndex="{Binding CursorStyleIndex}" VerticalAlignment="Center">
+        <ComboBoxItem Content="{loc:Localize SetTerm_CursorBar}" />
+        <ComboBoxItem Content="{loc:Localize SetTerm_CursorBlock}" />
+        <ComboBoxItem Content="{loc:Localize SetTerm_CursorUnderline}" />
+      </ComboBox>
+    </Grid>
+    <Grid ColumnDefinitions="*,Auto">
+      <TextBlock Classes="row-label" Text="{loc:Localize SetTerm_CursorBlink}" VerticalAlignment="Center" />
+      <ToggleSwitch Grid.Column="1" IsChecked="{Binding TerminalBehavior.CursorBlink}" VerticalAlignment="Center" />
+    </Grid>
+
+    <Border Classes="sep" />
+
+    <!-- 响铃与标签提醒 -->
+    <TextBlock Classes="section-title" Text="{loc:Localize SetTerm_BellSection}" />
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetTerm_BellBehavior}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetTerm_BellBehaviorDesc}" />
+      </StackPanel>
+      <ComboBox Grid.Column="1" Width="140" SelectedIndex="{Binding BellModeIndex}" VerticalAlignment="Center">
+        <ComboBoxItem Content="{loc:Localize SetTerm_BellSound}" />
+        <ComboBoxItem Content="{loc:Localize SetTerm_BellNone}" />
+        <ComboBoxItem Content="{loc:Localize SetTerm_BellVisual}" />
+      </ComboBox>
+    </Grid>
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetTerm_TabFlashAlert}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetTerm_TabFlashAlertDesc}" />
+      </StackPanel>
+      <ToggleSwitch Grid.Column="1" IsChecked="{Binding TerminalBehavior.TabFlashAlert}" VerticalAlignment="Center" />
+    </Grid>
+
+    <Border Classes="sep" />
+
+    <!-- 会话 -->
+    <TextBlock Classes="section-title" Text="{loc:Localize Sessions}" />
+    <StackPanel Spacing="5">
+      <TextBlock Classes="row-label" Text="{loc:Localize SetTerm_StartupCommand}" />
+      <TextBlock Classes="row-desc"
+                 Text="{loc:Localize SetTerm_StartupCommandDesc}" />
+      <TextBox Text="{Binding TerminalBehavior.StartupCommand}" PlaceholderText="{loc:Localize SetTerm_StartupCommandPlaceholder}" />
+    </StackPanel>
+
+    <Border Classes="sep" />
+
+    <!-- 滚动 -->
+    <TextBlock Classes="section-title" Text="{loc:Localize SetTerm_ScrollSection}" />
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetTerm_ScrollOnOutput}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetTerm_ScrollOnOutputDesc}" />
+      </StackPanel>
+      <ToggleSwitch Grid.Column="1" IsChecked="{Binding TerminalBehavior.ScrollOnOutput}" VerticalAlignment="Center" />
+    </Grid>
+    <Grid ColumnDefinitions="*,Auto">
+      <TextBlock Classes="row-label" Text="{loc:Localize SetTerm_ScrollOnKeystroke}" VerticalAlignment="Center" />
+      <ToggleSwitch Grid.Column="1" IsChecked="{Binding TerminalBehavior.ScrollOnKeystroke}" VerticalAlignment="Center" />
+    </Grid>
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize ScrollbackLines}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetTerm_ScrollbackDesc}" />
+      </StackPanel>
+      <NumericUpDown Grid.Column="1" Width="100" Value="{Binding ScrollbackLines}" Minimum="100" Maximum="200000" Increment="1000" FormatString="0" VerticalAlignment="Center" />
+    </Grid>
+
+    <Border Classes="sep" />
+
+    <!-- 选择与复制 -->
+    <TextBlock Classes="section-title" Text="{loc:Localize SetTerm_SelectionSection}" />
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetTerm_CopyOnSelect}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetTerm_CopyOnSelectDesc}" />
+      </StackPanel>
+      <ToggleSwitch Grid.Column="1" IsChecked="{Binding TerminalBehavior.CopyOnSelect}" VerticalAlignment="Center" />
+    </Grid>
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetTerm_RightClickPaste}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetTerm_RightClickPasteDesc}" />
+      </StackPanel>
+      <ToggleSwitch Grid.Column="1" IsChecked="{Binding TerminalBehavior.RightClickPaste}" VerticalAlignment="Center" />
+    </Grid>
+    <Grid ColumnDefinitions="*,Auto">
+      <TextBlock Classes="row-label" Text="{loc:Localize SetTerm_TrimCopyWhitespace}" VerticalAlignment="Center" />
+      <ToggleSwitch Grid.Column="1" IsChecked="{Binding TerminalBehavior.TrimTrailingWhitespaceOnCopy}" VerticalAlignment="Center" />
+    </Grid>
+    <Grid ColumnDefinitions="*,Auto">
+      <TextBlock Classes="row-label" Text="{loc:Localize SetTerm_DoubleClickSelectWord}" VerticalAlignment="Center" />
+      <ToggleSwitch Grid.Column="1" IsChecked="{Binding TerminalBehavior.DoubleClickSelectsWord}" VerticalAlignment="Center" />
+    </Grid>
+
+    <Border Classes="sep" />
+
+    <!-- 输入 -->
+    <TextBlock Classes="section-title" Text="{loc:Localize SetTerm_InputSection}" />
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetTerm_ConfirmMultilinePaste}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetTerm_ConfirmMultilinePasteDesc}" />
+      </StackPanel>
+      <ToggleSwitch Grid.Column="1" IsChecked="{Binding TerminalBehavior.ConfirmMultilinePaste}" VerticalAlignment="Center" />
+    </Grid>
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetTerm_ImeSupport}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetTerm_ImeSupportDesc}" />
+      </StackPanel>
+      <ToggleSwitch Grid.Column="1" IsChecked="{Binding TerminalBehavior.ImeSupport}" VerticalAlignment="Center" />
+    </Grid>
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetTerm_LocalEcho}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetTerm_LocalEchoDesc}" />
+      </StackPanel>
+      <ToggleSwitch Grid.Column="1" IsChecked="{Binding TerminalBehavior.LocalEcho}" VerticalAlignment="Center" />
+    </Grid>
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetTerm_CtrlCCopy}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetTerm_CtrlCCopyDesc}" />
+      </StackPanel>
+      <ToggleSwitch Grid.Column="1" IsChecked="{Binding TerminalBehavior.CtrlCCopiesWhenSelected}" VerticalAlignment="Center" />
+    </Grid>
+  </StackPanel>
+</UserControl>

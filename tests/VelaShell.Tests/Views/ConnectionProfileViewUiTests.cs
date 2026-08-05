@@ -6,11 +6,10 @@ using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using ReactiveUI.Primitives;
-using VelaShell.Behaviors;
+using VelaShell.Common.Behaviors;
+using VelaShell.Common.Security;
 using VelaShell.Core.Models;
-using VelaShell.Security;
-using VelaShell.ViewModels;
-using VelaShell.Views;
+using VelaShell.Features.Sessions;
 
 namespace VelaShell.Tests.Views;
 

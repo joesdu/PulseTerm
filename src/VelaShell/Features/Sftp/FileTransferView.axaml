@@ -1,0 +1,181 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:VelaShell.Features.Sftp"
+             xmlns:pc="using:VelaShell.Controls.Controls"
+             xmlns:loc="using:VelaShell.Common.Localization"
+             mc:Ignorable="d" d:DesignWidth="280" d:DesignHeight="160"
+             x:Class="VelaShell.Features.Sftp.FileTransferView"
+             x:DataType="vm:FileTransferViewModel">
+
+  <!-- 拖拽位移加在 UserControl 自身而不是内层 Border:UserControl 的布局尺寸是裹住面板的,
+       把内层移出去会有裁剪与命中测试风险;而 UserControl 的父级是整行 Grid,空间足够。
+       位移相对默认锚点(右上角)而非绝对坐标,窗口缩放后面板仍贴着相对位置。
+       越界夹紧在 code-behind(只有它知道父容器与自身的实际尺寸)。 -->
+  <UserControl.RenderTransform>
+    <TranslateTransform X="{Binding PanelOffsetX}" Y="{Binding PanelOffsetY}" />
+  </UserControl.RenderTransform>
+
+  <!-- 浮动传输提示(设计帧 9Ralg):宽 280px,bg-surface,圆角 6,
+       1px border-secondary,阴影 blur16 y+4。仅在有传输时存在;
+       全部完成后约 3s 自动淡出;x 收起而不取消(规范 §9)。 -->
+
+  <Border Width="280"
+          Background="{DynamicResource VelaBgSurface}"
+          BorderBrush="{DynamicResource VelaBorderSecondary}"
+          BorderThickness="1"
+          CornerRadius="6"
+          BoxShadow="0 4 16 0 #60000000"
+          IsVisible="{Binding IsPanelVisible}">
+    <StackPanel>
+
+      <!-- 表头(32px,拖拽手柄):arrow-up-down 强调色 + 传输 + 数量徽标 | x -->
+      <Border Name="DragHandle"
+              Height="32"
+              Padding="12,0"
+              Cursor="SizeAll"
+              Background="Transparent"
+              BorderBrush="{DynamicResource VelaBorderPrimary}"
+              BorderThickness="0,0,0,1">
+        <Grid ColumnDefinitions="Auto,*,Auto">
+          <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+            <pc:LucideIcon Width="12" Height="12"
+                           Data="{StaticResource Icon.arrow-up-down}"
+                           Foreground="{DynamicResource VelaAccent}" />
+            <TextBlock Text="{loc:Localize Transfer_Title}"
+                       Foreground="{DynamicResource VelaTextPrimary}"
+                       FontFamily="{DynamicResource VelaUiMonoFont}"
+                       FontSize="{DynamicResource VelaFontSize11}" FontWeight="Medium"
+                       VerticalAlignment="Center" />
+            <Border Background="{DynamicResource VelaAccent}"
+                    CornerRadius="8" Padding="6,1"
+                    VerticalAlignment="Center"
+                    IsVisible="{Binding PendingCount}">
+              <TextBlock Text="{Binding PendingCount}"
+                         Foreground="{DynamicResource VelaAccentText}"
+                         FontFamily="{DynamicResource VelaUiMonoFont}"
+                         FontSize="{DynamicResource VelaFontSize9}" FontWeight="Medium" />
+            </Border>
+          </StackPanel>
+          <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+            <!-- 取消正在运行的批次中剩余的文件(中止当前进行中的那一个)。 -->
+            <Button Background="Transparent" Padding="4,1" Cursor="Hand"
+                    IsVisible="{Binding IsBatchActive}"
+                    Command="{Binding CancelAllCommand}"
+                    ToolTip.Tip="{loc:Localize Transfer_CancelRemainingTip}">
+              <TextBlock Text="{loc:Localize Cancel}"
+                         Foreground="{DynamicResource VelaError}"
+                         FontFamily="{DynamicResource VelaUiMonoFont}"
+                         FontSize="{DynamicResource VelaFontSize10}" FontWeight="Medium" />
+            </Button>
+            <!-- 清除已完成/已取消的历史行(进行中与失败行保留:失败行还带着"重试"入口)。 -->
+            <Button Background="Transparent" Padding="4,1" Cursor="Hand"
+                    Command="{Binding ClearCompletedCommand}"
+                    ToolTip.Tip="{loc:Localize Transfer_ClearCompleted}">
+              <TextBlock Text="{loc:Localize Transfer_ClearCompleted}"
+                         Foreground="{DynamicResource VelaTextTertiary}"
+                         FontFamily="{DynamicResource VelaUiMonoFont}"
+                         FontSize="{DynamicResource VelaFontSize10}" />
+            </Button>
+            <Button Background="Transparent" Padding="2" Cursor="Hand"
+                    Command="{Binding HidePanelCommand}"
+                    ToolTip.Tip="{loc:Localize Transfer_CollapseTip}">
+              <pc:LucideIcon Width="12" Height="12"
+                             Data="{StaticResource Icon.x}"
+                             Foreground="{DynamicResource VelaTextTertiary}" />
+            </Button>
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <!-- 准备中:选择大文件夹后目录扫描的即时反馈,头部徽标随发现数递增。 -->
+      <Border Padding="12,8"
+              BorderBrush="{DynamicResource VelaBorderPrimary}"
+              BorderThickness="0,0,0,1"
+              IsVisible="{Binding IsPreparing}">
+        <TextBlock Text="{Binding PreparingText}"
+                   Foreground="{DynamicResource VelaTextMuted}"
+                   FontFamily="{DynamicResource VelaUiMonoFont}"
+                   FontSize="{DynamicResource VelaFontSize10}" />
+      </Border>
+
+      <!-- 传输行:限制面板高度(约 5 行)并对溢出内容滚动。
+           这里刻意不做虚拟化(默认的 StackPanel 就是要的那个)。它本来就换不来什么:
+           行数已在 FileTransferViewModel 里压到 100 以内,一次最多也就实现 100 行;
+           而排查那次"下方一大片空白"时,虚拟化面板的实现窗口是最先被怀疑的一环,
+           徒增一层不确定。那片空白的真凶是历史恢复(见 FileTransferViewModel 的
+           「传输历史」注释):行在面板隐藏期间入列,占着高度却画不出来。 -->
+      <ScrollViewer VerticalScrollBarVisibility="Auto"
+                    HorizontalScrollBarVisibility="Disabled"
+                    MaxHeight="280">
+        <ItemsControl ItemsSource="{Binding Transfers}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:TransferItemViewModel">
+              <Border Padding="12,8"
+                      BorderBrush="{DynamicResource VelaBorderPrimary}"
+                      BorderThickness="0,0,0,1">
+                <StackPanel Spacing="4">
+
+                  <!-- 名称 / 重试 / 百分比 -->
+                  <Grid ColumnDefinitions="*,Auto,Auto">
+                    <TextBlock Grid.Column="0"
+                               Text="{Binding FileName}"
+                               Foreground="{DynamicResource VelaTextPrimary}"
+                               FontFamily="{DynamicResource VelaUiMonoFont}"
+                               FontSize="{DynamicResource VelaFontSize10}" FontWeight="Medium"
+                               TextTrimming="CharacterEllipsis" />
+                    <!-- 失败且原会话仍在时可重试:重新探测续传起点后单文件重跑(断点续传收尾)。 -->
+                    <Button Grid.Column="1" Background="Transparent" Padding="4,0" Margin="0,0,6,0" Cursor="Hand"
+                            IsVisible="{Binding CanRetry}"
+                            Command="{Binding $parent[ItemsControl].((vm:FileTransferViewModel)DataContext).RetryTransferCommand}"
+                            CommandParameter="{Binding Id}"
+                            ToolTip.Tip="{loc:Localize Transfer_Retry}">
+                      <TextBlock Text="{loc:Localize Transfer_Retry}"
+                                 Foreground="{DynamicResource VelaAccent}"
+                                 FontFamily="{DynamicResource VelaUiMonoFont}"
+                                 FontSize="{DynamicResource VelaFontSize10}" FontWeight="Medium" />
+                    </Button>
+                    <TextBlock Grid.Column="2"
+                               Text="{Binding ProgressText}"
+                               FontFamily="{DynamicResource VelaUiMonoFont}"
+                               FontSize="{DynamicResource VelaFontSize10}" FontWeight="Medium"
+                               Classes.done="{Binding IsCompleted}"
+                               Classes.failed="{Binding IsFailed}">
+                      <TextBlock.Styles>
+                        <Style Selector="TextBlock">
+                          <Setter Property="Foreground" Value="{DynamicResource VelaAccent}" />
+                        </Style>
+                        <Style Selector="TextBlock.done">
+                          <Setter Property="Foreground" Value="{DynamicResource VelaStatusConnected}" />
+                        </Style>
+                        <Style Selector="TextBlock.failed">
+                          <Setter Property="Foreground" Value="{DynamicResource VelaError}" />
+                        </Style>
+                      </TextBlock.Styles>
+                    </TextBlock>
+                  </Grid>
+
+                  <!-- 进度条:3px 轨道 border-primary + 强调色填充 -->
+                  <ProgressBar Minimum="0" Maximum="100"
+                               Value="{Binding Progress}"
+                               Height="3" MinHeight="3"
+                               CornerRadius="2"
+                               Background="{DynamicResource VelaBorderPrimary}"
+                               Foreground="{DynamicResource VelaAccent}" />
+
+                  <!-- 明细行 -->
+                  <TextBlock Text="{Binding InfoLine}"
+                             Foreground="{DynamicResource VelaTextMuted}"
+                             FontFamily="{DynamicResource VelaUiMonoFont}"
+                             FontSize="{DynamicResource VelaFontSize9}" />
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+
+    </StackPanel>
+  </Border>
+</UserControl>

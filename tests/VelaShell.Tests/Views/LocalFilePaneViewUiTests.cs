@@ -5,8 +5,7 @@ using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using VelaShell.Core.Models;
-using VelaShell.ViewModels;
-using VelaShell.Views;
+using VelaShell.Features.Sftp;
 
 namespace VelaShell.Tests.Views;
 

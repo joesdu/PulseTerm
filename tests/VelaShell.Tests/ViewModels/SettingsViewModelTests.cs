@@ -4,7 +4,8 @@ using VelaShell.Core.Data;
 using VelaShell.Core.Models;
 using VelaShell.Core.Services;
 using VelaShell.Core.Ssh;
-using VelaShell.ViewModels;
+using VelaShell.Features.Sessions;
+using VelaShell.Features.Settings;
 
 namespace VelaShell.Tests.ViewModels;
 

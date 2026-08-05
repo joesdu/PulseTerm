@@ -1,4 +1,4 @@
-using VelaShell.Views;
+using VelaShell.Features.Sftp;
 
 namespace VelaShell.Tests.Views;
 

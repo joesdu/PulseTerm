@@ -2,8 +2,8 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Threading;
-using VelaShell.Behaviors;
-using VelaShell.Services;
+using VelaShell.Common.Behaviors;
+using VelaShell.Features.Sessions;
 
 namespace VelaShell.Tests.Behaviors;
 

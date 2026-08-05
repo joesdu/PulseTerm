@@ -1,4 +1,4 @@
-using VelaShell.Services;
+using VelaShell.Features.Settings;
 
 namespace VelaShell.Tests.Services;
 

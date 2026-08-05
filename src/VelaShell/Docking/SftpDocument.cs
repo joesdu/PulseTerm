@@ -2,9 +2,8 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using VelaShell.Docking.Controls;
 using VelaShell.Docking.Model;
-using VelaShell.Services;
-using VelaShell.ViewModels;
-using VelaShell.Views;
+using VelaShell.Features.Sessions;
+using VelaShell.Features.Sftp;
 
 namespace VelaShell.Docking;
 

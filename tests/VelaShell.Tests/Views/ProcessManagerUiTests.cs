@@ -7,11 +7,10 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using VelaShell.Common.Localization;
 using VelaShell.Core.Localization;
 using VelaShell.Core.Processes;
-using VelaShell.Localization;
-using VelaShell.ViewModels;
-using VelaShell.Views;
+using VelaShell.Features.Monitoring;
 
 namespace VelaShell.Tests.Views;
 

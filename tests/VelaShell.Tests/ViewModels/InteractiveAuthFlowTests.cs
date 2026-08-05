@@ -2,9 +2,10 @@ using NSubstitute;
 using VelaShell.Core.Models;
 using VelaShell.Core.Resources;
 using VelaShell.Core.Ssh;
+using VelaShell.Features.Sessions;
 using VelaShell.Presentation.Services;
+using VelaShell.Shell;
 using VelaShell.Terminal;
-using VelaShell.ViewModels;
 
 namespace VelaShell.Tests.ViewModels;
 

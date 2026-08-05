@@ -1,7 +1,6 @@
 using System.IO.Compression;
 using System.Security.Cryptography;
-using VelaShell.Services;
-using VelaShell.Services.Update;
+using VelaShell.Features.Update;
 
 namespace VelaShell.Tests.Services;
 

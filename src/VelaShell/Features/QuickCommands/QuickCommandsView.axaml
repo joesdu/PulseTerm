@@ -1,0 +1,224 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:pvm="using:VelaShell.Presentation.ViewModels"
+             xmlns:pc="using:VelaShell.Controls.Controls"
+             xmlns:loc="using:VelaShell.Common.Localization"
+             mc:Ignorable="d" d:DesignWidth="260" d:DesignHeight="240"
+             x:Class="VelaShell.Features.QuickCommands.QuickCommandsView"
+             x:DataType="pvm:QuickCommandRunnerViewModel">
+
+  <UserControl.Styles>
+    <Style Selector="Button.quick-action">
+      <Setter Property="Height" Value="24" />
+      <Setter Property="Padding" Value="7,0" />
+      <Setter Property="CornerRadius" Value="3" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
+    </Style>
+
+    <!-- 分组头:压掉 Fluent ToggleButton 的强调色选中态,展开与否都保持侧栏的
+         "透明 + 悬停 VelaBgHover" 语言(与会话树分组行一致),展开状态只由箭头表达。 -->
+    <Style Selector="ToggleButton.group-header">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="7,5" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="ToggleButton.group-header /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="CornerRadius" Value="4" />
+    </Style>
+    <Style Selector="ToggleButton.group-header:checked /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="ToggleButton.group-header:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+    </Style>
+    <Style Selector="ToggleButton.group-header:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+    </Style>
+    <Style Selector="ToggleButton.group-header:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource VelaBgActive}" />
+    </Style>
+
+    <!-- 命令条目:整行可点,点击即把命令文本发送到目标终端(不回车)。 -->
+    <Style Selector="Button.cmd-item">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="8,6" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Button.cmd-item /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="CornerRadius" Value="4" />
+    </Style>
+    <Style Selector="Button.cmd-item:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+    </Style>
+    <Style Selector="Button.cmd-item:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource VelaBgActive}" />
+    </Style>
+    <!-- 悬停时右侧浮现"发送到终端"图标,提示点击行为。 -->
+    <Style Selector="Button.cmd-item pc|LucideIcon.send-hint">
+      <Setter Property="Opacity" Value="0" />
+    </Style>
+    <Style Selector="Button.cmd-item:pointerover pc|LucideIcon.send-hint">
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="Button.target-button">
+      <Setter Property="Height" Value="26" />
+      <Setter Property="Padding" Value="8,0" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="Background" Value="{DynamicResource VelaBgInput}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderSecondary}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="3" />
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,Auto,*" Background="{DynamicResource VelaBgSidebar}">
+    <!-- 目标多选器:未勾选时由 VM 回退当前活动终端。 -->
+    <Button Grid.Row="0" Classes="target-button" Margin="8,6,8,4">
+      <Button.Flyout>
+        <Flyout Placement="BottomEdgeAlignedLeft">
+          <Border Width="250" MaxHeight="300" Padding="10"
+                  Background="{DynamicResource VelaBgSurface}"
+                  BorderBrush="{DynamicResource VelaBorderSecondary}"
+                  BorderThickness="1" CornerRadius="5">
+            <StackPanel Spacing="8">
+              <Grid ColumnDefinitions="*,Auto,8,Auto">
+                <TextBlock Text="{loc:Localize QuickCmd_SelectTargets}"
+                           Foreground="{DynamicResource VelaTextPrimary}"
+                           FontSize="{DynamicResource VelaFontSize11}" FontWeight="SemiBold"
+                           VerticalAlignment="Center" />
+                <Button Grid.Column="1" Classes="quick-action"
+                        Content="{loc:Localize QuickCmd_SelectAll}"
+                        Command="{Binding SelectAllCommand}" />
+                <Button Grid.Column="3" Classes="quick-action"
+                        Content="{loc:Localize QuickCmd_ClearSelection}"
+                        Command="{Binding ClearSelectionCommand}" />
+              </Grid>
+              <TextBlock Text="{loc:Localize QuickCmd_NoConnectedTerminals}"
+                         Foreground="{DynamicResource VelaTextMuted}" FontSize="{DynamicResource VelaFontSize10}"
+                         IsVisible="{Binding !HasTargets}" />
+              <ScrollViewer MaxHeight="220" VerticalScrollBarVisibility="Auto"
+                            IsVisible="{Binding HasTargets}">
+                <ItemsControl ItemsSource="{Binding Targets}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="pvm:QuickCommandTargetViewModel">
+                      <CheckBox IsChecked="{Binding IsSelected}"
+                                Content="{Binding DisplayName}"
+                                Foreground="{DynamicResource VelaTextSecondary}"
+                                FontFamily="{DynamicResource VelaUiMonoFont}"
+                                FontSize="{DynamicResource VelaFontSize11}" Margin="2,3" />
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
+            </StackPanel>
+          </Border>
+        </Flyout>
+      </Button.Flyout>
+      <Grid ColumnDefinitions="Auto,6,*,Auto">
+        <pc:LucideIcon Width="12" Height="12" Data="{StaticResource Icon.terminal}"
+                       Foreground="{DynamicResource VelaAccent}" VerticalAlignment="Center" />
+        <TextBlock Grid.Column="2" Text="{loc:Localize QuickCmd_CurrentTerminal}"
+                   Foreground="{DynamicResource VelaTextSecondary}"
+                   FontSize="{DynamicResource VelaFontSize10}" VerticalAlignment="Center"
+                   IsVisible="{Binding !HasSelectedTargets}" />
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4"
+                    IsVisible="{Binding HasSelectedTargets}">
+          <TextBlock Text="{Binding SelectedTargetCount}"
+                     Foreground="{DynamicResource VelaAccent}" FontSize="{DynamicResource VelaFontSize10}"
+                     FontWeight="SemiBold" VerticalAlignment="Center" />
+          <TextBlock Text="{loc:Localize QuickCmd_SelectedTerminals}"
+                     Foreground="{DynamicResource VelaTextSecondary}" FontSize="{DynamicResource VelaFontSize10}"
+                     VerticalAlignment="Center" />
+        </StackPanel>
+        <pc:LucideIcon Grid.Column="3" Width="11" Height="11"
+                       Data="{StaticResource Icon.chevron-down}"
+                       Foreground="{DynamicResource VelaTextMuted}" />
+      </Grid>
+    </Button>
+
+    <TextBox Grid.Row="1" Margin="8,0,8,5" Height="26"
+             Text="{Binding Library.SearchQuery}"
+             PlaceholderText="{loc:Localize QuickCmd_Search}"
+             FontSize="{DynamicResource VelaFontSize10}" Padding="7,3" />
+
+    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled">
+      <ItemsControl ItemsSource="{Binding Library.FilteredGroups}" Margin="4,0,4,6">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="pvm:QuickCommandGroupViewModel">
+            <StackPanel Margin="0,2">
+              <ToggleButton Classes="group-header"
+                            IsChecked="{Binding IsExpanded, Mode=TwoWay}">
+                <Grid ColumnDefinitions="Auto,6,*,Auto">
+                  <Panel Width="11" Height="11">
+                    <pc:LucideIcon Width="11" Height="11"
+                                   Data="{StaticResource Icon.chevron-right}"
+                                   Foreground="{DynamicResource VelaTextTertiary}"
+                                   IsVisible="{Binding !IsExpanded}" />
+                    <pc:LucideIcon Width="11" Height="11"
+                                   Data="{StaticResource Icon.chevron-down}"
+                                   Foreground="{DynamicResource VelaTextTertiary}"
+                                   IsVisible="{Binding IsExpanded}" />
+                  </Panel>
+                  <TextBlock Grid.Column="2" Text="{Binding Name}"
+                             Foreground="{DynamicResource VelaTextSecondary}"
+                             FontSize="{DynamicResource VelaFontSize10}" FontWeight="SemiBold"
+                             TextTrimming="CharacterEllipsis" />
+                  <Border Grid.Column="3" Padding="5,1" CornerRadius="7"
+                          Background="{DynamicResource VelaBgInput}">
+                    <TextBlock Text="{Binding FilteredCommands.Count}"
+                               Foreground="{DynamicResource VelaTextMuted}" FontSize="{DynamicResource VelaFontSize9}" />
+                  </Border>
+                </Grid>
+              </ToggleButton>
+              <ItemsControl ItemsSource="{Binding FilteredCommands}"
+                            IsVisible="{Binding IsExpanded}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="pvm:QuickCommandViewModel">
+                    <!-- 整行即按钮:点击把命令文本发送到目标终端(不附加回车),
+                         便于先补全参数再手动执行。 -->
+                    <Button Classes="cmd-item" Margin="4,1"
+                            Command="{Binding $parent[UserControl].((pvm:QuickCommandRunnerViewModel)DataContext).SendCommand}"
+                            CommandParameter="{Binding}"
+                            ToolTip.Tip="{Binding CommandText}">
+                      <Grid ColumnDefinitions="*,8,Auto">
+                        <StackPanel Spacing="2">
+                          <TextBlock Text="{Binding Name}"
+                                     Foreground="{DynamicResource VelaTextPrimary}"
+                                     FontSize="{DynamicResource VelaFontSize11}" FontWeight="SemiBold"
+                                     TextTrimming="CharacterEllipsis" />
+                          <TextBlock Text="{Binding CommandText}"
+                                     Foreground="{DynamicResource VelaAccentText}"
+                                     FontFamily="{DynamicResource VelaUiMonoFont}"
+                                     FontSize="{DynamicResource VelaFontSize9}" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                        <pc:LucideIcon Grid.Column="2" Classes="send-hint"
+                                       Width="12" Height="12"
+                                       Data="{StaticResource Icon.send}"
+                                       Foreground="{DynamicResource VelaAccent}"
+                                       VerticalAlignment="Center" />
+                      </Grid>
+                    </Button>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+  </Grid>
+</UserControl>

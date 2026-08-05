@@ -6,6 +6,8 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Microsoft.Extensions.DependencyInjection;
+using VelaShell.Common.Input;
+using VelaShell.Common.Localization;
 using VelaShell.Controls.DependencyInjection;
 using VelaShell.Core.Data;
 using VelaShell.Core.Localization;
@@ -14,13 +16,14 @@ using VelaShell.Core.Recording;
 using VelaShell.Core.Services;
 using VelaShell.Core.Ssh;
 using VelaShell.Core.Sync;
+using VelaShell.Features.Sessions;
+using VelaShell.Features.Settings;
+using VelaShell.Features.Sftp;
+using VelaShell.Features.Update;
 using VelaShell.Infrastructure.DependencyInjection;
-using VelaShell.Localization;
 using VelaShell.Presentation.DependencyInjection;
 using VelaShell.Presentation.ViewModels;
-using VelaShell.Services;
-using VelaShell.ViewModels;
-using VelaShell.Views;
+using VelaShell.Shell;
 
 namespace VelaShell;
 

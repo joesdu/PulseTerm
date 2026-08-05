@@ -1,8 +1,7 @@
 using Avalonia.Controls;
 using VelaShell.Docking.Controls;
 using VelaShell.Docking.Model;
-using VelaShell.ViewModels;
-using VelaShell.Views;
+using VelaShell.Features.Sessions;
 
 namespace VelaShell.Docking;
 

@@ -6,8 +6,9 @@ using Avalonia.VisualTree;
 using NSubstitute;
 using VelaShell.Core.Data;
 using VelaShell.Core.Models;
+using VelaShell.Features.QuickCommands;
+using VelaShell.Features.Sessions;
 using VelaShell.Presentation.ViewModels;
-using VelaShell.Views;
 
 namespace VelaShell.Tests.Views;
 

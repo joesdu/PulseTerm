@@ -1,0 +1,287 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VelaShell.Features.Settings"
+             xmlns:conv="using:VelaShell.Common.Converters"
+             xmlns:loc="using:VelaShell.Common.Localization"
+             x:Class="VelaShell.Features.Settings.Pages.AppearanceSettingsPage"
+             x:DataType="vm:SettingsViewModel">
+
+  <StackPanel Spacing="14">
+    <StackPanel Spacing="2">
+      <TextBlock Classes="page-title" Text="{loc:Localize SetAppear_Title}" />
+      <TextBlock Classes="page-subtitle" Text="{loc:Localize SetAppear_Subtitle}" />
+    </StackPanel>
+
+    <!-- 主题 -->
+    <TextBlock Classes="section-title" Text="{loc:Localize Theme}" />
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetAppear_ThemeMode}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetAppear_ThemeModeDesc}" />
+      </StackPanel>
+      <ComboBox Grid.Column="1" Width="140" SelectedIndex="{Binding ThemeIndex}" VerticalAlignment="Center">
+        <ComboBoxItem Content="{loc:Localize SetAppear_ThemeDark}" />
+        <ComboBoxItem Content="{loc:Localize SetAppear_ThemeLight}" />
+        <ComboBoxItem Content="{loc:Localize SetAppear_ThemeSystem}" />
+      </ComboBox>
+    </Grid>
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetAppear_AccentColor}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetAppear_AccentColorDesc}" />
+      </StackPanel>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <ItemsControl ItemsSource="{Binding AccentSwatches}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Orientation="Horizontal" Spacing="8" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="x:String">
+              <Button Width="24" Height="24" CornerRadius="12" Padding="0"
+                      Cursor="Hand"
+                      Background="{Binding Converter={x:Static conv:StringToBrushConverter.Instance}}"
+                      Command="{Binding $parent[ItemsControl].((vm:SettingsViewModel)DataContext).SetAccentCommand}"
+                      CommandParameter="{Binding}" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBox Width="86" Text="{Binding AccentColor}" PlaceholderText="#00D4AA" />
+      </StackPanel>
+    </Grid>
+
+    <!-- 背景图片(设计新增,放在主题色下):图片铺在应用最底层,透过半透明的终端/文件面板显示。 -->
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetAppear_BackgroundImage}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetAppear_BackgroundImageDesc}" />
+      </StackPanel>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <TextBox Width="200" Text="{Binding Appearance.BackgroundImagePath}"
+                 IsReadOnly="True" ToolTip.Tip="{Binding Appearance.BackgroundImagePath}" />
+        <Button Classes="dlg-outline" Content="{loc:Localize SetAppear_BackgroundImageBrowse}"
+                Click="PickBackgroundImage_Click" />
+        <Button Classes="dlg-outline" Content="{loc:Localize SetAppear_BackgroundImageClear}"
+                Click="ClearBackgroundImage_Click" />
+      </StackPanel>
+    </Grid>
+    <!-- 背景图相关滑块仅在设置了背景图后才有意义:未设图时隐藏,避免误导。 -->
+    <Grid ColumnDefinitions="*,Auto"
+          IsVisible="{Binding Appearance.BackgroundImagePath, Converter={x:Static conv:StringNotEmptyConverter.Instance}}">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetAppear_BackgroundImageOpacity}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetAppear_BackgroundImageOpacityDesc}" />
+      </StackPanel>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <Slider Width="120" Minimum="0" Maximum="100"
+                Value="{Binding Appearance.BackgroundImageOpacity}" VerticalAlignment="Center" />
+        <TextBlock Width="40" TextAlignment="Right" VerticalAlignment="Center"
+                   Foreground="{DynamicResource VelaTextSecondary}" FontSize="{DynamicResource VelaFontSize12}"
+                   Text="{Binding Appearance.BackgroundImageOpacity, StringFormat={}{0}%}" />
+      </StackPanel>
+    </Grid>
+    <Grid ColumnDefinitions="*,Auto"
+          IsVisible="{Binding Appearance.BackgroundImagePath, Converter={x:Static conv:StringNotEmptyConverter.Instance}}">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetAppear_ContentBgOpacity}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetAppear_ContentBgOpacityDesc}" />
+      </StackPanel>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <Slider Width="120" Minimum="20" Maximum="100"
+                Value="{Binding Appearance.ContentBackgroundOpacity}" VerticalAlignment="Center" />
+        <TextBlock Width="40" TextAlignment="Right" VerticalAlignment="Center"
+                   Foreground="{DynamicResource VelaTextSecondary}" FontSize="{DynamicResource VelaFontSize12}"
+                   Text="{Binding Appearance.ContentBackgroundOpacity, StringFormat={}{0}%}" />
+      </StackPanel>
+    </Grid>
+
+    <Border Classes="sep" />
+
+    <!-- 渲染 -->
+    <TextBlock Classes="section-title" Text="{loc:Localize SetAppear_RenderSection}" />
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetAppear_HardwareAcceleration}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetAppear_HardwareAccelerationDesc}" TextWrapping="Wrap" />
+      </StackPanel>
+      <ToggleSwitch Grid.Column="1" IsChecked="{Binding Appearance.HardwareAcceleration}" VerticalAlignment="Center" />
+    </Grid>
+
+    <Border Classes="sep" />
+
+    <!-- 字体 -->
+    <TextBlock Classes="section-title" Text="{loc:Localize Font}" />
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetAppear_UiFont}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetAppear_UiFontDesc}" />
+      </StackPanel>
+      <TextBox Grid.Column="1" Width="140" Text="{Binding Appearance.UiFont}" VerticalAlignment="Center" />
+    </Grid>
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetAppear_UiFontSize}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetAppear_UiFontSizeDesc}" />
+      </StackPanel>
+      <NumericUpDown Grid.Column="1" Width="80" Value="{Binding Appearance.UiFontSize}" Minimum="9" Maximum="24" Increment="1" FormatString="0" VerticalAlignment="Center" />
+    </Grid>
+
+    <Border Classes="sep" />
+
+    <!-- 窗口 -->
+    <TextBlock Classes="section-title" Text="{loc:Localize SetAppear_WindowSection}" />
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetAppear_WindowOpacity}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetAppear_WindowOpacityDesc}" />
+      </StackPanel>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <Slider Width="120" Minimum="10" Maximum="100"
+                Value="{Binding Appearance.WindowOpacityPercent}" VerticalAlignment="Center" />
+        <!-- 只读指示器:数值仅由滑块驱动(手动输入无意义且易输入非法字符)。 -->
+        <TextBlock Width="40" TextAlignment="Right" VerticalAlignment="Center"
+                   Foreground="{DynamicResource VelaTextSecondary}" FontSize="{DynamicResource VelaFontSize12}"
+                   Text="{Binding Appearance.WindowOpacityPercent, StringFormat={}{0}%}" />
+      </StackPanel>
+    </Grid>
+    <!-- 标签栏位置:标签栏由可停靠布局(Dock)提供、固定在顶部,暂不展示
+         (设置审计 R-05);Dock 模板支持切换后恢复展示。 -->
+    <!-- “显示菜单栏”开关已移除:文字菜单被自绘标题栏取代(含窗口控制按钮,必须常显);
+         AppearanceOptions.ShowMenuBar 字段保留以兼容既有存储。 -->
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetAppear_SidebarPosition}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetAppear_SidebarPositionDesc}" />
+      </StackPanel>
+      <ComboBox Grid.Column="1" Width="140" SelectedIndex="{Binding SidebarPositionIndex}" VerticalAlignment="Center">
+        <ComboBoxItem Content="{loc:Localize SetAppear_SidebarLeft}" />
+        <ComboBoxItem Content="{loc:Localize SetAppear_SidebarRight}" />
+      </ComboBox>
+    </Grid>
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetAppear_WindowState}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetAppear_WindowStateDesc}" />
+      </StackPanel>
+      <ComboBox Grid.Column="1" Width="140" SelectedIndex="{Binding WindowStateIndex}" VerticalAlignment="Center">
+        <ComboBoxItem Content="{loc:Localize SetAppear_WindowStateRemember}" />
+        <ComboBoxItem Content="{loc:Localize SetAppear_WindowStateMaximized}" />
+        <ComboBoxItem Content="{loc:Localize SetAppear_WindowStateDefault}" />
+      </ComboBox>
+    </Grid>
+
+    <Border Classes="sep" />
+
+    <!-- 终端颜色 -->
+    <TextBlock Classes="section-title" Text="{loc:Localize SetAppear_TerminalColorsSection}" />
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetAppear_ColorScheme}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetAppear_ColorSchemeDesc}" />
+      </StackPanel>
+      <ComboBox Grid.Column="1" Width="160"
+                ItemsSource="{Binding AvailableColorSchemes}"
+                SelectedIndex="{Binding ColorSchemeIndex}"
+                PlaceholderText="{loc:Localize SetAppear_ColorSchemePlaceholder}"
+                VerticalAlignment="Center" />
+    </Grid>
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetAppear_Foreground}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetAppear_ForegroundDesc}" />
+      </StackPanel>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <Border Width="24" Height="24" CornerRadius="4"
+                BorderBrush="{DynamicResource VelaBorderSecondary}" BorderThickness="1"
+                Background="{Binding Appearance.TerminalForeground, Converter={x:Static conv:StringToBrushConverter.Instance}}" />
+        <TextBox Width="100" Text="{Binding Appearance.TerminalForeground}" />
+      </StackPanel>
+    </Grid>
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetAppear_Background}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetAppear_BackgroundDesc}" />
+      </StackPanel>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <Border Width="24" Height="24" CornerRadius="4"
+                BorderBrush="{DynamicResource VelaBorderSecondary}" BorderThickness="1"
+                Background="{Binding Appearance.TerminalBackground, Converter={x:Static conv:StringToBrushConverter.Instance}}" />
+        <TextBox Width="100" Text="{Binding Appearance.TerminalBackground}" />
+      </StackPanel>
+    </Grid>
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetAppear_CursorColor}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetAppear_CursorColorDesc}" />
+      </StackPanel>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <Border Width="24" Height="24" CornerRadius="4"
+                BorderBrush="{DynamicResource VelaBorderSecondary}" BorderThickness="1"
+                Background="{Binding Appearance.CursorColor, Converter={x:Static conv:StringToBrushConverter.Instance}}" />
+        <TextBox Width="100" Text="{Binding Appearance.CursorColor}" />
+      </StackPanel>
+    </Grid>
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetAppear_SelectionColor}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetAppear_SelectionColorDesc}" />
+      </StackPanel>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <Border Width="24" Height="24" CornerRadius="4"
+                BorderBrush="{DynamicResource VelaBorderSecondary}" BorderThickness="1"
+                Background="{Binding Appearance.SelectionColor, Converter={x:Static conv:StringToBrushConverter.Instance}}" />
+        <TextBox Width="100" Text="{Binding Appearance.SelectionColor}" />
+      </StackPanel>
+    </Grid>
+
+    <Border Classes="sep" />
+
+    <!-- ANSI 调色板 -->
+    <TextBlock Classes="section-title" Text="{loc:Localize SetAppear_AnsiSection}" />
+    <StackPanel Spacing="2">
+      <TextBlock Classes="row-label" Text="{loc:Localize SetAppear_Ansi16}" />
+      <TextBlock Classes="row-desc" Text="{loc:Localize SetAppear_Ansi16Desc}" />
+    </StackPanel>
+    <StackPanel Orientation="Horizontal" Spacing="8">
+      <!-- 定宽 30 的色板行首标注:借用 row-desc 的字体字号,但不能跟着换行(30px 宽会把
+           "Normal" 拆成好几行),故单独关掉。 -->
+      <TextBlock Classes="row-desc" Text="{loc:Localize SetAppear_AnsiNormal}" Width="30"
+                 TextWrapping="NoWrap" VerticalAlignment="Center" />
+      <ItemsControl ItemsSource="{Binding Appearance.AnsiNormal}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <StackPanel Orientation="Horizontal" Spacing="6" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="x:String">
+            <Border Width="28" Height="28" CornerRadius="4"
+                    BorderBrush="{DynamicResource VelaBorderSecondary}" BorderThickness="1"
+                    ToolTip.Tip="{Binding}"
+                    Background="{Binding Converter={x:Static conv:StringToBrushConverter.Instance}}" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+    <StackPanel Orientation="Horizontal" Spacing="8">
+      <TextBlock Classes="row-desc" Text="{loc:Localize SetAppear_AnsiBright}" Width="30"
+                 TextWrapping="NoWrap" VerticalAlignment="Center" />
+      <ItemsControl ItemsSource="{Binding Appearance.AnsiBright}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <StackPanel Orientation="Horizontal" Spacing="6" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="x:String">
+            <Border Width="28" Height="28" CornerRadius="4"
+                    BorderBrush="{DynamicResource VelaBorderSecondary}" BorderThickness="1"
+                    ToolTip.Tip="{Binding}"
+                    Background="{Binding Converter={x:Static conv:StringToBrushConverter.Instance}}" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+  </StackPanel>
+</UserControl>

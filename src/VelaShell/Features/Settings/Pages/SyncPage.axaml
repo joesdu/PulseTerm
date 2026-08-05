@@ -1,0 +1,217 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VelaShell.Features.Settings"
+             xmlns:sync="using:VelaShell.Core.Sync"
+             xmlns:conv="using:VelaShell.Common.Converters"
+             xmlns:behaviors="using:VelaShell.Common.Behaviors"
+             xmlns:loc="using:VelaShell.Common.Localization"
+             x:Class="VelaShell.Features.Settings.Pages.SyncPage"
+             x:DataType="vm:SettingsViewModel">
+
+  <StackPanel Spacing="14">
+    <StackPanel Spacing="2">
+      <TextBlock Classes="page-title" Text="{loc:Localize SetSync_Title}" />
+      <TextBlock Classes="page-subtitle" Text="{loc:Localize SetSync_Subtitle}" />
+    </StackPanel>
+
+    <StackPanel Spacing="14" DataContext="{Binding Sync}" IsVisible="{Binding Converter={x:Static ObjectConverters.IsNotNull}}"
+                x:DataType="vm:SyncViewModel">
+
+      <TextBlock TextWrapping="Wrap" FontSize="{DynamicResource VelaFontSize12}" LineHeight="20"
+                 Foreground="{DynamicResource VelaTextSecondary}"
+                 Text="{loc:Localize SetSync_Intro}" />
+
+      <!-- 账户与绑定 -->
+      <TextBlock Classes="section-title" Text="{loc:Localize SetSync_SectionAccount}" />
+
+      <!-- 令牌获取指引:链接经代码后置在系统浏览器打开(Tag = URL)。 -->
+      <Border Background="{DynamicResource VelaBgActive}" CornerRadius="6" Padding="16,12">
+        <StackPanel Spacing="6">
+          <TextBlock FontSize="{DynamicResource VelaFontSize12}" FontWeight="SemiBold"
+                     Foreground="{DynamicResource VelaAccent}"
+                     Text="{loc:Localize SetSync_TokenGuideTitle}" />
+          <!-- XML 属性值中的换行会被规范化为空格,分步文案用逐条 TextBlock 排版。 -->
+          <StackPanel Spacing="3">
+            <TextBlock TextWrapping="Wrap" FontSize="{DynamicResource VelaFontSize12}" LineHeight="20"
+                       Foreground="{DynamicResource VelaTextSecondary}"
+                       Text="{loc:Localize SetSync_TokenGuideStep1}" />
+            <TextBlock TextWrapping="Wrap" FontSize="{DynamicResource VelaFontSize12}" LineHeight="20"
+                       Foreground="{DynamicResource VelaTextSecondary}"
+                       Text="{loc:Localize SetSync_TokenGuideStep2}" />
+            <TextBlock TextWrapping="Wrap" FontSize="{DynamicResource VelaFontSize12}" LineHeight="20"
+                       Foreground="{DynamicResource VelaTextSecondary}"
+                       Text="{loc:Localize SetSync_TokenGuideStep3}" />
+            <TextBlock TextWrapping="Wrap" FontSize="{DynamicResource VelaFontSize11}" LineHeight="18"
+                       Foreground="{DynamicResource VelaTextMuted}"
+                       Text="{loc:Localize SetSync_TokenLocalOnly}" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="16">
+            <TextBlock FontSize="{DynamicResource VelaFontSize12}" TextDecorations="Underline" Cursor="Hand"
+                       Foreground="{DynamicResource VelaAccentText}"
+                       Text="{loc:Localize SetSync_CreateTokenLink}"
+                       ToolTip.Tip="https://github.com/settings/tokens/new?scopes=gist"
+                       Tag="https://github.com/settings/tokens/new?scopes=gist&amp;description=VelaShell%20Cloud%20Sync"
+                       PointerPressed="OpenLink_PointerPressed" />
+            <TextBlock FontSize="{DynamicResource VelaFontSize12}" TextDecorations="Underline" Cursor="Hand"
+                       Foreground="{DynamicResource VelaAccentText}"
+                       Text="{loc:Localize SetSync_WhatIsGist}"
+                       ToolTip.Tip="https://docs.github.com/zh/get-started/writing-on-github/editing-and-sharing-content-with-gists/creating-gists"
+                       Tag="https://docs.github.com/zh/get-started/writing-on-github/editing-and-sharing-content-with-gists/creating-gists"
+                       PointerPressed="OpenLink_PointerPressed" />
+            <TextBlock FontSize="{DynamicResource VelaFontSize12}" TextDecorations="Underline" Cursor="Hand"
+                       Foreground="{DynamicResource VelaAccentText}"
+                       Text="{loc:Localize SetSync_TokenDocs}"
+                       ToolTip.Tip="https://docs.github.com/zh/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens"
+                       Tag="https://docs.github.com/zh/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens"
+                       PointerPressed="OpenLink_PointerPressed" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Spacing="2">
+          <TextBlock Classes="row-label" Text="{loc:Localize SetSync_Enable}" />
+          <TextBlock Classes="row-desc" Text="{loc:Localize SetSync_EnableDesc}" />
+        </StackPanel>
+        <ToggleSwitch Grid.Column="1" IsChecked="{Binding Enabled}" VerticalAlignment="Center" />
+      </Grid>
+      <StackPanel Spacing="5">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetSync_TokenLabel}" />
+        <TextBlock Classes="row-desc"
+                   Text="{loc:Localize SetSync_TokenDesc}" />
+        <Grid ColumnDefinitions="*,8,Auto">
+          <TextBox Grid.Column="0" PasswordChar="●" behaviors:EnglishInputLocale.Enabled="True" Text="{Binding TokenInput}"
+                   PlaceholderText="{loc:Localize SetSync_TokenPlaceholder}" />
+          <TextBlock Grid.Column="2" FontSize="{DynamicResource VelaFontSize12}" FontWeight="Medium" VerticalAlignment="Center"
+                     Foreground="{DynamicResource VelaAccent}"
+                     Text="{loc:Localize SetSync_Saved}" IsVisible="{Binding HasSavedToken}" />
+        </Grid>
+      </StackPanel>
+      <StackPanel Spacing="5">
+        <TextBlock Classes="row-label" Text="Gist Id" />
+        <TextBlock Classes="row-desc"
+                   Text="{loc:Localize SetSync_GistIdDesc}" />
+        <TextBox Text="{Binding GistId}" PlaceholderText="{loc:Localize SetSync_GistIdPlaceholder}" />
+      </StackPanel>
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Spacing="2">
+          <TextBlock Classes="row-label" Text="{loc:Localize SetSync_DeviceName}" />
+          <TextBlock Classes="row-desc" Text="{loc:Localize SetSync_DeviceNameDesc}" />
+        </StackPanel>
+        <TextBox Grid.Column="1" Width="180" Text="{Binding DeviceName}" VerticalAlignment="Center" />
+      </Grid>
+
+      <Border Classes="sep" />
+
+      <!-- 安全 -->
+      <TextBlock Classes="section-title" Text="{loc:Localize SetSync_SectionE2E}" />
+      <StackPanel Spacing="5">
+        <TextBlock Classes="row-desc" TextWrapping="Wrap"
+                   Text="{loc:Localize SetSync_E2EDesc}" />
+        <Grid ColumnDefinitions="*,8,Auto">
+          <TextBox Grid.Column="0" PasswordChar="●" behaviors:EnglishInputLocale.Enabled="True" Text="{Binding PassphraseInput}"
+                   PlaceholderText="{loc:Localize SetSync_PassphrasePlaceholder}" />
+          <TextBlock Grid.Column="2" FontSize="{DynamicResource VelaFontSize12}" FontWeight="Medium" VerticalAlignment="Center"
+                     Foreground="{DynamicResource VelaAccent}"
+                     Text="{loc:Localize SetSync_Saved}" IsVisible="{Binding HasSavedPassphrase}" />
+        </Grid>
+        <TextBlock Classes="row-desc" TextWrapping="Wrap"
+                   IsVisible="{Binding HasSavedPassphrase}"
+                   Text="{loc:Localize SetSync_E2EEnabledNotice}" />
+      </StackPanel>
+
+      <Border Classes="sep" />
+
+      <!-- 同步范围与行为 -->
+      <TextBlock Classes="section-title" Text="{loc:Localize SetSync_SectionScope}" />
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetSync_ScopeAppSettings}" VerticalAlignment="Center" />
+        <ToggleSwitch Grid.Column="1" IsChecked="{Binding SyncAppSettings}" VerticalAlignment="Center" />
+      </Grid>
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Spacing="2">
+          <TextBlock Classes="row-label" Text="{loc:Localize ConnectionProfile}" />
+          <TextBlock Classes="row-desc" Text="{loc:Localize SetSync_ScopeProfilesDesc}" />
+        </StackPanel>
+        <ToggleSwitch Grid.Column="1" IsChecked="{Binding SyncProfiles}" VerticalAlignment="Center" />
+      </Grid>
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetSync_ScopeSnippets}" VerticalAlignment="Center" />
+        <ToggleSwitch Grid.Column="1" IsChecked="{Binding SyncSnippets}" VerticalAlignment="Center" />
+      </Grid>
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Spacing="2">
+          <TextBlock Classes="row-label" Text="{loc:Localize SetSync_AutoSync}" />
+          <TextBlock Classes="row-desc" Text="{loc:Localize SetSync_AutoSyncDesc}" />
+        </StackPanel>
+        <ToggleSwitch Grid.Column="1" IsChecked="{Binding AutoSync}" VerticalAlignment="Center" />
+      </Grid>
+
+      <Border Classes="sep" />
+
+      <!-- 操作 -->
+      <TextBlock Classes="section-title" Text="{loc:Localize SetSync_Actions}" />
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Classes="dlg-primary" Content="{loc:Localize SetSync_SaveConfig}" Command="{Binding SaveConfigCommand}" />
+        <Button Classes="dlg-outline" Content="{loc:Localize SetSync_SyncNow}" Command="{Binding SyncNowCommand}"
+                ToolTip.Tip="{loc:Localize SetSync_SyncNowTip}" />
+        <Button Classes="dlg-outline" Content="{loc:Localize SetSync_PushOnly}" Command="{Binding PushCommand}"
+                ToolTip.Tip="{loc:Localize SetSync_PushOnlyTip}" />
+        <Button Classes="dlg-outline" Content="{loc:Localize SetSync_PullOnly}" Command="{Binding PullCommand}"
+                ToolTip.Tip="{loc:Localize SetSync_PullOnlyTip}" />
+      </StackPanel>
+      <TextBlock Classes="row-desc" Text="{Binding LastSyncText}" />
+      <TextBlock Classes="row-desc" TextWrapping="Wrap"
+                 Foreground="{DynamicResource VelaAccentText}"
+                 Text="{Binding Status}"
+                 IsVisible="{Binding Status, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
+      <Border Classes="sep" />
+
+      <!-- 版本历史 -->
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Spacing="2">
+          <TextBlock Classes="section-title" Text="{loc:Localize SetSync_SectionHistory}" />
+          <TextBlock Classes="row-desc" Text="{loc:Localize SetSync_HistoryDesc}" />
+        </StackPanel>
+        <Button Grid.Column="1" Classes="dlg-outline" Content="{loc:Localize SetSync_RefreshHistory}"
+                Command="{Binding LoadRevisionsCommand}" VerticalAlignment="Center" />
+      </Grid>
+      <Border Classes="table" IsVisible="{Binding HasRevisions}">
+        <ScrollViewer MaxHeight="260" VerticalScrollBarVisibility="Auto">
+          <ItemsControl ItemsSource="{Binding Revisions}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="sync:GistRevision">
+                <Border Padding="12,8"
+                        BorderBrush="{DynamicResource VelaBorderPrimary}"
+                        BorderThickness="0,0,0,1">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Spacing="2" VerticalAlignment="Center">
+                      <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock FontSize="{DynamicResource VelaFontSize12}" FontWeight="Medium"
+                                   Foreground="{DynamicResource VelaTextPrimary}"
+                                   Text="{Binding DeviceName, Mode=OneWay, TargetNullValue=未知设备}" />
+                        <TextBlock FontSize="{DynamicResource VelaFontSize10}" VerticalAlignment="Center"
+                                   FontFamily="{DynamicResource VelaUiMonoFont}"
+                                   Foreground="{DynamicResource VelaTextMuted}"
+                                   Text="{Binding Version, Mode=OneWay, Converter={x:Static conv:ShortShaConverter.Instance}}" />
+                      </StackPanel>
+                      <TextBlock FontSize="{DynamicResource VelaFontSize10}" Foreground="{DynamicResource VelaTextMuted}">
+                        <Run Text="{Binding CommittedAtUtc, Mode=OneWay, Converter={x:Static conv:UtcToLocalTextConverter.Instance}}" />
+                        <Run Text="  +" /><Run Text="{Binding Additions, Mode=OneWay}" />
+                        <Run Text=" -" /><Run Text="{Binding Deletions, Mode=OneWay}" />
+                      </TextBlock>
+                    </StackPanel>
+                    <Button Grid.Column="1" Classes="dlg-outline" Content="{loc:Localize SetSync_RestoreRevision}"
+                            VerticalAlignment="Center"
+                            Command="{Binding $parent[ItemsControl].((vm:SyncViewModel)DataContext).RestoreRevisionCommand}"
+                            CommandParameter="{Binding}" />
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </Border>
+    </StackPanel>
+  </StackPanel>
+</UserControl>

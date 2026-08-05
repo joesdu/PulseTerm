@@ -4,10 +4,10 @@ using System.Security.Cryptography;
 using System.Text;
 using Avalonia;
 using ReactiveUI.Avalonia;
+using VelaShell.Common;
 using VelaShell.Core.Resources;
+using VelaShell.Features.Update;
 using VelaShell.Infrastructure.Persistence;
-using VelaShell.Services;
-using VelaShell.Services.Update;
 
 // ReSharper disable InconsistentNaming
 

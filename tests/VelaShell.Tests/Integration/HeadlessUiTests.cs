@@ -2,7 +2,7 @@ using System.Globalization;
 using VelaShell.Core.Localization;
 using VelaShell.Core.Services;
 using VelaShell.Presentation.ViewModels;
-using VelaShell.ViewModels;
+using VelaShell.Shell;
 
 namespace VelaShell.Tests.Integration;
 

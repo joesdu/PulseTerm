@@ -1,0 +1,338 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:VelaShell.Features.Tunnels"
+             xmlns:pc="using:VelaShell.Controls.Controls"
+             xmlns:models="clr-namespace:VelaShell.Core.Models;assembly=VelaShell.Core"
+             xmlns:loc="using:VelaShell.Common.Localization"
+             mc:Ignorable="d" d:DesignWidth="340" d:DesignHeight="460"
+             x:Class="VelaShell.Features.Tunnels.TunnelPanelView"
+             x:DataType="vm:TunnelPanelViewModel">
+
+  <!-- 隧道管理器,遵循设计框 B3Rth:340px 浮动面板、bg-surface、圆角 6、
+       1px border-secondary、阴影 blur16 y+4(spec §10)。
+       以服务器为中心:选服务器 → 后台自动连接,无需打开终端会话。 -->
+
+  <UserControl.Styles>
+    <Style Selector="TextBox">
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+      <Setter Property="MinHeight" Value="26" />
+      <Setter Property="Padding" Value="8,4" />
+      <Setter Property="Background" Value="{DynamicResource VelaBgInput}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
+      <Setter Property="CornerRadius" Value="3" />
+    </Style>
+    <Style Selector="TextBlock.form-label">
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize9}" />
+    </Style>
+    <Style Selector="Button.row-action">
+      <Setter Property="Width" Value="20" />
+      <Setter Property="Height" Value="20" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="CornerRadius" Value="3" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+  </UserControl.Styles>
+
+  <Border Width="340"
+          VerticalAlignment="Top"
+          Background="{DynamicResource VelaBgSurface}"
+          BorderBrush="{DynamicResource VelaBorderSecondary}"
+          BorderThickness="1"
+          CornerRadius="6"
+          BoxShadow="0 4 16 0 #60000000">
+    <StackPanel>
+
+      <!-- 标题栏(36px,设计 tunHeader):图标 + 隧道 + 数量徽标 | 关闭 -->
+      <Border Height="36" Padding="12,0"
+              BorderBrush="{DynamicResource VelaBorderPrimary}"
+              BorderThickness="0,0,0,1">
+        <Grid ColumnDefinitions="Auto,*,Auto,4,Auto">
+          <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+            <!-- 与菜单栏"隧道"按钮同一图标(Icon.route),保持视觉一致。 -->
+            <pc:LucideIcon Width="12" Height="12"
+                           Data="{StaticResource Icon.route}"
+                           Foreground="{DynamicResource VelaAccent}" />
+            <TextBlock Text="{loc:Localize Tunnel_Title}"
+                       Foreground="{DynamicResource VelaTextPrimary}"
+                       FontFamily="{DynamicResource VelaUiMonoFont}"
+                       FontSize="{DynamicResource VelaFontSize11}" FontWeight="Medium"
+                       VerticalAlignment="Center" />
+            <Border Background="{DynamicResource VelaAccent}"
+                    CornerRadius="8" Padding="6,1" VerticalAlignment="Center"
+                    IsVisible="{Binding Tunnels.Count}">
+              <TextBlock Text="{Binding Tunnels.Count}"
+                         Foreground="{DynamicResource VelaAccentText}"
+                         FontFamily="{DynamicResource VelaUiMonoFont}"
+                         FontSize="{DynamicResource VelaFontSize9}" FontWeight="Medium" />
+            </Border>
+          </StackPanel>
+          <Button Grid.Column="2" Classes="row-action" Name="HelpButton"
+                  ToolTip.Tip="{loc:Localize Tunnel_HelpButtonTooltip}"
+                  Click="HelpButton_Click">
+            <pc:LucideIcon Width="12" Height="12"
+                           Data="{StaticResource Icon.circle-help}"
+                           Foreground="{DynamicResource VelaTextSecondary}" />
+          </Button>
+          <Button Grid.Column="4" Classes="row-action"
+                  ToolTip.Tip="{loc:Localize Tunnel_ClosePanel}"
+                  Command="{Binding CloseCommand}">
+            <pc:LucideIcon Width="12" Height="12"
+                           Data="{StaticResource Icon.x}"
+                           Foreground="{DynamicResource VelaTextTertiary}" />
+          </Button>
+        </Grid>
+      </Border>
+
+      <!-- 服务器选择:隧道经由哪台已保存的服务器;创建时后台自动连接 -->
+      <Border Padding="12,10"
+              BorderBrush="{DynamicResource VelaBorderPrimary}"
+              BorderThickness="0,0,0,1">
+        <StackPanel Spacing="4">
+          <TextBlock Classes="form-label" Text="{loc:Localize Tunnel_ServerLabel}" />
+          <ComboBox MinHeight="26" FontSize="{DynamicResource VelaFontSize11}"
+                    FontFamily="{DynamicResource VelaUiMonoFont}"
+                    HorizontalAlignment="Stretch"
+                    PlaceholderText="{loc:Localize Tunnel_SelectServerPlaceholder}"
+                    ItemsSource="{Binding Servers}"
+                    SelectedItem="{Binding SelectedServer}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="models:SessionProfile">
+                <TextBlock FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize11}">
+                  <TextBlock.Text>
+                    <MultiBinding StringFormat="{}{0} ({1}@{2})">
+                      <Binding Path="Name" />
+                      <Binding Path="Username" />
+                      <Binding Path="Host" />
+                    </MultiBinding>
+                  </TextBlock.Text>
+                </TextBlock>
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <Ellipse Width="6" Height="6" VerticalAlignment="Center"
+                     Classes.online="{Binding IsServerConnected}">
+              <Ellipse.Styles>
+                <Style Selector="Ellipse">
+                  <Setter Property="Fill" Value="{DynamicResource VelaStatusDisconnected}" />
+                </Style>
+                <Style Selector="Ellipse.online">
+                  <Setter Property="Fill" Value="{DynamicResource VelaStatusConnected}" />
+                </Style>
+              </Ellipse.Styles>
+            </Ellipse>
+            <TextBlock Text="{Binding ServerStatusText}"
+                       Foreground="{DynamicResource VelaTextMuted}"
+                       FontFamily="{DynamicResource VelaUiMonoFont}"
+                       FontSize="{DynamicResource VelaFontSize9}" VerticalAlignment="Center" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <!-- 空状态提示 -->
+      <Border Padding="12,10"
+              BorderBrush="{DynamicResource VelaBorderPrimary}"
+              BorderThickness="0,0,0,1"
+              IsVisible="{Binding !Tunnels.Count}">
+        <TextBlock Text="{loc:Localize Tunnel_EmptyHint}"
+                   Foreground="{DynamicResource VelaTextMuted}"
+                   FontFamily="{DynamicResource VelaUiMonoFont}"
+                   FontSize="{DynamicResource VelaFontSize10}" />
+      </Border>
+
+      <!-- 隧道行(设计 tunItem1/2):圆点 + 名称 + 类型徽标 | 编辑/启停/删除 -->
+      <ScrollViewer MaxHeight="240" VerticalScrollBarVisibility="Auto">
+      <ItemsControl ItemsSource="{Binding Tunnels}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:TunnelItemViewModel">
+            <Border Padding="12,10"
+                    BorderBrush="{DynamicResource VelaBorderPrimary}"
+                    BorderThickness="0,0,0,1">
+              <StackPanel Spacing="6">
+                <Grid ColumnDefinitions="*,Auto,2,Auto,2,Auto">
+                  <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+                             Classes.active="{Binding IsActive}">
+                      <Ellipse.Styles>
+                        <Style Selector="Ellipse">
+                          <Setter Property="Fill" Value="{DynamicResource VelaStatusDisconnected}" />
+                        </Style>
+                        <Style Selector="Ellipse.active">
+                          <Setter Property="Fill" Value="{DynamicResource VelaStatusConnected}" />
+                        </Style>
+                      </Ellipse.Styles>
+                    </Ellipse>
+                    <TextBlock Text="{Binding Name}"
+                               Foreground="{DynamicResource VelaTextPrimary}"
+                               FontFamily="{DynamicResource VelaUiMonoFont}"
+                               FontSize="{DynamicResource VelaFontSize11}" FontWeight="Medium"
+                               MaxWidth="130" TextTrimming="CharacterEllipsis"
+                               VerticalAlignment="Center" />
+                    <Border Background="{DynamicResource VelaAccentDim}"
+                            CornerRadius="2" Padding="6,1" VerticalAlignment="Center">
+                      <TextBlock Text="{Binding TypeBadge}"
+                                 Foreground="{DynamicResource VelaAccent}"
+                                 FontFamily="{DynamicResource VelaUiMonoFont}"
+                                 FontSize="{DynamicResource VelaFontSize8}" FontWeight="Medium" />
+                    </Border>
+                  </StackPanel>
+                  <!-- 编辑:把配置填回表单,保存后按新配置重建 -->
+                  <Button Grid.Column="1" Classes="row-action"
+                          IsEnabled="{Binding !IsActive}"
+                          ToolTip.Tip="{Binding EditToolTip}"
+                          Command="{Binding $parent[ItemsControl].((vm:TunnelPanelViewModel)DataContext).EditTunnelCommand}"
+                          CommandParameter="{Binding Id}">
+                    <pc:LucideIcon Width="10" Height="10"
+                                   Data="{StaticResource Icon.pencil}"
+                                   Foreground="{DynamicResource VelaTextTertiary}" />
+                  </Button>
+                  <!-- 停止(运行中)/ 启动(已停止)切换 -->
+                  <Button Grid.Column="3" Classes="row-action"
+                          IsVisible="{Binding IsActive}"
+                          ToolTip.Tip="{loc:Localize Tunnel_StopTip}"
+                          Command="{Binding $parent[ItemsControl].((vm:TunnelPanelViewModel)DataContext).StopTunnelCommand}"
+                          CommandParameter="{Binding Id}">
+                    <pc:LucideIcon Width="10" Height="10"
+                                   Data="{StaticResource Icon.square}"
+                                   Foreground="{DynamicResource VelaTextTertiary}" />
+                  </Button>
+                  <Button Grid.Column="3" Classes="row-action"
+                          IsVisible="{Binding !IsActive}"
+                          ToolTip.Tip="{loc:Localize Tunnel_StartTip}"
+                          Command="{Binding $parent[ItemsControl].((vm:TunnelPanelViewModel)DataContext).StartTunnelCommand}"
+                          CommandParameter="{Binding Id}">
+                    <pc:LucideIcon Width="10" Height="10"
+                                   Data="{StaticResource Icon.play}"
+                                   Foreground="{DynamicResource VelaStatusConnected}" />
+                  </Button>
+                  <!-- 删除(活动状态下先停止) -->
+                  <Button Grid.Column="5" Classes="row-action"
+                          ToolTip.Tip="{loc:Localize Tunnel_DeleteTip}"
+                          Command="{Binding $parent[ItemsControl].((vm:TunnelPanelViewModel)DataContext).DeleteTunnelCommand}"
+                          CommandParameter="{Binding Id}">
+                    <pc:LucideIcon Width="10" Height="10"
+                                   Data="{StaticResource Icon.trash-2}"
+                                   Foreground="{DynamicResource VelaStatusDisconnected}" />
+                  </Button>
+                </Grid>
+                <TextBlock Text="{Binding DisplayRoute}"
+                           Foreground="{DynamicResource VelaTextMuted}"
+                           FontFamily="{DynamicResource VelaUiMonoFont}"
+                           FontSize="{DynamicResource VelaFontSize10}" />
+                <TextBlock Text="{Binding EndpointSummary}"
+                           Foreground="{DynamicResource VelaTextMuted}"
+                           FontFamily="{DynamicResource VelaUiMonoFont}"
+                           FontSize="{DynamicResource VelaFontSize9}"
+                           MaxWidth="320" TextTrimming="CharacterEllipsis"
+                           ToolTip.Tip="{Binding EndpointSummary}" />
+                <TextBlock Text="{Binding StatusText}"
+                           Foreground="{DynamicResource VelaTextTertiary}"
+                           FontFamily="{DynamicResource VelaUiMonoFont}"
+                           FontSize="{DynamicResource VelaFontSize9}" />
+                <!-- 转发通道错误(如目标拒绝连接):隧道虽在运行,但连接会失败 -->
+                <TextBlock Text="{Binding LastError, StringFormat='⚠ {0}'}"
+                           IsVisible="{Binding HasError}"
+                           Foreground="{DynamicResource VelaWarning}"
+                           FontFamily="{DynamicResource VelaUiMonoFont}"
+                           FontSize="{DynamicResource VelaFontSize9}" TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      </ScrollViewer>
+
+      <!-- 新建/编辑隧道表单(设计 tunNewForm) -->
+      <StackPanel Margin="12,10" Spacing="8">
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <pc:LucideIcon Width="11" Height="11"
+                         Data="{StaticResource Icon.circle-plus}"
+                         Foreground="{DynamicResource VelaAccent}" VerticalAlignment="Center" />
+          <TextBlock Text="{Binding FormTitle}"
+                     Foreground="{DynamicResource VelaAccent}"
+                     FontFamily="{DynamicResource VelaUiFont}"
+                     FontSize="{DynamicResource VelaFontSize11}" FontWeight="Medium" VerticalAlignment="Center" />
+        </StackPanel>
+
+        <Grid ColumnDefinitions="*,8,120" RowDefinitions="Auto,4,Auto">
+          <TextBlock Grid.Row="0" Grid.Column="0" Classes="form-label" Text="{loc:Localize Tunnel_AliasLabel}" />
+          <TextBox   Grid.Row="2" Grid.Column="0" Text="{Binding NewTunnelName}" PlaceholderText="{loc:Localize Tunnel_AliasPlaceholder}" />
+          <TextBlock Grid.Row="0" Grid.Column="2" Classes="form-label" Text="{loc:Localize Tunnel_TypeLabel}" />
+          <ComboBox  Grid.Row="2" Grid.Column="2"
+                     MinHeight="26" FontSize="{DynamicResource VelaFontSize11}"
+                     FontFamily="{DynamicResource VelaUiMonoFont}"
+                     HorizontalAlignment="Stretch"
+                     SelectedIndex="{Binding NewTunnelTypeIndex}">
+            <ComboBoxItem Content="{loc:Localize LocalForward}" ToolTip.Tip="{loc:Localize Tunnel_LocalForwardTip}" />
+            <ComboBoxItem Content="{loc:Localize RemoteForward}" ToolTip.Tip="{loc:Localize Tunnel_RemoteForwardTip}" />
+            <ComboBoxItem Content="{loc:Localize Tunnel_DynamicSocks}" ToolTip.Tip="{loc:Localize Tunnel_DynamicSocksTip}" />
+          </ComboBox>
+        </Grid>
+
+        <!-- 目标默认锁定为服务器本机 127.0.0.1(地址从服务器视角解析,填公网 IP 会被拒);
+             取消勾选可填服务器可达的内网第三方主机。 -->
+        <Grid ColumnDefinitions="80,8,*,8,56" RowDefinitions="Auto,4,Auto">
+          <TextBlock Grid.Row="0" Grid.Column="0" Classes="form-label" Text="{loc:Localize LocalPort}" />
+          <TextBox   Grid.Row="2" Grid.Column="0" Text="{Binding NewLocalPort}" PlaceholderText="27017" />
+          <TextBlock Grid.Row="0" Grid.Column="2" Classes="form-label" Text="{loc:Localize Tunnel_TargetHostLabel}"
+                     IsVisible="{Binding IsRemoteTargetVisible}" />
+          <TextBox   Grid.Row="2" Grid.Column="2"
+                     Text="{Binding NewRemoteHost}"
+                     IsEnabled="{Binding IsRemoteHostEditable}"
+                     PlaceholderText="127.0.0.1"
+                     IsVisible="{Binding IsRemoteTargetVisible}" />
+          <TextBlock Grid.Row="0" Grid.Column="4" Classes="form-label" Text="{loc:Localize Port}"
+                     IsVisible="{Binding IsRemoteTargetVisible}" />
+          <TextBox   Grid.Row="2" Grid.Column="4" Text="{Binding NewRemotePort}" PlaceholderText="27017"
+                     IsVisible="{Binding IsRemoteTargetVisible}" />
+        </Grid>
+
+        <CheckBox IsChecked="{Binding ForwardToServerLoopback}"
+                  IsVisible="{Binding IsRemoteTargetVisible}"
+                  Padding="0" MinHeight="0">
+          <TextBlock Text="{loc:Localize Tunnel_ForwardToLoopback}"
+                     Foreground="{DynamicResource VelaTextSecondary}"
+                     FontSize="{DynamicResource VelaFontSize10}" Margin="6,0,0,0" />
+        </CheckBox>
+
+        <TextBlock Text="{Binding ErrorMessage}"
+                   Foreground="{DynamicResource VelaError}"
+                   FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize9}"
+                   TextWrapping="Wrap"
+                   IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
+        <StackPanel Name="FormActions" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+          <Button Padding="10,4" CornerRadius="3" Background="Transparent"
+                  BorderBrush="{DynamicResource VelaBorderSecondary}" BorderThickness="1"
+                  Command="{Binding ResetFormCommand}">
+            <TextBlock Text="{loc:Localize Cancel}"
+                       Foreground="{DynamicResource VelaTextSecondary}"
+                       FontFamily="{DynamicResource VelaUiFont}" FontSize="{DynamicResource VelaFontSize11}" />
+          </Button>
+          <!-- 主操作按钮沿用 SFTP「上传」的强调药丸方案:半透明 VelaAccentDim 底 + 强调色描边/图标/文字,
+               而非实心 VelaAccent(过于突兀、且不与背景图融合)。Padding 保持 10,4 以与左侧取消按钮等高。 -->
+          <Button Padding="10,4" Cursor="Hand"
+                  Theme="{DynamicResource VelaAccentPillButtonTheme}"
+                  Command="{Binding CreateTunnelCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+              <pc:LucideIcon Width="11" Height="11"
+                             Data="{StaticResource Icon.plus}"
+                             Foreground="{DynamicResource VelaAccent}" VerticalAlignment="Center" />
+              <TextBlock Text="{Binding SubmitButtonText}"
+                         Foreground="{DynamicResource VelaAccent}"
+                         FontFamily="{DynamicResource VelaUiFont}" FontSize="{DynamicResource VelaFontSize11}" FontWeight="Medium" />
+            </StackPanel>
+          </Button>
+        </StackPanel>
+      </StackPanel>
+
+    </StackPanel>
+  </Border>
+</UserControl>

@@ -5,8 +5,7 @@ using Avalonia.VisualTree;
 using NSubstitute;
 using VelaShell.Core.Models;
 using VelaShell.Core.Sftp;
-using VelaShell.ViewModels;
-using VelaShell.Views;
+using VelaShell.Features.Sftp;
 
 namespace VelaShell.Tests.Views;
 

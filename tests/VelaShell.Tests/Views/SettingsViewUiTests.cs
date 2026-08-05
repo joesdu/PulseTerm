@@ -8,8 +8,7 @@ using ReactiveUI.Primitives;
 using VelaShell.Core.Data;
 using VelaShell.Core.Models;
 using VelaShell.Core.Services;
-using VelaShell.ViewModels;
-using VelaShell.Views;
+using VelaShell.Features.Settings;
 
 namespace VelaShell.Tests.Views;
 

@@ -1,0 +1,788 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:VelaShell.Features.Sftp"
+             xmlns:res="clr-namespace:VelaShell.Core.Resources;assembly=VelaShell.Core"
+             xmlns:loc="using:VelaShell.Common.Localization"
+             xmlns:pc="using:VelaShell.Controls.Controls"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="220"
+             x:Class="VelaShell.Features.Sftp.FileBrowserView"
+             x:DataType="vm:FileBrowserViewModel">
+
+
+  <UserControl.Styles>
+    <Style Selector="Button.toolbar-btn">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Padding" Value="6" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.toolbar-btn:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+    </Style>
+    <!-- 「跟随终端目录」开关钮:安静图标钮,开启(checked)时图标染强调色;中和 Fluent ToggleButton
+         默认选中背景,使外观与其它工具栏图标钮一致(仅颜色区分开/关)。 -->
+    <Style Selector="ToggleButton.follow-pin">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextTertiary}" />
+    </Style>
+    <Style Selector="ToggleButton.follow-pin:checked">
+      <Setter Property="Foreground" Value="{DynamicResource VelaAccent}" />
+    </Style>
+    <Style Selector="ToggleButton.follow-pin /template/ ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="ToggleButton.follow-pin:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+    </Style>
+    <Style Selector="ToggleButton.follow-pin:checked /template/ ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="ToggleButton.follow-pin:checked:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+    </Style>
+    <Style Selector="Button.col-header">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+      <Setter Property="VerticalAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="Button.col-header:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+    </Style>
+    <!-- 面包屑分段:安静的内联按钮,悬停时高亮成链接(§6 表头)。 -->
+    <Style Selector="Button.crumb">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="2,1" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+      <Setter Property="FontWeight" Value="Medium" />
+    </Style>
+    <Style Selector="Button.crumb:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaAccent}" />
+    </Style>
+  </UserControl.Styles>
+
+  <!-- SFTP 面板底色与终端一致(#282A36 家族),而非窗口铬色。 -->
+  <Border BorderThickness="0,1,0,0"
+          BorderBrush="{DynamicResource VelaBorderPrimary}"
+          Background="{DynamicResource VelaBgSftpPanel}"
+          IsVisible="{Binding IsVisible}"
+          VerticalAlignment="Stretch"
+          MinHeight="120">
+
+    <Panel>
+      <DockPanel>
+
+      <!-- 表头(设计帧 cKZr7):高 36px,padding [0,14],底部边框;
+           左侧 = folder-open 14 强调色 + 路径(JB Mono 11 medium);右侧 = accent-dim
+           上传药丸 + 24×24 刷新按钮。 -->
+      <Border DockPanel.Dock="Top"
+              Height="36"
+              BorderBrush="{DynamicResource VelaBorderPrimary}"
+              BorderThickness="0,0,0,1"
+              Padding="14,0">
+        <Grid ColumnDefinitions="Auto,*,Auto">
+
+          <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <!-- 连接身份徽章:标识色条(与标签页色条同色)+ 服务器显示名。多标签时一眼
+                 确认面板归属,防止误操作别的服务器上的文件。占位面板(未绑定会话)隐藏。 -->
+            <Border Width="3" Height="16" CornerRadius="1.5"
+                    VerticalAlignment="Center"
+                    Background="{Binding AccentBrush}"
+                    IsVisible="{Binding ServerDisplayName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            <TextBlock Text="{Binding ServerDisplayName}"
+                       Foreground="{DynamicResource VelaTextPrimary}"
+                       FontFamily="{DynamicResource VelaUiMonoFont}"
+                       FontSize="{DynamicResource VelaFontSize11}" FontWeight="SemiBold"
+                       VerticalAlignment="Center"
+                       IsVisible="{Binding ServerDisplayName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            <TextBlock Text="·"
+                       Foreground="{DynamicResource VelaTextMuted}"
+                       FontFamily="{DynamicResource VelaUiMonoFont}"
+                       FontSize="{DynamicResource VelaFontSize11}" VerticalAlignment="Center"
+                       IsVisible="{Binding ServerDisplayName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            <pc:LucideIcon Width="14" Height="14"
+                           Data="{StaticResource Icon.folder-open}"
+                           Foreground="{DynamicResource VelaAccent}"
+                           VerticalAlignment="Center" />
+            <!-- 可点击面包屑(§6):"/" 为根目录,其后每段可导航到对应层级。 -->
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" ClipToBounds="True">
+              <Button Classes="crumb" Content="/"
+                      Command="{Binding NavigateToCommand}" CommandParameter="/" />
+              <ItemsControl ItemsSource="{Binding Breadcrumbs}" VerticalAlignment="Center">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal" />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:BreadcrumbSegment">
+                    <StackPanel Orientation="Horizontal">
+                      <Button Classes="crumb" Content="{Binding Name}"
+                              Command="{Binding $parent[ItemsControl].((vm:FileBrowserViewModel)DataContext).NavigateToCommand}"
+                              CommandParameter="{Binding Path}" />
+                      <TextBlock Text="/"
+                                 Foreground="{DynamicResource VelaTextMuted}"
+                                 FontFamily="{DynamicResource VelaUiMonoFont}"
+                                 FontSize="{DynamicResource VelaFontSize11}" VerticalAlignment="Center" />
+                    </StackPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </StackPanel>
+
+          <ProgressBar Grid.Column="1" Width="54" Height="3" Margin="12,0"
+                       HorizontalAlignment="Left" VerticalAlignment="Center"
+                       IsIndeterminate="True"
+                       IsVisible="{Binding IsDirectoryLoading}" />
+
+          <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+            <Button Classes="upload-pill" Height="24" Cursor="Hand"
+                    FocusAdorner="{x:Null}"
+                    Theme="{DynamicResource VelaAccentPillButtonTheme}"
+                    Command="{Binding UploadCommand}"
+                    ToolTip.Tip="{x:Static res:Strings.Upload}">
+              <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                <pc:LucideIcon Width="12" Height="12"
+                               Data="{StaticResource Icon.upload}"
+                               Foreground="{DynamicResource VelaAccent}" />
+                <TextBlock Text="{x:Static res:Strings.Upload}"
+                           Foreground="{DynamicResource VelaAccent}"
+                           FontFamily="{DynamicResource VelaUiMonoFont}"
+                           FontSize="{DynamicResource VelaFontSize10}" FontWeight="Medium"
+                           VerticalAlignment="Center" />
+              </StackPanel>
+            </Button>
+            <!-- 「跟随终端目录」(map-pin):开启后本会话终端 cd 到新目录时文件浏览器自动同步;
+                 关闭则不同步。手动切目录不改开关,终端下次 cd 再同步到最新(见 FileBrowserViewModel.FollowTerminal)。 -->
+            <ToggleButton Classes="follow-pin" Width="24" Height="24" Padding="0"
+                          HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                          IsChecked="{Binding FollowTerminal}"
+                          ToolTip.Tip="{loc:Localize Sftp_FollowTerminal}">
+              <pc:LucideIcon Width="13" Height="13"
+                             Data="{StaticResource Icon.map-pin}"
+                             Foreground="{Binding $parent[ToggleButton].Foreground}" />
+            </ToggleButton>
+            <Button Classes="toolbar-btn" Width="24" Height="24" Padding="0"
+                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                    Command="{Binding ShowTransfersCommand}"
+                    ToolTip.Tip="{x:Static res:Strings.TransferHistory}">
+              <pc:LucideIcon Width="13" Height="13"
+                             Data="{StaticResource Icon.history}"
+                             Foreground="{DynamicResource VelaTextTertiary}" />
+            </Button>
+            <Button Classes="toolbar-btn" Width="24" Height="24" Padding="0"
+                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                    Command="{Binding NewFolderCommand}"
+                    ToolTip.Tip="{loc:Localize NewFolder}">
+              <pc:LucideIcon Width="13" Height="13"
+                             Data="{StaticResource Icon.folder-plus}"
+                             Foreground="{DynamicResource VelaTextTertiary}" />
+            </Button>
+            <Button Classes="toolbar-btn" Width="24" Height="24" Padding="0"
+                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                    Command="{Binding ToggleHiddenFilesCommand}"
+                    ToolTip.Tip="{loc:Localize ShowHiddenFiles}">
+              <Panel>
+                <pc:LucideIcon Width="13" Height="13"
+                               IsVisible="{Binding ShowHiddenFiles}"
+                               Data="{StaticResource Icon.eye}"
+                               Foreground="{DynamicResource VelaAccent}" />
+                <pc:LucideIcon Width="13" Height="13"
+                               IsVisible="{Binding !ShowHiddenFiles}"
+                               Data="{StaticResource Icon.eye-off}"
+                               Foreground="{DynamicResource VelaTextTertiary}" />
+              </Panel>
+            </Button>
+            <!-- 提示语与 AutomationProperties.Name 需与本地栏的刷新按钮区分开(见 LocalFilePaneView)。 -->
+            <Button x:Name="RemoteRefreshButton"
+                    Classes="toolbar-btn" Width="24" Height="24" Padding="0"
+                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                    Command="{Binding RefreshCommand}"
+                    ToolTip.Tip="{loc:Localize Sftp_RefreshRemotePane}"
+                    AutomationProperties.Name="{loc:Localize Sftp_RefreshRemotePane}">
+              <pc:LucideIcon Width="13" Height="13"
+                             Data="{StaticResource Icon.refresh-cw}"
+                             Foreground="{DynamicResource VelaTextTertiary}" />
+            </Button>
+            <Button x:Name="RemotePaneCloseButton"
+                    Classes="toolbar-btn" Width="24" Height="24" Padding="0"
+                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                    IsVisible="{Binding !IsDragEnabled}"
+                    Command="{Binding ToggleVisibilityCommand}"
+                    ToolTip.Tip="{loc:Localize Close}">
+              <pc:LucideIcon Width="13" Height="13"
+                             Data="{StaticResource Icon.x}"
+                             Foreground="{DynamicResource VelaTextTertiary}" />
+            </Button>
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <Border DockPanel.Dock="Top"
+              IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+              Background="{DynamicResource VelaBgActive}"
+              Padding="8,4">
+        <TextBlock Text="{Binding ErrorMessage}"
+                   Foreground="{DynamicResource VelaAccent}"
+                   FontSize="{DynamicResource VelaFontSize11}" />
+      </Border>
+
+      <Grid RowDefinitions="26,*">
+
+        <Border Grid.Row="0"
+                Background="{DynamicResource VelaBgContentHeader}"
+                BorderBrush="{DynamicResource VelaBorderPrimary}"
+                BorderThickness="0,0,0,1"
+                Padding="14,0">
+          <Grid>
+            <!-- 表头右键 = 列显示开关(参考 WinSCP / 资源管理器)。“文件名”列没有开关:
+                 它是行的标识,关掉就只剩一排没有主语的元数据。勾选即写回持久化设置。 -->
+            <Grid.ContextMenu>
+              <ContextMenu x:DataType="vm:FileBrowserViewModel">
+                <MenuItem Header="{loc:Localize Size}" ToggleType="CheckBox"
+                          IsChecked="{Binding ShowSizeColumn, Mode=TwoWay}" StaysOpenOnClick="True" />
+                <MenuItem Header="{loc:Localize Permissions}" ToggleType="CheckBox"
+                          IsChecked="{Binding ShowPermissionsColumn, Mode=TwoWay}" StaysOpenOnClick="True" />
+                <MenuItem Header="{loc:Localize PermissionOwner}" ToggleType="CheckBox"
+                          IsChecked="{Binding ShowOwnerColumn, Mode=TwoWay}" StaysOpenOnClick="True" />
+                <MenuItem Header="{loc:Localize PermissionGroup}" ToggleType="CheckBox"
+                          IsChecked="{Binding ShowGroupColumn, Mode=TwoWay}" StaysOpenOnClick="True" />
+                <MenuItem Header="{loc:Localize FileType}" ToggleType="CheckBox"
+                          IsChecked="{Binding ShowTypeColumn, Mode=TwoWay}" StaysOpenOnClick="True" />
+                <MenuItem Header="{loc:Localize Modified}" ToggleType="CheckBox"
+                          IsChecked="{Binding ShowModifiedColumn, Mode=TwoWay}" StaysOpenOnClick="True" />
+              </ContextMenu>
+            </Grid.ContextMenu>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="{Binding NameColumnWidth}" MinWidth="180" />
+              <ColumnDefinition Width="6" />
+              <ColumnDefinition Width="{Binding SizeGridWidth}" MinWidth="{Binding SizeGridMinWidth}" />
+              <ColumnDefinition Width="{Binding SizeSplitterWidth}" />
+              <ColumnDefinition Width="{Binding PermissionsGridWidth}" MinWidth="{Binding PermissionsGridMinWidth}" />
+              <ColumnDefinition Width="{Binding PermissionsSplitterWidth}" />
+              <ColumnDefinition Width="{Binding OwnerGridWidth}" MinWidth="{Binding OwnerGridMinWidth}" />
+              <ColumnDefinition Width="{Binding OwnerSplitterWidth}" />
+              <ColumnDefinition Width="{Binding GroupGridWidth}" MinWidth="{Binding GroupGridMinWidth}" />
+              <ColumnDefinition Width="{Binding GroupSplitterWidth}" />
+              <ColumnDefinition Width="{Binding TypeGridWidth}" MinWidth="{Binding TypeGridMinWidth}" />
+              <ColumnDefinition Width="{Binding TypeSplitterWidth}" />
+              <ColumnDefinition Width="*" MinWidth="110" />
+            </Grid.ColumnDefinitions>
+            <Button Grid.Column="0" Classes="col-header"
+                    Command="{Binding SortCommand}" CommandParameter="name">
+              <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="{loc:Localize FileName}"
+                           Foreground="{DynamicResource VelaTextMuted}"
+                           FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize10}" LetterSpacing="1" />
+                <TextBlock Text="{Binding NameSortGlyph}"
+                           Foreground="{DynamicResource VelaAccent}"
+                           FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize10}" />
+              </StackPanel>
+            </Button>
+            <Border Grid.Column="1"
+                    Background="Transparent"
+                    Cursor="SizeWestEast"
+                    Tag="name"
+                    PointerPressed="OnColumnSplitterPressed"
+                    PointerReleased="OnColumnSplitterReleased" />
+            <Button Grid.Column="2" Classes="col-header"
+                    IsVisible="{Binding ShowSizeColumn}"
+                    Command="{Binding SortCommand}" CommandParameter="size">
+              <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="{loc:Localize Size}"
+                           Foreground="{DynamicResource VelaTextMuted}"
+                           FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize10}" LetterSpacing="1" />
+                <TextBlock Text="{Binding SizeSortGlyph}"
+                           Foreground="{DynamicResource VelaAccent}"
+                           FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize10}" />
+              </StackPanel>
+            </Button>
+            <Border Grid.Column="3"
+                    Background="Transparent"
+                    Cursor="SizeWestEast"
+                    Tag="size"
+                    IsVisible="{Binding ShowSizeColumn}"
+                    PointerPressed="OnColumnSplitterPressed"
+                    PointerReleased="OnColumnSplitterReleased" />
+            <Button Grid.Column="4" Classes="col-header"
+                    IsVisible="{Binding ShowPermissionsColumn}"
+                    Command="{Binding SortCommand}" CommandParameter="permissions">
+              <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="{loc:Localize Permissions}"
+                           Foreground="{DynamicResource VelaTextMuted}"
+                           FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize10}" LetterSpacing="1" />
+                <TextBlock Text="{Binding PermissionsSortGlyph}"
+                           Foreground="{DynamicResource VelaAccent}"
+                           FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize10}" />
+              </StackPanel>
+            </Button>
+            <Border Grid.Column="5"
+                    Background="Transparent"
+                    Cursor="SizeWestEast"
+                    Tag="permissions"
+                    IsVisible="{Binding ShowPermissionsColumn}"
+                    PointerPressed="OnColumnSplitterPressed"
+                    PointerReleased="OnColumnSplitterReleased" />
+            <Button Grid.Column="6" Classes="col-header"
+                    IsVisible="{Binding ShowOwnerColumn}"
+                    Command="{Binding SortCommand}" CommandParameter="owner">
+              <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="{loc:Localize PermissionOwner}"
+                           Foreground="{DynamicResource VelaTextMuted}"
+                           FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize10}" LetterSpacing="1" />
+                <TextBlock Text="{Binding OwnerSortGlyph}"
+                           Foreground="{DynamicResource VelaAccent}"
+                           FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize10}" />
+              </StackPanel>
+            </Button>
+            <Border Grid.Column="7"
+                    Background="Transparent"
+                    Cursor="SizeWestEast"
+                    Tag="owner"
+                    IsVisible="{Binding ShowOwnerColumn}"
+                    PointerPressed="OnColumnSplitterPressed"
+                    PointerReleased="OnColumnSplitterReleased" />
+            <Button Grid.Column="8" Classes="col-header"
+                    IsVisible="{Binding ShowGroupColumn}"
+                    Command="{Binding SortCommand}" CommandParameter="group">
+              <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="{loc:Localize PermissionGroup}"
+                           Foreground="{DynamicResource VelaTextMuted}"
+                           FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize10}" LetterSpacing="1" />
+                <TextBlock Text="{Binding GroupSortGlyph}"
+                           Foreground="{DynamicResource VelaAccent}"
+                           FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize10}" />
+              </StackPanel>
+            </Button>
+            <Border Grid.Column="9"
+                    Background="Transparent"
+                    Cursor="SizeWestEast"
+                    Tag="group"
+                    IsVisible="{Binding ShowGroupColumn}"
+                    PointerPressed="OnColumnSplitterPressed"
+                    PointerReleased="OnColumnSplitterReleased" />
+            <Button Grid.Column="10" Classes="col-header"
+                    IsVisible="{Binding ShowTypeColumn}"
+                    Command="{Binding SortCommand}" CommandParameter="type">
+              <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="{loc:Localize FileType}"
+                           Foreground="{DynamicResource VelaTextMuted}"
+                           FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize10}" LetterSpacing="1" />
+                <TextBlock Text="{Binding TypeSortGlyph}"
+                           Foreground="{DynamicResource VelaAccent}"
+                           FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize10}" />
+              </StackPanel>
+            </Button>
+            <Border Grid.Column="11"
+                    Background="Transparent"
+                    Cursor="SizeWestEast"
+                    Tag="type"
+                    IsVisible="{Binding ShowTypeColumn}"
+                    PointerPressed="OnColumnSplitterPressed"
+                    PointerReleased="OnColumnSplitterReleased" />
+            <Button Grid.Column="12" Classes="col-header"
+                    IsVisible="{Binding ShowModifiedColumn}"
+                    Command="{Binding SortCommand}" CommandParameter="modified">
+              <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="{loc:Localize Modified}"
+                           Foreground="{DynamicResource VelaTextMuted}"
+                           FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize10}" LetterSpacing="1" />
+                <TextBlock Text="{Binding ModifiedSortGlyph}"
+                           Foreground="{DynamicResource VelaAccent}"
+                           FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize10}" />
+              </StackPanel>
+            </Button>
+          </Grid>
+        </Border>
+
+        <!-- 列表外面套一层 Panel,是为了在它上面叠一个框选矩形(见 MarqueeOverlay)。 -->
+        <Panel Grid.Row="1">
+        <ListBox x:Name="FileList"
+                 ItemsSource="{Binding Files}"
+                 SelectedItems="{Binding SelectedFiles}"
+                 SelectionMode="Multiple"
+                 DoubleTapped="OnFileDoubleTapped"
+                 Background="Transparent"
+                 Padding="0"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto">
+          <ListBox.Styles>
+            <Style Selector="ListBoxItem">
+              <Setter Property="Padding" Value="0" />
+              <Setter Property="Margin" Value="0" />
+              <Setter Property="MinHeight" Value="0" />
+            </Style>
+            <!-- 规范 §6:选中行使用 bg-hover,替换主题默认的蓝色。 -->
+            <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+              <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+            </Style>
+            <Style Selector="ListBoxItem:selected:pointerover /template/ ContentPresenter">
+              <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+            </Style>
+          </ListBox.Styles>
+          <ListBox.ContextMenu>
+            <!-- 菜单图标分组(设计 e6klM):中性行 = 13px text-tertiary 描边。 -->
+            <ContextMenu x:DataType="vm:FileBrowserViewModel">
+              <MenuItem Header="{loc:Localize Refresh}" Command="{Binding RefreshCommand}">
+                <MenuItem.Icon>
+                  <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.refresh-cw}"
+                                 Foreground="{DynamicResource VelaTextTertiary}" />
+                </MenuItem.Icon>
+              </MenuItem>
+              <Separator />
+              <!-- 文件与文件夹合并为一个入口:选择器可混选,文件夹整棵传、文件直接传。 -->
+              <MenuItem Header="{loc:Localize UploadHere}" Command="{Binding UploadCommand}">
+                <MenuItem.Icon>
+                  <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.upload}"
+                                 Foreground="{DynamicResource VelaTextTertiary}" />
+                </MenuItem.Icon>
+              </MenuItem>
+              <MenuItem Header="{loc:Localize NewFolder}" Command="{Binding NewFolderCommand}">
+                <MenuItem.Icon>
+                  <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.folder-plus}"
+                                 Foreground="{DynamicResource VelaTextTertiary}" />
+                </MenuItem.Icon>
+              </MenuItem>
+              <MenuItem Header="{loc:Localize NewFile}" Command="{Binding NewFileCommand}">
+                <MenuItem.Icon>
+                  <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.file-plus}"
+                                 Foreground="{DynamicResource VelaTextTertiary}" />
+                </MenuItem.Icon>
+              </MenuItem>
+            </ContextMenu>
+          </ListBox.ContextMenu>
+          <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:RemoteFileInfoViewModel">
+                <!-- 每行(设计 dyuii):高 28px,padding [0,14],底部 1px 边框;合成的 ".."
+                     父行染 bg-hover 且无分隔线。 -->
+                <Border Background="Transparent"
+                        BorderBrush="{DynamicResource VelaBorderPrimary}"
+                        BorderThickness="0,0,0,1"
+                        Height="28"
+                        Padding="14,0"
+                        PointerPressed="FileRow_PointerPressed"
+                        Classes="file-row"
+                        Classes.parent="{Binding IsParentEntry}">
+                  <Border.Styles>
+                    <!-- 必须用 file-row 类限定:ContextMenu 弹层是本 Border 的逻辑子级,
+                         无限定的 Border:pointerover 会把菜单模板的根 Border/PART_LayoutRoot
+                         一并刷成 bg-hover(亮色主题下整张菜单悬停变灰)。 -->
+                    <Style Selector="Border.file-row:pointerover">
+                      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+                    </Style>
+                    <Style Selector="Border.file-row.parent">
+                      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+                      <Setter Property="BorderThickness" Value="0" />
+                    </Style>
+                  </Border.Styles>
+                  <Border.ContextMenu>
+                    <!-- 结构参考 WinSCP:刷新 | 下载/上传 | 重命名/移动 |
+                         复制名称/路径 | 新建 | 删除 | 属性。下载与删除均作用于多选集合
+                         (右键会先把所指行并入选区,见 FileRow_PointerPressed)。
+                         着色分组同设计 e6klM:主操作 accent、常规 text-tertiary、危险 error。 -->
+                    <ContextMenu x:DataType="vm:RemoteFileInfoViewModel">
+                      <MenuItem Header="{loc:Localize Refresh}"
+                                Command="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).RefreshCommand}">
+                        <MenuItem.Icon>
+                          <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.refresh-cw}"
+                                         Foreground="{DynamicResource VelaTextTertiary}" />
+                        </MenuItem.Icon>
+                      </MenuItem>
+                      <Separator IsVisible="{Binding IsRegularFile}" />
+                      <!-- 打开 = 文件的主操作(accent):内置 AvaloniaEdit 编辑器,保存即上传。 -->
+                      <MenuItem Header="{loc:Localize Sftp_Open}"
+                                IsVisible="{Binding IsRegularFile}"
+                                Command="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).OpenItemCommand}"
+                                CommandParameter="{Binding}"
+                                Foreground="{DynamicResource VelaTextPrimary}"
+                                FontWeight="Medium">
+                        <MenuItem.Icon>
+                          <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.file-text}"
+                                         Foreground="{DynamicResource VelaAccent}" />
+                        </MenuItem.Icon>
+                      </MenuItem>
+                      <MenuItem Header="{loc:Localize Sftp_OpenWithDefaultEditor}"
+                                IsVisible="{Binding IsRegularFile}"
+                                Command="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).OpenWithDefaultEditorCommand}"
+                                CommandParameter="{Binding}">
+                        <MenuItem.Icon>
+                          <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.external-link}"
+                                         Foreground="{DynamicResource VelaTextTertiary}" />
+                        </MenuItem.Icon>
+                      </MenuItem>
+                      <Separator />
+                      <MenuItem Header="{loc:Localize Download}"
+                                Command="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).DownloadSelectedCommand}">
+                        <MenuItem.Icon>
+                          <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.download}"
+                                         Foreground="{DynamicResource VelaTextTertiary}" />
+                        </MenuItem.Icon>
+                      </MenuItem>
+                      <MenuItem Header="{loc:Localize UploadHere}"
+                                Command="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).UploadCommand}">
+                        <MenuItem.Icon>
+                          <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.upload}"
+                                         Foreground="{DynamicResource VelaTextTertiary}" />
+                        </MenuItem.Icon>
+                      </MenuItem>
+                      <Separator IsVisible="{Binding !IsParentEntry}" />
+                      <MenuItem Header="{loc:Localize Rename}"
+                                IsVisible="{Binding !IsParentEntry}"
+                                Command="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).RenameCommand}"
+                                CommandParameter="{Binding}">
+                        <MenuItem.Icon>
+                          <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.pencil}"
+                                         Foreground="{DynamicResource VelaTextTertiary}" />
+                        </MenuItem.Icon>
+                      </MenuItem>
+                      <MenuItem Header="{loc:Localize MoveTo}"
+                                IsVisible="{Binding !IsParentEntry}"
+                                Command="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).MoveCommand}"
+                                CommandParameter="{Binding}">
+                        <MenuItem.Icon>
+                          <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.folder-input}"
+                                         Foreground="{DynamicResource VelaTextTertiary}" />
+                        </MenuItem.Icon>
+                      </MenuItem>
+                      <MenuItem Header="{loc:Localize CopyTo}"
+                                IsVisible="{Binding !IsParentEntry}"
+                                Command="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).CopyToCommand}"
+                                CommandParameter="{Binding}">
+                        <MenuItem.Icon>
+                          <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.copy}"
+                                         Foreground="{DynamicResource VelaTextTertiary}" />
+                        </MenuItem.Icon>
+                      </MenuItem>
+                      <Separator IsVisible="{Binding !IsParentEntry}" />
+                      <MenuItem Header="{loc:Localize CopyFileName}"
+                                IsVisible="{Binding !IsParentEntry}"
+                                Command="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).CopyNameCommand}"
+                                CommandParameter="{Binding}">
+                        <MenuItem.Icon>
+                          <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.clipboard}"
+                                         Foreground="{DynamicResource VelaTextTertiary}" />
+                        </MenuItem.Icon>
+                      </MenuItem>
+                      <MenuItem Header="{loc:Localize CopyFilePath}"
+                                IsVisible="{Binding !IsParentEntry}"
+                                Command="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).CopyPathCommand}"
+                                CommandParameter="{Binding}">
+                        <MenuItem.Icon>
+                          <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.copy}"
+                                         Foreground="{DynamicResource VelaTextTertiary}" />
+                        </MenuItem.Icon>
+                      </MenuItem>
+                      <Separator />
+                      <MenuItem Header="{loc:Localize NewFolder}"
+                                Command="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).NewFolderCommand}">
+                        <MenuItem.Icon>
+                          <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.folder-plus}"
+                                         Foreground="{DynamicResource VelaTextTertiary}" />
+                        </MenuItem.Icon>
+                      </MenuItem>
+                      <MenuItem Header="{loc:Localize NewFile}"
+                                Command="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).NewFileCommand}">
+                        <MenuItem.Icon>
+                          <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.file-plus}"
+                                         Foreground="{DynamicResource VelaTextTertiary}" />
+                        </MenuItem.Icon>
+                      </MenuItem>
+                      <Separator />
+                      <MenuItem Header="{loc:Localize Delete}"
+                                Command="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).DeleteSelectedCommand}"
+                                Foreground="{DynamicResource VelaError}">
+                        <MenuItem.Icon>
+                          <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.trash-2}"
+                                         Foreground="{DynamicResource VelaError}" />
+                        </MenuItem.Icon>
+                      </MenuItem>
+                      <Separator IsVisible="{Binding !IsParentEntry}" />
+                      <MenuItem Header="{loc:Localize Properties}"
+                                IsVisible="{Binding !IsParentEntry}"
+                                Command="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).PropertiesCommand}"
+                                CommandParameter="{Binding}">
+                        <MenuItem.Icon>
+                          <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.info}"
+                                         Foreground="{DynamicResource VelaTextTertiary}" />
+                        </MenuItem.Icon>
+                      </MenuItem>
+                    </ContextMenu>
+                  </Border.ContextMenu>
+                  <Grid ClipToBounds="True">
+                    <!-- 列宽/最小宽度/拖拽条一律回绑表头那份 VM 属性,行与表头才不会错位。 -->
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).NameColumnWidth}" MinWidth="180" />
+                      <ColumnDefinition Width="6" />
+                      <ColumnDefinition Width="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).SizeGridWidth}" MinWidth="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).SizeGridMinWidth}" />
+                      <ColumnDefinition Width="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).SizeSplitterWidth}" />
+                      <ColumnDefinition Width="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).PermissionsGridWidth}" MinWidth="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).PermissionsGridMinWidth}" />
+                      <ColumnDefinition Width="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).PermissionsSplitterWidth}" />
+                      <ColumnDefinition Width="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).OwnerGridWidth}" MinWidth="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).OwnerGridMinWidth}" />
+                      <ColumnDefinition Width="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).OwnerSplitterWidth}" />
+                      <ColumnDefinition Width="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).GroupGridWidth}" MinWidth="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).GroupGridMinWidth}" />
+                      <ColumnDefinition Width="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).GroupSplitterWidth}" />
+                      <ColumnDefinition Width="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).TypeGridWidth}" MinWidth="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).TypeGridMinWidth}" />
+                      <ColumnDefinition Width="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).TypeSplitterWidth}" />
+                      <ColumnDefinition Width="*" MinWidth="110" />
+                    </Grid.ColumnDefinitions>
+                    <Grid Grid.Column="0" ClipToBounds="True" VerticalAlignment="Center">
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                      </Grid.ColumnDefinitions>
+                      <!-- 设计 dyuii 图标:琥珀色文件夹、素色文件、".." 用 corner-left-up。 -->
+                      <pc:LucideIcon Classes="dnd-surface" Width="13" Height="13"
+                                     Foreground="{DynamicResource VelaFileFolderIcon}"
+                                     IsVisible="{Binding IsRegularDirectory}"
+                                     Margin="0,0,7,0"
+                                     Data="{StaticResource Icon.folder}" />
+                      <pc:LucideIcon Classes="dnd-surface" Width="13" Height="13"
+                                     Foreground="{DynamicResource VelaTextTertiary}"
+                                     IsVisible="{Binding !IsDirectory}"
+                                     Margin="0,0,7,0"
+                                     Data="{StaticResource Icon.file}" />
+                      <pc:LucideIcon Classes="dnd-surface" Width="13" Height="13"
+                                     Foreground="{DynamicResource VelaTextTertiary}"
+                                     IsVisible="{Binding IsParentEntry}"
+                                     Margin="0,0,7,0"
+                                     Data="{StaticResource Icon.corner-left-up}" />
+                      <TextBlock Classes="dnd-surface" Grid.Column="1"
+                                 Text="{Binding DisplayName}"
+                                 Foreground="{DynamicResource VelaTextSecondary}"
+                                 FontFamily="{DynamicResource VelaUiMonoFont}"
+                                 FontSize="{DynamicResource VelaFontSize11}"
+                                 VerticalAlignment="Center"
+                                 HorizontalAlignment="Left"
+                                 TextTrimming="CharacterEllipsis"
+                                 Classes.dir="{Binding IsRegularDirectory}">
+                        <TextBlock.Styles>
+                          <Style Selector="TextBlock.dir">
+                            <Setter Property="Foreground" Value="{DynamicResource VelaFileDirName}" />
+                          </Style>
+                        </TextBlock.Styles>
+                      </TextBlock>
+                    </Grid>
+
+                    <TextBlock Classes="dnd-surface" Grid.Column="2"
+                               Text="{Binding FormattedSize}"
+                               IsVisible="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).ShowSizeColumn}"
+                               Foreground="{DynamicResource VelaTextTertiary}"
+                               FontFamily="{DynamicResource VelaUiMonoFont}"
+                               FontSize="{DynamicResource VelaFontSize11}"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Left" />
+                    <TextBlock Classes="dnd-surface" Grid.Column="4"
+                               Text="{Binding Permissions}"
+                               IsVisible="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).ShowPermissionsColumn}"
+                               Foreground="{DynamicResource VelaTextTertiary}"
+                               FontFamily="{DynamicResource VelaUiMonoFont}"
+                               FontSize="{DynamicResource VelaFontSize11}"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Left" />
+                    <TextBlock Classes="dnd-surface" Grid.Column="6"
+                               Text="{Binding Owner}"
+                               IsVisible="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).ShowOwnerColumn}"
+                               Foreground="{DynamicResource VelaTextTertiary}"
+                               FontFamily="{DynamicResource VelaUiMonoFont}"
+                               FontSize="{DynamicResource VelaFontSize11}"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Left"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Classes="dnd-surface" Grid.Column="8"
+                               Text="{Binding Group}"
+                               IsVisible="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).ShowGroupColumn}"
+                               Foreground="{DynamicResource VelaTextTertiary}"
+                               FontFamily="{DynamicResource VelaUiMonoFont}"
+                               FontSize="{DynamicResource VelaFontSize11}"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Left"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Classes="dnd-surface" Grid.Column="10"
+                               Text="{Binding FileTypeDisplay}"
+                               IsVisible="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).ShowTypeColumn}"
+                               Foreground="{DynamicResource VelaTextTertiary}"
+                               FontFamily="{DynamicResource VelaUiMonoFont}"
+                               FontSize="{DynamicResource VelaFontSize11}"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Left"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Classes="dnd-surface" Grid.Column="12"
+                               Text="{Binding FormattedModifiedTime}"
+                               IsVisible="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).ShowModifiedColumn}"
+                               Foreground="{DynamicResource VelaTextTertiary}"
+                               FontFamily="{DynamicResource VelaUiMonoFont}"
+                               FontSize="{DynamicResource VelaFontSize11}"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Left"
+                               TextTrimming="CharacterEllipsis" />
+                  </Grid>
+                </Border>
+              </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+
+          <!-- 框选矩形。IsHitTestVisible=False:它盖在列表上,不能把指针事件吃掉。 -->
+          <Border Name="MarqueeOverlay" IsVisible="False" IsHitTestVisible="False"
+                  HorizontalAlignment="Left" VerticalAlignment="Top"
+                  Background="{DynamicResource VelaAccent}" Opacity="0.18"
+                  BorderBrush="{DynamicResource VelaAccent}" BorderThickness="1"
+                  CornerRadius="1" />
+        </Panel>
+
+      </Grid>
+
+    </DockPanel>
+
+      <!-- Loading overlay -->
+      <Border IsVisible="{Binding IsLoading}"
+              Background="{DynamicResource VelaBgSurface}"
+              Opacity="0.8"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch">
+        <StackPanel HorizontalAlignment="Center"
+              VerticalAlignment="Center"
+              Width="300"
+              Spacing="8">
+          <TextBlock Text="{Binding BusyText}"
+               Foreground="{DynamicResource VelaTextSecondary}"
+               HorizontalAlignment="Center"
+               TextAlignment="Center"
+               FontSize="{DynamicResource VelaFontSize13}" />
+          <ProgressBar IsVisible="{Binding IsDeleteProgressVisible}"
+                 IsIndeterminate="{Binding IsDeleteProgressIndeterminate}"
+                 Minimum="0"
+                 Maximum="100"
+                 Value="{Binding DeleteProgressPercent}"
+                 Height="6"
+                 CornerRadius="3"
+                 Background="{DynamicResource VelaBorderPrimary}"
+                 Foreground="{DynamicResource VelaAccent}" />
+          <!-- 取消进行中的删除;已移除的条目保持移除状态。 -->
+          <Button IsVisible="{Binding IsDeleteProgressVisible}"
+                  Content="{x:Static res:Strings.Cancel}"
+                  Command="{Binding CancelDeleteCommand}"
+                  HorizontalAlignment="Center"
+                  Padding="16,4"
+                  Cursor="Hand" />
+        </StackPanel>
+      </Border>
+    </Panel>
+  </Border>
+</UserControl>

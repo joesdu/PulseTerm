@@ -1,6 +1,5 @@
 using System.Text.RegularExpressions;
-using VelaShell.Services;
-using VelaShell.ViewModels;
+using VelaShell.Features.Settings;
 
 namespace VelaShell.Tests.Services;
 

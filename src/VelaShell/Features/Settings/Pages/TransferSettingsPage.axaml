@@ -1,0 +1,158 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VelaShell.Features.Settings"
+             xmlns:loc="using:VelaShell.Common.Localization"
+             x:Class="VelaShell.Features.Settings.Pages.TransferSettingsPage"
+             x:DataType="vm:SettingsViewModel">
+
+  <StackPanel Spacing="14">
+    <StackPanel Spacing="2">
+      <TextBlock Classes="page-title" Text="{loc:Localize SetTransfer_Title}" />
+      <TextBlock Classes="page-subtitle" Text="{loc:Localize SetTransfer_Subtitle}" />
+    </StackPanel>
+
+    <!-- 默认路径 -->
+    <TextBlock Classes="section-title" Text="{loc:Localize SetTransfer_SectionDefaultPaths}" />
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetTransfer_DownloadDir}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetTransfer_DownloadDirDesc}" />
+      </StackPanel>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+        <TextBox x:Name="DownloadDirBox" Width="180" Text="{Binding Transfer.LocalDownloadDirectory}" />
+        <Button Classes="dlg-outline" Content="{loc:Localize SetTransfer_Browse}" Click="BrowseDownloadDir_Click" />
+      </StackPanel>
+    </Grid>
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetTransfer_DefaultEditor}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetTransfer_DefaultEditorDesc}" />
+      </StackPanel>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+        <TextBox x:Name="EditorPathBox" Width="180" Text="{Binding Transfer.DefaultEditorPath}" PlaceholderText="notepad" />
+        <Button Classes="dlg-outline" Content="{loc:Localize SetTransfer_Browse}" Click="BrowseEditor_Click" />
+      </StackPanel>
+    </Grid>
+
+    <Border Classes="sep" />
+
+    <!-- 传输行为 -->
+    <TextBlock Classes="section-title" Text="{loc:Localize SetTransfer_SectionBehavior}" />
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetTransfer_MaxConcurrent}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetTransfer_MaxConcurrentDesc}" />
+      </StackPanel>
+      <NumericUpDown Grid.Column="1" Width="80" Value="{Binding Transfer.MaxConcurrentTransfers}" Minimum="1" Maximum="16" Increment="1" FormatString="0" VerticalAlignment="Center" />
+    </Grid>
+    <Grid ColumnDefinitions="*,Auto">
+      <TextBlock Classes="row-label" Text="{loc:Localize SetTransfer_PreserveTimestamps}" VerticalAlignment="Center" />
+      <ToggleSwitch Grid.Column="1" IsChecked="{Binding Transfer.PreserveTimestamps}" VerticalAlignment="Center" />
+    </Grid>
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetTransfer_NotifyOnComplete}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetTransfer_NotifyOnCompleteDesc}" />
+      </StackPanel>
+      <ToggleSwitch Grid.Column="1" IsChecked="{Binding Transfer.NotifyOnComplete}" VerticalAlignment="Center" />
+    </Grid>
+
+    <Border Classes="sep" />
+
+    <!-- 冲突处理 -->
+    <TextBlock Classes="section-title" Text="{loc:Localize SetTransfer_SectionConflict}" />
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetTransfer_FileExists}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetTransfer_FileExistsDesc}" />
+      </StackPanel>
+      <ComboBox Grid.Column="1" Width="120" SelectedIndex="{Binding ConflictPolicyIndex}" VerticalAlignment="Center">
+        <ComboBoxItem Content="{loc:Localize SetTransfer_ConflictAsk}" />
+        <ComboBoxItem Content="{loc:Localize SetTransfer_ConflictOverwrite}" />
+        <ComboBoxItem Content="{loc:Localize SetTransfer_ConflictSkip}" />
+        <ComboBoxItem Content="{loc:Localize Rename}" />
+      </ComboBox>
+    </Grid>
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize ShowHiddenFiles}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetTransfer_ShowHiddenDesc}" />
+      </StackPanel>
+      <ToggleSwitch Grid.Column="1" IsChecked="{Binding Transfer.ShowHiddenFiles}" VerticalAlignment="Center" />
+    </Grid>
+    <!-- 断点续传(设置审计 M-02 的"恢复中断的传输",底层链路已实现:探测 → 起点核实 → 安全回退)。 -->
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetTransfer_Resume}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetTransfer_ResumeDesc}" />
+      </StackPanel>
+      <ToggleSwitch Grid.Column="1" IsChecked="{Binding Transfer.ResumeEnabled}" VerticalAlignment="Center" />
+    </Grid>
+    <!-- 从属设置:续传开启时半截文件是续传素材、一律保留,清理项只在续传关闭时有意义(设置审计 §10)。 -->
+    <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding !Transfer.ResumeEnabled}">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetTransfer_AutoCleanTemp}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetTransfer_AutoCleanTempDesc}" />
+      </StackPanel>
+      <ToggleSwitch Grid.Column="1" IsChecked="{Binding Transfer.AutoCleanTempFiles}" VerticalAlignment="Center" />
+    </Grid>
+    <!-- 传输重试次数(R-09):运行时消费者未实现,暂不展示。 -->
+
+    <Border Classes="sep" />
+
+    <!-- 带宽限制 -->
+    <TextBlock Classes="section-title" Text="{loc:Localize SetTransfer_SectionBandwidth}" />
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetTransfer_BandwidthEnable}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetTransfer_BandwidthEnableDesc}" />
+      </StackPanel>
+      <ToggleSwitch Grid.Column="1" IsChecked="{Binding Transfer.BandwidthLimitEnabled}" VerticalAlignment="Center" />
+    </Grid>
+    <!-- 从属设置:总开关关闭时隐藏,已保存值保留(设置审计 §10)。 -->
+    <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding Transfer.BandwidthLimitEnabled}">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetTransfer_UploadLimit}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetTransfer_ZeroUnlimited}" />
+      </StackPanel>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+        <NumericUpDown Width="80" Value="{Binding Transfer.UploadLimitMBps}" Minimum="0" Maximum="10000" Increment="1" FormatString="0" />
+        <TextBlock Classes="row-desc" Text="MB/s" VerticalAlignment="Center" />
+      </StackPanel>
+    </Grid>
+    <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding Transfer.BandwidthLimitEnabled}">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetTransfer_DownloadLimit}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetTransfer_ZeroUnlimited}" />
+      </StackPanel>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+        <NumericUpDown Width="80" Value="{Binding Transfer.DownloadLimitMBps}" Minimum="0" Maximum="10000" Increment="1" FormatString="0" />
+        <TextBlock Classes="row-desc" Text="MB/s" VerticalAlignment="Center" />
+      </StackPanel>
+    </Grid>
+
+    <Border Classes="sep" />
+
+    <!-- 日志记录 -->
+    <TextBlock Classes="section-title" Text="{loc:Localize SetTransfer_SectionLogging}" />
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetTransfer_TransferLogging}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetTransfer_TransferLoggingDesc}" />
+      </StackPanel>
+      <ToggleSwitch Grid.Column="1" IsChecked="{Binding Transfer.TransferLogging}" VerticalAlignment="Center" />
+    </Grid>
+    <!-- 从属设置:记录传输日志关闭时隐藏,已保存值保留(设置审计 §10)。 -->
+    <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding Transfer.TransferLogging}">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetTransfer_LogRetentionDays}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetTransfer_LogRetentionDaysDesc}" />
+      </StackPanel>
+      <NumericUpDown Grid.Column="1" Width="80" Value="{Binding Transfer.TransferLogRetentionDays}" Minimum="1" Maximum="365" Increment="1" FormatString="0" VerticalAlignment="Center" />
+    </Grid>
+    <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding Transfer.TransferLogging}">
+      <TextBlock Classes="row-label" Text="{loc:Localize SetTransfer_LogDirectory}" VerticalAlignment="Center" />
+      <TextBox Grid.Column="1" Width="180" Text="{Binding Transfer.LogDirectory}" VerticalAlignment="Center" />
+    </Grid>
+  </StackPanel>
+</UserControl>

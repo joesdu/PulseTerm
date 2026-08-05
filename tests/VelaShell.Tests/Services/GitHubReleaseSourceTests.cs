@@ -2,7 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
-using VelaShell.Services.Update;
+using VelaShell.Features.Update;
 
 namespace VelaShell.Tests.Services;
 
