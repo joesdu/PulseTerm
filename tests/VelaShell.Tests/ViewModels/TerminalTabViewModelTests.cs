@@ -1,8 +1,8 @@
 using NSubstitute;
 using VelaShell.Core.Models;
 using VelaShell.Core.Ssh;
-using VelaShell.Features.Sessions;
 using VelaShell.Terminal;
+using VelaShell.ViewModels;
 
 namespace VelaShell.Tests.ViewModels;
 

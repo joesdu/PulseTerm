@@ -4,7 +4,7 @@ using ReactiveUI;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Concurrency;
 using VelaShell.Core.Diagnostics;
-using VelaShell.Features.Monitoring;
+using VelaShell.ViewModels;
 
 namespace VelaShell.Tests.ViewModels;
 

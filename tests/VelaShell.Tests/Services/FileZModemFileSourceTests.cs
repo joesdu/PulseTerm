@@ -1,5 +1,5 @@
 using VelaShell.Core.ZModem.Model;
-using VelaShell.Features.Sftp.ZModem;
+using VelaShell.Services.ZModem;
 
 namespace VelaShell.Tests.Services;
 

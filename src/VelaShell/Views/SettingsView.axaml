@@ -1,0 +1,269 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:VelaShell.ViewModels"
+        xmlns:conv="using:VelaShell.Converters"
+        xmlns:pages="using:VelaShell.Views.Settings"
+        xmlns:loc="using:VelaShell.Localization"
+        mc:Ignorable="d" d:DesignWidth="720" d:DesignHeight="640"
+        x:Class="VelaShell.Views.SettingsView"
+        x:DataType="vm:SettingsViewModel"
+        Title="{loc:Localize Settings}"
+        Width="840" Height="740"
+        CanResize="False"
+        WindowDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        WindowStartupLocation="CenterOwner">
+
+  <!-- 设置页(设计 §14):宽 720px,左侧导航 200(bg-sidebar,右侧 1px 描边) +
+       右侧可滚动内容区;Ctrl+, 打开;改动在保存后立即生效。 -->
+
+  <Window.Styles>
+    <!-- 分节标题 -->
+    <Style Selector="TextBlock.section-title">
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize13}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <!-- 设置行左侧标签/描述 -->
+    <Style Selector="TextBlock.row-label">
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize12}" />
+      <Setter Property="FontWeight" Value="Medium" />
+    </Style>
+    <!-- 说明文字固定为界面字号的 85%(VelaFontSizeDesc),不走等比阶梯:
+         说明是次要信息,字号跟着基准 1:1 放大反而会盖过它上面的标签。
+         默认换行:说明有长有短,不换行的话长句子会顶出设置行右边的控件、跑到可视区外
+         (窗口 CanResize=False,横向没有滚动条可以救)。放在【左列】的说明才会真的换行 ——
+         横向 StackPanel 里的短标注(如 "MB/s")按无限宽度量,这条设置对它们是空操作。 -->
+    <Style Selector="TextBlock.row-desc">
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSizeDesc}" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <!-- 页面标题/副标题 -->
+    <Style Selector="TextBlock.page-title">
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize18}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.page-subtitle">
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+    </Style>
+    <!-- 节分隔线 -->
+    <Style Selector="Border.sep">
+      <Setter Property="Height" Value="1" />
+      <Setter Property="Background" Value="{DynamicResource VelaBorderPrimary}" />
+      <Setter Property="Margin" Value="0,4" />
+    </Style>
+    <!-- 控件基础样式 -->
+    <Style Selector="TextBox">
+      <Setter Property="Background" Value="{DynamicResource VelaBgInput}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="MinHeight" Value="30" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="ComboBox">
+      <Setter Property="Background" Value="{DynamicResource VelaBgInput}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="MinHeight" Value="30" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+      <Setter Property="MinWidth" Value="140" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="NumericUpDown">
+      <Setter Property="Background" Value="{DynamicResource VelaBgInput}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="MinHeight" Value="30" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
+      <Setter Property="Width" Value="110" />
+      <Setter Property="ShowButtonSpinner" Value="False" />
+    </Style>
+    <Style Selector="ToggleSwitch">
+      <Setter Property="OnContent" Value="" />
+      <Setter Property="OffContent" Value="" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="MinWidth" Value="0" />
+    </Style>
+    <!-- 按钮 -->
+    <Style Selector="Button.dlg-outline">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderSecondary}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Height" Value="30" />
+      <Setter Property="Padding" Value="12,0" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+    </Style>
+    <Style Selector="Button.dlg-primary">
+      <Setter Property="Background" Value="{DynamicResource VelaAccent}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaAccentForeground}" />
+      <Setter Property="Height" Value="30" />
+      <Setter Property="Padding" Value="14,0" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+      <Setter Property="FontWeight" Value="Medium" />
+    </Style>
+    <Style Selector="Button.dlg-danger">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="#FF6B6B" />
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderSecondary}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Height" Value="30" />
+      <Setter Property="Padding" Value="12,0" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+    </Style>
+    <!-- keycap(快捷键页) -->
+    <Style Selector="Border.keycap">
+      <Setter Property="Background" Value="{DynamicResource VelaBgInput}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderSecondary}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="3" />
+      <Setter Property="Padding" Value="8,3" />
+    </Style>
+    <!-- 表格容器 -->
+    <Style Selector="Border.table">
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="ClipToBounds" Value="True" />
+    </Style>
+    <!-- 左侧导航 -->
+    <Style Selector="ListBox.nav">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Padding" Value="8" />
+    </Style>
+    <Style Selector="ListBox.nav ListBoxItem">
+      <Setter Property="Height" Value="32" />
+      <Setter Property="Padding" Value="10,0" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Margin" Value="0,1" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="ListBox.nav ListBoxItem:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+    </Style>
+    <Style Selector="ListBox.nav ListBoxItem:selected /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource VelaBgActive}" />
+    </Style>
+    <Style Selector="ListBox.nav ListBoxItem TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
+    </Style>
+    <Style Selector="ListBox.nav ListBoxItem PathIcon">
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextTertiary}" />
+    </Style>
+    <Style Selector="ListBox.nav ListBoxItem:selected TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource VelaAccent}" />
+      <Setter Property="FontWeight" Value="Medium" />
+    </Style>
+    <Style Selector="ListBox.nav ListBoxItem:selected PathIcon">
+      <Setter Property="Foreground" Value="{DynamicResource VelaAccent}" />
+    </Style>
+  </Window.Styles>
+
+  <Border x:Name="RootBorder"
+          CornerRadius="8"
+          Background="{DynamicResource VelaBgSurface}"
+          BorderBrush="{DynamicResource VelaBorderSecondary}"
+          BorderThickness="1"
+          BoxShadow="0 8 32 0 #80000000"
+          Margin="12"
+          ClipToBounds="True">
+    <Grid ColumnDefinitions="200,*">
+
+      <!-- 左侧导航。CornerRadius 跟随外框左侧圆角:方角的 bg-sidebar 背景会盖住外框在
+           圆角处的描边,看起来像边框断开。 -->
+      <Border Grid.Column="0"
+              Background="{DynamicResource VelaBgSidebar}"
+              BorderBrush="{DynamicResource VelaBorderPrimary}"
+              BorderThickness="0,0,1,0"
+              CornerRadius="8,0,0,8">
+        <Grid RowDefinitions="48,*">
+          <!-- 导航头(可拖动) -->
+          <Border Grid.Row="0" Padding="16,0"
+                  Background="Transparent"
+                  PointerPressed="Header_PointerPressed"
+                  BorderBrush="{DynamicResource VelaBorderPrimary}"
+                  BorderThickness="0,0,0,1">
+            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+              <PathIcon Width="14" Height="14"
+                        Data="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
+                        Foreground="{DynamicResource VelaAccent}" />
+              <TextBlock Text="{loc:Localize Settings}"
+                         Foreground="{DynamicResource VelaTextPrimary}"
+                         FontSize="{DynamicResource VelaFontSize13}" FontWeight="SemiBold" />
+            </StackPanel>
+          </Border>
+
+          <ListBox Grid.Row="1" Classes="nav"
+                   ItemsSource="{Binding Sections}"
+                   SelectedIndex="{Binding SelectedSectionIndex}">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:SettingsSection">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <PathIcon Width="14" Height="14" Data="{Binding Icon}" />
+                  <TextBlock Text="{Binding Name}" FontSize="{DynamicResource VelaFontSize12}" VerticalAlignment="Center" />
+                </StackPanel>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Grid>
+      </Border>
+
+      <!-- 右侧内容 -->
+      <Grid Grid.Column="1" RowDefinitions="*,Auto">
+
+        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
+          <Panel Margin="28,24">
+            <pages:GeneralSettingsPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=0}" />
+            <pages:AppearanceSettingsPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=1}" />
+            <pages:TerminalSettingsPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=2}" />
+            <pages:KeyManagementPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=3}" />
+            <pages:ShortcutsPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=4}" />
+            <pages:TransferSettingsPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=5}" />
+            <pages:SecurityAuditPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=6}" />
+            <pages:SnippetsPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=7}" />
+            <pages:SyncPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=8}" />
+            <pages:AboutPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=9}" />
+            <pages:DonatePage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=10}" />
+          </Panel>
+        </ScrollViewer>
+
+        <!-- 底部:恢复默认 / 取消 / 保存设置 -->
+        <Border Grid.Row="1" Height="52" Padding="28,0"
+                BorderBrush="{DynamicResource VelaBorderPrimary}"
+                BorderThickness="0,1,0,0">
+          <Grid ColumnDefinitions="Auto,*,Auto">
+            <!-- 破坏性操作:点击后先弹确认框(代码后置),确认才执行 ResetCommand(设置审计 C-11)。 -->
+            <Button Grid.Column="0" Classes="dlg-outline" Content="{loc:Localize Settings_RestoreDefaults}"
+                    Click="ResetToDefaults_Click" VerticalAlignment="Center" />
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8"
+                        VerticalAlignment="Center">
+              <Button Classes="dlg-outline" Content="{loc:Localize Cancel}" Command="{Binding CancelCommand}" />
+              <Button Classes="dlg-primary" Content="{loc:Localize Settings_SaveSettings}" Command="{Binding SaveCommand}" />
+            </StackPanel>
+          </Grid>
+        </Border>
+      </Grid>
+    </Grid>
+  </Border>
+</Window>

@@ -7,7 +7,7 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-using VelaShell.Common.Controls;
+using VelaShell.Controls;
 using VelaShell.Docking.Controls;
 using VelaShell.Docking.Model;
 

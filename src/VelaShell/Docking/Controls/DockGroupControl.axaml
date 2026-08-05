@@ -3,10 +3,10 @@
              xmlns:local="using:VelaShell.Docking.Controls"
              xmlns:docking="using:VelaShell.Docking"
              xmlns:m="using:VelaShell.Docking.Model"
-             xmlns:conv="using:VelaShell.Common.Converters"
+             xmlns:conv="using:VelaShell.Converters"
              xmlns:pc="using:VelaShell.Controls.Controls"
-             xmlns:controls="using:VelaShell.Common.Controls"
-             xmlns:loc="using:VelaShell.Common.Localization"
+             xmlns:controls="using:VelaShell.Controls"
+             xmlns:loc="using:VelaShell.Localization"
              x:Class="VelaShell.Docking.Controls.DockGroupControl"
              x:DataType="m:DockGroup">
   <UserControl.Styles>

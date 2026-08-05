@@ -1,4 +1,4 @@
-using VelaShell.Features.CommandPalette;
+using VelaShell.ViewModels;
 
 namespace VelaShell.Tests.ViewModels;
 

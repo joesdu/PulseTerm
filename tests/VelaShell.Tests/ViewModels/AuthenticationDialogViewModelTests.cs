@@ -1,8 +1,8 @@
 using ReactiveUI.Primitives;
-using VelaShell.Common.Security;
 using VelaShell.Core.Models;
 using VelaShell.Core.Resources;
-using VelaShell.Features.Sessions;
+using VelaShell.Security;
+using VelaShell.ViewModels;
 
 namespace VelaShell.Tests.ViewModels;
 

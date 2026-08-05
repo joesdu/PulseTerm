@@ -1,0 +1,349 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:VelaShell.Presentation.ViewModels"
+             xmlns:pc="using:VelaShell.Controls.Controls"
+             xmlns:conv="using:VelaShell.Converters"
+             xmlns:res="clr-namespace:VelaShell.Core.Resources;assembly=VelaShell.Core"
+             xmlns:loc="using:VelaShell.Localization"
+             mc:Ignorable="d" d:DesignWidth="260" d:DesignHeight="400"
+             x:Class="VelaShell.Views.SessionTreeView"
+             x:DataType="vm:SessionTreeViewModel">
+
+  <TreeView ItemsSource="{Binding Nodes}"
+            SelectedItem="{Binding SelectedNode, Mode=TwoWay}"
+            Background="Transparent"
+            Padding="0,0,0,0">
+
+    <TreeView.Styles>
+      <Style Selector="TreeViewItem">
+        <Setter Property="IsExpanded" Value="{ReflectionBinding IsExpanded, Mode=TwoWay}" />
+        <Setter Property="IsSelected" Value="{ReflectionBinding IsSelected, Mode=TwoWay}" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="MinHeight" Value="0" />
+      </Style>
+      <!-- 去掉内置选中/悬停高亮:行的选中与悬停都由自绘的行 Border 渲染(设计 FrJPu)。
+           不压掉内置 :pointerover 时,嵌套子项左侧缩进区会被内置 hover 背景填成一块多余的
+           浅色块。 -->
+      <Style Selector="TreeViewItem:selected /template/ Border#PART_LayoutRoot">
+        <Setter Property="Background" Value="Transparent" />
+      </Style>
+      <Style Selector="TreeViewItem:pointerover /template/ Border#PART_LayoutRoot">
+        <Setter Property="Background" Value="Transparent" />
+      </Style>
+
+      <!-- 隐藏内置展开箭头及其预留的层级缩进区(设计 FrJPu 只保留自绘、紧挨文件夹的
+           箭头;缩进改由行 Border 的 padding 控制)。容器在 Fluent 主题里的具体类型
+           不确定,用 :is(Control) 按名字命中,并把预留宽度/边距一并归零,消除左侧空白。 -->
+      <Style Selector="TreeViewItem /template/ :is(Control)#PART_ExpandCollapseChevronContainer">
+        <Setter Property="IsVisible" Value="False" />
+        <Setter Property="Width" Value="0" />
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="Margin" Value="0" />
+      </Style>
+      <Style Selector="TreeViewItem /template/ ToggleButton#PART_ExpandCollapseChevron">
+        <Setter Property="IsVisible" Value="False" />
+      </Style>
+
+      <!-- 分组行 -->
+      <Style Selector="Border.group">
+        <Setter Property="Background" Value="Transparent" />
+      </Style>
+      <Style Selector="Border.group:pointerover">
+        <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+      </Style>
+
+      <!-- 分组文件夹图标配色:按分组顺序 warning/info/accent 轮换(设计 FrJPu)。 -->
+      <Style Selector="pc|LucideIcon.folder">
+        <Setter Property="Foreground" Value="{DynamicResource VelaWarning}" />
+      </Style>
+      <Style Selector="pc|LucideIcon.folder.info">
+        <Setter Property="Foreground" Value="{DynamicResource VelaInfo}" />
+      </Style>
+      <Style Selector="pc|LucideIcon.folder.accent">
+        <Setter Property="Foreground" Value="{DynamicResource VelaAccent}" />
+      </Style>
+
+      <!-- 会话行:子级缩进 36,根级(未分组)与分组行同缩进 12;选中行 bg-active。 -->
+      <Style Selector="Border.session">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Padding" Value="36,0,12,0" />
+      </Style>
+      <Style Selector="Border.session.rootlevel">
+        <Setter Property="Padding" Value="12,0" />
+      </Style>
+      <Style Selector="Border.session:pointerover">
+        <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+      </Style>
+      <Style Selector="Border.session.selected">
+        <Setter Property="Background" Value="{DynamicResource VelaBgActive}" />
+      </Style>
+
+      <!-- 状态圆点:默认断开(红),connected 绿 / connecting 黄。 -->
+      <Style Selector="Ellipse.dot">
+        <Setter Property="Fill" Value="{DynamicResource VelaStatusDisconnected}" />
+      </Style>
+      <Style Selector="Ellipse.dot.connected">
+        <Setter Property="Fill" Value="{DynamicResource VelaStatusConnected}" />
+      </Style>
+      <Style Selector="Ellipse.dot.connecting">
+        <Setter Property="Fill" Value="{DynamicResource VelaStatusConnecting}" />
+      </Style>
+
+      <!-- 会话名:默认 secondary,选中行转 accent(设计 FrJPu 活跃行)。 -->
+      <Style Selector="TextBlock.sessionName">
+        <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
+      </Style>
+      <Style Selector="Border.session.selected TextBlock.sessionName">
+        <Setter Property="Foreground" Value="{DynamicResource VelaAccent}" />
+        <Setter Property="FontWeight" Value="Medium" />
+      </Style>
+
+      <!-- 状态标签胶囊:活跃(accent)/连接中(warning)/离线(error)。
+           注意 Avalonia 颜色是 #AARRGGBB,设计稿 #FDCB6E20 → #20FDCB6E。 -->
+      <Style Selector="Border.tag">
+        <Setter Property="Background" Value="{DynamicResource VelaAccentDim}" />
+      </Style>
+      <Style Selector="Border.tag TextBlock">
+        <Setter Property="Foreground" Value="{DynamicResource VelaAccent}" />
+      </Style>
+      <Style Selector="Border.tag.connecting">
+        <Setter Property="Background" Value="#20FDCB6E" />
+      </Style>
+      <Style Selector="Border.tag.connecting TextBlock">
+        <Setter Property="Foreground" Value="{DynamicResource VelaWarning}" />
+      </Style>
+      <Style Selector="Border.tag.offline">
+        <Setter Property="Background" Value="#20FF6B6B" />
+      </Style>
+      <Style Selector="Border.tag.offline TextBlock">
+        <Setter Property="Foreground" Value="{DynamicResource VelaError}" />
+      </Style>
+    </TreeView.Styles>
+
+    <TreeView.ItemTemplate>
+      <TreeDataTemplate ItemsSource="{Binding Children}"
+                        x:DataType="vm:SessionTreeNodeViewModel">
+
+        <!-- 分组行 -->
+        <Panel>
+          <Border IsVisible="{Binding IsGroup}"
+                  Classes="group"
+                  Height="30"
+                  Padding="12,0"
+                  Cursor="Hand"
+                  Tapped="Group_Tapped">
+            <StackPanel Orientation="Horizontal"
+                        Spacing="6"
+                        VerticalAlignment="Center">
+
+              <!-- 折叠箭头:展开时朝下,折叠时朝右(设计 FrJPu) -->
+              <pc:LucideIcon Width="12" Height="12"
+                             VerticalAlignment="Center"
+                             Data="{StaticResource Icon.chevron-down}"
+                             Foreground="{DynamicResource VelaTextTertiary}"
+                             IsVisible="{Binding IsExpanded}" />
+              <pc:LucideIcon Width="12" Height="12"
+                             VerticalAlignment="Center"
+                             Data="{StaticResource Icon.chevron-right}"
+                             Foreground="{DynamicResource VelaTextTertiary}"
+                             IsVisible="{Binding !IsExpanded}" />
+
+              <!-- 文件夹图标(按分组轮换配色) -->
+              <pc:LucideIcon Width="13" Height="13"
+                             VerticalAlignment="Center"
+                             Classes="folder"
+                             Classes.info="{Binding IsFolderInfo}"
+                             Classes.accent="{Binding IsFolderAccent}"
+                             Data="{StaticResource Icon.folder}" />
+
+              <!-- 分组名 -->
+              <TextBlock Text="{Binding Name}"
+                         Foreground="{DynamicResource VelaTextPrimary}"
+                         FontFamily="{DynamicResource VelaUiMonoFont}"
+                         FontSize="{DynamicResource VelaFontSize12}"
+                         FontWeight="Medium"
+                         VerticalAlignment="Center" />
+
+              <!-- 子项数量 -->
+              <TextBlock Text="{Binding Children.Count}"
+                         Foreground="{DynamicResource VelaTextTertiary}"
+                         FontFamily="{DynamicResource VelaUiMonoFont}"
+                         FontSize="{DynamicResource VelaFontSize10}"
+                         VerticalAlignment="Center" />
+
+            </StackPanel>
+          </Border>
+
+          <!-- 服务器 / 会话行 -->
+          <Border IsVisible="{Binding !IsGroup}"
+                  Classes="session"
+                  Classes.selected="{Binding IsSelected}"
+                  Classes.rootlevel="{Binding IsRootLevel}"
+                  Height="28"
+                  Cursor="Hand"
+                  DoubleTapped="Session_DoubleTapped"
+                  PointerPressed="Session_PointerPressed">
+            <Border.ContextMenu>
+              <!-- 完整对齐设计帧 e6klM:连接(accent 主操作)/新标签页/编辑/复制/SFTP/
+                   端口转发/会话设置/移动到分组(子菜单)/连接诊断/断开(warning)/删除(error)。
+                   右键会先选中所指行(Session_PointerPressed),命令都作用于 SelectedNode。 -->
+              <ContextMenu x:DataType="vm:SessionTreeNodeViewModel">
+                <MenuItem Header="{x:Static res:Strings.Connect}"
+                          Command="{Binding $parent[TreeView].((vm:SessionTreeViewModel)DataContext).ConnectCommand}"
+                          IsVisible="{Binding !IsGroup}"
+                          Foreground="{DynamicResource VelaTextPrimary}"
+                          FontWeight="Medium">
+                  <MenuItem.Icon>
+                    <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.plug}"
+                                   Foreground="{DynamicResource VelaAccent}" />
+                  </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="{loc:Localize Tree_OpenInNewTab}"
+                          Command="{Binding $parent[TreeView].((vm:SessionTreeViewModel)DataContext).ConnectCommand}"
+                          IsVisible="{Binding !IsGroup}">
+                  <MenuItem.Icon>
+                    <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.plus}"
+                                   Foreground="{DynamicResource VelaTextTertiary}" />
+                  </MenuItem.Icon>
+                </MenuItem>
+                <Separator IsVisible="{Binding !IsGroup}" />
+                <MenuItem Header="{loc:Localize Tree_EditConnection}"
+                          Command="{Binding $parent[TreeView].((vm:SessionTreeViewModel)DataContext).EditSessionCommand}"
+                          IsVisible="{Binding !IsGroup}">
+                  <MenuItem.Icon>
+                    <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.pencil}"
+                                   Foreground="{DynamicResource VelaTextTertiary}" />
+                  </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="{loc:Localize Tree_DuplicateConnection}"
+                          Command="{Binding $parent[TreeView].((vm:SessionTreeViewModel)DataContext).DuplicateSessionCommand}"
+                          IsVisible="{Binding !IsGroup}">
+                  <MenuItem.Icon>
+                    <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.copy}"
+                                   Foreground="{DynamicResource VelaTextTertiary}" />
+                  </MenuItem.Icon>
+                </MenuItem>
+                <Separator IsVisible="{Binding !IsGroup}" />
+                <MenuItem Header="{loc:Localize Tree_OpenSftp}"
+                          Command="{Binding $parent[TreeView].((vm:SessionTreeViewModel)DataContext).OpenSftpCommand}"
+                          IsVisible="{Binding CanOpenSftp}">
+                  <MenuItem.Icon>
+                    <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.folder-open}"
+                                   Foreground="{DynamicResource VelaTextTertiary}" />
+                  </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="{loc:Localize Tree_PortForwarding}"
+                          Command="{Binding $parent[TreeView].((vm:SessionTreeViewModel)DataContext).PortForwardCommand}"
+                          IsVisible="{Binding IsSshProfile}">
+                  <MenuItem.Icon>
+                    <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.arrow-right-left}"
+                                   Foreground="{DynamicResource VelaTextTertiary}" />
+                  </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="{loc:Localize Tree_SessionSettings}"
+                          Command="{Binding $parent[TreeView].((vm:SessionTreeViewModel)DataContext).EditSessionCommand}"
+                          IsVisible="{Binding !IsGroup}">
+                  <MenuItem.Icon>
+                    <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.sliders-horizontal}"
+                                   Foreground="{DynamicResource VelaTextTertiary}" />
+                  </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="{loc:Localize MoveToGroup}"
+                          IsVisible="{Binding !IsGroup}"
+                          ItemsSource="{Binding $parent[TreeView].((vm:SessionTreeViewModel)DataContext).GroupNodes}">
+                  <MenuItem.Icon>
+                    <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.folder-input}"
+                                   Foreground="{DynamicResource VelaTextTertiary}" />
+                  </MenuItem.Icon>
+                  <MenuItem.Styles>
+                    <Style Selector="MenuItem > MenuItem" x:DataType="vm:SessionTreeNodeViewModel">
+                      <Setter Property="Header" Value="{Binding Name}" />
+                      <Setter Property="Command"
+                              Value="{Binding $parent[TreeView].((vm:SessionTreeViewModel)DataContext).MoveToGroupCommand}" />
+                      <Setter Property="CommandParameter" Value="{Binding}" />
+                    </Style>
+                  </MenuItem.Styles>
+                </MenuItem>
+                <MenuItem Header="{loc:Localize Tree_Diagnostics}"
+                          Command="{Binding $parent[TreeView].((vm:SessionTreeViewModel)DataContext).DiagnoseCommand}"
+                          IsVisible="{Binding !IsGroup}">
+                  <MenuItem.Icon>
+                    <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.stethoscope}"
+                                   Foreground="{DynamicResource VelaTextTertiary}" />
+                  </MenuItem.Icon>
+                </MenuItem>
+                <Separator IsVisible="{Binding !IsGroup}" />
+                <MenuItem Header="{loc:Localize Disconnect}"
+                          Command="{Binding $parent[TreeView].((vm:SessionTreeViewModel)DataContext).DisconnectCommand}"
+                          IsVisible="{Binding !IsGroup}"
+                          Foreground="{DynamicResource VelaWarning}">
+                  <MenuItem.Icon>
+                    <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.unplug}"
+                                   Foreground="{DynamicResource VelaWarning}" />
+                  </MenuItem.Icon>
+                </MenuItem>
+                <Separator IsVisible="{Binding !IsGroup}" />
+                <MenuItem Header="{x:Static res:Strings.Delete}"
+                          Command="{Binding $parent[TreeView].((vm:SessionTreeViewModel)DataContext).DeleteSessionCommand}"
+                          IsVisible="{Binding !IsGroup}"
+                          Foreground="{DynamicResource VelaError}">
+                  <MenuItem.Icon>
+                    <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.trash-2}"
+                                   Foreground="{DynamicResource VelaError}" />
+                  </MenuItem.Icon>
+                </MenuItem>
+              </ContextMenu>
+            </Border.ContextMenu>
+
+            <!-- 状态圆点 + 名称 + 状态标签(设计 FrJPu:标签紧随名称,gap 8) -->
+            <StackPanel Orientation="Horizontal"
+                        Spacing="8"
+                        VerticalAlignment="Center">
+
+              <!-- 同步输入频道字母:置于状态点之前,与标签头/终端横条的频道色联动。 -->
+              <TextBlock Text="{Binding SyncChannelLetter}"
+                         IsVisible="{Binding HasSyncChannel}"
+                         Foreground="{Binding SyncChannelLetter, Converter={x:Static conv:SyncChannelLetterToBrushConverter.Instance}}"
+                         FontFamily="{DynamicResource VelaUiMonoFont}"
+                         FontSize="{DynamicResource VelaFontSize11}"
+                         FontWeight="Bold"
+                         VerticalAlignment="Center" />
+
+              <Ellipse Classes="dot"
+                       Classes.connected="{Binding IsConnected}"
+                       Classes.connecting="{Binding IsConnecting}"
+                       Width="7" Height="7"
+                       VerticalAlignment="Center" />
+
+              <TextBlock Classes="sessionName"
+                         Text="{Binding Name}"
+                         FontFamily="{DynamicResource VelaUiMonoFont}"
+                         FontSize="{DynamicResource VelaFontSize11}"
+                         VerticalAlignment="Center"
+                         TextTrimming="CharacterEllipsis" />
+
+              <Border Classes="tag"
+                      Classes.connecting="{Binding IsConnecting}"
+                      Classes.offline="{Binding IsError}"
+                      IsVisible="{Binding HasStatusTag}"
+                      CornerRadius="2"
+                      Padding="6,1"
+                      VerticalAlignment="Center">
+                <TextBlock Text="{Binding StatusTagText}"
+                           FontFamily="{DynamicResource VelaUiMonoFont}"
+                           FontSize="{DynamicResource VelaFontSize9}"
+                           FontWeight="Medium"
+                           VerticalAlignment="Center" />
+              </Border>
+
+            </StackPanel>
+          </Border>
+        </Panel>
+
+      </TreeDataTemplate>
+    </TreeView.ItemTemplate>
+  </TreeView>
+
+</UserControl>

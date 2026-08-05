@@ -1,5 +1,5 @@
 using System.Text.Json;
-using VelaShell.Features.Update;
+using VelaShell.Services.Update;
 
 namespace VelaShell.Tests.Services;
 

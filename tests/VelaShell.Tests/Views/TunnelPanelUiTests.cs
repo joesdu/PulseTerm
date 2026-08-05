@@ -8,12 +8,13 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using NSubstitute;
-using VelaShell.Common.Localization;
 using VelaShell.Core.Localization;
 using VelaShell.Core.Models;
 using VelaShell.Core.Resources;
-using VelaShell.Features.Tunnels;
+using VelaShell.Localization;
 using VelaShell.Presentation.Services;
+using VelaShell.ViewModels;
+using VelaShell.Views;
 
 namespace VelaShell.Tests.Views;
 

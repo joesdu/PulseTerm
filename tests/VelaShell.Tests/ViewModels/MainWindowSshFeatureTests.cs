@@ -6,10 +6,9 @@ using VelaShell.Core.Resources;
 using VelaShell.Core.Sftp;
 using VelaShell.Core.Ssh;
 using VelaShell.Docking;
-using VelaShell.Features.Sessions;
 using VelaShell.Presentation.Services;
-using VelaShell.Shell;
 using VelaShell.Terminal;
+using VelaShell.ViewModels;
 
 namespace VelaShell.Tests.ViewModels;
 

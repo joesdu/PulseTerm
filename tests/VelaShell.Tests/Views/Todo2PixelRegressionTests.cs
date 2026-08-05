@@ -7,9 +7,10 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using ReactiveUI.Primitives;
-using VelaShell.Common.Security;
 using VelaShell.Core.Models;
-using VelaShell.Features.Sessions;
+using VelaShell.Security;
+using VelaShell.ViewModels;
+using VelaShell.Views;
 
 namespace VelaShell.Tests.Views;
 

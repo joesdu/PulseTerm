@@ -10,12 +10,11 @@ using VelaShell.Core.Models;
 using VelaShell.Core.Sftp;
 using VelaShell.Core.Ssh;
 using VelaShell.Docking;
-using VelaShell.Features.Sessions;
-using VelaShell.Features.Sftp;
 using VelaShell.Presentation.Services;
 using VelaShell.Presentation.ViewModels;
-using VelaShell.Shell;
 using VelaShell.Terminal;
+using VelaShell.ViewModels;
+using VelaShell.Views;
 
 namespace VelaShell.Tests.ViewModels;
 

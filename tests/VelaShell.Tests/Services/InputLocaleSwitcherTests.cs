@@ -1,4 +1,4 @@
-using VelaShell.Features.Sessions;
+using VelaShell.Services;
 
 namespace VelaShell.Tests.Services;
 

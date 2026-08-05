@@ -1,4 +1,4 @@
-using VelaShell.Features.Sessions;
+using VelaShell.ViewModels;
 
 namespace VelaShell.Tests.ViewModels;
 

@@ -4,10 +4,11 @@ using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-using VelaShell.Common.Localization;
 using VelaShell.Core.Localization;
 using VelaShell.Core.Models;
-using VelaShell.Features.Sftp;
+using VelaShell.Localization;
+using VelaShell.ViewModels;
+using VelaShell.Views;
 
 namespace VelaShell.Tests.Views;
 

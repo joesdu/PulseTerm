@@ -1,6 +1,6 @@
 using ReactiveUI.Primitives;
 using VelaShell.Core.Processes;
-using VelaShell.Features.Monitoring;
+using VelaShell.ViewModels;
 
 namespace VelaShell.Tests.ViewModels;
 

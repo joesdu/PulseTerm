@@ -1,6 +1,6 @@
 using VelaShell.Core.Models;
 using VelaShell.Core.Resources;
-using VelaShell.Features.Suggestions;
+using VelaShell.Services;
 
 namespace VelaShell.Tests.Services;
 

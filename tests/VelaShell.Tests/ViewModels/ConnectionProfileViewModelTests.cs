@@ -1,11 +1,11 @@
 using NSubstitute;
 using ReactiveUI.Primitives;
-using VelaShell.Common.Behaviors;
-using VelaShell.Common.Security;
+using VelaShell.Behaviors;
 using VelaShell.Core.Data;
 using VelaShell.Core.Models;
-using VelaShell.Features.Sessions;
 using VelaShell.Presentation.Services;
+using VelaShell.Security;
+using VelaShell.ViewModels;
 
 namespace VelaShell.Tests.ViewModels;
 

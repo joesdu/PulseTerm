@@ -1,6 +1,6 @@
 using ReactiveUI.Primitives;
 using VelaShell.Core.Models;
-using VelaShell.Features.Sftp;
+using VelaShell.ViewModels;
 
 namespace VelaShell.Tests.ViewModels;
 

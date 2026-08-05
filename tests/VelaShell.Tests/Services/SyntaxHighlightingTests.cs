@@ -1,7 +1,7 @@
 using Avalonia.Headless;
 using Avalonia.Styling;
 using AvaloniaEdit.Highlighting;
-using VelaShell.Features.Sftp.Syntax;
+using VelaShell.Services.Syntax;
 
 namespace VelaShell.Tests.Services;
 

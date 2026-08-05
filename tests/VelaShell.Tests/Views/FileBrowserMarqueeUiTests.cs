@@ -6,11 +6,12 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using NSubstitute;
 using ReactiveUI.Primitives;
-using VelaShell.Common.Localization;
 using VelaShell.Core.Localization;
 using VelaShell.Core.Models;
 using VelaShell.Core.Sftp;
-using VelaShell.Features.Sftp;
+using VelaShell.Localization;
+using VelaShell.ViewModels;
+using VelaShell.Views;
 
 namespace VelaShell.Tests.Views;
 

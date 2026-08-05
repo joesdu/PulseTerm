@@ -2,11 +2,12 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="using:VelaShell.Docking.Controls"
              xmlns:docking="using:VelaShell.Docking"
-             xmlns:conv="using:VelaShell.Common.Converters"
+             xmlns:conv="using:VelaShell.Converters"
              xmlns:pc="using:VelaShell.Controls.Controls"
-             xmlns:sessions="using:VelaShell.Features.Sessions"
-             xmlns:mon="using:VelaShell.Features.Monitoring"
-             xmlns:loc="using:VelaShell.Common.Localization"
+             xmlns:views="using:VelaShell.Views"
+             xmlns:services="using:VelaShell.Services"
+             xmlns:vm="using:VelaShell.ViewModels"
+             xmlns:loc="using:VelaShell.Localization"
              x:Class="VelaShell.Docking.Controls.DockTabItem"
              x:DataType="docking:TerminalDocument"
              FontSize="{DynamicResource VelaFontSize11}"
@@ -66,25 +67,25 @@
         <MenuItem Header="{loc:Localize SyncInput_JoinChannelA}" Click="JoinChannelA_Click">
           <MenuItem.Icon>
             <Border Width="10" Height="10" CornerRadius="2"
-                    Background="{x:Static sessions:SyncInputChannels.BrushA}" />
+                    Background="{x:Static services:SyncInputChannels.BrushA}" />
           </MenuItem.Icon>
         </MenuItem>
         <MenuItem Header="{loc:Localize SyncInput_JoinChannelB}" Click="JoinChannelB_Click">
           <MenuItem.Icon>
             <Border Width="10" Height="10" CornerRadius="2"
-                    Background="{x:Static sessions:SyncInputChannels.BrushB}" />
+                    Background="{x:Static services:SyncInputChannels.BrushB}" />
           </MenuItem.Icon>
         </MenuItem>
         <MenuItem Header="{loc:Localize SyncInput_JoinChannelC}" Click="JoinChannelC_Click">
           <MenuItem.Icon>
             <Border Width="10" Height="10" CornerRadius="2"
-                    Background="{x:Static sessions:SyncInputChannels.BrushC}" />
+                    Background="{x:Static services:SyncInputChannels.BrushC}" />
           </MenuItem.Icon>
         </MenuItem>
         <MenuItem Header="{loc:Localize SyncInput_JoinChannelD}" Click="JoinChannelD_Click">
           <MenuItem.Icon>
             <Border Width="10" Height="10" CornerRadius="2"
-                    Background="{x:Static sessions:SyncInputChannels.BrushD}" />
+                    Background="{x:Static services:SyncInputChannels.BrushD}" />
           </MenuItem.Icon>
         </MenuItem>
         <Separator />
@@ -173,8 +174,8 @@
                    ToolTip.Placement="Pointer"
                    ToolTip.Tip="{Binding Terminal.ResourceMonitor}">
           <TextBlock.DataTemplates>
-            <DataTemplate DataType="mon:ResourceMonitorViewModel">
-              <mon:ResourceMonitorView />
+            <DataTemplate DataType="vm:ResourceMonitorViewModel">
+              <views:ResourceMonitorView />
             </DataTemplate>
           </TextBlock.DataTemplates>
         </TextBlock>

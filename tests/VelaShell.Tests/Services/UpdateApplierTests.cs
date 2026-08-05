@@ -1,6 +1,6 @@
 using System.Formats.Tar;
 using System.IO.Compression;
-using VelaShell.Features.Update;
+using VelaShell.Services.Update;
 
 namespace VelaShell.Tests.Services;
 
