@@ -2610,6 +2610,9 @@
   <data name="SetVm_ShortcutCompletionPopup" xml:space="preserve">
     <value>顯示命令補全</value>
   </data>
+  <data name="SetVm_ShortcutDeleteWord" xml:space="preserve">
+    <value>刪除前一個單字</value>
+  </data>
   <data name="SetVm_ShortcutNewTabAlias" xml:space="preserve">
     <value>新增標籤(同新增連線)</value>
   </data>
