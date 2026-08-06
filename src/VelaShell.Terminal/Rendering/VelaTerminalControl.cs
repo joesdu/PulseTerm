@@ -109,7 +109,11 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
 
     private bool _selecting;
 
-    // 选区(线性),位于绝对行空间。
+    // 本次选区是否为 Alt+拖拽的矩形块选(#128)。与 Windows Terminal 一致:按下鼠标那一刻由 Alt
+    // 决定,拖拽途中改变 Alt 不切换模式。
+    private bool _blockSelection;
+
+    // 选区(线性或矩形块选),位于绝对行空间。
     private (int Row, int Col)? _selectionAnchor;
     private (int Row, int Col)? _selectionCaret;
     private bool _styleTypefacesReady;
@@ -1762,7 +1766,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
             {
                 (fg, bg) = (bg, fg);
             }
-            if (IsSelected(sel, absoluteRow, col))
+            if (TerminalSelectionMath.Contains(sel, _blockSelection, absoluteRow, col))
             {
                 bg = palette.SelectionBackground;
             }
@@ -2017,43 +2021,13 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
 
     // ---- Selection ----------------------------------------------------------
 
-    private ((int Row, int Col) Start, (int Row, int Col) End)? NormalizedSelection()
-    {
-        if (_selectionAnchor is not { } a || _selectionCaret is not { } c)
-        {
-            return null;
-        }
-        if (a.Row < c.Row || (a.Row == c.Row && a.Col <= c.Col))
-        {
-            return (a, c);
-        }
-        return (c, a);
-    }
+    private ((int Row, int Col) Start, (int Row, int Col) End)? NormalizedSelection() =>
+        _selectionAnchor is { } a && _selectionCaret is { } c
+            ? TerminalSelectionMath.Normalize(a, c, _blockSelection)
+            : null;
 
-    private static bool IsSelected(
-        ((int Row, int Col) Start, (int Row, int Col) End)? sel,
-        int row,
-        int col
-    )
-    {
-        if (sel is not { } s)
-        {
-            return false;
-        }
-        if (row < s.Start.Row || row > s.End.Row)
-        {
-            return false;
-        }
-        if (row == s.Start.Row && col < s.Start.Col)
-        {
-            return false;
-        }
-        if (row == s.End.Row && col >= s.End.Col)
-        {
-            return false;
-        }
-        return true;
-    }
+    /// <summary>当前选区是否为 Alt+拖拽的矩形块选(测试与宿主诊断用)。</summary>
+    public bool IsBlockSelection => _blockSelection && NormalizedSelection() is not null;
 
     /// <summary>搜索整个缓冲区(回滚区 + 屏幕),不区分大小写(规范 §5.3)。</summary>
     public IReadOnlyList<BufferSearchHit> SearchBuffer(string query) =>
@@ -2129,6 +2103,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     {
         _selectionAnchor = (hit.Row, hit.StartCol);
         _selectionCaret = (hit.Row, hit.StartCol + hit.Length);
+        _blockSelection = false;
         int totalRows = Emulator.Screen.TotalRows;
         int rows = Emulator.Rows;
         int desiredTop = Math.Max(0, hit.Row - rows / 2);
@@ -2150,10 +2125,15 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         for (int row = s.Start.Row; row <= s.End.Row && row < screen.TotalRows; row++)
         {
             TerminalRow line = screen.ViewLine(row);
-            int from = row == s.Start.Row ? s.Start.Col : 0;
-            int to = row == s.End.Row ? s.End.Col : line.Columns;
+            // 块选时每行取同一段列区间(矩形),线性选区则首行从起点、末行到终点、中间整行。
+            (int from, int to) = TerminalSelectionMath.RowSpan(
+                s,
+                _blockSelection,
+                row,
+                line.Columns
+            );
             int lineStart = sb.Length;
-            for (int col = Math.Max(0, from); col < Math.Min(line.Columns, to); col++)
+            for (int col = from; col < to; col++)
             {
                 TerminalCell cell = line[col];
                 if (!cell.IsWideTrailing)
@@ -2373,6 +2353,10 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
                 e.Handled = true;
                 return;
             }
+            // Alt+左键拖拽 = 矩形块选(#128,对齐 Windows Terminal):模式在按下这一刻定下,
+            // 拖拽途中松开 Alt 不会退回线性选区。应用开启鼠标追踪时,鼠标事件已在上面转发给应用,
+            // 此时需按住 Shift 绕过上报,即 Shift+Alt+拖拽仍可块选。
+            _blockSelection = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
             _selecting = true;
             _selectionAnchor = PointToCell(point);
             _selectionCaret = _selectionAnchor;
@@ -2420,6 +2404,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         _selectionAnchor = (cell.Row, start);
         _selectionCaret = (cell.Row, end);
         _selecting = false;
+        _blockSelection = false;
         InvalidateVisual();
         if (CopyOnSelect)
         {
@@ -2626,6 +2611,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     {
         _selectionAnchor = null;
         _selectionCaret = null;
+        _blockSelection = false;
     }
 
     private async void OpenLink(string url)
