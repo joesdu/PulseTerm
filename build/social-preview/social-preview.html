@@ -1,0 +1,179 @@
+<!doctype html>
+<!--
+  GitHub 社交预览图(Settings → Social preview,建议 1280×640)的可重生成源。
+  渲染:build/social-preview/Build-SocialPreview.ps1 —— 用 Edge headless 截图,产出同目录的
+  social-preview.png。改文案/配色只改本文件,重跑脚本即可。
+  设计取自应用图标:青绿渐变 + 深墨绿 `>_`,底色沿用终端暗色,保证缩略图尺寸下仍能认出品牌。
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>VelaShell social preview</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body { width: 1280px; height: 640px; overflow: hidden; }
+
+  body {
+    position: relative;
+    font-family: "Microsoft YaHei UI", "Segoe UI", system-ui, sans-serif;
+    background: #05100E;
+    color: #E9FBF4;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* 背景:左上角的品牌辉光 + 右下角的冷色补光,避免大面积死黑。 */
+  .glow-brand {
+    position: absolute; left: -180px; top: -220px; width: 900px; height: 760px;
+    background: radial-gradient(circle at 35% 40%, rgba(16, 214, 164, .30), transparent 62%);
+  }
+  .glow-cool {
+    position: absolute; right: -220px; bottom: -260px; width: 820px; height: 700px;
+    background: radial-gradient(circle at 60% 60%, rgba(20, 128, 160, .22), transparent 60%);
+  }
+  /* 极淡的网格,给暗底一点材质感,缩略图下会自然融掉。 */
+  .grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(120, 235, 205, .045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(120, 235, 205, .045) 1px, transparent 1px);
+    background-size: 40px 40px;
+    mask-image: radial-gradient(circle at 30% 45%, #000 0%, transparent 78%);
+  }
+
+  .stage {
+    position: relative; display: flex; align-items: center; gap: 56px;
+    height: 100%; padding: 0 68px;
+  }
+
+  /* ---- 左:品牌区 ---------------------------------------------------- */
+  .brand { width: 604px; flex: none; }
+
+  .lockup { display: flex; align-items: center; gap: 26px; }
+  .lockup img {
+    width: 104px; height: 104px; flex: none;
+    filter: drop-shadow(0 14px 34px rgba(0, 196, 148, .42));
+  }
+  .wordmark {
+    font-size: 76px; font-weight: 700; letter-spacing: -1.2px; line-height: 1;
+    background: linear-gradient(120deg, #F2FFFA 12%, #4BE9C0 92%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .pronounce { margin-top: 10px; font-size: 17px; letter-spacing: .4px; color: #59897E; }
+
+  .tagline {
+    margin-top: 30px; font-size: 34px; font-weight: 600; line-height: 1.34; color: #DCF7EE;
+  }
+  .tagline em { font-style: normal; color: #35DDAF; }
+
+  .stack {
+    margin-top: 16px; font-size: 19px; letter-spacing: .2px; color: #6FA598;
+  }
+
+  .chips { margin-top: 30px; display: flex; flex-wrap: wrap; gap: 10px; width: 592px; }
+  .chip {
+    padding: 7px 15px; border-radius: 999px; font-size: 17px; line-height: 1.2;
+    color: #A8EBD8; background: rgba(18, 195, 150, .10);
+    border: 1px solid rgba(56, 219, 175, .34);
+  }
+
+  /* ---- 右:终端窗口 -------------------------------------------------- */
+  .term {
+    flex: none; width: 512px; border-radius: 16px; overflow: hidden;
+    background: #071A16; border: 1px solid rgba(70, 214, 175, .26);
+    box-shadow: 0 28px 70px rgba(0, 0, 0, .55), 0 0 0 1px rgba(255, 255, 255, .03) inset;
+  }
+  .term-bar {
+    display: flex; align-items: center; gap: 8px; height: 42px; padding: 0 16px;
+    background: rgba(255, 255, 255, .045); border-bottom: 1px solid rgba(70, 214, 175, .16);
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .term-title {
+    margin-left: 10px; font-family: "Cascadia Mono", Consolas, monospace;
+    font-size: 15px; color: #7FB6A8;
+  }
+  .term-body {
+    padding: 20px 22px 24px;
+    font-family: "Cascadia Mono", Consolas, monospace;
+    font-size: 17.5px; line-height: 1.85;
+  }
+  .ln { white-space: nowrap; }
+  .ps { color: #2FD8AB; }        /* 提示符 */
+  .cmd { color: #E6FBF4; }       /* 命令 */
+  .out { color: #7FB6A8; }       /* 输出 */
+  .ok { color: #46E39B; }        /* 状态点/成功 */
+  .hl {                          /* Alt 矩形块选的视觉暗示 */
+    background: rgba(56, 219, 175, .26);
+    box-shadow: 0 0 0 1px rgba(56, 219, 175, .45);
+    border-radius: 2px;
+  }
+  .caret {
+    display: inline-block; width: 10px; height: 21px; vertical-align: -4px;
+    background: #2FD8AB; margin-left: 3px;
+  }
+
+  /* ---- 页脚 ---------------------------------------------------------- */
+  .footer {
+    position: absolute; left: 68px; bottom: 40px;
+    display: flex; align-items: center; gap: 14px;
+    font-size: 17px; color: #4F7D73; letter-spacing: .3px;
+  }
+  .footer .sep { color: #2B4E47; }
+  .license { color: #5E8B80; }
+</style>
+</head>
+<body>
+  <div class="glow-brand"></div>
+  <div class="glow-cool"></div>
+  <div class="grid"></div>
+
+  <div class="stage">
+    <section class="brand">
+      <div class="lockup">
+        <img src="../../src/VelaShell/Assets/velashell.png" alt="">
+        <div>
+          <div class="wordmark">VelaShell</div>
+          <div class="pronounce">/ˈveɪlə ʃɛl/ · 以终端为帆,驶向远方主机</div>
+        </div>
+      </div>
+
+      <h1 class="tagline">现代化跨平台<br><em>SSH / SFTP 终端客户端</em></h1>
+      <div class="stack">.NET 11 · Avalonia · Windows / Linux / macOS · x64 &amp; arm64</div>
+
+      <div class="chips">
+        <span class="chip">自研 VT 引擎</span>
+        <span class="chip">跳板机 ProxyJump</span>
+        <span class="chip">端口转发隧道</span>
+        <span class="chip">SFTP 断点续传</span>
+        <span class="chip">可拖拽分屏</span>
+        <span class="chip">命令面板</span>
+        <span class="chip">加密会话存储</span>
+      </div>
+    </section>
+
+    <section class="term">
+      <div class="term-bar">
+        <span class="dot" style="background:#FF5F57"></span>
+        <span class="dot" style="background:#FEBC2E"></span>
+        <span class="dot" style="background:#28C840"></span>
+        <span class="term-title">vela@web-prod-01: ~</span>
+      </div>
+      <div class="term-body">
+        <div class="ln"><span class="ps">$</span> <span class="cmd">ssh web-prod-01</span></div>
+        <div class="ln"><span class="ok">●</span> <span class="out">已连接 · ProxyJump bastion · 12 ms</span></div>
+        <div class="ln"><span class="ps">$</span> <span class="cmd">systemctl status nginx</span></div>
+        <div class="ln"><span class="out">  Active: </span><span class="ok">active (running)</span><span class="out"> 42d</span></div>
+        <div class="ln"><span class="out">  Memory: </span><span class="hl">128.4M</span><span class="out"> / 8G</span></div>
+        <div class="ln"><span class="out">  Tasks:  </span><span class="hl">  9</span><span class="out"> (limit 4915)</span></div>
+        <div class="ln"><span class="ps">$</span><span class="caret"></span></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="footer">
+    <span>github.com/joesdu/VelaShell</span>
+    <span class="sep">|</span>
+    <span class="license">AGPL-3.0 / 商业双许可</span>
+  </div>
+</body>
+</html>
