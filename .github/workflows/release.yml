@@ -24,17 +24,33 @@
 # 版本号取 Release 标签(去掉前缀 v),经 -p:Version 覆盖 Directory.Build.props,
 # 关于页显示与产物命名自动一致 —— 发新版只需打标签发 Release,无需改代码。
 #
-# 2026-08-07 排障留痕:发布 1.1.2 时本工作流一个 run 都没产生。原因不在 Release(published
-# 事件确实发出了),而是 GitHub 侧把本工作流对象置成了 state=deleted —— 文件自 2026-07-26 起
-# 一直好端端在 main 上,但处于 deleted 状态的工作流收不到任何事件,于是静默不跑、连失败记录都没有。
-# 工作流对象只在「向默认分支 push 且该 push 改动了工作流文件」时重新索引,本注释即是那次改动。
-# 日后再遇「发了 Release 却没有任何 run」,先查状态而不是先怀疑 YAML:
+# 2026-08-07 排障留痕:发布 1.1.2 时本工作流一个 run 都没产生,YAML 本身没问题(同一份文件
+# 8/4 还成功产出过 1.1.1 的全部资产)。当时的现象与已排除的因素:
+#   · Release 正常:draft=false、prerelease=false,仓库事件流里 ReleaseEvent/published 确实发出;
+#   · 工作流文件自 2026-07-26 起一直在默认分支 main 上,期间无提交改动、无强推、无迁移;
+#   · 但工作流对象曾被置为 state=deleted(deleted 状态收不到任何事件 → 静默不跑、无失败记录);
+#     推一次改动到 main 会重新索引,状态已回 active —— 然而再次发布仍然 0 run;
+#   · 同期仓库的 run 历史 / artifact / cache 全部归零,而账号下其他仓库的 Actions 一切正常。
+# 即:事件在发、工作流是 active,Actions 却不建 run,已超出仓库配置能解释的范围(疑为 GitHub 侧
+# 对本仓库的 Actions 数据做过重置/压制)。自查顺序:
 #   gh api repos/joesdu/VelaShell/actions/workflows/release.yml --jq .state   # 期望 active
+#   gh api repos/joesdu/VelaShell/actions/runs --jq .total_count              # 0 且状态 active → 看 Actions 页面横幅
+# 兜底见下方 workflow_dispatch:能手动跑通就说明只是 release 事件没送达,跑不动则是仓库级封锁,
+# 需要开 GitHub support ticket。
 name: Release
 
 on:
   release:
     types: [published]
+  # 手动兜底:release 事件没能触发时(2026-08-07 就遇到过一次),在 Actions 页面选本工作流
+  # → Run workflow → 填标签(如 1.1.2)即可补跑。产物上传用的是 `gh release upload --clobber`,
+  # 对同一标签重复跑是幂等的,不会产生重复资产。标签必须已存在且对应 Release 已发布。
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '要构建并回传产物的 Release 标签(如 1.1.2)'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -60,7 +76,7 @@ jobs:
       - name: Publish (win-x64 / win-arm64)
         shell: pwsh
         run: |
-          $version = '${{ github.event.release.tag_name }}'.TrimStart('v')
+          $version = '${{ github.event.release.tag_name || inputs.tag }}'.TrimStart('v')
           New-Item -ItemType Directory -Force dist | Out-Null
           foreach ($rid in @('win-x64', 'win-arm64')) {
             $name = "VelaShell-$version-$rid"
@@ -104,7 +120,7 @@ jobs:
       - name: Build MSIX bundle (win-x64 + win-arm64)
         shell: pwsh
         run: |
-          $version = '${{ github.event.release.tag_name }}'.TrimStart('v')
+          $version = '${{ github.event.release.tag_name || inputs.tag }}'.TrimStart('v')
           ./build/msix/Build-Msix.ps1 -Version $version `
             -IdentityName '${{ vars.MSIX_IDENTITY_NAME || 'B0B5EDED.VelaShell' }}' `
             -Publisher '${{ vars.MSIX_PUBLISHER || 'CN=3CDE21EE-6AB1-414B-BD2D-EDE8A225854B' }}' `
@@ -180,7 +196,7 @@ jobs:
             hdiutil create -volname "VelaShell" -srcfolder "$dmgroot" -ov -format UDZO "dist/$name.dmg"
           done
         env:
-          TAG_NAME: ${{ github.event.release.tag_name }}
+          TAG_NAME: ${{ github.event.release.tag_name || inputs.tag }}
       - uses: actions/upload-artifact@v4
         with:
           name: packages-macos
@@ -212,7 +228,7 @@ jobs:
             tar -czf "dist/$name.tar.gz" -C "out/$name" .
           done
         env:
-          TAG_NAME: ${{ github.event.release.tag_name }}
+          TAG_NAME: ${{ github.event.release.tag_name || inputs.tag }}
       - uses: actions/upload-artifact@v4
         with:
           name: packages-linux
@@ -256,7 +272,7 @@ jobs:
             '{version: $version, tag: $tag, assets: $assets}' > latest.json
           cat latest.json
         env:
-          TAG_NAME: ${{ github.event.release.tag_name }}
+          TAG_NAME: ${{ github.event.release.tag_name || inputs.tag }}
       - name: Generate SHA256SUMS.txt
         run: |
           set -euo pipefail
@@ -271,4 +287,4 @@ jobs:
           gh release upload "$TAG_NAME" dist/* --clobber --repo "$GITHUB_REPOSITORY"
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG_NAME: ${{ github.event.release.tag_name }}
+          TAG_NAME: ${{ github.event.release.tag_name || inputs.tag }}
