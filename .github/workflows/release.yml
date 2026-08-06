@@ -23,6 +23,13 @@
 #                    不占 API 配额),preview 通道经 API 定位 Release 后取同名清单。
 # 版本号取 Release 标签(去掉前缀 v),经 -p:Version 覆盖 Directory.Build.props,
 # 关于页显示与产物命名自动一致 —— 发新版只需打标签发 Release,无需改代码。
+#
+# 2026-08-07 排障留痕:发布 1.1.2 时本工作流一个 run 都没产生。原因不在 Release(published
+# 事件确实发出了),而是 GitHub 侧把本工作流对象置成了 state=deleted —— 文件自 2026-07-26 起
+# 一直好端端在 main 上,但处于 deleted 状态的工作流收不到任何事件,于是静默不跑、连失败记录都没有。
+# 工作流对象只在「向默认分支 push 且该 push 改动了工作流文件」时重新索引,本注释即是那次改动。
+# 日后再遇「发了 Release 却没有任何 run」,先查状态而不是先怀疑 YAML:
+#   gh api repos/joesdu/VelaShell/actions/workflows/release.yml --jq .state   # 期望 active
 name: Release
 
 on:
