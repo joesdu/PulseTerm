@@ -88,7 +88,10 @@ function Get-PublisherIdHash {
     return $result
 }
 
-function Get-MakeAppxPath {
+function Get-SdkToolPath {
+    <# 在最新一版 Windows SDK 的 x64 目录里找工具(makeappx / makepri / signtool)。 #>
+    param([Parameter(Mandatory = $true)][string]$Name)
+
     $sdkBin = 'C:\Program Files (x86)\Windows Kits\10\bin'
     if (-not (Test-Path $sdkBin)) {
         throw "找不到 Windows SDK($sdkBin)。请安装 Windows 10/11 SDK 后重试。"
@@ -97,19 +100,53 @@ function Get-MakeAppxPath {
         Where-Object { $_.Name -like '10.*' } |
         Sort-Object { [version]($_.Name) } -Descending
     foreach ($dir in $versions) {
-        $candidate = Join-Path $dir.FullName 'x64\makeappx.exe'
+        $candidate = Join-Path $dir.FullName "x64\$Name"
         if (Test-Path $candidate) { return $candidate }
     }
-    throw "在 $sdkBin 下找不到 makeappx.exe。"
+    throw "在 $sdkBin 下找不到 $Name。"
+}
+
+function Get-OpaqueBounds {
+    <#  求非全透明像素的外接矩形。源图四周有一圈透明封装边距,targetsize-* 资产必须裁掉它
+        (见 New-MsixAssets 里的说明)。逐像素扫一次 1024x1024,用 LockBits 直接读字节,
+        GetPixel 逐点调用在这个尺寸下慢到不可接受。 #>
+    param([System.Drawing.Bitmap]$Bitmap)
+
+    $rect = New-Object System.Drawing.Rectangle(0, 0, $Bitmap.Width, $Bitmap.Height)
+    $data = $Bitmap.LockBits($rect, [System.Drawing.Imaging.ImageLockMode]::ReadOnly,
+                             [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+    try {
+        $bytes = New-Object byte[] ($data.Stride * $Bitmap.Height)
+        [System.Runtime.InteropServices.Marshal]::Copy($data.Scan0, $bytes, 0, $bytes.Length)
+    }
+    finally { $Bitmap.UnlockBits($data) }
+
+    $minX = $Bitmap.Width; $minY = $Bitmap.Height; $maxX = -1; $maxY = -1
+    for ($y = 0; $y -lt $Bitmap.Height; $y++) {
+        $row = $y * $data.Stride
+        for ($x = 0; $x -lt $Bitmap.Width; $x++) {
+            if ($bytes[$row + $x * 4 + 3] -gt 0) {
+                if ($x -lt $minX) { $minX = $x }
+                if ($x -gt $maxX) { $maxX = $x }
+                if ($y -lt $minY) { $minY = $y }
+                if ($y -gt $maxY) { $maxY = $y }
+            }
+        }
+    }
+    if ($maxX -lt 0) { return $rect }
+    return New-Object System.Drawing.Rectangle($minX, $minY, ($maxX - $minX + 1), ($maxY - $minY + 1))
 }
 
 function New-ScaledPng {
-    <# 等比缩放并居中放到透明画布上(宽磁贴 310x150 与方形图标共用这一套)。 #>
-    param([string]$Source, [string]$Destination, [int]$Width, [int]$Height)
+    <#  等比缩放并居中放到透明画布上(宽磁贴 310x150 与方形图标共用这一套)。
+        -Trim 先裁掉源图四周的全透明边距,让图形铺满画布。 #>
+    param([string]$Source, [string]$Destination, [int]$Width, [int]$Height, [switch]$Trim)
 
     Add-Type -AssemblyName System.Drawing
-    $image = [System.Drawing.Image]::FromFile($Source)
+    $image = [System.Drawing.Bitmap]::new($Source)
     try {
+        $crop = if ($Trim) { Get-OpaqueBounds -Bitmap $image }
+                else { New-Object System.Drawing.Rectangle(0, 0, $image.Width, $image.Height) }
         $bitmap = New-Object System.Drawing.Bitmap($Width, $Height)
         try {
             $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
@@ -118,10 +155,12 @@ function New-ScaledPng {
                 $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
                 $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
                 $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
-                $scale = [Math]::Min($Width / $image.Width, $Height / $image.Height)
-                $w = [int][Math]::Round($image.Width * $scale)
-                $h = [int][Math]::Round($image.Height * $scale)
-                $graphics.DrawImage($image, [int](($Width - $w) / 2), [int](($Height - $h) / 2), $w, $h)
+                $scale = [Math]::Min($Width / $crop.Width, $Height / $crop.Height)
+                $w = [int][Math]::Round($crop.Width * $scale)
+                $h = [int][Math]::Round($crop.Height * $scale)
+                $target = New-Object System.Drawing.Rectangle(
+                    [int](($Width - $w) / 2), [int](($Height - $h) / 2), $w, $h)
+                $graphics.DrawImage($image, $target, $crop, [System.Drawing.GraphicsUnit]::Pixel)
             }
             finally { $graphics.Dispose() }
             $bitmap.Save($Destination, [System.Drawing.Imaging.ImageFormat]::Png)
@@ -132,7 +171,17 @@ function New-ScaledPng {
 }
 
 function New-MsixAssets {
-    <# 生成 manifest 引用到的全部图标。targetsize-* 是任务栏/开始菜单用的无边距变体。 #>
+    <#  生成 manifest 引用到的全部图标。
+        任务栏/开始菜单不用 manifest 里写的那张 Square44x44Logo.png,而是按限定符挑
+        Square44x44Logo.targetsize-<N>[_altform-...].png:
+          无 altform          —— 带底板(plated)。系统在图标后面垫一块 BackgroundColor 的底,
+                                 BackgroundColor="transparent" 时垫的是用户的主题色,
+                                 于是任务栏上就是一块纯色方块(issue #135 那张截图里的蓝底)。
+          altform-unplated    —— 无底板,深色任务栏用。这才是任务栏想要的那张。
+          altform-lightunplated —— 无底板,浅色任务栏用。缺它时浅色主题下会退回 plated。
+        三种必须成套给:只给 unplated 而没有对应的 plated targetsize,系统会当这一档不存在。
+        另外 targetsize-* 按规范不留边距(底板/圆角由系统加),所以这些用 -Trim 裁掉源图
+        那圈封装留白铺满画布;Square*/Wide* 磁贴反过来需要留白,保持原样。 #>
     param([string]$AssetsDirectory)
 
     New-Item -ItemType Directory -Force $AssetsDirectory | Out-Null
@@ -148,12 +197,39 @@ function New-MsixAssets {
                       -Width $square[$name] -Height $square[$name]
     }
     foreach ($size in @(16, 24, 32, 48, 256)) {
-        New-ScaledPng -Source $sourceIcon `
-                      -Destination (Join-Path $AssetsDirectory "Square44x44Logo.targetsize-$size`_altform-unplated.png") `
-                      -Width $size -Height $size
+        foreach ($form in @('', '_altform-unplated', '_altform-lightunplated')) {
+            New-ScaledPng -Source $sourceIcon -Trim `
+                          -Destination (Join-Path $AssetsDirectory "Square44x44Logo.targetsize-$size$form.png") `
+                          -Width $size -Height $size
+        }
     }
     New-ScaledPng -Source $sourceIcon -Destination (Join-Path $AssetsDirectory 'Wide310x150Logo.png') `
                   -Width 310 -Height 150
+}
+
+function New-ResourcesPri {
+    <#  生成 resources.pri —— 没有它,上面那一整套 targetsize-*/altform-* 全是死文件:
+        文件名里的限定符只有通过 PRI 索引才会被解析,包里没有 PRI 时系统只认 manifest 里
+        写死的那个路径(Assets\Square44x44Logo.png),于是任务栏拿到的永远是 plated 那张。
+        makeappx pack 不会自动生成 PRI,必须显式跑一遍 makepri。
+
+        createconfig 生成的默认配置里带 <packaging>/<autoResourcePackage>,会把按 Language/Scale
+        限定的资源拆成独立的 resources.<qualifier>.pri 资源包。我们是单包提交(bundle 里只有
+        架构分片,没有资源分片),拆出去的那部分谁也不会打进包,所以把 <packaging> 整段删掉。 #>
+    param([string]$LayoutDirectory, [string]$ConfigPath)
+
+    $makepri = Get-SdkToolPath 'makepri.exe'
+    & $makepri createconfig /cf $ConfigPath /dq en-US /o | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw 'makepri createconfig 失败' }
+
+    $config = [xml](Get-Content $ConfigPath -Raw)
+    $packaging = $config.SelectSingleNode('//packaging')
+    if ($packaging) { $packaging.ParentNode.RemoveChild($packaging) | Out-Null }
+    $config.Save($ConfigPath)
+
+    # /pr 下有 AppxManifest.xml 时 makepri 自动取包标识,不必再传 /in。
+    & $makepri new /pr $LayoutDirectory /cf $ConfigPath /of (Join-Path $LayoutDirectory 'resources.pri') /o
+    if ($LASTEXITCODE -ne 0) { throw 'makepri new 失败' }
 }
 
 function New-AppxManifest {
@@ -172,7 +248,7 @@ function New-AppxManifest {
 # ———————————————————— 主流程 ————————————————————
 
 $msixVersion = ConvertTo-MsixVersion $Version
-$makeappx = Get-MakeAppxPath
+$makeappx = Get-SdkToolPath 'makeappx.exe'
 Write-Host "MSIX 版本号 : $msixVersion"
 Write-Host "包标识      : $IdentityName / $Publisher"
 Write-Host "发布者显示名: $PublisherDisplayName"
@@ -211,6 +287,9 @@ foreach ($rid in $Runtimes) {
     New-MsixAssets -AssetsDirectory (Join-Path $layout 'Assets')
     New-AppxManifest -Destination (Join-Path $layout 'AppxManifest.xml') `
                      -MsixVersion $msixVersion -Architecture $arch
+    # 配置文件放在 layout 之外:留在里面会被 makeappx 一并打进包。
+    New-ResourcesPri -LayoutDirectory $layout `
+                     -ConfigPath (Join-Path $intermediateRoot "priconfig-$rid.xml")
 
     $msixPath = Join-Path $bundleInput "VelaShell-$Version-$rid.msix"
     Write-Host "=== 打包 $rid ==="
@@ -231,7 +310,7 @@ if ($SelfSignForLocalTest) {
         -KeyUsage DigitalSignature -FriendlyName 'VelaShell local test' `
         -CertStoreLocation 'Cert:\CurrentUser\My' `
         -TextExtension @('2.5.29.37={text}1.3.6.1.5.5.7.3.3', '2.5.29.19={text}')
-    $signtool = (Get-MakeAppxPath) -replace 'makeappx\.exe$', 'signtool.exe'
+    $signtool = Get-SdkToolPath 'signtool.exe'
     & $signtool sign /fd SHA256 /sha1 $cert.Thumbprint $bundlePath
     if ($LASTEXITCODE -ne 0) { throw 'signtool 签名失败' }
     Write-Warning '已用自签证书签名,该包只能本机安装自测,请勿提交到商店。'
