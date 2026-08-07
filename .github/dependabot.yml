@@ -8,4 +8,11 @@ updates:
   - package-ecosystem: "nuget" # See documentation for possible values
     directory: "/" # Location of package manifests
     schedule:
-      interval: "weekly"
+      interval: "daily"
+  # 只盯 nuget 的话,.github/workflows 里的 action 版本会一路留在原地,直到 GitHub 把它们
+  # 依赖的 Node 运行时判死刑才被动发现(2025-09 的 Node 20 弃用就是这么撞上的)。
+  # 加上这条,action 的大版本更新会以 PR 形式提前送到眼前。
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: daily
