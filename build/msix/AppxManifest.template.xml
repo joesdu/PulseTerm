@@ -54,6 +54,14 @@
   <Applications>
     <!-- EntryPoint=Windows.FullTrustApplication:这是一个普通 Win32 可执行文件,不是 UWP。 -->
     <Application Id="VelaShell" Executable="VelaShell.exe" EntryPoint="Windows.FullTrustApplication">
+      <!-- 这里写的 Square44x44Logo 只是"基名":任务栏/开始菜单实际挑的是同名的限定符变体
+           (Square44x44Logo.targetsize-<N>_altform-unplated.png 等),由 Build-Msix.ps1 生成、
+           经 resources.pri 索引后才可见。少了 PRI 或少了 unplated 变体,系统就退回这张基图并
+           在它背后垫一块 BackgroundColor 的底 —— BackgroundColor="transparent" 时垫的是用户
+           主题色,任务栏上就成了一块纯色方块(issue #135)。改这两处前先读 Build-Msix.ps1
+           里 New-MsixAssets / New-ResourcesPri 的注释。
+           BackgroundColor 保持 transparent:磁贴跟随主题色是想要的效果,任务栏的透明由
+           unplated 变体保证,二者不冲突。 -->
       <uap:VisualElements
         DisplayName="VelaShell"
         Description="A modern, cross-platform SSH and SFTP client with a GPU-accelerated terminal."

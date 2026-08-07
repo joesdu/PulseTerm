@@ -56,6 +56,37 @@ pwsh build/msix/New-StoreLogos.ps1
 默认裁掉源图四周的透明边距使图形填满画布 —— 那圈留白是图标文件的封装边距,
 磁贴资产本身就该占满画框,71x71 下留白会明显吃掉可视面积。需要保留留白时加 `-KeepPadding`。
 
+## 包内图标:为什么必须有 resources.pri
+
+任务栏和开始菜单**不用** manifest 里写的 `Assets\Square44x44Logo.png`,而是按限定符
+挑同名变体,`Build-Msix.ps1` 为 16/24/32/48/256 各出三张:
+
+| 文件名后缀 | 用途 |
+|---|---|
+| `.targetsize-<N>` | 带底板(plated),开始菜单等处用 |
+| `.targetsize-<N>_altform-unplated` | 无底板,**深色任务栏用的就是这张** |
+| `.targetsize-<N>_altform-lightunplated` | 无底板,浅色任务栏用 |
+
+三种要成套给:只给 unplated 而没有对应的 plated,系统会当这一档不存在。
+`targetsize-*` 按规范不留边距(圆角与底板由系统加),故这些图裁掉了源图那圈封装留白;
+`Square*Logo` / `Wide310x150Logo` 磁贴反过来需要留白,保持原样。
+
+**限定符只有通过 `resources.pri` 才会被解析**,而 `makeappx pack` 不生成 PRI ——
+必须先跑一遍 `makepri`(脚本里的 `New-ResourcesPri`)。包里没有 PRI 时,上面那一整套
+变体全是死文件,系统只认 manifest 里写死的那张基图,并在它背后垫一块 `BackgroundColor`
+的底;`BackgroundColor="transparent"` 垫的是用户主题色,于是任务栏图标变成一块纯色方块
+(issue #135)。`makepri createconfig` 的默认配置还带 `<packaging>/<autoResourcePackage>`,
+会把资源拆成独立的 `.pri` 资源包 —— 我们是单包提交,脚本会把这段删掉再索引。
+
+改完可以验证一下限定符确实进了索引:
+
+```powershell
+makepri dump /if out/msix/win-x64/resources.pri /of dump.xml /o
+```
+
+`Square44x44Logo.png` 那个 `NamedResource` 下应能看到 15 个带
+`TargetSize-* / AlternateForm-*` 限定符的 `Candidate`。
+
 ## 上架检查清单
 
 - **版本号**:MSIX 只认四段纯数字,且第四段(修订号)保留给商店、必须为 0。
