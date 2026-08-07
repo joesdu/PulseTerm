@@ -62,8 +62,8 @@ jobs:
   build-windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
       - name: Restore strong-name key
@@ -87,7 +87,7 @@ jobs:
             Get-ChildItem "out/$name" -Recurse -File -Filter '*.pdb' | Remove-Item -Force
             Compress-Archive -Path "out/$name/*" -DestinationPath "dist/$name.zip" -Force
           }
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: packages-windows
           path: dist/*
@@ -106,8 +106,8 @@ jobs:
   build-msix:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
       - name: Restore strong-name key
@@ -127,7 +127,7 @@ jobs:
             -PublisherDisplayName '${{ vars.MSIX_PUBLISHER_DISPLAY_NAME || '鹿宝丶' }}'
       # 单独上传,不并入 dist:.msixbundle 是给 Partner Center 手动提交用的,既不进
       # latest.json(那是便携版自更新器的清单),也不该被当成可下载的安装包挂在 Release 上。
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: store-msix
           path: dist/*.msixbundle
@@ -136,8 +136,8 @@ jobs:
   build-macos:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
       - name: Restore strong-name key
@@ -145,6 +145,29 @@ jobs:
         run: echo "$SNK_B64" | openssl base64 -A -d > src/VelaShell.snk
         env:
           SNK_B64: ${{ secrets.STRONG_NAME_KEY }}
+      # 腾磁盘。arm64 的 macOS runner 数据卷可用空间只有十几 GB,预装的多版本 Xcode 与模拟器
+      # 运行时占掉大头,且不同批次镜像的剩余量差别很大 —— 这就是 dmg 打包间歇性
+      # "No space left on device"、重跑又能过的原因(1.1.2 翻过一次,失败点在第一个 RID,
+      # 说明是起步空间不够而非产物累积撑爆)。删掉用不上的预装组件把它变成确定行为。
+      # 本 job 只用到 /usr/bin 下的 sips / iconutil / codesign / hdiutil,都是系统自带,
+      # 不走 xcrun、不依赖 Xcode.app;仍保留 xcode-select 选中的那一份以防万一。
+      # 刻意不加 set -e:腾空间是尽力而为,某个路径不存在或删不掉不该让发布失败。
+      - name: Free up disk space
+        run: |
+          set -uo pipefail
+          echo "== before =="; df -h /System/Volumes/Data | tail -1
+          selected="$(cd "$(xcode-select -p)/../.." 2>/dev/null && pwd -P)" || selected=''
+          for app in /Applications/Xcode*.app; do
+            [ -e "$app" ] || continue
+            real="$(cd "$app" 2>/dev/null && pwd -P)" || continue
+            [ "$real" = "$selected" ] && continue
+            sudo rm -rf "$app"
+          done
+          sudo rm -rf /Library/Developer/CoreSimulator/Profiles/Runtimes
+          sudo rm -rf "$HOME/Library/Developer/CoreSimulator"
+          sudo rm -rf "$HOME/Library/Android" /usr/local/share/boost
+          sudo rm -rf "$HOME/.rustup" "$HOME/.cargo"
+          echo "== after =="; df -h /System/Volumes/Data | tail -1
       - name: Publish (osx-x64 / osx-arm64)
         run: |
           set -euo pipefail
@@ -172,9 +195,13 @@ jobs:
 
             # VelaShell.app:Contents/MacOS = 上面的扁平发布目录,布局与 tar.gz 严格一致,
             # 这样无论用户从 dmg 装进 /Applications 还是解 tar 便携运行,自更新走同一条原地换版路径。
-            app="out/bundle-$rid/VelaShell.app"
-            mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
-            cp -a "out/$name/." "$app/Contents/MacOS/"
+            # 直接建在 dmg 根目录里,并且用 mv 而不是 cp —— 原先"发布目录 → .app → dmg 根目录"
+            # 三份全量副本,叠上 hdiutil 那份等大的临时镜像就是四份,runner 磁盘扛不住。
+            # tar.gz 此时已经打好,out/$name 没有别的用途,可以整个搬走(同卷 mv,零拷贝)。
+            dmgroot="out/dmg-$rid"
+            app="$dmgroot/VelaShell.app"
+            mkdir -p "$app/Contents/Resources"
+            mv "out/$name" "$app/Contents/MacOS"
             cp src/VelaShell/Info.plist "$app/Contents/Info.plist"
             # CFBundleShortVersionString 显示完整版本(含预发布后缀);CFBundleVersion 取纯数字段。
             /usr/libexec/PlistBuddy \
@@ -189,15 +216,19 @@ jobs:
             codesign --force --deep --sign - "$app"
 
             # dmg:VelaShell.app + /Applications 快捷方式的经典拖装布局。
-            dmgroot="out/dmg-$rid"
-            mkdir -p "$dmgroot"
-            cp -a "$app" "$dmgroot/"
+            # hdiutil -srcfolder 会先建一个与内容等大的可写镜像(挂到 /Volumes/VelaShell)灌进去
+            # 再转 UDZO,峰值需要"未压缩内容 + 压缩产物"的空间,是这个 job 里最吃磁盘的一步。
             ln -s /Applications "$dmgroot/Applications"
             hdiutil create -volname "VelaShell" -srcfolder "$dmgroot" -ov -format UDZO "dist/$name.dmg"
+
+            # 立刻回收:两个 RID 之间不留全量副本,也不留只对上一个 RID 有意义的中间产物。
+            rm -rf "$dmgroot"
+            rm -rf src/*/obj/Release/*/"$rid" src/*/bin/Release/*/"$rid"
+            echo "== after $rid =="; df -h /System/Volumes/Data | tail -1
           done
         env:
           TAG_NAME: ${{ github.event.release.tag_name || inputs.tag }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: packages-macos
           path: dist/*
@@ -206,8 +237,8 @@ jobs:
   build-linux:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
       - name: Restore strong-name key
@@ -229,7 +260,7 @@ jobs:
           done
         env:
           TAG_NAME: ${{ github.event.release.tag_name || inputs.tag }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: packages-linux
           path: dist/*
@@ -239,7 +270,7 @@ jobs:
     needs: [build-windows, build-macos, build-linux]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           # 只收便携版产物:store-msix 是给 Partner Center 手动提交的,不能混进 Release 资产
           # (它未签名、装不上,还会污染 SHA256SUMS)。不加这道过滤就会被 merge-multiple 一并拉进来。
