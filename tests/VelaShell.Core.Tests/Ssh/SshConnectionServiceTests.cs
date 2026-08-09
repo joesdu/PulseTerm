@@ -136,7 +136,7 @@ public class SshConnectionServiceTests
         Assert.IsNotNull(session1);
         Assert.IsNotNull(session2);
         Assert.AreNotEqual(session2.SessionId, session1.SessionId);
-        Assert.AreEqual(2, service.Sessions.Count);
+        Assert.HasCount(2, service.Sessions);
     }
 
     [TestMethod]
@@ -262,7 +262,7 @@ public class SshConnectionServiceTests
         };
         var service = new SshConnectionService(_ => mockClientWrapper);
         await Assert.ThrowsExactlyAsync<VelaSshConnectionException>(async () => await service.ConnectAsync(connectionInfo));
-        Assert.AreEqual(0, service.Sessions.Count);
+        Assert.IsEmpty(service.Sessions);
     }
 
     [TestMethod]
@@ -318,7 +318,7 @@ public class SshConnectionServiceTests
         TimeoutException ex = await Assert.ThrowsExactlyAsync<TimeoutException>(async () => await service.ConnectAsync(connectionInfo));
         Assert.Contains("slow.example.com", ex.Message);
         Assert.Contains("timed out", ex.Message);
-        Assert.AreEqual(0, service.Sessions.Count);
+        Assert.IsEmpty(service.Sessions);
     }
 
     [TestMethod]

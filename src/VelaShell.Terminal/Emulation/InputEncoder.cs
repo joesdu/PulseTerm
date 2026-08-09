@@ -50,7 +50,11 @@ public static class InputEncoder
             Key.PageDown => Tilde(6, mod, alt),
             Key.Enter => WithAlt(modes.NewLineMode ? "\r\n"u8.ToArray() : "\r"u8.ToArray(), alt),
             Key.Tab => shift ? Esc("[Z") : WithAlt([0x09], alt),
-            Key.Back => WithAlt([ctrl ? (byte)0x08 : (byte)0x7F], alt),
+            // Ctrl+Backspace = 删除光标前一个单词(#127,与 Tabby 一致):发 ESC+DEL,
+            // 即 readline 的 M-DEL(backward-kill-word)与 zsh 的 backward-kill-word 默认绑定,
+            // 也与 Alt+Backspace 同序列。原先发的 0x08(^H)在 readline 里等价于退一格,
+            // 与普通 Backspace 毫无区别,达不到删词效果。
+            Key.Back => ctrl ? [0x1B, 0x7F] : WithAlt([0x7F], alt),
             Key.Escape => WithAlt([0x1B], alt),
             Key.F1 => Function(1, 'P', mod, alt, vt52),
             Key.F2 => Function(2, 'Q', mod, alt, vt52),

@@ -4,13 +4,16 @@
 
 `VelaShell.Controls` 提供跨视图复用的自定义 Avalonia 控件，以及**设计 Token 化**的资源字典（颜色、间距、字体、图标）。它让全应用的外观从单一来源驱动，杜绝硬编码颜色，从而支持深色/浅色/系统主题与品牌定制的运行时切换。它是纯控件层，不引用任何其他 VelaShell 项目。
 
-> 目前重心在 **Token 与图标基建**：控件本体只有 `LucideIcon` 一个，业务性视图（状态栏、标签条、面板等）仍在应用入口项目 `VelaShell` 内以 XAML 组合实现，引用本项目的 Token 与图标。设计稿要求的逐帧自定义控件库仍是持续演进方向（见 `docs/架构设计.md` §6）。
+> 目前重心在 **Token 与图标基建**：控件本体只有图标与资源监视用的几个绘制控件，业务性视图（状态栏、标签条、面板等）仍在应用入口项目 `VelaShell` 内以 XAML 组合实现，引用本项目的 Token 与图标。设计稿要求的逐帧自定义控件库仍是持续演进方向（见 `docs/架构设计.md` §6）。
 
 ## 🗂️ 目录结构
 
 | 路径 | 职责 |
 |------|------|
 | `Controls/LucideIcon.cs` | Lucide 图标控件：按名称从 `Icons.axaml` 取几何路径渲染矢量图标，随主题着色。 |
+| `Controls/TimeSeriesChart.cs` | 时序图：定长滚动窗口（默认 60 采样点）的「面积 + 折线」，支持多曲线叠加与上下行镜像；每条曲线是 `ChartSeries` 子元素（必须进可视树，否则 DataContext 与 DynamicResource 都解析不到）。 |
+| `Controls/UsageHeatGrid.cs` | 逻辑处理器热力网格：一次 Render 画完全部格子（128 核以上不逐格建控件），五级色阶、自适应列数、可点选；高度随行数增长，外套 ScrollViewer 即得滚动。 |
+| `Controls/MeterBar.cs` | 容量 / 占用条：圆角轨道 + 填充，按 >70% / >90% 阈值自动转警告与危险色。 |
 | `Themes/VelaTokens.axaml` `VelaShellTokens.axaml` | **设计 Token 定义**：颜色、间距、圆角、字体等语义化资源，主题切换的单一真源。 |
 | `Themes/Icons.axaml` | 图标几何路径资源字典（Lucide，stroke 2 / 24×24 viewBox）。 |
 | `DependencyInjection/ControlsServiceCollectionExtensions.cs` | 控件相关服务的 DI 注册入口。 |

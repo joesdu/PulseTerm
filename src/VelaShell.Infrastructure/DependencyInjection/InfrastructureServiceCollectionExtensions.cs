@@ -1,7 +1,9 @@
 using Microsoft.Extensions.DependencyInjection;
 using Tmds.Ssh;
 using VelaShell.Core.Data;
+using VelaShell.Core.Diagnostics;
 using VelaShell.Core.Models;
+using VelaShell.Core.Processes;
 using VelaShell.Core.Recording;
 using VelaShell.Core.Resources;
 using VelaShell.Core.Services;
@@ -9,6 +11,7 @@ using VelaShell.Core.Sftp;
 using VelaShell.Core.Ssh;
 using VelaShell.Core.Sync;
 using VelaShell.Core.Tunnels;
+using VelaShell.Infrastructure.Import;
 using VelaShell.Infrastructure.Persistence;
 using VelaShell.Infrastructure.Ssh;
 using VelaShell.Infrastructure.Tunnels;
@@ -47,6 +50,11 @@ public static class InfrastructureServiceCollectionExtensions
             return new SonnetDbSettingsService(sp.GetRequiredService<SonnetDbEngine>(),
                 [paths.RootDirectory, paths.LegacyDotDirectory]);
         });
+        // 会话一键迁移:各来源(Xshell / WinSCP)解析 + 还原密码 + 写入会话仓储。
+        services.AddSingleton<XshellImportService>(sp =>
+            new(sp.GetRequiredService<ISessionRepository>()));
+        services.AddSingleton<WinScpImportService>(sp =>
+            new(sp.GetRequiredService<ISessionRepository>()));
         services.AddSingleton<IHostKeyService>(sp =>
         {
             VelaShellStoragePaths paths = sp.GetRequiredService<VelaShellStoragePaths>();
@@ -106,6 +114,24 @@ public static class InfrastructureServiceCollectionExtensions
             sp.GetRequiredService<ISecretProtector>()));
         services.AddSingleton<ISessionMetricsService>(sp =>
             new SessionMetricsService(sp.GetRequiredService<ISshConnectionService>()));
+        services.AddSingleton<IRemoteProcessService>(sp =>
+            new RemoteProcessService(sp.GetRequiredService<ISshConnectionService>()));
+        services.AddSingleton<ITraceRouteService, Diagnostics.PingTraceRouteService>();
+        services.AddSingleton<IIpGeolocationService>(sp =>
+        {
+            var paths = new VelaShellStoragePaths();
+            string? configured = null;
+            try
+            {
+                configured = sp.GetService<ISettingsService>()?.GetSettingsAsync().GetAwaiter().GetResult()
+                               .General.GeoIpDatabasePath;
+            }
+            catch
+            {
+                // 设置读不出来就用默认目录,不该因此让追踪窗口开不了。
+            }
+            return new Diagnostics.MmdbIpGeolocationService(configured, paths.GeoIpDirectory);
+        });
         services.AddSingleton<ITunnelService>(sp =>
         {
             ISshConnectionService connSvc = sp.GetRequiredService<ISshConnectionService>();
@@ -212,7 +238,7 @@ public static class InfrastructureServiceCollectionExtensions
             if (OpenSshPrivateKey.TryConvertToOpenSsh(pem, passphrase) is { } openSshKey)
             {
                 // 转换后的 OpenSSH 私钥是未加密的(口令已在转换时用掉),故不再传口令。
-                return new PrivateKeyCredential(openSshKey, (string?)null, path);
+                return new PrivateKeyCredential(openSshKey, null, path);
             }
         }
         catch

@@ -1,3 +1,4 @@
+using ReactiveUI.Primitives;
 using VelaShell.Presentation.ViewModels;
 
 namespace VelaShell.Presentation.Tests.ViewModels;

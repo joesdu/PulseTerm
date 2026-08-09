@@ -328,7 +328,100 @@ public class TerminalEmulatorTests
         TerminalEmulator e = New();
         string? reply = null;
         e.Response += b => reply = Encoding.ASCII.GetString(b);
-        Feed(e, "\x1bP$q q\x1b\\"); // DECSCUSR:未实现
+        Feed(e, "\x1bP$q\"p\x1b\\"); // DECSCL:未实现
         Assert.AreEqual("\x1bP0$r\x1b\\", reply);
+    }
+
+    // ---- 回归:issue #112「打开 vim 会自动输入奇怪字符」 ----
+
+    [TestMethod]
+    public void Decrqss_Decscusr_ReportsCursorStyle()
+    {
+        // vim 启动时必发 t_RS = DCS $ q SP q ST,且只认 "DCS 1 $ r <一位数字> SP q ST"。
+        // 曾经回 "DCS 0 $ r ST"(无效请求),vim 匹配失败后把整段当键入:
+        // Esc P 0 $ r … → E353 报错 + 响铃 + 光标跳到行尾。
+        TerminalEmulator e = New();
+        string? reply = null;
+        e.Response += b => reply = Encoding.ASCII.GetString(b);
+        Feed(e, "\x1bP$q q\x1b\\");
+        Assert.AreEqual("\x1bP1$r0 q\x1b\\", reply);
+    }
+
+    [TestMethod]
+    public void Decscusr_SetStyle_IsEchoedByDecrqss()
+    {
+        TerminalEmulator e = New();
+        string? reply = null;
+        e.Response += b => reply = Encoding.ASCII.GetString(b);
+        Feed(e, "\x1b[4 q");       // DECSCUSR:稳定下划线
+        Feed(e, "\x1bP$q q\x1b\\");
+        Assert.AreEqual("\x1bP1$r4 q\x1b\\", reply);
+    }
+
+    [TestMethod]
+    public void Decscusr_OutOfRangeStyle_IsClampedToOneDigit()
+    {
+        // 应答必须是单个数字,否则 vim 又会解析失败并把应答当键入。
+        TerminalEmulator e = New();
+        string? reply = null;
+        e.Response += b => reply = Encoding.ASCII.GetString(b);
+        Feed(e, "\x1b[42 q");
+        Feed(e, "\x1bP$q q\x1b\\");
+        Assert.AreEqual("\x1bP1$r6 q\x1b\\", reply);
+    }
+
+    [TestMethod]
+    public void ModifyOtherKeys_IsNotTreatedAsSgr()
+    {
+        // vim 启动/退出时发 "CSI > 4 ; 2 m" / "CSI > 4 ; m":私有前缀的序列不是 SGR,
+        // 曾被裸分派成 SGR 4;2(下划线 + 变暗),整屏跟着变样。
+        TerminalEmulator e = New();
+        Feed(e, "\x1b[>4;2mX");
+        Assert.AreEqual(CellFlags.None, e.Screen.GetCell(0, 0).Flags);
+    }
+
+    [TestMethod]
+    public void CsiWithIntermediate_IsNotTreatedAsPlainFinal()
+    {
+        // vim 的 xterm 兼容性探针:未知 DCS 与带中间字节的 CSI 都应被静默忽略,
+        // 光标不许动、屏幕不许出字符(vim 靠随后的 CPR 判定终端是否 xterm 兼容)。
+        TerminalEmulator e = New();
+        Feed(e, "\x1b[3;5H");
+        Feed(e, "\x1bPzz\x1b\\\x1b[0%m");
+        Assert.AreEqual(4, e.CursorX);
+        Assert.AreEqual(2, e.CursorY);
+        Assert.AreEqual(string.Empty, Line(e, 2));
+    }
+
+    [TestMethod]
+    public void VimStartupHandshake_OnlyRepliesWithSequencesVimCanParse()
+    {
+        // vim 启动时的整套探询(我们回报为 xterm 补丁级 360,于是 vim 会问光标形状)。
+        // 每一条应答都必须是 vim 认得的形状:任何一条对不上,vim 都会把它当键入吞进去。
+        TerminalEmulator e = New();
+        var replies = new List<string>();
+        e.Response += b => replies.Add(Encoding.ASCII.GetString(b));
+        Feed(e, "\x1b[>4;2m");           // modifyOtherKeys:不应答
+        Feed(e, "\x1b[>c");              // DA2
+        Feed(e, "\x1bP+q544e\x1b\\");    // XTGETTCAP:不应答
+        Feed(e, "\x1b[?12$p");           // DECRQM 光标闪烁:不应答
+        Feed(e, "\x1bP$q q\x1b\\");      // DECRQSS 光标形状
+        Feed(e, "\x1b]11;?\x1b\\");      // OSC 11 背景色:不应答
+        Feed(e, "\x1bPzz\x1b\\\x1b[0%m"); // xterm 兼容性探针:不应答、不动光标
+        Feed(e, "\x1b[6n");              // CPR
+        CollectionAssert.AreEqual(new[] { "\x1b[>41;360;0c", "\x1bP1$r0 q\x1b\\", "\x1b[1;1R" }, replies);
+    }
+
+    [TestMethod]
+    public void KittyKeyboardProtocol_DoesNotRestoreCursor()
+    {
+        // "CSI = 0 ; 1 u" / "CSI > 1 u" 是 kitty 键盘协议,不是 ANSI.SYS 的恢复光标;
+        // 裸按 final 分派会让光标跳回上次保存的位置。
+        TerminalEmulator e = New();
+        Feed(e, "\x1b[1;1H\x1b[s");  // 在 (0,0) 保存
+        Feed(e, "\x1b[5;7H");        // 移到别处
+        Feed(e, "\x1b[=0;1u\x1b[>1u");
+        Assert.AreEqual(6, e.CursorX);
+        Assert.AreEqual(4, e.CursorY);
     }
 }

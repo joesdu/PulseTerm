@@ -77,7 +77,7 @@
         <Slider Width="120" Minimum="0" Maximum="100"
                 Value="{Binding Appearance.BackgroundImageOpacity}" VerticalAlignment="Center" />
         <TextBlock Width="40" TextAlignment="Right" VerticalAlignment="Center"
-                   Foreground="{DynamicResource VelaTextSecondary}" FontSize="12"
+                   Foreground="{DynamicResource VelaTextSecondary}" FontSize="{DynamicResource VelaFontSize12}"
                    Text="{Binding Appearance.BackgroundImageOpacity, StringFormat={}{0}%}" />
       </StackPanel>
     </Grid>
@@ -91,9 +91,21 @@
         <Slider Width="120" Minimum="20" Maximum="100"
                 Value="{Binding Appearance.ContentBackgroundOpacity}" VerticalAlignment="Center" />
         <TextBlock Width="40" TextAlignment="Right" VerticalAlignment="Center"
-                   Foreground="{DynamicResource VelaTextSecondary}" FontSize="12"
+                   Foreground="{DynamicResource VelaTextSecondary}" FontSize="{DynamicResource VelaFontSize12}"
                    Text="{Binding Appearance.ContentBackgroundOpacity, StringFormat={}{0}%}" />
       </StackPanel>
+    </Grid>
+
+    <Border Classes="sep" />
+
+    <!-- 渲染 -->
+    <TextBlock Classes="section-title" Text="{loc:Localize SetAppear_RenderSection}" />
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetAppear_HardwareAcceleration}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetAppear_HardwareAccelerationDesc}" TextWrapping="Wrap" />
+      </StackPanel>
+      <ToggleSwitch Grid.Column="1" IsChecked="{Binding Appearance.HardwareAcceleration}" VerticalAlignment="Center" />
     </Grid>
 
     <Border Classes="sep" />
@@ -129,7 +141,7 @@
                 Value="{Binding Appearance.WindowOpacityPercent}" VerticalAlignment="Center" />
         <!-- 只读指示器:数值仅由滑块驱动(手动输入无意义且易输入非法字符)。 -->
         <TextBlock Width="40" TextAlignment="Right" VerticalAlignment="Center"
-                   Foreground="{DynamicResource VelaTextSecondary}" FontSize="12"
+                   Foreground="{DynamicResource VelaTextSecondary}" FontSize="{DynamicResource VelaFontSize12}"
                    Text="{Binding Appearance.WindowOpacityPercent, StringFormat={}{0}%}" />
       </StackPanel>
     </Grid>
@@ -232,7 +244,10 @@
       <TextBlock Classes="row-desc" Text="{loc:Localize SetAppear_Ansi16Desc}" />
     </StackPanel>
     <StackPanel Orientation="Horizontal" Spacing="8">
-      <TextBlock Classes="row-desc" Text="{loc:Localize SetAppear_AnsiNormal}" Width="30" VerticalAlignment="Center" />
+      <!-- 定宽 30 的色板行首标注:借用 row-desc 的字体字号,但不能跟着换行(30px 宽会把
+           "Normal" 拆成好几行),故单独关掉。 -->
+      <TextBlock Classes="row-desc" Text="{loc:Localize SetAppear_AnsiNormal}" Width="30"
+                 TextWrapping="NoWrap" VerticalAlignment="Center" />
       <ItemsControl ItemsSource="{Binding Appearance.AnsiNormal}">
         <ItemsControl.ItemsPanel>
           <ItemsPanelTemplate>
@@ -250,7 +265,8 @@
       </ItemsControl>
     </StackPanel>
     <StackPanel Orientation="Horizontal" Spacing="8">
-      <TextBlock Classes="row-desc" Text="{loc:Localize SetAppear_AnsiBright}" Width="30" VerticalAlignment="Center" />
+      <TextBlock Classes="row-desc" Text="{loc:Localize SetAppear_AnsiBright}" Width="30"
+                 TextWrapping="NoWrap" VerticalAlignment="Center" />
       <ItemsControl ItemsSource="{Binding Appearance.AnsiBright}">
         <ItemsControl.ItemsPanel>
           <ItemsPanelTemplate>

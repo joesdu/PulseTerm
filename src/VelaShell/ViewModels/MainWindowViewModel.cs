@@ -1,17 +1,19 @@
 using System.ComponentModel;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
-using System.Reactive;
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Text;
 using Avalonia;
 using Avalonia.Threading;
 using ReactiveUI;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Concurrency;
+using ReactiveUI.Primitives.Signals;
 using VelaShell.Core.Data;
+using VelaShell.Core.Diagnostics;
 using VelaShell.Core.Models;
+using VelaShell.Core.Processes;
 using VelaShell.Core.Recording;
 using VelaShell.Core.Resources;
 using VelaShell.Core.Services;
@@ -42,16 +44,28 @@ public class MainWindowViewModel : ReactiveObject
     /// bash 提示符补行脚本(内置,静默注入):命令输出末尾无换行时,经 DSR(ESC[6n)
     /// 查询光标列,不在行首则先补一个换行再画提示符(zsh 的默认行为)。
     /// </summary>
-    // 末尾 printf 发 OSC 7(file://主机/当前目录),供「文件浏览器跟随终端目录」(map-pin)读取 shell cwd。
+    // 函数体末尾的 printf 发 OSC 7(file://主机/当前目录),供「文件浏览器跟随终端目录」(map-pin)读取 shell cwd。
     // 仅 bash 会调用 prompt_nl(经 PROMPT_COMMAND),故 \e/\$PWD 等 bash-only 语法对 dash/sh 无副作用(它们从不调用)。
+    //
+    // 整行最后的 printf '\r\033[2K' 是"登录时提示符出现两次"的解药:注入这一行本身要占掉 shell
+    // 的一个提示符周期 —— 登录提示符先画出来(还带上 tty 回显里没被抑制针覆盖的那个前导空格),
+    // 命令执行完 shell 再画一个新的,于是屏幕上并排两行 [root@host ~]#。
+    // 这里在新提示符画出来之前把光标所在的整行擦掉(\r 回到行首 + CSI 2K 清整行),
+    // 旧提示符与残留空格一并消失;随后 prompt_nl 查到光标已在第 1 列,不会再补换行,
+    // 新提示符正好落在被清空的那一行 —— 净效果就是只剩一个提示符,与 WindTerm 等工具一致。
+    // 放在整行末尾(而不是 SendSilentCommand 里)是为了让用户配置的"连接后执行命令"
+    // 接在它后面:先清行,用户命令的输出才从干净的行首开始。
+    // 转义用八进制 \033 而不是 \e:这一句由对端的任意 shell 执行(函数体只被 bash 调用,它不是),
+    // 而 \e 是 bash/zsh 扩展 —— dash/busybox ash 的 printf 会把它原样打成字面量 "\e[2K"。
     private const string PromptNewlineFix =
-        """prompt_nl() { local c; IFS='[;' read -p $'\e[6n' -d R -rs _ _ c; ((c>1)) && echo; printf '\e]7;file://%s%s\e\\' "$HOSTNAME" "$PWD"; }; PROMPT_COMMAND=prompt_nl""";
+        """prompt_nl() { local c; IFS='[;' read -p $'\e[6n' -d R -rs _ _ c; ((c>1)) && echo; printf '\e]7;file://%s%s\e\\' "$HOSTNAME" "$PWD"; }; PROMPT_COMMAND=prompt_nl; printf '\r\033[2K'""";
 
     /// <summary>RIS(ESC c)完全重置序列:重开会话前清掉旧进程的残留缓冲。</summary>
     private static readonly byte[] RisResetSequence = [0x1B, (byte)'c']; // ESC c
 
     private readonly IConnectionWorkflowService? _connectionWorkflowService;
     private readonly ISessionMetricsService? _metricsService;
+    private readonly IRemoteProcessService? _remoteProcessService;
 
     // ---- 会话日志(设置 → 常规 → 数据与存储) ----
 
@@ -144,9 +158,13 @@ public class MainWindowViewModel : ReactiveObject
         IAppDataStore? appDataStore = null,
         ISessionRecordingStore? recordingStore = null,
         QuickCommandsViewModel? quickCommands = null,
-        IQuickCommandRepository? quickCommandRepository = null
+        IQuickCommandRepository? quickCommandRepository = null,
+        IRemoteProcessService? remoteProcessService = null,
+        ITraceRouteService? traceRouteService = null
     )
     {
+        _remoteProcessService = remoteProcessService;
+        TraceRouteService = traceRouteService;
         _appDataStore = appDataStore;
         _recordingStore = recordingStore;
         _quickCommands = quickCommands;
@@ -222,9 +240,9 @@ public class MainWindowViewModel : ReactiveObject
         this.WhenAnyValue(x => x.ActiveTerminalTab)
             .Select(tab =>
                 tab is null
-                    ? Observable.Return(Unit.Default)
+                    ? Signal.Emit(RxVoid.Default)
                     : tab.WhenAnyValue(t => t.ConnectionStatus, t => t.Latency)
-                        .Select(_ => Unit.Default)
+                        .Select(_ => RxVoid.Default)
             )
             .Switch()
             .Subscribe(_ => UpdateStatusBarForActiveTab());
@@ -232,11 +250,15 @@ public class MainWindowViewModel : ReactiveObject
         this.WhenAnyValue(x => x.ActiveTerminalTab)
             .Select(tab =>
                 tab is null
-                    ? Observable.Return(Unit.Default)
-                    : tab.WhenAnyValue(t => t.IsConnected).Select(_ => Unit.Default)
+                    ? Signal.Emit(RxVoid.Default)
+                    : tab.WhenAnyValue(t => t.IsConnected).Select(_ => RxVoid.Default)
             )
             .Switch()
-            .Subscribe(_ => this.RaisePropertyChanged(nameof(CanToggleFileBrowser)));
+            .Subscribe(_ =>
+            {
+                this.RaisePropertyChanged(nameof(CanToggleFileBrowser));
+                this.RaisePropertyChanged(nameof(CanOpenProcessManager));
+            });
 
         // 已保存的设置即时应用到所有已打开的终端(#3/#15/#21) —— 回滚、字体、
         // 字号与编码实时生效;TERM 按会话保持(在连接时协商)。
@@ -245,32 +267,21 @@ public class MainWindowViewModel : ReactiveObject
         // 外观即时预览(设置窗口广播,未持久化):只重刷已打开标签的终端外观,
         // 不动 _latestSettings(新建标签仍用已保存的设置)。
         settingsPreviewService?.PreviewRequested += settings =>
-            RxSchedulers.MainThreadScheduler.Schedule(
-                Unit.Default,
-                (_, _) =>
-                {
-                    ApplyLiveSettingsToOpenTabs(settings);
-                    return Disposable.Empty;
-                }
-            );
+            RxSchedulers.MainThreadScheduler.Schedule(() => ApplyLiveSettingsToOpenTabs(settings));
 
         // 安全告警(设置 → 安全审计 → 告警通道):应用内 → 状态栏;提示音 → 系统提示音。
         securityAlertService?.Alerted += notice =>
-            RxSchedulers.MainThreadScheduler.Schedule(
-                Unit.Default,
-                (_, _) =>
+            RxSchedulers.MainThreadScheduler.Schedule(() =>
+            {
+                if (notice.InApp)
                 {
-                    if (notice.InApp)
-                    {
-                        StatusBar.Status = notice.Message;
-                    }
-                    if (notice.Sound)
-                    {
-                        SystemSound.Alert();
-                    }
-                    return Disposable.Empty;
+                    StatusBar.Status = notice.Message;
                 }
-            );
+                if (notice.Sound)
+                {
+                    SystemSound.Alert();
+                }
+            });
         StartStatusMetricsPolling();
         OpenSettingsCommand = ReactiveCommand.Create(() =>
             SettingsRequested?.Invoke(this, EventArgs.Empty)
@@ -280,11 +291,25 @@ public class MainWindowViewModel : ReactiveObject
         IObservable<bool> canToggleFileBrowser = this.WhenAnyValue(x => x.ActiveTerminalTab)
             .Select(tab =>
                 tab is null
-                    ? Observable.Return(false)
+                    ? Signal.Emit(false)
                     : tab.WhenAnyValue(t => t.IsConnected).Select(_ => CanToggleFileBrowser)
             )
             .Switch();
         ToggleFileBrowserCommand = ReactiveCommand.Create(ToggleFileBrowser, canToggleFileBrowser);
+        IObservable<bool> canOpenProcessManager = this.WhenAnyValue(x => x.ActiveTerminalTab)
+            .Select(tab =>
+                tab is null
+                    ? Signal.Emit(false)
+                    : tab.WhenAnyValue(t => t.IsConnected).Select(_ => CanOpenProcessManager)
+            )
+            .Switch();
+        OpenProcessManagerCommand = ReactiveCommand.Create(OpenProcessManager, canOpenProcessManager);
+        OpenResourceMonitorCommand = ReactiveCommand.Create(OpenResourceMonitor, canOpenProcessManager);
+        // 命令注入状态栏,而不是让状态栏去 $parent[Window].DataContext 找:
+        // 视图加载早于窗口 DataContext 赋值,跨树查找会在启动时刷一条绑定错误。
+        StatusBar.OpenResourceMonitorCommand = OpenResourceMonitorCommand;
+        OpenTraceRouteCommand = ReactiveCommand.Create(OpenTraceRoute, canToggleFileBrowser);
+        CloseActiveTabCommand = ReactiveCommand.Create(CloseActiveTab);
         RegisterCommands();
         RunCommand = ReactiveCommand.Create<string>(id => Commands.Execute(id));
     }
@@ -295,7 +320,7 @@ public class MainWindowViewModel : ReactiveObject
     public ICommandRegistry Commands { get; } = new CommandRegistry();
 
     /// <summary>通过 id 执行一条注册命令(菜单项通过 CommandParameter 使用)。</summary>
-    public ReactiveCommand<string, Unit>? RunCommand { get; private set; }
+    public ReactiveCommand<string, RxVoid>? RunCommand { get; private set; }
 
     /// <summary>活动会话的隧道管理面板(设计 fuXS7,规范 §10)。</summary>
     public TunnelPanelViewModel? TunnelPanel
@@ -319,15 +344,25 @@ public class MainWindowViewModel : ReactiveObject
     public CommandPaletteViewModel CommandPalette { get; }
 
     /// <summary>打开命令面板(Ctrl+P / Ctrl+K)的命令。</summary>
-    public ReactiveCommand<Unit, Unit> OpenCommandPaletteCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> OpenCommandPaletteCommand { get; }
 
     /// <summary>显示或隐藏当前 SSH 会话的远程文件面板。</summary>
-    public ReactiveCommand<Unit, Unit> ToggleFileBrowserCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ToggleFileBrowserCommand { get; }
 
     /// <summary>当前活动标签是否支持打开远程文件面板。</summary>
     public bool CanToggleFileBrowser =>
         _sftpService is not null
         && ActiveTerminalTab is { IsConnected: true, Profile: not null } tab
+        && tab.SessionId != Guid.Empty;
+
+    /// <summary>
+    /// 任务管理器是否可用:必须是一个已连接的 SSH 终端标签。本地终端(LocalShell 非空)
+    /// 没有远端可管;聚焦 SFTP 标签时 ActiveTerminalTab 已被置空(见 SetActiveFromDocument),
+    /// 两种情况按钮都自动变灰。
+    /// </summary>
+    public bool CanOpenProcessManager =>
+        _remoteProcessService is not null
+        && ActiveTerminalTab is { IsConnected: true, Profile: not null, LocalShell: null } tab
         && tab.SessionId != Guid.Empty;
 
     /// <summary>
@@ -414,6 +449,9 @@ public class MainWindowViewModel : ReactiveObject
         set => this.RaiseAndSetIfChanged(ref _fileBrowser, value);
     }
 
+    /// <summary>链路追踪服务;窗口打开时用它构造面板视图模型。</summary>
+    public ITraceRouteService? TraceRouteService { get; }
+
     /// <summary>文件传输面板视图模型:承载上传/下载任务队列与进度。</summary>
     public FileTransferViewModel FileTransfer
     {
@@ -422,7 +460,57 @@ public class MainWindowViewModel : ReactiveObject
     }
 
     /// <summary>打开设置窗口的命令(Ctrl+, / 菜单 / 侧边栏齿轮)。</summary>
-    public ReactiveCommand<Unit, Unit> OpenSettingsCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> OpenSettingsCommand { get; }
+
+    /// <summary>关闭当前活动标签(Ctrl+W);走停靠层的关闭语义,保证传输层同时拆除。</summary>
+    public ReactiveCommand<RxVoid, RxVoid> CloseActiveTabCommand { get; }
+
+    /// <summary>打开当前 SSH 会话的任务管理器;本地终端与 SFTP 标签下不可用。</summary>
+    public ReactiveCommand<RxVoid, RxVoid> OpenProcessManagerCommand { get; }
+
+    /// <summary>打开链路追踪窗口;启用条件与 SFTP 资源管理器一致。</summary>
+    public ReactiveCommand<RxVoid, RxVoid> OpenTraceRouteCommand { get; }
+
+    /// <summary>
+    /// 请求为某个会话打开任务管理器窗口。参数依次为会话标识与窗口标题用的会话名称;
+    /// 由 MainWindow 承接(视图层才建得了窗口)。
+    /// </summary>
+    public event Action<Guid, string>? ProcessManagerRequested;
+
+    /// <summary>把打开任务管理器的请求转交视图层;条件不满足时是空操作。</summary>
+    private void OpenProcessManager()
+    {
+        if (!CanOpenProcessManager || ActiveTerminalTab is not { Profile: { } profile } tab)
+        {
+            return;
+        }
+        string label = string.IsNullOrWhiteSpace(profile.Name)
+                           ? $"{profile.Host}:{profile.Port}"
+                           : profile.Name;
+        ProcessManagerRequested?.Invoke(tab.SessionId, label);
+    }
+
+    /// <summary>打开当前 SSH 会话的资源监视窗口(状态栏右下角的指示器按钮)。</summary>
+    public ReactiveCommand<RxVoid, RxVoid> OpenResourceMonitorCommand { get; }
+
+    /// <summary>
+    /// 请求为某个会话打开资源监视窗口。参数依次为会话标识与窗口标题用的会话名称;
+    /// 由 MainWindow 承接(视图层才建得了窗口)。
+    /// </summary>
+    public event Action<Guid, string>? ResourceMonitorRequested;
+
+    /// <summary>把打开资源监视窗口的请求转交视图层;条件不满足时是空操作。</summary>
+    private void OpenResourceMonitor()
+    {
+        if (!CanOpenProcessManager || ActiveTerminalTab is not { Profile: { } profile } tab)
+        {
+            return;
+        }
+        string label = string.IsNullOrWhiteSpace(profile.Name)
+                           ? $"{profile.Host}:{profile.Port}"
+                           : profile.Name;
+        ResourceMonitorRequested?.Invoke(tab.SessionId, label);
+    }
 
     private void RegisterCommands()
     {
@@ -441,8 +529,8 @@ public class MainWindowViewModel : ReactiveObject
                 "session.close",
                 Strings.Get("Cmd_CloseCurrentSession"),
                 Strings.Get("CmdCat_Session"),
-                () => TabBar.CloseActiveTabCommand.Execute().Subscribe(),
-                () => TabBar.ActiveTab is not null,
+                () => CloseActiveTabCommand.Execute().Subscribe(),
+                () => TabBar.ActiveTab is not null || Layout.ActiveDocument is not null,
                 "Ctrl+W"
             )
         );
@@ -553,6 +641,16 @@ public class MainWindowViewModel : ReactiveObject
                 () => CanToggleFileBrowser,
                 "Ctrl+Shift+F",
                 "Icon.folder"
+            )
+        );
+        Commands.Register(
+            new(
+                "tools.processes",
+                Strings.Get("Cmd_ProcessManager"),
+                Strings.Get("CmdCat_Tools"),
+                () => OpenProcessManagerCommand.Execute().Subscribe(),
+                () => CanOpenProcessManager,
+                Icon: "Icon.activity"
             )
         );
         Commands.Register(
@@ -682,6 +780,9 @@ public class MainWindowViewModel : ReactiveObject
         };
         terminalTab.ReconnectRequested += (_, _) => _ = ReconnectTabAsync(terminalTab);
         terminalTab.Disconnected += (_, _) => OnTabDisconnected(terminalTab);
+        // shell 退出(exit)后覆盖层上的“关闭标签”按钮靠这条订阅生效;缺了它本地终端
+        // 标签退出后点关闭没有任何反应。
+        terminalTab.CloseRequested += (_, _) => CloseTerminalTab(terminalTab);
 
         // 命令补全:注入建议提供器;提交(已回显校验)的命令进全局历史。
         terminalTab.SuggestionProvider = _suggestionProvider;
@@ -955,6 +1056,26 @@ public class MainWindowViewModel : ReactiveObject
         {
             RefreshOrLoadFileBrowser();
         }
+    }
+
+    /// <summary>
+    /// 请求为当前会话打开链路追踪窗口。参数依次为目标主机与窗口标题用的会话名称;
+    /// 与任务管理器一样由 MainWindow 承接(视图层才建得了窗口)。
+    /// </summary>
+    public event Action<string, string>? TraceRouteRequested;
+
+    /// <summary>打开链路追踪窗口,目标默认取当前会话的主机。</summary>
+    private void OpenTraceRoute()
+    {
+        if (!CanToggleFileBrowser || ActiveTerminalTab?.Profile is not { } profile)
+        {
+            return;
+        }
+        string label = string.IsNullOrWhiteSpace(profile.Name)
+                           ? $"{profile.Host}:{profile.Port}"
+                           : profile.Name;
+        // 目标不用用户再抄一遍 IP —— 这正是内建追踪相对 mtr 的意义。
+        TraceRouteRequested?.Invoke(profile.Host, label);
     }
 
     /// <summary>已加载过的面板静默刷新(保留旧列表秒显),从未加载过的走完整初始加载。</summary>
@@ -1563,7 +1684,7 @@ public class MainWindowViewModel : ReactiveObject
         {
             try
             {
-                await tree.LoadCommand.Execute();
+                await tree.LoadCommand.Execute().FirstAsync();
             }
             catch
             {
@@ -1735,7 +1856,7 @@ public class MainWindowViewModel : ReactiveObject
         }
         var document = new TerminalDocument(terminalTab);
         // 标签页内失败覆盖层(设计 yxjmg)的“关闭标签页”按钮:闭包捕获 document 以整体移除。
-        terminalTab.CloseRequested += (_, _) => RemoveTerminalTab(terminalTab, document);
+        terminalTab.CloseRequested += (_, _) => CloseTerminalTab(terminalTab);
         TabBar.AddTab(terminalTab);
         ActiveTerminalTab = terminalTab;
         Layout.AddDocument(document);
@@ -2107,6 +2228,46 @@ public class MainWindowViewModel : ReactiveObject
             ? PromptNewlineFix
             : PromptNewlineFix + "; " + user;
         tab.SendSilentCommand(payload);
+    }
+
+    /// <summary>
+    /// 用户语义的关闭标签统一入口(覆盖层关闭按钮 / Esc / Ctrl+W / 命令面板)。
+    /// 必须走 <see cref="DockWorkspace.CloseDocument" />:只有它会触发 DocumentClosed,
+    /// 从而把逻辑标签、停靠文档、会话日志与底层 SSH/PTY 传输一并拆干净。
+    /// 直接调 TabBar.CloseTab 只删逻辑标签,会留下可见的僵尸标签并泄漏传输层。
+    /// </summary>
+    public void CloseTerminalTab(TerminalTabViewModel tab)
+    {
+        ArgumentNullException.ThrowIfNull(tab);
+        TerminalDocument? document = Layout
+            .AllDocuments()
+            .OfType<TerminalDocument>()
+            .FirstOrDefault(d => ReferenceEquals(d.Terminal, tab));
+        if (document is not null)
+        {
+            Layout.CloseDocument(document);
+            return;
+        }
+
+        // 文档已被静默移除(连接失败路径)时只剩逻辑标签需要收尾。
+        if (TabBar.Tabs.Contains(tab))
+        {
+            TabBar.CloseTabCommand.Execute(tab).Subscribe();
+        }
+    }
+
+    /// <summary>关闭当前活动标签,终端与 SFTP 文档同等对待(Ctrl+W / session.close)。</summary>
+    private void CloseActiveTab()
+    {
+        if (Layout.ActiveDocument is { } document)
+        {
+            Layout.CloseDocument(document);
+            return;
+        }
+        if (TabBar.ActiveTab is TerminalTabViewModel tab)
+        {
+            CloseTerminalTab(tab);
+        }
     }
 
     private void RemoveTerminalTab(TerminalTabViewModel tab, TerminalDocument document)
@@ -2625,9 +2786,7 @@ public class MainWindowViewModel : ReactiveObject
 
         // SaveSettingsAsync 可能在线程池的回调中完成;字体/字号涉及布局,
         // 因此编组到 UI 线程(主调度器即 Avalonia 的 Dispatcher)。
-        RxSchedulers.MainThreadScheduler.Schedule(
-            Unit.Default,
-            (_, _) =>
+        RxSchedulers.MainThreadScheduler.Schedule(() =>
             {
                 ApplyShellPreferences(settings);
                 ApplyLiveSettingsToOpenTabs(settings);
@@ -2645,7 +2804,6 @@ public class MainWindowViewModel : ReactiveObject
                     ApplyColumnVisibility(browser, settings.Transfer);
                 }
                 RevealActiveSessionInSidebar();
-                return Disposable.Empty;
             }
         );
     }

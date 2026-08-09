@@ -9,6 +9,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="MaxMind.Db" />
     <PackageReference Include="SonnetDB.Core" />
     <PackageReference Include="Tmds.Ssh" />
     <!-- DPAPI(CurrentUser)包裹本地 AES 密钥文件;仅 Windows 运行时可用,其余平台已代码守卫。 -->
@@ -19,6 +20,7 @@
        本项目的友元是 VelaShell.Core.Tests(Tmds.Ssh 包装类与异常翻译的白盒测试放在那边)。 -->
   <ItemGroup Condition="'$(SignAssembly)' != 'true'">
     <InternalsVisibleTo Include="VelaShell.Core.Tests" />
+    <InternalsVisibleTo Include="VelaShell.Infrastructure.Tests" />
   </ItemGroup>
 
 </Project>

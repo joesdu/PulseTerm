@@ -165,7 +165,9 @@ pwsh scripts/publish-all.ps1
 
 产物覆盖 Windows x64/arm64（便携 zip）、macOS 与 Linux x64/arm64（tar.gz），全部为含运行时的单文件发布,解压到任意目录即可运行。
 
-**应用内自动更新**：设置 → 关于 → 检查更新。应用从 GitHub Releases 读取 `latest.json` 清单,下载对应平台压缩包到应用目录下的暂存目录,SHA-256 校验后原地换版并重启 —— 应用装在哪里就更新哪里,不限定安装位置;`%LocalAppData%/VelaShell` 数据目录与更新流程完全隔离,升级/回滚均不触碰用户数据。更新通道（stable / preview）在设置页切换。
+> 从 Microsoft Store 安装的版本(MSIX)更新由商店接管,应用内的更新操作会自动隐藏。商店版装在只读的 `WindowsApps` 下,数据目录被系统重定向到包私有位置,因此**与便携版的配置、会话、密钥互不相通**。
+
+**应用内自动更新**：设置 → 关于 → 检查更新。应用从 GitHub Releases 读取 `latest.json` 清单,下载对应平台压缩包到应用目录下的暂存目录,SHA-256 校验后解包,再由应用退出后才动手的外置换版进程完成换版并重启 —— 那时应用目录里没有任何文件被占用,不会留下删不掉的残骸。该"外置进程"就是更新包里新版主程序的一份临时副本(Release 为自包含单文件发布),因此无需随包分发额外的更新器。应用装在哪里就更新哪里,不限定安装位置;`%LocalAppData%/VelaShell` 数据目录与更新流程完全隔离,升级/回滚均不触碰用户数据。换版中途失败会自动还原到旧版本,若流程被意外中断卡住,关于页的"修复更新状态"可一键重置。更新通道（stable / preview）在设置页切换。
 
 **CI/CD**：[`.github/workflows/release.yml`](.github/workflows/release.yml) 在 GitHub 发布 Release 时触发，三平台原生 runner 并行构建同一套 6 产物（版本号取 Release 标签，`-p:Version` 覆盖，发版无需改代码），汇总 `SHA256SUMS.txt` 与自动更新清单 `latest.json` 后全部附加到该 Release。
 
@@ -265,7 +267,7 @@ dotnet test --logger "console;verbosity=detailed"
 - **ZMODEM（自研）** — 终端内 rz/sz 收发，协议引擎在 `VelaShell.Core/ZModem/`
 - **AvaloniaEdit** — 远程文件编辑器与语法高亮
 - **SonnetDB** — 嵌入式多模型数据库（文档 + 时序），唯一持久化引擎
-- **自研便携式自更新** — GitHub Releases `latest.json` 清单 + SHA-256 校验 + 原地换版重启，不限定安装位置、不触碰用户数据目录（`src/VelaShell/Services/Update/`）
+- **自研便携式自更新** — GitHub Releases `latest.json` 清单 + SHA-256 校验 + 退出后由外置进程换版重启（失败自动回滚），不限定安装位置、不触碰用户数据目录（`src/VelaShell/Services/Update/`）
 - **MSTest** — 单元测试框架
 - **集中式包管理** — `Directory.Packages.props` 统一 NuGet 版本
 

@@ -119,18 +119,35 @@ public class SessionMetricsTests
     {
         var m = SessionMetrics.Parse(SampleOutput +
             "__DL__\n" +
-            "/dev/vda1 53687091200 50465865728 /\n" +
-            "/dev/vdb1 528280977408 84825604096 /data\n" +
-            "/dev/vdb1 528280977408 84825604096 /srv/data\n" +   // bind mount of the same device
-            "/dev/vdc1 107374182400 1073741824 /mnt/my backup\n"); // mount point with a space
+            "/dev/vda1 ext4 53687091200 50465865728 /\n" +
+            "/dev/vdb1 xfs 528280977408 84825604096 /data\n" +
+            "/dev/vdb1 xfs 528280977408 84825604096 /srv/data\n" +   // bind mount of the same device
+            "/dev/vdc1 ext4 107374182400 1073741824 /mnt/my backup\n"); // mount point with a space
 
         Assert.IsNotNull(m);
         Assert.HasCount(3, m.Disks);
         Assert.AreEqual("/", m.Disks[0].MountPoint);
         Assert.AreEqual(53687091200L, m.Disks[0].TotalBytes);
+        Assert.AreEqual("ext4", m.Disks[0].FsType);
         Assert.AreEqual("/data", m.Disks[1].MountPoint);
+        Assert.AreEqual("xfs", m.Disks[1].FsType);
         Assert.AreEqual(94.0, m.Disks[0].Percent, 0.1);
         Assert.AreEqual("/mnt/my backup", m.Disks[2].MountPoint);
+    }
+
+    [TestMethod]
+    public void Parse_DiskList_WithoutFsTypeColumn_StillMapsSizes()
+    {
+        // 老 df 不支持 --output 里的 fstype 就会少一列;少一列不能把容量读成挂载点。
+        var m = SessionMetrics.Parse(SampleOutput +
+            "__DL__\n/dev/vda1 53687091200 50465865728 /\n/dev/vdc1 107374182400 1073741824 /mnt/my backup\n");
+
+        Assert.IsNotNull(m);
+        Assert.HasCount(2, m.Disks);
+        Assert.AreEqual("/", m.Disks[0].MountPoint);
+        Assert.AreEqual(53687091200L, m.Disks[0].TotalBytes);
+        Assert.IsEmpty(m.Disks[0].FsType);
+        Assert.AreEqual("/mnt/my backup", m.Disks[1].MountPoint);
     }
 
     [TestMethod]

@@ -63,15 +63,15 @@
     <TextBlock Classes="section-title" Text="{loc:Localize SetGeneral_ConnectionDefaultsSection}" />
     <Grid ColumnDefinitions="*,12,*" RowDefinitions="Auto,12,Auto">
       <StackPanel Grid.Row="0" Grid.Column="0" Spacing="5">
-        <TextBlock Classes="row-label" FontSize="11" Text="{loc:Localize DefaultPort}" />
+        <TextBlock Classes="row-label" FontSize="{DynamicResource VelaFontSize11}" Text="{loc:Localize DefaultPort}" />
         <NumericUpDown Width="NaN" HorizontalAlignment="Stretch" Value="{Binding DefaultPort}" Minimum="1" Maximum="65535" Increment="1" FormatString="0" />
       </StackPanel>
       <StackPanel Grid.Row="0" Grid.Column="2" Spacing="5">
-        <TextBlock Classes="row-label" FontSize="11" Text="{loc:Localize SetGeneral_ConnectTimeout}" />
+        <TextBlock Classes="row-label" FontSize="{DynamicResource VelaFontSize11}" Text="{loc:Localize SetGeneral_ConnectTimeout}" />
         <NumericUpDown Width="NaN" HorizontalAlignment="Stretch" Value="{Binding General.ConnectTimeoutSeconds}" Minimum="1" Maximum="600" Increment="5" FormatString="0" />
       </StackPanel>
       <StackPanel Grid.Row="2" Grid.Column="0" Spacing="5">
-        <TextBlock Classes="row-label" FontSize="11" Text="{loc:Localize SetGeneral_KeepAliveInterval}" />
+        <TextBlock Classes="row-label" FontSize="{DynamicResource VelaFontSize11}" Text="{loc:Localize SetGeneral_KeepAliveInterval}" />
         <NumericUpDown Width="NaN" HorizontalAlignment="Stretch" Value="{Binding General.KeepAliveSeconds}" Minimum="0" Maximum="600" Increment="10" FormatString="0" />
       </StackPanel>
     </Grid>

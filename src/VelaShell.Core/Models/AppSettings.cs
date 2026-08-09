@@ -102,6 +102,17 @@ public abstract class ObservableOptions : INotifyPropertyChanged
 /// <summary>设置 - 常规(设计 2BIRD)。</summary>
 public class GeneralOptions : ObservableOptions
 {
+    /// <summary>
+    /// 离线 IP 归属地数据库(*.mmdb)的绝对路径;留空则自动使用
+    /// <c>%LocalAppData%/VelaShell/geoip/</c> 下的第一个 .mmdb。
+    /// 缺库时链路追踪照常工作,只是地图上没有落点。
+    /// </summary>
+    public string GeoIpDatabasePath
+    {
+        get;
+        set => Set(ref field, value);
+    } = string.Empty;
+
     // 启动
     /// <summary>是否开机自启动应用。</summary>
     public bool LaunchAtStartup
@@ -334,6 +345,21 @@ public class AppearanceOptions : ObservableOptions
         get;
         set => Set(ref field, value);
     } = "remember";
+
+    /// <summary>
+    /// 是否启用 GPU 硬件加速渲染;默认开启。关闭后改用软件渲染。
+    /// </summary>
+    /// <remarks>
+    /// 这是目前最大的一项内存开关:开启时显卡驱动会把它自己的着色器编译器等一大批模块映射进
+    /// 本进程(实测 Intel 核显上 igc64.dll 一个就 82MB),空载常驻约 376MB;软件渲染下约 206MB,
+    /// 相差 170MB。代价是滚动与全屏 TUI 重绘由 CPU 承担。终端以文本为主,多数机器上感知不到差别,
+    /// 但显卡好、内存充裕时保持开启更顺滑。改动需重启生效。
+    /// </remarks>
+    public bool HardwareAcceleration
+    {
+        get;
+        set => Set(ref field, value);
+    } = true;
 
     // “记住上次”窗口状态的持久化槽位(不出现在设置界面,由主窗口关闭时回写)。
     /// <summary>「记住上次」窗口宽度的持久化槽位(由主窗口关闭时回写)。</summary>

@@ -28,7 +28,7 @@ public class SshKeyServiceFormatTests
                 "私钥必须是 OpenSSH 格式,否则 Tmds.Ssh 无法加载");
 
             // Tmds.Ssh 真正加载一遍:能取出密钥即证明格式被接受(不抛 Unsupported format)。
-            var cred = new PrivateKeyCredential(info.PrivateKeyPath, (string?)null, "test");
+            var cred = new PrivateKeyCredential(info.PrivateKeyPath, null, "test");
             MethodInfo load = typeof(PrivateKeyCredential).GetMethod("LoadKeyAsync",
                 BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)!;
             object valueTask = load.Invoke(cred, [CancellationToken.None])!;

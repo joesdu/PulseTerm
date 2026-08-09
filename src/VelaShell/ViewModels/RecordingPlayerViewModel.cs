@@ -1,9 +1,9 @@
 using System.Collections.ObjectModel;
-using System.Reactive;
 using System.Text;
 using System.Text.Json;
 using Avalonia.Threading;
 using ReactiveUI;
+using ReactiveUI.Primitives;
 using VelaShell.Core.Data;
 using VelaShell.Core.Models;
 using VelaShell.Core.Recording;
@@ -200,16 +200,16 @@ public class RecordingPlayerViewModel : ReactiveObject
     } = "";
 
     /// <summary>刷新录制列表命令。</summary>
-    public ReactiveCommand<Unit, Unit> RefreshCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> RefreshCommand { get; }
 
     /// <summary>播放/暂停切换命令。</summary>
-    public ReactiveCommand<Unit, Unit> TogglePlayCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> TogglePlayCommand { get; }
 
     /// <summary>删除指定录制命令。</summary>
-    public ReactiveCommand<RecordingItemViewModel, Unit> DeleteCommand { get; }
+    public ReactiveCommand<RecordingItemViewModel, RxVoid> DeleteCommand { get; }
 
     /// <summary>切换自动录制开关命令。</summary>
-    public ReactiveCommand<Unit, Unit> ToggleAutoRecordCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ToggleAutoRecordCommand { get; }
 
     /// <summary>初始化:加载录制列表并读取自动录制设置。</summary>
     public async Task InitializeAsync()

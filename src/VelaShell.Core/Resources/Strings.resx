@@ -16,6 +16,336 @@
   <data name="AppName" xml:space="preserve">
     <value>VelaShell</value>
   </data>
+  <data name="Monitor_CacheBuffers" xml:space="preserve">
+    <value>Cache / buffers</value>
+  </data>
+  <data name="Monitor_ColCapacity" xml:space="preserve">
+    <value>Used / total</value>
+  </data>
+  <data name="Monitor_ColCore" xml:space="preserve">
+    <value>Core</value>
+  </data>
+  <data name="Monitor_ColCpu" xml:space="preserve">
+    <value>CPU</value>
+  </data>
+  <data name="Monitor_ColDevice" xml:space="preserve">
+    <value>Device</value>
+  </data>
+  <data name="Monitor_ColFsType" xml:space="preserve">
+    <value>Filesystem</value>
+  </data>
+  <data name="Monitor_ColLoad" xml:space="preserve">
+    <value>Load</value>
+  </data>
+  <data name="Monitor_ColMemShare" xml:space="preserve">
+    <value>Share</value>
+  </data>
+  <data name="Monitor_ColMount" xml:space="preserve">
+    <value>Mount point</value>
+  </data>
+  <data name="Monitor_ColPeer" xml:space="preserve">
+    <value>Peer</value>
+  </data>
+  <data name="Monitor_ColProcess" xml:space="preserve">
+    <value>Process</value>
+  </data>
+  <data name="Monitor_ColRss" xml:space="preserve">
+    <value>RSS</value>
+  </data>
+  <data name="Monitor_ColShared" xml:space="preserve">
+    <value>Shared</value>
+  </data>
+  <data name="Monitor_ColSwap" xml:space="preserve">
+    <value>Swap</value>
+  </data>
+  <data name="Monitor_ColUsage" xml:space="preserve">
+    <value>Usage</value>
+  </data>
+  <data name="Monitor_ConnectionsUnavailable" xml:space="preserve">
+    <value>Per-connection rates unavailable (needs ss from iproute2; other users' processes need root)</value>
+  </data>
+  <data name="Monitor_ContextSwitches" xml:space="preserve">
+    <value>Context switches</value>
+  </data>
+  <data name="Monitor_CoreCount" xml:space="preserve">
+    <value>{0} logical cores</value>
+  </data>
+  <data name="Monitor_CoreSelected" xml:space="preserve">
+    <value>{0} cores · CPU{1} {2:F0}%</value>
+  </data>
+  <data name="Monitor_CoreSelectedLabel" xml:space="preserve">
+    <value>{0} cores · {1} {2:F0}%</value>
+  </data>
+  <data name="Monitor_Cpu" xml:space="preserve">
+    <value>CPU</value>
+  </data>
+  <data name="Monitor_CpuBreakdown" xml:space="preserve">
+    <value>user {0:F1}% · sys {1:F1}% · iowait {2:F1}%</value>
+  </data>
+  <data name="Monitor_CpuClock" xml:space="preserve">
+    <value>Clock (cur / max)</value>
+  </data>
+  <data name="Monitor_CpuCoresThreads" xml:space="preserve">
+    <value>Cores / threads</value>
+  </data>
+  <data name="Monitor_Details" xml:space="preserve">
+    <value>Details</value>
+  </data>
+  <data name="Monitor_Disk" xml:space="preserve">
+    <value>Disk</value>
+  </data>
+  <data name="Monitor_DiskActive" xml:space="preserve">
+    <value>Active time</value>
+  </data>
+  <data name="Monitor_DiskActivity" xml:space="preserve">
+    <value>Busy {0}</value>
+  </data>
+  <data name="Monitor_DiskCapacity" xml:space="preserve">
+    <value>Capacity</value>
+  </data>
+  <data name="Monitor_DiskCount" xml:space="preserve">
+    <value>{0} disks</value>
+  </data>
+  <data name="Monitor_DiskRead" xml:space="preserve">
+    <value>Read</value>
+  </data>
+  <data name="Monitor_DiskThroughput" xml:space="preserve">
+    <value>R {0} · W {1}</value>
+  </data>
+  <data name="Monitor_DiskWrite" xml:space="preserve">
+    <value>Write</value>
+  </data>
+  <data name="Monitor_Down" xml:space="preserve">
+    <value>Down</value>
+  </data>
+  <data name="Monitor_Free" xml:space="preserve">
+    <value>Free</value>
+  </data>
+  <data name="Monitor_Gpu" xml:space="preserve">
+    <value>GPU</value>
+  </data>
+  <data name="Monitor_GpuClock" xml:space="preserve">
+    <value>Core / memory clock</value>
+  </data>
+  <data name="Monitor_GpuCount" xml:space="preserve">
+    <value>{0} GPUs</value>
+  </data>
+  <data name="Monitor_GpuDetails" xml:space="preserve">
+    <value>GPU details</value>
+  </data>
+  <data name="Monitor_GpuDriver" xml:space="preserve">
+    <value>Driver</value>
+  </data>
+  <data name="Monitor_GpuFan" xml:space="preserve">
+    <value>Fan</value>
+  </data>
+  <data name="Monitor_GpuMemory" xml:space="preserve">
+    <value>VRAM</value>
+  </data>
+  <data name="Monitor_GpuPower" xml:space="preserve">
+    <value>Power</value>
+  </data>
+  <data name="Monitor_GpuProcesses" xml:space="preserve">
+    <value>GPU processes</value>
+  </data>
+  <data name="Monitor_GpuSlot" xml:space="preserve">
+    <value>PCI slot</value>
+  </data>
+  <data name="Monitor_GpuTemp" xml:space="preserve">
+    <value>Temperature</value>
+  </data>
+  <data name="Monitor_GpuUtil" xml:space="preserve">
+    <value>Compute usage</value>
+  </data>
+  <data name="Monitor_GpuVendor" xml:space="preserve">
+    <value>Vendor</value>
+  </data>
+  <data name="Monitor_GpuVirtual" xml:space="preserve">
+    <value>Virtual</value>
+  </data>
+  <data name="Monitor_Hint" xml:space="preserve">
+    <value>Collected over SSH; polling stops when this window closes.</value>
+  </data>
+  <data name="Monitor_Interval" xml:space="preserve">
+    <value>every {0}s</value>
+  </data>
+  <data name="Monitor_KernelSpace" xml:space="preserve">
+    <value>Kernel</value>
+  </data>
+  <data name="Monitor_LoadAverage" xml:space="preserve">
+    <value>Load average</value>
+  </data>
+  <data name="Monitor_LoadLegend" xml:space="preserve">
+    <value>Load</value>
+  </data>
+  <data name="Monitor_LogicalCores" xml:space="preserve">
+    <value>{0} logical cores</value>
+  </data>
+  <data name="Monitor_LogicalProcessors" xml:space="preserve">
+    <value>Logical processors</value>
+  </data>
+  <data name="Monitor_MemAvailable" xml:space="preserve">
+    <value>Available</value>
+  </data>
+  <data name="Monitor_MemCacheBuffers" xml:space="preserve">
+    <value>Cache / buffers</value>
+  </data>
+  <data name="Monitor_MemComposition" xml:space="preserve">
+    <value>Memory composition</value>
+  </data>
+  <data name="Monitor_MemDirty" xml:space="preserve">
+    <value>Dirty pages</value>
+  </data>
+  <data name="Monitor_MemShared" xml:space="preserve">
+    <value>Shared</value>
+  </data>
+  <data name="Monitor_MemSlab" xml:space="preserve">
+    <value>Reclaimable slab</value>
+  </data>
+  <data name="Monitor_MemTotal" xml:space="preserve">
+    <value>Total</value>
+  </data>
+  <data name="Monitor_MemUsed" xml:space="preserve">
+    <value>Used</value>
+  </data>
+  <data name="Monitor_Memory" xml:space="preserve">
+    <value>Memory</value>
+  </data>
+  <data name="Monitor_MetricUnavailable" xml:space="preserve">
+    <value>This GPU does not expose this metric</value>
+  </data>
+  <data name="Monitor_NavCpu" xml:space="preserve">
+    <value>{0:F0}% · {1} cores</value>
+  </data>
+  <data name="Monitor_NavGpu" xml:space="preserve">
+    <value>{0:F0}% · {1} GPUs</value>
+  </data>
+  <data name="Monitor_Network" xml:space="preserve">
+    <value>Network</value>
+  </data>
+  <data name="Monitor_NicDetails" xml:space="preserve">
+    <value>Adapter details</value>
+  </data>
+  <data name="Monitor_NicDropped" xml:space="preserve">
+    <value>Dropped rx/tx</value>
+  </data>
+  <data name="Monitor_NicErrors" xml:space="preserve">
+    <value>Errors rx/tx</value>
+  </data>
+  <data name="Monitor_NicFullDuplex" xml:space="preserve">
+    <value>full duplex</value>
+  </data>
+  <data name="Monitor_NicHalfDuplex" xml:space="preserve">
+    <value>half duplex</value>
+  </data>
+  <data name="Monitor_NicIp" xml:space="preserve">
+    <value>IPv4</value>
+  </data>
+  <data name="Monitor_NicLink" xml:space="preserve">
+    <value>Link speed</value>
+  </data>
+  <data name="Monitor_NicMac" xml:space="preserve">
+    <value>MAC address</value>
+  </data>
+  <data name="Monitor_NicMtu" xml:space="preserve">
+    <value>MTU</value>
+  </data>
+  <data name="Monitor_NicRxTotal" xml:space="preserve">
+    <value>Total received</value>
+  </data>
+  <data name="Monitor_NicTxTotal" xml:space="preserve">
+    <value>Total sent</value>
+  </data>
+  <data name="Monitor_Now" xml:space="preserve">
+    <value>now</value>
+  </data>
+  <data name="Monitor_Overview" xml:space="preserve">
+    <value>Overview</value>
+  </data>
+  <data name="Monitor_Partitions" xml:space="preserve">
+    <value>Partitions and mounts</value>
+  </data>
+  <data name="Monitor_Pause" xml:space="preserve">
+    <value>Pause</value>
+  </data>
+  <data name="Monitor_PhysicalDisks" xml:space="preserve">
+    <value>Physical disks</value>
+  </data>
+  <data name="Monitor_ProcessesThreads" xml:space="preserve">
+    <value>Processes / threads</value>
+  </data>
+  <data name="Monitor_Resume" xml:space="preserve">
+    <value>Resume</value>
+  </data>
+  <data name="Monitor_SampleInterval" xml:space="preserve">
+    <value>Sample interval</value>
+  </data>
+  <data name="Monitor_SortByIndex" xml:space="preserve">
+    <value>By core</value>
+  </data>
+  <data name="Monitor_SortByLoad" xml:space="preserve">
+    <value>By load</value>
+  </data>
+  <data name="Monitor_Stale" xml:space="preserve">
+    <value>Sampling keeps failing, retrying…</value>
+  </data>
+  <data name="Monitor_Swap" xml:space="preserve">
+    <value>Swap</value>
+  </data>
+  <data name="Monitor_Throughput" xml:space="preserve">
+    <value>Throughput</value>
+  </data>
+  <data name="Monitor_Title" xml:space="preserve">
+    <value>System Resources</value>
+  </data>
+  <data name="Monitor_TitleFormat" xml:space="preserve">
+    <value>System Resources — {0}</value>
+  </data>
+  <data name="Monitor_TopByCpu" xml:space="preserve">
+    <value>Top processes by CPU</value>
+  </data>
+  <data name="Monitor_TopByMemory" xml:space="preserve">
+    <value>Top processes by memory</value>
+  </data>
+  <data name="Monitor_TopConnections" xml:space="preserve">
+    <value>Top connections</value>
+  </data>
+  <data name="Monitor_TotalUsage" xml:space="preserve">
+    <value>Total usage</value>
+  </data>
+  <data name="Monitor_Up" xml:space="preserve">
+    <value>Up</value>
+  </data>
+  <data name="Monitor_UptimeLabel" xml:space="preserve">
+    <value>Uptime</value>
+  </data>
+  <data name="Monitor_Used" xml:space="preserve">
+    <value>Used</value>
+  </data>
+  <data name="Monitor_UserSpace" xml:space="preserve">
+    <value>User</value>
+  </data>
+  <data name="Monitor_ViewHeat" xml:space="preserve">
+    <value>Heatmap</value>
+  </data>
+  <data name="Monitor_ViewList" xml:space="preserve">
+    <value>List</value>
+  </data>
+  <data name="Monitor_ViewSpark" xml:space="preserve">
+    <value>Mini charts</value>
+  </data>
+  <data name="Monitor_Vram" xml:space="preserve">
+    <value>VRAM</value>
+  </data>
+  <data name="Monitor_WindowMinutes" xml:space="preserve">
+    <value>{0}m ago</value>
+  </data>
+  <data name="Monitor_WindowSeconds" xml:space="preserve">
+    <value>{0}s ago</value>
+  </data>
+  <data name="Monitor_WindowStart" xml:space="preserve">
+    <value>60s ago</value>
+  </data>
   <data name="Ready" xml:space="preserve">
     <value>Ready</value>
   </data>
@@ -50,6 +380,9 @@
   </data>
   <data name="Split" xml:space="preserve">
     <value>Split</value>
+  </data>
+  <data name="StatusBar_OpenMonitor" xml:space="preserve">
+    <value>Open resource monitor</value>
   </data>
   <data name="SyncGroup" xml:space="preserve">
     <value>Sync Group</value>
@@ -293,11 +626,20 @@
     <value>Passphrase</value>
   </data>
   <!-- File Browser / SFTP (§6) -->
-  <data name="UploadFilesHere" xml:space="preserve">
-    <value>Upload Files Here</value>
+  <data name="UploadHere" xml:space="preserve">
+    <value>Upload Here</value>
   </data>
-  <data name="UploadFolderHere" xml:space="preserve">
-    <value>Upload Folder Here</value>
+  <data name="Sftp_PickUploadTitle" xml:space="preserve">
+    <value>Select files and folders to upload</value>
+  </data>
+  <data name="Sftp_PickUploadHint" xml:space="preserve">
+    <value>Select files and folders — both can be picked together</value>
+  </data>
+  <data name="Sftp_PickUploadSelected" xml:space="preserve">
+    <value>{0} file(s), {1} folder(s) selected</value>
+  </data>
+  <data name="Sftp_GoUp" xml:space="preserve">
+    <value>Go up</value>
   </data>
   <data name="NewFolder" xml:space="preserve">
     <value>New Folder</value>
@@ -313,6 +655,15 @@
   </data>
   <data name="MoveToPrompt" xml:space="preserve">
     <value>Move to (full destination path)</value>
+  </data>
+  <data name="MoveSelectedToPrompt" xml:space="preserve">
+    <value>Move selected items to (destination folder)</value>
+  </data>
+  <data name="CopySelectedToPrompt" xml:space="preserve">
+    <value>Copy selected items to (destination folder)</value>
+  </data>
+  <data name="BatchOpPartialFailure" xml:space="preserve">
+    <value>{0} item(s) failed. First error — {1}</value>
   </data>
   <data name="CopyTo" xml:space="preserve">
     <value>Copy To…</value>
@@ -373,12 +724,6 @@
   </data>
   <data name="DeletingProgress" xml:space="preserve">
     <value>Deleting… {0}/{1} removed</value>
-  </data>
-  <data name="SelectFilesToUpload" xml:space="preserve">
-    <value>Select files to upload</value>
-  </data>
-  <data name="SelectFolderToUpload" xml:space="preserve">
-    <value>Select a folder to upload</value>
   </data>
   <data name="SelectDownloadFolder" xml:space="preserve">
     <value>Select a destination folder</value>
@@ -1076,7 +1421,13 @@ Paste anyway?</value>
     <value>SFTP service is unavailable.</value>
   </data>
   <data name="Msg_SshConnectionLostDetail" xml:space="preserve">
-    <value>// The SSH connection to {0} was lost</value>
+    <value>The connection to {0} has been closed</value>
+  </data>
+  <data name="Msg_LocalShellExitedDetail" xml:space="preserve">
+    <value>The local shell session {0} has ended</value>
+  </data>
+  <data name="Msg_DisconnectOverlayKeyHint" xml:space="preserve">
+    <value>Enter to reconnect · Esc to close this tab</value>
   </data>
   <data name="Msg_SshServiceNotConfigured" xml:space="preserve">
     <value>SSH connection service is not configured.</value>
@@ -1158,6 +1509,27 @@ Paste anyway?</value>
   </data>
   <data name="SetAbout_RestartToUpdate" xml:space="preserve">
     <value>Restart &amp; update</value>
+  </data>
+  <data name="SetAbout_StoreManagedUpdates" xml:space="preserve">
+    <value>Updates are managed by the Microsoft Store. Check for updates there.</value>
+  </data>
+  <data name="SetAbout_RepairUpdate" xml:space="preserve">
+    <value>Repair update state</value>
+  </data>
+  <data name="SetAbout_RepairUpdateTip" xml:space="preserve">
+    <value>Clears leftover update files and downloads so checking for updates can start fresh. Use this if updating got stuck.</value>
+  </data>
+  <data name="SetAbout_Repairing" xml:space="preserve">
+    <value>Clearing update leftovers…</value>
+  </data>
+  <data name="SetAbout_RepairDone" xml:space="preserve">
+    <value>Update state has been reset. You can check for updates again.</value>
+  </data>
+  <data name="SetAbout_RepairFailed" xml:space="preserve">
+    <value>Some leftover files are still in use. Close any other copy of VelaShell, then try again.</value>
+  </data>
+  <data name="SetAbout_PreviousUpdateFailed" xml:space="preserve">
+    <value>The last update couldn't be completed and the previous version was restored ({0}).</value>
   </data>
   <data name="Msg_Uploaded" xml:space="preserve">
     <value>Uploaded</value>
@@ -2341,6 +2713,9 @@ Paste anyway?</value>
   <data name="SetVm_ShortcutCompletionPopup" xml:space="preserve">
     <value>Show Command Completion</value>
   </data>
+  <data name="SetVm_ShortcutDeleteWord" xml:space="preserve">
+    <value>Delete Previous Word</value>
+  </data>
   <data name="SetVm_ShortcutNewTabAlias" xml:space="preserve">
     <value>New Tab (same as New Connection)</value>
   </data>
@@ -2859,10 +3234,10 @@ Overwrite it?</value>
     <value>Close</value>
   </data>
   <data name="SftpSvc_ResumeUploadMismatch" xml:space="preserve">
-    <value>Cannot resume the upload of {0}: the existing remote file is not the beginning of this local file. Delete the remote file, or upload it again in full.</value>
+    <value>The remote file {0} changed while this transfer was queued, so it can no longer be resumed. Retry the transfer to resolve it as an overwrite/skip conflict.</value>
   </data>
   <data name="SftpSvc_ResumeDownloadMismatch" xml:space="preserve">
-    <value>Cannot resume the download of {0}: the partial local file is not the beginning of this remote file. Delete the local file, or download it again in full.</value>
+    <value>The local file for {0} changed while this transfer was queued, so it can no longer be resumed. Retry the transfer to resolve it as an overwrite/skip conflict.</value>
   </data>
   <data name="SetTransfer_Resume" xml:space="preserve">
     <value>Resume interrupted transfers</value>
@@ -2881,5 +3256,338 @@ Overwrite it?</value>
   </data>
   <data name="Transfer_ClearCompleted" xml:space="preserve">
     <value>Clear finished</value>
+  </data>
+  <data name="Cmd_ProcessManager" xml:space="preserve">
+    <value>Task Manager</value>
+  </data>
+  <data name="Menu_ProcessManagerTip" xml:space="preserve">
+    <value>Task Manager for the focused SSH session</value>
+  </data>
+  <data name="Proc_TitleFormat" xml:space="preserve">
+    <value>{0} — Task Manager</value>
+  </data>
+  <data name="Proc_SearchPlaceholder" xml:space="preserve">
+    <value>Search by name, command line or PID</value>
+  </data>
+  <data name="Proc_ColName" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="Proc_ColPid" xml:space="preserve">
+    <value>PID</value>
+  </data>
+  <data name="Proc_ColUser" xml:space="preserve">
+    <value>User</value>
+  </data>
+  <data name="Proc_ColCpu" xml:space="preserve">
+    <value>CPU</value>
+  </data>
+  <data name="Proc_ColMemory" xml:space="preserve">
+    <value>Memory</value>
+  </data>
+  <data name="Proc_ColThreads" xml:space="preserve">
+    <value>Threads</value>
+  </data>
+  <data name="Proc_ColState" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="Proc_ColTime" xml:space="preserve">
+    <value>Uptime</value>
+  </data>
+  <data name="Proc_ColCommand" xml:space="preserve">
+    <value>Command line</value>
+  </data>
+  <data name="Proc_EndTask" xml:space="preserve">
+    <value>End task</value>
+  </data>
+  <data name="Proc_EndTree" xml:space="preserve">
+    <value>End process tree</value>
+  </data>
+  <data name="Proc_ForceEnd" xml:space="preserve">
+    <value>Force end</value>
+  </data>
+  <data name="Proc_SetPriority" xml:space="preserve">
+    <value>Set priority</value>
+  </data>
+  <data name="Proc_CopyCommand" xml:space="preserve">
+    <value>Copy command line</value>
+  </data>
+  <data name="Proc_PriorityRealtime" xml:space="preserve">
+    <value>Realtime</value>
+  </data>
+  <data name="Proc_PriorityHigh" xml:space="preserve">
+    <value>High</value>
+  </data>
+  <data name="Proc_PriorityAboveNormal" xml:space="preserve">
+    <value>Above normal</value>
+  </data>
+  <data name="Proc_PriorityNormal" xml:space="preserve">
+    <value>Normal</value>
+  </data>
+  <data name="Proc_PriorityBelowNormal" xml:space="preserve">
+    <value>Below normal</value>
+  </data>
+  <data name="Proc_PriorityLow" xml:space="preserve">
+    <value>Low</value>
+  </data>
+  <data name="Proc_Speed" xml:space="preserve">
+    <value>Update speed</value>
+  </data>
+  <data name="Proc_SpeedHigh" xml:space="preserve">
+    <value>High</value>
+  </data>
+  <data name="Proc_SpeedNormal" xml:space="preserve">
+    <value>Normal</value>
+  </data>
+  <data name="Proc_SpeedLow" xml:space="preserve">
+    <value>Low</value>
+  </data>
+  <data name="Proc_SpeedPaused" xml:space="preserve">
+    <value>Paused</value>
+  </data>
+  <data name="Proc_ShowKernelThreads" xml:space="preserve">
+    <value>Show kernel threads</value>
+  </data>
+  <data name="Proc_TreeView" xml:space="preserve">
+    <value>Tree view</value>
+  </data>
+  <data name="SetAppear_RenderSection" xml:space="preserve">
+    <value>Rendering</value>
+  </data>
+  <data name="SetAppear_HardwareAcceleration" xml:space="preserve">
+    <value>Hardware acceleration</value>
+  </data>
+  <data name="SetAppear_HardwareAccelerationDesc" xml:space="preserve">
+    <value>// Draws with the GPU. Turning it off switches to software rendering and frees around 170 MB, because the graphics driver stops mapping its modules into this process. Restart to apply.</value>
+  </data>
+  <data name="Proc_Refresh" xml:space="preserve">
+    <value>Refresh now</value>
+  </data>
+  <data name="Proc_Unavailable" xml:space="preserve">
+    <value>Remote process list unavailable</value>
+  </data>
+  <data name="Proc_UnavailableHint" xml:space="preserve">
+    <value>This view reads /proc and ps on the remote host, so it needs a connected Linux session.</value>
+  </data>
+  <data name="Proc_ConfirmEndTitle" xml:space="preserve">
+    <value>End process</value>
+  </data>
+  <data name="Proc_ConfirmEndTreeTitle" xml:space="preserve">
+    <value>End process tree</value>
+  </data>
+  <data name="Proc_ConfirmForceEndTitle" xml:space="preserve">
+    <value>Force end process</value>
+  </data>
+  <data name="Proc_ConfirmEndBody" xml:space="preserve">
+    <value>End {0} (PID {1})? Unsaved data will be lost.</value>
+  </data>
+  <data name="Proc_ConfirmEndTreeBody" xml:space="preserve">
+    <value>End {0} (PID {1}) together with its descendants, {2} processes in total? Unsaved data will be lost.</value>
+  </data>
+  <data name="Proc_EndSucceeded" xml:space="preserve">
+    <value>Sent the end signal to {0} and its tree, {1} process(es)</value>
+  </data>
+  <data name="Proc_EndFailed" xml:space="preserve">
+    <value>Could not end {0}: {1}</value>
+  </data>
+  <data name="Proc_PriorityChanged" xml:space="preserve">
+    <value>Priority of {0} set to nice {1}</value>
+  </data>
+  <data name="Proc_PriorityFailed" xml:space="preserve">
+    <value>Could not change the priority of {0}: {1}</value>
+  </data>
+  <data name="Proc_ReasonUnknown" xml:space="preserve">
+    <value>unknown reason (root privileges may be required)</value>
+  </data>
+  <data name="Proc_CommandCopied" xml:space="preserve">
+    <value>Command line copied</value>
+  </data>
+  <data name="Proc_CountFormat" xml:space="preserve">
+    <value>Processes: {0} / {1}</value>
+  </data>
+  <data name="Proc_CoresFormat" xml:space="preserve">
+    <value>{0} cores</value>
+  </data>
+  <data name="Proc_CpuNormalisedTip" xml:space="preserve">
+    <value>Normalised to total capacity: all cores busy is 100%, same as Windows Task Manager</value>
+  </data>
+  <data name="Trace_Title" xml:space="preserve">
+    <value>Route trace</value>
+  </data>
+  <data name="Trace_Target" xml:space="preserve">
+    <value>Target</value>
+  </data>
+  <data name="Trace_Start" xml:space="preserve">
+    <value>Start</value>
+  </data>
+  <data name="Trace_Stop" xml:space="preserve">
+    <value>Stop</value>
+  </data>
+  <data name="Trace_ColHost" xml:space="preserve">
+    <value>Host</value>
+  </data>
+  <data name="Trace_ColLoss" xml:space="preserve">
+    <value>Loss%</value>
+  </data>
+  <data name="Trace_ColSent" xml:space="preserve">
+    <value>Sent</value>
+  </data>
+  <data name="Trace_ColLast" xml:space="preserve">
+    <value>Last</value>
+  </data>
+  <data name="Trace_ColAvg" xml:space="preserve">
+    <value>Avg</value>
+  </data>
+  <data name="Trace_ColBest" xml:space="preserve">
+    <value>Best</value>
+  </data>
+  <data name="Trace_ColWorst" xml:space="preserve">
+    <value>Worst</value>
+  </data>
+  <data name="Trace_ColStdDev" xml:space="preserve">
+    <value>StDev</value>
+  </data>
+  <data name="Trace_Running" xml:space="preserve">
+    <value>Tracing…</value>
+  </data>
+  <data name="Trace_Stopped" xml:space="preserve">
+    <value>Stopped</value>
+  </data>
+  <data name="Trace_HintOk" xml:space="preserve">
+    <value>Normal.</value>
+  </data>
+  <data name="Trace_HintRateLimited" xml:space="preserve">
+    <value>This hop drops probes but later hops do not: the router rate-limits its ICMP replies, forwarding is fine.</value>
+  </data>
+  <data name="Trace_HintNoResponse" xml:space="preserve">
+    <value>This node does not answer ICMP at all. Later hops still answer, so the path is not broken.</value>
+  </data>
+  <data name="Trace_HintSuspectedLoss" xml:space="preserve">
+    <value>Loss continues to the last hop: this is likely real end-to-end packet loss.</value>
+  </data>
+  <data name="Trace_HintUnreachable" xml:space="preserve">
+    <value>Destination unreachable was returned for this hop.</value>
+  </data>
+  <data name="Trace_ReachedFormat" xml:space="preserve">
+    <value>Reached the target · {0} hops · round {1}</value>
+  </data>
+  <data name="Trace_ProbingFormat" xml:space="preserve">
+    <value>Probing · {0} hops so far · round {1}</value>
+  </data>
+  <data name="Trace_Failed" xml:space="preserve">
+    <value>Trace failed: {0}</value>
+  </data>
+  <data name="Trace_Continuous" xml:space="preserve">
+    <value>Keep tracing</value>
+  </data>
+  <data name="Trace_Completed" xml:space="preserve">
+    <value>Trace complete</value>
+  </data>
+  <data name="Trace_TitleFormat" xml:space="preserve">
+    <value>{0} — Route trace</value>
+  </data>
+  <data name="Trace_ColLocation" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="Trace_MapNoData" xml:space="preserve">
+    <value>No hop can be placed on the map yet.</value>
+  </data>
+  <data name="Trace_MapNeedsDatabase" xml:space="preserve">
+    <value>No offline IP location database found. Put a .mmdb file in %LocalAppData%/VelaShell/geoip/ or set its path in Settings. Tracing works without it — only the map stays empty.</value>
+  </data>
+  <data name="Trace_LocationHint" xml:space="preserve">
+    <value>Inferred from IP registration data. Backbone routers are often registered to the operator's address rather than where the device physically sits, so intermediate hops are approximate.</value>
+  </data>
+  <data name="Trace_GeoDownload" xml:space="preserve">
+    <value>Download database</value>
+  </data>
+  <data name="Trace_GeoPick" xml:space="preserve">
+    <value>Choose local file…</value>
+  </data>
+  <data name="Trace_GeoFileType" xml:space="preserve">
+    <value>IP location database (*.mmdb, *.gz)</value>
+  </data>
+  <data name="Trace_GeoExtracting" xml:space="preserve">
+    <value>Extracting…</value>
+  </data>
+  <data name="Trace_GeoLoadFailed" xml:space="preserve">
+    <value>Could not load that file. It must be an uncompressed .mmdb or the .mmdb.gz straight from the download.</value>
+  </data>
+  <data name="Trace_GeoAttribution" xml:space="preserve">
+    <value>IP location data by DB-IP.com (CC BY 4.0)</value>
+  </data>
+  <data name="XImport_MenuItem" xml:space="preserve">
+    <value>Import from Xshell…</value>
+  </data>
+  <data name="XImport_Title" xml:space="preserve">
+    <value>Import Xshell Sessions</value>
+  </data>
+  <data name="XImport_SessionsDir" xml:space="preserve">
+    <value>Xshell sessions folder</value>
+  </data>
+  <data name="XImport_Browse" xml:space="preserve">
+    <value>Browse…</value>
+  </data>
+  <data name="XImport_Rescan" xml:space="preserve">
+    <value>Scan</value>
+  </data>
+  <data name="XImport_MasterPwWarn" xml:space="preserve">
+    <value>This tool has a master password enabled, so saved passwords can't be recovered. Sessions will be imported without passwords.</value>
+  </data>
+  <data name="XImport_WinScpMenuItem" xml:space="preserve">
+    <value>Import from WinSCP…</value>
+  </data>
+  <data name="XImport_TitleFmt" xml:space="preserve">
+    <value>Import Sessions from {0}</value>
+  </data>
+  <data name="XImport_GroupFmt" xml:space="preserve">
+    <value>{0} Import</value>
+  </data>
+  <data name="XImport_SourceFolder" xml:space="preserve">
+    <value>Sessions folder</value>
+  </data>
+  <data name="XImport_SourceFile" xml:space="preserve">
+    <value>Config file</value>
+  </data>
+  <data name="XImport_SelectAll" xml:space="preserve">
+    <value>Select all</value>
+  </data>
+  <data name="XImport_SelectNone" xml:space="preserve">
+    <value>Select none</value>
+  </data>
+  <data name="XImport_ImportButton" xml:space="preserve">
+    <value>Import</value>
+  </data>
+  <data name="XImport_DefaultGroup" xml:space="preserve">
+    <value>Xshell Import</value>
+  </data>
+  <data name="XImport_NotDetected" xml:space="preserve">
+    <value>Couldn't auto-detect the source. Choose it manually.</value>
+  </data>
+  <data name="XImport_NoSessions" xml:space="preserve">
+    <value>No sessions found in this folder.</value>
+  </data>
+  <data name="XImport_Found" xml:space="preserve">
+    <value>Found {0} session(s).</value>
+  </data>
+  <data name="XImport_DirNotFound" xml:space="preserve">
+    <value>Folder not found.</value>
+  </data>
+  <data name="XImport_SelectedCount" xml:space="preserve">
+    <value>{0} selected · {1} with password</value>
+  </data>
+  <data name="XImport_Unsupported" xml:space="preserve">
+    <value>Unsupported protocol</value>
+  </data>
+  <data name="XImport_PwRecovered" xml:space="preserve">
+    <value>Password recovered</value>
+  </data>
+  <data name="XImport_PwFailed" xml:space="preserve">
+    <value>Password needed</value>
+  </data>
+  <data name="XImport_PwNone" xml:space="preserve">
+    <value>No password</value>
+  </data>
+  <data name="XImport_Duplicate" xml:space="preserve">
+    <value>Already exists</value>
   </data>
 </root>

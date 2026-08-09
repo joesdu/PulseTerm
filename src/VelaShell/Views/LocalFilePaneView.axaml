@@ -44,8 +44,8 @@
       <Setter Property="Cursor" Value="Hand" />
       <Setter Property="VerticalAlignment" Value="Center" />
       <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
-      <Setter Property="FontFamily" Value="{DynamicResource VelaTerminalFont}" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
       <Setter Property="FontWeight" Value="Medium" />
     </Style>
     <Style Selector="Button.crumb:pointerover /template/ ContentPresenter">
@@ -84,8 +84,8 @@
                                 CommandParameter="{Binding Path}" />
                 <TextBlock Text="{Binding $parent[ItemsControl].((vm:LocalFilePaneViewModel)DataContext).PathSeparator}"
                            Foreground="{DynamicResource VelaTextMuted}"
-                           FontFamily="{DynamicResource VelaTerminalFont}"
-                           FontSize="11" VerticalAlignment="Center" />
+                           FontFamily="{DynamicResource VelaUiMonoFont}"
+                           FontSize="{DynamicResource VelaFontSize11}" VerticalAlignment="Center" />
                       </StackPanel>
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
@@ -98,14 +98,14 @@
                          IsVisible="{Binding IsDirectoryLoading}" />
           </Grid>
           <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-            <ComboBox MinHeight="0" Height="22" Padding="6,0" FontSize="11"
+            <ComboBox MinHeight="0" Height="22" Padding="6,0" FontSize="{DynamicResource VelaFontSize11}"
                       ItemsSource="{Binding Roots}" SelectedItem="{Binding SelectedRoot, Mode=OneWay}"
                       SelectionChanged="OnRootSelectionChanged"
                       VerticalContentAlignment="Center" MaxDropDownHeight="320">
               <ComboBox.ItemTemplate>
                 <DataTemplate x:DataType="vm:LocalRootEntry">
                   <TextBlock Text="{Binding DisplayName}" ToolTip.Tip="{Binding Tooltip}"
-                             TextTrimming="CharacterEllipsis" FontSize="11" Padding="2,1" />
+                             TextTrimming="CharacterEllipsis" FontSize="{DynamicResource VelaFontSize11}" Padding="2,1" />
                 </DataTemplate>
               </ComboBox.ItemTemplate>
             </ComboBox>
@@ -131,21 +131,23 @@
               Background="{DynamicResource VelaBgContentHeader}"
               BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,0,0,1">
         <Grid ColumnDefinitions="*,90,130">
-          <TextBlock Text="{x:Static res:Strings.FileName}" FontFamily="{DynamicResource VelaTerminalFont}"
-                     FontSize="10" LetterSpacing="1" Foreground="{DynamicResource VelaTextMuted}"
+          <TextBlock Text="{x:Static res:Strings.FileName}" FontFamily="{DynamicResource VelaUiMonoFont}"
+                     FontSize="{DynamicResource VelaFontSize10}" LetterSpacing="1" Foreground="{DynamicResource VelaTextMuted}"
                      VerticalAlignment="Center" />
-          <TextBlock Grid.Column="1" Text="{x:Static res:Strings.Size}" FontFamily="{DynamicResource VelaTerminalFont}"
-                     FontSize="10" LetterSpacing="1" Foreground="{DynamicResource VelaTextMuted}"
+          <TextBlock Grid.Column="1" Text="{x:Static res:Strings.Size}" FontFamily="{DynamicResource VelaUiMonoFont}"
+                     FontSize="{DynamicResource VelaFontSize10}" LetterSpacing="1" Foreground="{DynamicResource VelaTextMuted}"
                      VerticalAlignment="Center" />
-          <TextBlock Grid.Column="2" Text="{x:Static res:Strings.Modified}" FontFamily="{DynamicResource VelaTerminalFont}"
-                     FontSize="10" LetterSpacing="1" Foreground="{DynamicResource VelaTextMuted}"
+          <TextBlock Grid.Column="2" Text="{x:Static res:Strings.Modified}" FontFamily="{DynamicResource VelaUiMonoFont}"
+                     FontSize="{DynamicResource VelaFontSize10}" LetterSpacing="1" Foreground="{DynamicResource VelaTextMuted}"
                      VerticalAlignment="Center" />
         </Grid>
       </Border>
       <Border DockPanel.Dock="Top" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
               Background="{DynamicResource VelaBgActive}" Padding="8,4">
-        <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource VelaAccent}" FontSize="11" />
+        <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource VelaAccent}" FontSize="{DynamicResource VelaFontSize11}" />
       </Border>
+      <!-- 列表外面套一层 Panel,是为了在它上面叠一个框选矩形(见 MarqueeOverlay)。 -->
+      <Panel>
       <ListBox x:Name="FileList" ItemsSource="{Binding Entries}" SelectedItems="{Binding SelectedEntries}"
                SelectionMode="Multiple" Background="Transparent" BorderThickness="0"
                DoubleTapped="OnFileDoubleTapped">
@@ -182,28 +184,39 @@
               <Grid ColumnDefinitions="*,90,130">
                 <Grid Classes="local-name-cell" ColumnDefinitions="Auto,*" MinWidth="0"
                       ClipToBounds="True" VerticalAlignment="Center">
-                  <pc:LucideIcon Width="13" Height="13" Margin="0,0,7,0"
+                  <pc:LucideIcon Classes="dnd-surface" Width="13" Height="13" Margin="0,0,7,0"
                                  Data="{StaticResource Icon.folder}" Foreground="{DynamicResource VelaFileFolderIcon}"
                                  IsVisible="{Binding IsRegularDirectory}" />
-                  <pc:LucideIcon Width="13" Height="13" Margin="0,0,7,0"
+                  <pc:LucideIcon Classes="dnd-surface" Width="13" Height="13" Margin="0,0,7,0"
                                  Data="{StaticResource Icon.file}" Foreground="{DynamicResource VelaTextTertiary}"
                                  IsVisible="{Binding IsRegularFile}" />
-                  <pc:LucideIcon Width="13" Height="13" Margin="0,0,7,0"
+                  <pc:LucideIcon Classes="dnd-surface" Width="13" Height="13" Margin="0,0,7,0"
                                  Data="{StaticResource Icon.corner-left-up}" Foreground="{DynamicResource VelaTextTertiary}"
                                  IsVisible="{Binding IsParentEntry}" />
-                  <TextBlock Grid.Column="1" Text="{Binding DisplayName}" FontFamily="{DynamicResource VelaTerminalFont}"
-                             FontSize="11" Foreground="{DynamicResource VelaTextSecondary}"
-                             VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Classes="dnd-surface" Grid.Column="1" Text="{Binding DisplayName}" FontFamily="{DynamicResource VelaUiMonoFont}"
+                             FontSize="{DynamicResource VelaFontSize11}" Foreground="{DynamicResource VelaTextSecondary}"
+                             VerticalAlignment="Center" HorizontalAlignment="Left"
+                             TextTrimming="CharacterEllipsis" />
                 </Grid>
-                <TextBlock Classes="local-size-cell" Grid.Column="1" Text="{Binding FormattedSize}" FontFamily="{DynamicResource VelaTerminalFont}"
-                           FontSize="11" Foreground="{DynamicResource VelaTextTertiary}" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="2" Text="{Binding FormattedModifiedTime}" FontFamily="{DynamicResource VelaTerminalFont}"
-                           FontSize="11" Foreground="{DynamicResource VelaTextTertiary}" VerticalAlignment="Center" />
+                <TextBlock Classes="local-size-cell dnd-surface" Grid.Column="1" Text="{Binding FormattedSize}" FontFamily="{DynamicResource VelaUiMonoFont}"
+                           FontSize="{DynamicResource VelaFontSize11}" Foreground="{DynamicResource VelaTextTertiary}" VerticalAlignment="Center"
+                           HorizontalAlignment="Left" />
+                <TextBlock Classes="dnd-surface" Grid.Column="2" Text="{Binding FormattedModifiedTime}" FontFamily="{DynamicResource VelaUiMonoFont}"
+                           FontSize="{DynamicResource VelaFontSize11}" Foreground="{DynamicResource VelaTextTertiary}" VerticalAlignment="Center"
+                           HorizontalAlignment="Left" />
               </Grid>
             </Border>
           </DataTemplate>
         </ListBox.ItemTemplate>
       </ListBox>
+
+        <!-- 框选矩形。IsHitTestVisible=False:它盖在列表上,不能把指针事件吃掉。 -->
+        <Border Name="MarqueeOverlay" IsVisible="False" IsHitTestVisible="False"
+                HorizontalAlignment="Left" VerticalAlignment="Top"
+                Background="{DynamicResource VelaAccent}" Opacity="0.18"
+                BorderBrush="{DynamicResource VelaAccent}" BorderThickness="1"
+                CornerRadius="1" />
+      </Panel>
     </DockPanel>
   </Border>
 </UserControl>

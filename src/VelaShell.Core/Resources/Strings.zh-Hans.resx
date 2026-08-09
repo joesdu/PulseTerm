@@ -120,6 +120,336 @@
   <data name="AppName" xml:space="preserve">
     <value>VelaShell</value>
   </data>
+  <data name="Monitor_CacheBuffers" xml:space="preserve">
+    <value>缓存 / 缓冲</value>
+  </data>
+  <data name="Monitor_ColCapacity" xml:space="preserve">
+    <value>已用 / 总量</value>
+  </data>
+  <data name="Monitor_ColCore" xml:space="preserve">
+    <value>核心</value>
+  </data>
+  <data name="Monitor_ColCpu" xml:space="preserve">
+    <value>CPU</value>
+  </data>
+  <data name="Monitor_ColDevice" xml:space="preserve">
+    <value>设备</value>
+  </data>
+  <data name="Monitor_ColFsType" xml:space="preserve">
+    <value>文件系统</value>
+  </data>
+  <data name="Monitor_ColLoad" xml:space="preserve">
+    <value>负载</value>
+  </data>
+  <data name="Monitor_ColMemShare" xml:space="preserve">
+    <value>占比</value>
+  </data>
+  <data name="Monitor_ColMount" xml:space="preserve">
+    <value>挂载点</value>
+  </data>
+  <data name="Monitor_ColPeer" xml:space="preserve">
+    <value>对端</value>
+  </data>
+  <data name="Monitor_ColProcess" xml:space="preserve">
+    <value>进程</value>
+  </data>
+  <data name="Monitor_ColRss" xml:space="preserve">
+    <value>常驻内存</value>
+  </data>
+  <data name="Monitor_ColShared" xml:space="preserve">
+    <value>共享</value>
+  </data>
+  <data name="Monitor_ColSwap" xml:space="preserve">
+    <value>交换</value>
+  </data>
+  <data name="Monitor_ColUsage" xml:space="preserve">
+    <value>使用率</value>
+  </data>
+  <data name="Monitor_ConnectionsUnavailable" xml:space="preserve">
+    <value>无法获取连接速率(需要 iproute2 的 ss;其他用户的进程名需 root)</value>
+  </data>
+  <data name="Monitor_ContextSwitches" xml:space="preserve">
+    <value>上下文切换</value>
+  </data>
+  <data name="Monitor_CoreCount" xml:space="preserve">
+    <value>{0} 个逻辑核心</value>
+  </data>
+  <data name="Monitor_CoreSelected" xml:space="preserve">
+    <value>{0} 核 · 已选 CPU{1} {2:F0}%</value>
+  </data>
+  <data name="Monitor_CoreSelectedLabel" xml:space="preserve">
+    <value>{0} 核 · 已选 {1} {2:F0}%</value>
+  </data>
+  <data name="Monitor_Cpu" xml:space="preserve">
+    <value>CPU</value>
+  </data>
+  <data name="Monitor_CpuBreakdown" xml:space="preserve">
+    <value>用户 {0:F1}% · 内核 {1:F1}% · IO 等待 {2:F1}%</value>
+  </data>
+  <data name="Monitor_CpuClock" xml:space="preserve">
+    <value>频率(当前 / 最高)</value>
+  </data>
+  <data name="Monitor_CpuCoresThreads" xml:space="preserve">
+    <value>物理核心 / 线程</value>
+  </data>
+  <data name="Monitor_Details" xml:space="preserve">
+    <value>详情</value>
+  </data>
+  <data name="Monitor_Disk" xml:space="preserve">
+    <value>磁盘</value>
+  </data>
+  <data name="Monitor_DiskActive" xml:space="preserve">
+    <value>活动时间</value>
+  </data>
+  <data name="Monitor_DiskActivity" xml:space="preserve">
+    <value>活动 {0}</value>
+  </data>
+  <data name="Monitor_DiskCapacity" xml:space="preserve">
+    <value>容量</value>
+  </data>
+  <data name="Monitor_DiskCount" xml:space="preserve">
+    <value>{0} 块</value>
+  </data>
+  <data name="Monitor_DiskRead" xml:space="preserve">
+    <value>读取</value>
+  </data>
+  <data name="Monitor_DiskThroughput" xml:space="preserve">
+    <value>读 {0} · 写 {1}</value>
+  </data>
+  <data name="Monitor_DiskWrite" xml:space="preserve">
+    <value>写入</value>
+  </data>
+  <data name="Monitor_Down" xml:space="preserve">
+    <value>下行</value>
+  </data>
+  <data name="Monitor_Free" xml:space="preserve">
+    <value>空闲</value>
+  </data>
+  <data name="Monitor_Gpu" xml:space="preserve">
+    <value>GPU</value>
+  </data>
+  <data name="Monitor_GpuClock" xml:space="preserve">
+    <value>核心 / 显存时钟</value>
+  </data>
+  <data name="Monitor_GpuCount" xml:space="preserve">
+    <value>{0} 卡 GPU</value>
+  </data>
+  <data name="Monitor_GpuDetails" xml:space="preserve">
+    <value>GPU 详情</value>
+  </data>
+  <data name="Monitor_GpuDriver" xml:space="preserve">
+    <value>驱动</value>
+  </data>
+  <data name="Monitor_GpuFan" xml:space="preserve">
+    <value>风扇</value>
+  </data>
+  <data name="Monitor_GpuMemory" xml:space="preserve">
+    <value>显存</value>
+  </data>
+  <data name="Monitor_GpuPower" xml:space="preserve">
+    <value>功耗</value>
+  </data>
+  <data name="Monitor_GpuProcesses" xml:space="preserve">
+    <value>GPU 进程</value>
+  </data>
+  <data name="Monitor_GpuSlot" xml:space="preserve">
+    <value>PCI 槽位</value>
+  </data>
+  <data name="Monitor_GpuTemp" xml:space="preserve">
+    <value>温度</value>
+  </data>
+  <data name="Monitor_GpuUtil" xml:space="preserve">
+    <value>计算利用率</value>
+  </data>
+  <data name="Monitor_GpuVendor" xml:space="preserve">
+    <value>厂商</value>
+  </data>
+  <data name="Monitor_GpuVirtual" xml:space="preserve">
+    <value>虚拟显卡</value>
+  </data>
+  <data name="Monitor_Hint" xml:space="preserve">
+    <value>数据经 SSH 探针采集,窗口关闭后自动停止轮询。</value>
+  </data>
+  <data name="Monitor_Interval" xml:space="preserve">
+    <value>采样 {0}s</value>
+  </data>
+  <data name="Monitor_KernelSpace" xml:space="preserve">
+    <value>内核态</value>
+  </data>
+  <data name="Monitor_LoadAverage" xml:space="preserve">
+    <value>负载均值</value>
+  </data>
+  <data name="Monitor_LoadLegend" xml:space="preserve">
+    <value>负载</value>
+  </data>
+  <data name="Monitor_LogicalCores" xml:space="preserve">
+    <value>{0} 逻辑核心</value>
+  </data>
+  <data name="Monitor_LogicalProcessors" xml:space="preserve">
+    <value>逻辑处理器</value>
+  </data>
+  <data name="Monitor_MemAvailable" xml:space="preserve">
+    <value>可用</value>
+  </data>
+  <data name="Monitor_MemCacheBuffers" xml:space="preserve">
+    <value>缓存 / 缓冲</value>
+  </data>
+  <data name="Monitor_MemComposition" xml:space="preserve">
+    <value>内存组合</value>
+  </data>
+  <data name="Monitor_MemDirty" xml:space="preserve">
+    <value>脏页</value>
+  </data>
+  <data name="Monitor_MemShared" xml:space="preserve">
+    <value>共享内存</value>
+  </data>
+  <data name="Monitor_MemSlab" xml:space="preserve">
+    <value>可回收 Slab</value>
+  </data>
+  <data name="Monitor_MemTotal" xml:space="preserve">
+    <value>总容量</value>
+  </data>
+  <data name="Monitor_MemUsed" xml:space="preserve">
+    <value>已用</value>
+  </data>
+  <data name="Monitor_Memory" xml:space="preserve">
+    <value>内存</value>
+  </data>
+  <data name="Monitor_MetricUnavailable" xml:space="preserve">
+    <value>该卡不提供此指标</value>
+  </data>
+  <data name="Monitor_NavCpu" xml:space="preserve">
+    <value>{0:F0}% · {1} 核</value>
+  </data>
+  <data name="Monitor_NavGpu" xml:space="preserve">
+    <value>{0:F0}% · {1} 卡</value>
+  </data>
+  <data name="Monitor_Network" xml:space="preserve">
+    <value>网络</value>
+  </data>
+  <data name="Monitor_NicDetails" xml:space="preserve">
+    <value>网卡详情</value>
+  </data>
+  <data name="Monitor_NicDropped" xml:space="preserve">
+    <value>丢包 收/发</value>
+  </data>
+  <data name="Monitor_NicErrors" xml:space="preserve">
+    <value>错误 收/发</value>
+  </data>
+  <data name="Monitor_NicFullDuplex" xml:space="preserve">
+    <value>全双工</value>
+  </data>
+  <data name="Monitor_NicHalfDuplex" xml:space="preserve">
+    <value>半双工</value>
+  </data>
+  <data name="Monitor_NicIp" xml:space="preserve">
+    <value>IPv4</value>
+  </data>
+  <data name="Monitor_NicLink" xml:space="preserve">
+    <value>链路速率</value>
+  </data>
+  <data name="Monitor_NicMac" xml:space="preserve">
+    <value>MAC 地址</value>
+  </data>
+  <data name="Monitor_NicMtu" xml:space="preserve">
+    <value>MTU</value>
+  </data>
+  <data name="Monitor_NicRxTotal" xml:space="preserve">
+    <value>累计接收</value>
+  </data>
+  <data name="Monitor_NicTxTotal" xml:space="preserve">
+    <value>累计发送</value>
+  </data>
+  <data name="Monitor_Now" xml:space="preserve">
+    <value>现在</value>
+  </data>
+  <data name="Monitor_Overview" xml:space="preserve">
+    <value>总览</value>
+  </data>
+  <data name="Monitor_Partitions" xml:space="preserve">
+    <value>分区与挂载点</value>
+  </data>
+  <data name="Monitor_Pause" xml:space="preserve">
+    <value>暂停</value>
+  </data>
+  <data name="Monitor_PhysicalDisks" xml:space="preserve">
+    <value>物理磁盘</value>
+  </data>
+  <data name="Monitor_ProcessesThreads" xml:space="preserve">
+    <value>进程 / 线程</value>
+  </data>
+  <data name="Monitor_Resume" xml:space="preserve">
+    <value>继续</value>
+  </data>
+  <data name="Monitor_SampleInterval" xml:space="preserve">
+    <value>采样间隔</value>
+  </data>
+  <data name="Monitor_SortByIndex" xml:space="preserve">
+    <value>按核心号</value>
+  </data>
+  <data name="Monitor_SortByLoad" xml:space="preserve">
+    <value>按负载</value>
+  </data>
+  <data name="Monitor_Stale" xml:space="preserve">
+    <value>采样连续失败,正在重试…</value>
+  </data>
+  <data name="Monitor_Swap" xml:space="preserve">
+    <value>交换分区</value>
+  </data>
+  <data name="Monitor_Throughput" xml:space="preserve">
+    <value>吞吐</value>
+  </data>
+  <data name="Monitor_Title" xml:space="preserve">
+    <value>系统资源监控</value>
+  </data>
+  <data name="Monitor_TitleFormat" xml:space="preserve">
+    <value>系统资源监控 — {0}</value>
+  </data>
+  <data name="Monitor_TopByCpu" xml:space="preserve">
+    <value>CPU 占用最高进程</value>
+  </data>
+  <data name="Monitor_TopByMemory" xml:space="preserve">
+    <value>占用最高进程</value>
+  </data>
+  <data name="Monitor_TopConnections" xml:space="preserve">
+    <value>连接占用 Top</value>
+  </data>
+  <data name="Monitor_TotalUsage" xml:space="preserve">
+    <value>总利用率</value>
+  </data>
+  <data name="Monitor_Up" xml:space="preserve">
+    <value>上行</value>
+  </data>
+  <data name="Monitor_UptimeLabel" xml:space="preserve">
+    <value>运行时长</value>
+  </data>
+  <data name="Monitor_Used" xml:space="preserve">
+    <value>已用</value>
+  </data>
+  <data name="Monitor_UserSpace" xml:space="preserve">
+    <value>用户态</value>
+  </data>
+  <data name="Monitor_ViewHeat" xml:space="preserve">
+    <value>热力图</value>
+  </data>
+  <data name="Monitor_ViewList" xml:space="preserve">
+    <value>列表</value>
+  </data>
+  <data name="Monitor_ViewSpark" xml:space="preserve">
+    <value>迷你折线</value>
+  </data>
+  <data name="Monitor_Vram" xml:space="preserve">
+    <value>显存</value>
+  </data>
+  <data name="Monitor_WindowMinutes" xml:space="preserve">
+    <value>{0} 分钟前</value>
+  </data>
+  <data name="Monitor_WindowSeconds" xml:space="preserve">
+    <value>{0} 秒前</value>
+  </data>
+  <data name="Monitor_WindowStart" xml:space="preserve">
+    <value>60 秒前</value>
+  </data>
   <data name="Ready" xml:space="preserve">
     <value>就绪</value>
   </data>
@@ -152,6 +482,9 @@
   </data>
   <data name="Split" xml:space="preserve">
     <value>拆分</value>
+  </data>
+  <data name="StatusBar_OpenMonitor" xml:space="preserve">
+    <value>打开资源监视器</value>
   </data>
   <data name="SyncGroup" xml:space="preserve">
     <value>同步组</value>
@@ -385,11 +718,20 @@
   <data name="Passphrase" xml:space="preserve">
     <value>密码短语</value>
   </data>
-  <data name="UploadFilesHere" xml:space="preserve">
-    <value>上传文件到当前目录</value>
+  <data name="UploadHere" xml:space="preserve">
+    <value>上传到当前目录</value>
   </data>
-  <data name="UploadFolderHere" xml:space="preserve">
-    <value>上传文件夹到当前目录</value>
+  <data name="Sftp_PickUploadTitle" xml:space="preserve">
+    <value>选择要上传的文件与文件夹</value>
+  </data>
+  <data name="Sftp_PickUploadHint" xml:space="preserve">
+    <value>选择文件与文件夹 —— 两者可以一起选</value>
+  </data>
+  <data name="Sftp_PickUploadSelected" xml:space="preserve">
+    <value>已选 {0} 个文件、{1} 个文件夹</value>
+  </data>
+  <data name="Sftp_GoUp" xml:space="preserve">
+    <value>上一级</value>
   </data>
   <data name="NewFolder" xml:space="preserve">
     <value>新建文件夹</value>
@@ -405,6 +747,15 @@
   </data>
   <data name="MoveToPrompt" xml:space="preserve">
     <value>移动到（目标完整路径）</value>
+  </data>
+  <data name="MoveSelectedToPrompt" xml:space="preserve">
+    <value>将选中项移动到(目标文件夹)</value>
+  </data>
+  <data name="CopySelectedToPrompt" xml:space="preserve">
+    <value>将选中项复制到(目标文件夹)</value>
+  </data>
+  <data name="BatchOpPartialFailure" xml:space="preserve">
+    <value>{0} 项失败,首个错误:{1}</value>
   </data>
   <data name="CopyTo" xml:space="preserve">
     <value>复制到…</value>
@@ -465,12 +816,6 @@
   </data>
   <data name="DeletingProgress" xml:space="preserve">
     <value>正在删除… 已删除 {0}/{1} 项</value>
-  </data>
-  <data name="SelectFilesToUpload" xml:space="preserve">
-    <value>选择要上传的文件</value>
-  </data>
-  <data name="SelectFolderToUpload" xml:space="preserve">
-    <value>选择要上传的文件夹</value>
   </data>
   <data name="SelectDownloadFolder" xml:space="preserve">
     <value>选择保存位置</value>
@@ -1167,7 +1512,13 @@
     <value>SFTP 服务不可用。</value>
   </data>
   <data name="Msg_SshConnectionLostDetail" xml:space="preserve">
-    <value>// 与 {0} 的 SSH 连接已丢失</value>
+    <value>与 {0} 的连接已断开</value>
+  </data>
+  <data name="Msg_LocalShellExitedDetail" xml:space="preserve">
+    <value>本地终端 {0} 的会话已结束</value>
+  </data>
+  <data name="Msg_DisconnectOverlayKeyHint" xml:space="preserve">
+    <value>Enter 重新连接 · Esc 关闭标签页</value>
   </data>
   <data name="Msg_SshServiceNotConfigured" xml:space="preserve">
     <value>SSH 连接服务未配置。</value>
@@ -1249,6 +1600,27 @@
   </data>
   <data name="SetAbout_RestartToUpdate" xml:space="preserve">
     <value>重启并更新</value>
+  </data>
+  <data name="SetAbout_StoreManagedUpdates" xml:space="preserve">
+    <value>更新由 Microsoft Store 管理,请在商店中检查更新。</value>
+  </data>
+  <data name="SetAbout_RepairUpdate" xml:space="preserve">
+    <value>修复更新状态</value>
+  </data>
+  <data name="SetAbout_RepairUpdateTip" xml:space="preserve">
+    <value>清除更新残留文件与已下载的安装包,让检查更新从干净起点重新开始。更新流程卡住时使用。</value>
+  </data>
+  <data name="SetAbout_Repairing" xml:space="preserve">
+    <value>正在清除更新残留…</value>
+  </data>
+  <data name="SetAbout_RepairDone" xml:space="preserve">
+    <value>更新状态已重置,可以重新检查更新。</value>
+  </data>
+  <data name="SetAbout_RepairFailed" xml:space="preserve">
+    <value>仍有残留文件被占用,请关闭其他 VelaShell 窗口后重试。</value>
+  </data>
+  <data name="SetAbout_PreviousUpdateFailed" xml:space="preserve">
+    <value>上次更新未能完成,已还原到当前版本({0})。</value>
   </data>
   <data name="Msg_Uploaded" xml:space="preserve">
     <value>已上传</value>
@@ -2432,6 +2804,9 @@
   <data name="SetVm_ShortcutCompletionPopup" xml:space="preserve">
     <value>弹出命令补全</value>
   </data>
+  <data name="SetVm_ShortcutDeleteWord" xml:space="preserve">
+    <value>删除前一个单词</value>
+  </data>
   <data name="SetVm_ShortcutNewTabAlias" xml:space="preserve">
     <value>新建标签(同新建连接)</value>
   </data>
@@ -2950,10 +3325,10 @@ Windows 填 exe 完整路径或命令名(如 notepad);Linux 填命令名(如 ged
     <value>关闭</value>
   </data>
   <data name="SftpSvc_ResumeUploadMismatch" xml:space="preserve">
-    <value>无法续传 {0}:远端已有的文件并不是本地文件的开头部分。请删除远端文件,或整份重新上传。</value>
+    <value>远端文件 {0} 在本次传输排队期间发生了变化,已无法续传。重试即可按覆盖/跳过的冲突方式处理。</value>
   </data>
   <data name="SftpSvc_ResumeDownloadMismatch" xml:space="preserve">
-    <value>无法续传 {0}:本地残留的文件并不是远端文件的开头部分。请删除本地文件,或整份重新下载。</value>
+    <value>{0} 的本地文件在本次传输排队期间发生了变化,已无法续传。重试即可按覆盖/跳过的冲突方式处理。</value>
   </data>
   <data name="SetTransfer_Resume" xml:space="preserve">
     <value>恢复中断的传输</value>
@@ -2972,5 +3347,338 @@ Windows 填 exe 完整路径或命令名(如 notepad);Linux 填命令名(如 ged
   </data>
   <data name="Transfer_ClearCompleted" xml:space="preserve">
     <value>清除已结束</value>
+  </data>
+  <data name="Cmd_ProcessManager" xml:space="preserve">
+    <value>任务管理器</value>
+  </data>
+  <data name="Menu_ProcessManagerTip" xml:space="preserve">
+    <value>当前 SSH 会话的任务管理器</value>
+  </data>
+  <data name="Proc_TitleFormat" xml:space="preserve">
+    <value>{0} — 任务管理器</value>
+  </data>
+  <data name="Proc_SearchPlaceholder" xml:space="preserve">
+    <value>搜索名称、命令行或 PID</value>
+  </data>
+  <data name="Proc_ColName" xml:space="preserve">
+    <value>名称</value>
+  </data>
+  <data name="Proc_ColPid" xml:space="preserve">
+    <value>PID</value>
+  </data>
+  <data name="Proc_ColUser" xml:space="preserve">
+    <value>用户</value>
+  </data>
+  <data name="Proc_ColCpu" xml:space="preserve">
+    <value>CPU</value>
+  </data>
+  <data name="Proc_ColMemory" xml:space="preserve">
+    <value>内存</value>
+  </data>
+  <data name="Proc_ColThreads" xml:space="preserve">
+    <value>线程</value>
+  </data>
+  <data name="Proc_ColState" xml:space="preserve">
+    <value>状态</value>
+  </data>
+  <data name="Proc_ColTime" xml:space="preserve">
+    <value>运行时长</value>
+  </data>
+  <data name="Proc_ColCommand" xml:space="preserve">
+    <value>命令行</value>
+  </data>
+  <data name="Proc_EndTask" xml:space="preserve">
+    <value>结束任务</value>
+  </data>
+  <data name="Proc_EndTree" xml:space="preserve">
+    <value>结束进程树</value>
+  </data>
+  <data name="Proc_ForceEnd" xml:space="preserve">
+    <value>强制结束</value>
+  </data>
+  <data name="Proc_SetPriority" xml:space="preserve">
+    <value>设置优先级</value>
+  </data>
+  <data name="Proc_CopyCommand" xml:space="preserve">
+    <value>复制命令行</value>
+  </data>
+  <data name="Proc_PriorityRealtime" xml:space="preserve">
+    <value>实时</value>
+  </data>
+  <data name="Proc_PriorityHigh" xml:space="preserve">
+    <value>高</value>
+  </data>
+  <data name="Proc_PriorityAboveNormal" xml:space="preserve">
+    <value>高于标准</value>
+  </data>
+  <data name="Proc_PriorityNormal" xml:space="preserve">
+    <value>标准</value>
+  </data>
+  <data name="Proc_PriorityBelowNormal" xml:space="preserve">
+    <value>低于标准</value>
+  </data>
+  <data name="Proc_PriorityLow" xml:space="preserve">
+    <value>低</value>
+  </data>
+  <data name="Proc_Speed" xml:space="preserve">
+    <value>更新速度</value>
+  </data>
+  <data name="Proc_SpeedHigh" xml:space="preserve">
+    <value>高</value>
+  </data>
+  <data name="Proc_SpeedNormal" xml:space="preserve">
+    <value>普通</value>
+  </data>
+  <data name="Proc_SpeedLow" xml:space="preserve">
+    <value>低</value>
+  </data>
+  <data name="Proc_SpeedPaused" xml:space="preserve">
+    <value>已暂停</value>
+  </data>
+  <data name="Proc_ShowKernelThreads" xml:space="preserve">
+    <value>显示内核线程</value>
+  </data>
+  <data name="Proc_TreeView" xml:space="preserve">
+    <value>树形视图</value>
+  </data>
+  <data name="SetAppear_RenderSection" xml:space="preserve">
+    <value>渲染</value>
+  </data>
+  <data name="SetAppear_HardwareAcceleration" xml:space="preserve">
+    <value>硬件加速</value>
+  </data>
+  <data name="SetAppear_HardwareAccelerationDesc" xml:space="preserve">
+    <value>// 用 GPU 绘制。关闭后改用软件渲染,可省约 170MB 内存——显卡驱动不再把自己的模块映射进本进程。重启后生效。</value>
+  </data>
+  <data name="Proc_Refresh" xml:space="preserve">
+    <value>立即刷新</value>
+  </data>
+  <data name="Proc_Unavailable" xml:space="preserve">
+    <value>无法获取远端进程列表</value>
+  </data>
+  <data name="Proc_UnavailableHint" xml:space="preserve">
+    <value>该视图读取远端的 /proc 与 ps,需要一个已连接的 Linux 会话。</value>
+  </data>
+  <data name="Proc_ConfirmEndTitle" xml:space="preserve">
+    <value>结束进程</value>
+  </data>
+  <data name="Proc_ConfirmEndTreeTitle" xml:space="preserve">
+    <value>结束进程树</value>
+  </data>
+  <data name="Proc_ConfirmForceEndTitle" xml:space="preserve">
+    <value>强制结束进程</value>
+  </data>
+  <data name="Proc_ConfirmEndBody" xml:space="preserve">
+    <value>确定结束 {0}(PID {1})吗?未保存的数据将会丢失。</value>
+  </data>
+  <data name="Proc_ConfirmEndTreeBody" xml:space="preserve">
+    <value>确定结束 {0}(PID {1})及其全部子进程,共 {2} 个进程吗?未保存的数据将会丢失。</value>
+  </data>
+  <data name="Proc_EndSucceeded" xml:space="preserve">
+    <value>已向 {0} 及其进程树共 {1} 个进程发送结束信号</value>
+  </data>
+  <data name="Proc_EndFailed" xml:space="preserve">
+    <value>结束 {0} 失败:{1}</value>
+  </data>
+  <data name="Proc_PriorityChanged" xml:space="preserve">
+    <value>{0} 的优先级已设为 nice {1}</value>
+  </data>
+  <data name="Proc_PriorityFailed" xml:space="preserve">
+    <value>调整 {0} 的优先级失败:{1}</value>
+  </data>
+  <data name="Proc_ReasonUnknown" xml:space="preserve">
+    <value>原因未知(可能需要 root 权限)</value>
+  </data>
+  <data name="Proc_CommandCopied" xml:space="preserve">
+    <value>命令行已复制</value>
+  </data>
+  <data name="Proc_CountFormat" xml:space="preserve">
+    <value>进程:{0} / {1}</value>
+  </data>
+  <data name="Proc_CoresFormat" xml:space="preserve">
+    <value>{0} 核</value>
+  </data>
+  <data name="Proc_CpuNormalisedTip" xml:space="preserve">
+    <value>按总容量归一:全核满载为 100%,与 Windows 任务管理器口径一致</value>
+  </data>
+  <data name="Trace_Title" xml:space="preserve">
+    <value>路由追踪</value>
+  </data>
+  <data name="Trace_Target" xml:space="preserve">
+    <value>目标</value>
+  </data>
+  <data name="Trace_Start" xml:space="preserve">
+    <value>开始</value>
+  </data>
+  <data name="Trace_Stop" xml:space="preserve">
+    <value>停止</value>
+  </data>
+  <data name="Trace_ColHost" xml:space="preserve">
+    <value>主机</value>
+  </data>
+  <data name="Trace_ColLoss" xml:space="preserve">
+    <value>丢包%</value>
+  </data>
+  <data name="Trace_ColSent" xml:space="preserve">
+    <value>已发</value>
+  </data>
+  <data name="Trace_ColLast" xml:space="preserve">
+    <value>最近</value>
+  </data>
+  <data name="Trace_ColAvg" xml:space="preserve">
+    <value>平均</value>
+  </data>
+  <data name="Trace_ColBest" xml:space="preserve">
+    <value>最快</value>
+  </data>
+  <data name="Trace_ColWorst" xml:space="preserve">
+    <value>最慢</value>
+  </data>
+  <data name="Trace_ColStdDev" xml:space="preserve">
+    <value>标准差</value>
+  </data>
+  <data name="Trace_Running" xml:space="preserve">
+    <value>追踪中…</value>
+  </data>
+  <data name="Trace_Stopped" xml:space="preserve">
+    <value>已停止</value>
+  </data>
+  <data name="Trace_HintOk" xml:space="preserve">
+    <value>正常。</value>
+  </data>
+  <data name="Trace_HintRateLimited" xml:space="preserve">
+    <value>本跳丢包但后续跳不丢:该路由器对 ICMP 回包限速,转发正常。</value>
+  </data>
+  <data name="Trace_HintNoResponse" xml:space="preserve">
+    <value>该节点完全不回 ICMP。后续跳仍有回应,链路没断。</value>
+  </data>
+  <data name="Trace_HintSuspectedLoss" xml:space="preserve">
+    <value>丢包一直延续到最后一跳:这才可能是真实的端到端丢包。</value>
+  </data>
+  <data name="Trace_HintUnreachable" xml:space="preserve">
+    <value>该跳返回了目标不可达。</value>
+  </data>
+  <data name="Trace_ReachedFormat" xml:space="preserve">
+    <value>已到达目标 · {0} 跳 · 第 {1} 轮</value>
+  </data>
+  <data name="Trace_ProbingFormat" xml:space="preserve">
+    <value>探测中 · 已 {0} 跳 · 第 {1} 轮</value>
+  </data>
+  <data name="Trace_Failed" xml:space="preserve">
+    <value>追踪失败:{0}</value>
+  </data>
+  <data name="Trace_Continuous" xml:space="preserve">
+    <value>持续追踪</value>
+  </data>
+  <data name="Trace_Completed" xml:space="preserve">
+    <value>追踪完成</value>
+  </data>
+  <data name="Trace_TitleFormat" xml:space="preserve">
+    <value>{0} — 路由追踪</value>
+  </data>
+  <data name="Trace_ColLocation" xml:space="preserve">
+    <value>位置</value>
+  </data>
+  <data name="Trace_MapNoData" xml:space="preserve">
+    <value>还没有可以落到地图上的跃点。</value>
+  </data>
+  <data name="Trace_MapNeedsDatabase" xml:space="preserve">
+    <value>未找到离线 IP 归属地数据库。把 .mmdb 放到 %LocalAppData%/VelaShell/geoip/,或在设置里指定路径。没有它追踪照常工作,只是地图为空。</value>
+  </data>
+  <data name="Trace_LocationHint" xml:space="preserve">
+    <value>依据 IP 段登记信息推断。骨干路由器登记的常是运营商注册地址而非设备实际位置,中间跳仅供参考。</value>
+  </data>
+  <data name="Trace_GeoDownload" xml:space="preserve">
+    <value>下载数据库</value>
+  </data>
+  <data name="Trace_GeoPick" xml:space="preserve">
+    <value>选择本地文件…</value>
+  </data>
+  <data name="Trace_GeoFileType" xml:space="preserve">
+    <value>IP 归属地数据库 (*.mmdb, *.gz)</value>
+  </data>
+  <data name="Trace_GeoExtracting" xml:space="preserve">
+    <value>正在解压…</value>
+  </data>
+  <data name="Trace_GeoLoadFailed" xml:space="preserve">
+    <value>无法加载该文件。需要是未压缩的 .mmdb,或下载得到的 .mmdb.gz。</value>
+  </data>
+  <data name="Trace_GeoAttribution" xml:space="preserve">
+    <value>IP 归属地数据由 DB-IP.com 提供 (CC BY 4.0)</value>
+  </data>
+  <data name="XImport_MenuItem" xml:space="preserve">
+    <value>从 Xshell 导入…</value>
+  </data>
+  <data name="XImport_Title" xml:space="preserve">
+    <value>从 Xshell 导入会话</value>
+  </data>
+  <data name="XImport_SessionsDir" xml:space="preserve">
+    <value>Xshell 会话目录</value>
+  </data>
+  <data name="XImport_Browse" xml:space="preserve">
+    <value>浏览…</value>
+  </data>
+  <data name="XImport_Rescan" xml:space="preserve">
+    <value>扫描</value>
+  </data>
+  <data name="XImport_MasterPwWarn" xml:space="preserve">
+    <value>该工具启用了主密码，无法还原已保存的密码；会话将以不含密码的方式导入。</value>
+  </data>
+  <data name="XImport_WinScpMenuItem" xml:space="preserve">
+    <value>从 WinSCP 导入…</value>
+  </data>
+  <data name="XImport_TitleFmt" xml:space="preserve">
+    <value>从 {0} 导入会话</value>
+  </data>
+  <data name="XImport_GroupFmt" xml:space="preserve">
+    <value>{0} 导入</value>
+  </data>
+  <data name="XImport_SourceFolder" xml:space="preserve">
+    <value>会话目录</value>
+  </data>
+  <data name="XImport_SourceFile" xml:space="preserve">
+    <value>配置文件</value>
+  </data>
+  <data name="XImport_SelectAll" xml:space="preserve">
+    <value>全选</value>
+  </data>
+  <data name="XImport_SelectNone" xml:space="preserve">
+    <value>全不选</value>
+  </data>
+  <data name="XImport_ImportButton" xml:space="preserve">
+    <value>导入</value>
+  </data>
+  <data name="XImport_DefaultGroup" xml:space="preserve">
+    <value>Xshell 导入</value>
+  </data>
+  <data name="XImport_NotDetected" xml:space="preserve">
+    <value>未能自动检测到来源，请手动选择。</value>
+  </data>
+  <data name="XImport_NoSessions" xml:space="preserve">
+    <value>该目录下未找到会话。</value>
+  </data>
+  <data name="XImport_Found" xml:space="preserve">
+    <value>发现 {0} 个会话。</value>
+  </data>
+  <data name="XImport_DirNotFound" xml:space="preserve">
+    <value>目录不存在。</value>
+  </data>
+  <data name="XImport_SelectedCount" xml:space="preserve">
+    <value>已选 {0} 项 · {1} 个含密码</value>
+  </data>
+  <data name="XImport_Unsupported" xml:space="preserve">
+    <value>协议不支持</value>
+  </data>
+  <data name="XImport_PwRecovered" xml:space="preserve">
+    <value>密码已还原</value>
+  </data>
+  <data name="XImport_PwFailed" xml:space="preserve">
+    <value>需手动填写密码</value>
+  </data>
+  <data name="XImport_PwNone" xml:space="preserve">
+    <value>无密码</value>
+  </data>
+  <data name="XImport_Duplicate" xml:space="preserve">
+    <value>已存在</value>
   </data>
 </root>

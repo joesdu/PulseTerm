@@ -1,6 +1,6 @@
-using System.Reactive.Concurrency;
 using System.Runtime.CompilerServices;
 using ReactiveUI.Builder;
+using ReactiveUI.Primitives.Concurrency;
 
 // 本程序集的 UI 测试共用**同一条** headless UI 线程(各测试类都走
 // HeadlessUnitTestSession.GetOrStartForAssembly),Dispatch 的工作项在那条线程上顺序执行。
@@ -19,7 +19,7 @@ internal static class ModuleInit
         try
         {
             RxAppBuilder.CreateReactiveUIBuilder()
-                .WithMainThreadScheduler(CurrentThreadScheduler.Instance)
+                .WithMainThreadScheduler(CurrentThreadSequencer.Instance)
                 .WithCoreServices()
                 .BuildApp();
         }

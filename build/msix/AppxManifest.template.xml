@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  VelaShell 的 MSIX 包清单模板。占位符由 build/msix/Build-Msix.ps1 在打包时替换:
+    {IDENTITY_NAME} {PUBLISHER} {PUBLISHER_DISPLAY_NAME}
+      三者必须与 Partner Center → 产品管理 → 产品标识 页面上的
+      Package/Identity/Name、Package/Identity/Publisher、Package/Properties/PublisherDisplayName
+      逐字一致(含大小写与非 ASCII 字符),否则上传直接被验证拒绝。
+      其中 PublisherDisplayName 跟随账户的发布者显示名,不是随便起的:要改它得去
+      账户设置改账户级别的发布者显示名(影响名下所有产品),而不是改这里迁就代码。
+      本地自测可用脚本的默认占位值。
+    {VERSION}  四段纯数字。商店要求第四段(修订号)保留给商店使用,必须为 0。
+    {ARCH}     x64 / arm64,每个架构单独出一个 .msix,最后 bundle 成一个 .msixbundle。
+
+  能力说明:
+    runFullTrust                — 桌面(Win32/Avalonia)应用的必备受限能力,商店自动批准。
+    internetClient              — SSH/SFTP 出站连接、检查 GitHub 上的资源。
+    privateNetworkClientServer  — 连内网主机(家庭/公司网段)所必需。
+  刻意不声明 unvirtualizedResources:它虽能关掉 AppData 写入虚拟化、让商店版与便携版共用
+  %LocalAppData%\VelaShell 数据目录,但微软限定该受限能力"仅供微软及合作伙伴发布的特定
+  PC 游戏使用",第三方应用申请基本不会过审。因此商店版的数据落在包私有目录,与便携版相互独立。
+-->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap rescap">
+
+  <Identity
+    Name="{IDENTITY_NAME}"
+    Publisher="{PUBLISHER}"
+    Version="{VERSION}"
+    ProcessorArchitecture="{ARCH}" />
+
+  <Properties>
+    <DisplayName>VelaShell</DisplayName>
+    <PublisherDisplayName>{PUBLISHER_DISPLAY_NAME}</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+    <Description>A modern, cross-platform SSH and SFTP client with a GPU-accelerated terminal.</Description>
+  </Properties>
+
+  <Dependencies>
+    <!-- 19041 = Windows 10 2004,自包含发布对系统组件没有更高要求。 -->
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-US" />
+    <Resource Language="zh-CN" />
+    <Resource Language="zh-TW" />
+    <Resource Language="ja-JP" />
+    <Resource Language="ko-KR" />
+  </Resources>
+
+  <Applications>
+    <!-- EntryPoint=Windows.FullTrustApplication:这是一个普通 Win32 可执行文件,不是 UWP。 -->
+    <Application Id="VelaShell" Executable="VelaShell.exe" EntryPoint="Windows.FullTrustApplication">
+      <!-- 这里写的 Square44x44Logo 只是"基名":任务栏/开始菜单实际挑的是同名的限定符变体
+           (Square44x44Logo.targetsize-<N>_altform-unplated.png 等),由 Build-Msix.ps1 生成、
+           经 resources.pri 索引后才可见。少了 PRI 或少了 unplated 变体,系统就退回这张基图并
+           在它背后垫一块 BackgroundColor 的底 —— BackgroundColor="transparent" 时垫的是用户
+           主题色,任务栏上就成了一块纯色方块(issue #135)。改这两处前先读 Build-Msix.ps1
+           里 New-MsixAssets / New-ResourcesPri 的注释。
+           BackgroundColor 保持 transparent:磁贴跟随主题色是想要的效果,任务栏的透明由
+           unplated 变体保证,二者不冲突。 -->
+      <uap:VisualElements
+        DisplayName="VelaShell"
+        Description="A modern, cross-platform SSH and SFTP client with a GPU-accelerated terminal."
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile
+          Wide310x150Logo="Assets\Wide310x150Logo.png"
+          Square71x71Logo="Assets\Square71x71Logo.png"
+          Square310x310Logo="Assets\Square310x310Logo.png" />
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+    <Capability Name="internetClient" />
+    <Capability Name="privateNetworkClientServer" />
+  </Capabilities>
+</Package>

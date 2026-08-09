@@ -167,20 +167,11 @@ internal sealed class FolderZModemFileSink(
         _streams.Clear();
     }
 
-    /// <summary>把以 <c>~</c> 开头的路径展开为用户主目录下的绝对路径。</summary>
-    private static string ExpandHome(string path)
-    {
-        string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        if (string.IsNullOrWhiteSpace(path) || path == "~")
-        {
-            return home;
-        }
-        if (path.StartsWith("~/", StringComparison.Ordinal) || path.StartsWith("~\\", StringComparison.Ordinal))
-        {
-            return Path.Combine(home, path[2..]);
-        }
-        return path;
-    }
+    /// <summary>
+    /// 把配置的下载目录解析成绝对路径:<c>~</c> 与相对路径一律以用户主目录为基准,
+    /// 空值回退到用户主目录(见 <see cref="UserPathResolver" />)。
+    /// </summary>
+    private static string ExpandHome(string path) => UserPathResolver.ResolveOrHome(path);
 
     /// <summary>把远端文件名归一为安全的纯文件名:剥离任何目录成分并替换非法字符。</summary>
     private static string SanitizeFileName(string remoteFileName)

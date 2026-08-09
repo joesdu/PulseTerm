@@ -29,7 +29,7 @@
       <Setter Property="Padding" Value="12,0" />
       <Setter Property="CornerRadius" Value="4" />
       <Setter Property="Cursor" Value="Hand" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
       <Setter Property="FontWeight" Value="Medium" />
     </Style>
     <Style Selector="Button.dlg-primary">
@@ -39,13 +39,13 @@
       <Setter Property="Padding" Value="14,0" />
       <Setter Property="CornerRadius" Value="4" />
       <Setter Property="Cursor" Value="Hand" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
       <Setter Property="FontWeight" Value="Medium" />
     </Style>
     <!-- 步骤行状态配色 -->
     <Style Selector="TextBlock.step-status">
-      <Setter Property="FontFamily" Value="{DynamicResource VelaTerminalFont}" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
     </Style>
   </Window.Styles>
 
@@ -71,12 +71,12 @@
                              Foreground="{DynamicResource VelaAccent}" VerticalAlignment="Center" />
               <TextBlock Text="{loc:Localize Diag_Header}"
                          Foreground="{DynamicResource VelaTextPrimary}"
-                         FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
+                         FontSize="{DynamicResource VelaFontSize15}" FontWeight="SemiBold" VerticalAlignment="Center" />
             </StackPanel>
             <TextBlock Text="{Binding TargetSummary}"
                        Foreground="{DynamicResource VelaTextMuted}"
-                       FontFamily="{DynamicResource VelaTerminalFont}"
-                       FontSize="10" TextTrimming="CharacterEllipsis" />
+                       FontFamily="{DynamicResource VelaUiMonoFont}"
+                       FontSize="{DynamicResource VelaFontSize10}" TextTrimming="CharacterEllipsis" />
           </StackPanel>
           <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
             <Button Classes="dlg-outline" Click="ExportReport_Click"
@@ -121,7 +121,7 @@
                     BorderBrush="{DynamicResource VelaBorderPrimary}">
               <TextBlock Text="{loc:Localize Diag_Steps}"
                          Foreground="{DynamicResource VelaTextSecondary}"
-                         FontSize="12" FontWeight="Medium" VerticalAlignment="Center" />
+                         FontSize="{DynamicResource VelaFontSize12}" FontWeight="Medium" VerticalAlignment="Center" />
             </Border>
             <ItemsControl ItemsSource="{Binding Steps}" Margin="12,10">
               <ItemsControl.ItemTemplate>
@@ -162,8 +162,8 @@
                     <TextBlock Text="{Binding Detail}"
                                IsVisible="{Binding HasDetail}"
                                Foreground="{DynamicResource VelaTextMuted}"
-                               FontFamily="{DynamicResource VelaTerminalFont}"
-                               FontSize="10" TextWrapping="Wrap"
+                               FontFamily="{DynamicResource VelaUiMonoFont}"
+                               FontSize="{DynamicResource VelaFontSize10}" TextWrapping="Wrap"
                                Margin="14,0,0,0" />
                   </StackPanel>
                 </DataTemplate>
@@ -184,7 +184,7 @@
             <TextBlock Text="{loc:Localize Diag_Running}"
                        IsVisible="{Binding IsBusy}"
                        Foreground="{DynamicResource VelaTextMuted}"
-                       FontFamily="{DynamicResource VelaTerminalFont}" FontSize="11" />
+                       FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize11}" />
 
             <!-- 未发现问题 -->
             <Border Background="{DynamicResource VelaBgSurface}"
@@ -196,7 +196,7 @@
                                Foreground="{DynamicResource VelaStatusConnected}" VerticalAlignment="Center" />
                 <TextBlock Text="{loc:Localize Diag_AllPassed}"
                            Foreground="{DynamicResource VelaStatusConnected}"
-                           FontSize="12" FontWeight="Medium" VerticalAlignment="Center" />
+                           FontSize="{DynamicResource VelaFontSize12}" FontWeight="Medium" VerticalAlignment="Center" />
               </StackPanel>
             </Border>
 
@@ -210,13 +210,13 @@
                                  Data="{StaticResource Icon.triangle-alert}"
                                  Foreground="{DynamicResource VelaWarning}" VerticalAlignment="Center" />
                   <TextBlock Foreground="{DynamicResource VelaWarning}"
-                             FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center">
+                             FontSize="{DynamicResource VelaFontSize12}" FontWeight="SemiBold" VerticalAlignment="Center">
                     <Run Text="{loc:Localize Diag_IssueFound}" /><Run Text="{Binding IssueTitle}" />
                   </TextBlock>
                 </StackPanel>
                 <TextBlock Text="{Binding IssueDescription}"
                            Foreground="{DynamicResource VelaTextSecondary}"
-                           FontSize="11" TextWrapping="Wrap" />
+                           FontSize="{DynamicResource VelaFontSize11}" TextWrapping="Wrap" />
               </StackPanel>
             </Border>
 
@@ -232,7 +232,7 @@
                                    VerticalAlignment="Top" Margin="0,2,0,0" />
                     <TextBlock Text="{Binding}"
                                Foreground="{DynamicResource VelaTextPrimary}"
-                               FontSize="11" TextWrapping="Wrap"
+                               FontSize="{DynamicResource VelaFontSize11}" TextWrapping="Wrap"
                                MaxWidth="330" />
                   </StackPanel>
                 </DataTemplate>

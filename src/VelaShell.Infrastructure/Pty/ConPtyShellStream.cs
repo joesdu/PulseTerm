@@ -166,6 +166,13 @@ public sealed partial class ConPtyShellStream : IShellStreamWrapper
         columns = Math.Clamp(columns, 2, 500);
         rows = Math.Clamp(rows, 2, 500);
 
+        // 不指定工作目录时落到用户主目录,而不是让 CreateProcess 继承本进程的工作目录:
+        // 后者由外部环境决定(开机自启时曾是 C:\Windows\System32),绝不该成为 shell 的起点(#120)。
+        if (string.IsNullOrWhiteSpace(workingDirectory))
+        {
+            workingDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        }
+
         // 两对匿名管道:input(child ← us)、output(us ← child)。
         if (!NativeMethods.CreatePipe(out IntPtr inputRead, out IntPtr inputWrite, IntPtr.Zero, 0))
         {

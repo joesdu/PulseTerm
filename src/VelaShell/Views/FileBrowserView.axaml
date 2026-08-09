@@ -67,8 +67,8 @@
       <Setter Property="Cursor" Value="Hand" />
       <Setter Property="VerticalAlignment" Value="Center" />
       <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
-      <Setter Property="FontFamily" Value="{DynamicResource VelaTerminalFont}" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
       <Setter Property="FontWeight" Value="Medium" />
     </Style>
     <Style Selector="Button.crumb:pointerover /template/ ContentPresenter">
@@ -107,14 +107,14 @@
                     IsVisible="{Binding ServerDisplayName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
             <TextBlock Text="{Binding ServerDisplayName}"
                        Foreground="{DynamicResource VelaTextPrimary}"
-                       FontFamily="{DynamicResource VelaTerminalFont}"
-                       FontSize="11" FontWeight="SemiBold"
+                       FontFamily="{DynamicResource VelaUiMonoFont}"
+                       FontSize="{DynamicResource VelaFontSize11}" FontWeight="SemiBold"
                        VerticalAlignment="Center"
                        IsVisible="{Binding ServerDisplayName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
             <TextBlock Text="·"
                        Foreground="{DynamicResource VelaTextMuted}"
-                       FontFamily="{DynamicResource VelaTerminalFont}"
-                       FontSize="11" VerticalAlignment="Center"
+                       FontFamily="{DynamicResource VelaUiMonoFont}"
+                       FontSize="{DynamicResource VelaFontSize11}" VerticalAlignment="Center"
                        IsVisible="{Binding ServerDisplayName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
             <pc:LucideIcon Width="14" Height="14"
                            Data="{StaticResource Icon.folder-open}"
@@ -138,8 +138,8 @@
                               CommandParameter="{Binding Path}" />
                       <TextBlock Text="/"
                                  Foreground="{DynamicResource VelaTextMuted}"
-                                 FontFamily="{DynamicResource VelaTerminalFont}"
-                                 FontSize="11" VerticalAlignment="Center" />
+                                 FontFamily="{DynamicResource VelaUiMonoFont}"
+                                 FontSize="{DynamicResource VelaFontSize11}" VerticalAlignment="Center" />
                     </StackPanel>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
@@ -164,8 +164,8 @@
                                Foreground="{DynamicResource VelaAccent}" />
                 <TextBlock Text="{x:Static res:Strings.Upload}"
                            Foreground="{DynamicResource VelaAccent}"
-                           FontFamily="{DynamicResource VelaTerminalFont}"
-                           FontSize="10" FontWeight="Medium"
+                           FontFamily="{DynamicResource VelaUiMonoFont}"
+                           FontSize="{DynamicResource VelaFontSize10}" FontWeight="Medium"
                            VerticalAlignment="Center" />
               </StackPanel>
             </Button>
@@ -221,8 +221,10 @@
                              Data="{StaticResource Icon.refresh-cw}"
                              Foreground="{DynamicResource VelaTextTertiary}" />
             </Button>
-            <Button Classes="toolbar-btn" Width="24" Height="24" Padding="0"
+            <Button x:Name="RemotePaneCloseButton"
+                    Classes="toolbar-btn" Width="24" Height="24" Padding="0"
                     HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                    IsVisible="{Binding !IsDragEnabled}"
                     Command="{Binding ToggleVisibilityCommand}"
                     ToolTip.Tip="{loc:Localize Close}">
               <pc:LucideIcon Width="13" Height="13"
@@ -239,7 +241,7 @@
               Padding="8,4">
         <TextBlock Text="{Binding ErrorMessage}"
                    Foreground="{DynamicResource VelaAccent}"
-                   FontSize="11" />
+                   FontSize="{DynamicResource VelaFontSize11}" />
       </Border>
 
       <Grid RowDefinitions="26,*">
@@ -288,10 +290,10 @@
               <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                 <TextBlock Text="{loc:Localize FileName}"
                            Foreground="{DynamicResource VelaTextMuted}"
-                           FontFamily="{DynamicResource VelaTerminalFont}" FontSize="10" LetterSpacing="1" />
+                           FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize10}" LetterSpacing="1" />
                 <TextBlock Text="{Binding NameSortGlyph}"
                            Foreground="{DynamicResource VelaAccent}"
-                           FontFamily="{DynamicResource VelaTerminalFont}" FontSize="10" />
+                           FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize10}" />
               </StackPanel>
             </Button>
             <Border Grid.Column="1"
@@ -306,10 +308,10 @@
               <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                 <TextBlock Text="{loc:Localize Size}"
                            Foreground="{DynamicResource VelaTextMuted}"
-                           FontFamily="{DynamicResource VelaTerminalFont}" FontSize="10" LetterSpacing="1" />
+                           FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize10}" LetterSpacing="1" />
                 <TextBlock Text="{Binding SizeSortGlyph}"
                            Foreground="{DynamicResource VelaAccent}"
-                           FontFamily="{DynamicResource VelaTerminalFont}" FontSize="10" />
+                           FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize10}" />
               </StackPanel>
             </Button>
             <Border Grid.Column="3"
@@ -325,10 +327,10 @@
               <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                 <TextBlock Text="{loc:Localize Permissions}"
                            Foreground="{DynamicResource VelaTextMuted}"
-                           FontFamily="{DynamicResource VelaTerminalFont}" FontSize="10" LetterSpacing="1" />
+                           FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize10}" LetterSpacing="1" />
                 <TextBlock Text="{Binding PermissionsSortGlyph}"
                            Foreground="{DynamicResource VelaAccent}"
-                           FontFamily="{DynamicResource VelaTerminalFont}" FontSize="10" />
+                           FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize10}" />
               </StackPanel>
             </Button>
             <Border Grid.Column="5"
@@ -344,10 +346,10 @@
               <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                 <TextBlock Text="{loc:Localize PermissionOwner}"
                            Foreground="{DynamicResource VelaTextMuted}"
-                           FontFamily="{DynamicResource VelaTerminalFont}" FontSize="10" LetterSpacing="1" />
+                           FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize10}" LetterSpacing="1" />
                 <TextBlock Text="{Binding OwnerSortGlyph}"
                            Foreground="{DynamicResource VelaAccent}"
-                           FontFamily="{DynamicResource VelaTerminalFont}" FontSize="10" />
+                           FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize10}" />
               </StackPanel>
             </Button>
             <Border Grid.Column="7"
@@ -363,10 +365,10 @@
               <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                 <TextBlock Text="{loc:Localize PermissionGroup}"
                            Foreground="{DynamicResource VelaTextMuted}"
-                           FontFamily="{DynamicResource VelaTerminalFont}" FontSize="10" LetterSpacing="1" />
+                           FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize10}" LetterSpacing="1" />
                 <TextBlock Text="{Binding GroupSortGlyph}"
                            Foreground="{DynamicResource VelaAccent}"
-                           FontFamily="{DynamicResource VelaTerminalFont}" FontSize="10" />
+                           FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize10}" />
               </StackPanel>
             </Button>
             <Border Grid.Column="9"
@@ -382,10 +384,10 @@
               <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                 <TextBlock Text="{loc:Localize FileType}"
                            Foreground="{DynamicResource VelaTextMuted}"
-                           FontFamily="{DynamicResource VelaTerminalFont}" FontSize="10" LetterSpacing="1" />
+                           FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize10}" LetterSpacing="1" />
                 <TextBlock Text="{Binding TypeSortGlyph}"
                            Foreground="{DynamicResource VelaAccent}"
-                           FontFamily="{DynamicResource VelaTerminalFont}" FontSize="10" />
+                           FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize10}" />
               </StackPanel>
             </Button>
             <Border Grid.Column="11"
@@ -401,17 +403,18 @@
               <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                 <TextBlock Text="{loc:Localize Modified}"
                            Foreground="{DynamicResource VelaTextMuted}"
-                           FontFamily="{DynamicResource VelaTerminalFont}" FontSize="10" LetterSpacing="1" />
+                           FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize10}" LetterSpacing="1" />
                 <TextBlock Text="{Binding ModifiedSortGlyph}"
                            Foreground="{DynamicResource VelaAccent}"
-                           FontFamily="{DynamicResource VelaTerminalFont}" FontSize="10" />
+                           FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize10}" />
               </StackPanel>
             </Button>
           </Grid>
         </Border>
 
-        <ListBox Grid.Row="1"
-                 x:Name="FileList"
+        <!-- 列表外面套一层 Panel,是为了在它上面叠一个框选矩形(见 MarqueeOverlay)。 -->
+        <Panel Grid.Row="1">
+        <ListBox x:Name="FileList"
                  ItemsSource="{Binding Files}"
                  SelectedItems="{Binding SelectedFiles}"
                  SelectionMode="Multiple"
@@ -444,15 +447,10 @@
                 </MenuItem.Icon>
               </MenuItem>
               <Separator />
-              <MenuItem Header="{loc:Localize UploadFilesHere}" Command="{Binding UploadCommand}">
+              <!-- 文件与文件夹合并为一个入口:选择器可混选,文件夹整棵传、文件直接传。 -->
+              <MenuItem Header="{loc:Localize UploadHere}" Command="{Binding UploadCommand}">
                 <MenuItem.Icon>
                   <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.upload}"
-                                 Foreground="{DynamicResource VelaTextTertiary}" />
-                </MenuItem.Icon>
-              </MenuItem>
-              <MenuItem Header="{loc:Localize UploadFolderHere}" Command="{Binding UploadFolderCommand}">
-                <MenuItem.Icon>
-                  <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.folder-up}"
                                  Foreground="{DynamicResource VelaTextTertiary}" />
                 </MenuItem.Icon>
               </MenuItem>
@@ -537,17 +535,10 @@
                                          Foreground="{DynamicResource VelaTextTertiary}" />
                         </MenuItem.Icon>
                       </MenuItem>
-                      <MenuItem Header="{loc:Localize UploadFilesHere}"
+                      <MenuItem Header="{loc:Localize UploadHere}"
                                 Command="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).UploadCommand}">
                         <MenuItem.Icon>
                           <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.upload}"
-                                         Foreground="{DynamicResource VelaTextTertiary}" />
-                        </MenuItem.Icon>
-                      </MenuItem>
-                      <MenuItem Header="{loc:Localize UploadFolderHere}"
-                                Command="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).UploadFolderCommand}">
-                        <MenuItem.Icon>
-                          <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.folder-up}"
                                          Foreground="{DynamicResource VelaTextTertiary}" />
                         </MenuItem.Icon>
                       </MenuItem>
@@ -657,27 +648,28 @@
                         <ColumnDefinition Width="*" />
                       </Grid.ColumnDefinitions>
                       <!-- 设计 dyuii 图标:琥珀色文件夹、素色文件、".." 用 corner-left-up。 -->
-                      <pc:LucideIcon Width="13" Height="13"
+                      <pc:LucideIcon Classes="dnd-surface" Width="13" Height="13"
                                      Foreground="{DynamicResource VelaFileFolderIcon}"
                                      IsVisible="{Binding IsRegularDirectory}"
                                      Margin="0,0,7,0"
                                      Data="{StaticResource Icon.folder}" />
-                      <pc:LucideIcon Width="13" Height="13"
+                      <pc:LucideIcon Classes="dnd-surface" Width="13" Height="13"
                                      Foreground="{DynamicResource VelaTextTertiary}"
                                      IsVisible="{Binding !IsDirectory}"
                                      Margin="0,0,7,0"
                                      Data="{StaticResource Icon.file}" />
-                      <pc:LucideIcon Width="13" Height="13"
+                      <pc:LucideIcon Classes="dnd-surface" Width="13" Height="13"
                                      Foreground="{DynamicResource VelaTextTertiary}"
                                      IsVisible="{Binding IsParentEntry}"
                                      Margin="0,0,7,0"
                                      Data="{StaticResource Icon.corner-left-up}" />
-                      <TextBlock Grid.Column="1"
+                      <TextBlock Classes="dnd-surface" Grid.Column="1"
                                  Text="{Binding DisplayName}"
                                  Foreground="{DynamicResource VelaTextSecondary}"
-                                 FontFamily="{DynamicResource VelaTerminalFont}"
-                                 FontSize="11"
+                                 FontFamily="{DynamicResource VelaUiMonoFont}"
+                                 FontSize="{DynamicResource VelaFontSize11}"
                                  VerticalAlignment="Center"
+                                 HorizontalAlignment="Left"
                                  TextTrimming="CharacterEllipsis"
                                  Classes.dir="{Binding IsRegularDirectory}">
                         <TextBlock.Styles>
@@ -688,57 +680,71 @@
                       </TextBlock>
                     </Grid>
 
-                    <TextBlock Grid.Column="2"
+                    <TextBlock Classes="dnd-surface" Grid.Column="2"
                                Text="{Binding FormattedSize}"
                                IsVisible="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).ShowSizeColumn}"
                                Foreground="{DynamicResource VelaTextTertiary}"
-                               FontFamily="{DynamicResource VelaTerminalFont}"
-                               FontSize="11"
-                               VerticalAlignment="Center" />
-                    <TextBlock Grid.Column="4"
+                               FontFamily="{DynamicResource VelaUiMonoFont}"
+                               FontSize="{DynamicResource VelaFontSize11}"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Left" />
+                    <TextBlock Classes="dnd-surface" Grid.Column="4"
                                Text="{Binding Permissions}"
                                IsVisible="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).ShowPermissionsColumn}"
                                Foreground="{DynamicResource VelaTextTertiary}"
-                               FontFamily="{DynamicResource VelaTerminalFont}"
-                               FontSize="11"
-                               VerticalAlignment="Center" />
-                    <TextBlock Grid.Column="6"
+                               FontFamily="{DynamicResource VelaUiMonoFont}"
+                               FontSize="{DynamicResource VelaFontSize11}"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Left" />
+                    <TextBlock Classes="dnd-surface" Grid.Column="6"
                                Text="{Binding Owner}"
                                IsVisible="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).ShowOwnerColumn}"
                                Foreground="{DynamicResource VelaTextTertiary}"
-                               FontFamily="{DynamicResource VelaTerminalFont}"
-                               FontSize="11"
+                               FontFamily="{DynamicResource VelaUiMonoFont}"
+                               FontSize="{DynamicResource VelaFontSize11}"
                                VerticalAlignment="Center"
+                               HorizontalAlignment="Left"
                                TextTrimming="CharacterEllipsis" />
-                    <TextBlock Grid.Column="8"
+                    <TextBlock Classes="dnd-surface" Grid.Column="8"
                                Text="{Binding Group}"
                                IsVisible="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).ShowGroupColumn}"
                                Foreground="{DynamicResource VelaTextTertiary}"
-                               FontFamily="{DynamicResource VelaTerminalFont}"
-                               FontSize="11"
+                               FontFamily="{DynamicResource VelaUiMonoFont}"
+                               FontSize="{DynamicResource VelaFontSize11}"
                                VerticalAlignment="Center"
+                               HorizontalAlignment="Left"
                                TextTrimming="CharacterEllipsis" />
-                    <TextBlock Grid.Column="10"
+                    <TextBlock Classes="dnd-surface" Grid.Column="10"
                                Text="{Binding FileTypeDisplay}"
                                IsVisible="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).ShowTypeColumn}"
                                Foreground="{DynamicResource VelaTextTertiary}"
-                               FontFamily="{DynamicResource VelaTerminalFont}"
-                               FontSize="11"
+                               FontFamily="{DynamicResource VelaUiMonoFont}"
+                               FontSize="{DynamicResource VelaFontSize11}"
                                VerticalAlignment="Center"
+                               HorizontalAlignment="Left"
                                TextTrimming="CharacterEllipsis" />
-                    <TextBlock Grid.Column="12"
+                    <TextBlock Classes="dnd-surface" Grid.Column="12"
                                Text="{Binding FormattedModifiedTime}"
                                IsVisible="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).ShowModifiedColumn}"
                                Foreground="{DynamicResource VelaTextTertiary}"
-                               FontFamily="{DynamicResource VelaTerminalFont}"
-                               FontSize="11"
+                               FontFamily="{DynamicResource VelaUiMonoFont}"
+                               FontSize="{DynamicResource VelaFontSize11}"
                                VerticalAlignment="Center"
+                               HorizontalAlignment="Left"
                                TextTrimming="CharacterEllipsis" />
                   </Grid>
                 </Border>
               </DataTemplate>
           </ListBox.ItemTemplate>
         </ListBox>
+
+          <!-- 框选矩形。IsHitTestVisible=False:它盖在列表上,不能把指针事件吃掉。 -->
+          <Border Name="MarqueeOverlay" IsVisible="False" IsHitTestVisible="False"
+                  HorizontalAlignment="Left" VerticalAlignment="Top"
+                  Background="{DynamicResource VelaAccent}" Opacity="0.18"
+                  BorderBrush="{DynamicResource VelaAccent}" BorderThickness="1"
+                  CornerRadius="1" />
+        </Panel>
 
       </Grid>
 
@@ -758,7 +764,7 @@
                Foreground="{DynamicResource VelaTextSecondary}"
                HorizontalAlignment="Center"
                TextAlignment="Center"
-               FontSize="13" />
+               FontSize="{DynamicResource VelaFontSize13}" />
           <ProgressBar IsVisible="{Binding IsDeleteProgressVisible}"
                  IsIndeterminate="{Binding IsDeleteProgressIndeterminate}"
                  Minimum="0"

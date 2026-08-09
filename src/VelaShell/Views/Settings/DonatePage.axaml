@@ -11,7 +11,7 @@
       <TextBlock Classes="page-subtitle" Text="{loc:Localize SetDonate_Subtitle}" />
     </StackPanel>
 
-    <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
+    <TextBlock TextWrapping="Wrap" FontSize="{DynamicResource VelaFontSize12}" LineHeight="20"
                Foreground="{DynamicResource VelaTextSecondary}"
                Text="{loc:Localize SetDonate_Intro}" />
 
@@ -19,10 +19,10 @@
     <Border Background="{DynamicResource VelaBgActive}"
             CornerRadius="6" Padding="16,12">
       <StackPanel Spacing="6">
-        <TextBlock FontSize="12" FontWeight="SemiBold"
+        <TextBlock FontSize="{DynamicResource VelaFontSize12}" FontWeight="SemiBold"
                    Foreground="{DynamicResource VelaAccent}"
                    Text="{loc:Localize SetDonate_ContributeTitle}" />
-        <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
+        <TextBlock TextWrapping="Wrap" FontSize="{DynamicResource VelaFontSize12}" LineHeight="20"
                    Foreground="{DynamicResource VelaTextSecondary}"
                    Text="{loc:Localize SetDonate_ContributeBody}" />
       </StackPanel>
@@ -48,7 +48,7 @@
                  MaxWidth="260" Stretch="Uniform"
                  HorizontalAlignment="Center" VerticalAlignment="Center" />
           <TextBlock Grid.Row="1" Margin="0,10,0,0"
-                     Text="{loc:Localize SetDonate_Alipay}" FontSize="12" FontWeight="Medium"
+                     Text="{loc:Localize SetDonate_Alipay}" FontSize="{DynamicResource VelaFontSize12}" FontWeight="Medium"
                      HorizontalAlignment="Center"
                      Foreground="{DynamicResource VelaTextPrimary}" />
         </Grid>
@@ -63,7 +63,7 @@
                  MaxWidth="260" Stretch="Uniform"
                  HorizontalAlignment="Center" VerticalAlignment="Center" />
           <TextBlock Grid.Row="1" Margin="0,10,0,0"
-                     Text="{loc:Localize SetDonate_WeChatPay}" FontSize="12" FontWeight="Medium"
+                     Text="{loc:Localize SetDonate_WeChatPay}" FontSize="{DynamicResource VelaFontSize12}" FontWeight="Medium"
                      HorizontalAlignment="Center"
                      Foreground="{DynamicResource VelaTextPrimary}" />
         </Grid>
@@ -84,16 +84,16 @@
         <StackPanel Grid.Column="0" Spacing="8">
           <Image Source="avares://VelaShell/Assets/donate-wise.png"
                  Width="180" Stretch="Uniform" />
-          <TextBlock Text="Wise" FontSize="12" FontWeight="Medium"
+          <TextBlock Text="Wise" FontSize="{DynamicResource VelaFontSize12}" FontWeight="Medium"
                      HorizontalAlignment="Center"
                      Foreground="{DynamicResource VelaTextPrimary}" />
         </StackPanel>
         <StackPanel Grid.Column="2" Spacing="8" VerticalAlignment="Center">
-          <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
+          <TextBlock TextWrapping="Wrap" FontSize="{DynamicResource VelaFontSize12}" LineHeight="20"
                      Foreground="{DynamicResource VelaTextSecondary}"
                      Text="{loc:Localize SetDonate_WiseHint}" />
           <!-- 可点击链接:点击在系统浏览器打开付款页。 -->
-          <TextBlock FontFamily="{DynamicResource VelaTerminalFont}" FontSize="11"
+          <TextBlock FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize11}"
                      Foreground="{DynamicResource VelaAccentText}"
                      TextWrapping="Wrap"
                      TextDecorations="Underline"
@@ -108,7 +108,7 @@
       </Grid>
     </Border>
 
-    <TextBlock TextWrapping="Wrap" FontSize="11" LineHeight="18"
+    <TextBlock TextWrapping="Wrap" FontSize="{DynamicResource VelaFontSize11}" LineHeight="18"
                Foreground="{DynamicResource VelaTextMuted}"
                Text="{loc:Localize SetDonate_Thanks}" />
   </StackPanel>

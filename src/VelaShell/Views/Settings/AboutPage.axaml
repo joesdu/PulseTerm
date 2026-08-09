@@ -13,7 +13,7 @@
       <Setter Property="Padding" Value="0" />
       <Setter Property="MinHeight" Value="0" />
       <Setter Property="Cursor" Value="Hand" />
-      <Setter Property="FontFamily" Value="{DynamicResource VelaTerminalFont}" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
     </Style>
     <Style Selector="Button.link /template/ ContentPresenter">
       <Setter Property="Background" Value="Transparent" />
@@ -50,17 +50,17 @@
       <StackPanel Spacing="4" VerticalAlignment="Center">
         <TextBlock Text="VelaShell"
                    Foreground="{DynamicResource VelaTextPrimary}"
-                   FontFamily="{DynamicResource VelaTerminalFont}"
-                   FontSize="20" FontWeight="SemiBold" />
+                   FontFamily="{DynamicResource VelaUiMonoFont}"
+                   FontSize="{DynamicResource VelaFontSize20}" FontWeight="SemiBold" />
         <StackPanel Orientation="Horizontal" Spacing="8">
           <TextBlock Text="{Binding AppVersion}"
                      Foreground="{DynamicResource VelaAccent}"
-                     FontFamily="{DynamicResource VelaTerminalFont}"
-                     FontSize="12" VerticalAlignment="Center" />
+                     FontFamily="{DynamicResource VelaUiMonoFont}"
+                     FontSize="{DynamicResource VelaFontSize12}" VerticalAlignment="Center" />
           <Border Background="{DynamicResource VelaAccentDim}" CornerRadius="3" Padding="6,2">
             <TextBlock Text="{loc:Localize SetAbout_InDevelopment}"
                        Foreground="{DynamicResource VelaAccent}"
-                       FontSize="9" />
+                       FontSize="{DynamicResource VelaFontSize9}" />
           </Border>
         </StackPanel>
       </StackPanel>
@@ -72,32 +72,32 @@
       <StackPanel>
         <Border Height="32" Padding="12,0" BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,0,0,1">
           <Grid ColumnDefinitions="120,*">
-            <TextBlock Classes="row-desc" FontSize="11" Text="{loc:Localize SetAbout_Framework}" VerticalAlignment="Center" />
-            <TextBlock Grid.Column="1" Text="{Binding AboutFramework}" Foreground="{DynamicResource VelaTextSecondary}" FontFamily="{DynamicResource VelaTerminalFont}" FontSize="11" VerticalAlignment="Center" />
+            <TextBlock Classes="row-desc" FontSize="{DynamicResource VelaFontSize11}" Text="{loc:Localize SetAbout_Framework}" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="1" Text="{Binding AboutFramework}" Foreground="{DynamicResource VelaTextSecondary}" FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize11}" VerticalAlignment="Center" />
           </Grid>
         </Border>
         <Border Height="32" Padding="12,0" BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,0,0,1">
           <Grid ColumnDefinitions="120,*">
-            <TextBlock Classes="row-desc" FontSize="11" Text="{loc:Localize SetAbout_Runtime}" VerticalAlignment="Center" />
-            <TextBlock Grid.Column="1" Text="{Binding AboutRuntime}" Foreground="{DynamicResource VelaTextSecondary}" FontFamily="{DynamicResource VelaTerminalFont}" FontSize="11" VerticalAlignment="Center" />
+            <TextBlock Classes="row-desc" FontSize="{DynamicResource VelaFontSize11}" Text="{loc:Localize SetAbout_Runtime}" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="1" Text="{Binding AboutRuntime}" Foreground="{DynamicResource VelaTextSecondary}" FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize11}" VerticalAlignment="Center" />
           </Grid>
         </Border>
         <Border Height="32" Padding="12,0" BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,0,0,1">
           <Grid ColumnDefinitions="120,*">
-            <TextBlock Classes="row-desc" FontSize="11" Text="{loc:Localize SetAbout_SshLibrary}" VerticalAlignment="Center" />
-            <TextBlock Grid.Column="1" Text="{Binding AboutSshLibrary}" Foreground="{DynamicResource VelaTextSecondary}" FontFamily="{DynamicResource VelaTerminalFont}" FontSize="11" VerticalAlignment="Center" />
+            <TextBlock Classes="row-desc" FontSize="{DynamicResource VelaFontSize11}" Text="{loc:Localize SetAbout_SshLibrary}" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="1" Text="{Binding AboutSshLibrary}" Foreground="{DynamicResource VelaTextSecondary}" FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize11}" VerticalAlignment="Center" />
           </Grid>
         </Border>
         <Border Height="32" Padding="12,0" BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,0,0,1">
           <Grid ColumnDefinitions="120,*">
-            <TextBlock Classes="row-desc" FontSize="11" Text="{loc:Localize SetAbout_OperatingSystem}" VerticalAlignment="Center" />
-            <TextBlock Grid.Column="1" Text="{Binding AboutOs}" Foreground="{DynamicResource VelaTextSecondary}" FontFamily="{DynamicResource VelaTerminalFont}" FontSize="11" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+            <TextBlock Classes="row-desc" FontSize="{DynamicResource VelaFontSize11}" Text="{loc:Localize SetAbout_OperatingSystem}" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="1" Text="{Binding AboutOs}" Foreground="{DynamicResource VelaTextSecondary}" FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize11}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
           </Grid>
         </Border>
         <Border Height="32" Padding="12,0">
           <Grid ColumnDefinitions="120,*">
-            <TextBlock Classes="row-desc" FontSize="11" Text="{loc:Localize SetAbout_ConfigPath}" VerticalAlignment="Center" />
-            <TextBlock Grid.Column="1" Text="{Binding AboutConfigPath}" Foreground="{DynamicResource VelaTextSecondary}" FontFamily="{DynamicResource VelaTerminalFont}" FontSize="11" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+            <TextBlock Classes="row-desc" FontSize="{DynamicResource VelaFontSize11}" Text="{loc:Localize SetAbout_ConfigPath}" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="1" Text="{Binding AboutConfigPath}" Foreground="{DynamicResource VelaTextSecondary}" FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize11}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
           </Grid>
         </Border>
       </StackPanel>
@@ -105,12 +105,19 @@
 
     <!-- 按钮 -->
     <StackPanel Orientation="Horizontal" Spacing="8">
-      <Button Classes="dlg-primary" Content="{loc:Localize SetAbout_CheckUpdates}" Command="{Binding CheckUpdatesCommand}" />
+      <!-- 商店版(MSIX)更新由 Microsoft Store 接管,以下三个操作全部隐藏,只留状态说明。 -->
+      <Button Classes="dlg-primary" Content="{loc:Localize SetAbout_CheckUpdates}" Command="{Binding CheckUpdatesCommand}"
+              IsVisible="{Binding ShowInAppUpdateControls}" />
       <!-- 更新下载完毕后出现:点击重启应用完成安装。 -->
       <Button Classes="dlg-primary" Content="{loc:Localize SetAbout_RestartToUpdate}"
               Command="{Binding RestartToUpdateCommand}"
               IsVisible="{Binding UpdateReady}" />
       <Button Classes="dlg-outline" Content="{loc:Localize SetAbout_Changelog}" IsEnabled="False" ToolTip.Tip="{loc:Localize SetAbout_ChangelogTip}" />
+      <!-- 更新流程被意外中断卡住时的自愈出口:清掉残留,让检查更新重新走通。 -->
+      <Button Classes="dlg-outline" Content="{loc:Localize SetAbout_RepairUpdate}"
+              Command="{Binding RepairUpdateCommand}"
+              IsVisible="{Binding ShowInAppUpdateControls}"
+              ToolTip.Tip="{loc:Localize SetAbout_RepairUpdateTip}" />
       <TextBlock Classes="row-desc" Text="{Binding UpdateStatus}" VerticalAlignment="Center"
                  IsVisible="{Binding UpdateStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
     </StackPanel>
@@ -139,8 +146,8 @@
                           ToolTip.Tip="{Binding Url}">
                     <TextBlock Text="{Binding Name}"
                                Foreground="{DynamicResource VelaTextPrimary}"
-                               FontFamily="{DynamicResource VelaTerminalFont}"
-                               FontSize="11" FontWeight="Medium" />
+                               FontFamily="{DynamicResource VelaUiMonoFont}"
+                               FontSize="{DynamicResource VelaFontSize11}" FontWeight="Medium" />
                   </Button>
                 </StackPanel>
                 <!-- 许可证:点击跳转许可证页面 -->
@@ -149,8 +156,8 @@
                         ToolTip.Tip="{loc:Localize SetAbout_ViewLicense}">
                   <TextBlock Text="{Binding License}"
                              Foreground="{DynamicResource VelaTextMuted}"
-                             FontFamily="{DynamicResource VelaTerminalFont}"
-                             FontSize="10" />
+                             FontFamily="{DynamicResource VelaUiMonoFont}"
+                             FontSize="{DynamicResource VelaFontSize10}" />
                 </Button>
               </Grid>
             </Border>
@@ -183,7 +190,7 @@
                 <Panel>
                   <!-- 头像未就绪/加载失败:首字母占位 -->
                   <TextBlock Text="{Binding Initial}"
-                             FontSize="15" FontWeight="SemiBold"
+                             FontSize="{DynamicResource VelaFontSize15}" FontWeight="SemiBold"
                              Foreground="{DynamicResource VelaAccent}"
                              HorizontalAlignment="Center" VerticalAlignment="Center"
                              IsVisible="{Binding !HasAvatar}" />
@@ -192,8 +199,8 @@
                 </Panel>
               </Border>
               <TextBlock Text="{Binding Display}"
-                         FontFamily="{DynamicResource VelaTerminalFont}"
-                         FontSize="10" FontWeight="Medium"
+                         FontFamily="{DynamicResource VelaUiMonoFont}"
+                         FontSize="{DynamicResource VelaFontSize10}" FontWeight="Medium"
                          Foreground="{DynamicResource VelaTextSecondary}"
                          HorizontalAlignment="Center" />
             </StackPanel>

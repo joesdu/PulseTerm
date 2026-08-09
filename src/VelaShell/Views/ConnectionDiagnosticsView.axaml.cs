@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using ReactiveUI.Primitives;
 using VelaShell.Core.Resources;
 using VelaShell.ViewModels;
 
@@ -62,6 +63,7 @@ public partial class ConnectionDiagnosticsView : Window
         {
             Title = Strings.Get("Diag_ExportReport"),
             SuggestedFileName = viewModel.SuggestedReportFileName,
+            SuggestedStartLocation = await StorageDefaults.DownloadsAsync(this),
             DefaultExtension = "txt",
             FileTypeChoices =
             [

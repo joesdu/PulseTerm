@@ -17,6 +17,12 @@ public sealed class TerminalModes
     public bool BracketedPaste;        // ?2004
     /// <summary>光标闪烁(?12):是否让光标闪烁,默认开启。</summary>
     public bool CursorBlink = true;    // ?12
+    /// <summary>
+    /// 光标形状(DECSCUSR <c>CSI Ps SP q</c>):0/1=闪烁块、2=稳定块、3=闪烁下划线、
+    /// 4=稳定下划线、5=闪烁竖线、6=稳定竖线。渲染仍按用户设置(见 VelaTerminalControl.CursorStyle),
+    /// 这里只保留远端设过的值,以便 DECRQSS " q" 能如实回报 —— vim 会用它决定退出时恢复成什么形状。
+    /// </summary>
+    public int CursorStyle;            // DECSCUSR (CSI Ps SP q)
     /// <summary>光标可见(DECTCEM ?25):是否显示光标,默认可见。</summary>
     public bool CursorVisible = true;  // DECTCEM ?25
 
@@ -55,6 +61,7 @@ public sealed class TerminalModes
         CursorVisible = true;
         BracketedPaste = false;
         CursorBlink = true;
+        CursorStyle = 0;
         Mouse = MouseTracking.None;
         MouseEncoding = MouseEncoding.Default;
         InsertMode = false;

@@ -249,7 +249,7 @@ public class SshIntegrationTests
         var service = new SshConnectionService(_ => mockClient);
         ConnectionInfo connectionInfo = CreateTestConnectionInfo();
         SshSession session = await service.ConnectAsync(connectionInfo);
-        Assert.AreEqual(1, service.Sessions.Count);
+        Assert.HasCount(1, service.Sessions);
         Assert.IsNotNull(service.GetSession(session.SessionId));
         Assert.AreEqual(SessionStatus.Connected, service.GetSession(session.SessionId)!.Status);
         await service.DisposeAsync();

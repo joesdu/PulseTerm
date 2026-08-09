@@ -26,6 +26,7 @@ public partial class AppearanceSettingsPage : UserControl
         {
             Title = Strings.Get("SetAppear_BackgroundImage"),
             AllowMultiple = false,
+            SuggestedStartLocation = await StorageDefaults.PicturesAsync(TopLevel.GetTopLevel(this)),
             FileTypeFilter =
             [
                 new("Images") { Patterns = ["*.png", "*.jpg", "*.jpeg", "*.bmp", "*.gif", "*.webp"] }

@@ -5,6 +5,17 @@
        For more details visit https://learn.microsoft.com/en-us/windows/win32/sbscs/application-manifests -->
   <assemblyIdentity version="1.0.0.0" name="VelaShell.Desktop"/>
 
+  <!-- 永不提权。VelaShell 的全部写入都在 %LocalAppData%\VelaShell、%TEMP% 与应用自身目录内,
+       从不碰 System32 之类的受保护位置(#120)。显式声明 asInvoker 的意义:一是把"不请求管理员"
+       写进二进制、将来误加提权会在 diff 里显形;二是关掉 UAC 对未声明程序的安装程序检测启发式。 -->
+  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
+    <security>
+      <requestedPrivileges>
+        <requestedExecutionLevel level="asInvoker" uiAccess="false" />
+      </requestedPrivileges>
+    </security>
+  </trustInfo>
+
   <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
     <application>
       <!-- A list of the Windows versions that this application has been tested on

@@ -104,4 +104,72 @@ public class FileConflictResolutionTests
         Assert.IsTrue(await FileBrowserViewModel.DecideConflictAsync("/r/f", null, decision));
         Assert.IsNull(decision.OverwriteAll);
     }
+
+    // ---- 目标"同名但内容对不上" ----
+    //
+    // 续传起点核实失败意味着目标那半截并不是源文件的开头 —— 文件变了。这是一次普通的
+    // 同名冲突,以前却以"请删除远端/本地文件后整份重传"收场,把本该由策略决定的事推给用户。
+    // 现在按既有冲突策略处理,询问策略下弹的就是常规冲突对话框。
+
+    [TestMethod]
+    public async Task ChangedTarget_UnderAskPolicy_PromptsAndHonoursTheAnswer()
+    {
+        var decision = new FileBrowserViewModel.BatchConflictDecision();
+        int prompts = 0;
+
+        Assert.AreEqual(
+            FileBrowserViewModel.ChangedTargetChoice.Overwrite,
+            await FileBrowserViewModel.DecideChangedTargetAsync(
+                "ask", "/r/changed.bin", Always(FileConflictResolution.Overwrite, () => prompts++), decision));
+
+        Assert.AreEqual(
+            FileBrowserViewModel.ChangedTargetChoice.Skip,
+            await FileBrowserViewModel.DecideChangedTargetAsync(
+                "ask", "/r/changed.bin", Always(FileConflictResolution.Skip, () => prompts++), decision));
+
+        Assert.AreEqual(2, prompts, "询问策略下必须真的问用户,而不是直接失败。");
+    }
+
+    [TestMethod]
+    public async Task ChangedTarget_ReusesBatchStickyDecision_WithoutRepromptingPerFile()
+    {
+        // 重传一个几百文件的目录、其中大批文件都改过时,不能逐个弹窗。
+        var decision = new FileBrowserViewModel.BatchConflictDecision();
+        int prompts = 0;
+        Func<string, Task<FileConflictResolution>> confirm = Always(
+            FileConflictResolution.SkipAll,
+            () => prompts++
+        );
+
+        for (int i = 0; i < 200; i++)
+        {
+            Assert.AreEqual(
+                FileBrowserViewModel.ChangedTargetChoice.Skip,
+                await FileBrowserViewModel.DecideChangedTargetAsync("ask", $"/r/f{i}", confirm, decision));
+        }
+        Assert.AreEqual(1, prompts, "本批次的“全部跳过”应沿用到其余变化文件。");
+    }
+
+    // 期望值用名字传:枚举是 internal,不能出现在 public 测试方法的签名里。
+    [TestMethod]
+    [DataRow("overwrite", nameof(FileBrowserViewModel.ChangedTargetChoice.Overwrite))]
+    [DataRow("skip", nameof(FileBrowserViewModel.ChangedTargetChoice.Skip))]
+    [DataRow("rename", nameof(FileBrowserViewModel.ChangedTargetChoice.Rename))]
+    public async Task ChangedTarget_UnderNonAskPolicies_DecidesWithoutPrompting(
+        string policy,
+        string expected
+    )
+    {
+        var decision = new FileBrowserViewModel.BatchConflictDecision();
+        int prompts = 0;
+        Func<string, Task<FileConflictResolution>> confirm = Always(
+            FileConflictResolution.Overwrite,
+            () => prompts++
+        );
+
+        Assert.AreEqual(
+            expected,
+            (await FileBrowserViewModel.DecideChangedTargetAsync(policy, "/r/f", confirm, decision)).ToString());
+        Assert.AreEqual(0, prompts, "非“询问”策略不该弹窗。");
+    }
 }

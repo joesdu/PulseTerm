@@ -1,7 +1,7 @@
-using System.Reactive;
 using System.Text;
 using Avalonia.Threading;
 using ReactiveUI;
+using ReactiveUI.Primitives;
 using VelaShell.Core.Models;
 using VelaShell.Core.Resources;
 using VelaShell.Core.Ssh;
@@ -163,13 +163,13 @@ public class TerminalTabViewModel : TabViewModel, IDisposable
     }
 
     /// <summary>暂停/恢复本标签的同步输入(横条“暂停”按钮)。</summary>
-    public ReactiveCommand<Unit, Unit> ToggleSyncPauseCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ToggleSyncPauseCommand { get; }
 
     /// <summary>让本标签退出频道(横条“离开频道”按钮与关闭钮)。</summary>
-    public ReactiveCommand<Unit, Unit> LeaveSyncChannelCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> LeaveSyncChannelCommand { get; }
 
     /// <summary>请求关闭整个频道:所有成员标签一并退出(横条“关闭频道”按钮)。</summary>
-    public ReactiveCommand<Unit, Unit> CloseSyncChannelCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> CloseSyncChannelCommand { get; }
 
     /// <summary>“关闭频道”触发,由 SyncInputCoordinator 让频道内全部标签退出。</summary>
     public event Action<SyncInputChannel>? SyncChannelCloseRequested;
@@ -465,9 +465,20 @@ public class TerminalTabViewModel : TabViewModel, IDisposable
     public string DisconnectOverlayDetail =>
         HasConnectionError
             ? ConnectionError!
-            : Strings.Format("Msg_SshConnectionLostDetail", OverlayHostLabel);
+            : Profile is null && LocalShell is not null
+                ? Strings.Format("Msg_LocalShellExitedDetail", OverlayHostLabel)
+                : Strings.Format("Msg_SshConnectionLostDetail", OverlayHostLabel);
 
-    private string OverlayHostLabel => Profile is { } p ? $"{p.Host}:{p.Port}" : Title;
+    /// <summary>
+    /// 覆盖层中指代本会话的名称:优先用配置的显示名称(用户认得的那个),
+    /// 没起名时才退回 host:port;本地终端用 shell 名称。
+    /// </summary>
+    private string OverlayHostLabel =>
+        Profile is { } p
+            ? string.IsNullOrWhiteSpace(p.Name) ? $"{p.Host}:{p.Port}" : p.Name
+            : LocalShell is { } shell && !string.IsNullOrWhiteSpace(shell.Name)
+                ? shell.Name
+                : Title;
 
     /// <summary>最近一次测得的连接延迟;未知时为 null。</summary>
     public TimeSpan? Latency
@@ -504,13 +515,13 @@ public class TerminalTabViewModel : TabViewModel, IDisposable
     public bool CanReconnect => ReconnectAttempts < MaxReconnectAttempts;
 
     /// <summary>断开实时传输,但保留标签(及其缓冲区)以便重连。</summary>
-    public ReactiveCommand<Unit, Unit> DisconnectCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> DisconnectCommand { get; }
 
     /// <summary>请求对已断开标签就地重连(等同于 Enter / Ctrl+R)。</summary>
-    public ReactiveCommand<Unit, Unit> ReconnectCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ReconnectCommand { get; }
 
     /// <summary>从标签页内失败/断开覆盖层(设计 yxjmg)关闭标签页。</summary>
-    public ReactiveCommand<Unit, Unit> CloseTabCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> CloseTabCommand { get; }
 
     /// <summary>
     /// 释放标签资源:解绑事件、即时销毁终端模拟器(UI 安全),并把耗时的网络拆除
@@ -569,6 +580,9 @@ public class TerminalTabViewModel : TabViewModel, IDisposable
             ReconnectRequested?.Invoke(this, EventArgs.Empty);
         }
     }
+
+    /// <summary>请求宿主关闭本标签(覆盖层按钮与 Esc 快捷键共用)。</summary>
+    public void RequestClose() => CloseRequested?.Invoke(this, EventArgs.Empty);
 
     /// <summary>
     /// 通过正常用户输入通道把快捷命令文本发送到终端。只发正文不附加回车——

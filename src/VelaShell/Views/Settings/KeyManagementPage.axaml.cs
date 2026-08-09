@@ -26,7 +26,8 @@ public partial class KeyManagementPage : UserControl
         IReadOnlyList<IStorageFile> files = await top.StorageProvider.OpenFilePickerAsync(new()
         {
             Title = Strings.Get("SetKeys_ImportDialogTitle"),
-            AllowMultiple = false
+            AllowMultiple = false,
+            SuggestedStartLocation = await StorageDefaults.SshAsync(top)
         });
         if (files.AsParallel().FirstOrDefault()?.TryGetLocalPath() is { Length: > 0 } path)
         {

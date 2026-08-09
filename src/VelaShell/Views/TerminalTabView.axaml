@@ -21,7 +21,7 @@
       <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderSecondary}" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="3" />
-      <Setter Property="FontSize" Value="10" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
       <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
@@ -44,19 +44,19 @@
           <Border Width="10" Height="10" CornerRadius="2"
                   Background="{Binding SyncChannelBrush}"
                   VerticalAlignment="Center" />
-          <TextBlock FontSize="11"
+          <TextBlock FontSize="{DynamicResource VelaFontSize11}"
                      Foreground="{DynamicResource VelaTextSecondary}"
                      VerticalAlignment="Center"
                      Text="{loc:Localize SyncInput_BannerPrefix}" />
-          <TextBlock FontSize="11" FontWeight="Bold"
+          <TextBlock FontSize="{DynamicResource VelaFontSize11}" FontWeight="Bold"
                      Foreground="{Binding SyncChannelBrush}"
                      VerticalAlignment="Center"
                      Text="{Binding SyncChannelLetter}" />
-          <TextBlock FontSize="11"
+          <TextBlock FontSize="{DynamicResource VelaFontSize11}"
                      Foreground="{DynamicResource VelaTextSecondary}"
                      VerticalAlignment="Center"
                      Text="{loc:Localize SyncInput_BannerSuffix}" />
-          <TextBlock FontSize="11"
+          <TextBlock FontSize="{DynamicResource VelaFontSize11}"
                      Foreground="{DynamicResource VelaTextMuted}"
                      VerticalAlignment="Center"
                      IsVisible="{Binding IsSyncPaused}"
@@ -116,14 +116,14 @@
                          VerticalAlignment="Center" />
           <TextBox x:Name="SearchBox" Grid.Column="2"
                    MinHeight="24" Padding="8,2" CornerRadius="3"
-                   FontFamily="{DynamicResource VelaTerminalFont}" FontSize="11"
+                   FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize11}"
                    Background="{DynamicResource VelaBgInput}"
                    Foreground="{DynamicResource VelaTextPrimary}"
                    BorderBrush="{DynamicResource VelaBorderPrimary}"
                    PlaceholderText="{loc:Localize Term_SearchPlaceholder}" />
           <TextBlock x:Name="SearchCount" Grid.Column="4"
                      Foreground="{DynamicResource VelaTextMuted}"
-                     FontFamily="{DynamicResource VelaTerminalFont}" FontSize="10"
+                     FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize10}"
                      VerticalAlignment="Center" />
           <Button x:Name="SearchPrev" Grid.Column="6"
                   Width="22" Height="22" Padding="0" Background="Transparent" CornerRadius="3"
@@ -203,12 +203,12 @@
                 <Grid ColumnDefinitions="*,8,Auto">
                   <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
                     <TextBlock Text="{Binding Text}"
-                               FontFamily="{DynamicResource VelaTerminalFont}"
-                               FontSize="12"
+                               FontFamily="{DynamicResource VelaUiMonoFont}"
+                               FontSize="{DynamicResource VelaFontSize12}"
                                Foreground="{DynamicResource VelaTextPrimary}"
                                TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="{Binding Detail}"
-                               FontSize="11"
+                               FontSize="{DynamicResource VelaFontSize11}"
                                Foreground="{DynamicResource VelaTextMuted}"
                                VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis"
@@ -220,7 +220,7 @@
                           Padding="5,1"
                           VerticalAlignment="Center">
                     <TextBlock Text="{Binding Source}"
-                               FontSize="10"
+                               FontSize="{DynamicResource VelaFontSize10}"
                                Foreground="{DynamicResource VelaTextTertiary}" />
                   </Border>
                 </Grid>
@@ -232,7 +232,8 @@
 
       <!-- 用于回滚导航的滚动条(由代码后置驱动共享终端控件,因为该控件在分屏间被重新挂载)。
            覆盖在终端右边缘——类似 Fluent ScrollViewer 的覆盖式滚动条——因此不占用独立列
-           (否则会在终端背景上显出一条多余的暗色条带)。 -->
+           (否则会在终端背景上显出一条多余的暗色条带)。宽度在代码后置里对齐终端控件的
+           RightPadding:正文已把这条留白带从列数中扣除,滚动条落在带内,不再压住文字。 -->
       <ScrollBar x:Name="ScrollBarView"
                  Orientation="Vertical"
                  Minimum="0"
@@ -269,13 +270,13 @@
 
             <TextBlock Text="{Binding DisconnectOverlayTitle}"
                        Foreground="{DynamicResource VelaTextPrimary}"
-                       FontSize="16" FontWeight="SemiBold"
+                       FontSize="{DynamicResource VelaFontSize16}" FontWeight="SemiBold"
                        HorizontalAlignment="Center" />
 
             <TextBlock Text="{Binding DisconnectOverlayDetail}"
                        Foreground="{DynamicResource VelaTextMuted}"
-                       FontFamily="{DynamicResource VelaTerminalFont}"
-                       FontSize="11"
+                       FontFamily="{DynamicResource VelaUiMonoFont}"
+                       FontSize="{DynamicResource VelaFontSize11}"
                        MaxWidth="280"
                        TextWrapping="Wrap"
                        TextAlignment="Center"
@@ -291,7 +292,7 @@
                                  Data="{StaticResource Icon.refresh-cw}"
                                  Foreground="#FFFFFF" VerticalAlignment="Center" />
                   <TextBlock Text="{loc:Localize Reconnect}" Foreground="#FFFFFF"
-                             FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
+                             FontSize="{DynamicResource VelaFontSize12}" FontWeight="SemiBold" VerticalAlignment="Center" />
                 </StackPanel>
               </Button>
               <Button Command="{Binding CloseTabCommand}"
@@ -301,9 +302,16 @@
                       CornerRadius="4" Padding="16,8">
                 <TextBlock Text="{loc:Localize CloseTab}"
                            Foreground="{DynamicResource VelaTextSecondary}"
-                           FontSize="12" FontWeight="Medium" VerticalAlignment="Center" />
+                           FontSize="{DynamicResource VelaFontSize12}" FontWeight="Medium" VerticalAlignment="Center" />
               </Button>
             </StackPanel>
+
+            <!-- 键位提示:两个按钮各自都有等效快捷键,不写出来没人会去试。 -->
+            <TextBlock Text="{loc:Localize Msg_DisconnectOverlayKeyHint}"
+                       Foreground="{DynamicResource VelaTextMuted}"
+                       FontSize="{DynamicResource VelaFontSize11}"
+                       TextAlignment="Center"
+                       HorizontalAlignment="Center" />
 
           </StackPanel>
         </Border>
