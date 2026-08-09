@@ -1,5 +1,8 @@
 using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
+using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Styling;
 using Avalonia.Themes.Fluent;
@@ -27,8 +30,23 @@ public class VelaHeadlessApp : Application
         Resources.MergedDictionaries.Add(LoadDictionary("avares://VelaShell.Controls/Themes/VelaTokens.axaml"));
         Resources.MergedDictionaries.Add(LoadDictionary("avares://VelaShell.Controls/Themes/VelaShellTokens.axaml"));
         Resources.MergedDictionaries.Add(LoadDictionary("avares://VelaShell.Controls/Themes/Icons.axaml"));
+        Resources.MergedDictionaries.Add(LoadDictionary("avares://VelaShell/Themes/ButtonThemes.axaml"));
+        // App.axaml 的 ThemeDictionaries:终端调色板(VelaShell*)与资源图表的色阶都在这里,
+        // 漏掉它测试里这些画刷全是 null —— 曲线画不出来还一路绿。
+        Resources.ThemeDictionaries[ThemeVariant.Dark] = Wrap("avares://VelaShell/Themes/DarkTheme.axaml");
+        Resources.ThemeDictionaries[ThemeVariant.Light] = Wrap("avares://VelaShell/Themes/LightTheme.axaml");
         Styles.Add(LoadStyles("avares://VelaShell/Themes/DockStyles.axaml"));
         Styles.Add(LoadStyles("avares://VelaShell/Themes/InputStyles.axaml"));
+        // 与 App.axaml 末尾那条同源:设置 → 外观 → 界面字体/字号靠它下发到每个窗口,
+        // 没有它,测试里的窗口用的是 Fluent 默认字体/字号,与生产不是一回事。
+        Styles.Add(new Style(x => x.Is<Window>())
+        {
+            Setters =
+            {
+                new Setter(TemplatedControl.FontFamilyProperty, new DynamicResourceExtension("VelaUiFont")),
+                new Setter(TemplatedControl.FontSizeProperty, new DynamicResourceExtension("VelaUiFontSize")),
+            },
+        });
     }
 
     public static AppBuilder BuildAvaloniaApp() =>
@@ -43,6 +61,9 @@ public class VelaHeadlessApp : Application
                   .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false });
 
     private static ResourceInclude LoadDictionary(string uri) => new(new Uri(uri)) { Source = new(uri) };
+
+    /// <summary>把一份资源字典包进 ResourceDictionary,以便挂到 ThemeDictionaries 上。</summary>
+    private static ResourceDictionary Wrap(string uri) => new() { MergedDictionaries = { LoadDictionary(uri) } };
 
     private static StyleInclude LoadStyles(string uri) => new(new Uri(uri)) { Source = new(uri) };
 }

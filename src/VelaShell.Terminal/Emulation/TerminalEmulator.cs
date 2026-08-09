@@ -280,19 +280,43 @@ public sealed class TerminalEmulator : IVtActions
     /// <summary>分发 CSI 序列(光标移动、擦除、插入/删除、SGR、模式设置/重置、报告等)。</summary>
     public void CsiDispatch(char prefix, IReadOnlyList<int> p, string intermediates, char final)
     {
-        if (prefix == '?')
+        // 带中间字节的 CSI 自成一套文法,末字节与无中间字节的同名序列毫无关系:
+        // 认识的在这里消费,其余一律忽略 —— 绝不能落到下面按 final 分派的分支去。
+        // (vim 启动时的 xterm 兼容性探针 "CSI 0 % m" 曾被当成 SGR 0 执行。)
+        if (intermediates.Length > 0)
         {
-            HandlePrivateMode(p, final);
+            if (prefix == '\0')
+            {
+                switch (intermediates)
+                {
+                    case "!" when final == 'p':
+                        SoftReset(); // DECSTR 软复位
+                        break;
+                    case " " when final == 'q':
+                        // DECSCUSR:渲染按用户设置,这里只记形状供 DECRQSS 回报。
+                        // 钳到 0..6(合法取值),回报必须是单个数字,否则 vim 解析不了会把整段应答当键入。
+                        Modes.CursorStyle = Math.Clamp(P0(0), 0, 6);
+                        break;
+                }
+            }
             return;
         }
-        switch (intermediates)
+        // 私有前缀(? > = <)与无前缀同样是彼此独立的文法:vim 启动时的
+        // "CSI > 4 ; 2 m"(modifyOtherKeys)不是 SGR,"CSI = 0 ; 1 u"(kitty 键盘协议)
+        // 也不是恢复光标 —— 早期按 final 裸分派会让终端凭空变色、光标乱跳。
+        switch (prefix)
         {
-            // 中间字节 '!' + 'p' => DECSTR 软复位。
-            case "!" when final == 'p':
-                SoftReset();
+            case '?':
+                HandlePrivateMode(p, final);
                 return;
-            case " " when final == 'q':
-                return; // DECSCUSR 光标样式(已接受,样式在 UI 中处理)
+            case '>':
+            case '=':
+            case '<':
+                if (final == 'c')
+                {
+                    DeviceAttributes(prefix); // DA2(CSI > c);DA3(CSI = c)未实现,静默
+                }
+                return;
         }
         switch (final)
         {
@@ -445,8 +469,41 @@ public sealed class TerminalEmulator : IVtActions
                     }
                 }
                 break;
+            case 7:
+                // OSC 7:shell 上报当前工作目录(file://host/path)。用于「文件浏览器跟随终端目录」。
+                // 由 VelaShell 注入的 bash 提示符脚本发出(见 MainWindowViewModel.PromptNewlineFix)。
+                if (p.Count > 1 && ParseOsc7Path(p[1]) is { Length: > 0 } dir)
+                {
+                    WorkingDirectoryChanged?.Invoke(dir);
+                }
+                break;
                 // 4(调色板)、8(超链接)目前有意接受并忽略。
         }
+    }
+
+    /// <summary>从 OSC 7 载荷 file://host/path 提取绝对路径(百分号编码按需解码);非法/非绝对路径返回 null。</summary>
+    private static string? ParseOsc7Path(string payload)
+    {
+        const string scheme = "file://";
+        if (!payload.StartsWith(scheme, StringComparison.Ordinal))
+        {
+            return null;
+        }
+        int slash = payload.IndexOf('/', scheme.Length); // 跳过 host,定位路径起点(file:///abs 时即第三个斜杠)
+        if (slash < 0)
+        {
+            return null;
+        }
+        string path = payload[slash..];
+        try
+        {
+            path = Uri.UnescapeDataString(path); // VTE 等会百分号编码;我们注入的脚本发原始路径,解码对纯 ASCII 无副作用
+        }
+        catch (Exception)
+        {
+            // 解码失败:用原始路径。
+        }
+        return path.StartsWith('/') ? path : null;
     }
 
     /// <summary>分发 DCS 序列;目前处理 DECRQSS 状态请求,其余静默消费。</summary>
@@ -466,6 +523,14 @@ public sealed class TerminalEmulator : IVtActions
             case "r": // DECSTBM:回报当前滚动区域(1 基)
                 Send($"\eP1$r{Screen.ScrollTop + 1};{Screen.ScrollBottom + 1}r\e\\");
                 break;
+            case " q":
+                // DECSCUSR 光标形状。vim 启动时必问这一句(t_RS),而且它只认
+                // "DCS 1 $ r <一位数字> SP q ST" 这一种形状 —— 我们过去回 "DCS 0 $ r ST"
+                // (无效请求),vim 的 handle_dcs() 匹配失败后会把整段应答当成键入吞进去:
+                // ESC P 0 $ r ESC \ 依次变成 Esc、P(粘贴 → E353 报错并响铃)、0、$(跳到行尾)、r…
+                // 也就是 issue #112 里"打开 vim 自动输入奇怪字符 + 光标乱跳 + 响一声"的全部现象。
+                Send($"\eP1$r{Modes.CursorStyle} q\e\\");
+                break;
             default:
                 Send("\eP0$r\e\\");
                 break;
@@ -477,6 +542,9 @@ public sealed class TerminalEmulator : IVtActions
 
     /// <summary>OSC 0/2 窗口标题变更。</summary>
     public event Action<string>? TitleChanged;
+
+    /// <summary>OSC 7 当前工作目录变更(绝对路径)。事件来自 feed 线程,消费者需自行编组到 UI 线程。</summary>
+    public event Action<string>? WorkingDirectoryChanged;
 
     /// <summary>收到 BEL(0x07)。</summary>
     public event Action? Bell;

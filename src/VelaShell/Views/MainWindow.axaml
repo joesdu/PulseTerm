@@ -25,7 +25,9 @@
     <!-- Ctrl+N:菜单与命令面板一直标注的“新建连接”键位,此前只有提示没有真实绑定
          (设置审计 C-10),补上使提示与行为一致。 -->
     <KeyBinding Gesture="Ctrl+N" Command="{Binding RunCommand}" CommandParameter="session.new" />
-    <KeyBinding Gesture="Ctrl+W" Command="{Binding TabBar.CloseActiveTabCommand}" />
+    <!-- Ctrl+W 必须走宿主的关闭命令:TabBar.CloseActiveTabCommand 只删逻辑标签,
+         会留下仍在显示的停靠标签并泄漏 SSH/PTY 传输。 -->
+    <KeyBinding Gesture="Ctrl+W" Command="{Binding CloseActiveTabCommand}" />
     <KeyBinding Gesture="Ctrl+Tab" Command="{Binding TabBar.NextTabCommand}" />
     <KeyBinding Gesture="Ctrl+Shift+Tab" Command="{Binding TabBar.PreviousTabCommand}" />
     <KeyBinding Gesture="Ctrl+OemComma" Command="{Binding OpenSettingsCommand}" />
@@ -43,6 +45,11 @@
        TitleBarView(BeginMoveDrag,原生移动循环,Win11 边缘贴靠仍有效);
        窗口四周为自绘缩放抓取区(BeginResizeDrag)。 -->
   <Panel>
+    <!-- 背景图层(设置→外观→背景图片):铺在窗口最底层,UniformToFill。默认无图=不可见,行为与旧版一致。 -->
+    <Image x:Name="BackgroundImageLayer" Stretch="UniformToFill" IsHitTestVisible="False" IsVisible="False" />
+    <!-- 遮罩 scrim:铺在图片之上、所有内容之下的一层半透明主题底色。有图时所有内容背景令牌置透明,
+         于是整窗内容一律透出「scrim+图片」,不存在多层嵌套叠加。Background/Opacity/可见性由 ApplyBackgroundOpacities 装配。 -->
+    <Border x:Name="BackgroundScrim" IsHitTestVisible="False" IsVisible="False" />
     <Grid RowDefinitions="Auto,*"
           Margin="{Binding $parent[Window].OffScreenMargin}">
 

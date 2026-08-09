@@ -7,6 +7,8 @@
   <StreamGeometry x:Key="Icon.copy">M10 8h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2V10a2 2 0 0 1 2-2Z M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2</StreamGeometry>
   <StreamGeometry x:Key="Icon.columns-2">M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z M12 3v18</StreamGeometry>
   <StreamGeometry x:Key="Icon.route">M6 16a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z M18 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15</StreamGeometry>
+  <StreamGeometry x:Key="Icon.map-pinned">M18 8c0 4.5-6 9-6 9s-6-4.5-6-9a6 6 0 0 1 12 0Z M14 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z M8.835 14H5a1 1 0 0 0-.9.7l-2 6c-.1.1-.1.4-.1.6 0 .4.4.7.9.7h18.2c.5 0 .9-.3.9-.7 0-.2 0-.5-.1-.6l-2-6a1 1 0 0 0-.9-.7h-3.835</StreamGeometry>
+  <StreamGeometry x:Key="Icon.map-pin">M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z M15 10a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z</StreamGeometry>
   <StreamGeometry x:Key="Icon.zap">M13 2 3 14h9l-1 8 10-12h-9l1-8Z</StreamGeometry>
   <StreamGeometry x:Key="Icon.link-2">M9 17H7A5 5 0 0 1 7 7h2 M15 7h2a5 5 0 1 1 0 10h-2 M8 12h8</StreamGeometry>
   <StreamGeometry x:Key="Icon.send">M22 2 15 22l-4-9-9-4Z M22 2 11 13</StreamGeometry>
@@ -19,6 +21,7 @@
   <StreamGeometry x:Key="Icon.minus">M5 12h14</StreamGeometry>
   <StreamGeometry x:Key="Icon.wifi">M12 20h.01 M2 8.82a15 15 0 0 1 20 0 M5 12.859a10 10 0 0 1 14 0 M8.5 16.429a5 5 0 0 1 7 0</StreamGeometry>
   <StreamGeometry x:Key="Icon.wifi-off">M12 20h.01 M8.5 16.429a5 5 0 0 1 7 0 M5 12.859a10 10 0 0 1 5.17-2.69 M19 12.859a10 10 0 0 0-2.007-1.523 M2 8.82a15 15 0 0 1 4.177-2.643 M22 8.82a15 15 0 0 0-11.288-3.764 M2 2l20 20</StreamGeometry>
+  <StreamGeometry x:Key="Icon.activity">M22 12h-3.86l-2.64 7.92a.5.5 0 0 1-.94 0L9.4 4.08a.5.5 0 0 0-.94 0L5.82 12H2</StreamGeometry>
   <StreamGeometry x:Key="Icon.cpu">M6 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z M9 9h6v6H9Z M15 2v2 M15 20v2 M2 15h2 M2 9h2 M20 15h2 M20 9h2 M9 2v2 M9 20v2</StreamGeometry>
   <StreamGeometry x:Key="Icon.memory-stick">M6 19v-3 M10 19v-3 M14 19v-3 M18 19v-3 M8 11V9 M16 11V9 M12 11V9 M2 15h20 M2 7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v1.1a2 2 0 0 0 0 3.837V17a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-5.1a2 2 0 0 0 0-3.837Z</StreamGeometry>
   <StreamGeometry x:Key="Icon.arrow-up-down">M21 16l-4 4-4-4 M17 20V4 M3 8l4-4 4 4 M7 4v16</StreamGeometry>
@@ -70,4 +73,17 @@
   <StreamGeometry x:Key="Icon.save">M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7 M7 3v4a1 1 0 0 0 1 1h7</StreamGeometry>
   <StreamGeometry x:Key="Icon.maximize">M8 3H5a2 2 0 0 0-2 2v3 M21 8V5a2 2 0 0 0-2-2h-3 M3 16v3a2 2 0 0 0 2 2h3 M16 21h3a2 2 0 0 0 2-2v-3</StreamGeometry>
   <StreamGeometry x:Key="Icon.eye-off">M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49 M14.084 14.158a3 3 0 0 1-4.242-4.242 M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143 M2 2l20 20</StreamGeometry>
+
+  <!-- 资源监视窗口(设计帧 XQTSJ 等):状态栏入口、六个导航项与卡片标题所需。 -->
+  <StreamGeometry x:Key="Icon.square-activity">M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z M17 12h-2l-2 5-2-10-2 5H7</StreamGeometry>
+  <StreamGeometry x:Key="Icon.microchip">M7 3h10a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4Z M9 9h6v6H9Z M9 1v2 M15 1v2 M9 21v2 M15 21v2 M1 9h2 M1 15h2 M21 9h2 M21 15h2</StreamGeometry>
+  <StreamGeometry x:Key="Icon.grid-3x3">M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z M3 9h18 M3 15h18 M9 3v18 M15 3v18</StreamGeometry>
+  <StreamGeometry x:Key="Icon.layers">M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z M2 12l8.58 3.91a2 2 0 0 0 1.66 0L21 12 M2 17l8.58 3.91a2 2 0 0 0 1.66 0L21 17</StreamGeometry>
+  <StreamGeometry x:Key="Icon.list-ordered">M10 6h11 M10 12h11 M10 18h11 M4 6h1v4 M4 10h2 M6 18H4c0-1 2-2 2-3s-1-1.5-2-1</StreamGeometry>
+  <StreamGeometry x:Key="Icon.network">M9 2h6v6H9Z M2 16h6v6H2Z M16 16h6v6h-6Z M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3 M12 12V8</StreamGeometry>
+  <StreamGeometry x:Key="Icon.pause">M6 4h4v16H6Z M14 4h4v16h-4Z</StreamGeometry>
+  <StreamGeometry x:Key="Icon.ethernet-port">M15 20l3-3h2a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h2l3 3Z M6 8v2 M10 8v2 M14 8v2 M18 8v2</StreamGeometry>
+  <StreamGeometry x:Key="Icon.folder-tree">M20 10a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-2.5a1 1 0 0 1-.8-.4l-.9-1.2A1 1 0 0 0 15 3h-2a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1Z M20 21a1 1 0 0 0 1-1v-3a1 1 0 0 0-1-1h-2.5a1 1 0 0 1-.8-.4l-.9-1.2a1 1 0 0 0-.8-.4H13a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1Z M3 3v13a2 2 0 0 0 2 2h7 M3 8h9</StreamGeometry>
+  <StreamGeometry x:Key="Icon.gauge">M12 14l4-4 M21.66 17a10 10 0 1 0-19.32 0</StreamGeometry>
+  <StreamGeometry x:Key="Icon.layout-grid">M4 3h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z M15 3h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z M4 14h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-5a1 1 0 0 1 1-1Z M15 14h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1v-5a1 1 0 0 1 1-1Z</StreamGeometry>
 </ResourceDictionary>

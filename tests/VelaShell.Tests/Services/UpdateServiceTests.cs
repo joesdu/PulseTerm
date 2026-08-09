@@ -241,6 +241,116 @@ public class UpdateServiceTests : IDisposable
 
     [TestMethod]
     [TestCategory("Update")]
+    public async Task DownloadUpdateAsync_PendingSwapBookkeeping_IsLeftAlone()
+    {
+        // 老实现会把暂存目录里除下载产物外的一切删光,包括换版日志 —— 上一轮没收尾的备份
+        // 就此失去归属,再没有代码知道它们的存在,残留永久堆在应用目录里。
+        byte[] zip = CreateZipBytes(("app.txt", "new"));
+        _source.Manifest = CreateManifest("2.0.0", zip);
+        _source.AssetBytes = zip;
+        UpdateService service = CreateService("1.0.0");
+        Assert.IsTrue(await service.CheckForUpdateAsync());
+        UpdateApplier applier = new(_appDir);
+        Directory.CreateDirectory(applier.BackupDirectory);
+        File.WriteAllText(Path.Combine(applier.BackupDirectory, "app.txt"), "previous version");
+        string journal = Path.Combine(applier.StagingDirectory, UpdateApplier.JournalFileName);
+        File.WriteAllText(journal, """{ "Phase": "applying", "Files": [ { "Path": "app.txt", "Existed": true } ] }""");
+
+        await service.DownloadUpdateAsync();
+
+        Assert.IsTrue(File.Exists(journal), "换版日志归 UpdateApplier 管,下载流程不得删除");
+        Assert.AreEqual("previous version", File.ReadAllText(Path.Combine(applier.BackupDirectory, "app.txt")));
+    }
+
+    [TestMethod]
+    [TestCategory("Update")]
+    public async Task RepairUpdateState_ClearsStagingAndForcesFreshDownload()
+    {
+        byte[] zip = CreateZipBytes(("app.txt", "new"));
+        _source.Manifest = CreateManifest("2.0.0", zip);
+        _source.AssetBytes = zip;
+        UpdateService service = CreateService("1.0.0");
+        Assert.IsTrue(await service.CheckForUpdateAsync());
+        await service.DownloadUpdateAsync();
+        Assert.AreEqual(1, _source.DownloadCalls);
+
+        Assert.IsTrue(service.RepairUpdateState());
+
+        Assert.IsFalse(Directory.Exists(Path.Combine(_appDir, UpdateApplier.StagingDirectoryName)));
+        // 修复会连检查结果一起丢掉,必须重新走完整流程(而不是拿着失效状态继续换版)。
+        Assert.ThrowsExactly<InvalidOperationException>(service.ApplyUpdateAndRestart);
+        Assert.IsTrue(await service.CheckForUpdateAsync());
+        await service.DownloadUpdateAsync();
+        Assert.AreEqual(2, _source.DownloadCalls);
+    }
+
+    [TestMethod]
+    [TestCategory("Update")]
+    public async Task ApplyUpdateAndRestart_StagesWithoutTouchingApplicationDirectory_OnFailure()
+    {
+        // 包在下载后被损坏(磁盘错误/被改写):解包阶段就会失败,而解包不动应用目录,
+        // 因此应用完好如初,重试也不需要任何人工清理。
+        byte[] zip = CreateZipBytes(("app.txt", "new"));
+        _source.Manifest = CreateManifest("2.0.0", zip);
+        _source.AssetBytes = zip;
+        UpdateService service = CreateService("1.0.0");
+        File.WriteAllText(Path.Combine(_appDir, "app.txt"), "current");
+        Assert.IsTrue(await service.CheckForUpdateAsync());
+        await service.DownloadUpdateAsync();
+        string archive = Path.Combine(
+            _appDir, UpdateApplier.StagingDirectoryName, "VelaShell-2.0.0-" + UpdateManifest.CurrentRid() + ".zip");
+        File.WriteAllText(archive, "corrupted after checksum passed");
+
+        Assert.ThrowsExactly<InvalidDataException>(service.ApplyUpdateAndRestart);
+
+        Assert.AreEqual("current", File.ReadAllText(Path.Combine(_appDir, "app.txt")));
+        Assert.IsEmpty(Directory.GetFiles(_appDir, "*.old", SearchOption.AllDirectories));
+    }
+
+    [TestMethod]
+    [TestCategory("Update")]
+    public async Task StoreManaged_SkipsUpdateCheckEntirely()
+    {
+        // 商店版(MSIX)装在只读的 WindowsApps 下,更新归 Microsoft Store 管:连请求都不该发,
+        // 查到了也无从安装,只会给用户一条装不上的"有新版本"提示。
+        byte[] zip = CreateZipBytes(("app.txt", "new"));
+        _source.Manifest = CreateManifest("2.0.0", zip);
+        _source.AssetBytes = zip;
+        UpdateService service = new(
+            _source,
+            applicationDirectory: _appDir,
+            currentVersionOverride: "1.0.0",
+            shutdownForRestart: static () => { },
+            storeManagedOverride: true);
+
+        Assert.IsTrue(service.IsStoreManaged);
+        Assert.IsFalse(service.CanSelfUpdate, "商店版不得声称能自更新");
+        Assert.IsFalse(await service.CheckForUpdateAsync(), "有新版本也要返回 false");
+        Assert.AreEqual(0, _source.ManifestCalls, "商店版不该访问更新源");
+    }
+
+    [TestMethod]
+    [TestCategory("Update")]
+    public async Task PortableBuild_StillChecksForUpdates()
+    {
+        // 同一份二进制在便携形态下行为不变:商店判定只关掉商店版,不影响 GitHub 分发的那份。
+        byte[] zip = CreateZipBytes(("app.txt", "new"));
+        _source.Manifest = CreateManifest("2.0.0", zip);
+        _source.AssetBytes = zip;
+        UpdateService service = new(
+            _source,
+            applicationDirectory: _appDir,
+            currentVersionOverride: "1.0.0",
+            shutdownForRestart: static () => { },
+            storeManagedOverride: false);
+
+        Assert.IsFalse(service.IsStoreManaged);
+        Assert.IsTrue(await service.CheckForUpdateAsync());
+        Assert.IsTrue(service.CanSelfUpdate);
+    }
+
+    [TestMethod]
+    [TestCategory("Update")]
     public void ApplyUpdateAndRestart_WithoutDownload_ThrowsInvalidOperation()
     {
         Assert.ThrowsExactly<InvalidOperationException>(() => CreateService().ApplyUpdateAndRestart());
@@ -280,9 +390,11 @@ public class UpdateServiceTests : IDisposable
         public bool ThrowOnManifest { get; set; }
         public bool LastIncludePreRelease { get; private set; }
         public int DownloadCalls { get; private set; }
+        public int ManifestCalls { get; private set; }
 
         public Task<UpdateManifest?> GetLatestManifestAsync(bool includePreRelease, CancellationToken cancellationToken = default)
         {
+            ManifestCalls++;
             LastIncludePreRelease = includePreRelease;
             return ThrowOnManifest
                 ? Task.FromException<UpdateManifest?>(new HttpRequestException("offline"))

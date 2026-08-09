@@ -1,5 +1,5 @@
-using System.Reactive.Linq;
 using NSubstitute;
+using ReactiveUI.Primitives;
 using VelaShell.Core.Data;
 using VelaShell.Core.Models;
 using VelaShell.Presentation.ViewModels;
@@ -325,8 +325,8 @@ public class SessionTreeViewModelTests
         _vm.PortForwardRequested += profile => portForwardRequested = profile;
 
         Assert.IsFalse(_vm.SelectedNode.IsSshProfile);
-        Assert.IsTrue(_vm.OpenSftpCommand.CanExecute.FirstAsync().Wait());
-        Assert.IsFalse(_vm.PortForwardCommand.CanExecute.FirstAsync().Wait());
+        Assert.IsTrue(await _vm.OpenSftpCommand.CanExecute.FirstAsync());
+        Assert.IsFalse(await _vm.PortForwardCommand.CanExecute.FirstAsync());
         await _vm.OpenSftpCommand.Execute().FirstAsync();
         await _vm.PortForwardCommand.Execute().FirstAsync();
         Assert.AreSame(source, requested);

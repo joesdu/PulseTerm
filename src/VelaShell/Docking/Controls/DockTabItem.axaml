@@ -10,7 +10,7 @@
              xmlns:loc="using:VelaShell.Localization"
              x:Class="VelaShell.Docking.Controls.DockTabItem"
              x:DataType="docking:TerminalDocument"
-             FontSize="11"
+             FontSize="{DynamicResource VelaFontSize11}"
              VerticalAlignment="Stretch">
 
   <!-- 单个终端标签(设计 nunbT):32px 高、padding [0,14],状态点 7px + 连接标识色条
@@ -19,7 +19,7 @@
   <UserControl.Styles>
     <Style Selector="local|DockTabItem">
       <Setter Property="Foreground" Value="{DynamicResource VelaTextTertiary}" />
-      <Setter Property="FontFamily" Value="{DynamicResource VelaTerminalFont}" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
       <Setter Property="Transitions">
         <Transitions>
           <BrushTransition Property="Foreground" Duration="0:0:0.12" Easing="CubicEaseOut" />

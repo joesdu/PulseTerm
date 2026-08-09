@@ -331,6 +331,109 @@ public class TerminalBridgeTests
         }
     }
 
+    /// <summary>
+    /// 让替身流按序吐出给定分块,吐完后阻塞(模拟"连接还在,只是没有新输出")。
+    /// </summary>
+    private void ScriptReads(params byte[][] chunks)
+    {
+        int index = 0;
+        _shellStream.CanRead.Returns(true);
+        _shellStream.ReadAsync(Arg.Any<byte[]>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                    .Returns(async call =>
+                    {
+                        if (index >= chunks.Length)
+                        {
+                            await Task.Delay(Timeout.Infinite, call.ArgAt<CancellationToken>(3));
+                            return 0;
+                        }
+                        byte[] chunk = chunks[index++];
+                        chunk.CopyTo(call.ArgAt<byte[]>(0), call.ArgAt<int>(1));
+                        return chunk.Length;
+                    });
+    }
+
+    [TestMethod]
+    public void DataReceived_StripsInjectedInitCommandEcho_SoRecordingsAndLogsMatchTheScreen()
+    {
+        // 会话录制/会话日志挂的是读线程上的原始流,拿不到显示路径抑制后的结果 ——
+        // 于是注入的初始化脚本在终端里隐形,回放时却整行冒出来(用户反馈)。
+        // 记录到的字节必须与屏幕所见一致。
+        const string injected = "prompt_nl() { local c; ((c>1)) && echo; }; PROMPT_COMMAND=prompt_nl";
+        byte[] needle = Encoding.UTF8.GetBytes(injected + "\r\n");
+
+        ScriptReads(
+            Encoding.UTF8.GetBytes("Last login: Mon Jul 27 11:57:35 2026\r\n"),
+            Encoding.UTF8.GetBytes(" " + injected + "\r\n"), // tty 回显:前导空格 + 命令 + CRLF
+            Encoding.UTF8.GetBytes("[root@192 ~]# "));
+
+        var logged = new MemoryStream();
+        using var bridge = new SshTerminalBridge(_terminal, _shellStream);
+        bridge.DataReceived += chunk =>
+        {
+            lock (logged)
+            {
+                logged.Write(chunk);
+            }
+        };
+        bridge.SuppressEchoOnce(needle);
+        bridge.Start();
+
+        WaitUntil(() =>
+        {
+            lock (logged)
+            {
+                return Encoding.UTF8.GetString(logged.ToArray()).Contains("[root@192 ~]#", StringComparison.Ordinal);
+            }
+        });
+
+        lock (logged)
+        {
+            string text = Encoding.UTF8.GetString(logged.ToArray());
+            Assert.DoesNotContain("prompt_nl", text, "注入的初始化脚本不得进入会话录制/日志。");
+            Assert.Contains("Last login", text, "真实的服务器输出必须原样保留。");
+            Assert.Contains("[root@192 ~]#", text, "提示符必须原样保留。");
+        }
+    }
+
+    [TestMethod]
+    public void DataReceived_EchoSplitAcrossChunks_IsStillStripped()
+    {
+        // 回显会被网络任意切开;跨块的部分命中必须扣住续判,而不是漏半行进录制。
+        const string injected = "prompt_nl() { local c; ((c>1)) && echo; }; PROMPT_COMMAND=prompt_nl";
+        byte[] needle = Encoding.UTF8.GetBytes(injected + "\r\n");
+        string echo = injected + "\r\n";
+
+        ScriptReads(
+            Encoding.UTF8.GetBytes(echo[..20]),
+            Encoding.UTF8.GetBytes(echo[20..]),
+            Encoding.UTF8.GetBytes("[root@192 ~]# "));
+
+        var logged = new MemoryStream();
+        using var bridge = new SshTerminalBridge(_terminal, _shellStream);
+        bridge.DataReceived += chunk =>
+        {
+            lock (logged)
+            {
+                logged.Write(chunk);
+            }
+        };
+        bridge.SuppressEchoOnce(needle);
+        bridge.Start();
+
+        WaitUntil(() =>
+        {
+            lock (logged)
+            {
+                return Encoding.UTF8.GetString(logged.ToArray()).Contains("[root@192 ~]#", StringComparison.Ordinal);
+            }
+        });
+
+        lock (logged)
+        {
+            Assert.AreEqual("[root@192 ~]# ", Encoding.UTF8.GetString(logged.ToArray()));
+        }
+    }
+
     /// <summary>构造一个已进入会话态的路由器(喂 ZRQINIT 触发接收会话)。</summary>
     private ZModemTerminalRouter StartInSessionRouter()
     {
@@ -369,7 +472,7 @@ public class TerminalBridgeTests
 
         lock (written)
         {
-            Assert.IsFalse(written.Contains((byte)'q'), "ZMODEM 会话期间的击键不得写入传输流。");
+            Assert.DoesNotContain((byte)'q', written, "ZMODEM 会话期间的击键不得写入传输流。");
         }
         router.CancelActiveSession();
     }

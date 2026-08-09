@@ -1,6 +1,6 @@
 using System.Collections.ObjectModel;
-using System.Reactive;
 using ReactiveUI;
+using ReactiveUI.Primitives;
 
 namespace VelaShell.ViewModels;
 
@@ -67,19 +67,19 @@ public sealed class CommandPaletteViewModel : ReactiveObject
     public bool HasResults => _flat.Count > 0;
 
     /// <summary>将选中项移到下一个匹配项。</summary>
-    public ReactiveCommand<Unit, Unit> MoveDownCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> MoveDownCommand { get; }
 
     /// <summary>将选中项移到上一个匹配项。</summary>
-    public ReactiveCommand<Unit, Unit> MoveUpCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> MoveUpCommand { get; }
 
     /// <summary>运行当前选中项并关闭命令面板。</summary>
-    public ReactiveCommand<Unit, Unit> ExecuteSelectedCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ExecuteSelectedCommand { get; }
 
     /// <summary>选中并立即运行所给条目(鼠标激活)。</summary>
-    public ReactiveCommand<CommandPaletteItem, Unit> ActivateCommand { get; }
+    public ReactiveCommand<CommandPaletteItem, RxVoid> ActivateCommand { get; }
 
     /// <summary>关闭命令面板浮层,不运行任何条目。</summary>
-    public ReactiveCommand<Unit, Unit> CloseCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> CloseCommand { get; }
 
     /// <summary>从提供方重新加载条目、清空查询并显示命令面板。</summary>
     public void Open()

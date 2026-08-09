@@ -3,9 +3,15 @@
 #   Windows x64/arm64 → zip
 #   macOS   x64/arm64 → tar.gz + dmg(未签名/未公证;Unix 可执行位在原生 runner 上保留)
 #   Linux   x64/arm64 → tar.gz
+# 另有 build-msix 任务产出商店版 .msixbundle,但它不附加到 Release —— 作为工作流
+# artifact(store-msix)留存,由人工下载后提交 Partner Center。便携版与商店版是同一份二进制,
+# 只是容器不同;应用内自更新在商店版会自动关闭(运行时判定包身份,见 Services/AppPackaging.cs)。
 # macOS 双产物分工(动 latest.json 前先读这段):
 #   tar.gz — 应用内自更新器的资产,latest.json 只指向它。更新器是"原地换版"
-#            (zip/tar 按相对路径解进应用目录,.new/.old 两段重命名),不认识 dmg。
+#            (zip/tar 按相对路径解进应用目录),不认识 dmg。
+#   注意 self-contained + single-file 这两个开关是自更新方案的前提:换版由主程序自己的一份
+#   临时副本(而非随包分发的独立更新器)在应用退出后执行,靠的正是"主程序单文件即完整可执行体"。
+#   若哪天改成非单文件发布,换版会自动退回本进程原地重命名的兜底路径,更新仍可用但不再干净。
 #   dmg    — 人类安装资产:VelaShell.app 拖进 /Applications。.app 的 Contents/MacOS
 #            就是 tar.gz 的扁平布局,应用在 bundle 内运行时更新器的应用目录即
 #            Contents/MacOS,后续自更新照常工作(Info.plist/图标不随更新变,可接受)。
@@ -17,11 +23,34 @@
 #                    不占 API 配额),preview 通道经 API 定位 Release 后取同名清单。
 # 版本号取 Release 标签(去掉前缀 v),经 -p:Version 覆盖 Directory.Build.props,
 # 关于页显示与产物命名自动一致 —— 发新版只需打标签发 Release,无需改代码。
+#
+# 2026-08-07 排障留痕:发布 1.1.2 时本工作流一个 run 都没产生,YAML 本身没问题(同一份文件
+# 8/4 还成功产出过 1.1.1 的全部资产)。当时的现象与已排除的因素:
+#   · Release 正常:draft=false、prerelease=false,仓库事件流里 ReleaseEvent/published 确实发出;
+#   · 工作流文件自 2026-07-26 起一直在默认分支 main 上,期间无提交改动、无强推、无迁移;
+#   · 但工作流对象曾被置为 state=deleted(deleted 状态收不到任何事件 → 静默不跑、无失败记录);
+#     推一次改动到 main 会重新索引,状态已回 active —— 然而再次发布仍然 0 run;
+#   · 同期仓库的 run 历史 / artifact / cache 全部归零,而账号下其他仓库的 Actions 一切正常。
+# 即:事件在发、工作流是 active,Actions 却不建 run,已超出仓库配置能解释的范围(疑为 GitHub 侧
+# 对本仓库的 Actions 数据做过重置/压制)。自查顺序:
+#   gh api repos/joesdu/VelaShell/actions/workflows/release.yml --jq .state   # 期望 active
+#   gh api repos/joesdu/VelaShell/actions/runs --jq .total_count              # 0 且状态 active → 看 Actions 页面横幅
+# 兜底见下方 workflow_dispatch:能手动跑通就说明只是 release 事件没送达,跑不动则是仓库级封锁,
+# 需要开 GitHub support ticket。
 name: Release
 
 on:
   release:
     types: [published]
+  # 手动兜底:release 事件没能触发时(2026-08-07 就遇到过一次),在 Actions 页面选本工作流
+  # → Run workflow → 填标签(如 1.1.2)即可补跑。产物上传用的是 `gh release upload --clobber`,
+  # 对同一标签重复跑是幂等的,不会产生重复资产。标签必须已存在且对应 Release 已发布。
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '要构建并回传产物的 Release 标签(如 1.1.2)'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -33,8 +62,8 @@ jobs:
   build-windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
       - name: Restore strong-name key
@@ -47,7 +76,7 @@ jobs:
       - name: Publish (win-x64 / win-arm64)
         shell: pwsh
         run: |
-          $version = '${{ github.event.release.tag_name }}'.TrimStart('v')
+          $version = '${{ github.event.release.tag_name || inputs.tag }}'.TrimStart('v')
           New-Item -ItemType Directory -Force dist | Out-Null
           foreach ($rid in @('win-x64', 'win-arm64')) {
             $name = "VelaShell-$version-$rid"
@@ -58,17 +87,57 @@ jobs:
             Get-ChildItem "out/$name" -Recurse -File -Filter '*.pdb' | Remove-Item -Force
             Compress-Archive -Path "out/$name/*" -DestinationPath "dist/$name.zip" -Force
           }
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: packages-windows
           path: dist/*
           if-no-files-found: error
 
+  # 商店版:同一份源码、同一条发布命令,只是打进 MSIX 而非压成 zip。二者的行为差异
+  # 全部由运行时的包身份判定驱动(Services/AppPackaging.cs),装成 MSIX 就自动关掉应用内
+  # 自更新、改由商店接管,因此这里不需要任何特殊编译配置。
+  # 产物刻意不签名:提交到商店的 MSIX 由微软在认证通过后用商店证书签名,自己签会被替换掉。
+  # 包标识默认值即本产品在 Partner Center 的真实标识(非机密,商店包里人人可读),
+  # 无需额外配置即可出可提交的包。如需改用别的产品(换账户/换产品条目),用仓库变量覆盖:
+  #   vars.MSIX_IDENTITY_NAME          ← Package/Identity/Name
+  #   vars.MSIX_PUBLISHER              ← Package/Identity/Publisher(形如 CN=<GUID>)
+  #   vars.MSIX_PUBLISHER_DISPLAY_NAME ← Package/Properties/PublisherDisplayName
+  # 三者填错时上传会被拒;脚本会就地算出包系列名(PFN)打印出来,与产品标识页一比即知。
+  build-msix:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: Restore strong-name key
+        shell: pwsh
+        run: |
+          [IO.File]::WriteAllBytes("src/VelaShell.snk",
+            [Convert]::FromBase64String($env:SNK_B64))
+        env:
+          SNK_B64: ${{ secrets.STRONG_NAME_KEY }}
+      - name: Build MSIX bundle (win-x64 + win-arm64)
+        shell: pwsh
+        run: |
+          $version = '${{ github.event.release.tag_name || inputs.tag }}'.TrimStart('v')
+          ./build/msix/Build-Msix.ps1 -Version $version `
+            -IdentityName '${{ vars.MSIX_IDENTITY_NAME || 'B0B5EDED.VelaShell' }}' `
+            -Publisher '${{ vars.MSIX_PUBLISHER || 'CN=3CDE21EE-6AB1-414B-BD2D-EDE8A225854B' }}' `
+            -PublisherDisplayName '${{ vars.MSIX_PUBLISHER_DISPLAY_NAME || '鹿宝丶' }}'
+      # 单独上传,不并入 dist:.msixbundle 是给 Partner Center 手动提交用的,既不进
+      # latest.json(那是便携版自更新器的清单),也不该被当成可下载的安装包挂在 Release 上。
+      - uses: actions/upload-artifact@v7
+        with:
+          name: store-msix
+          path: dist/*.msixbundle
+          if-no-files-found: error
+
   build-macos:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
       - name: Restore strong-name key
@@ -76,6 +145,29 @@ jobs:
         run: echo "$SNK_B64" | openssl base64 -A -d > src/VelaShell.snk
         env:
           SNK_B64: ${{ secrets.STRONG_NAME_KEY }}
+      # 腾磁盘。arm64 的 macOS runner 数据卷可用空间只有十几 GB,预装的多版本 Xcode 与模拟器
+      # 运行时占掉大头,且不同批次镜像的剩余量差别很大 —— 这就是 dmg 打包间歇性
+      # "No space left on device"、重跑又能过的原因(1.1.2 翻过一次,失败点在第一个 RID,
+      # 说明是起步空间不够而非产物累积撑爆)。删掉用不上的预装组件把它变成确定行为。
+      # 本 job 只用到 /usr/bin 下的 sips / iconutil / codesign / hdiutil,都是系统自带,
+      # 不走 xcrun、不依赖 Xcode.app;仍保留 xcode-select 选中的那一份以防万一。
+      # 刻意不加 set -e:腾空间是尽力而为,某个路径不存在或删不掉不该让发布失败。
+      - name: Free up disk space
+        run: |
+          set -uo pipefail
+          echo "== before =="; df -h /System/Volumes/Data | tail -1
+          selected="$(cd "$(xcode-select -p)/../.." 2>/dev/null && pwd -P)" || selected=''
+          for app in /Applications/Xcode*.app; do
+            [ -e "$app" ] || continue
+            real="$(cd "$app" 2>/dev/null && pwd -P)" || continue
+            [ "$real" = "$selected" ] && continue
+            sudo rm -rf "$app"
+          done
+          sudo rm -rf /Library/Developer/CoreSimulator/Profiles/Runtimes
+          sudo rm -rf "$HOME/Library/Developer/CoreSimulator"
+          sudo rm -rf "$HOME/Library/Android" /usr/local/share/boost
+          sudo rm -rf "$HOME/.rustup" "$HOME/.cargo"
+          echo "== after =="; df -h /System/Volumes/Data | tail -1
       - name: Publish (osx-x64 / osx-arm64)
         run: |
           set -euo pipefail
@@ -103,9 +195,13 @@ jobs:
 
             # VelaShell.app:Contents/MacOS = 上面的扁平发布目录,布局与 tar.gz 严格一致,
             # 这样无论用户从 dmg 装进 /Applications 还是解 tar 便携运行,自更新走同一条原地换版路径。
-            app="out/bundle-$rid/VelaShell.app"
-            mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
-            cp -a "out/$name/." "$app/Contents/MacOS/"
+            # 直接建在 dmg 根目录里,并且用 mv 而不是 cp —— 原先"发布目录 → .app → dmg 根目录"
+            # 三份全量副本,叠上 hdiutil 那份等大的临时镜像就是四份,runner 磁盘扛不住。
+            # tar.gz 此时已经打好,out/$name 没有别的用途,可以整个搬走(同卷 mv,零拷贝)。
+            dmgroot="out/dmg-$rid"
+            app="$dmgroot/VelaShell.app"
+            mkdir -p "$app/Contents/Resources"
+            mv "out/$name" "$app/Contents/MacOS"
             cp src/VelaShell/Info.plist "$app/Contents/Info.plist"
             # CFBundleShortVersionString 显示完整版本(含预发布后缀);CFBundleVersion 取纯数字段。
             /usr/libexec/PlistBuddy \
@@ -120,15 +216,19 @@ jobs:
             codesign --force --deep --sign - "$app"
 
             # dmg:VelaShell.app + /Applications 快捷方式的经典拖装布局。
-            dmgroot="out/dmg-$rid"
-            mkdir -p "$dmgroot"
-            cp -a "$app" "$dmgroot/"
+            # hdiutil -srcfolder 会先建一个与内容等大的可写镜像(挂到 /Volumes/VelaShell)灌进去
+            # 再转 UDZO,峰值需要"未压缩内容 + 压缩产物"的空间,是这个 job 里最吃磁盘的一步。
             ln -s /Applications "$dmgroot/Applications"
             hdiutil create -volname "VelaShell" -srcfolder "$dmgroot" -ov -format UDZO "dist/$name.dmg"
+
+            # 立刻回收:两个 RID 之间不留全量副本,也不留只对上一个 RID 有意义的中间产物。
+            rm -rf "$dmgroot"
+            rm -rf src/*/obj/Release/*/"$rid" src/*/bin/Release/*/"$rid"
+            echo "== after $rid =="; df -h /System/Volumes/Data | tail -1
           done
         env:
-          TAG_NAME: ${{ github.event.release.tag_name }}
-      - uses: actions/upload-artifact@v4
+          TAG_NAME: ${{ github.event.release.tag_name || inputs.tag }}
+      - uses: actions/upload-artifact@v7
         with:
           name: packages-macos
           path: dist/*
@@ -137,8 +237,8 @@ jobs:
   build-linux:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
       - name: Restore strong-name key
@@ -159,8 +259,8 @@ jobs:
             tar -czf "dist/$name.tar.gz" -C "out/$name" .
           done
         env:
-          TAG_NAME: ${{ github.event.release.tag_name }}
-      - uses: actions/upload-artifact@v4
+          TAG_NAME: ${{ github.event.release.tag_name || inputs.tag }}
+      - uses: actions/upload-artifact@v7
         with:
           name: packages-linux
           path: dist/*
@@ -170,8 +270,11 @@ jobs:
     needs: [build-windows, build-macos, build-linux]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
+          # 只收便携版产物:store-msix 是给 Partner Center 手动提交的,不能混进 Release 资产
+          # (它未签名、装不上,还会污染 SHA256SUMS)。不加这道过滤就会被 merge-multiple 一并拉进来。
+          pattern: packages-*
           path: dist
           merge-multiple: true
       - name: Generate latest.json (in-app update manifest)
@@ -200,7 +303,7 @@ jobs:
             '{version: $version, tag: $tag, assets: $assets}' > latest.json
           cat latest.json
         env:
-          TAG_NAME: ${{ github.event.release.tag_name }}
+          TAG_NAME: ${{ github.event.release.tag_name || inputs.tag }}
       - name: Generate SHA256SUMS.txt
         run: |
           set -euo pipefail
@@ -215,4 +318,4 @@ jobs:
           gh release upload "$TAG_NAME" dist/* --clobber --repo "$GITHUB_REPOSITORY"
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG_NAME: ${{ github.event.release.tag_name }}
+          TAG_NAME: ${{ github.event.release.tag_name || inputs.tag }}

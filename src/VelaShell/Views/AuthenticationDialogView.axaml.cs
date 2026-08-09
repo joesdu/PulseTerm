@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using ReactiveUI.Primitives;
 using VelaShell.Core.Resources;
 using VelaShell.ViewModels;
 
@@ -67,7 +68,8 @@ public partial class AuthenticationDialogView : Window
         IReadOnlyList<IStorageFile> files = await StorageProvider.OpenFilePickerAsync(new()
         {
             Title = Strings.Get("Profile_SelectKeyFile"),
-            AllowMultiple = false
+            AllowMultiple = false,
+            SuggestedStartLocation = await StorageDefaults.SshAsync(this)
         });
         if (files.AsParallel().FirstOrDefault()?.TryGetLocalPath() is { Length: > 0 } path)
         {

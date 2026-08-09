@@ -1,6 +1,6 @@
 using System.Collections.ObjectModel;
-using System.Reactive;
 using ReactiveUI;
+using ReactiveUI.Primitives;
 using VelaShell.Core.Resources;
 using VelaShell.Core.Ssh;
 
@@ -55,13 +55,13 @@ public class SshKeyManagerViewModel : ReactiveObject
     }
 
     /// <summary>重新枚举密钥列表的命令。</summary>
-    public ReactiveCommand<Unit, Unit> RefreshCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> RefreshCommand { get; }
 
     /// <summary>删除指定密钥的命令。</summary>
-    public ReactiveCommand<SshKeyInfo, Unit> DeleteCommand { get; }
+    public ReactiveCommand<SshKeyInfo, RxVoid> DeleteCommand { get; }
 
     /// <summary>生成新 RSA 密钥的命令。</summary>
-    public ReactiveCommand<Unit, Unit> GenerateCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> GenerateCommand { get; }
 
     /// <summary>从密钥服务枚举密钥并刷新列表与下拉名单。</summary>
     public async Task RefreshAsync()

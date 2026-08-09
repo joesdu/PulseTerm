@@ -16,12 +16,12 @@
     <Style Selector="TextBlock.row-label">
       <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
       <Setter Property="FontFamily" Value="{DynamicResource VelaUiFont}" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
     </Style>
     <Style Selector="TextBlock.row-value">
       <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
       <Setter Property="FontFamily" Value="{DynamicResource VelaUiFont}" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
     </Style>
     <Style Selector="ProgressBar">
       <Setter Property="Height" Value="6" />
@@ -40,12 +40,12 @@
     <Style Selector="TextBlock.info-label">
       <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
       <Setter Property="FontFamily" Value="{DynamicResource VelaUiFont}" />
-      <Setter Property="FontSize" Value="10" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
     </Style>
     <Style Selector="TextBlock.info-value">
       <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
       <Setter Property="FontFamily" Value="{DynamicResource VelaUiFont}" />
-      <Setter Property="FontSize" Value="10" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
     </Style>
   </UserControl.Styles>
 
@@ -56,13 +56,13 @@
       <TextBlock Text="{Binding HostName}"
                  Foreground="{DynamicResource VelaTextPrimary}"
                  FontFamily="{DynamicResource VelaUiFont}"
-                 FontSize="13" FontWeight="Bold" />
+                 FontSize="{DynamicResource VelaFontSize13}" FontWeight="Bold" />
     </Grid>
 
     <!-- 不可用占位(§11:若该会话已断开，显示数据不可用) -->
     <TextBlock Text="{loc:Localize Monitor_Unavailable}"
                Foreground="{DynamicResource VelaTextMuted}"
-               FontFamily="{DynamicResource VelaUiFont}" FontSize="11"
+               FontFamily="{DynamicResource VelaUiFont}" FontSize="{DynamicResource VelaFontSize11}"
                IsVisible="{Binding !IsAvailable}" />
 
     <StackPanel Spacing="8" IsVisible="{Binding IsAvailable}">

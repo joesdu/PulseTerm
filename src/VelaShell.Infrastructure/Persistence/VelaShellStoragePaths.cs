@@ -20,6 +20,8 @@ public sealed class VelaShellStoragePaths
         SessionsFile = Path.Combine(root, "sessions.json");
         SonnetDbDirectory = Path.Combine(root, "sonnetdb");
         SecretKeyFile = Path.Combine(root, "secret.key");
+        RenderModeFile = Path.Combine(root, "render.mode");
+        GeoIpDirectory = Path.Combine(root, "geoip");
         LegacyDotDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
             ".velashell"
@@ -29,6 +31,16 @@ public sealed class VelaShellStoragePaths
 
     /// <summary>VelaShell 所有持久化数据的根目录。</summary>
     public string RootDirectory { get; }
+
+    /// <summary>
+    /// 渲染模式标记文件。渲染后端必须在 Avalonia 初始化之前定下来,而那时 DI 与
+    /// SonnetDB 都还没起来 —— 为此把这一项设置额外镜像成一个单行小文件,
+    /// 启动路径只做一次 File.ReadAllText,不引入任何数据库初始化开销。
+    /// </summary>
+    public string RenderModeFile { get; }
+
+    /// <summary>离线 IP 归属地数据库(*.mmdb)的存放目录。</summary>
+    public string GeoIpDirectory { get; }
 
     /// <summary>历史 JSON 设置文件(仅用于一次性迁移导入)。</summary>
     public string SettingsFile { get; }

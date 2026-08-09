@@ -1,21 +1,28 @@
-using System.Reactive.Linq;
-using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Microsoft.Extensions.DependencyInjection;
 using ReactiveUI;
+using ReactiveUI.Primitives;
 using VelaShell.Core.Data;
+using VelaShell.Core.Diagnostics;
+using VelaShell.Core.Import;
 using VelaShell.Core.Models;
+using VelaShell.Core.Processes;
 using VelaShell.Core.Resources;
 using VelaShell.Core.Services;
 using VelaShell.Core.Ssh;
 using VelaShell.Docking;
+using VelaShell.Infrastructure.Import;
 using VelaShell.Presentation.Services;
+using VelaShell.Presentation.ViewModels;
 using VelaShell.Security;
+using VelaShell.Services;
 using VelaShell.Services.ZModem;
 using VelaShell.ViewModels;
 
@@ -24,15 +31,43 @@ namespace VelaShell.Views;
 /// <summary>应用主窗口:自绘无边框标题栏、侧边栏与终端主区的宿主,统筹连接、设置、会话恢复与关闭链路。</summary>
 public partial class MainWindow : Window
 {
+    /// <summary>任务管理器窗口尺寸在文档存储里的键。</summary>
+    private const string ProcessManagerLayoutKey = "processManager";
+
+    /// <summary>链路追踪窗口尺寸在文档存储里的键。</summary>
+    private const string TraceRouteLayoutKey = "traceRoute";
+
+    /// <summary>资源监视窗口尺寸在文档存储里的键。</summary>
+    private const string ResourceMonitorLayoutKey = "resourceMonitor";
+
+    /// <summary>每个会话至多一扇任务管理器窗口,按会话标识去重。</summary>
+    private readonly Dictionary<Guid, ProcessManagerView> _processManagers = [];
+
+    /// <summary>每个会话至多一扇资源监视窗口,按会话标识去重。</summary>
+    private readonly Dictionary<Guid, ResourceMonitorWindow> _resourceMonitors = [];
+
+    /// <summary>每个追踪目标至多一扇窗口,按目标主机去重。</summary>
+    private readonly Dictionary<string, TraceRouteWindow> _traceWindows = [with(StringComparer.OrdinalIgnoreCase)];
+
     private IDisposable? _fileBrowserVisibilitySub;
     private bool _forceClose;
     private bool _confirmationInProgress;
     private bool _standaloneSftpShutdownInProgress;
     private bool _standaloneSftpShutdownComplete;
+    private bool _openedInitialized;
 
-    /// <summary>自绘缩放抓取区:普通状态按下即进入原生缩放;最大化时整层隐藏(见 OnPropertyChanged)。</summary>
+    /// <summary>
+    /// 自绘缩放抓取区:普通状态按下即进入原生缩放;最大化时整层隐藏(见 OnPropertyChanged)。
+    /// 只认左键:BeginResizeDrag 在 Win32 上是伪造一条 WM_NCLBUTTONDOWN 进系统 sizing 模态
+    /// 循环,而该循环只在左键弹起时退出。用右/中键起手会让循环永远等不到那次弹起,
+    /// 表现为松开按键后窗口仍一直跟着光标改尺寸(#116)。标题栏拖动同此守卫。
+    /// </summary>
     private void ResizeEdge_PointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
     {
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
         if (WindowState == WindowState.Normal && sender is Border { Tag: string tag } && Enum.TryParse(tag, out WindowEdge edge)
         )
         {
@@ -83,197 +118,29 @@ public partial class MainWindow : Window
             sidebar.OpenConnectionProfileRequested += OnOpenConnectionProfileRequested;
             sidebar.RecentConnectRequested += OnSidebarRecentConnectRequested;
             sidebar.SettingsRequested += (_, _) => _ = OpenSettingsAsync();
+            sidebar.ImportXshellRequested += (_, _) => _ = OpenSessionImportDialogAsync<XshellImportService>();
+            sidebar.ImportWinScpRequested += (_, _) => _ = OpenSessionImportDialogAsync<WinScpImportService>();
         }
         DataContextChanged += (_, _) => HookFileBrowserVisibility();
+        // 主题(暗/亮)切换时,按新主题色重建背景令牌覆盖画刷。否则之前设的覆盖仍持旧主题色、
+        // 一直 shadow 掉换主题后的令牌值,导致终端/SFTP/侧栏等背景停在旧色,须再动一次滑杆才同步。
+        ActualThemeVariantChanged += (_, _) =>
+            ApplyBackgroundOpacities(_lastImageOpacity, _lastContentOpacity);
         Opened += OnWindowOpened;
-        if (OperatingSystem.IsWindows())
-        {
-            Opened += (_, _) => SetupSnapLayouts();
-        }
+        Opened += (_, _) =>
+            Win32WindowChrome.Attach(
+                this,
+                () => TitleBar?.MaximizeButtonControl,
+                hover => TitleBar?.SetMaximizeNcHover(hover),
+                () => TitleBar?.ToggleMaximize()
+            );
     }
 
-    // ---- 原生窗口效果(WindowChrome 手法) --------------------------------------
-    // WindowDecorations="None" 的自绘窗体默认失去 DWM 框架语义。这里补回
-    // WS_CAPTION|WS_THICKFRAME|WS_MIN/MAXIMIZEBOX(样式回调,防 Avalonia 重算时
-    // 清掉),再用 WM_NCCALCSIZE 让客户区占满窗口(无可视系统标题/边框)——
-    // 由此找回:DWM 阴影、Win11 圆角、最小化/最大化动画、悬停最大化按钮的
-    // 贴靠布局面板(还需 WM_NCHITTEST 对按钮报 HTMAXBUTTON)。
-    // WM_NCHITTEST 其余区域强制 HTCLIENT,防止系统按 WS_CAPTION 在顶部划出
-    // 非客户带吞掉自绘标题栏的输入(Avalonia 12 extend 模式踩过的坑)。
-
-    private const int HTMAXBUTTON = 9;
+    // ---- 原生窗口效果 ----------------------------------------------------------
+    // 自绘窗体的 DWM 框架语义(阴影、Win11 圆角、最大化动画、贴靠布局面板)统一由
+    // Win32WindowChrome 负责,任务管理器等其他自绘窗体共用同一套,外观才一致。
 
     private TitleBarView? TitleBar => this.FindControl<TitleBarView>("TitleBarHost");
-
-    [LibraryImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
-    private static partial long GetWindowLongPtrW(IntPtr hWnd, int index);
-
-    [LibraryImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
-    private static partial long SetWindowLongPtrW(IntPtr hWnd, int index, long value);
-
-    [LibraryImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
-
-    [LibraryImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool IsZoomed(IntPtr hWnd);
-
-    [LibraryImport("user32.dll")]
-    private static partial IntPtr MonitorFromWindow(IntPtr hWnd, uint flags);
-
-    [LibraryImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool GetMonitorInfoW(IntPtr hMonitor, ref MONITORINFO info);
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct WINRECT
-    {
-        public int Left,
-            Top,
-            Right,
-            Bottom;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct MONITORINFO
-    {
-        public int Size;
-        public WINRECT Monitor;
-        public WINRECT Work;
-        public uint Flags;
-    }
-
-    private const long StyleWsCaption = 0x00C00000,
-        StyleWsThickFrame = 0x00040000,
-        StyleWsMinimizeBox = 0x00020000,
-        StyleWsMaximizeBox = 0x00010000;
-
-    private void SetupSnapLayouts()
-    {
-        // 样式回调:Avalonia 每次重算窗口样式后追加 DWM 框架位。
-        Win32Properties.AddWindowStylesCallback(
-            this,
-            (style, exStyle) =>
-                (
-                    (uint)(
-                        style
-                        | StyleWsCaption
-                        | StyleWsThickFrame
-                        | StyleWsMinimizeBox
-                        | StyleWsMaximizeBox
-                    ),
-                    exStyle
-                )
-        );
-        Win32Properties.AddWndProcHookCallback(this, SnapLayoutsWndProc);
-
-        // 立即应用一次并触发 FRAMECHANGED,当前会话即刻生效。
-        if (TryGetPlatformHandle() is { } handle)
-        {
-            const int GWL_STYLE = -16;
-            const uint SWP_FRAMECHANGED = 0x0020,
-                SWP_NOMOVE = 0x0002,
-                SWP_NOSIZE = 0x0001,
-                SWP_NOZORDER = 0x0004;
-            long style = GetWindowLongPtrW(handle.Handle, GWL_STYLE);
-            SetWindowLongPtrW(
-                handle.Handle,
-                GWL_STYLE,
-                style | StyleWsCaption | StyleWsThickFrame | StyleWsMinimizeBox | StyleWsMaximizeBox
-            );
-            SetWindowPos(
-                handle.Handle,
-                IntPtr.Zero,
-                0,
-                0,
-                0,
-                0,
-                SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER
-            );
-        }
-    }
-
-    private IntPtr SnapLayoutsWndProc(
-        IntPtr hWnd,
-        uint msg,
-        IntPtr wParam,
-        IntPtr lParam,
-        ref bool handled
-    )
-    {
-        const uint WM_NCCALCSIZE = 0x0083,
-            WM_NCHITTEST = 0x0084,
-            WM_NCMOUSELEAVE = 0x02A2,
-            WM_NCLBUTTONDOWN = 0x00A1,
-            WM_NCLBUTTONUP = 0x00A2;
-        const int HTCLIENT = 1;
-        switch (msg)
-        {
-            case WM_NCCALCSIZE when wParam != IntPtr.Zero:
-                // 客户区占满窗口(去掉可视的系统标题/边框,保留 DWM 框架语义)。
-                // 最大化时窗口矩形按惯例大出边框宽度,须裁回工作区,否则四周越屏。
-                if (IsZoomed(hWnd))
-                {
-                    IntPtr monitor = MonitorFromWindow(
-                        hWnd,
-                        2 /* MONITOR_DEFAULTTONEAREST */
-                    );
-                    var info = new MONITORINFO { Size = Marshal.SizeOf<MONITORINFO>() };
-                    if (monitor != IntPtr.Zero && GetMonitorInfoW(monitor, ref info))
-                    {
-                        Marshal.StructureToPtr(info.Work, lParam, false);
-                    }
-                }
-                handled = true;
-                return IntPtr.Zero;
-            case WM_NCHITTEST:
-                if (IsPointOverMaximizeButton(lParam))
-                {
-                    TitleBar?.SetMaximizeNcHover(true);
-                    handled = true;
-                    return HTMAXBUTTON;
-                }
-                TitleBar?.SetMaximizeNcHover(false);
-                // 其余全部按客户区处理:拖动/双击由自绘标题栏负责,缩放由自绘抓取区负责;
-                // 不拦截会让 DefWindowProc 按 WS_CAPTION 在顶部划非客户带吞掉输入。
-                handled = true;
-                return HTCLIENT;
-            case WM_NCMOUSELEAVE:
-                TitleBar?.SetMaximizeNcHover(false);
-                break;
-            case WM_NCLBUTTONDOWN when wParam.ToInt64() == HTMAXBUTTON:
-                handled = true; // 吞掉按下,防 DefWindowProc 的历史行为
-                return IntPtr.Zero;
-            case WM_NCLBUTTONUP when wParam.ToInt64() == HTMAXBUTTON:
-                handled = true;
-                TitleBar?.SetMaximizeNcHover(false);
-                TitleBar?.ToggleMaximize();
-                return IntPtr.Zero;
-        }
-        return IntPtr.Zero;
-    }
-
-    private bool IsPointOverMaximizeButton(IntPtr lParam)
-    {
-        if (TitleBar?.MaximizeButtonControl is not { IsVisible: true } button || !button.IsAttachedToVisualTree())
-        {
-            return false;
-        }
-        // lParam:屏幕物理坐标(低 16 位 x / 高 16 位 y,有符号)。
-        long packed = lParam.ToInt64();
-        int screenX = unchecked((short)(packed & 0xFFFF));
-        int screenY = unchecked((short)((packed >> 16) & 0xFFFF));
-        PixelPoint topLeft = button.PointToScreen(new Point(0, 0));
-        var rect = new PixelRect(
-            topLeft,
-            new PixelSize(
-                (int)(button.Bounds.Width * RenderScaling),
-                (int)(button.Bounds.Height * RenderScaling)
-            )
-        );
-        return rect.Contains(new PixelPoint(screenX, screenY));
-    }
 
     /// <summary>
     /// 随 FileBrowser.IsVisible 切换折叠/展开文件区行。WhenAnyValue
@@ -320,6 +187,15 @@ public partial class MainWindow : Window
 
     private async void OnWindowOpened(object? sender, EventArgs e)
     {
+        // Avalonia 的 Window 每次 Show() 都会重发 Opened(Hide() 清 _shown,再 Show 即再触发)。
+        // 开启“关闭时最小化到托盘”后,从托盘重新显示走的正是 Show(),若在此重复接线,
+        // tree.ConnectRequested 等订阅会逐次累积 —— 双击连接便按重开次数成倍连接(重开 N 次连 N 个)。
+        // 事件接线与会话初始化只应在窗口生命周期内做一次,故此处早退幂等。
+        if (_openedInitialized)
+        {
+            return;
+        }
+        _openedInitialized = true;
         if (DataContext is MainWindowViewModel vm)
         {
             vm.TerminalSearchRequested += OnTerminalSearchRequested;
@@ -334,6 +210,15 @@ public partial class MainWindow : Window
             // 工具菜单“连接诊断”:对当前标签的配置打开诊断中心(设计 RGXg1)。
             vm.DiagnosticsRequested += profile =>
                 Dispatcher.UIThread.Post(() => _ = OpenDiagnosticsDialogAsync(profile));
+            // 标题栏“任务管理器”:每个会话最多一扇窗,非模态。
+            vm.ProcessManagerRequested += (sessionId, label) =>
+                Dispatcher.UIThread.Post(() => _ = OpenProcessManagerAsync(sessionId, label));
+
+            vm.ResourceMonitorRequested += (sessionId, label) =>
+                Dispatcher.UIThread.Post(() => _ = OpenResourceMonitorAsync(sessionId, label));
+            // 标题栏"链路追踪":每个目标最多一扇窗,非模态。
+            vm.TraceRouteRequested += (host, label) =>
+                Dispatcher.UIThread.Post(() => _ = OpenTraceRouteAsync(vm, host, label));
 
             // 资源管理器树:右键连接/双击连接 + 右键编辑。
             if (vm.Sidebar.SessionTree is { } tree)
@@ -394,6 +279,9 @@ public partial class MainWindow : Window
                 previewService.WindowOpacityPreviewRequested += OnSettingsOpacityPreviewedForWindow;
                 Closed += (_, _) =>
                     previewService.WindowOpacityPreviewRequested -= OnSettingsOpacityPreviewedForWindow;
+                previewService.BackgroundOpacityPreviewRequested += OnBackgroundOpacityPreviewedForWindow;
+                Closed += (_, _) =>
+                    previewService.BackgroundOpacityPreviewRequested -= OnBackgroundOpacityPreviewedForWindow;
             }
             try
             {
@@ -424,21 +312,47 @@ public partial class MainWindow : Window
         {
             return;
         }
-        foreach (Guid profileId in settings.General.LastOpenProfileIds.Distinct().ToList())
+
+        // 先按记录顺序把配置取齐(本地文档库,命中缓存,很快)。顺序在这里定死,
+        // 下面并发发起时标签仍按这个次序建出来:TryConnectProfileAsync 在建标签之前
+        // 只 await 一次设置快照,而设置此刻已在缓存里、同步返回,不会打乱先后。
+        var profiles = new List<SessionProfile>(settings.General.LastOpenProfileIds.Count);
+        foreach (Guid profileId in settings.General.LastOpenProfileIds.Distinct())
         {
             try
             {
-                SessionProfile? profile = await repository.GetSessionAsync(profileId);
-                if (profile is not null)
+                if (await repository.GetSessionAsync(profileId) is { } profile)
                 {
-                    await vm.TryConnectProfileAsync(profile);
+                    profiles.Add(profile);
                 }
             }
             catch
             {
-                // 配置已删除或连接失败:跳过,继续恢复其余会话。
+                // 配置已删除或读不出来:跳过,继续恢复其余会话。
             }
         }
+
+        // 握手一次性全部发起,不再一个一个等(#118)。整条链路(TCP、认证、开 shell 通道)
+        // 都是真异步 API,底层 SshConnectionService 本就支持并发,串行 await 只是把总耗时
+        // 白白叠成各会话之和 —— N 个会话就要等 N 倍。并发后总耗时≈最慢的那一个。
+        // 缺凭据的配置仍会弹登录框,但弹窗由 PromptCredentialsAsync 的闸门串行化,
+        // 不会同时叠出多扇模态框。
+        await Task.WhenAll(
+            profiles
+                .Select(async profile =>
+                {
+                    try
+                    {
+                        await vm.TryConnectProfileAsync(profile);
+                    }
+                    catch
+                    {
+                        // 连接失败已在标签页内以覆盖层提示(设计 yxjmg);
+                        // 这里只保证一个会话的失败不会掀掉其余会话的恢复。
+                    }
+                })
+                .ToList()
+        );
     }
 
     private void OnSettingsSavedForWindow(AppSettings settings) =>
@@ -471,28 +385,193 @@ public partial class MainWindow : Window
         AppearanceOptions a = settings.Appearance;
         ApplyWindowOpacity(a.WindowOpacityPercent);
         ApplySidebarPosition(a.SidebarPosition == "right");
-        if (Application.Current is not { } app)
+        ApplyBackgroundImage(a);
+        if (Application.Current is { } app)
         {
-            return;
+            ApplyUiFontTokens(app, a);
         }
-        // 界面字体:覆盖 VelaUiFont 令牌(空或默认 Inter 时还原主题字体);
-        // App 级 :is(Window) 样式让所有窗口继承,未显式指定 FontFamily 的文本统一换字体。
+    }
+
+    /// <summary>
+    /// 把设置 → 外观 → 界面字体/字号下发成应用级令牌。界面上的字体与字号【只】经由令牌
+    /// 取值(axaml 里不写字面量),所以这一处覆盖就是"界面字体/字号"这两个选项的全部实现。
+    /// </summary>
+    internal static void ApplyUiFontTokens(Application app, AppearanceOptions a)
+    {
+        // 界面字体:覆盖 VelaUiFont(比例)与 VelaUiMonoFont(界面里按列对齐的等宽部分)
+        // 两个令牌 —— 界面上的文字要么用前者要么用后者,一起换才谈得上"界面字体"生效。
+        // 空或默认 Inter 时移除覆盖,还原令牌默认值(比例 Inter + 等宽 Cascadia Mono)。
+        // App 级 :is(Window) 样式让所有窗口继承,终端画面自身不受影响(它吃终端设置)。
         string uiFont = a.UiFont.Trim();
         if (string.IsNullOrEmpty(uiFont) || string.Equals(uiFont, "Inter", StringComparison.OrdinalIgnoreCase))
         {
             app.Resources.Remove("VelaUiFont");
+            app.Resources.Remove("VelaUiMonoFont");
         }
         else
         {
-            app.Resources["VelaUiFont"] = new FontFamily($"{uiFont}, Segoe UI, Microsoft YaHei, sans-serif");
+            var family = new FontFamily($"{uiFont}, Segoe UI, Microsoft YaHei, sans-serif");
+            app.Resources["VelaUiFont"] = family;
+            app.Resources["VelaUiMonoFont"] = family;
         }
 
         // 界面字号:覆盖 VelaUiFontSize 令牌(同上,全窗口继承);同时覆盖 Fluent 的
         // ControlContentThemeFontSize,让内置控件(按钮/输入框/下拉等)一起缩放。
-        double uiFontSize = Math.Clamp(a.UiFontSize, 9, 24);
+        double uiFontSize = Math.Clamp(a.UiFontSize, MinUiFontSize, MaxUiFontSize);
         app.Resources["VelaUiFontSize"] = uiFontSize;
         app.Resources["ControlContentThemeFontSize"] = uiFontSize;
+
+        // 整套字号阶梯按 基准/13 等比缩放:界面各处不再写死字号,层级关系也不会因缩放走形。
+        foreach (double step in FontSizeSteps)
+        {
+            app.Resources[$"VelaFontSize{step:0}"] = ScaleFontSize(step, uiFontSize);
+        }
+        // 说明文字固定为基准字号的 85%(不参与等比阶梯,见 SettingsView 的 row-desc)。
+        app.Resources["VelaFontSizeDesc"] = ScaleFontSize(BaseUiFontSize * DescFontSizeRatio, uiFontSize);
     }
+
+    /// <summary>界面字号的取值范围(与设置页 NumericUpDown 的 Minimum/Maximum 一致)。</summary>
+    private const double MinUiFontSize = 9, MaxUiFontSize = 24;
+
+    /// <summary>设计基准字号:字号阶梯令牌名里的数字就是这个基准下的磅值。</summary>
+    private const double BaseUiFontSize = 13;
+
+    /// <summary>设置页说明文字相对基准字号的比例。</summary>
+    private const double DescFontSizeRatio = 0.85;
+
+    /// <summary>缩放后的字号下限:再小就糊了,基准取最小值时给小号字兜个底。</summary>
+    private const double MinScaledFontSize = 6;
+
+    /// <summary>VelaTokens.axaml 里定义的字号阶梯(= 基准 13 下的磅值)。</summary>
+    private static readonly double[] FontSizeSteps = [8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20];
+
+    /// <summary>把基准 13 下的设计字号换算到用户设定的基准上,取整以免落在半像素上。</summary>
+    private static double ScaleFontSize(double designSize, double uiFontSize) =>
+        Math.Max(MinScaledFontSize, Math.Round(designSize * uiFontSize / BaseUiFontSize));
+
+    private Bitmap? _backgroundBitmap;
+    private string? _loadedBackgroundPath;
+    // 最近一次应用的不透明度:主题切换时需按新主题色重建 scrim,故缓存以便重放。
+    private int _lastImageOpacity = 100, _lastContentOpacity = 85;
+
+    // 单一整窗 scrim 方案:背景图铺最底层,其上叠一层【半透明遮罩 scrim】(主题底色,整窗一层),
+    // 再上面所有内容背景令牌全部置【透明】,于是终端/SFTP/侧栏/面板一律透出 scrim+图片。
+    // 因全透明,任意嵌套容器都不会叠加(透明×N 仍透明),彻底消除"多层叠加致某区域偏暗"的问题。
+    // scrim 底色 = 主题 page 色(与 VelaShellTokens 两套变体一致,改那边记得同步)。
+    private static readonly Color ScrimDark = Color.Parse("#191A21");
+    private static readonly Color ScrimLight = Color.Parse("#F2EDDA");
+
+    // 有背景图时置全透明、让 scrim+图片透出的内容背景令牌(仅本窗口)。
+    // VelaBgSurface(弹层/对话框/卡片)、VelaBgInput(输入框)刻意不在其列,保持不透明以保证可读性。
+    private static readonly string[] ContentTokenKeys =
+    [
+        "VelaBgPage", "VelaBgSidebar", "VelaBgTerminal", "VelaBgSftpPanel", "VelaBgDockDocument",
+    ];
+
+    // 内容区的小块「强调底」(选项卡标题、选中项、悬停、输入框/下拉、表头):不能全透明(会丢失可辨识度),
+    // 而是有背景图时压成【半透明】,既保留强调作用又与背景图融合,不再突兀。颜色须与 VelaShellTokens 两套变体一致;
+    // Fraction = 保留的不透明比例(越低越透)。VelaBgSurface 不在其列(弹层/对话框/下拉浮层需不透明保证可读),
+    // 内容区表头改用专门的 VelaBgContentHeader。
+    private static readonly (string Key, Color Dark, Color Light, double Fraction)[] AccentTranslucentTokens =
+    [
+        ("VelaTabActiveBg", Color.Parse("#282A36"), Color.Parse("#FFFBEB"), 0.75),
+        ("VelaTabInactiveBg", Color.Parse("#191A21"), Color.Parse("#EBE5CC"), 0.45),
+        ("VelaBgActive", Color.Parse("#44475A"), Color.Parse("#644AC922"), 0.65),
+        ("VelaBgHover", Color.Parse("#363948"), Color.Parse("#EDE7D0"), 0.5),
+        ("VelaBgInput", Color.Parse("#282A36"), Color.Parse("#F7F2DF"), 0.7),
+        ("VelaBgContentHeader", Color.Parse("#343746"), Color.Parse("#FFFBEB"), 0.6),
+    ];
+
+    /// <summary>
+    /// 应用背景图片(设置 → 外观 → 背景图片):装配窗口最底层的 <c>BackgroundImageLayer</c>。
+    /// 仅在【路径变化】时(重新)解码图片,避免拖动不透明度滑杆时反复读盘;不透明度由
+    /// <see cref="ApplyBackgroundOpacities" /> 单独装配(可被即时预览直接调用)。
+    /// </summary>
+    private void ApplyBackgroundImage(AppearanceOptions a)
+    {
+        string path = a.BackgroundImagePath?.Trim() ?? "";
+        if (!string.Equals(path, _loadedBackgroundPath, StringComparison.Ordinal))
+        {
+            _backgroundBitmap?.Dispose();
+            _backgroundBitmap = null;
+            if (path.Length > 0 && File.Exists(path))
+            {
+                try
+                {
+                    _backgroundBitmap = new Bitmap(path);
+                }
+                catch
+                {
+                    _backgroundBitmap = null; // 解码失败:当作未设置,不打断启动/预览。
+                }
+            }
+            _loadedBackgroundPath = path;
+            if (this.FindControl<Image>("BackgroundImageLayer") is { } layer)
+            {
+                layer.Source = _backgroundBitmap;
+                layer.IsVisible = _backgroundBitmap is not null;
+            }
+        }
+        ApplyBackgroundOpacities(a.BackgroundImageOpacity, a.ContentBackgroundOpacity);
+    }
+
+    /// <summary>
+    /// 装配背景图相关的不透明度(即时预览与保存共用,不涉及图片解码,故可高频调用):图片图层不透明度、
+    /// scrim 遮罩不透明度、以及把内容背景令牌整体置透明(仅本窗口,弹层/对话框/输入框不受影响)。
+    /// 无背景图时隐藏 scrim、移除令牌覆盖、终端填充还原为不透明,完全恢复旧行为。
+    /// </summary>
+    private void ApplyBackgroundOpacities(int imageOpacity, int contentOpacity)
+    {
+        (_lastImageOpacity, _lastContentOpacity) = (imageOpacity, contentOpacity);
+        bool active = _backgroundBitmap is not null;
+        if (this.FindControl<Image>("BackgroundImageLayer") is { } layer)
+        {
+            layer.Opacity = Math.Clamp(imageOpacity, 0, 100) / 100.0;
+        }
+
+        if (this.FindControl<Border>("BackgroundScrim") is { } scrim)
+        {
+            Color baseColor = ActualThemeVariant == ThemeVariant.Light ? ScrimLight : ScrimDark;
+            scrim.Background = new SolidColorBrush(baseColor);
+            scrim.Opacity = Math.Clamp(contentOpacity, 0, 100) / 100.0; // 遮罩越不透明,越盖住背景图
+            scrim.IsVisible = active;
+        }
+
+        foreach (string key in ContentTokenKeys)
+        {
+            if (active)
+            {
+                Resources[key] = Brushes.Transparent;
+            }
+            else
+            {
+                Resources.Remove(key);
+            }
+        }
+
+        // 强调底压成半透明(而非全透明):选项卡标题、选中项、悬停、输入框、内容表头等,融入背景图不再突兀。
+        bool light = ActualThemeVariant == ThemeVariant.Light;
+        foreach ((string key, Color dark, Color lightColor, double fraction) in AccentTranslucentTokens)
+        {
+            if (active)
+            {
+                Color c = light ? lightColor : dark;
+                Resources[key] = new SolidColorBrush(Color.FromArgb((byte)Math.Round(c.A * fraction), c.R, c.G, c.B));
+            }
+            else
+            {
+                Resources.Remove(key);
+            }
+        }
+
+        // 终端控件自绘填充:有图时置全透明(不画背景),透出 scrim+背景图;无图时恒不透明(=1),行为不变。
+        // 终端文字与彩色单元格底(选区/彩色输出)不受影响,照常绘制,不伤可读性。
+        (DataContext as MainWindowViewModel)?.ApplyTerminalBackgroundOpacityToAllTabs(active ? 0.0 : 1.0);
+    }
+
+    /// <summary>背景图/内容背景不透明度的即时预览(拖动滑杆):只调不透明度,不重新解码图片。</summary>
+    private void OnBackgroundOpacityPreviewedForWindow((int Image, int Content) v) =>
+        RunOnUiThread(() => ApplyBackgroundOpacities(v.Image, v.Content));
 
     private void ApplyWindowOpacity(int percent) => Opacity = Math.Clamp(percent, 10, 100) / 100.0;
 
@@ -537,7 +616,12 @@ public partial class MainWindow : Window
     public void ForceClose()
     {
         _forceClose = true;
-        Close();
+        // 推迟到当前事件出栈后再关:本方法常在对话框的关闭延续(ShowDialog 的 await 续体)、
+        // 托盘菜单回调或独立 SFTP 收尾的 finally 里被同步调用。若此刻直接 Close(),会在别的
+        // 窗口的 windowWillClose: 通知栈内嵌套关闭本窗口 —— macOS 上 AppKit 隐藏窗口时会回调
+        // firstRectForCharacterRange: 到已拆卸的终端 IME 视图,触发 EXC_BAD_ACCESS(崩溃
+        // EF96F409,0x18 空指针)。用 Post 断开嵌套,让每个窗口在各自干净的栈上关闭。
+        this.PostClose();
     }
 
     /// <summary>
@@ -585,7 +669,25 @@ public partial class MainWindow : Window
             base.OnClosing(e);
             return;
         }
+        EndTextInputSessionBeforeClose();
         base.OnClosing(e);
+    }
+
+    /// <summary>
+    /// 提交关闭前(macOS)主动清除键盘焦点,结束终端的原生输入法会话。
+    /// 终端是一个 IME 文本输入客户端(<c>TextInputMethodClientRequestedEvent</c>);窗口一旦关闭并被
+    /// AppKit 隐藏,系统的光标跟踪器(<c>TUINSCursorUIController</c>)会经 KVO 回调
+    /// <c>-[AvnView firstRectForCharacterRange:]</c> 查询已拆卸的视图 —— libAvaloniaNative 未做空判,
+    /// 触发 EXC_BAD_ACCESS(崩溃 EF96F409)。<c>Focus(null)</c> 把焦点移出终端,促使输入法管理器
+    /// SetClient(null)、在原生隐藏前重置 macOS 输入上下文,系统便无客户端可查询。
+    /// 仅 macOS 需要;其他平台无此原生路径,跳过以免改动焦点行为。
+    /// </summary>
+    private void EndTextInputSessionBeforeClose()
+    {
+        if (OperatingSystem.IsMacOS())
+        {
+            FocusManager?.Focus(null);
+        }
     }
 
     private async Task CloseStandaloneSftpDocumentsAndRetryAsync(MainWindowViewModel vm)
@@ -739,6 +841,25 @@ public partial class MainWindow : Window
 
     private void OnOpenConnectionProfileRequested(object? sender, EventArgs e) => _ = OpenProfileDialogAsync(null);
 
+    /// <summary>打开「从外部工具导入会话」弹窗(按具体来源服务);导入成功后刷新资源管理器树。</summary>
+    private async Task OpenSessionImportDialogAsync<TService>() where TService : class, ISessionImportService
+    {
+        if (DataContext is not MainWindowViewModel mainWindowViewModel)
+        {
+            return;
+        }
+        if (Application.Current is not App app || app.Services?.GetService<TService>() is not { } importService)
+        {
+            return;
+        }
+        var dialog = new SessionImportView { DataContext = new SessionImportViewModel(importService) };
+        SessionImportOutcome? outcome = await dialog.ShowDialog<SessionImportOutcome?>(this);
+        if (outcome is { Imported: > 0 })
+        {
+            await mainWindowViewModel.RefreshSessionTreeAsync();
+        }
+    }
+
     /// <summary>打开“新建连接”弹窗;传入 existing 时为编辑既有配置。</summary>
     private async Task OpenProfileDialogAsync(SessionProfile? existing)
     {
@@ -794,6 +915,118 @@ public partial class MainWindow : Window
         await mainWindowViewModel.TryConnectProfileAsync(profile);
     }
 
+    /// <summary>
+    /// 打开(或前置)某个会话的任务管理器窗口。非模态 —— 用户要一边看进程一边在终端里
+    /// 敲命令;同一会话重复点击只把已开的窗口激活,不再叠一扇。
+    /// </summary>
+    private async Task OpenProcessManagerAsync(Guid sessionId, string label)
+    {
+        if (_processManagers.TryGetValue(sessionId, out ProcessManagerView? existing))
+        {
+            existing.Activate();
+            return;
+        }
+        if (Application.Current is not App app
+            || app.Services?.GetService<IRemoteProcessService>() is not { } processService)
+        {
+            return;
+        }
+        var window = new ProcessManagerView
+        {
+            DataContext = new ProcessManagerViewModel(processService, sessionId, label),
+        };
+        _processManagers[sessionId] = window;
+        window.Closed += (_, _) => _processManagers.Remove(sessionId);
+
+        // 尺寸记忆:所有会话共用一条记录 —— 用户调的是"这个面板多大",不是"这台服务器的面板多大"。
+        if (app.Services?.GetService<WindowLayoutStore>() is { } layoutStore)
+        {
+            WindowLayoutStore.Apply(window, await layoutStore.LoadAsync(ProcessManagerLayoutKey));
+            window.Closing += (_, _) => _ = layoutStore.SaveAsync(ProcessManagerLayoutKey, window);
+        }
+        window.Show(this);
+    }
+
+    /// <summary>
+    /// 打开(或前置)某个会话的资源监视窗口。与任务管理器同样按会话去重、非模态、记忆尺寸 ——
+    /// 用户要一边盯曲线一边在终端里敲命令。
+    /// </summary>
+    private async Task OpenResourceMonitorAsync(Guid sessionId, string label)
+    {
+        if (_resourceMonitors.TryGetValue(sessionId, out ResourceMonitorWindow? existing))
+        {
+            existing.Activate();
+            return;
+        }
+        if (Application.Current is not App app
+            || app.Services?.GetService<ISessionMetricsService>() is not { } metricsService)
+        {
+            return;
+        }
+        var window = new ResourceMonitorWindow
+        {
+            DataContext = new ResourceMonitorWindowViewModel(metricsService, sessionId, label),
+        };
+        _resourceMonitors[sessionId] = window;
+        window.Closed += (_, _) => _resourceMonitors.Remove(sessionId);
+
+        // 尺寸记忆:所有会话共用一条记录(同任务管理器)。
+        if (app.Services?.GetService<WindowLayoutStore>() is { } layoutStore)
+        {
+            WindowLayoutStore.Apply(window, await layoutStore.LoadAsync(ResourceMonitorLayoutKey));
+            window.Closing += (_, _) => _ = layoutStore.SaveAsync(ResourceMonitorLayoutKey, window);
+        }
+        window.Show(this);
+    }
+
+    /// <summary>打开(或前置)某个目标的链路追踪窗口。非模态,尺寸与任务管理器一样记忆。</summary>
+    private async Task OpenTraceRouteAsync(MainWindowViewModel vm, string host, string label)
+    {
+        if (_traceWindows.TryGetValue(host, out TraceRouteWindow? existing))
+        {
+            existing.Activate();
+            return;
+        }
+        IServiceProvider? services = (Application.Current as App)?.Services;
+        IIpGeolocationService? geo = services?.GetService<Core.Diagnostics.IIpGeolocationService>();
+        ISettingsService? settings = services?.GetService<ISettingsService>();
+        var viewModel = new TraceRouteViewModel(
+            vm.TraceRouteService,
+            geo,
+            // 用户选过一次就记住,下次开窗直接加载 —— 这一项不进设置页,入口只在追踪窗口里。
+            path => _ = RememberGeoDatabaseAsync(settings, path)
+        );
+        viewModel.PointAt(host, label);
+        var window = new TraceRouteWindow { DataContext = viewModel };
+        _traceWindows[host] = window;
+        window.Closed += (_, _) => _traceWindows.Remove(host);
+        if (Application.Current is App app && app.Services?.GetService<WindowLayoutStore>() is { } layoutStore)
+        {
+            WindowLayoutStore.Apply(window, await layoutStore.LoadAsync(TraceRouteLayoutKey));
+            window.Closing += (_, _) => _ = layoutStore.SaveAsync(TraceRouteLayoutKey, window);
+        }
+        window.Show(this);
+    }
+
+    /// <summary>记住用户选定的归属地数据库路径;写失败只影响下次是否要重选,不打扰用户。</summary>
+    private static async Task RememberGeoDatabaseAsync(ISettingsService? settings, string path)
+    {
+        if (settings is null)
+        {
+            return;
+        }
+        try
+        {
+            AppSettings current = await settings.GetSettingsAsync();
+            current.General.GeoIpDatabasePath = path;
+            await settings.SaveSettingsAsync(current);
+        }
+        catch
+        {
+            // 尽力而为。
+        }
+    }
+
     /// <summary>打开连接诊断中心(设计 RGXg1):打开即自动执行一轮四步检测。</summary>
     private async Task OpenDiagnosticsDialogAsync(SessionProfile profile)
     {
@@ -815,16 +1048,40 @@ public partial class MainWindow : Window
         {
             return;
         }
-        await settingsViewModel.LoadCommand.Execute();
+        await settingsViewModel.LoadCommand.Execute().FirstAsync();
         var dialog = new SettingsView { DataContext = settingsViewModel };
         await dialog.ShowDialog(this);
     }
 
     /// <summary>
+    /// 登录验证弹窗的串行闸门:同一时刻只允许一扇凭据对话框。启动恢复会话是并发发起的
+    /// (#118),资源管理器树的双击/右键连接也是即发即忘,两条路径都可能同时要凭据;
+    /// 同一 owner 上叠两扇模态框会互相争抢 owner 的禁用/启用,表现为对话框点不动。
+    /// </summary>
+    private readonly SemaphoreSlim _credentialPromptGate = new(1, 1);
+
+    /// <summary>
     /// 登录验证流程(设计:身份验证 第1步/第2步):补全用户名与认证凭据。
-    /// 已信任主机显示其指纹;首次连接提示握手时记录(TOFU)。取消返回 null。
+    /// 一次只弹一扇(见 <see cref="_credentialPromptGate" />),排队的连接依次拿到弹窗。
     /// </summary>
     private async Task<SessionProfile?> PromptCredentialsAsync(SessionProfile profile)
+    {
+        // 不带 ConfigureAwait(false):后续 ShowDialog 必须回到 UI 线程。
+        await _credentialPromptGate.WaitAsync();
+        try
+        {
+            return await PromptCredentialsCoreAsync(profile);
+        }
+        finally
+        {
+            _credentialPromptGate.Release();
+        }
+    }
+
+    /// <summary>
+    /// 登录验证弹窗本体:已信任主机显示其指纹;首次连接提示握手时记录(TOFU)。取消返回 null。
+    /// </summary>
+    private async Task<SessionProfile?> PromptCredentialsCoreAsync(SessionProfile profile)
     {
         string? knownFingerprint = null;
         if (Application.Current is App app && app.Services?.GetService<IHostKeyService>() is { } hostKeys)
@@ -887,6 +1144,7 @@ public partial class MainWindow : Window
             {
                 Title = Strings.Get("Main_ExportTerminalTitle"),
                 SuggestedFileName = suggestedName,
+                SuggestedStartLocation = await StorageDefaults.DownloadsAsync(this),
                 DefaultExtension = "txt",
                 FileTypeChoices =
                 [
@@ -985,7 +1243,8 @@ public partial class MainWindow : Window
                 Title = isRetryAfterCancel
                     ? Strings.Get("ZModem_ChooseUploadFilesRetry")
                     : Strings.Get("ZModem_ChooseUploadFiles"),
-                AllowMultiple = true
+                AllowMultiple = true,
+                SuggestedStartLocation = await StorageDefaults.DownloadsAsync(top)
             });
             List<string> paths = [];
             foreach (IStorageFile file in files)

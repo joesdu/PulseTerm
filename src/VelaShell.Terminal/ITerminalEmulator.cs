@@ -84,6 +84,12 @@ public interface ITerminalEmulator : IDisposable
     event Action<int, int>? PtySizeChanged;
 
     /// <summary>
+    /// shell 经 OSC 7 上报当前工作目录时触发(绝对路径)。用于「文件浏览器跟随终端目录」。
+    /// 仅在 shell 发出 OSC 7 时有效(VelaShell 注入的 bash 提示符脚本会发)。来自 feed 线程。
+    /// </summary>
+    event Action<string>? WorkingDirectoryChanged;
+
+    /// <summary>
     /// 以编程方式发送输入字节,如同用户键入一样
     /// </summary>
     void WriteInput(byte[] data);

@@ -1,5 +1,41 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="using:System">
+
+  <!-- ============================ 字体令牌(与主题无关) ============================
+       界面上的每一处文字都归【设置 → 外观 → 界面字体】管,只是分成两支,别再往 axaml
+       里写死字体名:
+         VelaUiFont      普通界面文字。默认 Inter(比例字体)。
+         VelaUiMonoFont  界面里【按列对齐】的部分(文件列表的大小/时间列、端口、路径、
+                         徽标数字等)。默认与终端同款 Cascadia Mono,故默认外观与从前一致;
+                         但它同样跟随【界面字体】—— 它属于"界面",不属于终端。
+       两者都由 MainWindow.ApplyWindowAppearance 在运行时覆盖。
+       终端画面自身的字体不走令牌:VelaTerminalControl 直接吃【设置 → 终端 → 字体】。 -->
+  <FontFamily x:Key="VelaUiFont">fonts:Inter#Inter, Segoe UI, Microsoft YaHei, sans-serif</FontFamily>
+  <!-- 内置 Cascadia Mono 打头(三平台一致、无连字、含制表/框线字形);CJK 走系统回退。 -->
+  <FontFamily x:Key="VelaUiMonoFont">fonts:VelaShell#Cascadia Mono, JetBrains Mono, Consolas, monospace</FontFamily>
+
+  <!-- ===================== 界面字号阶梯(设置 → 外观 → 界面字号) =====================
+       令牌名里的数字 = 基准字号(13)下的磅值,所以默认状态与从前逐像素一致。
+       用户改基准字号后,整套阶梯按 基准/13 等比缩放并四舍五入(见
+       MainWindow.ApplyWindowAppearance),界面的层级关系不会走形。
+       界面 axaml 里【不要】再写 FontSize="11" 这类字面量 —— 写死的字号不跟随设置,
+       正是"界面字号设了没反应"的老毛病。终端画面自身的字号不在此列(走终端设置)。 -->
+  <sys:Double x:Key="VelaUiFontSize">13</sys:Double>
+  <sys:Double x:Key="VelaFontSize8">8</sys:Double>
+  <sys:Double x:Key="VelaFontSize9">9</sys:Double>
+  <sys:Double x:Key="VelaFontSize10">10</sys:Double>
+  <sys:Double x:Key="VelaFontSize11">11</sys:Double>
+  <sys:Double x:Key="VelaFontSize12">12</sys:Double>
+  <sys:Double x:Key="VelaFontSize13">13</sys:Double>
+  <sys:Double x:Key="VelaFontSize14">14</sys:Double>
+  <sys:Double x:Key="VelaFontSize15">15</sys:Double>
+  <sys:Double x:Key="VelaFontSize16">16</sys:Double>
+  <sys:Double x:Key="VelaFontSize18">18</sys:Double>
+  <sys:Double x:Key="VelaFontSize20">20</sys:Double>
+  <!-- 设置页说明文字:固定为界面字号的 85%(默认 13 → 11)。 -->
+  <sys:Double x:Key="VelaFontSizeDesc">11</sys:Double>
+
   <ResourceDictionary.ThemeDictionaries>
     <!-- Dracula 暗色:accent=紫 #BD93F9,弱文字取官方 comment #6272A4,
          边框用 #44475A(selection)家族。 -->
@@ -20,10 +56,23 @@
       <!-- 文件浏览器行(design frame dyuii):橙色文件夹图标,青色目录名。 -->
       <SolidColorBrush x:Key="VelaFileFolderIcon" Color="#FFB86C" />
       <SolidColorBrush x:Key="VelaFileDirName" Color="#8BE9FD" />
-      <!-- 终端字体:内置 Cascadia Mono 打头(三平台一致、无连字、含制表/框线字形),
-           系统装了 JetBrains Mono 的用户仍可在设置里切回;CJK 走系统回退。 -->
-      <FontFamily x:Key="VelaTerminalFont">fonts:VelaShell#Cascadia Mono, JetBrains Mono, Consolas, monospace</FontFamily>
-      <FontFamily x:Key="VelaUiFont">fonts:Inter#Inter, Segoe UI, Microsoft YaHei, sans-serif</FontFamily>
+      <!-- 资源占用条(任务管理器概览):CPU 与内存用不同色相区分,越界时统一转黄/红。
+           取 Dracula 的 cyan/purple/yellow/red,与状态点同一套色板。 -->
+      <SolidColorBrush x:Key="VelaGaugeCpu" Color="#8BE9FD" />
+      <SolidColorBrush x:Key="VelaGaugeMemory" Color="#BD93F9" />
+      <SolidColorBrush x:Key="VelaGaugeWarn" Color="#F1FA8C" />
+      <SolidColorBrush x:Key="VelaGaugeCritical" Color="#FF5555" />
+      <!-- 轨道要比概览条底色(#343746)明显亮一档,否则未填充段看不见,
+           占用条会变成一颗孤零零的胶囊,读不出"占了多少"。 -->
+      <SolidColorBrush x:Key="VelaGaugeTrack" Color="#44475A" />
+      <!-- 链路追踪地图:路径用青色(和紫色强调、红色告警都拉得开),已到达段更亮。 -->
+      <SolidColorBrush x:Key="VelaTraceLine" Color="#8BE9FD" />
+      <SolidColorBrush x:Key="VelaTraceLineDim" Color="#4A7C8C" />
+      <SolidColorBrush x:Key="VelaTraceLand" Color="#333850" />
+      <!-- 国境线要比陆地填充明显亮一档,否则整块大陆看不出内部分界。 -->
+      <SolidColorBrush x:Key="VelaTraceBorder" Color="#5C6488" />
+      <!-- 标注底片:压在陆地上也要读得清,故用半透明深色垫底。 -->
+      <SolidColorBrush x:Key="VelaTraceLabelBg" Color="#D2151A28" />
     </ResourceDictionary>
     <!-- Alucard 亮色:accent=紫 #644AC9,弱文字取 Alucard comment #6C664B。 -->
     <ResourceDictionary x:Key="Light">
@@ -43,10 +92,18 @@
       <!-- 文件浏览器行:Alucard 黄色文件夹,青色目录名。 -->
       <SolidColorBrush x:Key="VelaFileFolderIcon" Color="#9E841A" />
       <SolidColorBrush x:Key="VelaFileDirName" Color="#036A96" />
-      <!-- 终端字体:内置 Cascadia Mono 打头(三平台一致、无连字、含制表/框线字形),
-           系统装了 JetBrains Mono 的用户仍可在设置里切回;CJK 走系统回退。 -->
-      <FontFamily x:Key="VelaTerminalFont">fonts:VelaShell#Cascadia Mono, JetBrains Mono, Consolas, monospace</FontFamily>
-      <FontFamily x:Key="VelaUiFont">fonts:Inter#Inter, Segoe UI, Microsoft YaHei, sans-serif</FontFamily>
+      <!-- 资源占用条:Alucard 亮色下取同色相的深色版,保证白底上的对比度。 -->
+      <SolidColorBrush x:Key="VelaGaugeCpu" Color="#036A96" />
+      <SolidColorBrush x:Key="VelaGaugeMemory" Color="#644AC9" />
+      <SolidColorBrush x:Key="VelaGaugeWarn" Color="#846E15" />
+      <SolidColorBrush x:Key="VelaGaugeCritical" Color="#CB3A2A" />
+      <SolidColorBrush x:Key="VelaGaugeTrack" Color="#E3DCBF" />
+      <!-- 链路追踪地图:亮色主题下取同色相的深青。 -->
+      <SolidColorBrush x:Key="VelaTraceLine" Color="#036A96" />
+      <SolidColorBrush x:Key="VelaTraceLineDim" Color="#7FA8BC" />
+      <SolidColorBrush x:Key="VelaTraceLand" Color="#EFE9D2" />
+      <SolidColorBrush x:Key="VelaTraceBorder" Color="#BDB392" />
+      <SolidColorBrush x:Key="VelaTraceLabelBg" Color="#E6FFFBEB" />
     </ResourceDictionary>
   </ResourceDictionary.ThemeDictionaries>
 </ResourceDictionary>

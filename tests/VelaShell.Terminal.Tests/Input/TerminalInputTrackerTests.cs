@@ -88,6 +88,27 @@ public class TerminalInputTrackerTests
     }
 
     [TestMethod]
+    public void CtrlBackspace_KillWord_MarksUnknownButKeepsTrackingNewTyping()
+    {
+        // Ctrl+Backspace 发的 ESC+DEL(#127)删掉多少字符由 shell 的词边界规则决定
+        // (readline 只认字母数字,zsh 的 WORDCHARS 还含 /-_. 等),本地推演必然会与
+        // 真实行内容分叉 —— 分叉的缓冲会喂出错误的整行建议。故一律进未知态,
+        // 之后键入的字符仍以试探段暴露,降级为追加式词补全。
+        var tracker = new TerminalInputTracker();
+        tracker.Process(Bytes("git checkout"));
+        tracker.Process([0x1B, 0x7F]);
+        Assert.IsNull(tracker.CurrentInput);
+        Assert.AreEqual(string.Empty, tracker.TentativeRun, "ESC 序列的尾字节 DEL 不得漏进试探段");
+
+        tracker.Process(Bytes("st"));
+        Assert.AreEqual("st", tracker.TentativeRun);
+
+        // 回车把行交给 shell,状态复位为确定的空行(未知态不粘死)。
+        tracker.Process([0x0D]);
+        Assert.AreEqual(string.Empty, tracker.CurrentInput);
+    }
+
+    [TestMethod]
     public void EnterOnUnknownState_DoesNotSubmit()
     {
         var tracker = new TerminalInputTracker();

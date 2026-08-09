@@ -21,24 +21,24 @@
   <Window.Styles>
     <Style Selector="TextBlock.help-title">
       <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
-      <Setter Property="FontSize" Value="13" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize13}" />
       <Setter Property="FontWeight" Value="SemiBold" />
       <Setter Property="Margin" Value="0,12,0,4" />
     </Style>
     <Style Selector="TextBlock.help-body">
       <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
       <Setter Property="LineHeight" Value="17" />
       <Setter Property="TextWrapping" Value="Wrap" />
     </Style>
     <Style Selector="TextBlock.help-mono">
       <Setter Property="Foreground" Value="{DynamicResource VelaAccent}" />
-      <Setter Property="FontFamily" Value="{DynamicResource VelaTerminalFont}" />
-      <Setter Property="FontSize" Value="10" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
     </Style>
     <Style Selector="TextBlock.help-note">
       <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
-      <Setter Property="FontSize" Value="10" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
       <Setter Property="LineHeight" Value="16" />
       <Setter Property="TextWrapping" Value="Wrap" />
     </Style>
@@ -51,7 +51,7 @@
       <Setter Property="Padding" Value="12,0" />
       <Setter Property="CornerRadius" Value="4" />
       <Setter Property="Cursor" Value="Hand" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
     </Style>
   </Window.Styles>
 
@@ -77,7 +77,7 @@
                          VerticalAlignment="Center" Margin="0,0,10,0" />
           <TextBlock Grid.Column="1" Text="{loc:Localize TunnelHelp_Title}"
                      Foreground="{DynamicResource VelaTextPrimary}"
-                     FontSize="13" FontWeight="SemiBold"
+                     FontSize="{DynamicResource VelaFontSize13}" FontWeight="SemiBold"
                      VerticalAlignment="Center"
                      TextTrimming="CharacterEllipsis" />
           <Button Grid.Column="2" Width="24" Height="24"

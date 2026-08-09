@@ -11,7 +11,7 @@ VelaShell is a keyboard-first, high-density SSH/SFTP terminal client for ops and
 - **Platform**: .NET 11 + Avalonia 12.1, cross-platform desktop (Windows/Linux/macOS)
 - **Window**: Self-drawn frameless (`WindowDecorations="None"`), 36px custom title bar via `TitleBarView`
 - **Icon set**: Lucide (stroke weight 2, round caps, 24x24 viewBox scaled to 11-16px)
-- **Fonts**: JetBrains Mono (terminal, data, paths, keys) + Inter (UI chrome, buttons, settings)
+- **Fonts**: Cascadia Mono (terminal, data, paths, keys) + Inter (UI chrome, buttons, settings); both interface faces follow Settings → Appearance → UI Font
 - **Theme switching**: Runtime dark/light/system, driven entirely by `DynamicResource` token swaps
 
 ---
@@ -93,14 +93,21 @@ All colors are `SolidColorBrush` resources keyed by semantic name. XAML binds vi
 
 ## 3. Typography
 
-Two font families, both loaded as Avalonia resources.
+Two font families, both loaded as Avalonia resources. Both are *interface* fonts: they
+follow Settings → Appearance → UI Font, which overrides both at runtime. Terminal content
+is not a token — `VelaTerminalControl` takes its font straight from Settings → Terminal.
 
-| Token | Stack | Usage |
+| Token | Default stack | Usage |
 |---|---|---|
-| `VelaTerminalFont` | JetBrains Mono, Cascadia Mono, Consolas, monospace | Terminal content, hostnames, IPs, ports, paths, keybindings, values, tab names, file browser cells |
+| `VelaUiMonoFont` | Cascadia Mono, JetBrains Mono, Consolas, monospace | Column-aligned interface text: hostnames, IPs, ports, paths, keybindings, values, tab names, file browser cells |
 | `VelaUiFont` | Inter, Segoe UI, Microsoft YaHei, sans-serif | Menus, buttons, settings labels, descriptive text, group headings |
 
-### Size Scale (by context, not tokenized)
+### Size Scale (tokenized: `VelaFontSize<n>`)
+
+Every size below is a resource token whose name is its pt value at the default UI font size
+(13). Settings → Appearance → UI Font Size rescales the whole ladder by `base / 13`
+(rounded, floor 6), so the hierarchy holds at any base. Never write `FontSize="11"` in a
+view — a literal does not follow the setting.
 
 | Size | Weight | Context |
 |---|---|---|
@@ -182,7 +189,41 @@ StatusBar (24px, bg-sidebar)
 
 ## 5. Components & States
 
-### 5.1 Reusable Primitives
+### 5.1 Action Buttons (`Themes/ButtonThemes.axaml`)
+
+Every window and dialog draws its action buttons from **two shared control themes**. They are
+registered application-wide in `App.axaml`, so any view can reference them with no local setup.
+Do **not** use the Fluent default button appearance, and do **not** re-declare an equivalent
+button style inside a view — that is exactly how the same action ends up looking different in
+two places (the upload dialog's Cancel button was a bare Fluent button while the file browser's
+Upload button was an accent pill).
+
+| Role | Theme | Appearance |
+|---|---|---|
+| Primary action — upload, create, confirm | `VelaAccentPillButtonTheme` | `VelaAccentDim` fill (translucent), `VelaAccent` foreground for icon *and* label, `CornerRadius:3`, no border until focused |
+| Secondary action — cancel, close, browse | `VelaOutlineButtonTheme` | `Transparent` fill, 1px `VelaBorderPrimary`, `VelaTextSecondary` foreground, `CornerRadius:3`, `Height:28`, `Padding:[14,0]` |
+| Destructive action | `VelaOutlineButtonTheme` + `VelaError` foreground/border | Never a solid red fill |
+
+Rules:
+
+- **Primary is a translucent pill, not a solid fill.** `VelaAccentDim` is semi-transparent so it
+  blends with a user background image; a solid `VelaAccent` block reads as too loud and sits on
+  the image like a sticker.
+- **Both fills are transparent-friendly.** A row must not mix one button that blends into the
+  background with another that sits on an opaque slab.
+- **Foreground comes from the theme.** The pill theme sets `Foreground` to `VelaAccent`; content
+  inherits it. Only bind `Foreground="{Binding $parent[Button].Foreground}"` on a `LucideIcon`,
+  which does not inherit text foreground.
+- **Same action, same icon.** If an action has an icon anywhere (e.g. `Icon.upload` on the file
+  browser toolbar), the dialog that performs the same action carries that icon too.
+- **Buttons in one action row share a height.** Set it on the primary; the outline theme already
+  defaults to 28.
+- Toolbar icon buttons are a separate role — see `.toolbar-btn` below — and may override
+  `Height`/`Padding` to fit a 24px toolbar.
+
+Guarded by `DialogButtonStyleTests`.
+
+### 5.2 Reusable Primitives
 
 #### LucideIcon (`pc:LucideIcon`)
 - Custom Avalonia control rendering Lucide path data
@@ -203,10 +244,10 @@ StatusBar (24px, bg-sidebar)
 - Sizing: 24x24 for icon-only, auto for pill buttons
 
 #### BreadcrumbSegment (`Button`)
-- Class: `.crumb` -- transparent bg, no border, `FontFamily:VelaTerminalFont`, `FontSize:11`, `FontWeight:Medium`
+- Class: `.crumb` -- transparent bg, no border, `FontFamily:VelaUiMonoFont`, `FontSize:11`, `FontWeight:Medium`
 - Hover: `VelaBgHover` background, `VelaAccent` foreground
 
-### 5.2 File Browser (`FileBrowserView.axaml`)
+### 5.3 File Browser (`FileBrowserView.axaml`)
 
 The existing SFTP file browser is the primary reusable component for the dual-pane SFTP document.
 
@@ -218,8 +259,8 @@ The existing SFTP file browser is the primary reusable component for the dual-pa
 
 **Row anatomy (28px):**
 - Icon (13px): `VelaFileFolderIcon` for directories, `VelaTextTertiary` for files, `VelaTextTertiary` corner-left-up for `..`
-- Name: `VelaTerminalFont` 11px, `VelaFileDirName` for dirs, `VelaTextSecondary` for files, `VelaTextSecondary` for parent
-- Metadata columns: `VelaTerminalFont` 11px, `VelaTextTertiary`
+- Name: `VelaUiMonoFont` 11px, `VelaFileDirName` for dirs, `VelaTextSecondary` for files, `VelaTextSecondary` for parent
+- Metadata columns: `VelaUiMonoFont` 11px, `VelaTextTertiary`
 
 **Selection:** `VelaBgHover` replaces default theme blue (style on `ListBoxItem:selected`)
 
@@ -231,29 +272,29 @@ The existing SFTP file browser is the primary reusable component for the dual-pa
 
 **Error banner:** `VelaBgActive` background, `VelaAccent` text, shown above column header
 
-### 5.3 Session Tree (`SessionTreeView.axaml`)
+### 5.4 Session Tree (`SessionTreeView.axaml`)
 
 - Group row (30px): chevron + folder icon (color rotates: `VelaWarning`/`VelaInfo`/`VelaAccent`) + name (`VelaTextPrimary` 12px Medium) + count (`VelaTextTertiary` 10px)
 - Session row (28px): status dot + name + optional status tag
 - Selected: `VelaBgActive` background, name switches to `VelaAccent` Medium
 - Hover: `VelaBgHover`
 
-### 5.4 Context Menus (global style in `DockStyles.axaml`)
+### 5.5 Context Menus (global style in `DockStyles.axaml`)
 
 - `VelaBgSurface` background, `VelaBorderSecondary` 1px border, `CornerRadius:6`, `Padding:4`
-- Item: `VelaTerminalFont` 11px, `VelaTextSecondary`, `Padding:[10,5]`, `CornerRadius:4`
+- Item: `VelaUiMonoFont` 11px, `VelaTextSecondary`, `Padding:[10,5]`, `CornerRadius:4`
 - Selected/hover: `VelaBgHover` background, `VelaTextPrimary` foreground
 - Disabled: `VelaTextMuted` foreground, 0.6 opacity
 - Separator: `VelaBorderPrimary` 1px, `Margin:[6,4]`
 - Danger items: `VelaError` foreground + icon
 - Primary action items: `VelaTextPrimary` Medium + `VelaAccent` icon
 
-### 5.5 Tooltips (global style in `DockStyles.axaml`)
+### 5.6 Tooltips (global style in `DockStyles.axaml`)
 
 - `VelaBgSurface` background, `VelaBorderSecondary` 1px border, `CornerRadius:6`, `Padding:[8,4]`
 - `VelaTextSecondary` foreground, 11px
 
-### 5.6 Tab Navigation Buttons (`.tab-nav` in `DockStyles.axaml`)
+### 5.7 Tab Navigation Buttons (`.tab-nav` in `DockStyles.axaml`)
 
 - 24x24, `CornerRadius:3`, transparent background
 - Hover: `VelaBgHover`
@@ -370,7 +411,7 @@ A standalone dock document hosting a side-by-side local + remote file browser fo
 
 #### Header (36px, `VelaBgSidebar`)
 
-- **Left pane header**: `hard-drive` icon (14px, `VelaTextTertiary`) + root selector + full current path (`VelaTerminalFont` 11px Medium `VelaTextPrimary`) + Go Up and local refresh buttons
+- **Left pane header**: `hard-drive` icon (14px, `VelaTextTertiary`) + root selector + full current path (`VelaUiMonoFont` 11px Medium `VelaTextPrimary`) + Go Up and local refresh buttons
 - **Right pane header**: Reuses existing `FileBrowserView` header exactly (session badge + `folder-open` accent + remote breadcrumb + upload pill + toolbar)
 - **Shared header** (top bar): Session identity (if applicable) and distinct local/remote refresh actions with accessible names
 
@@ -491,7 +532,7 @@ All tokens used in the SFTP dual-pane document. Source files: `VelaTokens.axaml`
 
 **File-specific**: `VelaFileFolderIcon`, `VelaFileDirName`
 
-**Fonts**: `VelaTerminalFont`, `VelaUiFont`
+**Fonts**: `VelaUiMonoFont`, `VelaUiFont`
 
 ---
 

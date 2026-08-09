@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using VelaShell.Core.Models;
 using VelaShell.Core.Resources;
 using VelaShell.ViewModels;
 
@@ -24,7 +25,12 @@ public partial class TransferSettingsPage : UserControl
         IReadOnlyList<IStorageFolder> folders = await top.StorageProvider.OpenFolderPickerAsync(new()
         {
             Title = Strings.Get("SelectDownloadFolder"),
-            AllowMultiple = false
+            AllowMultiple = false,
+            // 起点用当前已配置的下载目录:改目录时从旧值出发比从头翻更顺手。
+            SuggestedStartLocation = await StorageDefaults.FolderAsync(
+                top,
+                UserPathResolver.ResolveOrHome(DownloadDirBox.Text)
+            ) ?? await StorageDefaults.HomeAsync(top)
         });
         if (folders.AsParallel().FirstOrDefault()?.TryGetLocalPath() is { Length: > 0 } path)
         {
@@ -44,7 +50,13 @@ public partial class TransferSettingsPage : UserControl
         var options = new FilePickerOpenOptions
         {
             Title = Strings.Get("SetTransfer_SelectEditorTitle"),
-            AllowMultiple = false
+            AllowMultiple = false,
+            // 挑的是编辑器可执行文件:已填过就从它所在目录出发,否则从程序安装目录出发。
+            SuggestedStartLocation = await StorageDefaults.FolderAsync(top, Path.GetDirectoryName(EditorPathBox.Text))
+                                     ?? await StorageDefaults.FolderAsync(
+                                         top,
+                                         Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles)
+                                     )
         };
         if (OperatingSystem.IsWindows())
         {

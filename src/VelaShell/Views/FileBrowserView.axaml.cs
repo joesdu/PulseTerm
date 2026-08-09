@@ -10,7 +10,9 @@ using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Microsoft.Extensions.DependencyInjection;
+using ReactiveUI.Primitives;
 using VelaShell.Controls.Controls;
+using VelaShell.Core.Models;
 using VelaShell.Core.Resources;
 using VelaShell.Core.Sftp;
 using VelaShell.ViewModels;
@@ -42,10 +44,12 @@ public partial class FileBrowserView : UserControl
     /// <summary>表头/行的左右内边距合计(axaml 里 Padding="14,0")。</summary>
     private const double HorizontalPadding = 28;
 
-    private static readonly FontFamily TerminalFont = new(
-        "JetBrains Mono, Cascadia Mono, Consolas, monospace"
-    );
-    private static readonly Typeface TerminalTypeface = new(TerminalFont);
+    // 列宽靠度量文字算出来,度量字体必须与实际渲染字体一致 —— 不一致(旧值以 JetBrains Mono
+    // 打头、且不含内置 Cascadia)字形步进就对不上,列自适应/截断会错位。渲染用的是
+    // VelaUiMonoFont 令牌(跟随设置 → 外观 → 界面字体),故运行时现取(见 ResolveMonoTypeface);
+    // 这里只留取不到令牌时的兜底。
+    private static readonly FontFamily DefaultMonoFont = new("fonts:VelaShell#Cascadia Mono, JetBrains Mono, Consolas, monospace");
+    private static readonly Typeface DefaultMonoTypeface = new(DefaultMonoFont);
     private string? _activeSplitter;
     private double _dragStartX;
 
@@ -54,6 +58,8 @@ public partial class FileBrowserView : UserControl
     private Point _dragOrigin;
     private RemoteFileInfoViewModel? _dragRow;
     private PointerPressedEventArgs? _dragPointerArgs;
+    private readonly List<RemoteFileInfoViewModel> _selectionAtPress = [];
+    private bool _selectionRestoredForPendingDrag;
     private const double DragThreshold = 5;
 
     /// <summary>按下拖拽条那一刻的列宽快照(列键 → 像素),拖拽期间按位移量增量应用。</summary>
@@ -74,8 +80,7 @@ public partial class FileBrowserView : UserControl
                 return;
             }
             vm.DirectoryChanged += OnDirectoryChanged;
-            vm.PickFilesForUpload = PickFilesAsync;
-            vm.PickFolderForUpload = PickFolderAsync;
+            vm.PickLocalPathsForUpload = PickLocalPathsAsync;
             vm.PickSavePathForDownload = PickSavePathAsync;
             vm.PickFolderForDownload = PickDownloadFolderAsync;
             vm.PromptForText = PromptForTextAsync;
@@ -89,16 +94,32 @@ public partial class FileBrowserView : UserControl
             vm.ConfirmRemoteOverwrite = ConfirmRemoteOverwriteAsync;
         };
 
+        // 框选与跨栏拖放使用不相交的按下表面。终端模式没有拖放时,
+        // 所有行内容也都留给框选。
+        if (this.FindControl<ListBox>("FileList") is { } list
+            && this.FindControl<Border>("MarqueeOverlay") is { } overlay)
+        {
+            MarqueeSelection.Attach(
+                list,
+                overlay,
+                item => item is RemoteFileInfoViewModel { IsParentEntry: false },
+                e => DataContext is not FileBrowserViewModel { IsDragEnabled: true }
+                    || !MarqueeSelection.IsDndSurface(e.Source, FileList, e.GetPosition(FileList))
+            );
+        }
+
         // 拖放接收:操作系统文件拖入(始终启用)+ 跨面板拖入。
         if (this.FindControl<ListBox>("FileList") is { } fileList)
         {
             DragDrop.SetAllowDrop(fileList, true);
             fileList.AddHandler(DragDrop.DragOverEvent, OnFileListDragOver);
             fileList.AddHandler(DragDrop.DropEvent, OnFileListDrop);
+            fileList.AddHandler(InputElement.PointerPressedEvent, OnRemoteDragPointerPressedTunnel, RoutingStrategies.Tunnel, true);
+            fileList.AddHandler(InputElement.PointerPressedEvent, OnRemoteDragPointerPressedBubble, RoutingStrategies.Bubble, true);
 
             // 跨面板拖拽发起(行 → 本地面板)。
             fileList.AddHandler(PointerMovedEvent, OnRemoteDragPointerMoved);
-            fileList.AddHandler(PointerReleasedEvent, OnRemoteDragPointerReleased);
+            fileList.AddHandler(PointerReleasedEvent, OnRemoteDragPointerReleased, RoutingStrategies.Bubble, true);
         }
         AddHandler(PointerMovedEvent, OnColumnSplitterPointerMoved, RoutingStrategies.Tunnel);
         AddHandler(PointerReleasedEvent, OnColumnSplitterReleased, RoutingStrategies.Tunnel);
@@ -193,7 +214,7 @@ public partial class FileBrowserView : UserControl
     /// 双击拖拽条的自适应宽度:取表头与所有行里最宽的那条文本。“文件名”列还要
     /// 额外让出前导图标区(14px 图标 + 6px 间距)。上限防止一个超长名字把列撑爆。
     /// </summary>
-    private static double EstimateAutoWidth(FileBrowserViewModel vm, string columnKey)
+    private double EstimateAutoWidth(FileBrowserViewModel vm, string columnKey)
     {
         (
             string Header,
@@ -209,9 +230,12 @@ public partial class FileBrowserView : UserControl
             "type" => (Strings.FileType, f => f.FileTypeDisplay, 8d, 300d),
             _ => (Strings.FileName, f => f.DisplayName, 34d, 760d),
         };
-        double headerWidth = MeasureTextWidth(spec.Header, 10);
+        // 度量必须用【当前生效的】字体与字号:两者都跟随设置 → 外观 → 界面字体/字号,
+        // 写死就会在用户改过设置后把列算窄一截(文字被截断)。
+        Typeface typeface = ResolveMonoTypeface();
+        double headerWidth = MeasureTextWidth(spec.Header, ResolveFontSize("VelaFontSize10", 10), typeface);
         double rowsWidth = vm.Files.Any()
-            ? vm.Files.Max(f => MeasureTextWidth(spec.Cell(f), 11))
+            ? vm.Files.Max(f => MeasureTextWidth(spec.Cell(f), ResolveFontSize("VelaFontSize11", 11), typeface))
             : 0;
         return Math.Clamp(
             Math.Max(headerWidth, rowsWidth) + spec.Padding,
@@ -238,13 +262,23 @@ public partial class FileBrowserView : UserControl
         );
     }
 
-    private static double MeasureTextWidth(string text, double fontSize)
+    /// <summary>列表实际渲染用的等宽字体(VelaUiMonoFont 令牌);取不到时退回内置默认。</summary>
+    private Typeface ResolveMonoTypeface() =>
+        this.TryFindResource("VelaUiMonoFont", out object? value) && value is FontFamily family
+            ? new Typeface(family)
+            : DefaultMonoTypeface;
+
+    /// <summary>取字号令牌的当前值;取不到时退回默认基准下的磅值。</summary>
+    private double ResolveFontSize(string key, double fallback) =>
+        this.TryFindResource(key, out object? value) && value is double size ? size : fallback;
+
+    private static double MeasureTextWidth(string text, double fontSize, Typeface typeface)
     {
         var ft = new FormattedText(
             text,
             CultureInfo.CurrentCulture,
             FlowDirection.LeftToRight,
-            TerminalTypeface,
+            typeface,
             fontSize,
             Brushes.White
         );
@@ -287,40 +321,18 @@ public partial class FileBrowserView : UserControl
         await top.Launcher.LaunchFileInfoAsync(new(localPath));
     }
 
-    private async Task<IReadOnlyList<string>> PickFilesAsync()
+    /// <summary>
+    /// 上传的选择步骤:开应用内的选择器,文件与文件夹一次混选。
+    /// 系统对话框做不到混选(见 <see cref="LocalPathPickerDialog" />),上传以前正是因此
+    /// 被拆成"上传文件""上传文件夹"两个入口。
+    /// </summary>
+    private async Task<IReadOnlyList<string>> PickLocalPathsAsync()
     {
-        var top = TopLevel.GetTopLevel(this);
-        if (top is null)
+        if (TopLevel.GetTopLevel(this) is not Window owner || _viewModel is not { } vm)
         {
             return [];
         }
-        IReadOnlyList<IStorageFile> files = await top.StorageProvider.OpenFilePickerAsync(
-            new() { Title = Strings.SelectFilesToUpload, AllowMultiple = true }
-        );
-        return
-        [
-            .. files
-                .Select(f => f.TryGetLocalPath())
-                .Where(p => !string.IsNullOrEmpty(p))
-                .Select(p => p!),
-        ];
-    }
-
-    private async Task<string?> PickFolderAsync()
-    {
-        var top = TopLevel.GetTopLevel(this);
-        if (top is null)
-        {
-            return null;
-        }
-        IReadOnlyList<IStorageFolder> folders = await top.StorageProvider.OpenFolderPickerAsync(
-            new()
-            {
-                Title = Strings.SelectFolderToUpload,
-                AllowMultiple = false
-            }
-        );
-        return folders.Count > 0 ? folders[0].TryGetLocalPath() : null;
+        return await LocalPathPickerDialog.PickAsync(owner, vm.TransferOptions);
     }
 
     /// <summary>
@@ -355,28 +367,13 @@ public partial class FileBrowserView : UserControl
         {
             return null;
         }
-        string configured = vm.TransferOptions.LocalDownloadDirectory.Trim();
-        if (string.IsNullOrEmpty(configured))
-        {
-            return null;
-        }
-        if (configured.StartsWith('~'))
-        {
-            configured = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                configured.TrimStart('~', '/', '\\')
-            );
-        }
-        try
-        {
-            return Directory.Exists(configured)
-                ? await top.StorageProvider.TryGetFolderFromPathAsync(configured)
-                : null;
-        }
-        catch
-        {
-            return null;
-        }
+        // "~" 与相对路径一律以用户主目录为基准(见 UserPathResolver);目录不存在时退回主目录,
+        // 绝不落回进程工作目录 —— 那是外部环境决定的,不是用户想要的落点(#120)。
+        return await StorageDefaults.FolderAsync(
+                   top,
+                   UserPathResolver.ResolveOrHome(vm.TransferOptions.LocalDownloadDirectory)
+               )
+               ?? await StorageDefaults.HomeAsync(top);
     }
 
     private void OnFileListDragOver(object? sender, DragEventArgs e)
@@ -599,7 +596,8 @@ public partial class FileBrowserView : UserControl
             // 左键:为可能拖往本地面板做准备(仅 SFTP 模式)。
             if (DataContext is FileBrowserViewModel { IsDragEnabled: true }
                 && sender is Border { DataContext: RemoteFileInfoViewModel file }
-                && !file.IsParentEntry)
+                && !file.IsParentEntry
+                && MarqueeSelection.IsDndSurface(e.Source, (Visual)sender, e.GetPosition((Visual)sender)))
             {
                 _dragOrigin = e.GetPosition(this.FindControl<ListBox>("FileList"));
                 _dragRow = file;
@@ -626,10 +624,49 @@ public partial class FileBrowserView : UserControl
         }
     }
 
+    private void OnRemoteDragPointerPressedTunnel(object? sender, PointerPressedEventArgs e)
+    {
+        _selectionAtPress.Clear();
+        if (!e.GetCurrentPoint(FileList).Properties.IsLeftButtonPressed
+            || FileList.SelectedItems is not { } selected)
+        {
+            return;
+        }
+
+        foreach (object? item in selected)
+        {
+            if (item is RemoteFileInfoViewModel file && !file.IsParentEntry)
+            {
+                _selectionAtPress.Add(file);
+            }
+        }
+    }
+
+    private void OnRemoteDragPointerPressedBubble(object? sender, PointerPressedEventArgs e)
+    {
+        if (_dragRow is not { } source
+            || _selectionAtPress.Count <= 1
+            || !_selectionAtPress.Contains(source)
+            || e.KeyModifiers.HasFlag(KeyModifiers.Control)
+            || e.KeyModifiers.HasFlag(KeyModifiers.Shift)
+            || DataContext is not FileBrowserViewModel vm)
+        {
+            return;
+        }
+
+        DragSelectionResolver.SynchronizeSelection(vm.SelectedFiles, _selectionAtPress);
+        _selectionRestoredForPendingDrag = true;
+    }
+
     private void OnRemoteDragPointerMoved(object? sender, PointerEventArgs e)
     {
         if (_isDragging || _dragRow is null || _dragPointerArgs is null)
         {
+            return;
+        }
+        if (!e.GetCurrentPoint(FileList).Properties.IsLeftButtonPressed)
+        {
+            ResetRemoteDragGesture();
             return;
         }
         Point current = e.GetPosition(this.FindControl<ListBox>("FileList"));
@@ -644,34 +681,61 @@ public partial class FileBrowserView : UserControl
 
     private void OnRemoteDragPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        _isDragging = false;
-        _dragRow = null;
-        _dragPointerArgs = null;
+        if (!_isDragging
+            && _selectionRestoredForPendingDrag
+            && _dragRow is { } source
+            && DataContext is FileBrowserViewModel vm)
+        {
+            DragSelectionResolver.SynchronizeSelection(vm.SelectedFiles, [source]);
+        }
+        ResetRemoteDragGesture();
     }
 
     private async Task StartRemoteDragAsync(RemoteFileInfoViewModel source, PointerPressedEventArgs pointerArgs)
     {
-        // 收集所有选中的远程文件路径。
-        var paths = new List<string>();
         if (DataContext is FileBrowserViewModel vm)
         {
-            foreach (RemoteFileInfoViewModel item in vm.SelectedFiles)
-            {
-                if (!item.IsParentEntry) paths.Add(item.FullPath);
-            }
+            IReadOnlyList<RemoteFileInfoViewModel> entries = DragSelectionResolver.ResolveAtDragStart(
+                _selectionAtPress,
+                vm.SelectedFiles,
+                source,
+                item => item.IsParentEntry,
+                usePressSnapshot: !pointerArgs.KeyModifiers.HasFlag(KeyModifiers.Control)
+                    && !pointerArgs.KeyModifiers.HasFlag(KeyModifiers.Shift));
+            DragSelectionResolver.SynchronizeSelection(vm.SelectedFiles, entries);
+            string[] paths = [.. entries.Select(item => item.FullPath)];
+            await StartRemoteDragAsync(paths, pointerArgs);
+            return;
         }
-        if (paths.Count == 0) paths.Add(source.FullPath);
+        await StartRemoteDragAsync([source.FullPath], pointerArgs);
+    }
 
+    private async Task StartRemoteDragAsync(
+        IReadOnlyList<string> paths,
+        PointerPressedEventArgs pointerArgs)
+    {
         var data = new DataTransfer();
         var dragItem = new DataTransferItem();
         dragItem.SetText(DragDropFormats.RemotePaths + string.Join("\n", paths));
         data.Add(dragItem);
 
-        await DragDrop.DoDragDropAsync(pointerArgs, data, DragDropEffects.Copy);
+        try
+        {
+            await DragDrop.DoDragDropAsync(pointerArgs, data, DragDropEffects.Copy);
+        }
+        finally
+        {
+            ResetRemoteDragGesture();
+        }
+    }
 
+    private void ResetRemoteDragGesture()
+    {
         _isDragging = false;
         _dragRow = null;
         _dragPointerArgs = null;
+        _selectionAtPress.Clear();
+        _selectionRestoredForPendingDrag = false;
     }
 
     /// <summary>

@@ -33,6 +33,12 @@ public partial class SidebarView : UserControl
     /// <summary>用户双击最近连接以重新连接时触发。</summary>
     public event EventHandler<RecentConnectionEntry>? RecentConnectRequested;
 
+    /// <summary>用户在资源管理器「更多」菜单中选择「从 Xshell 导入」时触发。</summary>
+    public event EventHandler? ImportXshellRequested;
+
+    /// <summary>用户在资源管理器「更多」菜单中选择「从 WinSCP 导入」时触发。</summary>
+    public event EventHandler? ImportWinScpRequested;
+
     private void OnDataContextChanged(object? sender, EventArgs e)
     {
         _viewModel?.PropertyChanged -= OnViewModelPropertyChanged;
@@ -71,6 +77,16 @@ public partial class SidebarView : UserControl
     private void OpenSettings_Click(object? sender, RoutedEventArgs e)
     {
         SettingsRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void ImportXshell_Click(object? sender, RoutedEventArgs e)
+    {
+        ImportXshellRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void ImportWinScp_Click(object? sender, RoutedEventArgs e)
+    {
+        ImportWinScpRequested?.Invoke(this, EventArgs.Empty);
     }
 
     private void ToggleQuickCommands_Click(object? sender, RoutedEventArgs e)

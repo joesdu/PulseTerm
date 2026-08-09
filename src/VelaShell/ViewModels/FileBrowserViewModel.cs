@@ -1,11 +1,12 @@
 using System.Collections.ObjectModel;
-using System.Reactive;
 using Avalonia.Controls;
 using Avalonia.Threading;
 using ReactiveUI;
+using ReactiveUI.Primitives;
 using VelaShell.Core.Models;
 using VelaShell.Core.Resources;
 using VelaShell.Core.Sftp;
+using VelaShell.Core.Ssh;
 using VelaShell.Services;
 
 namespace VelaShell.ViewModels;
@@ -101,7 +102,6 @@ public class FileBrowserViewModel : ReactiveObject
         RefreshCommand = ReactiveCommand.CreateFromTask(RefreshAsync);
         LoadInitialCommand = ReactiveCommand.CreateFromTask(LoadInitialAsync);
         UploadCommand = ReactiveCommand.CreateFromTask(UploadAsync);
-        UploadFolderCommand = ReactiveCommand.CreateFromTask(UploadFolderAsync);
         NewFolderCommand = ReactiveCommand.CreateFromTask(NewFolderAsync);
         NewFileCommand = ReactiveCommand.CreateFromTask(NewFileAsync);
         DownloadItemCommand = ReactiveCommand.CreateFromTask<RemoteFileInfoViewModel>(
@@ -283,6 +283,57 @@ public class FileBrowserViewModel : ReactiveObject
 
     /// <summary>成功进入不同目录后触发,视图据此把滚动条重置到顶部。</summary>
     public event EventHandler? DirectoryChanged;
+
+    private string? _pendingTerminalPath;
+
+    /// <summary>
+    /// 「跟随终端目录」(map-pin 按钮):开启时,本会话终端 shell 的 cwd 变化(经 OSC 7)会自动把文件浏览器
+    /// 切到该目录。开启当下立即同步到终端当前目录;关闭则不同步。手动切换目录不影响开关——终端下次 cd 到
+    /// 新目录时再同步到最新。仅在 shell 发出 OSC 7 时有效(VelaShell 注入的 bash 提示符脚本会发)。
+    /// </summary>
+    public bool FollowTerminal
+    {
+        get;
+        set
+        {
+            if (field == value)
+            {
+                return;
+            }
+            this.RaiseAndSetIfChanged(ref field, value);
+            if (value && _pendingTerminalPath is { Length: > 0 } path)
+            {
+                SyncToTerminalPath(path); // 开启当下立即同步到终端当前目录
+            }
+        }
+    }
+
+    /// <summary>本会话终端 cwd 变化时由宿主调用(仅在终端 cd 到新目录时,已在 TerminalTabViewModel 去重)。
+    /// 记住最新终端目录(供开启开关时立即同步);若正在跟随则立刻切换。</summary>
+    public void OnTerminalWorkingDirectoryChanged(string path)
+    {
+        if (string.IsNullOrEmpty(path))
+        {
+            return;
+        }
+        _pendingTerminalPath = path;
+        if (FollowTerminal)
+        {
+            SyncToTerminalPath(path);
+        }
+    }
+
+    private void SyncToTerminalPath(string path)
+    {
+        // OSC 7 事件源自终端 feed 线程;导航须在 UI 线程。目录相同则不折腾。
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_sessionId != Guid.Empty && !string.Equals(path, CurrentPath, StringComparison.Ordinal))
+            {
+                NavigateToCommand.Execute(path).Subscribe(_ => { }, _ => { });
+            }
+        });
+    }
 
     /// <summary>当前浏览的远程目录绝对路径;赋值时同步刷新 <see cref="Breadcrumbs" />。</summary>
     public string CurrentPath
@@ -636,91 +687,91 @@ public class FileBrowserViewModel : ReactiveObject
     }
 
     /// <summary>导航到指定绝对路径的目录(面包屑点击等)。</summary>
-    public ReactiveCommand<string, Unit> NavigateToCommand { get; }
+    public ReactiveCommand<string, RxVoid> NavigateToCommand { get; }
 
     /// <summary>
     /// 行激活(双击 / Enter):进入目录,或将文件下载到临时文件夹并用
     /// 操作系统默认程序打开(§6)。
     /// </summary>
-    public ReactiveCommand<RemoteFileInfoViewModel, Unit> ActivateCommand { get; }
+    public ReactiveCommand<RemoteFileInfoViewModel, RxVoid> ActivateCommand { get; }
 
     /// <summary>返回上一级目录(已在根目录时无操作)。</summary>
-    public ReactiveCommand<Unit, Unit> GoUpCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> GoUpCommand { get; }
 
     /// <summary>重新列举当前目录。</summary>
-    public ReactiveCommand<Unit, Unit> RefreshCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> RefreshCommand { get; }
 
     /// <summary>加载账户的主目录(规范:落在 ~,而非文件系统根)。</summary>
-    public ReactiveCommand<Unit, Unit> LoadInitialCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> LoadInitialCommand { get; }
 
-    /// <summary>将系统选中的文件上传到当前目录(工具栏 + 右键)。</summary>
-    public ReactiveCommand<Unit, Unit> UploadCommand { get; }
-
-    /// <summary>将系统选中的文件夹(递归)上传到当前目录。</summary>
-    public ReactiveCommand<Unit, Unit> UploadFolderCommand { get; }
+    /// <summary>
+    /// 上传到当前目录(工具栏 + 右键)。文件与文件夹走同一个入口:选择器可以混选,
+    /// 文件夹按整棵目录递归上传,文件直接传,由 <see cref="UploadLocalPathsAsync" /> 分派。
+    /// </summary>
+    public ReactiveCommand<RxVoid, RxVoid> UploadCommand { get; }
 
     // 右键上下文菜单动作(规范:文件操作置于 SFTP 上下文菜单中)。
     /// <summary>在当前目录下新建文件夹(提示输入名称)。</summary>
-    public ReactiveCommand<Unit, Unit> NewFolderCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> NewFolderCommand { get; }
 
     /// <summary>在当前目录下新建空文件(提示输入名称)。</summary>
-    public ReactiveCommand<Unit, Unit> NewFileCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> NewFileCommand { get; }
 
     /// <summary>下载选中的单个文件或目录到本地(目录递归)。</summary>
-    public ReactiveCommand<RemoteFileInfoViewModel, Unit> DownloadItemCommand { get; }
+    public ReactiveCommand<RemoteFileInfoViewModel, RxVoid> DownloadItemCommand { get; }
 
     /// <summary>在同目录内重命名选中的条目(提示输入新名称)。</summary>
-    public ReactiveCommand<RemoteFileInfoViewModel, Unit> RenameCommand { get; }
+    public ReactiveCommand<RemoteFileInfoViewModel, RxVoid> RenameCommand { get; }
 
     /// <summary>把选中条目移动到输入的目标路径。</summary>
-    public ReactiveCommand<RemoteFileInfoViewModel, Unit> MoveCommand { get; }
+    public ReactiveCommand<RemoteFileInfoViewModel, RxVoid> MoveCommand { get; }
 
     /// <summary>把选中条目复制到另一个远程目录。</summary>
-    public ReactiveCommand<RemoteFileInfoViewModel, Unit> CopyToCommand { get; }
+    public ReactiveCommand<RemoteFileInfoViewModel, RxVoid> CopyToCommand { get; }
 
     /// <summary>把选中条目的完整远程路径复制到剪贴板。</summary>
-    public ReactiveCommand<RemoteFileInfoViewModel, Unit> CopyPathCommand { get; }
+    public ReactiveCommand<RemoteFileInfoViewModel, RxVoid> CopyPathCommand { get; }
 
     /// <summary>把选中条目的名称复制到剪贴板。</summary>
-    public ReactiveCommand<RemoteFileInfoViewModel, Unit> CopyNameCommand { get; }
+    public ReactiveCommand<RemoteFileInfoViewModel, RxVoid> CopyNameCommand { get; }
 
     /// <summary>属性弹窗(合并了 chmod 权限编辑,确定时应用变更)。</summary>
-    public ReactiveCommand<RemoteFileInfoViewModel, Unit> PropertiesCommand { get; }
+    public ReactiveCommand<RemoteFileInfoViewModel, RxVoid> PropertiesCommand { get; }
 
     /// <summary>删除选中的单个文件或目录(先弹确认)。</summary>
-    public ReactiveCommand<RemoteFileInfoViewModel, Unit> DeleteItemCommand { get; }
+    public ReactiveCommand<RemoteFileInfoViewModel, RxVoid> DeleteItemCommand { get; }
 
     /// <summary>「打开」:下载到临时副本后交给内置 AvaloniaEdit 编辑器(保存即上传)。</summary>
-    public ReactiveCommand<RemoteFileInfoViewModel, Unit> OpenItemCommand { get; }
+    public ReactiveCommand<RemoteFileInfoViewModel, RxVoid> OpenItemCommand { get; }
 
     /// <summary>「使用默认编辑器打开」:下载到 temp 交给设置里配置的编辑器,保存即上传。</summary>
-    public ReactiveCommand<RemoteFileInfoViewModel, Unit> OpenWithDefaultEditorCommand { get; }
+    public ReactiveCommand<RemoteFileInfoViewModel, RxVoid> OpenWithDefaultEditorCommand { get; }
 
     /// <summary>批量下载所有选中的条目的本地文件夹(§6 多选)。</summary>
-    public ReactiveCommand<Unit, Unit> DownloadSelectedCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> DownloadSelectedCommand { get; }
 
     /// <summary>一次确认后批量删除所有选中的条目(§6 多选)。</summary>
-    public ReactiveCommand<Unit, Unit> DeleteSelectedCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> DeleteSelectedCommand { get; }
 
     /// <summary>取消进行中的删除,已完成的条目保留不移除。</summary>
-    public ReactiveCommand<Unit, Unit> CancelDeleteCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> CancelDeleteCommand { get; }
 
     /// <summary>
     /// 重新打开传输浮窗,以便回顾历史/活动传输记录(上传按钮旁的工具栏按钮)。
     /// 没有它浮窗自动隐藏后就再也回不到传输历史了。
     /// </summary>
-    public ReactiveCommand<Unit, Unit> ShowTransfersCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ShowTransfersCommand { get; }
 
     /// <summary>切换文件浏览面板的显示/隐藏。</summary>
-    public ReactiveCommand<Unit, Unit> ToggleVisibilityCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ToggleVisibilityCommand { get; }
 
     /// <summary>切换点文件可见性(§6 头部开关)。</summary>
-    public ReactiveCommand<Unit, Unit> ToggleHiddenFilesCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ToggleHiddenFilesCommand { get; }
 
     /// <summary>
     /// 按列键排序("name" | "size" | "permissions" | "modified");再次点击当前排序列则翻转方向。
     /// </summary>
-    public ReactiveCommand<string, Unit> SortCommand { get; }
+    public ReactiveCommand<string, RxVoid> SortCommand { get; }
 
     /// <summary>列表当前按哪一列排序。</summary>
     public string SortColumn
@@ -760,11 +811,15 @@ public class FileBrowserViewModel : ReactiveObject
     /// <summary>当前路径按 "/" 拆分后的各级目录名(用于面包屑等)。</summary>
     public string[] PathSegments => CurrentPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
 
-    /// <summary>由视图设置:打开系统文件选择器(多选)并返回本地路径。</summary>
-    public Func<Task<IReadOnlyList<string>>>? PickFilesForUpload { get; set; }
-
-    /// <summary>由视图设置:打开系统文件夹选择器并返回选中的文件夹,或 null。</summary>
-    public Func<Task<string?>>? PickFolderForUpload { get; set; }
+    /// <summary>
+    /// 由视图设置:打开本地路径选择器,返回用户选中的文件与文件夹(可混选、可多选)。
+    /// <para>
+    /// 用的是应用内的选择器而不是系统对话框:系统对话框在 Windows/Linux 上只能"要么选文件、
+    /// 要么选文件夹"(Avalonia 的 IStorageProvider 也只有 OpenFilePicker / OpenFolderPicker
+    /// 两个入口),这正是上传以前被迫拆成两个菜单项的原因。
+    /// </para>
+    /// </summary>
+    public Func<Task<IReadOnlyList<string>>>? PickLocalPathsForUpload { get; set; }
 
     /// <summary>由视图设置:询问下载保存位置(参数 = 建议的文件名)。</summary>
     public Func<string, Task<string?>>? PickSavePathForDownload { get; set; }
@@ -1341,28 +1396,19 @@ public class FileBrowserViewModel : ReactiveObject
     private async Task RefreshAsync(CancellationToken ct = default) =>
         await NavigateToAsync(CurrentPath, ct);
 
+    /// <summary>
+    /// 上传入口:选一次,文件和文件夹一起选。选完原样交给
+    /// <see cref="UploadLocalPathsAsync" /> —— 它本来就按每个路径的实际类型分派,
+    /// 所以这里不需要(也不该)预先把两类分开。
+    /// </summary>
     private async Task UploadAsync(CancellationToken ct = default)
     {
-        if (PickFilesForUpload is null)
+        if (PickLocalPathsForUpload is null)
         {
             return;
         }
-        IReadOnlyList<string> files = await PickFilesForUpload();
-        await UploadLocalPathsAsync(files, ct);
-    }
-
-    private async Task UploadFolderAsync(CancellationToken ct = default)
-    {
-        if (PickFolderForUpload is null)
-        {
-            return;
-        }
-        string? folder = await PickFolderForUpload();
-        if (string.IsNullOrEmpty(folder))
-        {
-            return;
-        }
-        await UploadLocalPathsAsync([folder], ct);
+        IReadOnlyList<string> picked = await PickLocalPathsForUpload();
+        await UploadLocalPathsAsync(picked, ct);
     }
 
     /// <summary>
@@ -1374,7 +1420,8 @@ public class FileBrowserViewModel : ReactiveObject
         CancellationToken ct = default
     )
     {
-        if (localPaths.Count == 0)
+        IReadOnlyList<string> roots = NormalizeUploadRoots(localPaths);
+        if (roots.Count == 0)
         {
             return;
         }
@@ -1384,7 +1431,7 @@ public class FileBrowserViewModel : ReactiveObject
             // 扫描大文件夹可能耗时:先让传输面板进入"准备中",徽标随发现的文件数递增。
             TransferSink?.BeginPreparing();
             var plan = new List<PlannedFileTransfer>();
-            foreach (string path in localPaths)
+            foreach (string path in roots)
             {
                 await BuildUploadPlanAsync(path, CurrentPath, plan, ct);
             }
@@ -1405,6 +1452,56 @@ public class FileBrowserViewModel : ReactiveObject
         }
         await RefreshAsync(ct);
     }
+
+    /// <summary>
+    /// 把一批用户选中的本地路径收拾成互不重叠的上传根:去掉重复项,并丢掉那些已经被
+    /// 同批次某个文件夹包住的路径。
+    /// <para>
+    /// 不做这一步,"文件夹 + 它里面的某个文件"一起选(拖放里很常见)会把同一个文件传两遍、
+    /// 写同一个远端路径 —— 白费带宽还自己跟自己抢。比较用
+    /// <see cref="StringComparison.OrdinalIgnoreCase" />:Windows 与 macOS 的默认卷都不区分大小写,
+    /// 而在区分大小写的文件系统上这最多是少传一份重复,不会传错。
+    /// </para>
+    /// </summary>
+    internal static IReadOnlyList<string> NormalizeUploadRoots(IReadOnlyList<string> localPaths)
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var roots = new List<string>(localPaths.Count);
+        foreach (string path in localPaths)
+        {
+            if (!string.IsNullOrWhiteSpace(path) && seen.Add(TrimTrailingSeparators(path)))
+            {
+                roots.Add(path);
+            }
+        }
+
+        // 长的路径才可能被短的包住,按长度升序扫一遍即可:每个候选只需对已保留的根做前缀判断。
+        roots.Sort(static (a, b) => TrimTrailingSeparators(a).Length - TrimTrailingSeparators(b).Length);
+        var kept = new List<string>(roots.Count);
+        foreach (string path in roots)
+        {
+            if (!kept.Any(root => IsUnder(path, root)))
+            {
+                kept.Add(path);
+            }
+        }
+        return kept;
+    }
+
+    /// <summary>路径 <paramref name="path" /> 是否位于目录 <paramref name="root" /> 之下(不含自身)。</summary>
+    private static bool IsUnder(string path, string root)
+    {
+        string prefix = TrimTrailingSeparators(root) + Path.DirectorySeparatorChar;
+        return TrimTrailingSeparators(path)
+            .Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar)
+            .StartsWith(
+                prefix.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar),
+                StringComparison.OrdinalIgnoreCase
+            );
+    }
+
+    private static string TrimTrailingSeparators(string path) =>
+        path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
     /// <summary>
     /// 遍历本地文件/文件夹,把每个文件的一条计划上传追加到 <paramref name="plan" /> 中,
@@ -1653,7 +1750,7 @@ public class FileBrowserViewModel : ReactiveObject
             PlannedFileTransfer? settled =
                 item.Type == TransferType.Download
                     ? await ResolveLocalConflictAsync(item, conflictDecision)
-                    : await ResolveRemoteConflictAsync(item, remoteNames, ct, conflictDecision);
+                    : await ResolveRemoteConflictAsync(item, remoteNames, conflictDecision, ct);
             if (settled is not null)
             {
                 resolved.Add(settled);
@@ -1674,7 +1771,7 @@ public class FileBrowserViewModel : ReactiveObject
             {
                 foreach (PlannedFileTransfer item in resolved)
                 {
-                    await RunTransferAsync(item.Type, item.LocalPath, item.RemotePath, item.ResumeOffset, cts.Token);
+                    await RunTransferAsync(item.Type, item.LocalPath, item.RemotePath, item.ResumeOffset, cts.Token, conflictDecision);
                     TransferSink?.NotifyBatchItemSettled();
                 }
             }
@@ -1692,7 +1789,8 @@ public class FileBrowserViewModel : ReactiveObject
                                 item.LocalPath,
                                 item.RemotePath,
                                 item.ResumeOffset,
-                                cts.Token
+                                cts.Token,
+                                conflictDecision
                             );
                             TransferSink?.NotifyBatchItemSettled();
                         }
@@ -1836,17 +1934,14 @@ public class FileBrowserViewModel : ReactiveObject
         {
             return item;
         }
-        switch (TransferOptions.ConflictPolicy)
+        return TransferOptions.ConflictPolicy switch
         {
-            case "overwrite":
-                return item;
-            case "skip":
-                return null;
-            case "rename":
-                return item with { LocalPath = NextAvailableLocalName(item.LocalPath) };
-            default: // ask
-                return await AskConflictAsync(item, item.LocalPath, ConfirmOverwrite, decision);
-        }
+            "overwrite" => item,
+            "skip" => null,
+            "rename" => item with { LocalPath = NextAvailableLocalName(item.LocalPath) },
+            // ask
+            _ => await AskConflictAsync(item, item.LocalPath, ConfirmOverwrite, decision),
+        };
     }
 
     /// <summary>本批次“全部覆盖/全部跳过”的粘性决定(见 <see cref="FileConflictResolution" />)。</summary>
@@ -1976,8 +2071,8 @@ public class FileBrowserViewModel : ReactiveObject
     private async Task<PlannedFileTransfer?> ResolveRemoteConflictAsync(
         PlannedFileTransfer item,
         Dictionary<string, HashSet<string>> remoteNames,
-        CancellationToken ct,
-        BatchConflictDecision decision
+        BatchConflictDecision decision,
+        CancellationToken ct
     )
     {
         if (item.Type != TransferType.Upload || TransferOptions.ConflictPolicy == "overwrite")
@@ -1988,27 +2083,25 @@ public class FileBrowserViewModel : ReactiveObject
         {
             return item;
         }
-        switch (TransferOptions.ConflictPolicy)
+        return TransferOptions.ConflictPolicy switch
         {
-            case "skip":
-                return null;
-            case "rename":
-                return item with
-                {
-                    RemotePath = await NextAvailableRemoteNameAsync(
-                        item.RemotePath,
-                        remoteNames,
-                        ct
-                    ),
-                };
-            default: // ask
-                return await AskConflictAsync(
-                    item,
-                    item.RemotePath,
-                    ConfirmRemoteOverwrite,
-                    decision
-                );
-        }
+            "skip" => null,
+            "rename" => item with
+            {
+                RemotePath = await NextAvailableRemoteNameAsync(
+                                    item.RemotePath,
+                                    remoteNames,
+                                    ct
+                                ),
+            },
+            // ask
+            _ => await AskConflictAsync(
+                                item,
+                                item.RemotePath,
+                                ConfirmRemoteOverwrite,
+                                decision
+                            ),
+        };
     }
 
     /// <summary>
@@ -2068,7 +2161,8 @@ public class FileBrowserViewModel : ReactiveObject
         string localPath,
         string remotePath,
         long resumeOffset,
-        CancellationToken ct
+        CancellationToken ct,
+        BatchConflictDecision? conflictDecision = null
     )
     {
         var task = new TransferTask
@@ -2096,23 +2190,51 @@ public class FileBrowserViewModel : ReactiveObject
                 item.Status = TransferStatus.InProgress;
             }
         });
+        // 目标"同名但内容对不上"时改名重传的落点(仅"重命名"策略):当前这一行按跳过收尾,
+        // 改名后的整份重传在本方法收尾之后另起一行,免得一行的标题与它实际写的目标对不上。
+        PlannedFileTransfer? renamedRetry = null;
         try
         {
-            if (type == TransferType.Upload)
+            long offset = resumeOffset;
+            while (true)
             {
-                await _sftpService.UploadFileAsync(_sessionId, localPath, remotePath, progress, resumeOffset, ct);
+                try
+                {
+                    await TransferOnceAsync(offset);
+                    item?.Status = TransferStatus.Completed;
+                    finalStatus = TransferStatus.Completed;
+                    break;
+                }
+
+                // 续传起点核实失败 = 目标那半截并不是源文件的开头 —— 文件变了,这是冲突,不是续传。
+                // 以前直接失败并让用户自己去删,现在按既有冲突策略处理(询问策略下弹的就是常规
+                // 冲突对话框,"全部覆盖/全部跳过"的粘性决定照常沿用)。
+                // when 条件保证最多重来一次:改判后的整份重传 offset 为 0,不会再走到这里。
+                catch (VelaSftpResumeMismatchException) when (offset > 0)
+                {
+                    ChangedTargetAction action = await ResolveChangedTargetAsync(
+                        type,
+                        localPath,
+                        remotePath,
+                        conflictDecision,
+                        ct
+                    );
+                    if (action.Renamed is { } target)
+                    {
+                        renamedRetry = target;
+                    }
+                    if (action.Renamed is not null || !action.Overwrite)
+                    {
+                        // 跳过:目标是用户自己的文件,绝不能顺手清掉。
+                        item?.Status = TransferStatus.Cancelled;
+                        finalStatus = TransferStatus.Cancelled;
+                        break;
+                    }
+                    // 覆盖:整份重传。
+                    offset = 0;
+                    item?.Status = TransferStatus.InProgress;
+                }
             }
-            else if (type == TransferType.Copy)
-            {
-                // For Copy: LocalPath = remote source, RemotePath = remote destination.
-                await _sftpService.CopyAsync(_sessionId, localPath, remotePath, progress, ct);
-            }
-            else
-            {
-                await _sftpService.DownloadFileAsync(_sessionId, remotePath, localPath, progress, resumeOffset, ct);
-            }
-            item?.Status = TransferStatus.Completed;
-            finalStatus = TransferStatus.Completed;
         }
         catch (OperationCanceledException)
         {
@@ -2143,7 +2265,97 @@ public class FileBrowserViewModel : ReactiveObject
                 );
             }
         }
+
+        // 改名重传另起一行(目标是新名字,不存在同名冲突,不会再撞上续传核实)。
+        if (renamedRetry is { } fresh)
+        {
+            await RunTransferAsync(fresh.Type, fresh.LocalPath, fresh.RemotePath, 0, ct, conflictDecision);
+        }
+        return;
+
+        Task TransferOnceAsync(long startAt) => type switch
+        {
+            TransferType.Upload =>
+                _sftpService.UploadFileAsync(_sessionId, localPath, remotePath, progress, startAt, ct),
+            // Copy:LocalPath = 远端源路径,RemotePath = 远端目标路径。
+            TransferType.Copy =>
+                _sftpService.CopyAsync(_sessionId, localPath, remotePath, progress, ct),
+            _ =>
+                _sftpService.DownloadFileAsync(_sessionId, remotePath, localPath, progress, startAt, ct),
+        };
     }
+
+    /// <summary>目标"同名但内容对不上"时的处置。</summary>
+    internal enum ChangedTargetChoice
+    {
+        /// <summary>整份重传,覆盖已经变了的目标。</summary>
+        Overwrite,
+
+        /// <summary>不动目标,这一项作罢。</summary>
+        Skip,
+
+        /// <summary>换一个不冲突的新名字,另传一份。</summary>
+        Rename,
+    }
+
+    /// <summary>
+    /// 决定一次"续传起点核实失败"怎么办。核实失败意味着目标那半截并不是源文件的开头,
+    /// 也就是<b>文件变了</b> —— 那是一次普通的同名冲突,不该以"请自行删除后重传"收场。
+    /// 这里沿用设置里的冲突策略(覆盖/跳过/重命名/询问);"询问"走的就是常规冲突对话框,
+    /// 并沿用本批次"全部覆盖/全部跳过"的粘性决定,免得几百个变化文件逐个弹窗。
+    /// </summary>
+    internal static async Task<ChangedTargetChoice> DecideChangedTargetAsync(
+        string? policy,
+        string displayPath,
+        Func<string, Task<FileConflictResolution>>? confirm,
+        BatchConflictDecision decision
+    ) =>
+        policy switch
+        {
+            "overwrite" => ChangedTargetChoice.Overwrite,
+            "skip" => ChangedTargetChoice.Skip,
+            "rename" => ChangedTargetChoice.Rename,
+            // ask
+            _ => await DecideConflictAsync(displayPath, confirm, decision)
+                ? ChangedTargetChoice.Overwrite
+                : ChangedTargetChoice.Skip,
+        };
+
+    /// <summary>把 <see cref="DecideChangedTargetAsync" /> 的选择落成具体动作(改名时算出新目标路径)。</summary>
+    private async Task<ChangedTargetAction> ResolveChangedTargetAsync(
+        TransferType type,
+        string localPath,
+        string remotePath,
+        BatchConflictDecision? decision,
+        CancellationToken ct
+    )
+    {
+        bool download = type == TransferType.Download;
+        ChangedTargetChoice choice = await DecideChangedTargetAsync(
+            TransferOptions.ConflictPolicy,
+            download ? localPath : remotePath,
+            download ? ConfirmOverwrite : ConfirmRemoteOverwrite,
+            decision ?? new()
+        );
+        return choice switch
+        {
+            ChangedTargetChoice.Overwrite => new(true),
+            ChangedTargetChoice.Rename => new(
+                false,
+                download
+                    ? new PlannedFileTransfer(type, NextAvailableLocalName(localPath), remotePath)
+                    : new PlannedFileTransfer(
+                        type,
+                        localPath,
+                        await NextAvailableRemoteNameAsync(remotePath, [], ct)
+                    )
+            ),
+            _ => new(false),
+        };
+    }
+
+    /// <summary>目标"同名但内容对不上"时的处置:覆盖整份重传、跳过,或改名后另传一份。</summary>
+    private readonly record struct ChangedTargetAction(bool Overwrite, PlannedFileTransfer? Renamed = null);
 
     /// <summary>
     /// 从传输面板重试一个失败项:重新探测续传起点(半截文件还在就从断点继续,起点核实与
@@ -2320,54 +2532,145 @@ public class FileBrowserViewModel : ReactiveObject
         }
     }
 
+    /// <summary>
+    /// 菜单动作的作用对象:当前选中的真实条目,再并上右键所指的那一行。
+    /// <para>
+    /// 右键本身已经会把所指行并入选区(见 FileBrowserView.FileRow_PointerPressed),这里再兜一次底,
+    /// 好让"对着一行点菜单"和"框选一片再点菜单"走的是同一条路 —— 前者就是后者的 n=1 情形。
+    /// </para>
+    /// </summary>
+    private List<RemoteFileInfoViewModel> SelectionOrRow(RemoteFileInfoViewModel? row)
+    {
+        List<RemoteFileInfoViewModel> targets = [.. SelectedFiles.Where(f => !f.IsParentEntry)];
+        if (row is not null && !row.IsParentEntry && !targets.Any(f => f.FullPath == row.FullPath))
+        {
+            targets.Add(row);
+        }
+        return targets;
+    }
+
     private async Task MoveAsync(RemoteFileInfoViewModel? file, CancellationToken ct = default)
     {
-        if (PromptForText is null || file is null || file.IsParentEntry)
+        if (PromptForText is null)
         {
             return;
         }
-        string? destination = await PromptForText(Strings.MoveToPrompt, file.FullPath);
-        if (string.IsNullOrWhiteSpace(destination) || destination.Trim() == file.FullPath)
+        List<RemoteFileInfoViewModel> targets = SelectionOrRow(file);
+        if (targets.Count == 0)
         {
             return;
         }
-        try
+
+        // 单个:仍按"完整目标路径"提示 —— 顺手改个名是这个入口的老用法,不该因为支持批量就丢掉。
+        if (targets.Count == 1)
         {
-            ErrorMessage = null;
-            await _sftpService.RenameAsync(_sessionId, file.FullPath, destination.Trim(), ct);
-            await RefreshAsync(ct);
+            RemoteFileInfoViewModel only = targets[0];
+            string? destination = await PromptForText(Strings.MoveToPrompt, only.FullPath);
+            if (string.IsNullOrWhiteSpace(destination) || destination.Trim() == only.FullPath)
+            {
+                return;
+            }
+            try
+            {
+                ErrorMessage = null;
+                await _sftpService.RenameAsync(_sessionId, only.FullPath, destination.Trim(), ct);
+                await RefreshAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = ex.Message;
+            }
+            return;
         }
-        catch (Exception ex)
+
+        // 多个:只问一次目标目录,各自按原名落进去(逐个问完整路径没法用)。
+        string? directory = await PromptForText(Strings.Get("MoveSelectedToPrompt"), CurrentPath);
+        if (string.IsNullOrWhiteSpace(directory))
         {
-            ErrorMessage = ex.Message;
+            return;
         }
+        string destDir = directory.Trim();
+        ErrorMessage = null;
+        var failures = new List<string>();
+        foreach (RemoteFileInfoViewModel item in targets)
+        {
+            string dest = CombinePath(destDir, item.Name);
+            if (dest == item.FullPath)
+            {
+                continue;
+            }
+            try
+            {
+                await _sftpService.RenameAsync(_sessionId, item.FullPath, dest, ct);
+            }
+            catch (Exception ex)
+            {
+                // 一条失败不该把剩下的也拦住:批量操作半途而废比"跑完再报告"更难收拾。
+                failures.Add($"{item.Name}: {ex.Message}");
+            }
+        }
+        // 先刷新再报告:RefreshAsync 会把 ErrorMessage 清掉,反过来写就等于什么都没报。
+        await RefreshAsync(ct);
+        ReportBatchFailures(failures);
     }
+
+    /// <summary>把批量操作里失败的那几条汇总到错误条上(全成功则清空)。</summary>
+    private void ReportBatchFailures(List<string> failures) =>
+        ErrorMessage = failures.Count == 0
+            ? null
+            : Strings.Format("BatchOpPartialFailure", failures.Count, failures[0]);
 
     private async Task CopyToAsync(RemoteFileInfoViewModel? file, CancellationToken ct = default)
     {
-        if (PromptForText is null || file is null || file.IsParentEntry)
+        if (PromptForText is null)
         {
             return;
         }
-        // Pre-fill with current parent directory and same name for easy copy-to-same-dir.
-        string parentDir = ParentOf(file.FullPath);
-        string suggested = CombinePath(parentDir, file.Name);
-        string? destination = await PromptForText(Strings.SftpCopyToPrompt, suggested);
-        if (string.IsNullOrWhiteSpace(destination) || destination.Trim() == file.FullPath)
+        List<RemoteFileInfoViewModel> targets = SelectionOrRow(file);
+        if (targets.Count == 0)
         {
             return;
         }
+
+        List<PlannedFileTransfer> plan;
+        if (targets.Count == 1)
+        {
+            // 单个:提示完整目标路径(预填同目录同名,方便就地复制一份)。
+            RemoteFileInfoViewModel only = targets[0];
+            string suggested = CombinePath(ParentOf(only.FullPath), only.Name);
+            string? destination = await PromptForText(Strings.SftpCopyToPrompt, suggested);
+            if (string.IsNullOrWhiteSpace(destination) || destination.Trim() == only.FullPath)
+            {
+                return;
+            }
+            plan = [new(TransferType.Copy, only.FullPath, destination.Trim())];
+        }
+        else
+        {
+            // 多个:只问一次目标目录,各自按原名落进去。
+            string? directory = await PromptForText(Strings.Get("CopySelectedToPrompt"), CurrentPath);
+            if (string.IsNullOrWhiteSpace(directory))
+            {
+                return;
+            }
+            string destDir = directory.Trim();
+            plan =
+            [
+                .. targets
+                    .Select(item => new PlannedFileTransfer(TransferType.Copy, item.FullPath, CombinePath(destDir, item.Name)))
+                    .Where(item => item.RemotePath != item.LocalPath),
+            ];
+            if (plan.Count == 0)
+            {
+                return;
+            }
+        }
+
         try
         {
             ErrorMessage = null;
-            string destPath = destination.Trim();
 
-            // Route through the unified transfer pipeline for proper progress,
-            // cancellation, failure status, and toast lifecycle.
-            var plan = new List<PlannedFileTransfer>
-            {
-                new(TransferType.Copy, file.FullPath, destPath)
-            };
+            // 走统一的传输管线:进度、取消、失败状态与浮窗生命周期都是现成的。
             bool ok = await RunTransferBatchAsync(plan, ct);
             if (ok)
             {

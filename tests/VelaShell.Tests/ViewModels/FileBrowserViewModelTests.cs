@@ -1,5 +1,5 @@
-using System.Reactive.Linq;
 using NSubstitute;
+using ReactiveUI.Primitives;
 using VelaShell.Core.Models;
 using VelaShell.Core.Resources;
 using VelaShell.Core.Sftp;
@@ -658,6 +658,110 @@ public class FileBrowserViewModelTests
                 "/tmp/moved.txt",
                 Arg.Any<CancellationToken>()
             );
+    }
+
+    [TestMethod]
+    [TestCategory("FileBrowser")]
+    public async Task Move_WithSeveralSelected_AsksOnceForAFolderAndMovesThemAllIntoIt()
+    {
+        // 框选一片再"移动到":逐个问完整路径没法用,只问一次目标目录,各自按原名落进去。
+        int prompts = 0;
+        _vm.PromptForText = (_, _) =>
+        {
+            prompts++;
+            return Task.FromResult<string?>("/srv/archive");
+        };
+        _sftpService
+            .ListDirectoryAsync(_sessionId, Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new List<RemoteFileInfo>()));
+        List<RemoteFileInfo> files = CreateTestFiles();
+        _vm.SelectedFiles.Add(new(files[1])); // readme.txt
+        _vm.SelectedFiles.Add(new(files[2]));
+
+        await _vm.MoveCommand.Execute(new(files[1])).FirstAsync();
+
+        Assert.AreEqual(1, prompts, "批量移动只该问一次目标目录。");
+        await _sftpService.Received(1).RenameAsync(
+            _sessionId, files[1].FullPath, $"/srv/archive/{files[1].Name}", Arg.Any<CancellationToken>());
+        await _sftpService.Received(1).RenameAsync(
+            _sessionId, files[2].FullPath, $"/srv/archive/{files[2].Name}", Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    [TestCategory("FileBrowser")]
+    public async Task Move_WhenOneItemFails_StillMovesTheRestAndReportsTheFailure()
+    {
+        // 批量半途中断比"跑完再报告"更难收拾:一条失败不该把剩下的也拦住。
+        _vm.PromptForText = (_, _) => Task.FromResult<string?>("/srv/archive");
+        _sftpService
+            .ListDirectoryAsync(_sessionId, Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new List<RemoteFileInfo>()));
+        List<RemoteFileInfo> files = CreateTestFiles();
+        _sftpService
+            .RenameAsync(_sessionId, files[1].FullPath, Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException(new IOException("permission denied")));
+        _vm.SelectedFiles.Add(new(files[1]));
+        _vm.SelectedFiles.Add(new(files[2]));
+
+        await _vm.MoveCommand.Execute(new(files[1])).FirstAsync();
+
+        // 失败的那条不该挡住后面的。
+        await _sftpService.Received(1).RenameAsync(
+            _sessionId, files[2].FullPath, $"/srv/archive/{files[2].Name}", Arg.Any<CancellationToken>());
+        Assert.IsNotNull(_vm.ErrorMessage);
+        Assert.Contains("permission denied", _vm.ErrorMessage);
+    }
+
+    [TestMethod]
+    [TestCategory("FileBrowser")]
+    public async Task Move_WithASingleItem_KeepsTheFullPathPromptSoRenamingStillWorks()
+    {
+        // n=1 时保留老用法:提示的是完整目标路径,可以顺手改名。
+        string? prompted = null;
+        _vm.PromptForText = (_, initial) =>
+        {
+            prompted = initial;
+            return Task.FromResult<string?>("/tmp/renamed.txt");
+        };
+        _sftpService
+            .ListDirectoryAsync(_sessionId, Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new List<RemoteFileInfo>()));
+        List<RemoteFileInfo> files = CreateTestFiles();
+        _vm.SelectedFiles.Add(new(files[1]));
+
+        await _vm.MoveCommand.Execute(new(files[1])).FirstAsync();
+
+        Assert.AreEqual(files[1].FullPath, prompted, "单个移动应预填完整路径,而不是目录。");
+        await _sftpService.Received(1).RenameAsync(
+            _sessionId, files[1].FullPath, "/tmp/renamed.txt", Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    [TestCategory("FileBrowser")]
+    public async Task CopyTo_WithSeveralSelected_AsksOnceAndCopiesEachIntoTheFolder()
+    {
+        int prompts = 0;
+        _vm.PromptForText = (_, _) =>
+        {
+            prompts++;
+            return Task.FromResult<string?>("/srv/backup");
+        };
+        _sftpService
+            .ListDirectoryAsync(_sessionId, Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new List<RemoteFileInfo>()));
+        List<RemoteFileInfo> files = CreateTestFiles();
+        _vm.SelectedFiles.Add(new(files[1]));
+        _vm.SelectedFiles.Add(new(files[2]));
+
+        await _vm.CopyToCommand.Execute(new(files[1])).FirstAsync();
+
+        Assert.AreEqual(1, prompts, "批量复制只该问一次目标目录。");
+        await _sftpService.Received(1).CopyAsync(
+            _sessionId, files[1].FullPath, $"/srv/backup/{files[1].Name}",
+            Arg.Any<IProgress<TransferProgress>?>(), Arg.Any<CancellationToken>());
+        await _sftpService.Received(1).CopyAsync(
+            _sessionId, files[2].FullPath, $"/srv/backup/{files[2].Name}",
+            Arg.Any<IProgress<TransferProgress>?>(), Arg.Any<CancellationToken>());
     }
 
     [TestMethod]
@@ -1552,7 +1656,7 @@ public class FileBrowserViewModelTests
             await File.WriteAllTextAsync(fileA, "A");
             await File.WriteAllTextAsync(fileB, "B");
             _vm.CurrentPath = "/home/user";
-            _vm.PickFilesForUpload = () => Task.FromResult<IReadOnlyList<string>>([fileA, fileB]);
+            _vm.PickLocalPathsForUpload = () => Task.FromResult<IReadOnlyList<string>>([fileA, fileB]);
             _sftpService
                 .ListDirectoryAsync(_sessionId, "/home/user", Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult(new List<RemoteFileInfo>()));
@@ -1587,7 +1691,7 @@ public class FileBrowserViewModelTests
 
     [TestMethod]
     [TestCategory("FileBrowser")]
-    public async Task UploadFolderCommand_RecursivelyUploadsFolderTree()
+    public async Task UploadCommand_RecursivelyUploadsFolderTree()
     {
         string tempRoot = Path.Combine(
             Path.GetTempPath(),
@@ -1603,11 +1707,11 @@ public class FileBrowserViewModelTests
             await File.WriteAllTextAsync(rootFile, "root");
             await File.WriteAllTextAsync(nestedFile, "child");
             _vm.CurrentPath = "/home/user";
-            _vm.PickFolderForUpload = () => Task.FromResult<string?>(folder);
+            _vm.PickLocalPathsForUpload = () => Task.FromResult<IReadOnlyList<string>>([folder]);
             _sftpService
                 .ListDirectoryAsync(_sessionId, "/home/user", Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult(new List<RemoteFileInfo>()));
-            await _vm.UploadFolderCommand.Execute().FirstAsync();
+            await _vm.UploadCommand.Execute().FirstAsync();
             await _sftpService
                 .Received(1)
                 .EnsureDirectoryAsync(
@@ -1648,5 +1752,90 @@ public class FileBrowserViewModelTests
                 Directory.Delete(tempRoot, true);
             }
         }
+    }
+
+    [TestMethod]
+    [TestCategory("FileBrowser")]
+    public async Task UploadCommand_MixedSelection_HandlesEachPathByItsOwnKind()
+    {
+        // 合并成一个上传入口的关键:一次选择里同时有文件和文件夹时,
+        // 文件直接传,文件夹整棵递归 —— 不需要用户先想清楚"这次要点哪个菜单项"。
+        string tempRoot = Path.Combine(Path.GetTempPath(), $"vela-mixed-upload-{Guid.NewGuid():N}");
+        string folder = Path.Combine(tempRoot, "assets");
+        Directory.CreateDirectory(folder);
+        try
+        {
+            string looseFile = Path.Combine(tempRoot, "notes.txt");
+            string folderFile = Path.Combine(folder, "logo.png");
+            await File.WriteAllTextAsync(looseFile, "notes");
+            await File.WriteAllTextAsync(folderFile, "png");
+            _vm.CurrentPath = "/home/user";
+            _vm.PickLocalPathsForUpload = () => Task.FromResult<IReadOnlyList<string>>([looseFile, folder]);
+            _sftpService
+                .ListDirectoryAsync(_sessionId, "/home/user", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(new List<RemoteFileInfo>()));
+
+            await _vm.UploadCommand.Execute().FirstAsync();
+
+            // 散落的文件:直接落在当前目录下。
+            await _sftpService
+                .Received(1)
+                .UploadFileAsync(
+                    _sessionId,
+                    looseFile,
+                    "/home/user/notes.txt",
+                    Arg.Any<IProgress<TransferProgress>?>(),
+                    cancellationToken: Arg.Any<CancellationToken>()
+                );
+            // 文件夹:建对应远端目录,内容按原结构传进去。
+            await _sftpService
+                .Received(1)
+                .EnsureDirectoryAsync(_sessionId, "/home/user/assets", Arg.Any<CancellationToken>());
+            await _sftpService
+                .Received(1)
+                .UploadFileAsync(
+                    _sessionId,
+                    folderFile,
+                    "/home/user/assets/logo.png",
+                    Arg.Any<IProgress<TransferProgress>?>(),
+                    cancellationToken: Arg.Any<CancellationToken>()
+                );
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, true);
+            }
+        }
+    }
+
+    [TestMethod]
+    [TestCategory("FileBrowser")]
+    public void NormalizeUploadRoots_DropsDuplicatesAndPathsAlreadyInsideAPickedFolder()
+    {
+        string root = Path.Combine("C:", "work");
+        string nested = Path.Combine(root, "src", "main.cs");
+        string sibling = Path.Combine("C:", "work-notes", "todo.txt");
+
+        IReadOnlyList<string> kept = FileBrowserViewModel.NormalizeUploadRoots(
+            [root, nested, root + Path.DirectorySeparatorChar, sibling]
+        );
+
+        // nested 已经被 root 包住,再单列一次就会把同一个文件传两遍、写同一个远端路径。
+        Assert.AreSequenceEqual([root, sibling], [.. kept], Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
+    }
+
+    [TestMethod]
+    [TestCategory("FileBrowser")]
+    public void NormalizeUploadRoots_KeepsSiblingsWhoseNamesSharePrefix()
+    {
+        // "work" 不该把 "work-notes" 吞掉 —— 前缀判断必须落在目录分隔符上。
+        string a = Path.Combine("C:", "work");
+        string b = Path.Combine("C:", "work-notes");
+
+        IReadOnlyList<string> kept = FileBrowserViewModel.NormalizeUploadRoots([a, b]);
+
+        Assert.AreSequenceEqual([a, b], [.. kept], Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
     }
 }

@@ -109,7 +109,11 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
 
     private bool _selecting;
 
-    // 选区(线性),位于绝对行空间。
+    // 本次选区是否为 Alt+拖拽的矩形块选(#128)。与 Windows Terminal 一致:按下鼠标那一刻由 Alt
+    // 决定,拖拽途中改变 Alt 不切换模式。
+    private bool _blockSelection;
+
+    // 选区(线性或矩形块选),位于绝对行空间。
     private (int Row, int Col)? _selectionAnchor;
     private (int Row, int Col)? _selectionCaret;
     private bool _styleTypefacesReady;
@@ -281,6 +285,33 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     }
 
     /// <summary>
+    /// 正文右侧默认留白(px)。取值同时满足两件事(参照 Windows Terminal):
+    /// 容得下覆盖式滚动条,且让最右一列离开窗口边缘 5px 的缩放抓取区。
+    /// </summary>
+    public const double DefaultRightPadding = 12;
+
+    /// <summary>
+    /// 正文右侧保留的空白带宽度(px)。这条带子不参与列数计算,于是:覆盖式滚动条落在带内
+    /// 而不再盖住文字,最右一列也不再压在窗口边缘的缩放抓取区下(那会让末列字符选不中、
+    /// 指针变成缩放光标)。写入即重排网格(可用列数 → PTY)。
+    /// </summary>
+    public double RightPadding
+    {
+        get;
+        set
+        {
+            double sanitized = Math.Max(0, value);
+            if (Math.Abs(field - sanitized) < 0.01)
+            {
+                return;
+            }
+            field = sanitized;
+            RelayoutFromBounds();
+            InvalidateVisual();
+        }
+    } = DefaultRightPadding;
+
+    /// <summary>
     /// 侧栏部件开关的公共写入:变化时重排布局(侧栏宽度→可用列数→PTY)并重绘。
     /// 不在此上报持久化——由设置应用与右键菜单区分来源,菜单侧显式触发,避免「应用设置→上报→再存」死循环。
     /// </summary>
@@ -360,7 +391,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
             RelayoutFromBounds();
             InvalidateVisual();
         }
-    } = new("Cascadia Mono, Consolas, JetBrains Mono, Microsoft YaHei, Segoe UI, monospace");
+    } = new("fonts:VelaShell#Cascadia Mono, Cascadia Mono, JetBrains Mono, Consolas, Microsoft YaHei, Segoe UI, monospace");
 
     /// <summary>终端字号(磅);修改后重算单元格度量、重排网格并重绘。</summary>
     public double FontSize
@@ -630,6 +661,13 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         remove => Emulator.TitleChanged -= value;
     }
 
+    /// <summary>OSC 7 当前工作目录变更(直通仿真器)。</summary>
+    public event Action<string>? WorkingDirectoryChanged
+    {
+        add => Emulator.WorkingDirectoryChanged += value;
+        remove => Emulator.WorkingDirectoryChanged -= value;
+    }
+
     /// <summary>设置主机输出字符集(默认 UTF-8;支持 GBK/Big5 等)。</summary>
     public void SetEncoding(Encoding encoding) => Emulator.SetEncoding(encoding);
 
@@ -865,6 +903,18 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
             return null;
         }
         string line = Emulator.Screen.ActiveLine(Emulator.CursorY).GetText();
+
+        // 光标右侧同一行还有非空白内容时一律不显示:幽灵是叠画层,画上去会与既有文字
+        // 重影,且"补全在行尾"的语义此时并不成立。典型场景是 zsh-autosuggestions ——
+        // shell 自己把建议写进了光标右侧的缓冲(#115),还有行中编辑与右提示符 RPROMPT。
+        // 判定必须落在渲染时钟上:宿主侧只在输入变化那一刻判过一次(HasTextRightOfCursor),
+        // 而 shell 自带的建议要等 PTY 往返之后才回显,那时幽灵早已设好、宿主不会再复核,
+        // 只有每帧按屏上真实状态现判才拦得住。GetText 已裁掉尾部空格,故行尾留白不误判。
+        if (line.Length > col && !string.IsNullOrWhiteSpace(line[col..]))
+        {
+            return null;
+        }
+
         // 光标左侧已回显文本(1 单元格≈1 字符,与 HasTextRightOfCursor 等既有假设一致)。
         int before = Math.Min(col, line.Length);
         // 最长 k:line 的末 k 字符 == full 的前 k 字符。先求最长(含 k==full.Length),
@@ -952,6 +1002,48 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         palette.SetAnsi(13, Rgba.FromRgb(0xFF, 0x92, 0xDF));
         palette.SetAnsi(14, Rgba.FromRgb(0xA4, 0xFF, 0xFF));
         palette.SetAnsi(15, Rgba.FromRgb(0xFF, 0xFF, 0xFF));
+    }
+
+    /// <summary>
+    /// 终端「默认背景」整屏填充的不透明度(0..1,默认 1=不透明,行为不变)。低于 1 时整屏默认背景变半透明,
+    /// 透出其后的应用背景图(设置→外观→背景图片)。只作用于整屏默认背景填充,不影响单元格自身着色的背景
+    /// (选区、彩色底等仍不透明),因此不牺牲文本可读性。仅在设置了背景图时由 MainWindowViewModel 下调。
+    /// </summary>
+    public double BackgroundOpacity
+    {
+        get;
+        set
+        {
+            double clamped = Math.Clamp(value, 0.0, 1.0);
+            if (Math.Abs(clamped - field) < 0.001)
+            {
+                return;
+            }
+            field = clamped;
+            InvalidateVisual();
+        }
+    } = 1.0;
+
+    private ImmutableSolidColorBrush? _bgFillBrush;
+    private uint _bgFillPacked;
+    private int _bgFillOp = -1;
+
+    /// <summary>整屏默认背景填充画刷:不透明时走共享缓存,半透明时按(颜色×不透明度)缓存一支专用画刷。</summary>
+    private ImmutableSolidColorBrush DefaultBackgroundBrush(Rgba bg)
+    {
+        if (BackgroundOpacity >= 0.999)
+        {
+            return BrushFor(bg);
+        }
+        int op = (int)Math.Round(BackgroundOpacity * 1000);
+        if (_bgFillBrush is null || _bgFillPacked != bg.Packed || _bgFillOp != op)
+        {
+            byte a = (byte)Math.Round(bg.A * BackgroundOpacity);
+            _bgFillBrush = new(Color.FromArgb(a, bg.R, bg.G, bg.B));
+            _bgFillPacked = bg.Packed;
+            _bgFillOp = op;
+        }
+        return _bgFillBrush;
     }
 
     private ImmutableSolidColorBrush BrushFor(Rgba c)
@@ -1182,7 +1274,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         {
             return;
         }
-        int cols = (int)((size.Width - GutterWidth()) / CellWidthForTest);
+        int cols = (int)((size.Width - GutterWidth() - RightPadding) / CellWidthForTest);
         int rows = (int)(size.Height / CellHeightForTest);
 
         // 忽略过早/退化的布局过程(尺寸为零或不足一格)。在这里把网格压缩成
@@ -1222,7 +1314,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     {
         TerminalScreen screen = Emulator.Screen;
         TerminalPalette palette = Emulator.Palette;
-        context.FillRectangle(BrushFor(palette.DefaultBackground), new(Bounds.Size));
+        context.FillRectangle(DefaultBackgroundBrush(palette.DefaultBackground), new(Bounds.Size));
         int rows = screen.Rows;
         int cols = screen.Columns;
 
@@ -1674,7 +1766,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
             {
                 (fg, bg) = (bg, fg);
             }
-            if (IsSelected(sel, absoluteRow, col))
+            if (TerminalSelectionMath.Contains(sel, _blockSelection, absoluteRow, col))
             {
                 bg = palette.SelectionBackground;
             }
@@ -1929,43 +2021,13 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
 
     // ---- Selection ----------------------------------------------------------
 
-    private ((int Row, int Col) Start, (int Row, int Col) End)? NormalizedSelection()
-    {
-        if (_selectionAnchor is not { } a || _selectionCaret is not { } c)
-        {
-            return null;
-        }
-        if (a.Row < c.Row || (a.Row == c.Row && a.Col <= c.Col))
-        {
-            return (a, c);
-        }
-        return (c, a);
-    }
+    private ((int Row, int Col) Start, (int Row, int Col) End)? NormalizedSelection() =>
+        _selectionAnchor is { } a && _selectionCaret is { } c
+            ? TerminalSelectionMath.Normalize(a, c, _blockSelection)
+            : null;
 
-    private static bool IsSelected(
-        ((int Row, int Col) Start, (int Row, int Col) End)? sel,
-        int row,
-        int col
-    )
-    {
-        if (sel is not { } s)
-        {
-            return false;
-        }
-        if (row < s.Start.Row || row > s.End.Row)
-        {
-            return false;
-        }
-        if (row == s.Start.Row && col < s.Start.Col)
-        {
-            return false;
-        }
-        if (row == s.End.Row && col >= s.End.Col)
-        {
-            return false;
-        }
-        return true;
-    }
+    /// <summary>当前选区是否为 Alt+拖拽的矩形块选(测试与宿主诊断用)。</summary>
+    public bool IsBlockSelection => _blockSelection && NormalizedSelection() is not null;
 
     /// <summary>搜索整个缓冲区(回滚区 + 屏幕),不区分大小写(规范 §5.3)。</summary>
     public IReadOnlyList<BufferSearchHit> SearchBuffer(string query) =>
@@ -2041,6 +2103,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     {
         _selectionAnchor = (hit.Row, hit.StartCol);
         _selectionCaret = (hit.Row, hit.StartCol + hit.Length);
+        _blockSelection = false;
         int totalRows = Emulator.Screen.TotalRows;
         int rows = Emulator.Rows;
         int desiredTop = Math.Max(0, hit.Row - rows / 2);
@@ -2062,10 +2125,15 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         for (int row = s.Start.Row; row <= s.End.Row && row < screen.TotalRows; row++)
         {
             TerminalRow line = screen.ViewLine(row);
-            int from = row == s.Start.Row ? s.Start.Col : 0;
-            int to = row == s.End.Row ? s.End.Col : line.Columns;
+            // 块选时每行取同一段列区间(矩形),线性选区则首行从起点、末行到终点、中间整行。
+            (int from, int to) = TerminalSelectionMath.RowSpan(
+                s,
+                _blockSelection,
+                row,
+                line.Columns
+            );
             int lineStart = sb.Length;
-            for (int col = Math.Max(0, from); col < Math.Min(line.Columns, to); col++)
+            for (int col = from; col < to; col++)
             {
                 TerminalCell cell = line[col];
                 if (!cell.IsWideTrailing)
@@ -2285,6 +2353,10 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
                 e.Handled = true;
                 return;
             }
+            // Alt+左键拖拽 = 矩形块选(#128,对齐 Windows Terminal):模式在按下这一刻定下,
+            // 拖拽途中松开 Alt 不会退回线性选区。应用开启鼠标追踪时,鼠标事件已在上面转发给应用,
+            // 此时需按住 Shift 绕过上报,即 Shift+Alt+拖拽仍可块选。
+            _blockSelection = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
             _selecting = true;
             _selectionAnchor = PointToCell(point);
             _selectionCaret = _selectionAnchor;
@@ -2332,6 +2404,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         _selectionAnchor = (cell.Row, start);
         _selectionCaret = (cell.Row, end);
         _selecting = false;
+        _blockSelection = false;
         InvalidateVisual();
         if (CopyOnSelect)
         {
@@ -2538,6 +2611,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     {
         _selectionAnchor = null;
         _selectionCaret = null;
+        _blockSelection = false;
     }
 
     private async void OpenLink(string url)
@@ -2605,10 +2679,19 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
             && MultilinePasteConfirmation is { } confirm
             && text.IndexOfAny(['\r', '\n']) >= 0
             && text.TrimEnd('\r', '\n').IndexOfAny(['\r', '\n']) >= 0
-            && !await confirm(text)
         )
         {
-            return;
+            bool approved = await confirm(text);
+
+            // 确认框是模态窗口:它关闭后 Avalonia 只把焦点还给宿主窗口,不会回到弹窗前的焦点
+            // 控件,于是粘贴完终端是失焦的 —— 用户必须先点一下才能敲回车执行。这里主动把焦点
+            // 收回来(取消粘贴时同样收回,否则一样敲不了键)。用 Post 而不是直接 Focus():
+            // 关窗时的焦点还原发生在本延续之后,同步抢焦点会被它覆盖掉。
+            Dispatcher.UIThread.Post(() => Focus(), DispatcherPriority.Input);
+            if (!approved)
+            {
+                return;
+            }
         }
         WritePasteInput(text);
     }

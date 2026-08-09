@@ -1,8 +1,7 @@
 using System.Collections.ObjectModel;
-using System.Reactive;
-using System.Reactive.Linq;
 using System.Security;
 using ReactiveUI;
+using ReactiveUI.Primitives;
 using VelaShell.Core.Data;
 using VelaShell.Core.Models;
 using VelaShell.Core.Resources;
@@ -345,28 +344,28 @@ public class ConnectionProfileViewModel : ReactiveObject
     public bool ConnectAfterClose { get; private set; }
 
     /// <summary>保存配置命令;成功返回保存后的 <see cref="SessionProfile" />,失败返回 null。</summary>
-    public ReactiveCommand<Unit, SessionProfile?> SaveCommand { get; }
+    public ReactiveCommand<RxVoid, SessionProfile?> SaveCommand { get; }
 
     /// <summary>连接命令;先保存配置,再请求宿主窗口在弹窗关闭后立即连接。</summary>
-    public ReactiveCommand<Unit, SessionProfile?> ConnectCommand { get; }
+    public ReactiveCommand<RxVoid, SessionProfile?> ConnectCommand { get; }
 
     /// <summary>取消命令;关闭弹窗并返回 null。</summary>
-    public ReactiveCommand<Unit, SessionProfile?> CancelCommand { get; }
+    public ReactiveCommand<RxVoid, SessionProfile?> CancelCommand { get; }
 
     /// <summary>连接测试命令;不落库,仅探测能否连通并回填结果。</summary>
-    public ReactiveCommand<Unit, Unit> TestConnectionCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> TestConnectionCommand { get; }
 
     /// <summary>浏览私钥文件命令;由视图层挂接文件选择对话框。</summary>
-    public ReactiveCommand<Unit, Unit> BrowseKeyFileCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> BrowseKeyFileCommand { get; }
 
     /// <summary>切换高级选项区域展开/收起的命令。</summary>
-    public ReactiveCommand<Unit, Unit> ToggleAdvancedCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ToggleAdvancedCommand { get; }
 
     /// <summary>切换密码明文/掩码显示的命令。</summary>
-    public ReactiveCommand<Unit, Unit> TogglePasswordVisibilityCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> TogglePasswordVisibilityCommand { get; }
 
     /// <summary>选择 SSH 或 SFTP;Telnet/串口没有对应命令,因此仍保持禁用。</summary>
-    public ReactiveCommand<ConnectionType, Unit> SelectConnectionTypeCommand { get; }
+    public ReactiveCommand<ConnectionType, RxVoid> SelectConnectionTypeCommand { get; }
 
     /// <summary>
     /// 从仓储加载分组下拉(“未分组” + 全部分组),并选中当前配置的分组;

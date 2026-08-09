@@ -7,12 +7,12 @@
              xmlns:loc="using:VelaShell.Localization"
              x:Class="VelaShell.Docking.Controls.SftpDockTabItem"
              x:DataType="docking:SftpDocument"
-             FontSize="11"
+             FontSize="{DynamicResource VelaFontSize11}"
              VerticalAlignment="Stretch">
   <UserControl.Styles>
     <Style Selector="local|SftpDockTabItem">
       <Setter Property="Foreground" Value="{DynamicResource VelaTextTertiary}" />
-      <Setter Property="FontFamily" Value="{DynamicResource VelaTerminalFont}" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
       <Setter Property="Transitions">
         <Transitions>
           <BrushTransition Property="Foreground" Duration="0:0:0.12" Easing="CubicEaseOut" />

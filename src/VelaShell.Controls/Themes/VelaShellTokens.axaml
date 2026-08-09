@@ -10,7 +10,15 @@
            原 #21222C 与终端 #282A36 落差过大,分界生硬。 -->
       <SolidColorBrush x:Key="VelaBgSidebar" Color="#252734" />
       <SolidColorBrush x:Key="VelaBgTerminal" Color="#282A36" />
+      <!-- SFTP 文件面板底(默认同终端色);单列出来是为了背景图功能可与终端分开调不透明度。 -->
+      <SolidColorBrush x:Key="VelaBgSftpPanel" Color="#282A36" />
+      <!-- Dock 文档容器底(默认同终端色);单列出来是为了背景图时它保持透明,
+           让终端 tint 只由 TerminalHost 单个 Border 承担,避免与之嵌套叠加成双层。 -->
+      <SolidColorBrush x:Key="VelaBgDockDocument" Color="#282A36" />
       <SolidColorBrush x:Key="VelaBgSurface" Color="#343746" />
+      <!-- 内容区表头/工具条底(默认同 Surface 色);单列出来是为了背景图时可随内容半透明,
+           而 VelaBgSurface 仍需给弹层/对话框保持不透明。 -->
+      <SolidColorBrush x:Key="VelaBgContentHeader" Color="#343746" />
       <SolidColorBrush x:Key="VelaBgActive" Color="#44475A" />
       <SolidColorBrush x:Key="VelaBgHover" Color="#363948" />
       <SolidColorBrush x:Key="VelaBgInput" Color="#282A36" />
@@ -22,7 +30,10 @@
       <SolidColorBrush x:Key="VelaBgPage" Color="#F2EDDA" />
       <SolidColorBrush x:Key="VelaBgSidebar" Color="#F8F4E4" />
       <SolidColorBrush x:Key="VelaBgTerminal" Color="#FFFBEB" />
+      <SolidColorBrush x:Key="VelaBgSftpPanel" Color="#FFFBEB" />
+      <SolidColorBrush x:Key="VelaBgDockDocument" Color="#FFFBEB" />
       <SolidColorBrush x:Key="VelaBgSurface" Color="#FFFBEB" />
+      <SolidColorBrush x:Key="VelaBgContentHeader" Color="#FFFBEB" />
       <SolidColorBrush x:Key="VelaBgActive" Color="#644AC922" />
       <SolidColorBrush x:Key="VelaBgHover" Color="#EDE7D0" />
       <SolidColorBrush x:Key="VelaBgInput" Color="#F7F2DF" />

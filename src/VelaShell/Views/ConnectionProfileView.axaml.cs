@@ -6,6 +6,7 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
+using ReactiveUI.Primitives;
 using VelaShell.Core.Resources;
 using VelaShell.ViewModels;
 
@@ -183,7 +184,8 @@ public partial class ConnectionProfileView : Window
         IReadOnlyList<IStorageFile> files = await StorageProvider.OpenFilePickerAsync(new()
         {
             Title = Strings.Get("Profile_SelectKeyFile"),
-            AllowMultiple = false
+            AllowMultiple = false,
+            SuggestedStartLocation = await StorageDefaults.SshAsync(this)
         });
         if (files.AsParallel().FirstOrDefault()?.TryGetLocalPath() is { Length: > 0 } path)
         {

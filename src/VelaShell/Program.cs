@@ -6,6 +6,7 @@ using Avalonia;
 using ReactiveUI.Avalonia;
 using VelaShell.Core.Resources;
 using VelaShell.Infrastructure.Persistence;
+using VelaShell.Services;
 using VelaShell.Services.Update;
 
 // ReSharper disable InconsistentNaming
@@ -20,6 +21,16 @@ internal static partial class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        // 外置换版模式必须排在最前:此时跑的是更新包里新版主程序的一份临时副本,
+        // 身边没有任何本机依赖(单文件发布只打包托管程序集),碰一下 Avalonia 就起不来。
+        // 它等主进程退出后换版、拉起应用,然后本进程结束——不走下面任何一行。
+        if (UpdateRunner.TryRun(args))
+        {
+            return;
+        }
+
+        NormalizeWorkingDirectory();
+
         // 启用旧代码页(GBK、Big5、Shift_JIS 等)以支持终端编码选项。
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         InstallGlobalExceptionGuards();
@@ -52,27 +63,66 @@ internal static partial class Program
     }
 
     /// <summary>
-    /// 完成上一轮留下的自更新:删除成功交换后遗留的 *.old 文件,或回滚中途崩溃的交换。
-    /// 旧进程可能仍在退出并持有其(已重命名的)映像文件,因此删除失败会在后台短暂重试,
-    /// 若仍失败则留待下次启动再处理。永不抛异常。
+    /// 把进程的工作目录钉在应用自身目录上。
+    /// </summary>
+    /// <remarks>
+    /// 开机自启走的是 <c>HKCU\...\Run</c>,而 Explorer 拉起 Run 键里的程序时会把子进程的工作目录
+    /// 设成 <c>C:\Windows\System32</c>(继承它自己的 CWD)。应用本身从不依赖 CWD——所有持久化路径
+    /// 都以 <c>%LocalAppData%\VelaShell</c> 或 <see cref="Environment.ProcessPath" /> 为根——但
+    /// 系统层面仍有两处会踩到它:没指定起始目录的文件对话框会停在 CWD,设置里若填了相对路径也按
+    /// CWD 解析。二者都会让 System32 莫名其妙地冒出来(#120)。这里定死一次即可根除。
+    /// 外置换版进程不走这条路径(它在上面就返回了),其临时目录语义不受影响。
+    /// </remarks>
+    private static void NormalizeWorkingDirectory()
+    {
+        try
+        {
+            if (Path.GetDirectoryName(Environment.ProcessPath) is { Length: > 0 } appDirectory
+                && Directory.Exists(appDirectory))
+            {
+                Directory.SetCurrentDirectory(appDirectory);
+            }
+        }
+        catch
+        {
+            // 目录不可访问(受限环境/只读介质)时保持原样:CWD 不参与任何功能路径。
+        }
+    }
+
+    /// <summary>
+    /// 完成上一轮留下的自更新:清掉换版备份与解包内容,或回滚中途中断的换版,并顺带清扫
+    /// 更新器临时目录与历史版本遗留的 *.old。刚退出的旧进程或更新器进程可能仍持有某些文件,
+    /// 因此失败会在后台按退避节奏重试约两分钟,仍不成的留待下次启动。永不抛异常。
     /// </summary>
     private static void FinalizePendingUpdate()
     {
+        if (AppPackaging.IsPackaged)
+        {
+            // 商店版从不自更新,安装目录(WindowsApps)也只读:没有换版现场要收拾,
+            // 更不该每次启动都去递归枚举一遍安装目录。
+            return;
+        }
         string appDir = Path.GetDirectoryName(Environment.ProcessPath) ?? AppContext.BaseDirectory;
         UpdateApplier applier = new(appDir);
         if (applier.TryFinalizeStartup())
         {
             return;
         }
+        // 退避而非固定 1 秒 ×10:占用方多半是正在退出的进程或杀软扫描,几秒内就放手;
+        // 真拖久了(旧机械盘上的全盘扫描)也得给够时间,否则残留就要多留一整轮启动。
         _ = Task.Run(async () =>
         {
-            for (int i = 0; i < 10; i++)
+            var delay = TimeSpan.FromSeconds(1);
+            TimeSpan elapsed = TimeSpan.Zero;
+            while (elapsed < TimeSpan.FromMinutes(2))
             {
-                await Task.Delay(TimeSpan.FromSeconds(1));
+                await Task.Delay(delay);
+                elapsed += delay;
                 if (applier.TryFinalizeStartup())
                 {
                     return;
                 }
+                delay = TimeSpan.FromSeconds(Math.Min(delay.TotalSeconds * 2, 15));
             }
         });
     }
@@ -157,10 +207,40 @@ internal static partial class Program
             Trace.WriteLine($"[VelaShell] Unhandled domain exception: {e.ExceptionObject}");
     }
 
+    /// <summary>
+    /// 解析渲染后端(设置 → 外观 → 硬件加速)。渲染模式必须在 Avalonia 初始化之前定下来,
+    /// 那时 DI 与 SonnetDB 都还没起来,因此读的是设置保存时镜像出来的单行小文件,
+    /// 而不是数据库 —— 启动路径上只有一次 File.ReadAllText。
+    /// </summary>
+    /// <remarks>
+    /// 关掉硬件加速能省下约 170MB 常驻内存:GPU 后端会把显卡驱动的一整套模块映射进本进程
+    /// (Intel 核显上 igc64.dll 一个就 82MB)。代价是绘制交给 CPU。
+    /// </remarks>
+    private static IReadOnlyList<Win32RenderingMode> ResolveRenderingMode()
+    {
+        // 软件渲染兜底始终留在列表末尾:GPU 初始化失败(远程桌面、驱动异常)时不至于起不来。
+        IReadOnlyList<Win32RenderingMode> gpu = [Win32RenderingMode.AngleEgl, Win32RenderingMode.Software];
+        IReadOnlyList<Win32RenderingMode> software = [Win32RenderingMode.Software];
+        if (Environment.GetEnvironmentVariable("VELASHELL_SOFTWARE_RENDER") == "1")
+        {
+            return software; // 测量与排障用的强制开关
+        }
+        try
+        {
+            string path = new VelaShellStoragePaths().RenderModeFile;
+            return File.Exists(path) && File.ReadAllText(path).Trim() is "software" ? software : gpu;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return gpu;
+        }
+    }
+
     // Avalonia 配置,勿删除;可视化设计器也用到。
     private static AppBuilder BuildAvaloniaApp() =>
         AppBuilder.Configure<App>()
                   .UsePlatformDetect()
+                  .With(new Win32PlatformOptions { RenderingMode = ResolveRenderingMode() })
 #if LINUX
                   .UseWayland()
 #endif

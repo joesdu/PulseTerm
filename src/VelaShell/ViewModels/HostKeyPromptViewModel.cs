@@ -1,5 +1,5 @@
-using System.Reactive;
 using ReactiveUI;
+using ReactiveUI.Primitives;
 using VelaShell.Core.Resources;
 using VelaShell.Core.Ssh;
 
@@ -64,11 +64,11 @@ public class HostKeyPromptViewModel : ReactiveObject
     }
 
     /// <summary>“永久信任”命令:接受该密钥并写入 known_hosts。</summary>
-    public ReactiveCommand<Unit, Unit> TrustPermanentlyCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> TrustPermanentlyCommand { get; }
 
     /// <summary>“仅本次信任”命令:接受该密钥但不落盘,仅本次运行有效。</summary>
-    public ReactiveCommand<Unit, Unit> TrustOnceCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> TrustOnceCommand { get; }
 
     /// <summary>“取消”命令:拒绝该密钥并中止连接。</summary>
-    public ReactiveCommand<Unit, Unit> CancelCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> CancelCommand { get; }
 }

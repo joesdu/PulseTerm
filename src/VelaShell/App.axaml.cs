@@ -63,6 +63,7 @@ public class App : Application
                 channelProvider: async () =>
                     (await sp.GetRequiredService<ISettingsService>().GetSettingsAsync()).General.UpdateChannel
             ))
+            .AddSingleton(sp => new WindowLayoutStore(sp.GetService<IAppDataStore>()))
             .AddSingleton<QuickCommandsViewModel>()
             .AddSingleton<SettingsViewModel>()
             .AddSingleton<MainWindowViewModel>()
