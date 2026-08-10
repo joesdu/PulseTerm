@@ -43,6 +43,9 @@ public static class Strings
     /// <summary>“通知”标签/按钮文案。</summary>
     public static string Notifications => ResourceManager.GetString(nameof(Notifications), CultureInfo.CurrentUICulture) ?? nameof(Notifications);
 
+    /// <summary>“插件”标签/按钮文案。</summary>
+    public static string Plugins => ResourceManager.GetString(nameof(Plugins), CultureInfo.CurrentUICulture) ?? nameof(Plugins);
+
     /// <summary>“新建标签页”菜单/按钮文案。</summary>
     public static string NewTab => ResourceManager.GetString(nameof(NewTab), CultureInfo.CurrentUICulture) ?? nameof(NewTab);
 

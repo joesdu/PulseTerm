@@ -23,6 +23,35 @@ public class SshConnectionService(
     /// </summary>
     private readonly Lock _sessionsGate = new();
 
+    /// <inheritdoc />
+    public event Action<SshSession>? SessionConnected;
+
+    /// <inheritdoc />
+    public event Action<SshSession>? SessionDisconnected;
+
+    /// <summary>
+    /// 逐订阅方安全触发会话事件:单个订阅方(如某个插件)抛出不影响其它订阅方,
+    /// 更不允许把异常带回建连/断开路径。
+    /// </summary>
+    private void RaiseSessionEvent(Action<SshSession>? handlers, SshSession session)
+    {
+        if (handlers is null)
+        {
+            return;
+        }
+        foreach (Action<SshSession> handler in handlers.GetInvocationList().Cast<Action<SshSession>>())
+        {
+            try
+            {
+                handler(session);
+            }
+            catch (Exception ex)
+            {
+                logger?.LogWarning(ex, "Session event subscriber threw for session {SessionId}", session.SessionId);
+            }
+        }
+    }
+
     /// <summary>
     /// 当前所有 SSH 会话的快照:在锁内复制,调用方遍历期间不会受并发增删影响。
     /// </summary>
@@ -82,6 +111,7 @@ public class SshConnectionService(
         {
             logger.LogInformation("SSH session {SessionId} disconnected", sessionId);
         }
+        RaiseSessionEvent(SessionDisconnected, session);
     }
 
     /// <summary>
@@ -168,6 +198,7 @@ public class SshConnectionService(
                 logger.LogInformation("SSH session {SessionId} connected to {Host}:{Port}",
                     session.SessionId, connectionInfo.Host, connectionInfo.Port);
             }
+            RaiseSessionEvent(SessionConnected, session);
             return session;
         }
         catch (OperationCanceledException)

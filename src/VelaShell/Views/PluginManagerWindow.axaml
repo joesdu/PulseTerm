@@ -1,0 +1,227 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:VelaShell.ViewModels"
+        xmlns:pc="using:VelaShell.Controls.Controls"
+        x:Class="VelaShell.Views.PluginManagerWindow"
+        x:DataType="vm:PluginManagerViewModel"
+        Icon="/Assets/velashell.ico"
+        Width="660" Height="540"
+        MinWidth="500" MinHeight="380"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        WindowStartupLocation="CenterOwner"
+        WindowDecorations="None">
+
+  <!-- 插件管理窗口:与资源监视/链路追踪同规格(透明窗口 + 自绘 8px 圆角卡片 +
+       40px 标题栏 + min/max/close 三连按钮 + 自绘缩放抓取区)。 -->
+
+  <Window.Styles>
+    <Style Selector="Button.caption">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="Width" Value="42" />
+      <Setter Property="Height" Value="34" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.caption:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+    </Style>
+    <Style Selector="Button.caption-close:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#E81123" />
+    </Style>
+
+    <Style Selector="Button.tool">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderSecondary}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Height" Value="28" />
+      <Setter Property="Padding" Value="12,0" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.tool:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+    </Style>
+
+    <Style Selector="Button.row-action">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderSecondary}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Height" Value="26" />
+      <Setter Property="Padding" Value="10,0" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.row-action:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+    </Style>
+    <Style Selector="Button.row-danger">
+      <Setter Property="Foreground" Value="{DynamicResource VelaError}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaError}" />
+    </Style>
+
+    <Style Selector="Ellipse.dot">
+      <Setter Property="Width" Value="8" />
+      <Setter Property="Height" Value="8" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Ellipse.dot.ok">
+      <Setter Property="Fill" Value="{DynamicResource VelaStatusConnected}" />
+    </Style>
+    <Style Selector="Ellipse.dot.warn">
+      <Setter Property="Fill" Value="{DynamicResource VelaWarning}" />
+    </Style>
+    <Style Selector="Ellipse.dot.err">
+      <Setter Property="Fill" Value="{DynamicResource VelaError}" />
+    </Style>
+    <Style Selector="Ellipse.dot.idle">
+      <Setter Property="Fill" Value="{DynamicResource VelaTextTertiary}" />
+    </Style>
+  </Window.Styles>
+
+  <Panel>
+    <Border x:Name="RootCard"
+            Margin="8" CornerRadius="8" ClipToBounds="True"
+            Background="{DynamicResource VelaBgSurface}"
+            BorderBrush="{DynamicResource VelaBorderSecondary}"
+            BorderThickness="1"
+            BoxShadow="0 8 32 0 #80000000">
+      <Grid RowDefinitions="40,Auto,*">
+
+        <!-- 标题栏 -->
+        <Border x:Name="TitleBarStrip" Grid.Row="0"
+                Background="{DynamicResource VelaBgSurface}"
+                BorderBrush="{DynamicResource VelaBorderPrimary}"
+                BorderThickness="0,0,0,1" CornerRadius="7,7,0,0"
+                PointerPressed="Header_PointerPressed">
+          <Grid ColumnDefinitions="*,Auto" Margin="14,0,0,0">
+            <StackPanel Orientation="Horizontal" Spacing="9" VerticalAlignment="Center">
+              <pc:LucideIcon Width="14" Height="14" Data="{StaticResource Icon.plug}"
+                             Foreground="{DynamicResource VelaAccent}" VerticalAlignment="Center" />
+              <TextBlock Text="{Binding Title}"
+                         Foreground="{DynamicResource VelaTextPrimary}"
+                         FontFamily="{DynamicResource VelaUiFont}"
+                         FontSize="{DynamicResource VelaFontSize12}" FontWeight="SemiBold"
+                         VerticalAlignment="Center" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
+              <Button Classes="caption" Click="Minimize_Click">
+                <pc:LucideIcon Width="12" Height="12" Data="{StaticResource Icon.minus}"
+                               Foreground="{DynamicResource VelaTextSecondary}" />
+              </Button>
+              <Button Classes="caption" Click="Maximize_Click">
+                <pc:LucideIcon Width="10" Height="10" Data="{StaticResource Icon.square}"
+                               Foreground="{DynamicResource VelaTextSecondary}" />
+              </Button>
+              <Button Classes="caption caption-close" Click="Close_Click">
+                <pc:LucideIcon Width="12" Height="12" Data="{StaticResource Icon.x}"
+                               Foreground="{DynamicResource VelaTextSecondary}" />
+              </Button>
+            </StackPanel>
+          </Grid>
+        </Border>
+
+        <!-- 工具条:安装 + 提示 -->
+        <Border Grid.Row="1" Padding="14,10"
+                BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,0,0,1">
+          <Grid ColumnDefinitions="Auto,*">
+            <Button Grid.Column="0" Classes="tool" Click="Install_Click" IsVisible="{Binding CanInstall}">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <pc:LucideIcon Width="12" Height="12" Data="{StaticResource Icon.download}"
+                               Foreground="{DynamicResource VelaTextSecondary}" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding InstallText}" VerticalAlignment="Center" />
+              </StackPanel>
+            </Button>
+            <TextBlock Grid.Column="1" Text="{Binding Notice}"
+                       IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}"
+                       Foreground="{DynamicResource VelaTextMuted}" FontSize="{DynamicResource VelaFontSize10}"
+                       VerticalAlignment="Center" Margin="12,0,0,0" TextTrimming="CharacterEllipsis" />
+          </Grid>
+        </Border>
+
+        <!-- 列表 / 空态 -->
+        <Panel Grid.Row="2">
+          <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="10"
+                      IsVisible="{Binding IsEmpty}">
+            <pc:LucideIcon Width="30" Height="30" Data="{StaticResource Icon.plug}"
+                           Foreground="{DynamicResource VelaTextMuted}" HorizontalAlignment="Center" />
+            <TextBlock Text="{Binding EmptyText}" Foreground="{DynamicResource VelaTextMuted}"
+                       FontSize="{DynamicResource VelaFontSize12}" HorizontalAlignment="Center" />
+          </StackPanel>
+
+          <ScrollViewer IsVisible="{Binding !IsEmpty}" Padding="14,12">
+            <ItemsControl ItemsSource="{Binding Plugins}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:PluginRowViewModel">
+                  <Border Background="{DynamicResource VelaBgInput}"
+                          BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="1"
+                          CornerRadius="6" Padding="14,11" Margin="0,0,0,8">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                      <Ellipse Grid.Column="0" Classes="dot"
+                               Classes.ok="{Binding IsOk}" Classes.warn="{Binding IsWarn}"
+                               Classes.err="{Binding IsErr}" Classes.idle="{Binding IsIdle}"
+                               Margin="0,0,12,0" VerticalAlignment="Top" />
+                      <StackPanel Grid.Column="1" Spacing="3">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                          <TextBlock Text="{Binding DisplayName}" Foreground="{DynamicResource VelaTextPrimary}"
+                                     FontFamily="{DynamicResource VelaUiFont}"
+                                     FontSize="{DynamicResource VelaFontSize12}" FontWeight="Medium" />
+                          <TextBlock Text="{Binding Version}" Foreground="{DynamicResource VelaTextMuted}"
+                                     FontFamily="{DynamicResource VelaUiMonoFont}"
+                                     FontSize="{DynamicResource VelaFontSize10}" VerticalAlignment="Center" />
+                          <Border Background="{DynamicResource VelaBgActive}" CornerRadius="3" Padding="5,1"
+                                  VerticalAlignment="Center">
+                            <TextBlock Text="{Binding HostMode}" Foreground="{DynamicResource VelaTextTertiary}"
+                                       FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize9}" />
+                          </Border>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                          <TextBlock Text="{Binding StatusText}" Foreground="{DynamicResource VelaTextSecondary}"
+                                     FontSize="{DynamicResource VelaFontSize10}" />
+                          <TextBlock Text="{Binding Id}" Foreground="{DynamicResource VelaTextMuted}"
+                                     FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize9}"
+                                     VerticalAlignment="Center" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding Error}" IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                   Foreground="{DynamicResource VelaError}" FontSize="{DynamicResource VelaFontSize10}"
+                                   TextWrapping="Wrap" Margin="0,2,0,0" />
+                      </StackPanel>
+                      <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <Button Classes="row-action" Content="{Binding RevokeText}"
+                                IsVisible="{Binding HasTerminalGrant}" Click="Revoke_Click" />
+                        <Button Classes="row-action" Content="{Binding ToggleText}"
+                                IsVisible="{Binding CanToggle}" Click="Toggle_Click" />
+                        <Button Classes="row-action row-danger" Content="{Binding UninstallText}"
+                                IsVisible="{Binding CanUninstall}" Click="Uninstall_Click" />
+                      </StackPanel>
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </Panel>
+      </Grid>
+    </Border>
+
+    <Panel x:Name="ResizeGrips" ZIndex="200">
+      <Border Tag="North" Height="5" VerticalAlignment="Top" Margin="10,0" Background="Transparent" Cursor="TopSide" PointerPressed="ResizeEdge_PointerPressed" />
+      <Border Tag="South" Height="5" VerticalAlignment="Bottom" Margin="10,0" Background="Transparent" Cursor="BottomSide" PointerPressed="ResizeEdge_PointerPressed" />
+      <Border Tag="West" Width="5" HorizontalAlignment="Left" Margin="0,10" Background="Transparent" Cursor="LeftSide" PointerPressed="ResizeEdge_PointerPressed" />
+      <Border Tag="East" Width="5" HorizontalAlignment="Right" Margin="0,10" Background="Transparent" Cursor="RightSide" PointerPressed="ResizeEdge_PointerPressed" />
+      <Border Tag="NorthWest" Width="10" Height="10" HorizontalAlignment="Left" VerticalAlignment="Top" Background="Transparent" Cursor="TopLeftCorner" PointerPressed="ResizeEdge_PointerPressed" />
+      <Border Tag="NorthEast" Width="10" Height="10" HorizontalAlignment="Right" VerticalAlignment="Top" Background="Transparent" Cursor="TopRightCorner" PointerPressed="ResizeEdge_PointerPressed" />
+      <Border Tag="SouthWest" Width="10" Height="10" HorizontalAlignment="Left" VerticalAlignment="Bottom" Background="Transparent" Cursor="BottomLeftCorner" PointerPressed="ResizeEdge_PointerPressed" />
+      <Border Tag="SouthEast" Width="10" Height="10" HorizontalAlignment="Right" VerticalAlignment="Bottom" Background="Transparent" Cursor="BottomRightCorner" PointerPressed="ResizeEdge_PointerPressed" />
+    </Panel>
+  </Panel>
+</Window>

@@ -21,6 +21,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\VelaShell.Infrastructure\VelaShell.Infrastructure.csproj" />
+    <!-- 插件运行时端到端测试用真实的示例插件程序集驱动;面板逻辑测试用 Testing 替身。 -->
+    <ProjectReference Include="..\..\plugins\VelaShell.Plugin.HelloWorld\VelaShell.Plugin.HelloWorld.csproj" />
+    <ProjectReference Include="..\..\plugin-sdk\VelaShell.PluginSdk.Testing\VelaShell.PluginSdk.Testing.csproj" />
+    <!-- 隔离模式 e2e:测试目录里要有真实的 PluginHost 可执行。 -->
+    <ProjectReference Include="..\..\src\VelaShell.PluginHost\VelaShell.PluginHost.csproj" />
   </ItemGroup>
 
 </Project>

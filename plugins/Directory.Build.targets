@@ -1,0 +1,15 @@
+<Project>
+	<Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.targets', '$(MSBuildThisFileDirectory)../'))" />
+
+	<!-- 开发内环:构建后把插件输出镜像到应用输出目录的 plugins/<id>/ 下,
+	     F5 启动应用即可加载到最新插件,无需手工拷贝。
+	     插件项目需在 csproj 里声明 <VelaPluginId>(与 plugin.json 的 id 一致)。 -->
+	<Target Name="CopyVelaPluginToAppOutput" AfterTargets="Build" Condition="'$(VelaPluginId)' != ''">
+		<ItemGroup>
+			<_VelaPluginFiles Include="$(TargetDir)**\*" />
+		</ItemGroup>
+		<Copy SourceFiles="@(_VelaPluginFiles)"
+		      DestinationFiles="@(_VelaPluginFiles->'$(MSBuildThisFileDirectory)..\src\VelaShell\bin\$(Configuration)\net11.0\plugins\$(VelaPluginId)\%(RecursiveDir)%(Filename)%(Extension)')"
+		      SkipUnchangedFiles="true" />
+	</Target>
+</Project>

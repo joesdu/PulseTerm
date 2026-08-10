@@ -38,7 +38,7 @@ namespace VelaShell.ViewModels;
 /// 主窗口视图模型:应用外壳的中枢,统筹终端标签、SSH/本地会话生命周期、停靠工作区、
 /// 侧边栏、状态栏、命令面板、SFTP 文件面板与隧道面板,并串联设置、连接工作流与各项服务。
 /// </summary>
-public class MainWindowViewModel : ReactiveObject
+public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.ITerminalResolver
 {
     /// <summary>
     /// bash 提示符补行脚本(内置,静默注入):命令输出末尾无换行时,经 DSR(ESC[6n)
@@ -160,9 +160,12 @@ public class MainWindowViewModel : ReactiveObject
         QuickCommandsViewModel? quickCommands = null,
         IQuickCommandRepository? quickCommandRepository = null,
         IRemoteProcessService? remoteProcessService = null,
-        ITraceRouteService? traceRouteService = null
+        ITraceRouteService? traceRouteService = null,
+        ICommandRegistry? commandRegistry = null
     )
     {
+        // 注册表可注入(DI 里与插件命令桥共享同一单例);无 UI 单测传 null 时自建。
+        Commands = commandRegistry ?? new CommandRegistry();
         _remoteProcessService = remoteProcessService;
         TraceRouteService = traceRouteService;
         _appDataStore = appDataStore;
@@ -317,7 +320,7 @@ public class MainWindowViewModel : ReactiveObject
     /// <summary>
     /// 菜单栏、命令面板与快捷键共用的单条命令来源(设计稿 §4A.1)——每个入口展示的名称、提示与行为都一致。
     /// </summary>
-    public ICommandRegistry Commands { get; } = new CommandRegistry();
+    public ICommandRegistry Commands { get; }
 
     /// <summary>通过 id 执行一条注册命令(菜单项通过 CommandParameter 使用)。</summary>
     public ReactiveCommand<string, RxVoid>? RunCommand { get; private set; }
@@ -420,6 +423,24 @@ public class MainWindowViewModel : ReactiveObject
     {
         get => _tabBar;
         set => this.RaiseAndSetIfChanged(ref _tabBar, value);
+    }
+
+    /// <summary>
+    /// 插件终端能力经此按会话 id 解析到仿真器与人类可读标签(<see cref="Services.Plugins.ITerminalResolver" />)。
+    /// </summary>
+    (VelaShell.Terminal.ITerminalEmulator Emulator, string Label)? Services.Plugins.ITerminalResolver.Resolve(Guid sessionId)
+    {
+        foreach (TerminalTabViewModel tab in _tabBar.Tabs.OfType<TerminalTabViewModel>())
+        {
+            if (tab.SessionId == sessionId)
+            {
+                string label = tab.Profile is { } p
+                    ? (string.IsNullOrWhiteSpace(p.Name) ? p.Host : p.Name)
+                    : sessionId.ToString("N")[..8];
+                return (tab.TerminalEmulator, label);
+            }
+        }
+        return null;
     }
 
     /// <summary>底部状态栏视图模型:连接状态、延迟、窗口尺寸与会话资源指标。</summary>

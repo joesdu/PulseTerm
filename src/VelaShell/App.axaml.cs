@@ -1,3 +1,4 @@
+using System.Reflection;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -16,6 +17,8 @@ using VelaShell.Core.Ssh;
 using VelaShell.Core.Sync;
 using VelaShell.Infrastructure.DependencyInjection;
 using VelaShell.Localization;
+using VelaShell.PluginSdk.Logging;
+using VelaShell.PluginSdk.Ui;
 using VelaShell.Presentation.DependencyInjection;
 using VelaShell.Presentation.ViewModels;
 using VelaShell.Services;
@@ -50,6 +53,34 @@ public class App : Application
             .AddVelaShellPresentation()
             .AddVelaShellControls()
             .AddVelaShellInfrastructure()
+            // 插件界面能力(完整 Avalonia):停靠文档进主窗口 Layout,独立窗口挂主窗口为 owner。
+            // 主窗口视图模型在插件激活(主窗口显示后)前已创建,这里惰性解析即可。
+            .AddSingleton<Func<string, IPluginLogger, IUiApi>>(sp =>
+                (pluginId, log) => new Services.Plugins.PluginUiApi(pluginId, log,
+                    () => sp.GetService<MainWindowViewModel>()))
+            // 隔离插件的主题令牌快照:Vela* 资源按当前明暗变体解析后经 RPC 下发,
+            // 插件的 {DynamicResource VelaXxx} 跨进程同样生效(进程内天然可用)。
+            .AddSingleton<Func<Task<IReadOnlyList<PluginSdk.Rpc.ThemeTokenDto>>>>(_ =>
+                VelaShell.Services.Plugins.PluginThemeTokens.CollectAsync)
+            // 插件剪贴板能力:经主窗口系统剪贴板(隔离插件经 RPC 路由到同一实现)。
+            .AddSingleton<PluginSdk.Clipboard.IClipboardApi>(new VelaShell.Services.Plugins.HostClipboard())
+            // 隔离插件的停靠请求默认回退为独立卡片窗口(跨进程 dock 嵌入与 dock reparenting
+            // 有根本张力,已弃用;真·dock 标签页请用 inProcess 模式),故不注册 IPluginEmbedHost。
+            // 终端回写授权闸(始终允许持久化到 SonnetDB app_config)+ 授权对话框。
+            .AddSingleton<Infrastructure.Plugins.IPluginPermissionPrompt>(new VelaShell.Services.Plugins.DialogPermissionPrompt())
+            .AddSingleton(sp => new Infrastructure.Plugins.PluginPermissionGate(
+                sp.GetService<IAppDataStore>(),
+                sp.GetService<Infrastructure.Plugins.IPluginPermissionPrompt>()))
+            // 插件终端能力:读取/搜索终端缓冲 + 授权回写(经主窗口视图模型解析会话仿真器)。
+            .AddSingleton<Func<string, IPluginLogger, PluginSdk.Terminal.ITerminalApi>>(sp =>
+                (pluginId, log) => new VelaShell.Services.Plugins.HostTerminal(pluginId, log,
+                    () => sp.GetService<MainWindowViewModel>(),
+                    sp.GetRequiredService<Infrastructure.Plugins.PluginPermissionGate>()))
+            // 进程内插件运行时(docs/plugins/dev-guide.md)。注册零开销:
+            // 发现与激活在主窗口显示后的后台线程进行,不占启动路径。
+            .AddVelaShellPlugins(typeof(App).Assembly
+                                            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+                                 ?? "0.0.0")
             .AddSingleton<IThemeService>(_ => new ThemeService("system"))
             .AddSingleton<ISettingsPreviewService, SettingsPreviewService>()
             .AddSingleton<IHostKeyPrompt, HostKeyPromptDialogService>()
@@ -171,6 +202,24 @@ public class App : Application
                 );
             }
 
+            // 插件运行时:主窗口就绪后在后台线程发现并激活插件(启动路径零阻塞)。
+            // VELASHELL_DISABLE_PLUGINS=1 为排障急停开关;停用随 DI 容器释放执行。
+            if (Environment.GetEnvironmentVariable("VELASHELL_DISABLE_PLUGINS") != "1"
+                && _serviceProvider?.GetService<VelaShell.Infrastructure.Plugins.PluginManager>() is { } pluginManager)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await pluginManager.StartAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Trace.WriteLine($"[VelaShell] Plugin startup failed: {ex}");
+                    }
+                });
+            }
+
             // 退出时释放容器,确保 SonnetDB 引擎正常关闭(WAL/段刷盘);
             // 并清理「默认编辑器打开」遗留的 remote-edit 临时文件。
             desktop.Exit += (_, _) =>
@@ -248,7 +297,15 @@ public class App : Application
                 {
                     return; // 已关闭;不要再启动新的防抖任务。
                 }
-                await Task.Delay(TimeSpan.FromSeconds(5), token);
+                // 经 ContinueWith 观察取消而非 await 已取消任务:被取代/退出是防抖的
+                // 常态路径,不该每次都在调试输出里刷一发 TaskCanceledException。
+                var delay = Task.Delay(TimeSpan.FromSeconds(5), token);
+                await delay.ContinueWith(static _ => { }, CancellationToken.None,
+                    TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+                if (delay.IsCanceled)
+                {
+                    return; // 被更晚的保存取代或已关闭,正常。
+                }
                 if (!_syncDebounce.TryStartCurrent(() => syncService.SyncNowAsync(CancellationToken.None), token, out Task? syncTask))
                 {
                     return; // 已在延迟期间关闭或被取代。

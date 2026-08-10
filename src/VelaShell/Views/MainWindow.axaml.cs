@@ -118,6 +118,7 @@ public partial class MainWindow : Window
             sidebar.OpenConnectionProfileRequested += OnOpenConnectionProfileRequested;
             sidebar.RecentConnectRequested += OnSidebarRecentConnectRequested;
             sidebar.SettingsRequested += (_, _) => _ = OpenSettingsAsync();
+            sidebar.PluginsRequested += (_, _) => OpenPluginManager();
             sidebar.ImportXshellRequested += (_, _) => _ = OpenSessionImportDialogAsync<XshellImportService>();
             sidebar.ImportWinScpRequested += (_, _) => _ = OpenSessionImportDialogAsync<WinScpImportService>();
         }
@@ -1051,6 +1052,28 @@ public partial class MainWindow : Window
         await settingsViewModel.LoadCommand.Execute().FirstAsync();
         var dialog = new SettingsView { DataContext = settingsViewModel };
         await dialog.ShowDialog(this);
+    }
+
+    private PluginManagerWindow? _pluginManagerWindow;
+
+    /// <summary>打开(或聚焦已开的)插件管理窗口。</summary>
+    private void OpenPluginManager()
+    {
+        if (_pluginManagerWindow is { } existing)
+        {
+            existing.Activate();
+            return;
+        }
+        if (Application.Current is not App { Services: { } services }
+            || services.GetService<Infrastructure.Plugins.PluginManager>() is not { } manager)
+        {
+            return;
+        }
+        var viewModel = new PluginManagerViewModel(manager,
+            services.GetService<Infrastructure.Plugins.PluginPermissionGate>());
+        _pluginManagerWindow = new PluginManagerWindow { DataContext = viewModel };
+        _pluginManagerWindow.Closed += (_, _) => _pluginManagerWindow = null;
+        _pluginManagerWindow.Show(this);
     }
 
     /// <summary>

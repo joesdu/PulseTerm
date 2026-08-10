@@ -33,6 +33,13 @@ public sealed class SonnetDbEngine : IDisposable
     /// <summary>会话录制元数据文档集合名。</summary>
     public const string RecordingsCollection = "recordings";
 
+    /// <summary>
+    /// 插件数据文档集合名(KV 与机密)。单集合 + 复合主键 <c>&lt;pluginId&gt;|&lt;kind&gt;|&lt;key&gt;</c>:
+    /// 插件 id 字符集为 [a-z0-9.-],不含分隔符 '|',命名空间不可逃逸;
+    /// 按前缀扫描即可整体清除某插件的数据(卸载清理)。
+    /// </summary>
+    public const string PluginDataCollection = "plugin_data";
+
     /// <summary>最近连接历史时序 measurement 名。</summary>
     public const string ConnHistoryMeasurement = "conn_history";
     /// <summary>安全审计日志时序 measurement 名。</summary>
@@ -195,6 +202,7 @@ public sealed class SonnetDbEngine : IDisposable
         CreateCollectionIfMissing(UiConfigCollection);
         CreateCollectionIfMissing(QuickCommandsCollection);
         CreateCollectionIfMissing(RecordingsCollection);
+        CreateCollectionIfMissing(PluginDataCollection);
         CreateMeasurementIfMissing(ConnHistoryMeasurement);
         CreateMeasurementIfMissing(AuditLogMeasurement);
         CreateMeasurementIfMissing(RecordingChunksMeasurement);

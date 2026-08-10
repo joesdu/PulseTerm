@@ -1,0 +1,98 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:pc="using:VelaShell.Controls.Controls"
+        x:Class="VelaShell.Views.PluginPanelWindow"
+        Icon="/Assets/velashell.ico"
+        Width="520" Height="420"
+        MinWidth="280" MinHeight="200"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        WindowStartupLocation="CenterOwner"
+        WindowDecorations="None">
+
+  <!-- 插件独立窗口:与任务管理器/资源监视同规格的透明窗口 + 自绘 8px 圆角卡片 +
+       自绘缩放抓取区,标题栏 40px。内容为 PluginPanelHost(主题样式映射在其内)。 -->
+
+  <Window.Styles>
+    <Style Selector="Button.caption">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="Width" Value="42" />
+      <Setter Property="Height" Value="34" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.caption:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+    </Style>
+    <Style Selector="Button.caption-close:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#E81123" />
+    </Style>
+  </Window.Styles>
+
+  <Panel>
+    <Border x:Name="RootCard"
+            Margin="8" CornerRadius="8" ClipToBounds="True"
+            Background="{DynamicResource VelaBgSurface}"
+            BorderBrush="{DynamicResource VelaBorderSecondary}"
+            BorderThickness="1"
+            BoxShadow="0 8 32 0 #80000000">
+      <Grid RowDefinitions="40,*">
+
+        <Border x:Name="TitleBarStrip" Grid.Row="0"
+                Background="{DynamicResource VelaBgSurface}"
+                BorderBrush="{DynamicResource VelaBorderPrimary}"
+                BorderThickness="0,0,0,1"
+                CornerRadius="7,7,0,0"
+                PointerPressed="Header_PointerPressed">
+          <Grid ColumnDefinitions="*,Auto" Margin="14,0,0,0">
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+              <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.plug}"
+                             Foreground="{DynamicResource VelaAccent}" VerticalAlignment="Center" />
+              <TextBlock x:Name="TitleText"
+                         Foreground="{DynamicResource VelaTextPrimary}"
+                         FontFamily="{DynamicResource VelaUiFont}"
+                         FontSize="{DynamicResource VelaFontSize12}" FontWeight="SemiBold"
+                         VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+              <TextBlock x:Name="SubtitleText"
+                         Foreground="{DynamicResource VelaTextMuted}"
+                         FontFamily="{DynamicResource VelaUiMonoFont}"
+                         FontSize="{DynamicResource VelaFontSize10}"
+                         VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
+              <Button Classes="caption" Click="Minimize_Click">
+                <pc:LucideIcon Width="12" Height="12" Data="{StaticResource Icon.minus}"
+                               Foreground="{DynamicResource VelaTextSecondary}" />
+              </Button>
+              <Button Classes="caption" Click="Maximize_Click">
+                <pc:LucideIcon Width="10" Height="10" Data="{StaticResource Icon.square}"
+                               Foreground="{DynamicResource VelaTextSecondary}" />
+              </Button>
+              <Button Classes="caption caption-close" Click="Close_Click">
+                <pc:LucideIcon Width="12" Height="12" Data="{StaticResource Icon.x}"
+                               Foreground="{DynamicResource VelaTextSecondary}" />
+              </Button>
+            </StackPanel>
+          </Grid>
+        </Border>
+
+        <!-- 内容 = 插件自建的 Avalonia 控件,原样呈现(布局/样式/滚动都由插件自理)。 -->
+        <ContentControl x:Name="PanelContent" Grid.Row="1" />
+      </Grid>
+    </Border>
+
+    <Panel x:Name="ResizeGrips" ZIndex="200">
+      <Border Tag="North" Height="5" VerticalAlignment="Top" Margin="10,0" Background="Transparent" Cursor="TopSide" PointerPressed="ResizeEdge_PointerPressed" />
+      <Border Tag="South" Height="5" VerticalAlignment="Bottom" Margin="10,0" Background="Transparent" Cursor="BottomSide" PointerPressed="ResizeEdge_PointerPressed" />
+      <Border Tag="West" Width="5" HorizontalAlignment="Left" Margin="0,10" Background="Transparent" Cursor="LeftSide" PointerPressed="ResizeEdge_PointerPressed" />
+      <Border Tag="East" Width="5" HorizontalAlignment="Right" Margin="0,10" Background="Transparent" Cursor="RightSide" PointerPressed="ResizeEdge_PointerPressed" />
+      <Border Tag="NorthWest" Width="10" Height="10" HorizontalAlignment="Left" VerticalAlignment="Top" Background="Transparent" Cursor="TopLeftCorner" PointerPressed="ResizeEdge_PointerPressed" />
+      <Border Tag="NorthEast" Width="10" Height="10" HorizontalAlignment="Right" VerticalAlignment="Top" Background="Transparent" Cursor="TopRightCorner" PointerPressed="ResizeEdge_PointerPressed" />
+      <Border Tag="SouthWest" Width="10" Height="10" HorizontalAlignment="Left" VerticalAlignment="Bottom" Background="Transparent" Cursor="BottomLeftCorner" PointerPressed="ResizeEdge_PointerPressed" />
+      <Border Tag="SouthEast" Width="10" Height="10" HorizontalAlignment="Right" VerticalAlignment="Bottom" Background="Transparent" Cursor="BottomRightCorner" PointerPressed="ResizeEdge_PointerPressed" />
+    </Panel>
+  </Panel>
+</Window>

@@ -1,5 +1,11 @@
 # 03 · 插件模型:包格式、Manifest、生命周期、贡献点
 
+> **实现注记(2026-08)**:manifest 已落地字段见 dev-guide §3(id/version/entry/
+> apiLevel/hostMode/minHostVersion/activationEvents/contributes.commands/idlePolicy)。
+> 激活事件已实现 `onStartup` 与 `onCommand:<id>`(占位命令惰性激活);其余事件类型
+> (onSessionConnect/onFileOpen/onSchedule 等)与 .vpx 包格式/NLS/签名仍按本篇为目标。
+> 空闲回收已实现(`idlePolicy: "recyclable"`,仅隔离模式)。
+
 ## 1. 包格式 .vpx
 
 `.vpx`(VelaShell Plugin Package)是一个 zip 容器:

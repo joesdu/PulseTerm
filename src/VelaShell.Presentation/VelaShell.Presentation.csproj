@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\VelaShell.Core\VelaShell.Core.csproj" />
     <ProjectReference Include="..\VelaShell.Terminal\VelaShell.Terminal.csproj" />
+    <ProjectReference Include="..\..\plugin-sdk\VelaShell.PluginSdk\VelaShell.PluginSdk.csproj" />
   </ItemGroup>
 
 </Project>

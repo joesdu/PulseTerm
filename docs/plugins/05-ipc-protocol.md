@@ -1,5 +1,16 @@
 # 05 · IPC 协议
 
+> **实现注记(2026-08)**:隔离进程模式已按本篇思路落地,但协议选型有一处
+> 有意偏离:未引入 StreamJsonRpc + MessagePack(依赖树过重,与本仓库零依赖
+> 纪律冲突;双进程同库同版,暂无跨语言协商需求),改为自研的
+> **长度前缀 + JSON 轻量双向 RPC**(`plugin-sdk/VelaShell.PluginSdk/Rpc/`:
+> req/res/evt 三型、并发不排队、统一错误码空间与类型化异常还原)。
+> 传输为命名管道(.NET 在 macOS/Linux 底层即 UDS),随机名 + 一次性令牌 +
+> `CurrentUserOnly`。握手、错误模型、"凭据不出主进程"均与本篇一致;
+> 大块数据走 base64 内联(≤16MB)与同机文件路径中转,流式子通道与共享内存
+> 表面(§6-2/3)未做。若未来需要非 .NET SDK 或流式通道,再回到本篇评估
+> StreamJsonRpc/编码协商。方法清单见 `Rpc/PluginRpc.cs`。
+
 ## 1. 分层
 
 ```text

@@ -1,0 +1,71 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:VelaShell.Docking.Controls"
+             xmlns:docking="using:VelaShell.Docking"
+             xmlns:pc="using:VelaShell.Controls.Controls"
+             xmlns:loc="using:VelaShell.Localization"
+             x:Class="VelaShell.Docking.Controls.PluginDockTabItem"
+             x:DataType="docking:PluginDocument"
+             FontSize="{DynamicResource VelaFontSize11}"
+             VerticalAlignment="Stretch">
+  <UserControl.Styles>
+    <Style Selector="local|PluginDockTabItem">
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextTertiary}" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
+      <Setter Property="Transitions">
+        <Transitions>
+          <BrushTransition Property="Foreground" Duration="0:0:0.12" Easing="CubicEaseOut" />
+        </Transitions>
+      </Setter>
+    </Style>
+    <Style Selector="local|PluginDockTabItem Border#TabRoot">
+      <Setter Property="Background" Value="{DynamicResource VelaTabInactiveBg}" />
+      <Setter Property="Transitions">
+        <Transitions>
+          <BrushTransition Property="Background" Duration="0:0:0.12" Easing="CubicEaseOut" />
+          <BrushTransition Property="BorderBrush" Duration="0:0:0.12" Easing="CubicEaseOut" />
+        </Transitions>
+      </Setter>
+    </Style>
+    <Style Selector="local|PluginDockTabItem:pointerover:not(:selected)">
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
+    </Style>
+    <Style Selector="local|PluginDockTabItem:pointerover:not(:selected) Border#TabRoot">
+      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+    </Style>
+    <Style Selector="local|PluginDockTabItem:selected">
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
+      <Setter Property="FontWeight" Value="Medium" />
+    </Style>
+    <!-- 激活顶线由 DockGroupControl 的滑动强调线统一呈现(与其它标签同理)。 -->
+    <Style Selector="local|PluginDockTabItem:selected Border#TabRoot">
+      <Setter Property="Background" Value="{DynamicResource VelaTabActiveBg}" />
+    </Style>
+  </UserControl.Styles>
+
+  <UserControl.ContextMenu>
+    <ContextMenu>
+      <MenuItem Header="{loc:Localize Dock_Close}" Click="CloseTab_Click" />
+      <MenuItem Header="{loc:Localize Dock_CloseOthers}" Click="CloseOthers_Click" />
+      <MenuItem Header="{loc:Localize Dock_CloseAll}" Click="CloseAll_Click" />
+      <Separator />
+      <MenuItem Header="{loc:Localize Dock_SplitHorizontal}" Click="SplitHorizontal_Click" />
+      <MenuItem Header="{loc:Localize Dock_SplitVertical}" Click="SplitVertical_Click" />
+    </ContextMenu>
+  </UserControl.ContextMenu>
+
+  <Border x:Name="TabRoot" MinHeight="32" Padding="14,0" BorderThickness="0,2,0,0"
+          BorderBrush="Transparent" VerticalAlignment="Stretch">
+    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+      <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.plug}"
+                     Foreground="{DynamicResource VelaAccent}" />
+      <TextBlock Text="{Binding Title}" VerticalAlignment="Center" ToolTip.ShowDelay="250"
+                 ToolTip.Placement="Pointer" ToolTip.Tip="{Binding Tooltip}" />
+      <Button Background="Transparent" Padding="0" Width="14" Height="14" BorderThickness="0"
+              HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Click="CloseTab_Click">
+        <pc:LucideIcon Width="11" Height="11" Data="{DynamicResource Icon.x}"
+                       Foreground="{DynamicResource VelaTextTertiary}" />
+      </Button>
+    </StackPanel>
+  </Border>
+</UserControl>

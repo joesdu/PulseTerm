@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -3589,4 +3589,29 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   <data name="XImport_Duplicate" xml:space="preserve">
     <value>已存在</value>
   </data>
-</root>
+
+  <data name="Plugins"><value>外掛程式</value></data>
+  <data name="PluginManager_Title"><value>外掛程式管理</value></data>
+  <data name="PluginManager_Empty"><value>未安裝任何外掛程式。</value></data>
+  <data name="PluginManager_Enable"><value>啟用</value></data>
+  <data name="PluginManager_Disable"><value>停用</value></data>
+  <data name="PluginManager_RevokePermission"><value>撤銷終端授權</value></data>
+  <data name="PluginState_Active"><value>執行中</value></data>
+  <data name="PluginState_Discovered"><value>待啟用</value></data>
+  <data name="PluginState_Disabled"><value>已停用</value></data>
+  <data name="PluginState_Failed"><value>失敗</value></data>
+  <data name="PluginState_Crashed"><value>重新啟動中</value></data>
+  <data name="PluginState_Invalid"><value>無效</value></data>
+  <data name="PluginState_Incompatible"><value>不相容</value></data>
+  <data name="PluginPerm_Title"><value>終端寫入請求</value></data>
+  <data name="PluginPerm_Message"><value>外掛程式「{0}」請求向終端 {1} 輸入內容：</value></data>
+  <data name="PluginPerm_AllowOnce"><value>僅本次允許</value></data>
+  <data name="PluginPerm_AllowSession"><value>本次執行允許</value></data>
+  <data name="PluginPerm_AllowAlways"><value>一律允許</value></data>
+  <data name="PluginPerm_Deny"><value>拒絕</value></data>
+  <data name="PluginManager_Install"><value>安裝 .vpx…</value></data>
+  <data name="PluginManager_Uninstall"><value>解除安裝</value></data>
+  <data name="PluginManager_Installed"><value>已安裝「{0}」。</value></data>
+  <data name="PluginManager_InstallFailed"><value>安裝失敗：{0}</value></data>
+  <data name="PluginManager_ConfirmUninstall"><value>解除安裝「{0}」？其資料將被清除。</value></data>
+  <data name="PluginManager_VpxFilter"><value>VelaShell 外掛程式套件</value></data></root>

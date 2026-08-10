@@ -66,5 +66,11 @@
     <ProjectReference Include="..\VelaShell.Presentation\VelaShell.Presentation.csproj" />
     <ProjectReference Include="..\VelaShell.Controls\VelaShell.Controls.csproj" />
     <ProjectReference Include="..\VelaShell.Infrastructure\VelaShell.Infrastructure.csproj" />
+    <!-- 隔离插件的宿主进程:随应用分发(exe/deps/runtimeconfig 一并进输出目录)。 -->
+    <ProjectReference Include="..\VelaShell.PluginHost\VelaShell.PluginHost.csproj" />
+    <!-- 仓库内插件:只建立构建顺序,不引用程序集 —— 保证 F5 时插件(含 plugin.json)
+         总是重新构建并镜像进本项目输出的 plugins/ 目录。改了 manifest 或插件代码
+         不再需要手动先构建插件项目(踩过:输出里留着旧 isolated 清单,Tab 模式"失灵")。 -->
+    <ProjectReference Include="..\..\plugins\*\*.csproj" ReferenceOutputAssembly="false" Private="false" />
   </ItemGroup>
 </Project>
