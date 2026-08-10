@@ -1,0 +1,24 @@
+{
+  "id": "velashell.ai",
+  "version": "0.1.0",
+  "displayName": "AI Assistant",
+  "description": "多提供商 AI 助手:OpenAI / Anthropic / Grok / Ollama / 自定义中转站,流式对话与 Agent 模式。",
+  "publisher": "velashell",
+  "entry": "VelaShell.Plugin.Ai.dll",
+  "apiLevel": 1,
+  "license": "MIT",
+  "homepage": "https://github.com/joesdu/VelaShell",
+  // 惰性激活:不打开 AI 功能就不装载程序集,启动零开销。
+  "activationEvents": [
+    "onCommand:velashell.ai.chat",
+    "onCommand:velashell.ai.chat-window",
+    "onCommand:velashell.ai.explain-terminal"
+  ],
+  "contributes": {
+    "commands": [
+      { "id": "velashell.ai.chat", "title": "AI: Open Chat (Tab)", "category": "AI" },
+      { "id": "velashell.ai.chat-window", "title": "AI: Open Chat (Window)", "category": "AI" },
+      { "id": "velashell.ai.explain-terminal", "title": "AI: Explain Terminal Output", "category": "AI" }
+    ]
+  }
+}

@@ -1,6 +1,6 @@
 # 插件系统进度总览
 
-> 更新:2026-08-11(二)。本页是实现进度的**单一权威来源**:按蓝图分项列出 已完成 / 部分完成 /
+> 更新:2026-08-12。本页是实现进度的**单一权威来源**:按蓝图分项列出 已完成 / 部分完成 /
 > 未开始,并给出验收证据(测试)与建议的下一步。写插件请读 [dev-guide.md](dev-guide.md)。
 
 ## 一、总体状态
@@ -8,7 +8,12 @@
 **插件系统框架层已可投产**:双宿主模式、完整能力面(9 个能力域)、UI(完整 Avalonia,
 inProcess 停靠 / 隔离独立窗口)、可靠性(心跳/自愈/回收)、数据层(SonnetDB 隔离存储 +
 卸载清理)、管理页(启停/卸载/.vpx 安装)、SDK 测试替身与开发文档全部就绪。
-**尚未开始写真正的第一方业务插件**(AI / 容器管理)。
+**第一个第一方业务插件已落地:AI 助手插件**(`plugins/VelaShell.Plugin.Ai`,id `velashell.ai`):
+多提供商流式对话(OpenAI Responses / OpenAI Chat Completions 兼容 / Anthropic Messages 三种线协议,
+覆盖 OpenAI/Grok/Ollama/中转站,自填 Base URL + API Key,Key 走 Secrets 加密)+ Agent 模式
+(Microsoft.Extensions.AI `FunctionInvokingChatClient` 工具循环,工具桥接 sessions/terminal/remoteExec/remoteFs,
+危险操作面板内逐条审批)。onCommand 惰性激活,五语文案。验收:VelaShell.Plugin.Ai.Tests 14 项
+(工具箱审批闸门/能力桥接语义/设置与机密存取)。容器管理插件未开始。
 
 质量基线(每轮全量回归):全仓构建 0 警告 0 错误;测试 ~1280 项全绿,其中插件专项
 75+ 项(含真实双进程 e2e:跨进程激活、杀进程自愈、空闲回收再拉起、嵌入/流式/终端 RPC 链路、.vpx 装卸)。

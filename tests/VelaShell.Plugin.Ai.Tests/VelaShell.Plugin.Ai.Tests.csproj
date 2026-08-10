@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="MSTest.TestAdapter" />
+    <PackageReference Include="MSTest.TestFramework" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 被测插件(Agent 工具箱/配置存储为纯逻辑,不触碰 Avalonia 类型)。 -->
+    <ProjectReference Include="..\..\plugins\VelaShell.Plugin.Ai\VelaShell.Plugin.Ai.csproj" />
+    <ProjectReference Include="..\..\plugin-sdk\VelaShell.PluginSdk.Testing\VelaShell.PluginSdk.Testing.csproj" />
+  </ItemGroup>
+
+</Project>

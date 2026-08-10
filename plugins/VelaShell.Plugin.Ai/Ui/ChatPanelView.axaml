@@ -1,0 +1,307 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="VelaShell.Plugin.Ai.Ui.ChatPanelView">
+
+  <!-- 视觉语言对齐宿主(DESIGN.md §5.1):主操作 = VelaAccentPillButtonTheme 强调药丸,
+       次操作 = VelaOutlineButtonTheme 描边;输入区仿宿主 input-affix 容器
+       (外层 Border 承担边框/焦点态,内部 TextBox 去壳);图标用宿主 Icon.* 几何
+       (lucide 24 视图框,Viewbox 等比缩放描边渲染)。配色/字体/字号全走 Vela* 令牌。 -->
+
+  <UserControl.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="avares://VelaShell.Plugin.Ai/Ui/AiTheme.axaml" />
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </UserControl.Resources>
+
+  <UserControl.Styles>
+    <Style Selector="TextBlock.dim">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />
+    </Style>
+    <Style Selector="TextBlock.roleHeader">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />
+      <Setter Property="Margin" Value="0,0,0,4" />
+    </Style>
+    <Style Selector="SelectableTextBlock.body">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize13}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+      <Setter Property="LineSpacing" Value="4" />
+    </Style>
+    <Style Selector="SelectableTextBlock.mono">
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+    <!-- assistant 卡片:表面色 + 主描边;user 卡片:半透明强调底(与药丸同配方),无描边感 -->
+    <Style Selector="Border.msg">
+      <Setter Property="Background" Value="{DynamicResource VelaBgSurface}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Padding" Value="10,8" />
+    </Style>
+    <Style Selector="Border.userMsg">
+      <Setter Property="Background" Value="{DynamicResource VelaAccentDim}" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="Border.toolCard">
+      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderSecondary}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Padding" Value="8,6" />
+      <Setter Property="Margin" Value="0,4,0,0" />
+    </Style>
+
+    <!-- 输入容器:仿宿主 Border.input-affix(悬停换次描边、聚焦换强调描边) -->
+    <Style Selector="Border.inputWrap">
+      <Setter Property="Background" Value="{DynamicResource VelaBgInput}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="MinHeight" Value="34" />
+    </Style>
+    <Style Selector="Border.inputWrap:pointerover">
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderSecondary}" />
+    </Style>
+    <Style Selector="Border.inputWrap:focus-within">
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaAccent}" />
+    </Style>
+    <Style Selector="Border.inputWrap TextBox">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Padding" Value="10,7" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize13}" />
+    </Style>
+    <Style Selector="Border.inputWrap TextBox /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="Border.inputWrap TextBox:pointerover /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="Border.inputWrap TextBox:focus /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+
+    <!-- Markdown 渲染样式(MarkdownRenderer 生成的控件按类取样式) -->
+    <Style Selector="SelectableTextBlock.mdH1">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize16}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+      <Setter Property="Margin" Value="0,4,0,0" />
+    </Style>
+    <Style Selector="SelectableTextBlock.mdH2">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize15}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+      <Setter Property="Margin" Value="0,4,0,0" />
+    </Style>
+    <Style Selector="SelectableTextBlock.mdH3">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize14}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+      <Setter Property="Margin" Value="0,2,0,0" />
+    </Style>
+    <Style Selector="SelectableTextBlock.mdH4">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize13}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="Border.mdCode">
+      <Setter Property="Background" Value="{DynamicResource VelaBgInput}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Padding" Value="8,6" />
+    </Style>
+    <Style Selector="Button.mdCopy">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="3" />
+      <Setter Property="Padding" Value="6,1" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize9}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Button.mdCopy:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
+    </Style>
+    <Style Selector="Border.mdQuote">
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaAccent}" />
+      <Setter Property="BorderThickness" Value="2,0,0,0" />
+      <Setter Property="Padding" Value="8,2,0,2" />
+    </Style>
+    <Style Selector="Border.mdRule">
+      <Setter Property="Background" Value="{DynamicResource VelaBorderPrimary}" />
+    </Style>
+    <Style Selector="TextBlock.mdBullet">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize12}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />
+    </Style>
+    <Style Selector="TextBlock.mdLink">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize13}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaAccent}" />
+      <Setter Property="TextDecorations" Value="Underline" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Padding" Value="0" />
+    </Style>
+    <Style Selector="Border.mdTableFrame">
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
+      <Setter Property="BorderThickness" Value="1,1,0,0" />
+      <Setter Property="CornerRadius" Value="2" />
+    </Style>
+    <Style Selector="Border.mdTableCell">
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
+      <Setter Property="BorderThickness" Value="0,0,1,1" />
+      <Setter Property="Padding" Value="8,4" />
+    </Style>
+    <Style Selector="Border.mdTableHead">
+      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
+      <Setter Property="BorderThickness" Value="0,0,1,1" />
+      <Setter Property="Padding" Value="8,4" />
+    </Style>
+    <Style Selector="SelectableTextBlock.mdTableText">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize12}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="SelectableTextBlock.mdTableHeadText">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize12}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+    <!-- 紧凑工具卡(主流 Agent 风格:单行头 + 点击展开详情) -->
+    <Style Selector="TextBlock.toolName">
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.toolArgs">
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />
+      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+      <Setter Property="TextWrapping" Value="NoWrap" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- 顶栏下拉与勾选的统一尺寸 -->
+    <Style Selector="Grid#TopBar ComboBox">
+      <Setter Property="MinHeight" Value="26" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Grid#TopBar CheckBox">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+      <Setter Property="MinHeight" Value="26" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+  </UserControl.Styles>
+
+  <DockPanel Margin="10">
+    <!-- 顶栏:接入 / 会话 / Agent 开关 | 新会话 / 设置 -->
+    <Grid x:Name="TopBar" DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <ComboBox x:Name="ProviderCombo" MinWidth="150" MaxWidth="240" />
+        <ComboBox x:Name="SessionCombo" MinWidth="110" MaxWidth="200" />
+        <ToggleButton x:Name="AgentToggle" Theme="{StaticResource AiChipToggleTheme}">
+          <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+            <Viewbox Width="11" Height="11" VerticalAlignment="Center">
+              <Path Width="24" Height="24" Data="{DynamicResource Icon.zap}"
+                    Stroke="{Binding $parent[ToggleButton].Foreground}" StrokeThickness="2"
+                    StrokeLineCap="Round" StrokeJoin="Round" />
+            </Viewbox>
+            <TextBlock x:Name="AgentText" VerticalAlignment="Center" />
+          </StackPanel>
+        </ToggleButton>
+        <CheckBox x:Name="AutoApproveCheck" IsVisible="False" />
+      </StackPanel>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+        <Button x:Name="NewChatButton" Theme="{DynamicResource VelaOutlineButtonTheme}" Height="26" Padding="8,0">
+          <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+            <Viewbox Width="11" Height="11" VerticalAlignment="Center">
+              <Path Width="24" Height="24" Data="{DynamicResource Icon.plus}"
+                    Stroke="{DynamicResource VelaTextSecondary}" StrokeThickness="2"
+                    StrokeLineCap="Round" StrokeJoin="Round" />
+            </Viewbox>
+            <TextBlock x:Name="NewChatText" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+        <ToggleButton x:Name="SettingsToggle" Theme="{StaticResource AiChipToggleTheme}" Width="30" Padding="0">
+          <Viewbox Width="13" Height="13">
+            <Path Width="24" Height="24" Data="{DynamicResource Icon.settings}"
+                  Stroke="{Binding $parent[ToggleButton].Foreground}" StrokeThickness="2"
+                  StrokeLineCap="Round" StrokeJoin="Round" />
+          </Viewbox>
+        </ToggleButton>
+      </StackPanel>
+    </Grid>
+
+    <!-- 底部:输入容器(内嵌 发送/停止),状态行悬于其上 -->
+    <Border DockPanel.Dock="Bottom" Classes="inputWrap" Margin="0,8,0,0">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBox x:Name="InputBox" AcceptsReturn="True" TextWrapping="Wrap" MaxHeight="120" />
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,0,5,0" VerticalAlignment="Bottom" Height="34">
+          <Button x:Name="SendButton" Theme="{DynamicResource VelaAccentPillButtonTheme}"
+                  Height="24" Padding="10,0" VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+              <Viewbox Width="11" Height="11" VerticalAlignment="Center">
+                <Path Width="24" Height="24" Data="{DynamicResource Icon.send}"
+                      Stroke="{DynamicResource VelaAccent}" StrokeThickness="2"
+                      StrokeLineCap="Round" StrokeJoin="Round" />
+              </Viewbox>
+              <TextBlock x:Name="SendText" VerticalAlignment="Center"
+                         FontSize="{DynamicResource VelaFontSize11}" FontWeight="Medium" />
+            </StackPanel>
+          </Button>
+          <Button x:Name="StopButton" Theme="{DynamicResource VelaOutlineButtonTheme}"
+                  Height="24" Padding="10,0" VerticalAlignment="Center" IsVisible="False"
+                  Foreground="{DynamicResource VelaError}" BorderBrush="{DynamicResource VelaError}">
+            <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+              <Viewbox Width="10" Height="10" VerticalAlignment="Center">
+                <Path Width="24" Height="24" Data="{DynamicResource Icon.square}"
+                      Stroke="{DynamicResource VelaError}" StrokeThickness="2"
+                      StrokeLineCap="Round" StrokeJoin="Round" />
+              </Viewbox>
+              <TextBlock x:Name="StopText" VerticalAlignment="Center"
+                         FontSize="{DynamicResource VelaFontSize11}" FontWeight="Medium" />
+            </StackPanel>
+          </Button>
+        </StackPanel>
+      </Grid>
+    </Border>
+    <TextBlock x:Name="StatusText" DockPanel.Dock="Bottom" Classes="dim" Margin="2,6,2,0" TextWrapping="Wrap" />
+
+    <!-- 中部:消息流 / 设置页(二选一显示) -->
+    <Panel>
+      <ScrollViewer x:Name="ChatScroll" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel x:Name="MessagesPanel" Spacing="8" Margin="0,2,4,2" />
+      </ScrollViewer>
+      <ContentControl x:Name="SettingsHost" IsVisible="False" />
+    </Panel>
+  </DockPanel>
+</UserControl>

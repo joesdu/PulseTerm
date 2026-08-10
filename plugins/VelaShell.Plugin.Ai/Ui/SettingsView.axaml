@@ -1,0 +1,131 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="VelaShell.Plugin.Ai.Ui.SettingsView">
+
+  <!-- 与聊天面板同一套视觉语言:主操作药丸 / 次操作描边 / 危险操作描边换 VelaError。 -->
+
+  <UserControl.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="avares://VelaShell.Plugin.Ai/Ui/AiTheme.axaml" />
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </UserControl.Resources>
+
+  <UserControl.Styles>
+    <Style Selector="TextBlock.label">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />
+      <Setter Property="Margin" Value="0,8,0,3" />
+    </Style>
+    <Style Selector="TextBlock.dim">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />
+    </Style>
+    <Style Selector="TextBox">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize12}" />
+      <Setter Property="MinHeight" Value="30" />
+    </Style>
+    <Style Selector="ComboBox">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize12}" />
+      <Setter Property="MinHeight" Value="30" />
+    </Style>
+    <Style Selector="ListBox">
+      <Setter Property="Background" Value="{DynamicResource VelaBgSurface}" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize12}" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid ColumnDefinitions="190,14,*">
+    <!-- 左:接入列表 + 新增 -->
+    <DockPanel Grid.Column="0">
+      <TextBlock x:Name="ProvidersHeader" DockPanel.Dock="Top" Classes="label" Margin="0,0,0,4" />
+      <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="0,8,0,0">
+        <ComboBox x:Name="PresetCombo" HorizontalAlignment="Stretch" />
+        <Button x:Name="AddButton" Theme="{DynamicResource VelaOutlineButtonTheme}"
+                HorizontalAlignment="Stretch" Height="26">
+          <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+            <Viewbox Width="11" Height="11" VerticalAlignment="Center">
+              <Path Width="24" Height="24" Data="{DynamicResource Icon.plus}"
+                    Stroke="{DynamicResource VelaTextSecondary}" StrokeThickness="2"
+                    StrokeLineCap="Round" StrokeJoin="Round" />
+            </Viewbox>
+            <TextBlock x:Name="AddText" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+      </StackPanel>
+      <ListBox x:Name="ProvidersList" />
+    </DockPanel>
+
+    <!-- 右:编辑表单 -->
+    <ScrollViewer Grid.Column="2" HorizontalScrollBarVisibility="Disabled">
+      <StackPanel>
+        <TextBlock x:Name="NameLabel" Classes="label" Margin="0,0,0,3" />
+        <TextBox x:Name="NameBox" />
+        <TextBlock x:Name="ProtocolLabel" Classes="label" />
+        <ComboBox x:Name="ProtocolCombo" HorizontalAlignment="Stretch" />
+        <TextBlock x:Name="BaseUrlLabel" Classes="label" />
+        <TextBox x:Name="BaseUrlBox" FontFamily="{DynamicResource VelaUiMonoFont}" />
+        <TextBlock x:Name="ModelLabel" Classes="label" />
+        <TextBox x:Name="ModelBox" FontFamily="{DynamicResource VelaUiMonoFont}" />
+        <TextBlock x:Name="MaxTokensLabel" Classes="label" />
+        <TextBox x:Name="MaxTokensBox" MaxWidth="180" HorizontalAlignment="Left" />
+        <TextBlock x:Name="ApiKeyLabel" Classes="label" />
+        <Grid ColumnDefinitions="*,6,Auto">
+          <TextBox x:Name="ApiKeyBox" PasswordChar="●" FontFamily="{DynamicResource VelaUiMonoFont}" />
+          <ToggleButton x:Name="RevealKeyToggle" Grid.Column="2" Theme="{StaticResource AiChipToggleTheme}"
+                        Width="30" Height="30" Padding="0" VerticalAlignment="Center">
+            <Viewbox Width="13" Height="13">
+              <Path Width="24" Height="24" Data="{DynamicResource Icon.eye}"
+                    Stroke="{Binding $parent[ToggleButton].Foreground}" StrokeThickness="2"
+                    StrokeLineCap="Round" StrokeJoin="Round" />
+            </Viewbox>
+          </ToggleButton>
+        </Grid>
+        <TextBlock x:Name="ApiKeyHintText" Classes="dim" Margin="0,3,0,0" />
+
+        <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,14,0,0">
+          <Button x:Name="SaveButton" Theme="{DynamicResource VelaAccentPillButtonTheme}" Height="26" Padding="12,0">
+            <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+              <Viewbox Width="11" Height="11" VerticalAlignment="Center">
+                <Path Width="24" Height="24" Data="{DynamicResource Icon.save}"
+                      Stroke="{DynamicResource VelaAccent}" StrokeThickness="2"
+                      StrokeLineCap="Round" StrokeJoin="Round" />
+              </Viewbox>
+              <TextBlock x:Name="SaveText" VerticalAlignment="Center"
+                         FontSize="{DynamicResource VelaFontSize11}" FontWeight="Medium" />
+            </StackPanel>
+          </Button>
+          <Button x:Name="TestButton" Theme="{DynamicResource VelaOutlineButtonTheme}" Height="26" Padding="12,0">
+            <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+              <Viewbox Width="11" Height="11" VerticalAlignment="Center">
+                <Path Width="24" Height="24" Data="{DynamicResource Icon.play}"
+                      Stroke="{DynamicResource VelaTextSecondary}" StrokeThickness="2"
+                      StrokeLineCap="Round" StrokeJoin="Round" />
+              </Viewbox>
+              <TextBlock x:Name="TestText" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+          <Button x:Name="DeleteButton" Theme="{DynamicResource VelaOutlineButtonTheme}" Height="26" Padding="12,0"
+                  Foreground="{DynamicResource VelaError}" BorderBrush="{DynamicResource VelaError}">
+            <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+              <Viewbox Width="11" Height="11" VerticalAlignment="Center">
+                <Path Width="24" Height="24" Data="{DynamicResource Icon.trash-2}"
+                      Stroke="{DynamicResource VelaError}" StrokeThickness="2"
+                      StrokeLineCap="Round" StrokeJoin="Round" />
+              </Viewbox>
+              <TextBlock x:Name="DeleteText" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+        </StackPanel>
+
+        <Separator Margin="0,14" Background="{DynamicResource VelaBorderPrimary}" />
+        <TextBlock x:Name="SystemPromptLabel" Classes="label" Margin="0,0,0,3" />
+        <TextBox x:Name="SystemPromptBox" AcceptsReturn="True" MinHeight="64" TextWrapping="Wrap" />
+
+        <TextBlock x:Name="StatusText" Classes="dim" TextWrapping="Wrap" Margin="0,10,0,0" />
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+</UserControl>
