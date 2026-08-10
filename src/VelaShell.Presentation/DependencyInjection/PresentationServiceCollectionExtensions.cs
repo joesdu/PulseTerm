@@ -1,4 +1,8 @@
 using Microsoft.Extensions.DependencyInjection;
+using VelaShell.PluginSdk.Commands;
+using VelaShell.PluginSdk.Logging;
+using VelaShell.Presentation.Commands;
+using VelaShell.Presentation.Plugins;
 using VelaShell.Presentation.Services;
 using VelaShell.Presentation.ViewModels;
 
@@ -19,6 +23,12 @@ public static class PresentationServiceCollectionExtensions
         services.AddSingleton<IConnectionWorkflowService, ConnectionWorkflowService>();
         services.AddSingleton<IConnectionDiagnosticsService, ConnectionDiagnosticsService>();
         services.AddSingleton<ITunnelWorkflowService, TunnelWorkflowService>();
+        // 命令注册表提为容器单例:主窗口视图模型与插件命令桥共享同一实例,
+        // 插件命令才能出现在命令面板里。
+        services.AddSingleton<ICommandRegistry, CommandRegistry>();
+        // 插件运行时(Infrastructure)对 UI 层无依赖,经此工厂拿到每插件的命令能力。
+        services.AddSingleton<Func<string, IPluginLogger, ICommandsApi>>(sp =>
+            (pluginId, log) => new PluginCommandsApi(pluginId, sp.GetRequiredService<ICommandRegistry>(), log));
         return services;
     }
 }

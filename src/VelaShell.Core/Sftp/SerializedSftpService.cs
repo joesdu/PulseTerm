@@ -69,6 +69,9 @@ public sealed class SerializedSftpService(ISftpService inner, Guid sessionId) : 
     /// <summary>获取远端文件元数据的串行化透传。</summary>
     public Task<RemoteFileInfo> GetFileInfoAsync(Guid sessionId, string remotePath, CancellationToken cancellationToken = default) => ExecuteAsync(sessionId, token => _inner.GetFileInfoAsync(sessionId, remotePath, token), cancellationToken);
 
+    /// <summary>打开只读流的透传;打开动作串行化,流本身的读取不占闸(与传输同理,长读不堵元数据队列)。</summary>
+    public Task<Stream> OpenReadAsync(Guid sessionId, string remotePath, CancellationToken cancellationToken = default) => ExecuteAsync(sessionId, token => _inner.OpenReadAsync(sessionId, remotePath, token), cancellationToken);
+
     /// <summary>检查远端路径是否存在的串行化透传。</summary>
     public Task<bool> ExistsAsync(Guid sessionId, string remotePath, CancellationToken cancellationToken = default) => ExecuteAsync(sessionId, token => _inner.ExistsAsync(sessionId, remotePath, token), cancellationToken);
 

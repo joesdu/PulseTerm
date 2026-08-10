@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -3589,4 +3589,29 @@ Windows는 exe 전체 경로 또는 명령 이름(예: notepad), Linux는 명령
   <data name="XImport_Duplicate" xml:space="preserve">
     <value>이미 있음</value>
   </data>
-</root>
+
+  <data name="Plugins"><value>플러그인</value></data>
+  <data name="PluginManager_Title"><value>플러그인 관리</value></data>
+  <data name="PluginManager_Empty"><value>설치된 플러그인이 없습니다.</value></data>
+  <data name="PluginManager_Enable"><value>활성화</value></data>
+  <data name="PluginManager_Disable"><value>비활성화</value></data>
+  <data name="PluginManager_RevokePermission"><value>터미널 권한 취소</value></data>
+  <data name="PluginState_Active"><value>실행 중</value></data>
+  <data name="PluginState_Discovered"><value>대기 중</value></data>
+  <data name="PluginState_Disabled"><value>비활성화됨</value></data>
+  <data name="PluginState_Failed"><value>실패</value></data>
+  <data name="PluginState_Crashed"><value>재시작 중</value></data>
+  <data name="PluginState_Invalid"><value>잘못됨</value></data>
+  <data name="PluginState_Incompatible"><value>호환 불가</value></data>
+  <data name="PluginPerm_Title"><value>터미널 쓰기 요청</value></data>
+  <data name="PluginPerm_Message"><value>플러그인 "{0}"이(가) 터미널 {1}에 입력하려고 합니다:</value></data>
+  <data name="PluginPerm_AllowOnce"><value>한 번만 허용</value></data>
+  <data name="PluginPerm_AllowSession"><value>이번 세션 허용</value></data>
+  <data name="PluginPerm_AllowAlways"><value>항상 허용</value></data>
+  <data name="PluginPerm_Deny"><value>거부</value></data>
+  <data name="PluginManager_Install"><value>.vpx 설치…</value></data>
+  <data name="PluginManager_Uninstall"><value>제거</value></data>
+  <data name="PluginManager_Installed"><value>"{0}"을(를) 설치했습니다.</value></data>
+  <data name="PluginManager_InstallFailed"><value>설치 실패: {0}</value></data>
+  <data name="PluginManager_ConfirmUninstall"><value>"{0}"을(를) 제거하시겠습니까? 데이터도 삭제됩니다.</value></data>
+  <data name="PluginManager_VpxFilter"><value>VelaShell 플러그인 패키지</value></data></root>

@@ -83,6 +83,9 @@
               <DataTemplate x:DataType="docking:SftpDocument">
                 <local:SftpDockTabItem />
               </DataTemplate>
+              <DataTemplate x:DataType="docking:PluginDocument">
+                <local:PluginDockTabItem />
+              </DataTemplate>
             </ItemsControl.DataTemplates>
           </ItemsControl>
           <!-- 激活标签的滑动强调线:单条 2px 线在标签间滑动(取代各标签自己顶线的突变),

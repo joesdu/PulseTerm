@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>VelaShell 插件单元测试替身:TestPluginContext 与全部能力接口的内存实现,插件项目无需宿主即可测试业务逻辑。</Description>
+    <RootNamespace>VelaShell.PluginSdk.Testing</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VelaShell.PluginSdk\VelaShell.PluginSdk.csproj" />
+  </ItemGroup>
+
+</Project>

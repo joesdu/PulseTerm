@@ -1,5 +1,12 @@
 # 02 · 总体架构
 
+> **实现注记(2026-08)**:进程模型已按"双模"落地 —— manifest `hostMode`
+> 决定进程内(默认,可收集 ALC)或隔离进程(本篇 D1/D2/D3 路线,协议偏离见
+> 05 注记)。工程划分与 §2 略有出入:`PluginProtocol` 与 `PluginSdk` 合一
+> (`plugin-sdk/VelaShell.PluginSdk`,RPC 契约在其 `Rpc/` 子命名空间),
+> `PluginHost` 在 `src/VelaShell.PluginHost`,依赖纪律一致
+> (PluginHost 只引 SDK,不引任何主程序工程)。现状细节见 dev-guide.md。
+
 ## 1. 进程模型
 
 ```text

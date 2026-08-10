@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\VelaShell.Core\VelaShell.Core.csproj" />
+    <ProjectReference Include="..\..\plugin-sdk\VelaShell.PluginSdk\VelaShell.PluginSdk.csproj" />
   </ItemGroup>
 
   <ItemGroup>

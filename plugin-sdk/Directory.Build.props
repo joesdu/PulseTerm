@@ -1,0 +1,11 @@
+<Project>
+	<Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+	<!-- Release 签名与 src 侧保持一致:宿主工程(Release 下签名)引用本目录的 SDK 程序集,
+	     已签名程序集不能引用未签名程序集,因此 SDK 必须用同一把钥匙签名。 -->
+	<PropertyGroup Condition="'$(Configuration)' == 'Release'">
+		<SignAssembly>true</SignAssembly>
+		<AssemblyOriginatorKeyFile>$(MSBuildThisFileDirectory)..\src\VelaShell.snk</AssemblyOriginatorKeyFile>
+		<DelaySign>false</DelaySign>
+	</PropertyGroup>
+</Project>

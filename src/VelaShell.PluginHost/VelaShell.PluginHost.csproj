@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <Description>VelaShell 隔离插件宿主进程:经命名管道 RPC 连接主程序,在可收集 ALC 中装载并运行单个插件。</Description>
+    <!-- 只依赖 SDK 契约,严禁引用任何 VelaShell.* 主程序工程(设计稿 02 §2 依赖纪律)。 -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\plugin-sdk\VelaShell.PluginSdk\VelaShell.PluginSdk.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 隔离插件的完整 UI:本进程内建 Avalonia(与宿主同版,由 CPM 钉住)。
+         插件程序集的 Avalonia 引用经 ALC 回落到本进程这套,保证类型同一。 -->
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>VelaShell 插件开发 SDK:插件入口契约、能力接口(会话/远程文件/远程执行/命令/存储/日志/事件)与 plugin.json 清单模型。</Description>
+    <RootNamespace>VelaShell.PluginSdk</RootNamespace>
+    <!-- 隔离边界上的"细腰":本程序集是宿主与插件世界唯一共享的契约,
+         必须保持零重量级依赖(仅 BCL)。切勿引入 Avalonia / Tmds.Ssh / ReactiveUI。 -->
+  </PropertyGroup>
+
+</Project>

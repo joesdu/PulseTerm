@@ -869,7 +869,7 @@ public sealed class ResourceMonitorUiTests
         }
 
         public Task<SessionStaticInfo?> GetStaticInfoAsync(Guid sessionId, CancellationToken cancellationToken = default) =>
-            Task.FromResult(staticInfo ?? new SessionStaticInfo
+            Task.FromResult<SessionStaticInfo?>(staticInfo ?? new SessionStaticInfo
             {
                 CpuModel = "AMD EPYC 9754 96-Core Processor",
                 Sockets = 1,

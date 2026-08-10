@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>VelaShell 官方示例插件:演示激活生命周期、命令注册、存储、会话枚举、事件订阅与远程执行。</Description>
+    <!-- 与 plugin.json 的 id 一致;驱动构建后复制到应用输出的 plugins/<id>/。 -->
+    <VelaPluginId>velashell.hello-world</VelaPluginId>
+    <!-- AVLN3001:面板视图刻意只有带上下文的构造(由 ShowPanelAsync 工厂创建),
+         不需要运行时 XAML 装载器的无参构造路径。 -->
+    <NoWarn>$(NoWarn);AVLN3001</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- SDK 由宿主统一提供(共享契约程序集),不随插件输出复制。 -->
+    <ProjectReference Include="..\..\plugin-sdk\VelaShell.PluginSdk\VelaShell.PluginSdk.csproj" Private="false" ExcludeAssets="runtime" />
+    <!-- 原生 UI 演示:仅编译期引用 Avalonia,运行时由宿主共享同一套程序集
+         (ExcludeAssets=runtime 保证 Avalonia dll 不落进插件目录,版本须与宿主一致)。 -->
+    <PackageReference Include="Avalonia" Version="12.1.1" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+</Project>

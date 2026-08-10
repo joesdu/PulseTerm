@@ -222,6 +222,12 @@
                            Foreground="{DynamicResource VelaTextTertiary}" />
           </Button>
           <Button Width="24" Height="24" Background="Transparent" Padding="0"
+                  CornerRadius="3" Click="OpenPlugins_Click"
+                  ToolTip.Tip="{x:Static res:Strings.Plugins}" ToolTip.Placement="Right" Cursor="Hand">
+            <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.plug}"
+                           Foreground="{DynamicResource VelaTextTertiary}" />
+          </Button>
+          <Button Width="24" Height="24" Background="Transparent" Padding="0"
                   CornerRadius="3" Click="OpenSettings_Click"
                   ToolTip.Tip="{x:Static res:Strings.Settings}" ToolTip.Placement="Right" Cursor="Hand">
             <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.settings}"

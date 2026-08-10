@@ -1,0 +1,68 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="VelaShell.Plugin.HelloWorld.DemoPanelView">
+
+  <!-- 编译期 AXAML 示例:插件用完整的 Avalonia 自行设计界面 ——
+       自带样式、布局、国际化(见代码后置的双语文案),也可以引入第三方组件包。
+       唯一约束:Avalonia 引用 ExcludeAssets="runtime" 且版本与宿主一致。
+       配色直接用宿主主题令牌 {DynamicResource Vela*}:进程内天然可查,
+       隔离进程由宿主握手后下发注入,主题切换两种模式都即时跟随。 -->
+
+  <UserControl.Styles>
+    <Style Selector="TextBlock.h1">
+      <Setter Property="FontSize" Value="18" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
+    </Style>
+    <Style Selector="TextBlock.dim">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />
+    </Style>
+    <Style Selector="TextBlock.mono">
+      <Setter Property="FontFamily" Value="Cascadia Mono,Consolas,Menlo,monospace" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
+    </Style>
+    <Style Selector="TextBlock.accent">
+      <Setter Property="Foreground" Value="{DynamicResource VelaAccent}" />
+    </Style>
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="{DynamicResource VelaBgInput}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Padding" Value="10" />
+    </Style>
+  </UserControl.Styles>
+
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Margin="16" Spacing="10">
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <TextBlock x:Name="TitleText" Classes="h1" />
+        <TextBlock Text="●" Classes="accent" VerticalAlignment="Center" />
+      </StackPanel>
+      <TextBlock x:Name="SubtitleText" Classes="dim" />
+      <Separator />
+
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button x:Name="RefreshButton" />
+        <Button x:Name="UptimeButton" />
+      </StackPanel>
+      <Border Classes="card">
+        <TextBlock x:Name="SessionsText" Classes="mono" TextWrapping="Wrap" />
+      </Border>
+      <ProgressBar x:Name="BusyBar" IsIndeterminate="True" IsVisible="False" MinHeight="6" />
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <TextBlock x:Name="UptimeText" Classes="mono" TextWrapping="Wrap" VerticalAlignment="Center" />
+        <Button x:Name="CopyButton" IsVisible="False" />
+      </StackPanel>
+      <Separator />
+
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <TextBox x:Name="EchoInput" MinWidth="220" />
+        <Button x:Name="EchoButton" />
+      </StackPanel>
+      <TextBlock x:Name="EchoText" TextWrapping="Wrap" />
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

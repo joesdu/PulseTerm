@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -3590,4 +3590,29 @@ Overwrite it?</value>
   <data name="XImport_Duplicate" xml:space="preserve">
     <value>Already exists</value>
   </data>
-</root>
+
+  <data name="Plugins"><value>Plugins</value></data>
+  <data name="PluginManager_Title"><value>Plugin Manager</value></data>
+  <data name="PluginManager_Empty"><value>No plugins installed.</value></data>
+  <data name="PluginManager_Enable"><value>Enable</value></data>
+  <data name="PluginManager_Disable"><value>Disable</value></data>
+  <data name="PluginManager_RevokePermission"><value>Revoke terminal access</value></data>
+  <data name="PluginState_Active"><value>Active</value></data>
+  <data name="PluginState_Discovered"><value>Idle</value></data>
+  <data name="PluginState_Disabled"><value>Disabled</value></data>
+  <data name="PluginState_Failed"><value>Failed</value></data>
+  <data name="PluginState_Crashed"><value>Restarting</value></data>
+  <data name="PluginState_Invalid"><value>Invalid</value></data>
+  <data name="PluginState_Incompatible"><value>Incompatible</value></data>
+  <data name="PluginPerm_Title"><value>Terminal write request</value></data>
+  <data name="PluginPerm_Message"><value>Plugin "{0}" wants to type into terminal {1}:</value></data>
+  <data name="PluginPerm_AllowOnce"><value>Allow once</value></data>
+  <data name="PluginPerm_AllowSession"><value>Allow this session</value></data>
+  <data name="PluginPerm_AllowAlways"><value>Always allow</value></data>
+  <data name="PluginPerm_Deny"><value>Deny</value></data>
+  <data name="PluginManager_Install"><value>Install .vpx…</value></data>
+  <data name="PluginManager_Uninstall"><value>Uninstall</value></data>
+  <data name="PluginManager_Installed"><value>Installed "{0}".</value></data>
+  <data name="PluginManager_InstallFailed"><value>Install failed: {0}</value></data>
+  <data name="PluginManager_ConfirmUninstall"><value>Uninstall "{0}"? Its data will be removed.</value></data>
+  <data name="PluginManager_VpxFilter"><value>VelaShell plugin package</value></data></root>

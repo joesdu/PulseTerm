@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -3589,4 +3589,29 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   <data name="XImport_Duplicate" xml:space="preserve">
     <value>既に存在します</value>
   </data>
-</root>
+
+  <data name="Plugins"><value>プラグイン</value></data>
+  <data name="PluginManager_Title"><value>プラグイン管理</value></data>
+  <data name="PluginManager_Empty"><value>プラグインがインストールされていません。</value></data>
+  <data name="PluginManager_Enable"><value>有効化</value></data>
+  <data name="PluginManager_Disable"><value>無効化</value></data>
+  <data name="PluginManager_RevokePermission"><value>ターミナル権限を取り消す</value></data>
+  <data name="PluginState_Active"><value>実行中</value></data>
+  <data name="PluginState_Discovered"><value>待機中</value></data>
+  <data name="PluginState_Disabled"><value>無効</value></data>
+  <data name="PluginState_Failed"><value>失敗</value></data>
+  <data name="PluginState_Crashed"><value>再起動中</value></data>
+  <data name="PluginState_Invalid"><value>無効</value></data>
+  <data name="PluginState_Incompatible"><value>非互換</value></data>
+  <data name="PluginPerm_Title"><value>ターミナル書き込み要求</value></data>
+  <data name="PluginPerm_Message"><value>プラグイン「{0}」がターミナル {1} への入力を要求しています:</value></data>
+  <data name="PluginPerm_AllowOnce"><value>今回のみ許可</value></data>
+  <data name="PluginPerm_AllowSession"><value>今回の起動中は許可</value></data>
+  <data name="PluginPerm_AllowAlways"><value>常に許可</value></data>
+  <data name="PluginPerm_Deny"><value>拒否</value></data>
+  <data name="PluginManager_Install"><value>.vpx をインストール…</value></data>
+  <data name="PluginManager_Uninstall"><value>アンインストール</value></data>
+  <data name="PluginManager_Installed"><value>「{0}」をインストールしました。</value></data>
+  <data name="PluginManager_InstallFailed"><value>インストール失敗: {0}</value></data>
+  <data name="PluginManager_ConfirmUninstall"><value>「{0}」をアンインストールしますか？データも削除されます。</value></data>
+  <data name="PluginManager_VpxFilter"><value>VelaShell プラグインパッケージ</value></data></root>

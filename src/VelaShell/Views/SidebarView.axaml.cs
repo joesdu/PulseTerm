@@ -30,6 +30,9 @@ public partial class SidebarView : UserControl
     /// <summary>由底部栏齿轮按钮触发,用于打开设置窗口。</summary>
     public event EventHandler? SettingsRequested;
 
+    /// <summary>由底部栏插件按钮触发,用于打开插件管理窗口。</summary>
+    public event EventHandler? PluginsRequested;
+
     /// <summary>用户双击最近连接以重新连接时触发。</summary>
     public event EventHandler<RecentConnectionEntry>? RecentConnectRequested;
 
@@ -77,6 +80,11 @@ public partial class SidebarView : UserControl
     private void OpenSettings_Click(object? sender, RoutedEventArgs e)
     {
         SettingsRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void OpenPlugins_Click(object? sender, RoutedEventArgs e)
+    {
+        PluginsRequested?.Invoke(this, EventArgs.Empty);
     }
 
     private void ImportXshell_Click(object? sender, RoutedEventArgs e)

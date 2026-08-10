@@ -1,0 +1,14 @@
+<Project>
+	<Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+	<PropertyGroup>
+		<!-- 插件是被动态装载的组件:生成 deps.json(ALC 依赖解析依据)、
+		     把自带 NuGet 依赖复制到输出目录、不复制共享框架。 -->
+		<EnableDynamicLoading>true</EnableDynamicLoading>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<!-- 每个插件项目根目录必须有 plugin.json,随构建进入输出目录。 -->
+		<None Include="$(MSBuildProjectDirectory)\plugin.json" CopyToOutputDirectory="PreserveNewest" Condition="Exists('$(MSBuildProjectDirectory)\plugin.json')" />
+	</ItemGroup>
+</Project>

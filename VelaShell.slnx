@@ -25,12 +25,24 @@
     <File Path="README.md" />
     <File Path="Directory.Build.targets" />
   </Folder>
+  <Folder Name="/plugin-sdk/">
+    <File Path="plugin-sdk/Directory.Build.props" />
+    <Project Path="plugin-sdk/VelaShell.PluginSdk/VelaShell.PluginSdk.csproj" />
+    <Project Path="plugin-sdk/VelaShell.PluginSdk.Testing/VelaShell.PluginSdk.Testing.csproj" />
+  </Folder>
+  <Folder Name="/plugins/">
+    <File Path="plugins/Directory.Build.props" />
+    <File Path="plugins/Directory.Build.targets" />
+    <File Path="plugins/README.md" />
+    <Project Path="plugins/VelaShell.Plugin.HelloWorld/VelaShell.Plugin.HelloWorld.csproj" />
+  </Folder>
   <Folder Name="/src/">
     <File Path="src/Directory.Build.props" />
 	<File Path="src/Directory.Packages.props" />
     <Project Path="src/VelaShell.Controls/VelaShell.Controls.csproj" />
     <Project Path="src/VelaShell.Core/VelaShell.Core.csproj" />
     <Project Path="src/VelaShell.Infrastructure/VelaShell.Infrastructure.csproj" />
+    <Project Path="src/VelaShell.PluginHost/VelaShell.PluginHost.csproj" />
     <Project Path="src/VelaShell.Presentation/VelaShell.Presentation.csproj" />
     <Project Path="src/VelaShell.Terminal/VelaShell.Terminal.csproj" />
     <Project Path="src/VelaShell/VelaShell.csproj" /> 

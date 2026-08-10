@@ -1,0 +1,156 @@
+using VelaShell.Infrastructure.Plugins;
+using VelaShell.Plugin.HelloWorld;
+using VelaShell.PluginSdk;
+
+namespace VelaShell.Infrastructure.Tests.Plugins;
+
+/// <summary>
+/// 隔离模式真实端到端:PluginManager 拉起真实的 VelaShell.PluginHost 子进程,
+/// 经命名管道握手、跨进程激活 HelloWorld、停用后进程回收。
+/// </summary>
+[TestClass]
+[TestCategory("Plugins")]
+public class IsolatedPluginTests
+{
+    private string _root = null!;
+    private string _dataRoot = null!;
+
+    [TestInitialize]
+    public void Setup()
+    {
+        string baseDir = Path.Combine(Path.GetTempPath(), "velashell-tests", Guid.NewGuid().ToString("N"));
+        _root = Path.Combine(baseDir, "plugins");
+        _dataRoot = Path.Combine(baseDir, "plugin-data");
+        Directory.CreateDirectory(_root);
+    }
+
+    [TestCleanup]
+    public void Cleanup()
+    {
+        try
+        {
+            Directory.Delete(Path.GetDirectoryName(_root)!, recursive: true);
+        }
+        catch
+        {
+            // 子进程退出与文件释放是异步的,清不掉留给临时目录。
+        }
+    }
+
+    private void StageHelloWorld(string hostMode)
+    {
+        string dir = Path.Combine(_root, "hello");
+        Directory.CreateDirectory(dir);
+        File.Copy(typeof(HelloWorldPlugin).Assembly.Location, Path.Combine(dir, "VelaShell.Plugin.HelloWorld.dll"));
+        File.WriteAllText(Path.Combine(dir, "plugin.json"), $$"""
+            { "id": "velashell.hello-world", "version": "0.1.0", "displayName": "Hello",
+              "entry": "VelaShell.Plugin.HelloWorld.dll", "hostMode": "{{hostMode}}" }
+            """);
+    }
+
+    [TestMethod]
+    public async Task IsolatedPlugin_ActivatesInChildProcess_AndDeactivatesCleanly()
+    {
+        StageHelloWorld("isolated");
+        var manager = new PluginManager(new()
+        {
+            PluginRoots = [_root],
+            DataRootDirectory = _dataRoot,
+            HostVersion = "1.0.0",
+            ActivationTimeout = TimeSpan.FromSeconds(30), // 子进程冷启动比进程内慢,放宽
+            DeactivationTimeout = TimeSpan.FromSeconds(10)
+        });
+        await manager.StartAsync();
+        PluginDescriptor descriptor = manager.Plugins.Single();
+        Assert.AreEqual(PluginState.Active, descriptor.State, descriptor.Error);
+        // 激活计数由插件进程本地写入存储:文件存在即证明跨进程激活真实跑通。
+        Assert.IsTrue(File.Exists(Path.Combine(_dataRoot, "velashell.hello-world", "storage.json")),
+            "插件进程应把激活计数写入其数据目录");
+
+        await manager.DisposeAsync();
+        Assert.AreEqual(PluginState.Deactivated, manager.Plugins.Single().State);
+    }
+
+    [TestMethod]
+    public async Task IsolatedPlugin_EntryMissing_FailsWithoutAffectingHost()
+    {
+        string dir = Path.Combine(_root, "ghost");
+        Directory.CreateDirectory(dir);
+        File.WriteAllText(Path.Combine(dir, "plugin.json"), """
+            { "id": "a.ghost", "version": "1.0.0", "displayName": "G", "entry": "Ghost.dll", "hostMode": "isolated" }
+            """);
+        var manager = new PluginManager(new()
+        {
+            PluginRoots = [_root],
+            DataRootDirectory = _dataRoot,
+            HostVersion = "1.0.0"
+        });
+        await manager.StartAsync();
+        Assert.AreEqual(PluginState.Failed, manager.Plugins.Single().State);
+        await manager.DisposeAsync();
+    }
+
+    [TestMethod]
+    public async Task IsolatedPlugin_CrashedProcess_RestartsWithBackoff_ThenFailsWhenExceeded()
+    {
+        StageHelloWorld("isolated");
+        var manager = new PluginManager(new()
+        {
+            PluginRoots = [_root],
+            DataRootDirectory = _dataRoot,
+            HostVersion = "1.0.0",
+            ActivationTimeout = TimeSpan.FromSeconds(30),
+            DeactivationTimeout = TimeSpan.FromSeconds(10),
+            // 测试用极短退避:只允许 1 次自动重启,第二次崩溃即放弃。
+            CrashRestartBackoff = [TimeSpan.FromMilliseconds(100)],
+            CrashRestartWindow = TimeSpan.FromMinutes(5)
+        });
+        await manager.StartAsync();
+        Assert.AreEqual(PluginState.Active, manager.Plugins.Single().State, manager.Plugins.Single().Error);
+        int firstPid = manager.GetIsolatedProcessId("velashell.hello-world")!.Value;
+
+        // 第一次崩溃:强杀子进程 → 应按退避自动重启为新进程。
+        System.Diagnostics.Process.GetProcessById(firstPid).Kill();
+        await WaitForAsync(() => manager.Plugins.Single().State == PluginState.Active
+                                 && manager.GetIsolatedProcessId("velashell.hello-world") is { } pid
+                                 && pid != firstPid,
+            TimeSpan.FromSeconds(30), "崩溃后应自动重启为新的插件进程");
+        int secondPid = manager.GetIsolatedProcessId("velashell.hello-world")!.Value;
+        Assert.AreNotEqual(firstPid, secondPid);
+
+        // 第二次崩溃:超过退避上限 → Failed,不再重启。
+        System.Diagnostics.Process.GetProcessById(secondPid).Kill();
+        await WaitForAsync(() => manager.Plugins.Single().State == PluginState.Failed,
+            TimeSpan.FromSeconds(15), "窗口内第二次崩溃应判 Failed 放弃自愈");
+        StringAssert.Contains(manager.Plugins.Single().Error, "crashed");
+
+        await manager.DisposeAsync();
+    }
+
+    private static async Task WaitForAsync(Func<bool> condition, TimeSpan timeout, string message)
+    {
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        while (stopwatch.Elapsed < timeout)
+        {
+            if (condition())
+            {
+                return;
+            }
+            await Task.Delay(100);
+        }
+        Assert.Fail(message);
+    }
+
+    [TestMethod]
+    public void Manifest_HostMode_ParsesCaseInsensitive()
+    {
+        PluginManifest manifest = PluginManifestReader.Parse("""
+            { "id": "a.b", "version": "1.0.0", "displayName": "X", "entry": "X.dll", "hostMode": "isolated" }
+            """);
+        Assert.AreEqual(PluginHostMode.Isolated, manifest.HostMode);
+        PluginManifest defaulted = PluginManifestReader.Parse("""
+            { "id": "a.b", "version": "1.0.0", "displayName": "X", "entry": "X.dll" }
+            """);
+        Assert.AreEqual(PluginHostMode.InProcess, defaulted.HostMode);
+    }
+}

@@ -65,6 +65,12 @@ public interface ISftpService : IAsyncDisposable
     Task<RemoteFileInfo> GetFileInfoAsync(Guid sessionId, string remotePath, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// 打开远端文件的只读流(顺序读取,调用方负责释放)。适合边读边处理的大文件
+    /// (日志、导出),不经本地临时文件中转。
+    /// </summary>
+    Task<Stream> OpenReadAsync(Guid sessionId, string remotePath, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// 远端路径是否存在(文件或目录)。用于在覆盖远端文件前进行上传冲突检测。
     /// </summary>
     Task<bool> ExistsAsync(Guid sessionId, string remotePath, CancellationToken cancellationToken = default);
