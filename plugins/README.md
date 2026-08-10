@@ -9,10 +9,10 @@ SDK 契约见 [plugin-sdk/](../plugin-sdk/),开发文档见
 | 目录 | id | 说明 |
 | --- | --- | --- |
 | [VelaShell.Plugin.HelloWorld](VelaShell.Plugin.HelloWorld/) | `velashell.hello-world` | 官方示例:SDK 各能力的最小用法 |
+| [VelaShell.Plugin.Ai](VelaShell.Plugin.Ai/) | `velashell.ai` | AI 助手:多提供商流式对话 + Agent 模式(读终端/执行命令带审批) |
 
 ## 规划中(尚未创建)
 
-- **AI 插件**:AI 辅助命令生成/输出解释(能力网关设计见 docs/plugins/11-automation-and-ai.md)。
 - **容器管理插件**:基于远程执行能力封装 docker/podman 常用操作。
 
 ## 新建插件
