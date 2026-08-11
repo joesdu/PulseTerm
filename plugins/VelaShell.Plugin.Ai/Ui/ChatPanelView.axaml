@@ -308,10 +308,12 @@
     </Border>
     <TextBlock x:Name="StatusText" DockPanel.Dock="Bottom" Classes="dim" Margin="2,6,2,0" TextWrapping="Wrap" />
 
-    <!-- 中部:消息流 / 设置页(二选一显示) -->
+    <!-- 中部:消息流 / 设置页(二选一显示)。
+         滚动条留白放在内容的 Margin 上(同 ResourceMonitor 的做法,勿用 ScrollViewer.Padding):
+         悬停展开的覆盖式滚动条约 12px 宽,留 19px 保证不压住消息卡片。 -->
     <Panel>
       <ScrollViewer x:Name="ChatScroll" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel x:Name="MessagesPanel" Spacing="8" Margin="0,2,4,2" />
+        <StackPanel x:Name="MessagesPanel" Spacing="8" Margin="5,4,19,4" />
       </ScrollViewer>
       <ContentControl x:Name="SettingsHost" IsVisible="False" />
     </Panel>

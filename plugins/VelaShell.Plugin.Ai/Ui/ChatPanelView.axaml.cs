@@ -36,6 +36,8 @@ public partial class ChatPanelView : UserControl
     private List<SessionInfo> _sessions = [];
     private CancellationTokenSource? _cts;
     private bool _busy;
+    private bool _autoScroll = true;
+    private bool _scrollScheduled;
     private long _totalInputTokens;
     private long _totalOutputTokens;
 
@@ -57,6 +59,7 @@ public partial class ChatPanelView : UserControl
 
         SendButton.Click += (_, _) => _ = SendAsync(InputBox.Text ?? "");
         StopButton.Click += (_, _) => _cts?.Cancel();
+        ChatScroll.ScrollChanged += OnChatScrollChanged;
         NewChatButton.Click += (_, _) => StartNewChat();
         InputBox.AddHandler(KeyDownEvent, OnInputKeyDown, RoutingStrategies.Tunnel);
         SettingsToggle.IsCheckedChanged += (_, _) =>
@@ -241,6 +244,45 @@ public partial class ChatPanelView : UserControl
         StopButton.IsVisible = busy;
     }
 
+    /// <summary>
+    /// 只有"纯滚动"(内容尺寸没变)才更新粘底意图:流式期间内容增长引起的
+    /// 相对位移不算用户上滚,否则粘底会被内容自己的增长误关。
+    /// </summary>
+    private void OnChatScrollChanged(object? sender, ScrollChangedEventArgs e)
+    {
+        if (e.ExtentDelta.Y != 0)
+        {
+            return;
+        }
+        _autoScroll = ChatScroll.Offset.Y + ChatScroll.Viewport.Height >= ChatScroll.Extent.Height - 8;
+    }
+
+    /// <summary>
+    /// 请求滚到底:同帧内的多次请求合并为一次(Background 优先级,排在布局之后),
+    /// 用户主动上滚阅读时不打扰;<paramref name="force" /> 用于用户自己发消息等
+    /// 明确要回底部的场合。
+    /// </summary>
+    private void RequestAutoScroll(bool force = false)
+    {
+        if (force)
+        {
+            _autoScroll = true;
+        }
+        if (!_autoScroll || _scrollScheduled)
+        {
+            return;
+        }
+        _scrollScheduled = true;
+        Dispatcher.UIThread.Post(() =>
+        {
+            _scrollScheduled = false;
+            if (_autoScroll)
+            {
+                ChatScroll.ScrollToEnd();
+            }
+        }, DispatcherPriority.Background);
+    }
+
     private async Task SendAsync(string text)
     {
         text = text.Trim();
@@ -263,7 +305,7 @@ public partial class ChatPanelView : UserControl
         _history.Add(new ChatMessage(ChatRole.User, text));
         var bubble = new AssistantBubble(this);
         MessagesPanel.Children.Add(bubble.Root);
-        ChatScroll.ScrollToEnd();
+        RequestAutoScroll(force: true);
 
         _cts = new CancellationTokenSource();
         CancellationToken token = _cts.Token;
@@ -303,6 +345,28 @@ public partial class ChatPanelView : UserControl
 
             var updates = new List<ChatResponseUpdate>();
             // 网络流在线程池上消费,增量封送回 UI 线程,避免 SSE 读循环占用 UI。
+            // 快流下逐 token Post 会打爆 UI 调度器:增量先入队,队列非空时只挂一次
+            // 封送,UI 侧一次批量渲染(渲染本身已各自节流,批量只省调度开销)。
+            var pendingUpdates = new List<ChatResponseUpdate>();
+            bool drainScheduled = false;
+            object pendingSync = new();
+
+            void DrainUpdates()
+            {
+                ChatResponseUpdate[] batch;
+                lock (pendingSync)
+                {
+                    batch = [.. pendingUpdates];
+                    pendingUpdates.Clear();
+                    drainScheduled = false;
+                }
+                foreach (ChatResponseUpdate update in batch)
+                {
+                    RenderUpdate(bubble, update);
+                }
+                RequestAutoScroll();
+            }
+
             await Task.Run(async () =>
             {
                 await foreach (ChatResponseUpdate update in client
@@ -310,9 +374,20 @@ public partial class ChatPanelView : UserControl
                                    .ConfigureAwait(false))
                 {
                     updates.Add(update);
-                    Dispatcher.UIThread.Post(() => RenderUpdate(bubble, update));
+                    bool schedule;
+                    lock (pendingSync)
+                    {
+                        pendingUpdates.Add(update);
+                        schedule = !drainScheduled;
+                        drainScheduled = true;
+                    }
+                    if (schedule)
+                    {
+                        Dispatcher.UIThread.Post(DrainUpdates);
+                    }
                 }
             }, token);
+            DrainUpdates(); // 兜底清空残留批(此处已回到 UI 线程)
 
             var response = updates.ToChatResponse();
             _history.AddMessages(response);
@@ -338,7 +413,7 @@ public partial class ChatPanelView : UserControl
             _cts = null;
             SetBusy(false);
             bubble.FinishStreaming();
-            ChatScroll.ScrollToEnd();
+            RequestAutoScroll();
         }
     }
 
@@ -365,7 +440,6 @@ public partial class ChatPanelView : UserControl
                     break;
             }
         }
-        ChatScroll.ScrollToEnd();
     }
 
     private static string SerializeArguments(IDictionary<string, object?>? arguments)
@@ -459,7 +533,8 @@ public partial class ChatPanelView : UserControl
         approveButton.Click += (_, _) => Finish(true);
         denyButton.Click += (_, _) => Finish(false);
         MessagesPanel.Children.Add(card);
-        ChatScroll.ScrollToEnd();
+        // 审批卡阻塞整轮对话,必须让用户看见
+        RequestAutoScroll(force: true);
     }
 
     // ---------- 气泡构建 ----------
@@ -516,6 +591,7 @@ public partial class ChatPanelView : UserControl
         private MarkdownSegment? _currentSegment;
         private Collapsible? _thinking;
         private readonly StringBuilder _thinkingText = new();
+        private bool _thinkingRenderScheduled;
 
         public Border Root { get; }
 
@@ -555,7 +631,16 @@ public partial class ChatPanelView : UserControl
                 _thinking = new Collapsible(_owner, _owner._loc["Thinking"]);
                 _stack.Children.Insert(1, _thinking.Root);
             }
-            _thinking.SetBody(_thinkingText.ToString());
+            // 逐 token 全量刷文本是 O(n²) 的字符串与排版开销,与 Markdown 段同款节流
+            if (!_thinkingRenderScheduled)
+            {
+                _thinkingRenderScheduled = true;
+                DispatcherTimer.RunOnce(() =>
+                {
+                    _thinkingRenderScheduled = false;
+                    _thinking?.SetBody(_thinkingText.ToString());
+                }, TimeSpan.FromMilliseconds(200));
+            }
         }
 
         public void AddToolCall(string callId, string name, string argumentsJson)
@@ -579,26 +664,30 @@ public partial class ChatPanelView : UserControl
             _currentSegment = null;
         }
 
-        /// <summary>流结束(成功/取消/出错都会走到):所有 Markdown 段落立即定稿渲染。</summary>
+        /// <summary>流结束(成功/取消/出错都会走到):所有 Markdown 段落立即定稿渲染,思考区补齐尾部。</summary>
         public void FinishStreaming()
         {
             foreach (MarkdownSegment segment in _segments)
             {
                 segment.RenderNow();
             }
+            _thinking?.SetBody(_thinkingText.ToString());
         }
     }
 
     /// <summary>
-    /// 一段流式 Markdown:增量进 StringBuilder,按 ≥200ms 节流整段重渲染
-    /// (Markdig 解析半截文本安全;定稿由 <see cref="RenderNow" /> 收口)。
+    /// 一段流式 Markdown:增量进 StringBuilder,按 ≥200ms 节流增量渲染
+    /// (只重建变化的尾部块,前缀块控件复用;Markdig 解析半截文本安全;
+    /// 定稿由 <see cref="RenderNow" /> 全量重建收口,纠正引用式链接等跨块依赖)。
     /// </summary>
     private sealed class MarkdownSegment(MarkdownRenderer renderer)
     {
         private readonly StringBuilder _text = new();
+        private readonly List<string> _blockCache = [];
         private bool _renderScheduled;
+        private int _renderedLength;
 
-        public Decorator Host { get; } = new();
+        public StackPanel Host { get; } = new() { Spacing = 6 };
 
         public void Append(string text)
         {
@@ -606,14 +695,27 @@ public partial class ChatPanelView : UserControl
             if (!_renderScheduled)
             {
                 _renderScheduled = true;
-                DispatcherTimer.RunOnce(RenderNow, TimeSpan.FromMilliseconds(200));
+                DispatcherTimer.RunOnce(RenderStreaming, TimeSpan.FromMilliseconds(200));
             }
+        }
+
+        private void RenderStreaming()
+        {
+            _renderScheduled = false;
+            if (_text.Length == _renderedLength)
+            {
+                return; // 定稿已渲染过同样的文本,别再白干一遍
+            }
+            _renderedLength = _text.Length;
+            renderer.RenderIncremental(Host, _text.ToString(), _blockCache);
         }
 
         public void RenderNow()
         {
-            _renderScheduled = false;
-            Host.Child = renderer.Render(_text.ToString());
+            _renderedLength = _text.Length;
+            Host.Children.Clear();
+            _blockCache.Clear();
+            renderer.RenderIncremental(Host, _text.ToString(), _blockCache);
         }
     }
 
