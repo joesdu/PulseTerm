@@ -58,9 +58,10 @@
       <ListBox x:Name="ProvidersList" />
     </DockPanel>
 
-    <!-- 右:编辑表单 -->
+    <!-- 右:编辑表单。滚动条留白放在内容 Margin 上(勿用 ScrollViewer.Padding),
+         避免悬停展开的覆盖式滚动条压住输入框右缘。 -->
     <ScrollViewer Grid.Column="2" HorizontalScrollBarVisibility="Disabled">
-      <StackPanel>
+      <StackPanel Margin="0,0,19,0">
         <TextBlock x:Name="NameLabel" Classes="label" Margin="0,0,0,3" />
         <TextBox x:Name="NameBox" />
         <TextBlock x:Name="ProtocolLabel" Classes="label" />

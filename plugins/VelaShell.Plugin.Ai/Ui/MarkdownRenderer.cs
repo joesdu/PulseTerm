@@ -34,6 +34,25 @@ internal sealed class MarkdownRenderer(Control resourceHost, Func<string, Task> 
     public Control Render(string markdown)
     {
         var panel = new StackPanel { Spacing = 6 };
+        RenderIncremental(panel, markdown, []);
+        return panel;
+    }
+
+    /// <summary>
+    /// 增量渲染:<paramref name="blockCache" /> 记录上次渲染时每个块的源码切片
+    /// (与 <paramref name="panel" /> 的子控件一一对应),本次只重建切片有变化的
+    /// 后缀块,未变的前缀块控件原样复用。流式追加通常只动最后一个块,于是每次
+    /// 节流重渲染的代价从 O(全文控件树) 降到 O(尾块)。最后一个块始终重建
+    /// (它仍在增长,半截块的 span 会漂移)。注意:增量不回溯已缓存块,引用式
+    /// 链接等"后文影响前文"的语法需在定稿时清空缓存做一次全量渲染纠正。
+    /// </summary>
+    public void RenderIncremental(StackPanel panel, string markdown, List<string> blockCache)
+    {
+        // 资源查找(字体/强调色)在一趟渲染内只做一次树查找;逐趟重置以跟随主题切换
+        _monoFontCache = null;
+        _accentBrushCache = null;
+        _accentBrushResolved = false;
+
         MarkdownDocument document;
         try
         {
@@ -41,17 +60,48 @@ internal sealed class MarkdownRenderer(Control resourceHost, Func<string, Task> 
         }
         catch
         {
+            panel.Children.Clear();
+            blockCache.Clear();
             panel.Children.Add(PlainText(markdown, "body"));
-            return panel;
+            blockCache.Add(markdown);
+            return;
         }
+
+        var blocks = new List<Block>();
         foreach (Block block in document)
         {
-            if (RenderBlock(block, markdown) is { } control)
+            // RenderBlock 对这两类返回 null,不产出控件,排除以维持"块↔子控件"一一对应
+            if (block is LinkReferenceDefinitionGroup or BlankLineBlock)
+            {
+                continue;
+            }
+            blocks.Add(block);
+        }
+
+        // 缓存与子控件失配(外部动过 panel)时退化为全量重建
+        if (blockCache.Count != panel.Children.Count)
+        {
+            panel.Children.Clear();
+            blockCache.Clear();
+        }
+
+        int keep = 0;
+        int stableLimit = blocks.Count - 1; // 尾块强制重建
+        while (keep < blockCache.Count && keep < stableLimit
+               && string.Equals(blockCache[keep], Slice(markdown, blocks[keep].Span), StringComparison.Ordinal))
+        {
+            keep++;
+        }
+        panel.Children.RemoveRange(keep, panel.Children.Count - keep);
+        blockCache.RemoveRange(keep, blockCache.Count - keep);
+        for (int i = keep; i < blocks.Count; i++)
+        {
+            if (RenderBlock(blocks[i], markdown) is { } control)
             {
                 panel.Children.Add(control);
+                blockCache.Add(Slice(markdown, blocks[i].Span));
             }
         }
-        return panel;
     }
 
     // ---------- 块级 ----------
@@ -262,7 +312,7 @@ internal sealed class MarkdownRenderer(Control resourceHost, Func<string, Task> 
                 {
                     Run run = StyledRun(code.Content, style);
                     run.FontFamily = MonoFont;
-                    run.Foreground = Brush("VelaAccent") ?? run.Foreground;
+                    run.Foreground = AccentBrush ?? run.Foreground;
                     target.Add(run);
                     break;
                 }
@@ -396,10 +446,28 @@ internal sealed class MarkdownRenderer(Control resourceHost, Func<string, Task> 
     private static Control PlainText(string text, string cls)
         => new SelectableTextBlock { Classes = { cls }, Text = text };
 
+    // 一趟渲染内的资源缓存(TryFindResource 是逐级向上的树查找,行内代码多时开销可观)
+    private FontFamily? _monoFontCache;
+    private IBrush? _accentBrushCache;
+    private bool _accentBrushResolved;
+
     private FontFamily MonoFont
-        => resourceHost.TryFindResource("VelaUiMonoFont", out object? value) && value is FontFamily family
+        => _monoFontCache ??= resourceHost.TryFindResource("VelaUiMonoFont", out object? value) && value is FontFamily family
             ? family
             : new FontFamily("Cascadia Mono,Consolas,Menlo,monospace");
+
+    private IBrush? AccentBrush
+    {
+        get
+        {
+            if (!_accentBrushResolved)
+            {
+                _accentBrushResolved = true;
+                _accentBrushCache = Brush("VelaAccent");
+            }
+            return _accentBrushCache;
+        }
+    }
 
     private IBrush? Brush(string key)
         => resourceHost.TryFindResource(key, out object? value) && value is IBrush brush ? brush : null;
