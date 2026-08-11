@@ -19,7 +19,7 @@
          这些依赖随插件目录分发,由插件 ALC 按 deps.json 隔离解析,与宿主互不干扰。 -->
     <PackageReference Include="Microsoft.Extensions.AI" Version="10.8.3" />
     <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.8.3" />
-    <PackageReference Include="OpenAI" Version="2.12.0" />
+    <PackageReference Include="OpenAI" Version="2.13.0" />
     <PackageReference Include="Anthropic" Version="12.40.0" />
     <!-- Markdown 解析(纯托管、无 UI 依赖);渲染为 Avalonia 控件由 Ui/MarkdownRenderer 完成。 -->
     <PackageReference Include="Markdig" Version="1.3.2" />
