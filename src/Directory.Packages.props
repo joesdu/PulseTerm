@@ -13,7 +13,7 @@
     <PackageVersion Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3" />
     <PackageVersion Include="ReactiveUI.Avalonia" Version="12.1.1" />
     <!-- Microsoft.Extensions -->
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="11.0.0-preview.6.26359.118" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="11.0.0-preview.7.26381.103" />
     <!-- 其它 -->
     <PackageVersion Include="ReactiveUI" Version="24.1.0" />
     <!-- MMDB 读取器(Apache 2.0)。只是格式读取库,不绑定 MaxMind 的数据 ——
@@ -21,8 +21,8 @@
     <PackageVersion Include="MaxMind.Db" Version="5.1.0" />
     <PackageVersion Include="SonnetDB.Core" Version="3.0.1" />
     <PackageVersion Include="Tmds.Ssh" Version="0.23.0" />
-    <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="11.0.0-preview.6.26359.118" />
+    <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="11.0.0-preview.7.26381.103" />
     <!-- 构建期工具:SourceLink(见 src/Directory.Build.props) -->
-    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="11.0.100-preview.6.26359.118" />
+    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="11.0.100-preview.7.26381.103" />
   </ItemGroup>
 </Project>
