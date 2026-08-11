@@ -1,0 +1,106 @@
+using VelaShell.Plugin.Ai.Configuration;
+using VelaShell.PluginSdk.Testing;
+
+namespace VelaShell.Plugin.Ai.Tests;
+
+/// <summary>MCP 配置:参数/环境变量/请求头解析、工具名前缀清洗与设置往返。</summary>
+[TestClass]
+public sealed class McpConfigTests
+{
+    [TestMethod]
+    public void SplitArguments_SplitsOnWhitespace()
+    {
+        CollectionAssert.AreEqual(
+            new[] { "-y", "@modelcontextprotocol/server-filesystem", "C:\\data" },
+            McpConfigParser.SplitArguments("-y  @modelcontextprotocol/server-filesystem   C:\\data").ToArray());
+    }
+
+    [TestMethod]
+    public void SplitArguments_QuotesPreserveSpaces_AndDoubledQuoteEscapes()
+    {
+        CollectionAssert.AreEqual(
+            new[] { "--root", "C:\\My Files\\docs", "a\"b" },
+            McpConfigParser.SplitArguments("--root \"C:\\My Files\\docs\" \"a\"\"b\"").ToArray());
+    }
+
+    [TestMethod]
+    public void SplitArguments_EmptyQuotes_YieldEmptyToken()
+    {
+        CollectionAssert.AreEqual(new[] { "" }, McpConfigParser.SplitArguments("\"\"").ToArray());
+        Assert.AreEqual(0, McpConfigParser.SplitArguments("   ").Count);
+        Assert.AreEqual(0, McpConfigParser.SplitArguments(null).Count);
+    }
+
+    [TestMethod]
+    public void ParseEnvironmentLines_IgnoresBlanksAndInvalid_AllowsEqualsInValue()
+    {
+        Dictionary<string, string?> env = McpConfigParser.ParseEnvironmentLines(
+            "API_KEY=abc\r\n\r\nnot-a-pair\r\nCONN=a=b=c\r\n =missing-key");
+
+        Assert.AreEqual(2, env.Count);
+        Assert.AreEqual("abc", env["API_KEY"]);
+        Assert.AreEqual("a=b=c", env["CONN"]);
+    }
+
+    [TestMethod]
+    public void ParseHeaderLines_SplitsOnFirstColon()
+    {
+        Dictionary<string, string> headers = McpConfigParser.ParseHeaderLines(
+            "Authorization: Bearer x:y\r\nplain line\r\nX-Api-Key:  k1 ");
+
+        Assert.AreEqual(2, headers.Count);
+        Assert.AreEqual("Bearer x:y", headers["Authorization"]);
+        Assert.AreEqual("k1", headers["X-Api-Key"]);
+    }
+
+    [TestMethod]
+    public void SanitizeToolPrefix_CollapsesIllegalChars_TruncatesAndFallsBack()
+    {
+        Assert.AreEqual("my-server_1", McpConfigParser.SanitizeToolPrefix("my-server 1"));
+        Assert.AreEqual("a_b", McpConfigParser.SanitizeToolPrefix("a!!@@##b"));
+        Assert.AreEqual("mcp", McpConfigParser.SanitizeToolPrefix("  "));
+        Assert.AreEqual("mcp", McpConfigParser.SanitizeToolPrefix("!!!"));
+        Assert.AreEqual(24, McpConfigParser.SanitizeToolPrefix(new string('x', 60)).Length);
+    }
+
+    [TestMethod]
+    public async Task McpServers_RoundTripThroughSettingsStore()
+    {
+        using var context = new TestPluginContext();
+        var store = new AiSettingsStore(context);
+        var settings = new AiSettings
+        {
+            McpServers =
+            [
+                new McpServerConfig
+                {
+                    Name = "files",
+                    Transport = McpTransportType.Stdio,
+                    Command = "npx",
+                    Arguments = "-y @modelcontextprotocol/server-filesystem C:\\data",
+                    EnvironmentVariables = "DEBUG=1"
+                },
+                new McpServerConfig
+                {
+                    Name = "remote",
+                    Enabled = false,
+                    Transport = McpTransportType.Http,
+                    Url = "https://example.com/mcp",
+                    Headers = "Authorization: Bearer token"
+                }
+            ]
+        };
+
+        await store.SaveAsync(settings);
+        AiSettings loaded = await store.LoadAsync();
+
+        Assert.AreEqual(2, loaded.McpServers.Count);
+        Assert.AreEqual("files", loaded.McpServers[0].Name);
+        Assert.AreEqual(McpTransportType.Stdio, loaded.McpServers[0].Transport);
+        Assert.AreEqual("npx", loaded.McpServers[0].Command);
+        Assert.IsTrue(loaded.McpServers[0].Enabled);
+        Assert.AreEqual(McpTransportType.Http, loaded.McpServers[1].Transport);
+        Assert.IsFalse(loaded.McpServers[1].Enabled);
+        Assert.AreEqual("https://example.com/mcp", loaded.McpServers[1].Url);
+    }
+}

@@ -26,6 +26,7 @@ public partial class ChatPanelView : UserControl
     private readonly AiSettingsStore _store;
     private readonly Loc _loc;
     private readonly AgentToolbox _toolbox;
+    private readonly McpManager _mcp;
     private readonly MarkdownRenderer _markdown;
     private readonly List<ChatMessage> _history = [];
 
@@ -49,6 +50,7 @@ public partial class ChatPanelView : UserControl
             SessionIdProvider = () => SelectedSessionId,
             ApprovalHandler = RequestApprovalAsync
         };
+        _mcp = new McpManager(context) { ApprovalHandler = RequestApprovalAsync };
         InitializeComponent();
         _markdown = new MarkdownRenderer(this, text => _context.Clipboard.SetTextAsync(text), _loc);
         ApplyLoc();
@@ -104,6 +106,7 @@ public partial class ChatPanelView : UserControl
         {
             // 已释放则忽略
         }
+        _ = _mcp.DisposeAsync().AsTask();
     }
 
     /// <summary>从命令入口外部注入一条消息并直接发送(任意线程可调)。</summary>
@@ -272,7 +275,21 @@ public partial class ChatPanelView : UserControl
             if (agentMode)
             {
                 _toolbox.AutoApprove = _settings.AutoApproveCommands;
-                options.Tools = _toolbox.CreateTools();
+                _mcp.AutoApprove = _settings.AutoApproveCommands;
+                IList<AITool> tools = _toolbox.CreateTools();
+                if (_settings.McpServers.Any(s => s.Enabled))
+                {
+                    StatusText.Text = _loc["McpConnecting"];
+                    (List<AITool> mcpTools, List<string> mcpErrors) = await _mcp.GetToolsAsync(_settings.McpServers, token);
+                    foreach (AITool tool in mcpTools)
+                    {
+                        tools.Add(tool);
+                    }
+                    StatusText.Text = mcpErrors.Count > 0
+                        ? $"{_loc["Error"]} (MCP): {string.Join("; ", mcpErrors)}"
+                        : "";
+                }
+                options.Tools = tools;
                 client = client.AsBuilder()
                     .UseFunctionInvocation(configure: c => c.MaximumIterationsPerRequest = 25)
                     .Build();
@@ -382,7 +399,8 @@ public partial class ChatPanelView : UserControl
         {
             prompt +=
                 " You can call tools to inspect the user's selected SSH session (read terminal output, run one-shot commands, read files). " +
-                "Prefer read-only commands; destructive commands require user approval and should be proposed carefully.";
+                "Prefer read-only commands; destructive commands require user approval and should be proposed carefully. " +
+                "Additional tools may come from user-configured MCP servers (their names are prefixed with the server name).";
         }
         return prompt;
     }

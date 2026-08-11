@@ -61,6 +61,9 @@ public sealed class AiSettings
 
     /// <summary>自定义系统提示词(空 = 用内置默认)。</summary>
     public string? SystemPrompt { get; set; }
+
+    /// <summary>用户自定义的 MCP 服务器(Agent 模式下启用项的工具并入工具箱)。</summary>
+    public List<McpServerConfig> McpServers { get; set; } = [];
 }
 
 /// <summary>内置的接入预设(设置页"新增"下拉)。</summary>

@@ -209,15 +209,27 @@
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
-    <!-- 顶栏下拉与勾选的统一尺寸 -->
+    <!-- 顶栏所有控件统一 26 高并显式垂直居中:混用自然高度(Fluent 下拉 30+、
+         勾选 32)会导致不在同一中线,且勾选随 Agent 开关显隐时撑高整行造成跳动。 -->
     <Style Selector="Grid#TopBar ComboBox">
       <Setter Property="MinHeight" Value="26" />
+      <Setter Property="Height" Value="26" />
+      <Setter Property="Padding" Value="8,0,0,0" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
       <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
     <Style Selector="Grid#TopBar CheckBox">
       <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
       <Setter Property="MinHeight" Value="26" />
+      <Setter Property="Height" Value="26" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Grid#TopBar ToggleButton">
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Grid#TopBar Button">
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
   </UserControl.Styles>
@@ -225,7 +237,7 @@
   <DockPanel Margin="10">
     <!-- 顶栏:接入 / 会话 / Agent 开关 | 新会话 / 设置 -->
     <Grid x:Name="TopBar" DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
-      <StackPanel Orientation="Horizontal" Spacing="6">
+      <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
         <ComboBox x:Name="ProviderCombo" MinWidth="150" MaxWidth="240" />
         <ComboBox x:Name="SessionCombo" MinWidth="110" MaxWidth="200" />
         <ToggleButton x:Name="AgentToggle" Theme="{StaticResource AiChipToggleTheme}">
@@ -238,9 +250,9 @@
             <TextBlock x:Name="AgentText" VerticalAlignment="Center" />
           </StackPanel>
         </ToggleButton>
-        <CheckBox x:Name="AutoApproveCheck" IsVisible="False" />
+        <CheckBox x:Name="AutoApproveCheck" Theme="{StaticResource AiCheckBoxTheme}" IsVisible="False" />
       </StackPanel>
-      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
         <Button x:Name="NewChatButton" Theme="{DynamicResource VelaOutlineButtonTheme}" Height="26" Padding="8,0">
           <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
             <Viewbox Width="11" Height="11" VerticalAlignment="Center">
