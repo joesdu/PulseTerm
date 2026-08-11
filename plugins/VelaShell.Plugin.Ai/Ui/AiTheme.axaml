@@ -54,4 +54,56 @@
     </Style>
   </ControlTheme>
 
+  <!-- 紧凑勾选框(顶栏"自动批准"/设置页"启用"):Fluent 默认模板按 32 高设计,
+       勾选图形顶对齐 + 固定边距,压到 26 高时方块与文字内部错位;
+       自带模板让方块(15×15)与文字共用同一垂直中线,彻底与行高解耦。
+       配方与芯片开关一致:默认主描边,悬停换次描边,选中 VelaAccentDim 底 + 强调描边。
+       对勾几何内联(lucide check),不依赖宿主 Icon.* 资源,隔离进程仅有令牌时也可用。 -->
+  <ControlTheme x:Key="AiCheckBoxTheme" TargetType="CheckBox">
+    <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
+    <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+    <Setter Property="MinHeight" Value="26" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="FocusAdorner" Value="{x:Null}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Grid ColumnDefinitions="Auto,Auto" Background="Transparent" VerticalAlignment="Center">
+          <Border x:Name="PART_Box" Width="15" Height="15" CornerRadius="3" BorderThickness="1"
+                  Background="Transparent" BorderBrush="{DynamicResource VelaBorderPrimary}"
+                  VerticalAlignment="Center">
+            <Viewbox Width="9" Height="9" HorizontalAlignment="Center" VerticalAlignment="Center">
+              <Path x:Name="PART_Check" Width="24" Height="24" Data="M20 6 9 17l-5-5"
+                    Stroke="{DynamicResource VelaAccent}" StrokeThickness="3"
+                    StrokeLineCap="Round" StrokeJoin="Round" Opacity="0" />
+            </Viewbox>
+          </Border>
+          <ContentPresenter Grid.Column="1" Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                            Foreground="{TemplateBinding Foreground}"
+                            Margin="6,0,0,0" VerticalAlignment="Center" />
+        </Grid>
+      </ControlTemplate>
+    </Setter>
+    <Style Selector="^:pointerover /template/ Border#PART_Box">
+      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderSecondary}" />
+    </Style>
+    <Style Selector="^:pointerover">
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
+    </Style>
+    <Style Selector="^:checked /template/ Border#PART_Box">
+      <Setter Property="Background" Value="{DynamicResource VelaAccentDim}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaAccent}" />
+    </Style>
+    <Style Selector="^:checked /template/ Path#PART_Check">
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="^:disabled">
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />
+      <Setter Property="Cursor" Value="Arrow" />
+    </Style>
+  </ControlTheme>
+
 </ResourceDictionary>

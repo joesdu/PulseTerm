@@ -1,7 +1,8 @@
 # VelaShell.Plugin.Ai —— AI 助手插件
 
 多提供商 AI 助手:在 VelaShell 内与大模型流式对话,并可开启 **Agent 模式**
-让模型经审批调用工具(读终端输出、执行远程命令、读远程文件、写终端)。
+让模型经审批调用工具(读终端输出、执行远程命令、读远程文件、写终端),
+还可接入用户自定义的 **MCP 服务器**扩展工具集。
 
 ## 支持的接入
 
@@ -49,7 +50,9 @@ ControlTheme 的芯片开关(`Ui/AiTheme.axaml`,隔离进程下仅令牌也能�
   (`GetChatClient().AsIChatClient()` / `GetResponsesClient().AsIChatClient()`);
 - Anthropic 协议:`Anthropic` 官方 SDK 内建的 `AsIChatClient()` 适配;
 - Agent 循环:`FunctionInvokingChatClient`(`UseFunctionInvocation()`,上限 25 轮);
-- 工具经 `AIFunctionFactory` 包装插件 SDK 能力(Sessions / Terminal / RemoteExec / RemoteFs)。
+- 工具经 `AIFunctionFactory` 包装插件 SDK 能力(Sessions / Terminal / RemoteExec / RemoteFs);
+- MCP:官方 `ModelContextProtocol.Core` SDK,`McpClientTool` 本身即 `AIFunction`,
+  与内置工具同进一个函数调用循环。
 
 依赖随插件目录分发,由插件 ALC 按 deps.json 隔离解析,与宿主互不干扰。
 
@@ -70,6 +73,25 @@ ControlTheme 的芯片开关(`Ui/AiTheme.axaml`,隔离进程下仅令牌也能�
 - `write_terminal` 之上还有宿主自己的终端回写授权弹窗(四态)。
 - `read_terminal` / `list_sessions` / `read_remote_file`(≤256KB)为只读,不需审批。
 - 目标会话由面板顶部的会话下拉框选定。
+
+## MCP 服务器(自定义)
+
+设置页底部可添加任意多个 MCP 服务器,两种连接方式:
+
+- **Stdio(本地进程)**:命令(`npx` / `uvx` / 任意可执行文件)+ 单行参数
+  (含空格片段用引号)+ 可选工作目录与 `KEY=VALUE` 环境变量;
+  Windows 下脚本命令的 cmd 包装由 SDK 处理。
+- **HTTP(远端)**:端点 URL + 可选 `Name: Value` 请求头(鉴权令牌等);
+  Streamable HTTP / SSE 自动探测。
+
+行为约定(`Agent/McpManager`):
+
+- 仅 **Agent 模式**下连接**启用的**服务器;连接按配置指纹缓存复用,
+  失败退避 30s 再重试,单服务器失败不影响其余(错误显示在状态行)。
+- 工具名加 `服务器名_` 前缀防冲突(清洗为 `[A-Za-z0-9_-]`,截断至 64)。
+- 按 MCP `readOnlyHint` 注解区分:只读工具直接执行;**非只读工具走与
+  `run_command` 相同的审批卡**,"自动批准"开关同样生效。
+- 设置页"测试"按钮即时连接并列出该服务器的工具;面板关闭时全部断开。
 
 ## 测试
 

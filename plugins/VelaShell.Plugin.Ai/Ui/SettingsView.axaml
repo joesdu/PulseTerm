@@ -124,6 +124,92 @@
         <TextBlock x:Name="SystemPromptLabel" Classes="label" Margin="0,0,0,3" />
         <TextBox x:Name="SystemPromptBox" AcceptsReturn="True" MinHeight="64" TextWrapping="Wrap" />
 
+        <!-- MCP 服务器:左列表右表单,布局语言与上方接入编辑一致 -->
+        <Separator Margin="0,14" Background="{DynamicResource VelaBorderPrimary}" />
+        <TextBlock x:Name="McpHeader" Classes="label" Margin="0,0,0,2" />
+        <TextBlock x:Name="McpHintText" Classes="dim" TextWrapping="Wrap" Margin="0,0,0,6" />
+        <Grid ColumnDefinitions="190,14,*">
+          <DockPanel Grid.Column="0">
+            <Button x:Name="McpAddButton" DockPanel.Dock="Bottom" Theme="{DynamicResource VelaOutlineButtonTheme}"
+                    HorizontalAlignment="Stretch" Height="26" Margin="0,8,0,0">
+              <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                <Viewbox Width="11" Height="11" VerticalAlignment="Center">
+                  <Path Width="24" Height="24" Data="{DynamicResource Icon.plus}"
+                        Stroke="{DynamicResource VelaTextSecondary}" StrokeThickness="2"
+                        StrokeLineCap="Round" StrokeJoin="Round" />
+                </Viewbox>
+                <TextBlock x:Name="McpAddText" VerticalAlignment="Center" />
+              </StackPanel>
+            </Button>
+            <ListBox x:Name="McpList" MinHeight="96" />
+          </DockPanel>
+
+          <StackPanel Grid.Column="2">
+            <CheckBox x:Name="McpEnabledCheck" Theme="{StaticResource AiCheckBoxTheme}"
+                      FontSize="{DynamicResource VelaFontSize12}" Margin="0,4,0,0" />
+            <TextBlock x:Name="McpNameLabel" Classes="label" />
+            <TextBox x:Name="McpNameBox" />
+            <TextBlock x:Name="McpTransportLabel" Classes="label" />
+            <ComboBox x:Name="McpTransportCombo" HorizontalAlignment="Stretch" />
+
+            <StackPanel x:Name="McpStdioPanel">
+              <TextBlock x:Name="McpCommandLabel" Classes="label" />
+              <TextBox x:Name="McpCommandBox" FontFamily="{DynamicResource VelaUiMonoFont}" />
+              <TextBlock x:Name="McpArgumentsLabel" Classes="label" />
+              <TextBox x:Name="McpArgumentsBox" FontFamily="{DynamicResource VelaUiMonoFont}" />
+              <TextBlock x:Name="McpWorkingDirLabel" Classes="label" />
+              <TextBox x:Name="McpWorkingDirBox" FontFamily="{DynamicResource VelaUiMonoFont}" />
+              <TextBlock x:Name="McpEnvLabel" Classes="label" />
+              <TextBox x:Name="McpEnvBox" AcceptsReturn="True" MinHeight="52" TextWrapping="NoWrap"
+                       FontFamily="{DynamicResource VelaUiMonoFont}" />
+            </StackPanel>
+
+            <StackPanel x:Name="McpHttpPanel" IsVisible="False">
+              <TextBlock x:Name="McpUrlLabel" Classes="label" />
+              <TextBox x:Name="McpUrlBox" FontFamily="{DynamicResource VelaUiMonoFont}" />
+              <TextBlock x:Name="McpHeadersLabel" Classes="label" />
+              <TextBox x:Name="McpHeadersBox" AcceptsReturn="True" MinHeight="52" TextWrapping="NoWrap"
+                       FontFamily="{DynamicResource VelaUiMonoFont}" />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,14,0,0">
+              <Button x:Name="McpSaveButton" Theme="{DynamicResource VelaAccentPillButtonTheme}" Height="26" Padding="12,0">
+                <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                  <Viewbox Width="11" Height="11" VerticalAlignment="Center">
+                    <Path Width="24" Height="24" Data="{DynamicResource Icon.save}"
+                          Stroke="{DynamicResource VelaAccent}" StrokeThickness="2"
+                          StrokeLineCap="Round" StrokeJoin="Round" />
+                  </Viewbox>
+                  <TextBlock x:Name="McpSaveText" VerticalAlignment="Center"
+                             FontSize="{DynamicResource VelaFontSize11}" FontWeight="Medium" />
+                </StackPanel>
+              </Button>
+              <Button x:Name="McpTestButton" Theme="{DynamicResource VelaOutlineButtonTheme}" Height="26" Padding="12,0">
+                <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                  <Viewbox Width="11" Height="11" VerticalAlignment="Center">
+                    <Path Width="24" Height="24" Data="{DynamicResource Icon.play}"
+                          Stroke="{DynamicResource VelaTextSecondary}" StrokeThickness="2"
+                          StrokeLineCap="Round" StrokeJoin="Round" />
+                  </Viewbox>
+                  <TextBlock x:Name="McpTestText" VerticalAlignment="Center" />
+                </StackPanel>
+              </Button>
+              <Button x:Name="McpDeleteButton" Theme="{DynamicResource VelaOutlineButtonTheme}" Height="26" Padding="12,0"
+                      Foreground="{DynamicResource VelaError}" BorderBrush="{DynamicResource VelaError}">
+                <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                  <Viewbox Width="11" Height="11" VerticalAlignment="Center">
+                    <Path Width="24" Height="24" Data="{DynamicResource Icon.trash-2}"
+                          Stroke="{DynamicResource VelaError}" StrokeThickness="2"
+                          StrokeLineCap="Round" StrokeJoin="Round" />
+                  </Viewbox>
+                  <TextBlock x:Name="McpDeleteText" VerticalAlignment="Center" />
+                </StackPanel>
+              </Button>
+            </StackPanel>
+            <TextBlock x:Name="McpStatusText" Classes="dim" TextWrapping="Wrap" Margin="0,8,0,0" />
+          </StackPanel>
+        </Grid>
+
         <TextBlock x:Name="StatusText" Classes="dim" TextWrapping="Wrap" Margin="0,10,0,0" />
       </StackPanel>
     </ScrollViewer>
