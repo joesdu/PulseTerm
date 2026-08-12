@@ -1,5 +1,5 @@
 {
-  "id": "velashell.ai",
+  "id": "velashell-ai",
   "version": "0.2.0",
   "displayName": "AI Assistant",
   "description": "多提供商 AI 助手:OpenAI / Anthropic / Grok / Ollama / 自定义中转站,流式对话、Agent 模式与自定义 MCP 服务器工具。",
