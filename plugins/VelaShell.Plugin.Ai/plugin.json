@@ -10,15 +10,15 @@
   "homepage": "https://github.com/joesdu/VelaShell",
   // 惰性激活:不打开 AI 功能就不装载程序集,启动零开销。
   "activationEvents": [
-    "onCommand:velashell.ai.chat",
-    "onCommand:velashell.ai.chat-window",
-    "onCommand:velashell.ai.explain-terminal"
+    "onCommand:velashell-ai.chat",
+    "onCommand:velashell-ai.chat-window",
+    "onCommand:velashell-ai.explain-terminal"
   ],
   "contributes": {
     "commands": [
-      { "id": "velashell.ai.chat", "title": "AI: Open Chat (Tab)", "category": "AI" },
-      { "id": "velashell.ai.chat-window", "title": "AI: Open Chat (Window)", "category": "AI" },
-      { "id": "velashell.ai.explain-terminal", "title": "AI: Explain Terminal Output", "category": "AI" }
+      { "id": "velashell-ai.chat", "title": "AI: Open Chat (Tab)", "category": "AI" },
+      { "id": "velashell-ai.chat-window", "title": "AI: Open Chat (Window)", "category": "AI" },
+      { "id": "velashell-ai.explain-terminal", "title": "AI: Explain Terminal Output", "category": "AI" }
     ]
   }
 }
