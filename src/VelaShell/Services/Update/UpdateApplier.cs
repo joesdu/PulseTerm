@@ -10,14 +10,20 @@ namespace VelaShell.Services.Update;
 /// 便携式原地升级的文件操作核心。换版分两步、可由两个进程分别执行:
 /// <list type="number">
 /// <item><see cref="Stage" />:把更新包完整解到暂存目录的 <c>payload/</c>,此时应用目录一个字节都没动。</item>
-/// <item><see cref="SwapFromPayload" />:现有文件移入 <c>backup/</c>,<c>payload/</c> 里的文件移到位。</item>
+/// <item><see cref="SwapFromPayload" />:现有文件移入 <c>backup/</c>,<c>payload/</c> 里的文件复制到位。</item>
 /// </list>
 /// 旧文件挪进 <c>backup/</c> 而不是就地改名成 <c>*.old</c>,是这套设计的关键:整个备份目录一次性
 /// 删除即可收尾,不必逐个文件记账;删不掉时它待在暂存目录里也碍不着任何人,应用目录始终干净。
 /// 正常路径下 <see cref="SwapFromPayload" /> 由退出后才启动的外置换版进程执行
-/// (见 <see cref="UpdateRunner" />),那时应用目录无任何文件被占用,移动必然成功;
-/// 只有非单文件发布或外置进程拉不起来时才退回本进程原地换版(Windows 允许对正在运行的
+/// (见 <see cref="UpdateRunner" />),那时应用目录无任何文件被占用,覆盖必然成功;
+/// 只有包里没有主程序或外置进程拉不起来时才退回本进程原地换版(Windows 允许对正在运行的
 /// exe/dll 改名,只是不许删除/覆盖,三平台同一套逻辑)。
+/// <para>
+/// <b>新文件用复制而非移动进应用目录</b>:外置换版进程跑的就是 <c>payload/</c> 里那份完整新版应用
+/// (见 <see cref="TryHandOffToExternalUpdater" />),搬走 <c>payload/</c> 的文件等于抽掉它脚下的
+/// 地板 —— 换版途中才需要装载的程序集会突然找不到。复制留下的 <c>payload/</c> 由下次启动的
+/// <see cref="TryFinalizeStartup" /> 清掉,顺带让"换版失败后重试"不必重新解包。
+/// </para>
 /// 全程只触碰更新包内列出的文件,应用目录里用户自己的文件绝不改名或删除;
 /// 应用数据目录(%LocalAppData%/VelaShell)与本流程无关,永不触碰。
 /// 进度记录在暂存目录的日志文件里,中途崩溃由下次启动的 <see cref="TryFinalizeStartup" />
@@ -31,7 +37,11 @@ public sealed class UpdateApplier(string applicationDirectory)
     /// <summary>换版失败原因的落盘文件名(位于应用目录,供下次启动后在设置页如实展示)。</summary>
     public const string ErrorFileName = ".velashell-update-error";
 
-    /// <summary>外置换版进程临时目录的名字前缀(位于系统临时目录,按前缀清扫遗留)。</summary>
+    /// <summary>
+    /// 外置换版进程临时目录的名字前缀(位于系统临时目录,按前缀清扫遗留)。
+    /// 现在的更新器就地跑在 <see cref="PayloadDirectory" /> 里、不再建临时目录,这个前缀
+    /// 只用于清扫 1.1.x 及更早版本留在系统临时目录里的更新器副本。
+    /// </summary>
     internal const string UpdaterDirectoryPrefix = "velashell-updater-";
 
     /// <summary>换版日志文件名(位于暂存目录);下载流程清理残留时须避开它。</summary>
@@ -141,7 +151,7 @@ public sealed class UpdateApplier(string applicationDirectory)
     // ———————————————————— 第二步:换版 ————————————————————
 
     /// <summary>
-    /// 按换版日志把 <see cref="PayloadDirectory" /> 里的文件移进应用目录,被换下的旧文件
+    /// 按换版日志把 <see cref="PayloadDirectory" /> 里的文件复制进应用目录,被换下的旧文件
     /// 移入 <see cref="BackupDirectory" />。任一步失败即就地回滚后重新抛出异常。
     /// 调用前必须先 <see cref="Stage" />(可由另一个进程完成)。
     /// </summary>
@@ -173,14 +183,16 @@ public sealed class UpdateApplier(string applicationDirectory)
                     File.Move(target, backup, true);
                 }
                 Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-                File.Move(staged, target);
+                // 复制而非移动:见类注释——本方法多半正跑在 payload/ 里的那份新版应用中。
+                // Unix 下 File.Copy 会把源文件的权限位一并带过去,可执行位不丢。
+                File.Copy(staged, target, true);
             }
             journal.Phase = UpdateJournal.PhaseDone;
             WriteJournal(journal);
         }
         catch
         {
-            // 回滚后日志停在 applying:payload 已不完整,重试必须重新 Stage,
+            // 回滚后日志停在 applying。payload/ 仍是完整的(复制不消耗它),重试无需重新解包;
             // 而下次启动的 TryFinalizeStartup 再跑一遍回滚是幂等的空操作。
             Rollback(journal);
             throw;
@@ -197,14 +209,20 @@ public sealed class UpdateApplier(string applicationDirectory)
     // ———————————————————— 交接给外置换版进程 ————————————————————
 
     /// <summary>
-    /// 把换版交给一个独立进程:更新包里的新版主程序是自包含单文件,复制一份到系统临时目录
-    /// 直接当更新器用 —— 无需随包分发额外的可执行文件,跑的就是用户马上要用的那个二进制。
-    /// 它会等本进程(<paramref name="parentProcessId" />)退出后再换版,那时应用目录里没有
-    /// 任何文件被占用,移动/覆盖必然成功,也就不会再留下删不掉的残骸。
+    /// 把换版交给一个独立进程:<see cref="PayloadDirectory" /> 里躺着的就是一份解包完毕、
+    /// 自成一体的新版应用,直接把它的主程序跑起来当更新器 —— 无需随包分发额外的可执行文件,
+    /// 跑的就是用户马上要用的那个二进制。它会等本进程(<paramref name="parentProcessId" />)
+    /// 退出后再换版,那时应用目录里没有任何文件被占用,覆盖必然成功,也就不会留下删不掉的残骸。
     /// </summary>
+    /// <remarks>
+    /// 早先的做法是把新版主程序复制一份到系统临时目录再跑 —— 那依赖"主程序单文件即完整可执行体"。
+    /// 发布形态改回摊开后(为让隔离插件的 PluginHost 在磁盘上有真实可执行体,见 VelaShell.csproj),
+    /// 单个 exe 离开自己的目录就跑不起来,于是改为就地在 payload/ 里启动:它身边正是完整的一套
+    /// 运行时与依赖。代价是换版必须用复制而非移动(见 <see cref="SwapFromPayload" />)。
+    /// </remarks>
     /// <returns>
     /// true 表示外置进程已拉起,调用方随即退出应用即可;false 表示条件不满足
-    /// (非单文件发布、包里没有主程序、进程拉不起来),调用方应退回本进程原地换版。
+    /// (包里没有主程序、进程拉不起来),调用方应退回本进程原地换版。
     /// </returns>
     public bool TryHandOffToExternalUpdater(int parentProcessId)
     {
@@ -222,33 +240,22 @@ public sealed class UpdateApplier(string applicationDirectory)
         {
             return false;
         }
-        // 自包含单文件的判据:同名托管主程序集不在磁盘上(已打进 exe 的 bundle),
-        // 这样的可执行文件复制到任何目录都能独立运行,不依赖应用目录里的其他文件。
-        // 非单文件发布(开发构建)下它旁边会躺着 <name>.dll,此时只能原地换版。
-        if (File.Exists(Path.ChangeExtension(payloadLauncher, ".dll")))
-        {
-            return false;
-        }
 
-        string updaterDirectory = Path.Combine(
-            Path.GetTempPath(), UpdaterDirectoryPrefix + Guid.NewGuid().ToString("N"));
         try
         {
-            Directory.CreateDirectory(updaterDirectory);
-            string updaterPath = Path.Combine(updaterDirectory, launcherName);
-            File.Copy(payloadLauncher, updaterPath, true);
             if (!OperatingSystem.IsWindows())
             {
-                File.SetUnixFileMode(updaterPath, File.GetUnixFileMode(updaterPath)
+                // tar 包解出来已带可执行位,这里兜一道底(zip 包不带权限位)。
+                File.SetUnixFileMode(payloadLauncher, File.GetUnixFileMode(payloadLauncher)
                     | UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute);
             }
             // 先记账再拉起:进程起来后本进程随即退出,来不及再写日志。
             journal.Phase = UpdateJournal.PhaseHandoff;
-            journal.UpdaterDirectory = updaterDirectory;
+            journal.UpdaterDirectory = null;
             WriteJournal(journal);
-            Process.Start(new ProcessStartInfo(updaterPath)
+            Process.Start(new ProcessStartInfo(payloadLauncher)
             {
-                WorkingDirectory = updaterDirectory,
+                WorkingDirectory = PayloadDirectory,
                 UseShellExecute = false,
                 ArgumentList =
                 {
@@ -265,7 +272,6 @@ public sealed class UpdateApplier(string applicationDirectory)
             journal.Phase = UpdateJournal.PhaseStaged;
             journal.UpdaterDirectory = null;
             TryWriteJournal(journal);
-            TryDeleteDirectory(updaterDirectory);
             return false;
         }
     }
@@ -455,6 +461,8 @@ public sealed class UpdateApplier(string applicationDirectory)
     /// <summary>
     /// 清扫外置更新器的临时目录:日志点名的那个必删(它刚跑完),其余同前缀目录超过
     /// <see cref="UpdaterDirectoryMaxAge" /> 才删 —— 免得误伤另一个实例正在进行的换版。
+    /// 新版更新器就地跑在 payload/ 里、不再建临时目录,日志里的 UpdaterDirectory 恒为 null;
+    /// 这段留着是为了收拾从旧版本升上来时残留的那一份。
     /// </summary>
     private static bool TrySweepUpdaterDirectories(string? current)
     {
@@ -556,8 +564,10 @@ public sealed class UpdateApplier(string applicationDirectory)
     }
 
     /// <summary>
-    /// 换版要同时容纳解包内容与旧版备份,故要求两倍余量。空间不够就在解包前明确报错,
-    /// 而不是解到一半才炸在某个文件上。查不到磁盘信息(异常文件系统)时放行。
+    /// 换版全程磁盘上会同时存在三份:应用目录里的旧版(换版时原地挪进 <c>backup/</c>,不额外占地)、
+    /// 解包出来的 <c>payload/</c>,以及复制进应用目录的那份新版。相对现状净增两倍包体,
+    /// 故要求两倍余量。空间不够就在解包前明确报错,而不是解到一半才炸在某个文件上。
+    /// 查不到磁盘信息(异常文件系统)时放行。
     /// </summary>
     private void EnsureDiskSpace(long payloadBytes)
     {

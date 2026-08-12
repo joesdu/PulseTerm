@@ -21,8 +21,8 @@ internal static partial class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        // 外置换版模式必须排在最前:此时跑的是更新包里新版主程序的一份临时副本,
-        // 身边没有任何本机依赖(单文件发布只打包托管程序集),碰一下 Avalonia 就起不来。
+        // 外置换版模式必须排在最前:此时跑的是暂存目录里解包出来的新版应用,它的活儿是
+        // 无界面的几秒钟文件搬运,起 Avalonia 既没意义又会拖慢用户等待(见 UpdateRunner)。
         // 它等主进程退出后换版、拉起应用,然后本进程结束——不走下面任何一行。
         if (UpdateRunner.TryRun(args))
         {

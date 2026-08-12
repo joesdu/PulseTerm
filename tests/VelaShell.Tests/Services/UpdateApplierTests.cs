@@ -192,6 +192,23 @@ public class UpdateApplierTests : IDisposable
 
     [TestMethod]
     [TestCategory("Update")]
+    public void SwapFromPayload_LeavesPayloadIntact()
+    {
+        // 外置换版进程就跑在 payload/ 里(那是一份完整的新版应用),换版期间绝不能把它
+        // 脚下的文件搬走 —— 新文件必须是复制进应用目录,不是移动。
+        WriteAppFile("app.exe", "old-exe");
+        _applier.Stage(CreateZip(("app.exe", "new-exe"), ("lib/helper.dll", "new-dll")));
+
+        _applier.SwapFromPayload();
+
+        Assert.AreEqual("new-exe", ReadAppFile("app.exe"));
+        Assert.AreEqual("new-exe", File.ReadAllText(Path.Combine(_applier.PayloadDirectory, "app.exe")));
+        Assert.AreEqual("new-dll",
+            File.ReadAllText(Path.Combine(_applier.PayloadDirectory, "lib", "helper.dll")));
+    }
+
+    [TestMethod]
+    [TestCategory("Update")]
     public void Apply_ZipSlipEntry_ThrowsWithoutTouchingFiles()
     {
         WriteAppFile("app.exe", "old-exe");
@@ -434,15 +451,18 @@ public class UpdateApplierTests : IDisposable
 
     [TestMethod]
     [TestCategory("Update")]
-    public void TryHandOffToExternalUpdater_NonSingleFilePayload_FallsBackInProcess()
+    public void TryHandOffToExternalUpdater_LauncherNotExecutable_FallsBackInProcess()
     {
-        // 开发构建(非单文件)下包里会躺着同名托管程序集,此时不能把主程序复制去当更新器。
+        // 包里那个"主程序"根本跑不起来时,交接要干净地失败并把日志退回 staged,
+        // 否则调用方的原地换版兜底就无从谈起。
+        WriteAppFile("a.txt", "a-old");
         string launcher = Path.GetFileName(Environment.ProcessPath)!;
-        _applier.Stage(CreateZip(
-            (launcher, "new-launcher"),
-            (Path.ChangeExtension(launcher, ".dll"), "managed assembly")));
+        _applier.Stage(CreateZip((launcher, "not an executable"), ("a.txt", "a-new")));
 
         Assert.IsFalse(_applier.TryHandOffToExternalUpdater(Environment.ProcessId));
+
+        _applier.SwapFromPayload();
+        Assert.AreEqual("a-new", ReadAppFile("a.txt"));
     }
 
     [TestMethod]

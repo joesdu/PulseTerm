@@ -15,8 +15,20 @@
     <EmbeddedResource Include="Syntax\*.xshd" />
   </ItemGroup>
 
+  <!--
+    Release 发布形态:自包含、摊开(**刻意不用 PublishSingleFile**)。
+
+    2026-08-12 起从单文件改回摊开发布,起因是插件系统:隔离模式插件由主程序拉起
+    VelaShell.PluginHost 进程(见 Plugins/Isolated/PluginProcessClient),单文件会把
+    PluginHost 的托管程序集连同整套运行时一起打进 VelaShell.exe 的 bundle,磁盘上根本没有
+    可执行体 —— 打包版里隔离插件必然拉不起宿主。要么让第二个进程各带一套运行时(包体近乎
+    翻倍),要么摊开发布让两个可执行体共用同一份运行时;选后者。
+
+    连带影响是自更新:换版原先靠"复制新版单文件到临时目录当更新器"。摊开发布后单个 exe
+    离开应用目录就跑不起来,改为直接运行暂存目录里那份完整的新版应用当更新器,换版也随之
+    从"移动"改为"复制"(见 Services/Update/UpdateApplier)。
+  -->
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
-    <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <PublishTrimmed>false</PublishTrimmed>
   </PropertyGroup>
@@ -43,8 +55,9 @@
     包版本在编译期写进程序集元数据,免得手写版本号跟着漂(它已经漂过一次:关于页停在 12.0.5,
     实际引用早已是 12.1.0)。
 
-    为什么不在运行时读 .deps.json:Release 是 PublishSingleFile(见上面的 PropertyGroup),
-    deps.json 被打进 exe 的 bundle,磁盘上不存在,读不到。
+    为什么不在运行时读 .deps.json:它记的是程序集版本而非包版本,解析它还得在启动路径上多读
+    一个文件、多一套 JSON 结构要维护(该文件曾因单文件发布压根不落盘,如今摊开发布才有,
+    这种"随发布形态变化的依赖"本身就不该出现在关于页这种小功能上)。
     为什么不读程序集版本:那与包版本不是一回事 —— SSH.NET 程序集报 2025.1.0.1、
     ReactiveUI 报 23.0.0.0,而包版本是 2025.1.0 / 23.2.28。
 
@@ -70,7 +83,52 @@
     <ProjectReference Include="..\VelaShell.PluginHost\VelaShell.PluginHost.csproj" />
     <!-- 仓库内插件:只建立构建顺序,不引用程序集 —— 保证 F5 时插件(含 plugin.json)
          总是重新构建并镜像进本项目输出的 plugins/ 目录。改了 manifest 或插件代码
-         不再需要手动先构建插件项目(踩过:输出里留着旧 isolated 清单,Tab 模式"失灵")。 -->
-    <ProjectReference Include="..\..\plugins\*\*.csproj" ReferenceOutputAssembly="false" Private="false" />
+         不再需要手动先构建插件项目(踩过:输出里留着旧 isolated 清单,Tab 模式"失灵")。
+         UndefineProperties:发布命令行上的 -r / -p:SelfContained / -p:PublishSingleFile 是
+         全局属性,默认会顺着引用流进插件项目,把插件也当成"自带运行时的单文件应用"来构建
+         (输出目录多出一整套运行时,还会跟着 RID 分叉到 bin/<cfg>/net11.0/<rid>/,
+         与下面按 TargetDir 取件的约定对不上)。插件由宿主的 ALC 装载,天然是框架依赖、
+         RID 无关的类库,这里显式把这些属性摘掉,让本机构建与发布构建落在同一个输出目录。 -->
+    <ProjectReference Include="..\..\plugins\*\*.csproj" ReferenceOutputAssembly="false" Private="false"
+                      UndefineProperties="RuntimeIdentifier;SelfContained;PublishSingleFile;PublishTrimmed;PublishReadyToRun;PublishAot" />
   </ItemGroup>
+
+  <!--
+    发布期把"随应用分发"的插件放进安装包的 plugins/<id>/ —— 运行时的插件发现根之一
+    (另一个是用户数据目录下的 plugins/,见 PluginServiceCollectionExtensions)。
+
+    为什么必须显式做这件事:上面的 ProjectReference 只建立构建顺序,插件产物是被
+    plugins/Directory.Build.targets 镜像进本项目 bin/ 的;而 publish 只收
+    ResolvedFileToPublish 里登记过的文件,不扫 bin 目录 —— 不登记,发行包里就一个插件都没有。
+
+    走 ResolvedFileToPublish 而不是 AfterTargets="Publish" 手工拷贝:让 -o / 增量 /
+    各 RID 布局都由 SDK 统一处理。ExcludeFromSingleFile 是道保险 —— 当前发布形态已不用
+    单文件(见上面 Release 的 PropertyGroup),但插件 dll 必须以磁盘上的真实文件形态存在
+    (ALC 要按 deps.json 解析装载),万一哪天有人重新打开单文件,这行能挡住它们被卷进 bundle。
+
+    哪些插件进包由各插件的 <VelaPluginShip> 决定(示例插件 velashell.hello-world 设了 false)。
+  -->
+  <Target Name="AddVelaPluginsToPublish" BeforeTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup>
+      <_VelaPluginProject Include="$(MSBuildThisFileDirectory)..\..\plugins\*\*.csproj" />
+    </ItemGroup>
+    <MSBuild Projects="@(_VelaPluginProject)"
+             Targets="GetVelaPluginPayload"
+             Properties="Configuration=$(Configuration)"
+             RemoveProperties="RuntimeIdentifier;SelfContained;PublishSingleFile;PublishTrimmed;PublishReadyToRun;PublishAot;PublishDir">
+      <Output TaskParameter="TargetOutputs" ItemName="_VelaPluginPayload" />
+    </MSBuild>
+    <!-- 一个可发行插件都没收到,基本只有两种可能:通配符没匹配到项目,或者谁把
+         VelaPluginShip 全关了。两种都会悄无声息地发出一个"插件系统看着在、实则没插件"的包,
+         宁可在这里断掉发布。 -->
+    <Error Condition="'@(_VelaPluginPayload)' == ''"
+           Text="发布产物里没有任何插件:请检查 plugins/ 下是否有 &lt;VelaPluginShip&gt;true&lt;/VelaPluginShip&gt; 的插件项目。" />
+    <ItemGroup>
+      <ResolvedFileToPublish Include="@(_VelaPluginPayload)">
+        <RelativePath>plugins\%(_VelaPluginPayload.VelaPluginRelativePath)</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
 </Project>

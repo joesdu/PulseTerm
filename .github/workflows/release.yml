@@ -3,15 +3,19 @@
 #   Windows x64/arm64 → zip
 #   macOS   x64/arm64 → tar.gz + dmg(未签名/未公证;Unix 可执行位在原生 runner 上保留)
 #   Linux   x64/arm64 → tar.gz
+# 随包分发的插件(plugins/<id>/)由 MSBuild 在 publish 期登记入包,三平台各 job 无需特殊处理;
+# 哪个插件进包看它 csproj 的 <VelaPluginShip>(示例插件 velashell.hello-world 设为 false,
+# 只作开发范例不进产物)。一个可发行插件都收不到时发布会直接失败,不会悄悄出一个没插件的包。
 # 另有 build-msix 任务产出商店版 .msixbundle,但它不附加到 Release —— 作为工作流
 # artifact(store-msix)留存,由人工下载后提交 Partner Center。便携版与商店版是同一份二进制,
 # 只是容器不同;应用内自更新在商店版会自动关闭(运行时判定包身份,见 Services/AppPackaging.cs)。
 # macOS 双产物分工(动 latest.json 前先读这段):
 #   tar.gz — 应用内自更新器的资产,latest.json 只指向它。更新器是"原地换版"
 #            (zip/tar 按相对路径解进应用目录),不认识 dmg。
-#   注意 self-contained + single-file 这两个开关是自更新方案的前提:换版由主程序自己的一份
-#   临时副本(而非随包分发的独立更新器)在应用退出后执行,靠的正是"主程序单文件即完整可执行体"。
-#   若哪天改成非单文件发布,换版会自动退回本进程原地重命名的兜底路径,更新仍可用但不再干净。
+#   注意 self-contained(而非 single-file)是自更新方案的前提:换版由应用退出后才动手的外置
+#   进程执行,跑的就是暂存目录里解包出来的那份新版应用 —— 它自成一体、无需安装即可运行,
+#   靠的正是 self-contained。2026-08-12 起刻意不再单文件发布(隔离插件的 PluginHost 需要
+#   磁盘上的真实可执行体,详见 src/VelaShell/VelaShell.csproj),换版也随之从"移动"改为"复制"。
 #   dmg    — 人类安装资产:VelaShell.app 拖进 /Applications。.app 的 Contents/MacOS
 #            就是 tar.gz 的扁平布局,应用在 bundle 内运行时更新器的应用目录即
 #            Contents/MacOS,后续自更新照常工作(Info.plist/图标不随更新变,可接受)。
@@ -81,7 +85,7 @@ jobs:
           foreach ($rid in @('win-x64', 'win-arm64')) {
             $name = "VelaShell-$version-$rid"
             dotnet publish $env:PROJECT -c Release -r $rid -o "out/$name" `
-              -p:Version=$version -p:SelfContained=true -p:PublishSingleFile=true `
+              -p:Version=$version -p:SelfContained=true `
               -p:DebugType=None --nologo
             if ($LASTEXITCODE -ne 0) { exit 1 }
             Get-ChildItem "out/$name" -Recurse -File -Filter '*.pdb' | Remove-Item -Force
@@ -187,8 +191,9 @@ jobs:
           for rid in osx-x64 osx-arm64; do
             name="VelaShell-$version-$rid"
             dotnet publish "$PROJECT" -c Release -r "$rid" -o "out/$name" \
-              -p:Version="$version" -p:SelfContained=true -p:PublishSingleFile=true -p:DebugType=None --nologo
-            chmod +x "out/$name/VelaShell"
+              -p:Version="$version" -p:SelfContained=true -p:DebugType=None --nologo
+            # 两个可执行体:主程序,以及隔离插件的宿主进程(由主程序按需拉起)。
+            chmod +x "out/$name/VelaShell" "out/$name/VelaShell.PluginHost"
 
             # tar.gz:应用内更新器的资产,扁平布局不可改(见文件头"macOS 双产物分工")。
             tar -czf "dist/$name.tar.gz" -C "out/$name" .
@@ -254,8 +259,9 @@ jobs:
           for rid in linux-x64 linux-arm64; do
             name="VelaShell-$version-$rid"
             dotnet publish "$PROJECT" -c Release -r "$rid" -o "out/$name" \
-              -p:Version="$version" -p:SelfContained=true -p:PublishSingleFile=true -p:DebugType=None --nologo
-            chmod +x "out/$name/VelaShell"
+              -p:Version="$version" -p:SelfContained=true -p:DebugType=None --nologo
+            # 两个可执行体:主程序,以及隔离插件的宿主进程(由主程序按需拉起)。
+            chmod +x "out/$name/VelaShell" "out/$name/VelaShell.PluginHost"
             tar -czf "dist/$name.tar.gz" -C "out/$name" .
           done
         env:

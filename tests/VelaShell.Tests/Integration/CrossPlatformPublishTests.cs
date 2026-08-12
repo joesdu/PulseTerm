@@ -51,7 +51,9 @@ public class CrossPlatformPublishTests : IDisposable
         var psi = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"publish \"{projectPath}\" -r {rid} --self-contained -c Release -o \"{outputDir}\" /p:PublishSingleFile=true",
+            // 与 release.yml / publish-all.ps1 同一条命令(刻意不带 PublishSingleFile:
+            // 隔离插件的 PluginHost 需要磁盘上的真实可执行体)。
+            Arguments = $"publish \"{projectPath}\" -r {rid} --self-contained -c Release -o \"{outputDir}\"",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,

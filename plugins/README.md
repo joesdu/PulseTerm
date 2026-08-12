@@ -6,10 +6,14 @@ SDK 契约见 [plugin-sdk/](../plugin-sdk/),开发文档见
 
 ## 现有插件
 
-| 目录 | id | 说明 |
-| --- | --- | --- |
-| [VelaShell.Plugin.HelloWorld](VelaShell.Plugin.HelloWorld/) | `velashell.hello-world` | 官方示例:SDK 各能力的最小用法 |
-| [VelaShell.Plugin.Ai](VelaShell.Plugin.Ai/) | `velashell.ai` | AI 助手:多提供商流式对话 + Agent 模式(读终端/执行命令带审批) |
+| 目录 | id | 随包分发 | 说明 |
+| --- | --- | --- | --- |
+| [VelaShell.Plugin.HelloWorld](VelaShell.Plugin.HelloWorld/) | `velashell.hello-world` | 否 | 官方示例:SDK 各能力的最小用法 |
+| [VelaShell.Plugin.Ai](VelaShell.Plugin.Ai/) | `velashell.ai` | 是 | AI 助手:多提供商流式对话 + Agent 模式(读终端/执行命令带审批) |
+
+"随包分发"由 csproj 的 `<VelaPluginShip>` 控制(默认 `true`)。示例插件设 `false`:
+本机构建仍镜像进 `src/VelaShell/bin/<配置>/net11.0/plugins/`,F5 能装载它验证插件系统,
+但 `dotnet publish` 出来的安装包里不会有它 —— 它是给开发者读的范例,不是给用户装的功能。
 
 ## 规划中(尚未创建)
 
@@ -23,5 +27,6 @@ SDK 契约见 [plugin-sdk/](../plugin-sdk/),开发文档见
    插件自动重建并镜像到应用输出目录的 `plugins/<id>/`(含 `plugin.json`)。
 
 本目录的 `Directory.Build.props/targets` 已统一处理:`EnableDynamicLoading`、
-`plugin.json` 随构建输出、构建后复制到应用输出目录。SDK 引用必须保持
+`plugin.json` 随构建输出、构建后复制到应用输出目录、发布期按 `VelaPluginShip`
+交付进安装包(`GetVelaPluginPayload`)。SDK 引用必须保持
 `Private="false" ExcludeAssets="runtime"`(契约程序集由宿主统一提供)。

@@ -49,7 +49,7 @@ inProcess 停靠 / 隔离独立窗口)、可靠性(心跳/自愈/回收)、数�
 | 激活事件 | onStartup / onCommand | onSessionConnect、onFileOpen、onSchedule、onUri(蓝图 03 §4) |
 | UI 挂载点 | 命令面板、停靠文档、独立窗口、插件管理页 | 侧栏视图、状态栏、设置页、右键菜单贡献点(蓝图 08) |
 | 跨进程 dock 停靠 | RPC 协议层保留(EmbedRoutingTests),但**宿主 Win32 实现已移除**:跨进程窗口收养与 dock reparenting 根本冲突(卡顿/窗口飘出),**弃用** | 隔离插件一律独立卡片窗口;真·dock 标签用 inProcess;跨平台稳态 = 共享内存表面(蓝图 08 §4,远期) |
-| 发布形态 | 目录即插件 + **.vpx 包一键装/卸**(zip,zip-slip 防护);SDK 以 ProjectReference 使用 | SDK NuGet 包发布、`dotnet new` 模板、.vpx 签名/校验、发布打包脚本携带 PluginHost 产物(蓝图 09/10) |
+| 发布形态 | 目录即插件 + **.vpx 包一键装/卸**(zip,zip-slip 防护);SDK 以 ProjectReference 使用;**发布产物携带 `plugins/<id>/` 与 `VelaShell.PluginHost.*`**(前者按各插件 `<VelaPluginShip>` 取舍,示例插件不进包;为让宿主进程在磁盘上有真实可执行体,主程序 2026-08-12 起改为摊开发布) | SDK NuGet 包发布、`dotnet new` 模板、.vpx 签名/校验(蓝图 09/10) |
 
 ### ❌ 未开始
 
@@ -84,6 +84,8 @@ inProcess 停靠 / 隔离独立窗口)、可靠性(心跳/自愈/回收)、数�
 1. **写第一个业务插件**(容器管理:RemoteExec + AXAML 面板即可成型)——用真实需求
    反哺框架缺口;
 2. F5 真机验收观感(授权对话框 / 管理窗口 / 隔离插件独立窗口),修视觉毛刺;
-3. 发布打包脚本携带 `VelaShell.PluginHost.*` 与 `plugins/`;
+3. 真机验收**打包版的隔离模式**:2026-08-12 已把主程序改为摊开发布(`plugins/` 与
+   `VelaShell.PluginHost.*` 都随包交付),自更新的换版也从"移动"改为"复制"、更新器改为
+   就地跑在解包目录里;三平台各走一遍"装第三方隔离插件 → 用 → 自更新换版 → 重启"的全流程;
 4. 随 AI 插件定 `vela.ai` 能力域接口(蓝图 11);
 5. 侧栏/状态栏挂载点(做 UI 生态前的最后一块贡献点)。
