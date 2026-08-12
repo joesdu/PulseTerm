@@ -218,7 +218,23 @@ jobs:
             # ad-hoc 签名:Apple Silicon 拒绝运行完全无签名的二进制;无开发者证书时 ad-hoc 是底线。
             # 后续自更新替换 Contents/MacOS 里的文件会使 bundle 印章失效 —— 对未公证的
             # ad-hoc 应用无影响(系统只校验各二进制自身的嵌入签名,dotnet publish 的产物自带)。
-            codesign --force --deep --sign - "$app"
+            #
+            # 刻意由内而外显式签,不用 --deep(Apple 自己也只把它当"应急修补"):--deep 会递归
+            # 把 bundle 内带点号的目录当成嵌套 bundle 去解析,而插件目录天生就叫 plugins/<id>/,
+            # id 形如 velashell.ai —— 那个 ".ai" 正好长得像扩展名,于是 1.2.0 首次把 plugins/
+            # 放进包时炸出 "bundle format unrecognized, invalid, or unsuitable"。
+            # 插件目录里全是托管 dll,不含任何 mach-O,本就无需签名,作为普通资源被 CodeResources
+            # 封存即可;真正需要签的只有下面这些 mach-O。
+            find "$app/Contents/MacOS" -type f -name '*.dylib' -exec codesign --force --sign - {} +
+            for exe in createdump VelaShell.PluginHost VelaShell; do
+              if [ -f "$app/Contents/MacOS/$exe" ]; then
+                codesign --force --sign - "$app/Contents/MacOS/$exe"
+              fi
+            done
+            # 最后签 bundle 自身(封存资源 + 主可执行体);verify 让"签出来是坏的"当场失败,
+            # 而不是等用户装完 dmg 才发现打不开。
+            codesign --force --sign - "$app"
+            codesign --verify --verbose "$app"
 
             # dmg:VelaShell.app + /Applications 快捷方式的经典拖装布局。
             # hdiutil -srcfolder 会先建一个与内容等大的可写镜像(挂到 /Volumes/VelaShell)灌进去
