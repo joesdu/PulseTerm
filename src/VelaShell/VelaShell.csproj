@@ -94,7 +94,7 @@
   </ItemGroup>
 
   <!--
-    发布期把"随应用分发"的插件放进安装包的 plugins/<id>/ —— 运行时的插件发现根之一
+    发布期把"随应用分发"的插件放进安装包的 plugins/<目录名>/ —— 运行时的插件发现根之一
     (另一个是用户数据目录下的 plugins/,见 PluginServiceCollectionExtensions)。
 
     为什么必须显式做这件事:上面的 ProjectReference 只建立构建顺序,插件产物是被

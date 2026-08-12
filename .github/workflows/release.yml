@@ -3,7 +3,8 @@
 #   Windows x64/arm64 → zip
 #   macOS   x64/arm64 → tar.gz + dmg(未签名/未公证;Unix 可执行位在原生 runner 上保留)
 #   Linux   x64/arm64 → tar.gz
-# 随包分发的插件(plugins/<id>/)由 MSBuild 在 publish 期登记入包,三平台各 job 无需特殊处理;
+# 随包分发的插件(plugins/<目录名>/,目录名 = id 把点换成短横,原因见 macOS job 的签名一步)
+# 由 MSBuild 在 publish 期登记入包,三平台各 job 无需特殊处理;
 # 哪个插件进包看它 csproj 的 <VelaPluginShip>(示例插件 velashell.hello-world 设为 false,
 # 只作开发范例不进产物)。一个可发行插件都收不到时发布会直接失败,不会悄悄出一个没插件的包。
 # 另有 build-msix 任务产出商店版 .msixbundle,但它不附加到 Release —— 作为工作流

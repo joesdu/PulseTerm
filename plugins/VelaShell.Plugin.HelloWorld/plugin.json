@@ -1,5 +1,5 @@
 {
-  "id": "velashell-hello-world",
+  "id": "velashell.hello-world",
   "version": "0.1.0",
   "displayName": "Hello World",
   "description": "VelaShell 官方示例插件:演示 SDK 各能力的最小用法。",

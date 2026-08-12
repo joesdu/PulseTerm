@@ -105,8 +105,13 @@ public sealed class DemoPlugin : IVelaPlugin
 
 `true` 的插件在 `dotnet publish` 时由 `src/VelaShell/VelaShell.csproj` 的
 `AddVelaPluginsToPublish` 登记进 `ResolvedFileToPublish`,落到安装包的
-`plugins/<id>/`(并标记 `ExcludeFromSingleFile`,保证是磁盘上的真实文件,
+`plugins/<目录名>/`(并标记 `ExcludeFromSingleFile`,保证是磁盘上的真实文件,
 ALC 才能按 deps.json 装载)。官方示例插件 `velashell.hello-world` 就设了 `false`。
+
+> **目录名 = id 把点换成短横**(`velashell.ai` → `velashell-ai`)。macOS 的 `codesign`
+> 会把 `.app` 内带点号的目录当成嵌套 bundle 去解析,原样用 id 做目录名会让签名直接失败
+> (`bundle format unrecognized, invalid, or unsuitable`)。目录名**不参与任何逻辑** ——
+> 宿主是枚举子目录后从 `plugin.json` 读 id,因此这只是打包侧的命名约定。
 
 ### 2.2 仓库外插件(第三方)
 
@@ -442,8 +447,8 @@ public async Task Refresh_ListsContainers()
 
 | 事项 | 位置/方法 |
 | --- | --- |
-| 应用自带插件 | `<应用目录>/plugins/<id>/` |
-| 用户安装插件 | `<数据根>/plugins/<id>/`(Windows 为 `%LocalAppData%\VelaShell\plugins\`) |
+| 应用自带插件 | `<应用目录>/plugins/<id 把点换成短横>/`(如 `plugins/velashell-ai/`,见 §2.1 的说明) |
+| 用户安装插件 | `<数据根>/plugins/<id>/`(Windows 为 `%LocalAppData%\VelaShell\plugins\`;这里不在 `.app` 内,不参与签名,故仍按 id 建目录) |
 | 插件数据 | KV/机密在宿主 SonnetDB(`plugin_data` 集合);文件在 `<数据根>/plugin-data/<id>/` |
 | 卸载清理 | 从 plugins/ 删除插件目录 → 下次启动自动整体清除其 DB 数据与数据目录(`.disabled` 只禁用,数据保留) |
 | 禁用单个插件 | 插件目录内放一个空的 `.disabled` 文件 |

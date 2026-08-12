@@ -6,7 +6,8 @@
 #       都是 macOS 独有工具。tar.gz 是应用内更新器的资产,dmg 只供人工安装,
 #       latest.json 永远只指向 tar.gz,详见 release.yml 文件头"macOS 双产物分工")
 #   Linux  x64 / arm64 含运行时 → tar.gz
-# 每份产物内含 plugins/<id>/:仓库内声明了 <VelaPluginShip>true</VelaPluginShip> 的插件
+# 每份产物内含 plugins/<目录名>/(目录名 = 插件 id 把点换成短横,原因见
+#   plugins/Directory.Build.targets):仓库内声明了 <VelaPluginShip>true</VelaPluginShip> 的插件
 #   (当前为 velashell.ai)由 MSBuild 在发布期登记入包,脚本无需额外拷贝;示例插件
 #   velashell.hello-world 设了 false,只留在仓库与开发构建里,不进任何发行产物。
 #   latest.json    — 应用内自更新清单(版本/标签/各 RID 产物名+sha256+大小)

@@ -278,7 +278,7 @@ foreach ($rid in $Runtimes) {
     if (Test-Path $layout) { Remove-Item -Recurse -Force $layout }
 
     # 与便携版同一条命令(摊开的 self-contained 产物);makeappx 稍后递归打包整个 layout,
-    # 因此 plugins/<id>/ 与 VelaShell.PluginHost 会一并进包,无需在这里另作处理。
+    # 因此 plugins/ 与 VelaShell.PluginHost 会一并进包,无需在这里另作处理。
     & dotnet publish $projectPath -c Release -r $rid -o $layout `
         -p:Version=$Version -p:SelfContained=true `
         -p:DebugType=None --nologo

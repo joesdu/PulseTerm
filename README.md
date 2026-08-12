@@ -163,7 +163,7 @@ docker-compose -f docker-compose.test.yml up
 pwsh scripts/publish-all.ps1
 ```
 
-产物覆盖 Windows x64/arm64（便携 zip）、macOS 与 Linux x64/arm64（tar.gz），全部为含运行时的自包含发布,解压到任意目录即可运行,无需预装 .NET。包内除主程序外还带着隔离插件的宿主进程 `VelaShell.PluginHost` 与随包分发的插件目录 `plugins/<id>/`。
+产物覆盖 Windows x64/arm64（便携 zip）、macOS 与 Linux x64/arm64（tar.gz），全部为含运行时的自包含发布,解压到任意目录即可运行,无需预装 .NET。包内除主程序外还带着隔离插件的宿主进程 `VelaShell.PluginHost` 与随包分发的插件目录 `plugins/`。
 
 > 从 Microsoft Store 安装的版本(MSIX)更新由商店接管,应用内的更新操作会自动隐藏。商店版装在只读的 `WindowsApps` 下,数据目录被系统重定向到包私有位置,因此**与便携版的配置、会话、密钥互不相通**。
 
