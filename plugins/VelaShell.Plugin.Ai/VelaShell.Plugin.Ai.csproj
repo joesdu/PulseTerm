@@ -17,9 +17,8 @@
     <!-- AI 栈(用户决策 2026-08-10):Microsoft.Extensions.AI 抽象 + 各家官方 SDK,
          统一到 IChatClient;Agent 循环用 FunctionInvokingChatClient。
          这些依赖随插件目录分发,由插件 ALC 按 deps.json 隔离解析,与宿主互不干扰。 -->
-    <PackageReference Include="Microsoft.Extensions.AI" Version="10.8.3" />
-    <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.8.3" />
-    <PackageReference Include="OpenAI" Version="2.13.0" />
+    <PackageReference Include="Microsoft.Extensions.AI" Version="10.9.0" />
+    <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.9.0" />
     <PackageReference Include="Anthropic" Version="12.40.0" />
     <!-- MCP 官方 C# SDK(Core = 纯客户端/低层,无 Hosting/DI 依赖):
          McpClientTool 即 M.E.AI 的 AIFunction,直接并入 Agent 工具循环。 -->
