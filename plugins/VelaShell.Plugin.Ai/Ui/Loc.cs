@@ -65,8 +65,9 @@ public sealed class Loc(string locale)
         ["Deny"] = ["Deny", "拒绝", "拒絕", "拒否", "거부"],
         ["ToolRunning"] = ["running…", "执行中…", "執行中…", "実行中…", "실행 중…"],
         ["ToolDone"] = ["done", "完成", "完成", "完了", "완료"],
+        // 代码块头部两个按钮的提示(LiveMarkdown 模板自带的文案是写死英文,这里覆盖)
         ["Copy"] = ["Copy", "复制", "複製", "コピー", "복사"],
-        ["Copied"] = ["Copied ✓", "已复制 ✓", "已複製 ✓", "コピー済み ✓", "복사됨 ✓"],
+        ["ToggleWrap"] = ["Toggle wrap", "切换自动换行", "切換自動換行", "折り返しの切替", "줄바꿈 전환"],
         ["Error"] = ["Error", "错误", "錯誤", "エラー", "오류"],
         ["Cancelled"] = ["Cancelled.", "已取消。", "已取消。", "キャンセルしました。", "취소되었습니다."],
         ["Usage"] = ["tokens: in {0} / out {1}", "tokens:输入 {0} / 输出 {1}", "tokens:輸入 {0} / 輸出 {1}", "tokens:入力 {0} / 出力 {1}", "tokens: 입력 {0} / 출력 {1}"],
