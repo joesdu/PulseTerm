@@ -8,8 +8,9 @@ namespace VelaShell.Services;
 /// EmbedPackageVersions 目标从 Directory.Packages.props 的 PackageVersion 项生成)。
 /// </summary>
 /// <remarks>
-/// 之所以走编译期而不是运行时探测,两条路都堵死了(详见 VelaShell.csproj 里那段注释):
-/// · 读 .deps.json:Release 是 PublishSingleFile,该文件被打进 exe 的 bundle,磁盘上没有。
+/// 之所以走编译期而不是运行时探测,两条路都不划算(详见 VelaShell.csproj 里那段注释):
+/// · 读 .deps.json:它记的是程序集版本而非包版本,还要在启动路径上多读一个随发布形态
+///   变来变去的文件(单文件发布时它压根不落盘)。
 /// · 读程序集版本:与包版本不是一回事 —— 例如 ReactiveUI 的程序集报 23.0.0.0,
 ///   而包版本是 23.2.28。
 /// 按包名查还有个好处:不必引用类型。SSH 库(当前 Tmds.Ssh)被刻意隔离在 Infrastructure 层,

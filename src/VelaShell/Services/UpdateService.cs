@@ -210,7 +210,7 @@ public class UpdateService : IUpdateService
     /// 解包 → 把换版交给外置进程 → 关闭当前应用。解包(<see cref="UpdateApplier.Stage" />)
     /// 不改动应用目录里的任何文件,因此磁盘不足、包损坏之类的失败都发生在"应用仍然完好"的状态下,
     /// 异常上抛后重试即可。换版本身由退出后才动手的外置进程完成(应用目录无文件被占用,
-    /// 移动必然成功);非单文件发布或外置进程拉不起来时退回本进程原地换版。
+    /// 覆盖必然成功);包里没有主程序或外置进程拉不起来时退回本进程原地换版。
     /// </summary>
     public void ApplyUpdateAndRestart()
     {

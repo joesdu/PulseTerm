@@ -6,8 +6,9 @@
     商店版与便携版共用同一份源码和同一条发布命令,差异全在运行时判定(见 Services/AppPackaging.cs):
     装成 MSIX 就自动关掉应用内自更新,改由商店接管。因此这里不需要任何特殊的编译配置。
 
-    与便携版发布的唯一区别是 -p:PublishSingleFile=false —— 单文件在 MSIX 里没有意义
-    (包本身就是一个容器),摊开发布反而让商店的差量更新只传改动过的文件。
+    发布命令与便携版已完全一致(2026-08-12 起主程序不再单文件发布,两边都是摊开的
+    self-contained 产物);差异只剩容器:这里打进 MSIX,那边压成 zip/tar.gz。
+    摊开发布对商店还有个额外好处:差量更新只传改动过的文件。
 
     产物不签名:提交到商店的 MSIX 由微软在认证通过后用商店证书签名,自己签反而会被替换掉。
     需要本地安装自测时,用 -SelfSignForLocalTest 生成一张自签证书就地签一份(仅供本机安装)。
@@ -276,9 +277,10 @@ foreach ($rid in $Runtimes) {
     Write-Host "`n=== 发布 $rid ==="
     if (Test-Path $layout) { Remove-Item -Recurse -Force $layout }
 
-    # PublishSingleFile=false:MSIX 本身就是容器,摊开发布才能让商店做差量更新。
+    # 与便携版同一条命令(摊开的 self-contained 产物);makeappx 稍后递归打包整个 layout,
+    # 因此 plugins/<id>/ 与 VelaShell.PluginHost 会一并进包,无需在这里另作处理。
     & dotnet publish $projectPath -c Release -r $rid -o $layout `
-        -p:Version=$Version -p:SelfContained=true -p:PublishSingleFile=false `
+        -p:Version=$Version -p:SelfContained=true `
         -p:DebugType=None --nologo
     if ($LASTEXITCODE -ne 0) { throw "dotnet publish 失败:$rid" }
 

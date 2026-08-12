@@ -43,7 +43,7 @@ VelaShell (App)
 ```
 
 - **包**：`Avalonia.Desktop`、`Avalonia.Themes.Fluent`、`Avalonia.Fonts.Inter`、`Avalonia.AvaloniaEdit`、`ReactiveUI.Avalonia`、`Microsoft.Extensions.DependencyInjection`。
-- **Release 发布**：`PublishSingleFile` + `SelfContained`，目标机器无需预装 .NET Runtime。
+- **Release 发布**：`SelfContained`（摊开发布，刻意不用 `PublishSingleFile`——隔离插件的 `VelaShell.PluginHost` 需要磁盘上的真实可执行体），目标机器无需预装 .NET Runtime。
 - `InternalsVisibleTo` 暴露给 [`tests/VelaShell.Tests`](../../tests/VelaShell.Tests)。
 
 ## 🚀 运行

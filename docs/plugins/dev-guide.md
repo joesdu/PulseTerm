@@ -96,6 +96,18 @@ public sealed class DemoPlugin : IVelaPlugin
 改 manifest 或插件代码都不需要手动先构建插件项目。
 最后把项目加进 `VelaShell.slnx` 的 `/plugins/` 文件夹(仅为 IDE 可见性)。
 
+**要不要随安装包分发**,由 `<VelaPluginShip>` 决定(默认 `true`):
+
+```xml
+<!-- 只做范例、不进发行包:本机构建照常镜像进 bin,F5 能装载;dotnet publish 不收它 -->
+<VelaPluginShip>false</VelaPluginShip>
+```
+
+`true` 的插件在 `dotnet publish` 时由 `src/VelaShell/VelaShell.csproj` 的
+`AddVelaPluginsToPublish` 登记进 `ResolvedFileToPublish`,落到安装包的
+`plugins/<id>/`(并标记 `ExcludeFromSingleFile`,保证是磁盘上的真实文件,
+ALC 才能按 deps.json 装载)。官方示例插件 `velashell.hello-world` 就设了 `false`。
+
 ### 2.2 仓库外插件(第三方)
 
 任意位置建同构项目(引用 SDK 项目或未来发布的 NuGet 包),构建后有两种安装方式:

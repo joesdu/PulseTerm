@@ -3,7 +3,9 @@
 
 	<!-- 开发内环:构建后把插件输出镜像到应用输出目录的 plugins/<id>/ 下,
 	     F5 启动应用即可加载到最新插件,无需手工拷贝。
-	     插件项目需在 csproj 里声明 <VelaPluginId>(与 plugin.json 的 id 一致)。 -->
+	     插件项目需在 csproj 里声明 <VelaPluginId>(与 plugin.json 的 id 一致)。
+	     这里不看 VelaPluginShip:本机构建目录是开发环境,示例插件也要能跑起来看效果;
+	     "不进安装包"由下面的 GetVelaPluginPayload 在发布期把关。 -->
 	<Target Name="CopyVelaPluginToAppOutput" AfterTargets="Build" Condition="'$(VelaPluginId)' != ''">
 		<ItemGroup>
 			<_VelaPluginFiles Include="$(TargetDir)**\*" />
@@ -11,5 +13,19 @@
 		<Copy SourceFiles="@(_VelaPluginFiles)"
 		      DestinationFiles="@(_VelaPluginFiles->'$(MSBuildThisFileDirectory)..\src\VelaShell\bin\$(Configuration)\net11.0\plugins\$(VelaPluginId)\%(RecursiveDir)%(Filename)%(Extension)')"
 		      SkipUnchangedFiles="true" />
+	</Target>
+
+	<!-- 发布期契约:由 src/VelaShell/VelaShell.csproj 的 AddVelaPluginsToPublish 调用,
+	     返回"该随应用分发的文件 + 它在安装包 plugins/ 下的相对路径"。
+	     VelaPluginShip=false 的插件返回空集 —— 于是它整个不进发行产物。
+	     排除 pdb/xml:调试符号与文档注释对最终用户没有意义,也别撑大包体
+	     (Windows/便携版发布后还会再扫一遍删 pdb,这里先不产出更省事)。 -->
+	<Target Name="GetVelaPluginPayload" DependsOnTargets="Build" Returns="@(VelaPluginPayload)">
+		<ItemGroup Condition="'$(VelaPluginShip)' == 'true' and '$(VelaPluginId)' != ''">
+			<_VelaPluginPayloadFile Include="$(TargetDir)**\*" Exclude="$(TargetDir)**\*.pdb;$(TargetDir)**\*.xml" />
+			<VelaPluginPayload Include="@(_VelaPluginPayloadFile)">
+				<VelaPluginRelativePath>$(VelaPluginId)\%(_VelaPluginPayloadFile.RecursiveDir)%(_VelaPluginPayloadFile.Filename)%(_VelaPluginPayloadFile.Extension)</VelaPluginRelativePath>
+			</VelaPluginPayload>
+		</ItemGroup>
 	</Target>
 </Project>
