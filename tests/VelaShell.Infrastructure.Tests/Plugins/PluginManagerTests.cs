@@ -74,6 +74,23 @@ public class PluginManagerTests
     }
 
     [TestMethod]
+    public void Discover_DirectoryNameNeedNotMatchId()
+    {
+        // 随包分发的插件目录名把 id 里的点换成了短横(velashell.ai → velashell-ai),
+        // 否则 macOS 的 codesign 会把 .app 内带点号的目录当嵌套 bundle 而签名失败
+        // (见 plugins/Directory.Build.targets)。id 只认 plugin.json,目录名不参与任何逻辑 ——
+        // 这条测试就是钉住这个前提,免得日后有人把发现逻辑改成按目录名取 id。
+        AddPlugin("velashell-ai", """{ "id": "velashell.ai", "version": "1.0.0", "displayName": "AI", "entry": "Ai.dll" }""");
+
+        var manager = new PluginManager(Options());
+        manager.Discover();
+
+        PluginDescriptor plugin = manager.Plugins.Single();
+        Assert.AreEqual("velashell.ai", plugin.Id);
+        Assert.AreEqual(PluginState.Discovered, plugin.State);
+    }
+
+    [TestMethod]
     public void Discover_DuplicateId_FirstRootWins()
     {
         string secondRoot = Path.Combine(Path.GetDirectoryName(_root)!, "plugins2");

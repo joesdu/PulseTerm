@@ -1,17 +1,41 @@
 <Project>
 	<Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.targets', '$(MSBuildThisFileDirectory)../'))" />
 
-	<!-- 开发内环:构建后把插件输出镜像到应用输出目录的 plugins/<id>/ 下,
+	<!-- 插件在应用目录下的文件夹名:插件 id 把点换成短横(velashell.ai → velashell-ai)。
+	     为什么不直接用 id:macOS 的 codesign 会把 .app 内**带点号的目录**当成嵌套 bundle 去解析,
+	     `plugins/velashell.ai` 的 ".ai" 正好长得像扩展名,签名直接失败
+	     ("bundle format unrecognized, invalid, or unsuitable",1.2.0 发版时踩到)。
+	     为什么不干脆把 id 也改成短横:id 同时是插件数据与机密的命名空间
+	     (plugin-data/<id>、SonnetDB 的 plugin_data 键前缀),改 id 等于让已有用户的
+	     插件配置(AI 插件的 API key 就在里面)全部失联;而目录名不参与任何逻辑 ——
+	     宿主发现插件是枚举子目录后从 plugin.json 读 id(PluginManager.Describe)。
+	     三平台统一改,免得 tar.gz 与 .app 的 Contents/MacOS 布局分叉(那会让自更新解出
+	     两份同 id 插件而互相判重)。注:用户经 .vpx 装到数据目录的插件仍按 id 建目录 ——
+	     那些不在 .app 里,不参与签名。
+	     本属性在 targets 而非 props 里算:props 先于项目正文导入,那时 VelaPluginId 还没赋值。 -->
+	<PropertyGroup Condition="'$(VelaPluginId)' != ''">
+		<VelaPluginDirName>$(VelaPluginId.Replace(".", "-"))</VelaPluginDirName>
+	</PropertyGroup>
+
+	<!-- 开发内环:构建后把插件输出镜像到应用输出目录的 plugins/<目录名>/ 下,
 	     F5 启动应用即可加载到最新插件,无需手工拷贝。
 	     插件项目需在 csproj 里声明 <VelaPluginId>(与 plugin.json 的 id 一致)。
 	     这里不看 VelaPluginShip:本机构建目录是开发环境,示例插件也要能跑起来看效果;
 	     "不进安装包"由下面的 GetVelaPluginPayload 在发布期把关。 -->
 	<Target Name="CopyVelaPluginToAppOutput" AfterTargets="Build" Condition="'$(VelaPluginId)' != ''">
+		<PropertyGroup>
+			<_VelaPluginOutputRoot>$(MSBuildThisFileDirectory)..\src\VelaShell\bin\$(Configuration)\net11.0\plugins</_VelaPluginOutputRoot>
+		</PropertyGroup>
+		<!-- 清掉改名前(目录名 = 原始 id)留下的那一份:两份同 id 会被 PluginManager 判重,
+		     后来者标 Invalid,表象是"插件莫名其妙用不了",很难往构建产物残留上想。
+		     只在两个名字确实不同时才删,免得 id 本就无点号时把刚要写的目录删掉。 -->
+		<RemoveDir Directories="$(_VelaPluginOutputRoot)\$(VelaPluginId)"
+		           Condition="'$(VelaPluginDirName)' != '$(VelaPluginId)'" />
 		<ItemGroup>
 			<_VelaPluginFiles Include="$(TargetDir)**\*" />
 		</ItemGroup>
 		<Copy SourceFiles="@(_VelaPluginFiles)"
-		      DestinationFiles="@(_VelaPluginFiles->'$(MSBuildThisFileDirectory)..\src\VelaShell\bin\$(Configuration)\net11.0\plugins\$(VelaPluginId)\%(RecursiveDir)%(Filename)%(Extension)')"
+		      DestinationFiles="@(_VelaPluginFiles->'$(_VelaPluginOutputRoot)\$(VelaPluginDirName)\%(RecursiveDir)%(Filename)%(Extension)')"
 		      SkipUnchangedFiles="true" />
 	</Target>
 
@@ -24,7 +48,7 @@
 		<ItemGroup Condition="'$(VelaPluginShip)' == 'true' and '$(VelaPluginId)' != ''">
 			<_VelaPluginPayloadFile Include="$(TargetDir)**\*" Exclude="$(TargetDir)**\*.pdb;$(TargetDir)**\*.xml" />
 			<VelaPluginPayload Include="@(_VelaPluginPayloadFile)">
-				<VelaPluginRelativePath>$(VelaPluginId)\%(_VelaPluginPayloadFile.RecursiveDir)%(_VelaPluginPayloadFile.Filename)%(_VelaPluginPayloadFile.Extension)</VelaPluginRelativePath>
+				<VelaPluginRelativePath>$(VelaPluginDirName)\%(_VelaPluginPayloadFile.RecursiveDir)%(_VelaPluginPayloadFile.Filename)%(_VelaPluginPayloadFile.Extension)</VelaPluginRelativePath>
 			</VelaPluginPayload>
 		</ItemGroup>
 	</Target>

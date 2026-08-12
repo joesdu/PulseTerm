@@ -6,7 +6,7 @@
 		     把自带 NuGet 依赖复制到输出目录、不复制共享框架。 -->
 		<EnableDynamicLoading>true</EnableDynamicLoading>
 
-		<!-- 是否随应用分发。true(默认)= 发布时进安装包的 plugins/<id>/;
+		<!-- 是否随应用分发。true(默认)= 发布时进安装包的 plugins/<目录名>/;
 		     false = 只留在仓库和开发构建里(F5 仍能装载),不进任何发行产物 ——
 		     示例插件用它:代码是给人读的范例,不是给用户装的功能。
 		     取值见 Directory.Build.targets 的 GetVelaPluginPayload。 -->

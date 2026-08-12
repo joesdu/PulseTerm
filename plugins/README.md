@@ -24,7 +24,10 @@ SDK 契约见 [plugin-sdk/](../plugin-sdk/),开发文档见
 1. 复制 `VelaShell.Plugin.HelloWorld/` 为新目录,改 csproj 中的 `<VelaPluginId>` 与 `plugin.json`;
 2. 把项目加入 `VelaShell.slnx` 的 `/plugins/` 文件夹(仅为 IDE 可见性);
 3. 直接 F5:主程序按通配符对本目录所有插件建立了构建顺序引用,启动前
-   插件自动重建并镜像到应用输出目录的 `plugins/<id>/`(含 `plugin.json`)。
+   插件自动重建并镜像到应用输出目录的 `plugins/<目录名>/`(含 `plugin.json`)。
+   目录名 = 插件 id 把点换成短横(`velashell.ai` → `velashell-ai`):macOS 的 `codesign`
+   会把 `.app` 内带点号的目录当成嵌套 bundle 而签名失败。目录名不参与任何逻辑,
+   宿主是枚举子目录后从 `plugin.json` 读 id。
 
 本目录的 `Directory.Build.props/targets` 已统一处理:`EnableDynamicLoading`、
 `plugin.json` 随构建输出、构建后复制到应用输出目录、发布期按 `VelaPluginShip`

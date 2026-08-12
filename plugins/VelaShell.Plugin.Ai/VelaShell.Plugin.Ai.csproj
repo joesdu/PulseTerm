@@ -2,8 +2,9 @@
 
   <PropertyGroup>
     <Description>VelaShell AI 助手插件:多提供商(OpenAI/Anthropic/Grok/Ollama/中转站)流式对话、Agent 模式与自定义 MCP 服务器工具。</Description>
-    <!-- 与 plugin.json 的 id 一致;驱动构建后复制到应用输出的 plugins/<id>/。 -->
-    <VelaPluginId>velashell-ai</VelaPluginId>
+    <!-- 与 plugin.json 的 id 一致;驱动构建后复制到应用输出的 plugins/<目录名>/
+         (目录名 = id 把点换成短横,原因见 plugins/Directory.Build.targets)。 -->
+    <VelaPluginId>velashell.ai</VelaPluginId>
     <!-- AVLN3001:面板视图刻意只有带上下文的构造(由 ShowPanelAsync 工厂创建),
          不需要运行时 XAML 装载器的无参构造路径。 -->
     <NoWarn>$(NoWarn);AVLN3001</NoWarn>
