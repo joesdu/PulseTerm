@@ -1,5 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:md="clr-namespace:LiveMarkdown.Avalonia;assembly=LiveMarkdown.Avalonia"
+             xmlns:mdm="clr-namespace:LiveMarkdown.Avalonia;assembly=LiveMarkdown.Avalonia.Mermaid"
              x:Class="VelaShell.Plugin.Ai.Ui.ChatPanelView">
 
   <!-- 视觉语言对齐宿主(DESIGN.md §5.1):主操作 = VelaAccentPillButtonTheme 强调药丸,
@@ -11,11 +13,19 @@
     <ResourceDictionary>
       <ResourceDictionary.MergedDictionaries>
         <ResourceInclude Source="avares://VelaShell.Plugin.Ai/Ui/AiTheme.axaml" />
+        <!-- LiveMarkdown 的默认令牌:字号(FontSizeS…3Xl,代码块头部按钮的宽高也取这里)必须有,
+             否则模板里的 {DynamicResource FontSize2Xl} 解析不到、按钮塌成 0。颜色键随后由
+             SyncMarkdownSkin() 用 Vela* 令牌就地覆盖(直接键优先于 MergedDictionaries)。 -->
+        <ResourceInclude Source="avares://LiveMarkdown.Avalonia/Defaults.axaml" />
       </ResourceDictionary.MergedDictionaries>
     </ResourceDictionary>
   </UserControl.Resources>
 
   <UserControl.Styles>
+    <!-- LiveMarkdown 自带样式必须先并进来,后面的皮肤覆盖才压得住(Avalonia 同优先级按声明顺序,后者胜)。 -->
+    <StyleInclude Source="avares://LiveMarkdown.Avalonia/Styles.axaml" />
+    <StyleInclude Source="avares://LiveMarkdown.Avalonia.Mermaid/Styles.axaml" />
+
     <Style Selector="TextBlock.dim">
       <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
       <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />
@@ -97,100 +107,146 @@
       <Setter Property="BorderThickness" Value="0" />
     </Style>
 
-    <!-- Markdown 渲染样式(MarkdownRenderer 生成的控件按类取样式) -->
-    <Style Selector="SelectableTextBlock.mdH1">
+    <!-- ===== LiveMarkdown 皮肤 =====
+         库自带样式是"深色硬编码 + 文档级字号"(正文 14、H1 24),这里整体压到 Vela 令牌
+         与聊天面板的紧凑节奏,主题切换随 DynamicResource 自动跟随。
+         只有代码块头/体的底色藏在 CodeBlock 的 ControlTemplate 里、选择器够不到,
+         那几个键改由 code-behind 的 SyncMarkdownSkin() 写进本控件资源。 -->
+    <Style Selector="md|MarkdownRenderer md|MarkdownTextBlock">
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiFont}" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize13}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
+      <Setter Property="LineSpacing" Value="4" />
+      <Setter Property="SelectionBrush" Value="{DynamicResource VelaAccentDim}" />
+      <Setter Property="SelectionForegroundBrush" Value="{DynamicResource VelaTextPrimary}" />
+    </Style>
+
+    <Style Selector="md|MarkdownRenderer Border.Heading1Block md|MarkdownTextBlock">
       <Setter Property="FontSize" Value="{DynamicResource VelaFontSize16}" />
       <Setter Property="FontWeight" Value="SemiBold" />
-      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
-      <Setter Property="TextWrapping" Value="Wrap" />
       <Setter Property="Margin" Value="0,4,0,0" />
     </Style>
-    <Style Selector="SelectableTextBlock.mdH2">
+    <Style Selector="md|MarkdownRenderer Border.Heading2Block md|MarkdownTextBlock">
       <Setter Property="FontSize" Value="{DynamicResource VelaFontSize15}" />
       <Setter Property="FontWeight" Value="SemiBold" />
-      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
-      <Setter Property="TextWrapping" Value="Wrap" />
       <Setter Property="Margin" Value="0,4,0,0" />
     </Style>
-    <Style Selector="SelectableTextBlock.mdH3">
+    <Style Selector="md|MarkdownRenderer Border.Heading3Block md|MarkdownTextBlock">
       <Setter Property="FontSize" Value="{DynamicResource VelaFontSize14}" />
       <Setter Property="FontWeight" Value="SemiBold" />
-      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
-      <Setter Property="TextWrapping" Value="Wrap" />
       <Setter Property="Margin" Value="0,2,0,0" />
     </Style>
-    <Style Selector="SelectableTextBlock.mdH4">
+    <Style Selector="md|MarkdownRenderer Border.Heading4Block md|MarkdownTextBlock,
+                     md|MarkdownRenderer Border.Heading5Block md|MarkdownTextBlock,
+                     md|MarkdownRenderer Border.Heading6Block md|MarkdownTextBlock">
       <Setter Property="FontSize" Value="{DynamicResource VelaFontSize13}" />
       <Setter Property="FontWeight" Value="SemiBold" />
-      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
-      <Setter Property="TextWrapping" Value="Wrap" />
+      <Setter Property="Margin" Value="0" />
     </Style>
-    <Style Selector="Border.mdCode">
+
+    <Style Selector="md|MarkdownRenderer md|Link, md|MarkdownRenderer md|Link:clicked">
+      <Setter Property="Foreground" Value="{DynamicResource VelaAccent}" />
+    </Style>
+
+    <Style Selector="md|MarkdownRenderer md|CodeInline">
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
       <Setter Property="Background" Value="{DynamicResource VelaBgInput}" />
-      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
-      <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="CornerRadius" Value="4" />
-      <Setter Property="Padding" Value="8,6" />
-    </Style>
-    <Style Selector="Button.mdCopy">
-      <Setter Property="Background" Value="Transparent" />
-      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
-      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaAccent}" />
       <Setter Property="CornerRadius" Value="3" />
-      <Setter Property="Padding" Value="6,1" />
-      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize9}" />
+    </Style>
+
+    <!-- 代码块:字体/字号靠 CodeBlock 继承进模板(模板对 FontFamily 有 TemplateBinding,
+         FontSize 走文本继承);模板内的按钮尺寸压到 18,免得 20px 方块把标题行撑高。 -->
+    <Style Selector="md|CodeBlock">
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+    </Style>
+    <!-- 标题栏底色:模板里两个 Border 都没 x:Name(第一个标题栏、第二个正文),只能按位置取。
+         不走 BorderColor 键是因为那个键被 Mermaid 拿去画线条了(见 SyncMarkdownSkin)。
+         万一库改了模板结构,这条不匹配也只是标题栏退回描边色,不会崩。 -->
+    <Style Selector="md|CodeBlock /template/ Border:nth-child(1)">
+      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+    </Style>
+    <Style Selector="md|CodeBlock /template/ TextBlock#PART_LanguageTextBlock">
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiFont}" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />
+    </Style>
+    <Style Selector="md|CodeBlock /template/ Button#PART_CopyButton,
+                     md|CodeBlock /template/ ToggleButton#PART_ToggleTextWrapButton">
+      <Setter Property="Width" Value="18" />
+      <Setter Property="Height" Value="18" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
       <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />
       <Setter Property="Cursor" Value="Hand" />
     </Style>
-    <Style Selector="Button.mdCopy:pointerover /template/ ContentPresenter">
-      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
-      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
+    <!-- 模板里的提示文案是写死的英文;走资源键由 ApplyLoc 灌入,语言实时切换才跟得上 -->
+    <Style Selector="md|CodeBlock /template/ Button#PART_CopyButton">
+      <Setter Property="ToolTip.Tip" Value="{DynamicResource AiCopyTip}" />
     </Style>
-    <Style Selector="Border.mdQuote">
+    <Style Selector="md|CodeBlock /template/ ToggleButton#PART_ToggleTextWrapButton">
+      <Setter Property="ToolTip.Tip" Value="{DynamicResource AiWrapTip}" />
+    </Style>
+
+    <Style Selector="md|MarkdownRenderer Border.QuoteBlock">
+      <Setter Property="Background" Value="{DynamicResource VelaBgInput}" />
       <Setter Property="BorderBrush" Value="{DynamicResource VelaAccent}" />
       <Setter Property="BorderThickness" Value="2,0,0,0" />
-      <Setter Property="Padding" Value="8,2,0,2" />
+      <Setter Property="CornerRadius" Value="3" />
+      <Setter Property="Margin" Value="0,4" />
+      <Setter Property="Padding" Value="8,4" />
     </Style>
-    <Style Selector="Border.mdRule">
+
+    <Style Selector="md|MarkdownRenderer Border.Table">
+      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+      <Setter Property="CornerRadius" Value="3" />
+      <Setter Property="Margin" Value="0,4" />
+    </Style>
+    <Style Selector="md|MarkdownRenderer Border.TableCell">
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
+    </Style>
+
+    <Style Selector="md|MarkdownRenderer Border.ThematicBreak">
       <Setter Property="Background" Value="{DynamicResource VelaBorderPrimary}" />
     </Style>
-    <Style Selector="TextBlock.mdBullet">
+
+    <!-- Mermaid:配色全部走 ForegroundColor/BorderColor/CardBackgroundColor 三个键,
+         已由 SyncMarkdownSkin 映射到 Vela 令牌,这里只把字号压到聊天面板的尺度。
+         图容器默认 MaxHeight 600,在侧栏里太占版面;FitToViewport 会自动缩放。 -->
+    <Style Selector="mdm|MermaidPresenter">
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiFont}" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+      <Setter Property="NodeLabelFontSize" Value="{DynamicResource VelaFontSize12}" />
+      <Setter Property="EdgeLabelFontSize" Value="{DynamicResource VelaFontSize10}" />
+      <Setter Property="GroupHeaderFontSize" Value="{DynamicResource VelaFontSize11}" />
+      <Setter Property="MemberFontSize" Value="{DynamicResource VelaFontSize11}" />
+      <Setter Property="AnnotationFontSize" Value="{DynamicResource VelaFontSize10}" />
+      <Setter Property="KeyBadgeFontSize" Value="{DynamicResource VelaFontSize10}" />
+    </Style>
+    <Style Selector="mdm|PanAndZoom.MermaidBlock">
+      <Setter Property="MaxHeight" Value="420" />
+    </Style>
+    <!-- LaTeX 的配色不在这里:CSharpMath 的 MathView 吃不到类型选择器(基类是泛型,
+         StyleKey 对不上,实测字面色样式也不生效),只能在 ApplyMathColors() 里就地设。 -->
+
+    <!-- 图还没画完(流式中)或语法错时退回文本显示,用等宽区分 -->
+    <Style Selector="md|MarkdownRenderer md|MarkdownTextBlock.MermaidBlock,
+                     md|MarkdownRenderer md|MarkdownTextBlock.MathBlock">
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
+    </Style>
+    <Style Selector="md|MarkdownRenderer md|MarkdownTextBlock.MermaidBlock.Error,
+                     md|MarkdownRenderer md|MarkdownTextBlock.MathBlock.Error">
+      <Setter Property="Foreground" Value="{DynamicResource VelaError}" />
+    </Style>
+
+    <Style Selector="md|MarkdownRenderer TextBlock.ListBlockNumber,
+                     md|MarkdownRenderer TextBlock.ListBlockBullet">
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiFont}" />
       <Setter Property="FontSize" Value="{DynamicResource VelaFontSize12}" />
       <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />
-    </Style>
-    <Style Selector="TextBlock.mdLink">
-      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize13}" />
-      <Setter Property="Foreground" Value="{DynamicResource VelaAccent}" />
-      <Setter Property="TextDecorations" Value="Underline" />
-      <Setter Property="Cursor" Value="Hand" />
-      <Setter Property="Padding" Value="0" />
-    </Style>
-    <Style Selector="Border.mdTableFrame">
-      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
-      <Setter Property="BorderThickness" Value="1,1,0,0" />
-      <Setter Property="CornerRadius" Value="2" />
-    </Style>
-    <Style Selector="Border.mdTableCell">
-      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
-      <Setter Property="BorderThickness" Value="0,0,1,1" />
-      <Setter Property="Padding" Value="8,4" />
-    </Style>
-    <Style Selector="Border.mdTableHead">
-      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
-      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
-      <Setter Property="BorderThickness" Value="0,0,1,1" />
-      <Setter Property="Padding" Value="8,4" />
-    </Style>
-    <Style Selector="SelectableTextBlock.mdTableText">
-      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize12}" />
-      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
-      <Setter Property="TextWrapping" Value="Wrap" />
-    </Style>
-    <Style Selector="SelectableTextBlock.mdTableHeadText">
-      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize12}" />
-      <Setter Property="FontWeight" Value="SemiBold" />
-      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
-      <Setter Property="TextWrapping" Value="Wrap" />
     </Style>
 
     <!-- 紧凑工具卡(主流 Agent 风格:单行头 + 点击展开详情) -->

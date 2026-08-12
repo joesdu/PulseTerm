@@ -5,8 +5,13 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
+using CSharpMath.Avalonia;
+using LiveMarkdown.Avalonia;
 using Microsoft.Extensions.AI;
+using TextMateSharp.Grammars;
 using VelaShell.Plugin.Ai.Agent;
 using VelaShell.Plugin.Ai.Configuration;
 using VelaShell.PluginSdk;
@@ -27,7 +32,6 @@ public partial class ChatPanelView : UserControl
     private readonly Loc _loc;
     private readonly AgentToolbox _toolbox;
     private readonly McpManager _mcp;
-    private readonly MarkdownRenderer _markdown;
     private readonly List<ChatMessage> _history = [];
 
     private AiSettings _settings = new();
@@ -40,6 +44,9 @@ public partial class ChatPanelView : UserControl
     private bool _scrollScheduled;
     private long _totalInputTokens;
     private long _totalOutputTokens;
+    private ThemeName _codeBlockTheme = ThemeName.DarkPlus;
+    private Color _mathTextColor = Colors.Black;
+    private Color _mathErrorColor = Colors.Red;
 
     /// <summary>由插件构造(UI 线程,经 ShowPanelAsync 工厂)。</summary>
     public ChatPanelView(IPluginContext context, AiSettingsStore store)
@@ -53,8 +60,12 @@ public partial class ChatPanelView : UserControl
             ApprovalHandler = RequestApprovalAsync
         };
         _mcp = new McpManager(context) { ApprovalHandler = RequestApprovalAsync };
+        // 必须在 InitializeComponent 之前:注册 Markdown 扩展(pipeline 只在渲染器构造时建一次),
+        // 同时把 LiveMarkdown 各程序集拉进插件 ALC —— XAML 里的 avares://LiveMarkdown.*/ 靠
+        // "已加载程序集按名查找"定位,插件依赖不在装载方探测路径上,没被引用过就找不到(勿调序)。
+        MarkdownSetup.EnsureRegistered();
         InitializeComponent();
-        _markdown = new MarkdownRenderer(this, text => _context.Clipboard.SetTextAsync(text), _loc);
+        ConfigureMarkdown();
         ApplyLoc();
 
         SendButton.Click += (_, _) => _ = SendAsync(InputBox.Text ?? "");
@@ -154,6 +165,108 @@ public partial class ChatPanelView : UserControl
         InputBox.PlaceholderText = _loc["InputPlaceholder"];
         SendText.Text = _loc["Send"];
         StopText.Text = _loc["Stop"];
+        // 代码块头部按钮的提示藏在 LiveMarkdown 的 ControlTemplate 里,只能经 DynamicResource 灌进去
+        Resources["AiCopyTip"] = _loc["Copy"];
+        Resources["AiWrapTip"] = _loc["ToggleWrap"];
+    }
+
+    // ---------- Markdown 渲染(LiveMarkdown.Avalonia) ----------
+
+    /// <summary>
+    /// 装配 Markdown 渲染:链接点击交给宿主打开、禁掉远程图片抓取、皮肤跟随主题。
+    /// 样式与资源的并入在 ChatPanelView.axaml,这里只做选择器表达不了的部分。
+    /// </summary>
+    private void ConfigureMarkdown()
+    {
+        // 链接是冒泡路由事件,挂在消息流上就覆盖所有气泡,不必逐段订阅
+        MessagesPanel.AddHandler(MarkdownTextBlock.LinkClickEvent, OnMarkdownLinkClicked);
+
+        // 库默认第一个处理器就是 HTTP,模型回复里的图片 URL 会被直接抓取 —— 那等于给
+        // 任意模型输出开了个追踪像素通道。这里摘掉 HTTP,只留本地文件 / data: / 内嵌资源。
+        Styles.Add(new Style(x => x.OfType<Image>().Class("Link"))
+        {
+            Setters =
+            {
+                new Setter(AsyncImageLoader.HandlersProperty, new AsyncImageLoaderHandler[]
+                {
+                    LocalFileAsyncImageLoaderHandler.Shared,
+                    AvaloniaResourceAsyncImageLoaderHandler.Shared,
+                    DataUrlAsyncImageLoaderHandler.Shared,
+                    RawAsyncImageLoaderHandler.Shared
+                })
+            }
+        });
+
+        SyncMarkdownSkin();
+        ActualThemeVariantChanged += (_, _) => SyncMarkdownSkin();
+    }
+
+    /// <summary>
+    /// 把 LiveMarkdown 的默认令牌换成 Vela 令牌的当前解析值,并按明暗切换代码高亮配色。
+    /// 大部分观感能用选择器覆盖(见 axaml),但代码块头/体的底色只在 ControlTemplate 内
+    /// 以 <c>{DynamicResource}</c> 引用,选择器够不到,只能改键;库里这些键全部落在画刷属性上,
+    /// 所以直接塞画刷即可。写成直接键 —— 直接键优先于 MergedDictionaries 里的 Defaults.axaml。
+    /// </summary>
+    private void SyncMarkdownSkin()
+    {
+        // BorderColor 不能挪作背景用:Mermaid 拿它画全部线条(节点框/连线/分组框),
+        // 给成背景色调会让整张图糊掉。代码块标题栏底色改由 axaml 的 nth-child 选择器给。
+        Skin("BorderColor", "VelaBorderPrimary");              // 线条:表格/分隔线/Mermaid 描边
+        Skin("BorderBrush", "VelaBorderPrimary");              // 代码块外框
+        Skin("SecondaryCardBackgroundColor", "VelaBgInput");   // 代码块正文底 / Mermaid 分组头
+        Skin("CardBackgroundColor", "VelaBgHover");            // 表格底 / Mermaid 节点填充
+        Skin("ForegroundColor", "VelaTextPrimary");            // 正文 / Mermaid 图内文字
+        Skin("CodeInlineColor", "VelaAccent");
+        Skin("QuoteBorderColor", "VelaAccent");
+
+        _mathTextColor = SkinColor("VelaTextPrimary") ?? Colors.Black;
+        _mathErrorColor = SkinColor("VelaError") ?? Colors.Red;
+
+        // 这两样不是资源键而是控件属性,已生成的渲染器要逐个改
+        ThemeName codeTheme = ActualThemeVariant == ThemeVariant.Dark ? ThemeName.DarkPlus : ThemeName.LightPlus;
+        _codeBlockTheme = codeTheme;
+        foreach (MarkdownRenderer renderer in MessagesPanel.GetVisualDescendants().OfType<MarkdownRenderer>())
+        {
+            renderer.CodeBlockColorTheme = codeTheme;
+            ApplyMathColors(renderer);
+        }
+
+        void Skin(string key, string velaKey)
+        {
+            if (this.TryFindResource(velaKey, out object? value) && value is IBrush brush)
+            {
+                Resources[key] = brush;
+            }
+        }
+
+        Color? SkinColor(string velaKey)
+            => this.TryFindResource(velaKey, out object? value) && value is ISolidColorBrush brush
+                ? brush.Color
+                : null;
+    }
+
+    /// <summary>
+    /// 给这一段里的 LaTeX 公式上色。CSharpMath 的 <c>MathView</c> 吃不到类型选择器
+    /// (基类是泛型,StyleKey 对不上;实测连字面色的运行期样式都不生效),而它的
+    /// 默认色是黑的 —— 暗色主题下公式等于看不见。只能在每次渲染定稿后就地设。
+    /// </summary>
+    private void ApplyMathColors(MarkdownRenderer renderer)
+    {
+        foreach (MathView view in renderer.GetVisualDescendants().OfType<MathView>())
+        {
+            view.TextColor = _mathTextColor;
+            view.ErrorColor = _mathErrorColor;
+        }
+    }
+
+    /// <summary>Markdown 链接点击:只放行 http/https,交给宿主的默认浏览器打开。</summary>
+    private void OnMarkdownLinkClicked(object? sender, LinkClickedEventArgs e)
+    {
+        if (e.HRef is { IsAbsoluteUri: true } uri && uri.Scheme is "http" or "https")
+        {
+            _ = TopLevel.GetTopLevel(this)?.Launcher.LaunchUriAsync(uri);
+        }
+        e.Handled = true;
     }
 
     private void OnLocaleChanged(string locale) => Dispatcher.UIThread.Post(() =>
@@ -587,7 +700,6 @@ public partial class ChatPanelView : UserControl
         private readonly ChatPanelView _owner;
         private readonly StackPanel _stack;
         private readonly Dictionary<string, ToolCard> _toolCards = [];
-        private readonly List<MarkdownSegment> _segments = [];
         private MarkdownSegment? _currentSegment;
         private Collapsible? _thinking;
         private readonly StringBuilder _thinkingText = new();
@@ -612,8 +724,7 @@ public partial class ChatPanelView : UserControl
             // 工具卡片之后的新一轮文本另起 Markdown 段
             if (_currentSegment is null || !ReferenceEquals(_stack.Children[^1], _currentSegment.Host))
             {
-                _currentSegment = new MarkdownSegment(_owner._markdown);
-                _segments.Add(_currentSegment);
+                _currentSegment = new MarkdownSegment(_owner);
                 _stack.Children.Add(_currentSegment.Host);
             }
             _currentSegment.Append(text);
@@ -664,59 +775,37 @@ public partial class ChatPanelView : UserControl
             _currentSegment = null;
         }
 
-        /// <summary>流结束(成功/取消/出错都会走到):所有 Markdown 段落立即定稿渲染,思考区补齐尾部。</summary>
+        /// <summary>流结束(成功/取消/出错都会走到):思考区补齐尾部。</summary>
         public void FinishStreaming()
         {
-            foreach (MarkdownSegment segment in _segments)
-            {
-                segment.RenderNow();
-            }
+            // Markdown 段不需要收口:LiveMarkdown 自己会把最后一次追加渲染完
             _thinking?.SetBody(_thinkingText.ToString());
         }
     }
 
     /// <summary>
-    /// 一段流式 Markdown:增量进 StringBuilder,按 ≥200ms 节流增量渲染
-    /// (只重建变化的尾部块,前缀块控件复用;Markdig 解析半截文本安全;
-    /// 定稿由 <see cref="RenderNow" /> 全量重建收口,纠正引用式链接等跨块依赖)。
+    /// 一段流式 Markdown。追加直接进 <see cref="ObservableStringBuilder" />,由
+    /// LiveMarkdown 合并变更、后台解析、按脏节点更新可视树 —— 这里不再需要自建节流,
+    /// 半截文本也由它自己兜住。约束:builder 只能在 UI 线程改(调用方经 DrainUpdates 保证)。
     /// </summary>
-    private sealed class MarkdownSegment(MarkdownRenderer renderer)
+    private sealed class MarkdownSegment
     {
-        private readonly StringBuilder _text = new();
-        private readonly List<string> _blockCache = [];
-        private bool _renderScheduled;
-        private int _renderedLength;
+        private readonly ObservableStringBuilder _text = new();
 
-        public StackPanel Host { get; } = new() { Spacing = 6 };
+        public MarkdownRenderer Host { get; }
 
-        public void Append(string text)
+        public MarkdownSegment(ChatPanelView owner)
         {
-            _text.Append(text);
-            if (!_renderScheduled)
+            Host = new MarkdownRenderer
             {
-                _renderScheduled = true;
-                DispatcherTimer.RunOnce(RenderStreaming, TimeSpan.FromMilliseconds(200));
-            }
+                MarkdownBuilder = _text,
+                CodeBlockColorTheme = owner._codeBlockTheme
+            };
+            // 公式控件是渲染时新建的,每次定稿后补一次颜色(见 ApplyMathColors)
+            Host.RenderedTextProjectionChanged += (_, _) => owner.ApplyMathColors(Host);
         }
 
-        private void RenderStreaming()
-        {
-            _renderScheduled = false;
-            if (_text.Length == _renderedLength)
-            {
-                return; // 定稿已渲染过同样的文本,别再白干一遍
-            }
-            _renderedLength = _text.Length;
-            renderer.RenderIncremental(Host, _text.ToString(), _blockCache);
-        }
-
-        public void RenderNow()
-        {
-            _renderedLength = _text.Length;
-            Host.Children.Clear();
-            _blockCache.Clear();
-            renderer.RenderIncremental(Host, _text.ToString(), _blockCache);
-        }
+        public void Append(string text) => _text.Append(text);
     }
 
     /// <summary>紧凑可折叠区(思考过程):单行头部点击展开,正文等宽文本。</summary>

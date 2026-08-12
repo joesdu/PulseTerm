@@ -36,11 +36,40 @@ Base URL 与 API Key 全部用户自填;API Key 经宿主 **Secrets 能力加密
 ControlTheme 的芯片开关(`Ui/AiTheme.axaml`,隔离进程下仅令牌也能退化可用)。
 顶栏右侧 **新会话** 按钮:终止当前请求并开始全新对话。
 
-回复以 **Markdown 渲染**(Markdig 解析 + `Ui/MarkdownRenderer` 映射为 Avalonia 控件):
-标题/粗斜体/删除线/行内代码/链接(可点击)/围栏代码块(语言标签 + 复制按钮)/
-列表(嵌套)/引用/分隔线/管道表格;未覆盖语法回退渲染原文。流式期间按 ≥200ms
-节流整段重渲染,收尾定稿。工具调用为**紧凑单行卡片**(状态图标 + 工具名 +
-参数摘要),点击展开完整参数与结果;思考过程同款折叠区。
+回复以 **Markdown 渲染**,用 [LiveMarkdown.Avalonia](https://github.com/DearVa/LiveMarkdown.Avalonia)
+(Apache-2.0;内部仍是 Markdig 解析,但解析放后台线程,并按 `SourceSpan` 脏检查
+只更新受影响的节点 —— 流式追加不再重建整段可视树,故本插件不再自建节流)。
+覆盖 Markdig `UseAdvancedExtensions()` 全集:标题/强调/行内代码/链接/围栏代码块
+(TextMate 语法高亮 + 语言标签 + 复制/换行按钮)/嵌套列表/任务列表/引用/分隔线/
+表格,并支持**跨块文本选择**。
+
+皮肤:库自带样式是深色硬编码 + 文档级字号,已在 `ChatPanelView.axaml` 用 Vela 令牌
+整体覆盖(主题切换随 `DynamicResource` 自动跟随);代码块头/体底色只在 `CodeBlock`
+的 `ControlTemplate` 内引用、选择器够不到,那几个资源键由 `SyncMarkdownSkin()` 写入。
+语法高亮配色按明暗切 `DarkPlus`/`LightPlus`。
+
+另外接了三个可选节点扩展(注册见 `Ui/MarkdownSetup.cs`,必须在第一个渲染器构造前完成):
+
+| 扩展 | 语法 | 效果 |
+| --- | --- | --- |
+| `LiveMarkdown.Avalonia.Mermaid` | ` ```mermaid ` 围栏块 | 24 种图型画成原生 Avalonia 控件,带平移缩放;`Mermaider` 纯托管解析+布局,无浏览器无子进程 |
+| `LiveMarkdown.Avalonia.Math` | `$..$` `$$..$$` 及 `\(..\)` `\[..\]` | CSharpMath 排版;后一组反斜杠定界符是多数模型的实际输出,标准 Markdig 认不出 |
+| `LiveMarkdown.Avalonia.Svg` | `![](x.svg)` | 给图片管线注册 SVG 解码器(Svg.Controls.Avalonia 后端,非 Skia) |
+
+Mermaid 的配色全部走 `ForegroundColor`/`BorderColor`/`CardBackgroundColor` 三个键,
+已由 `SyncMarkdownSkin()` 映射到 Vela 令牌,主题切换自动跟随;**注意 `BorderColor` 被
+Mermaid 用作全部线条色,不能挪作背景**,所以代码块标题栏底色改用 `nth-child(1)` 选择器给。
+LaTeX 是例外:`MathView` 吃不到类型选择器(基类是泛型,StyleKey 对不上,实测连字面色的
+运行期样式都不生效),默认又是黑色,只能由 `ApplyMathColors()` 在每次渲染定稿后就地设。
+
+两项刻意的收口:链接只放行 `http`/`https` 并交宿主浏览器打开;图片加载器**摘掉了
+HTTP 处理器**(只留本地文件 / `data:` / 内嵌资源),否则模型回复里的图片 URL 会被
+面板直接抓取,等于对任意模型输出开了追踪像素通道。**这也意味着远程 SVG 不会加载** ——
+SVG 目前只对 `data:` URI 和本地路径生效;要放开就把 `ConfigureMarkdown()` 里
+`HttpAsyncImageLoaderHandler.Shared` 加回处理器数组。
+
+工具调用为**紧凑单行卡片**(状态图标 + 工具名 + 参数摘要),点击展开完整参数与结果;
+思考过程同款折叠区(纯文本,不走 Markdown)。
 
 ## 技术栈(用户决策 2026-08-10)
 
