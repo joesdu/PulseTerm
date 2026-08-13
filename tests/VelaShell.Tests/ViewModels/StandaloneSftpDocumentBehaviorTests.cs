@@ -14,6 +14,7 @@ using VelaShell.Core.Models;
 using VelaShell.Core.Sftp;
 using VelaShell.Core.Ssh;
 using VelaShell.Docking;
+using VelaShell.Docking.Controls;
 using VelaShell.Presentation.Services;
 using VelaShell.Presentation.ViewModels;
 using VelaShell.Terminal;

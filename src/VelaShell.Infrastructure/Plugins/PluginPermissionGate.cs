@@ -38,7 +38,7 @@ public sealed class PluginPermissionGate(IAppDataStore? store, IPluginPermission
 
     private sealed record PermissionsDoc(List<string> AlwaysAllow);
 
-    private readonly HashSet<string> _sessionAllowed = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _sessionAllowed = [with(StringComparer.Ordinal)];
     private readonly SemaphoreSlim _promptGate = new(1, 1);
     private HashSet<string>? _alwaysAllowed;
 

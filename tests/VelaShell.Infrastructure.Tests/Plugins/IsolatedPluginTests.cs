@@ -127,6 +127,42 @@ public class IsolatedPluginTests
         await manager.DisposeAsync();
     }
 
+    [TestMethod]
+    public async Task IsolatedPlugin_AfterDeactivation_HostProcessLeavesOnItsOwn()
+    {
+        // 宿主进程必须自己退场,不能靠父进程那一刀:主程序退出路径上的兜底强杀是有时限的
+        // (App 退出只给容器 2 秒),一旦子进程没能自行收摊,它就会活过主程序 ——
+        // 实测留下过一个孤儿 VelaShell.PluginHost,锁着 bin\plugins 里的 dll,
+        // 下一次编译直接以 MSB3027「文件被另一进程锁定」失败。
+        // 自退场的三个码:0 = 停用应答后自退,2 = 管道断后自退,3 = 父进程消失后自退;
+        // 被 Process.Kill 强杀则是 -1。
+        StageHelloWorld("isolated");
+        var manager = new PluginManager(new()
+        {
+            PluginRoots = [_root],
+            DataRootDirectory = _dataRoot,
+            HostVersion = "1.0.0",
+            ActivationTimeout = TimeSpan.FromSeconds(30),
+            DeactivationTimeout = TimeSpan.FromSeconds(10)
+        });
+        await manager.StartAsync();
+        Assert.AreEqual(PluginState.Active, manager.Plugins.Single().State, manager.Plugins.Single().Error);
+
+        int pid = manager.GetIsolatedProcessId("velashell.hello-world")!.Value;
+        // 自己开一个句柄:PluginManager 释放后它那份 Process 就没了,退出码得从这里读。
+        // 必须在进程还活着时把 Handle 抓在手里,否则退出后 ExitCode 会抛
+        //「Process was not started by this object」。
+        using var host = System.Diagnostics.Process.GetProcessById(pid);
+        _ = host.Handle;
+
+        await manager.DisposeAsync();
+
+        Assert.IsTrue(host.WaitForExit(15_000), "停用后插件宿主进程必须退出");
+        Assert.IsTrue(host.ExitCode is 0 or 2 or 3,
+            $"宿主应自行退场(0/2/3),实际退出码 {host.ExitCode} —— 其它码说明它是被父进程强杀的,"
+            + "而强杀在主程序退出路径上只有 2 秒预算,超时就会留下孤儿进程。");
+    }
+
     private static async Task WaitForAsync(Func<bool> condition, TimeSpan timeout, string message)
     {
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();

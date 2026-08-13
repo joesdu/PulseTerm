@@ -1,4 +1,5 @@
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
 
 namespace VelaShell.Services;
 
@@ -10,16 +11,20 @@ namespace VelaShell.Services;
 /// </summary>
 public static class ConnectionAccent
 {
+    // 共享的静态画刷必须是不可变的:SolidColorBrush 是 AvaloniaObject,带线程亲和性 ——
+    // 谁先碰它,它就归谁;之后别的线程渲染到它就会在合成阶段抛
+    // "The calling thread cannot access this object because a different thread owns it"。
+    // 色板是全局静态的,先手线程无法保证(实测在测试套件里被后台线程先初始化后必崩)。
     private static readonly IBrush[] Palette =
     [
-        new SolidColorBrush(Color.Parse("#8BE9FD")), // cyan
-        new SolidColorBrush(Color.Parse("#50FA7B")), // green
-        new SolidColorBrush(Color.Parse("#FFB86C")), // orange
-        new SolidColorBrush(Color.Parse("#FF79C6")), // pink
-        new SolidColorBrush(Color.Parse("#BD93F9")), // purple
-        new SolidColorBrush(Color.Parse("#F1FA8C")), // yellow
-        new SolidColorBrush(Color.Parse("#FF5555")), // red
-        new SolidColorBrush(Color.Parse("#6FA8FF"))  // blue
+        new ImmutableSolidColorBrush(Color.Parse("#8BE9FD")), // cyan
+        new ImmutableSolidColorBrush(Color.Parse("#50FA7B")), // green
+        new ImmutableSolidColorBrush(Color.Parse("#FFB86C")), // orange
+        new ImmutableSolidColorBrush(Color.Parse("#FF79C6")), // pink
+        new ImmutableSolidColorBrush(Color.Parse("#BD93F9")), // purple
+        new ImmutableSolidColorBrush(Color.Parse("#F1FA8C")), // yellow
+        new ImmutableSolidColorBrush(Color.Parse("#FF5555")), // red
+        new ImmutableSolidColorBrush(Color.Parse("#6FA8FF"))  // blue
     ];
 
     /// <summary>返回该配置的标识色画刷(FNV-1a 哈希 Guid 字节,跨启动稳定)。</summary>

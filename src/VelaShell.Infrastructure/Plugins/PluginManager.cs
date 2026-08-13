@@ -840,7 +840,7 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         await ActivateAsync(runtime, CancellationToken.None).ConfigureAwait(false);
     }
 
-    private TracePluginLogger GetOrCreateLogger(PluginRuntime runtime)
+    private static TracePluginLogger GetOrCreateLogger(PluginRuntime runtime)
         => runtime.Logger ??= new(runtime.Descriptor.Id);
 
     /// <summary>每插件命令能力(懒建、占位与真实注册共用;停用后置空重建)。</summary>
