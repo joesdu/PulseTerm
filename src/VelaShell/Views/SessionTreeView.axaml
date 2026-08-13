@@ -133,7 +133,23 @@
                   Height="30"
                   Padding="12,0"
                   Cursor="Hand"
-                  Tapped="Group_Tapped">
+                  Tapped="Group_Tapped"
+                  PointerPressed="Group_PointerPressed">
+            <Border.ContextMenu>
+              <!-- 分组行的菜单:命令作用于 SelectedNode,右键先选中所指分组
+                   (Group_PointerPressed)。删除是破坏性操作,渲染为 error 色并二次确认。 -->
+              <ContextMenu x:DataType="vm:SessionTreeNodeViewModel">
+                <MenuItem Header="{loc:Localize Tree_DeleteGroup}"
+                          Command="{Binding $parent[TreeView].((vm:SessionTreeViewModel)DataContext).DeleteGroupCommand}"
+                          IsVisible="{Binding IsGroup}"
+                          Foreground="{DynamicResource VelaError}">
+                  <MenuItem.Icon>
+                    <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.trash-2}"
+                                   Foreground="{DynamicResource VelaError}" />
+                  </MenuItem.Icon>
+                </MenuItem>
+              </ContextMenu>
+            </Border.ContextMenu>
             <StackPanel Orientation="Horizontal"
                         Spacing="6"
                         VerticalAlignment="Center">

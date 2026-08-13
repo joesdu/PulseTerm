@@ -2910,6 +2910,15 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   <data name="Tree_DuplicateConnection" xml:space="preserve">
     <value>接続を複製</value>
   </data>
+  <data name="Tree_DeleteGroup" xml:space="preserve">
+    <value>グループを削除</value>
+  </data>
+  <data name="Tree_DeleteGroupConfirm" xml:space="preserve">
+    <value>グループ「{0}」を削除しますか？中の接続 {1} 件もまとめて削除され、この操作は元に戻せません。</value>
+  </data>
+  <data name="Tree_DeleteGroupConfirmEmpty" xml:space="preserve">
+    <value>空のグループ「{0}」を削除しますか？この操作は元に戻せません。</value>
+  </data>
   <data name="Tree_EditConnection" xml:space="preserve">
     <value>接続を編集</value>
   </data>

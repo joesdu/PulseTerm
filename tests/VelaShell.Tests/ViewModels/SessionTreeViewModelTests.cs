@@ -431,4 +431,133 @@ public class SessionTreeViewModelTests
         await _vm.DeleteSessionCommand.Execute().FirstAsync();
         Assert.IsTrue(_vm.HasNoSessions);
     }
+
+    // ---- 删除分组(连带删除组内连接) ----
+
+    /// <summary>建一棵「一个分组 + 组内两条连接 + 树根一条未分组连接」的树。</summary>
+    private async Task<(ServerGroup Group, SessionProfile First, SessionProfile Second, SessionProfile Orphan)> LoadGroupWithTwoSessionsAsync()
+    {
+        ServerGroup group = CreateGroup("Production", 0);
+        SessionProfile first = CreateSession("WebServer", group.Id);
+        SessionProfile second = CreateSession("DbServer", group.Id);
+        SessionProfile orphan = CreateSession("Standalone");
+        _repository.GetAllGroupsAsync().Returns(Task.FromResult(new List<ServerGroup> { group }));
+        _repository
+            .GetAllSessionsAsync()
+            .Returns(Task.FromResult(new List<SessionProfile> { first, second, orphan }));
+        await _vm.LoadCommand.Execute().FirstAsync();
+        return (group, first, second, orphan);
+    }
+
+    [TestMethod]
+    [TestCategory("SessionTree")]
+    public async Task DeleteGroupCommand_DeletesGroupAndEveryConnectionInside()
+    {
+        (ServerGroup group, SessionProfile first, SessionProfile second, SessionProfile orphan) =
+            await LoadGroupWithTwoSessionsAsync();
+        _vm.ConfirmDeleteGroup = _ => Task.FromResult(true);
+        _vm.SelectedNode = _vm.Nodes.Single(node => node.IsGroup);
+
+        await _vm.DeleteGroupCommand.Execute().FirstAsync();
+
+        // 组内连接逐条落库删除,分组本身随后删除。
+        await _repository.Received(1).DeleteSessionAsync(first.Id);
+        await _repository.Received(1).DeleteSessionAsync(second.Id);
+        await _repository.Received(1).DeleteGroupAsync(group.Id);
+        // 组外的连接不受影响。
+        await _repository.DidNotReceive().DeleteSessionAsync(orphan.Id);
+        Assert.DoesNotContain(node => node.IsGroup, _vm.Nodes);
+        Assert.ContainsSingle(node => node.Id == orphan.Id, _vm.Nodes);
+        Assert.IsNull(_vm.SelectedNode);
+    }
+
+    [TestMethod]
+    [TestCategory("SessionTree")]
+    public async Task DeleteGroupCommand_WithoutConfirmation_DeletesNothing()
+    {
+        (ServerGroup group, SessionProfile first, _, _) = await LoadGroupWithTwoSessionsAsync();
+        _vm.ConfirmDeleteGroup = _ => Task.FromResult(false);
+        _vm.SelectedNode = _vm.Nodes.Single(node => node.IsGroup);
+
+        await _vm.DeleteGroupCommand.Execute().FirstAsync();
+
+        await _repository.DidNotReceive().DeleteGroupAsync(Arg.Any<Guid>());
+        await _repository.DidNotReceive().DeleteSessionAsync(Arg.Any<Guid>());
+        Assert.ContainsSingle(node => node.IsGroup && node.Id == group.Id, _vm.Nodes);
+        Assert.HasCount(2, _vm.Nodes.Single(node => node.IsGroup).Children);
+        Assert.IsTrue(_vm.SelectedNode?.IsGroup);
+        Assert.IsNotNull(first);
+    }
+
+    [TestMethod]
+    [TestCategory("SessionTree")]
+    public async Task DeleteGroupCommand_ConfirmationMessage_NamesGroupAndCountsConnections()
+    {
+        (ServerGroup group, _, _, _) = await LoadGroupWithTwoSessionsAsync();
+        string? shown = null;
+        _vm.ConfirmDeleteGroup = message =>
+        {
+            shown = message;
+            return Task.FromResult(false);
+        };
+        _vm.SelectedNode = _vm.Nodes.Single(node => node.IsGroup);
+
+        await _vm.DeleteGroupCommand.Execute().FirstAsync();
+
+        // 用户必须在点确认前就知道「删的是哪个组」「要连带删掉几条连接」。
+        Assert.IsNotNull(shown);
+        Assert.Contains(group.Name, shown);
+        Assert.Contains("2", shown);
+    }
+
+    [TestMethod]
+    [TestCategory("SessionTree")]
+    public async Task DeleteGroupCommand_RemovesGroupFromMoveToGroupMenu()
+    {
+        (ServerGroup group, _, _, _) = await LoadGroupWithTwoSessionsAsync();
+        _vm.ConfirmDeleteGroup = _ => Task.FromResult(true);
+        _vm.SelectedNode = _vm.Nodes.Single(node => node.IsGroup);
+
+        await _vm.DeleteGroupCommand.Execute().FirstAsync();
+
+        // 不同步移除的话,「移动到分组」子菜单会留下一个指向已删分组的落点。
+        Assert.DoesNotContain(node => node.Id == group.Id, _vm.GroupNodes);
+    }
+
+    [TestMethod]
+    [TestCategory("SessionTree")]
+    public async Task DeleteGroupCommand_IsDisabled_WhenSelectionIsNotAGroup()
+    {
+        (_, SessionProfile first, _, _) = await LoadGroupWithTwoSessionsAsync();
+        _vm.SelectedNode = _vm.Nodes.Single(node => node.IsGroup)
+                              .Children.Single(child => child.Id == first.Id);
+
+        Assert.IsFalse(await _vm.DeleteGroupCommand.CanExecute.FirstAsync());
+    }
+
+    [TestMethod]
+    [TestCategory("EdgeCase")]
+    public async Task DeleteGroupCommand_EmptyGroup_UsesEmptyGroupPrompt_AndStillDeletes()
+    {
+        ServerGroup group = CreateGroup("Empty", 0);
+        _repository.GetAllGroupsAsync().Returns(Task.FromResult(new List<ServerGroup> { group }));
+        _repository.GetAllSessionsAsync().Returns(Task.FromResult(new List<SessionProfile>()));
+        await _vm.LoadCommand.Execute().FirstAsync();
+        string? shown = null;
+        _vm.ConfirmDeleteGroup = message =>
+        {
+            shown = message;
+            return Task.FromResult(true);
+        };
+        _vm.SelectedNode = _vm.Nodes.Single(node => node.IsGroup);
+
+        await _vm.DeleteGroupCommand.Execute().FirstAsync();
+
+        // 空分组不该提「组内 0 个连接会被删除」这种话。
+        Assert.IsNotNull(shown);
+        Assert.DoesNotContain("0", shown);
+        await _repository.Received(1).DeleteGroupAsync(group.Id);
+        Assert.IsEmpty(_vm.Nodes);
+        Assert.IsTrue(_vm.HasNoSessions);
+    }
 }
