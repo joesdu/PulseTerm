@@ -25,7 +25,7 @@ public sealed class ConnectionProfileViewUiTests
         _session = HeadlessUnitTestSession.GetOrStartForAssembly(typeof(ConnectionProfileViewUiTests).Assembly);
 
     [TestMethod]
-    public void ProtocolTabs_ExposeFocusableSftpAndKeepLegacyProtocolsDisabled()
+    public void ProtocolTabs_ExposeFocusableSftpAndFtp_AndKeepLegacyProtocolsDisabled()
     {
         _session.Dispatch(() =>
         {
@@ -43,7 +43,8 @@ public sealed class ConnectionProfileViewUiTests
                 .OfType<Button>()
                 .Where(button => button.Classes.Contains("proto-tab"))
                 .ToList();
-            Assert.HasCount(2, protocolButtons);
+            // SSH / SFTP / FTP 三个可点页签(FTP 于 2026-08 加入);Telnet 与串口仍是禁用的 Border。
+            Assert.HasCount(3, protocolButtons);
             Assert.IsTrue(protocolButtons.All(button => button.IsTabStop));
             AssertProtocolTabMotion(protocolButtons);
 
@@ -64,6 +65,14 @@ public sealed class ConnectionProfileViewUiTests
             Dispatcher.UIThread.RunJobs();
             Assert.IsTrue(protocolButtons.Single(button => button.Classes.Contains("selected")).IsEffectivelyVisible);
             Assert.IsTrue(vm.IsSftpSelected);
+
+            // 切到 FTP:仍然只有一个页签处于选中态,且端口跟着切到 21(原本是 SSH 的 22)。
+            vm.SelectConnectionTypeCommand.Execute(ConnectionType.FTP).Subscribe();
+            Dispatcher.UIThread.RunJobs();
+            Assert.IsTrue(vm.IsFtpSelected);
+            Assert.HasCount(1, protocolButtons.Where(button => button.Classes.Contains("selected")));
+            Assert.AreEqual(21, vm.Port);
+            Assert.IsFalse(vm.RequiresSshAuth);
             window.Close();
         }, CancellationToken.None).GetAwaiter().GetResult();
     }
@@ -97,6 +106,14 @@ public sealed class ConnectionProfileViewUiTests
             vm.SelectConnectionTypeCommand.Execute(ConnectionType.SFTP).Subscribe();
             Dispatcher.UIThread.RunJobs();
             AssertIndicatorAligned(indicator, sftpTab);
+
+            // 切到 FTP:定位逻辑曾是「IsSftpSelected ? SftpTab : SshTab」的二元三目,
+            // 加第三个协议后必须按枚举分派,否则下划线会留在 SFTP 上。
+            Button ftpTab = window.FindControl<Button>("FtpTab")!;
+            vm.SelectConnectionTypeCommand.Execute(ConnectionType.FTP).Subscribe();
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            AssertIndicatorAligned(indicator, ftpTab);
 
             window.Close();
         }, CancellationToken.None).GetAwaiter().GetResult();

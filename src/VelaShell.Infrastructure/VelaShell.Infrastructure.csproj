@@ -10,6 +10,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="FluentFTP" />
     <PackageReference Include="MaxMind.Db" />
     <PackageReference Include="SonnetDB.Core" />
     <PackageReference Include="Tmds.Ssh" />

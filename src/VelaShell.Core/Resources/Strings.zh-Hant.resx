@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -3614,4 +3614,55 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   <data name="PluginManager_Installed"><value>已安裝「{0}」。</value></data>
   <data name="PluginManager_InstallFailed"><value>安裝失敗：{0}</value></data>
   <data name="PluginManager_ConfirmUninstall"><value>解除安裝「{0}」？其資料將被清除。</value></data>
-  <data name="PluginManager_VpxFilter"><value>VelaShell 外掛程式套件</value></data></root>
+  <data name="PluginManager_VpxFilter"><value>VelaShell 外掛程式套件</value></data>  <data name="Ftp_Encryption" xml:space="preserve">
+    <value>加密方式</value>
+  </data>
+  <data name="Ftp_EncryptionAuto" xml:space="preserve">
+    <value>自動（可用時使用 FTPS）</value>
+  </data>
+  <data name="Ftp_EncryptionExplicit" xml:space="preserve">
+    <value>顯式 FTPS</value>
+  </data>
+  <data name="Ftp_EncryptionImplicit" xml:space="preserve">
+    <value>隱式 FTPS</value>
+  </data>
+  <data name="Ftp_EncryptionNone" xml:space="preserve">
+    <value>不加密（明文 FTP）</value>
+  </data>
+  <data name="Ftp_Anonymous" xml:space="preserve">
+    <value>匿名登入</value>
+  </data>
+  <data name="Ftp_Passive" xml:space="preserve">
+    <value>被動模式</value>
+  </data>
+  <data name="Ftp_PassiveHint" xml:space="preserve">
+    <value>被動模式（PASV/EPSV）能穿過大多數 NAT。僅在伺服器要求主動模式時才關閉。</value>
+  </data>
+  <data name="Ftp_PlaintextWarn" xml:space="preserve">
+    <value>明文 FTP 的帳號與檔案都不加密，也沒有伺服器身分驗證。伺服器支援時請優先使用 FTPS。</value>
+  </data>
+  <data name="Ftp_CertTitle" xml:space="preserve">
+    <value>伺服器憑證不受信任</value>
+  </data>
+  <data name="Ftp_CertUntrustedFmt" xml:space="preserve">
+    <value>無法驗證 {0} 提供的憑證。請僅在下方指紋與伺服器一致時才信任它。</value>
+  </data>
+  <data name="Ftp_CertSubject" xml:space="preserve">
+    <value>主體</value>
+  </data>
+  <data name="Ftp_CertIssuer" xml:space="preserve">
+    <value>簽發者</value>
+  </data>
+  <data name="Ftp_CertExpires" xml:space="preserve">
+    <value>到期</value>
+  </data>
+  <data name="Ftp_CertFingerprint" xml:space="preserve">
+    <value>SHA-256</value>
+  </data>
+  <data name="Ftp_CertProblem" xml:space="preserve">
+    <value>問題</value>
+  </data>
+  <data name="Ftp_CertTrust" xml:space="preserve">
+    <value>信任並連線</value>
+  </data>
+</root>

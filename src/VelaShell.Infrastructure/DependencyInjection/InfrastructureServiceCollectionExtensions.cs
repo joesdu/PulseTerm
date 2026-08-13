@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Tmds.Ssh;
 using VelaShell.Core.Data;
 using VelaShell.Core.Diagnostics;
+using VelaShell.Core.Ftp;
 using VelaShell.Core.Models;
 using VelaShell.Core.Processes;
 using VelaShell.Core.Recording;
@@ -11,8 +12,10 @@ using VelaShell.Core.Sftp;
 using VelaShell.Core.Ssh;
 using VelaShell.Core.Sync;
 using VelaShell.Core.Tunnels;
+using VelaShell.Infrastructure.Ftp;
 using VelaShell.Infrastructure.Import;
 using VelaShell.Infrastructure.Persistence;
+using VelaShell.Infrastructure.Sftp;
 using VelaShell.Infrastructure.Ssh;
 using VelaShell.Infrastructure.Tunnels;
 using VelaConnectionInfo = VelaShell.Core.Models.ConnectionInfo;
@@ -87,7 +90,16 @@ public static class InfrastructureServiceCollectionExtensions
         });
 
         // SFTP service
-        services.AddSingleton<ISftpService>(sp =>
+        // FTP / FTPS 后端:自带连接池(FTP 一条控制连接同时只能跑一条命令,不像 SFTP 能多路复用)。
+        services.AddSingleton<FtpFileService>();
+        services.AddSingleton<IFtpSessionService>(sp => sp.GetRequiredService<FtpFileService>());
+        // 远程文件服务对外仍是唯一的 ISftpService;路由按会话归属分派到 SFTP / FTP 两个后端,
+        // 文件浏览器、传输管理器、限速、拖放因此零改动。
+        services.AddSingleton<ISftpService>(sp => new RoutingRemoteFileService(
+            sp.GetRequiredService<SftpService>(),
+            sp.GetRequiredService<FtpFileService>(),
+            sp.GetRequiredService<FtpFileService>()));
+        services.AddSingleton<SftpService>(sp =>
         {
             ISshConnectionService connSvc = sp.GetRequiredService<ISshConnectionService>();
             ISettingsService settings = sp.GetRequiredService<ISettingsService>();

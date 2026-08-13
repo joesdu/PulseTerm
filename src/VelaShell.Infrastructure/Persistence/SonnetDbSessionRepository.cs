@@ -146,7 +146,9 @@ public sealed class SonnetDbSessionRepository(SonnetDbEngine engine, ISecretProt
             LastConnectedAt = profile.LastConnectedAt,
             Tags = [.. profile.Tags],
             RememberPassword = profile.RememberPassword,
-            JumpHostProfileId = profile.JumpHostProfileId
+            JumpHostProfileId = profile.JumpHostProfileId,
+            // 深拷贝:这份副本要落盘,不能与调用方共享可变对象。
+            Ftp = profile.Ftp?.Clone()
         };
     }
 

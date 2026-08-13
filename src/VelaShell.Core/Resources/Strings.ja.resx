@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -3614,4 +3614,55 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   <data name="PluginManager_Installed"><value>「{0}」をインストールしました。</value></data>
   <data name="PluginManager_InstallFailed"><value>インストール失敗: {0}</value></data>
   <data name="PluginManager_ConfirmUninstall"><value>「{0}」をアンインストールしますか？データも削除されます。</value></data>
-  <data name="PluginManager_VpxFilter"><value>VelaShell プラグインパッケージ</value></data></root>
+  <data name="PluginManager_VpxFilter"><value>VelaShell プラグインパッケージ</value></data>  <data name="Ftp_Encryption" xml:space="preserve">
+    <value>暗号化</value>
+  </data>
+  <data name="Ftp_EncryptionAuto" xml:space="preserve">
+    <value>自動（可能なら FTPS）</value>
+  </data>
+  <data name="Ftp_EncryptionExplicit" xml:space="preserve">
+    <value>明示的 FTPS</value>
+  </data>
+  <data name="Ftp_EncryptionImplicit" xml:space="preserve">
+    <value>暗黙的 FTPS</value>
+  </data>
+  <data name="Ftp_EncryptionNone" xml:space="preserve">
+    <value>なし（平文 FTP）</value>
+  </data>
+  <data name="Ftp_Anonymous" xml:space="preserve">
+    <value>匿名ログイン</value>
+  </data>
+  <data name="Ftp_Passive" xml:space="preserve">
+    <value>パッシブモード</value>
+  </data>
+  <data name="Ftp_PassiveHint" xml:space="preserve">
+    <value>パッシブモード（PASV/EPSV）はほとんどの NAT を通過できます。サーバーがアクティブモードを要求する場合のみオフにしてください。</value>
+  </data>
+  <data name="Ftp_PlaintextWarn" xml:space="preserve">
+    <value>平文 FTP は認証情報もファイルも暗号化されず、サーバーの身元確認もありません。サーバーが対応しているなら FTPS を使ってください。</value>
+  </data>
+  <data name="Ftp_CertTitle" xml:space="preserve">
+    <value>サーバー証明書が信頼されていません</value>
+  </data>
+  <data name="Ftp_CertUntrustedFmt" xml:space="preserve">
+    <value>{0} が提示した証明書を検証できませんでした。下のフィンガープリントがサーバーのものと一致する場合のみ信頼してください。</value>
+  </data>
+  <data name="Ftp_CertSubject" xml:space="preserve">
+    <value>サブジェクト</value>
+  </data>
+  <data name="Ftp_CertIssuer" xml:space="preserve">
+    <value>発行者</value>
+  </data>
+  <data name="Ftp_CertExpires" xml:space="preserve">
+    <value>有効期限</value>
+  </data>
+  <data name="Ftp_CertFingerprint" xml:space="preserve">
+    <value>SHA-256</value>
+  </data>
+  <data name="Ftp_CertProblem" xml:space="preserve">
+    <value>問題</value>
+  </data>
+  <data name="Ftp_CertTrust" xml:space="preserve">
+    <value>信頼して接続</value>
+  </data>
+</root>

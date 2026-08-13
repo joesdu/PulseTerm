@@ -127,7 +127,8 @@ public sealed class ConnectionWorkflowService(
             Tags = [.. profile.Tags],
             // 保留配置自身的勾选:全局开关只影响是否落盘,不改写每条配置的选择。
             RememberPassword = profile.RememberPassword,
-            JumpHostProfileId = profile.JumpHostProfileId
+            JumpHostProfileId = profile.JumpHostProfileId,
+            Ftp = profile.Ftp?.Clone()
         };
     }
 

@@ -7,6 +7,7 @@ using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
 using ReactiveUI.Primitives;
+using VelaShell.Core.Models;
 using VelaShell.Core.Resources;
 using VelaShell.ViewModels;
 
@@ -29,7 +30,7 @@ public partial class ConnectionProfileView : Window
     }
 
     /// <summary>
-    /// 把滑动下划线对齐到当前协议标签(SSH/SFTP):首次落位不动画,此后位置与宽度经
+    /// 把滑动下划线对齐到当前协议标签(SSH/SFTP/FTP):首次落位不动画,此后位置与宽度经
     /// 180ms 过渡滑动 —— 取代旧实现里两个按钮各自下划线的瞬时跳变。
     /// </summary>
     private void UpdateProtoTabIndicator()
@@ -38,7 +39,14 @@ public partial class ConnectionProfileView : Window
         {
             return;
         }
-        Button target = viewModel.IsSftpSelected ? SftpTab : SshTab;
+        // 曾是「IsSftpSelected ? SftpTab : SshTab」的二元三目 —— 加第三个协议时必须改成按枚举分派,
+        // 否则 FTP 选中后下划线会停在 SSH 上。
+        Button target = viewModel.ConnectionType switch
+        {
+            ConnectionType.SFTP => SftpTab,
+            ConnectionType.FTP => FtpTab,
+            _ => SshTab
+        };
         if (target.Bounds.Width <= 0)
         {
             return;

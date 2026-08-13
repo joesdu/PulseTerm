@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -3615,4 +3615,55 @@ Overwrite it?</value>
   <data name="PluginManager_Installed"><value>Installed "{0}".</value></data>
   <data name="PluginManager_InstallFailed"><value>Install failed: {0}</value></data>
   <data name="PluginManager_ConfirmUninstall"><value>Uninstall "{0}"? Its data will be removed.</value></data>
-  <data name="PluginManager_VpxFilter"><value>VelaShell plugin package</value></data></root>
+  <data name="PluginManager_VpxFilter"><value>VelaShell plugin package</value></data>  <data name="Ftp_Encryption" xml:space="preserve">
+    <value>Encryption</value>
+  </data>
+  <data name="Ftp_EncryptionAuto" xml:space="preserve">
+    <value>Auto (FTPS when available)</value>
+  </data>
+  <data name="Ftp_EncryptionExplicit" xml:space="preserve">
+    <value>Explicit FTPS</value>
+  </data>
+  <data name="Ftp_EncryptionImplicit" xml:space="preserve">
+    <value>Implicit FTPS</value>
+  </data>
+  <data name="Ftp_EncryptionNone" xml:space="preserve">
+    <value>None (plain FTP)</value>
+  </data>
+  <data name="Ftp_Anonymous" xml:space="preserve">
+    <value>Anonymous login</value>
+  </data>
+  <data name="Ftp_Passive" xml:space="preserve">
+    <value>Passive mode</value>
+  </data>
+  <data name="Ftp_PassiveHint" xml:space="preserve">
+    <value>Passive mode (PASV/EPSV) works behind most NATs. Turn it off only if the server requires active mode.</value>
+  </data>
+  <data name="Ftp_PlaintextWarn" xml:space="preserve">
+    <value>Plain FTP sends your credentials and files unencrypted, and there is no server identity check. Prefer FTPS whenever the server supports it.</value>
+  </data>
+  <data name="Ftp_CertTitle" xml:space="preserve">
+    <value>Untrusted server certificate</value>
+  </data>
+  <data name="Ftp_CertUntrustedFmt" xml:space="preserve">
+    <value>The certificate presented by {0} could not be verified. Trust it only if the fingerprint below matches the server's.</value>
+  </data>
+  <data name="Ftp_CertSubject" xml:space="preserve">
+    <value>Subject</value>
+  </data>
+  <data name="Ftp_CertIssuer" xml:space="preserve">
+    <value>Issuer</value>
+  </data>
+  <data name="Ftp_CertExpires" xml:space="preserve">
+    <value>Expires</value>
+  </data>
+  <data name="Ftp_CertFingerprint" xml:space="preserve">
+    <value>SHA-256</value>
+  </data>
+  <data name="Ftp_CertProblem" xml:space="preserve">
+    <value>Problem</value>
+  </data>
+  <data name="Ftp_CertTrust" xml:space="preserve">
+    <value>Trust and connect</value>
+  </data>
+</root>

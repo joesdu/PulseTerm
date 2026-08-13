@@ -171,7 +171,7 @@
         </Grid>
       </Border>
 
-      <!-- 协议标签页:SSH/SFTP 可选;Telnet/串口保持禁用 -->
+      <!-- 协议标签页:SSH/SFTP/FTP 可选;Telnet/串口保持禁用 -->
       <Border Height="36" Padding="20,0"
               BorderThickness="0,0,0,1"
               BorderBrush="{DynamicResource VelaBorderPrimary}">
@@ -186,6 +186,11 @@
                     Command="{Binding SelectConnectionTypeCommand}"
                     CommandParameter="{x:Static models:ConnectionType.SFTP}">
               <TextBlock Classes="proto-label" Text="SFTP" FontWeight="Medium" />
+            </Button>
+            <Button x:Name="FtpTab" Classes="proto-tab" Classes.selected="{Binding IsFtpSelected}"
+                    Command="{Binding SelectConnectionTypeCommand}"
+                    CommandParameter="{x:Static models:ConnectionType.FTP}">
+              <TextBlock Classes="proto-label" Text="FTP" FontWeight="Medium" />
             </Button>
             <Border Classes="proto-tab" IsEnabled="False" ToolTip.Tip="{loc:Localize Profile_NotSupported}">
               <TextBlock Classes="proto-label" Text="Telnet"
@@ -236,17 +241,56 @@
             <TextBlock Classes="field-label" Text="{loc:Localize Username}" />
             <TextBox Text="{Binding Username}" PlaceholderText="root" />
           </StackPanel>
-          <StackPanel Grid.Column="2">
+          <StackPanel Grid.Column="2" IsVisible="{Binding RequiresSshAuth}">
             <TextBlock Classes="field-label" Text="{loc:Localize AuthMethodLabel}" />
             <ComboBox SelectedIndex="{Binding AuthMethodIndex}">
               <ComboBoxItem Content="{loc:Localize Profile_PasswordAuth}" />
               <ComboBoxItem Content="{loc:Localize Profile_KeyAuth}" />
             </ComboBox>
           </StackPanel>
+          <!-- FTP 没有私钥认证,这一格换成加密方式 -->
+          <StackPanel Grid.Column="2" IsVisible="{Binding IsFtpSelected}">
+            <TextBlock Classes="field-label" Text="{loc:Localize Ftp_Encryption}" />
+            <ComboBox SelectedIndex="{Binding FtpEncryptionIndex}">
+              <ComboBoxItem Content="{loc:Localize Ftp_EncryptionAuto}" />
+              <ComboBoxItem Content="{loc:Localize Ftp_EncryptionExplicit}" />
+              <ComboBoxItem Content="{loc:Localize Ftp_EncryptionImplicit}" />
+              <ComboBoxItem Content="{loc:Localize Ftp_EncryptionNone}" />
+            </ComboBox>
+          </StackPanel>
         </Grid>
 
-        <!-- 密码(密码认证) -->
-        <StackPanel IsVisible="{Binding IsPasswordAuth}">
+        <!-- FTP 专属:匿名登录 + 被动模式 -->
+        <StackPanel Orientation="Horizontal" Spacing="16" IsVisible="{Binding IsFtpSelected}">
+          <CheckBox IsChecked="{Binding FtpAnonymous}"
+                    Padding="0" MinHeight="0" VerticalAlignment="Center">
+            <TextBlock Text="{loc:Localize Ftp_Anonymous}"
+                       Margin="6,0,0,0"
+                       Foreground="{DynamicResource VelaTextSecondary}"
+                       FontSize="{DynamicResource VelaFontSize11}" FontWeight="Medium" />
+          </CheckBox>
+          <CheckBox IsChecked="{Binding FtpPassive}"
+                    Padding="0" MinHeight="0" VerticalAlignment="Center"
+                    ToolTip.Tip="{loc:Localize Ftp_PassiveHint}">
+            <TextBlock Text="{loc:Localize Ftp_Passive}"
+                       Margin="6,0,0,0"
+                       Foreground="{DynamicResource VelaTextSecondary}"
+                       FontSize="{DynamicResource VelaFontSize11}" FontWeight="Medium" />
+          </CheckBox>
+        </StackPanel>
+
+        <!-- 明文 FTP 的安全提示:与 SSH 不同,它没有主机身份校验,也不加密 -->
+        <Border Padding="10,7" CornerRadius="4"
+                Background="{DynamicResource VelaBgInput}"
+                BorderBrush="#66FFB020" BorderThickness="1"
+                IsVisible="{Binding ShowFtpPlaintextWarning}">
+          <TextBlock Text="{loc:Localize Ftp_PlaintextWarn}"
+                     Foreground="{DynamicResource VelaTextSecondary}"
+                     FontSize="{DynamicResource VelaFontSize11}" TextWrapping="Wrap" />
+        </Border>
+
+        <!-- 密码(密码认证;匿名 FTP 不需要) -->
+        <StackPanel IsVisible="{Binding ShowPasswordField}">
           <TextBlock Classes="field-label" Text="{loc:Localize Password}" />
           <Border Classes="input-affix">
             <Grid ColumnDefinitions="*,Auto">
@@ -271,8 +315,9 @@
           </Border>
         </StackPanel>
 
-        <!-- 私钥(密钥认证) -->
-        <StackPanel IsVisible="{Binding IsKeyAuth}" Spacing="14">
+        <!-- 私钥(密钥认证;FTP 不支持) -->
+        <StackPanel IsVisible="{Binding IsKeyAuth}" Spacing="14"
+                    IsEnabled="{Binding RequiresSshAuth}">
           <StackPanel>
             <TextBlock Classes="field-label" Text="{loc:Localize Profile_PrivateKeyFile}" />
             <Grid ColumnDefinitions="*,8,Auto">
@@ -292,7 +337,7 @@
 
         <!-- 记住密码 -->
         <StackPanel Orientation="Horizontal" Spacing="8"
-                    IsVisible="{Binding IsPasswordAuth}">
+                    IsVisible="{Binding ShowPasswordField}">
           <CheckBox IsChecked="{Binding RememberPassword}"
                     Padding="0" MinHeight="0" VerticalAlignment="Center">
             <TextBlock Text="{loc:Localize Profile_RememberPassword}"

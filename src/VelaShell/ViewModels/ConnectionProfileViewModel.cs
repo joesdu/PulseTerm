@@ -33,6 +33,11 @@ public class ConnectionProfileViewModel : ReactiveObject
     private readonly ISessionRepository? _sessionRepository;
     private AuthMethod _authMethod = AuthMethod.Password;
     private ConnectionType _connectionType = ConnectionType.SSH;
+    private FtpEncryptionMode _ftpEncryption = FtpEncryptionMode.Auto;
+    private bool _ftpPassive = true;
+    private bool _ftpAnonymous;
+    private string? _ftpTrustedThumbprint;
+    private int _ftpMaxConnections = new FtpSettings().MaxConnections;
     private Guid? _groupId;
     private string _host = string.Empty;
     private bool _isKeyAuth;
@@ -94,6 +99,14 @@ public class ConnectionProfileViewModel : ReactiveObject
             _rememberPassword = existing.RememberPassword;
             _tagsText = string.Join(", ", existing.Tags);
             _jumpHostProfileId = existing.JumpHostProfileId;
+            if (existing.Ftp is { } ftp)
+            {
+                _ftpEncryption = ftp.EncryptionMode;
+                _ftpPassive = ftp.DataConnectionMode == FtpDataConnectionMode.Passive;
+                _ftpAnonymous = ftp.Anonymous;
+                _ftpTrustedThumbprint = ftp.TrustedCertificateThumbprint;
+                _ftpMaxConnections = ftp.MaxConnections;
+            }
         }
         else
         {
@@ -122,14 +135,17 @@ public class ConnectionProfileViewModel : ReactiveObject
         this.WhenAnyValue(x => x.SelectedJumpHost)
             .Skip(1)
             .Subscribe(option => _jumpHostProfileId = option?.Id);
+        // FTP 匿名登录不需要用户名 —— 保存/连接按钮不能因为这个永远灰着(串口调研里踩过同一个坑)。
         IObservable<bool> canExecute = this.WhenAnyValue(x => x.Host,
             x => x.Username,
             x => x.Port,
             x => x.IsBusy,
-            (host, username, port, isBusy) =>
+            x => x.FtpAnonymous,
+            x => x.ConnectionType,
+            (host, username, port, isBusy, anonymous, type) =>
                 !isBusy &&
                 !string.IsNullOrWhiteSpace(host) &&
-                !string.IsNullOrWhiteSpace(username) &&
+                (!string.IsNullOrWhiteSpace(username) || (type == ConnectionType.FTP && anonymous)) &&
                 port is >= 1 and <= 65535);
         SaveCommand = ReactiveCommand.CreateFromTask(SaveAsync, canExecute);
         ConnectCommand = ReactiveCommand.CreateFromTask(ConnectAsync, canExecute);
@@ -148,15 +164,16 @@ public class ConnectionProfileViewModel : ReactiveObject
         set => this.RaiseAndSetIfChanged(ref _name, value);
     }
 
-    /// <summary>当前连接协议;SSH 为默认值,SFTP 复用 SSH 认证但不创建终端。</summary>
+    /// <summary>
+    /// 当前连接协议;SSH 为默认值,SFTP 复用 SSH 认证但不创建终端,FTP 走独立的 FTP/FTPS 栈。
+    /// 未知值降级为 SSH(白名单同 <see cref="SessionProfile.ConnectionType" />)。
+    /// </summary>
     public ConnectionType ConnectionType
     {
         get => _connectionType;
         private set
         {
-            ConnectionType normalized = value == ConnectionType.SFTP
-                ? ConnectionType.SFTP
-                : ConnectionType.SSH;
+            ConnectionType normalized = Enum.IsDefined(value) ? value : ConnectionType.SSH;
             if (_connectionType == normalized)
             {
                 return;
@@ -164,6 +181,10 @@ public class ConnectionProfileViewModel : ReactiveObject
             this.RaiseAndSetIfChanged(ref _connectionType, normalized);
             this.RaisePropertyChanged(nameof(IsSshSelected));
             this.RaisePropertyChanged(nameof(IsSftpSelected));
+            this.RaisePropertyChanged(nameof(IsFtpSelected));
+            this.RaisePropertyChanged(nameof(RequiresSshAuth));
+            this.RaisePropertyChanged(nameof(ShowFtpPlaintextWarning));
+            this.RaisePropertyChanged(nameof(ShowPasswordField));
         }
     }
 
@@ -172,6 +193,79 @@ public class ConnectionProfileViewModel : ReactiveObject
 
     /// <summary>协议标签是否选中 SFTP。</summary>
     public bool IsSftpSelected => ConnectionType == ConnectionType.SFTP;
+
+    /// <summary>协议标签是否选中 FTP / FTPS。</summary>
+    public bool IsFtpSelected => ConnectionType == ConnectionType.FTP;
+
+    /// <summary>
+    /// 是否需要 SSH 认证表单(私钥、口令、跳板)。FTP 只有用户名/口令与匿名登录,
+    /// 把这些 SSH 专属项隐掉,避免用户以为 FTP 也能用私钥。
+    /// </summary>
+    public bool RequiresSshAuth => ConnectionType != ConnectionType.FTP;
+
+    /// <summary>加密方式下拉的下标:0 自动、1 显式 FTPS、2 隐式 FTPS、3 不加密。</summary>
+    public int FtpEncryptionIndex
+    {
+        get => _ftpEncryption switch
+        {
+            FtpEncryptionMode.Explicit => 1,
+            FtpEncryptionMode.Implicit => 2,
+            FtpEncryptionMode.None => 3,
+            _ => 0
+        };
+        set => FtpEncryption = value switch
+        {
+            1 => FtpEncryptionMode.Explicit,
+            2 => FtpEncryptionMode.Implicit,
+            3 => FtpEncryptionMode.None,
+            _ => FtpEncryptionMode.Auto
+        };
+    }
+
+    /// <summary>是否提示「明文 FTP 不加密」。选了不加密才提示;FTPS 不提示。</summary>
+    public bool ShowFtpPlaintextWarning => IsFtpSelected && FtpEncryption == FtpEncryptionMode.None;
+
+    /// <summary>是否显示口令输入框:匿名 FTP 不需要口令。</summary>
+    public bool ShowPasswordField => IsPasswordAuth && !(IsFtpSelected && FtpAnonymous);
+
+    /// <summary>FTP 加密方式;仅 <see cref="IsFtpSelected" /> 时有意义。</summary>
+    public FtpEncryptionMode FtpEncryption
+    {
+        get => _ftpEncryption;
+        set
+        {
+            this.RaiseAndSetIfChanged(ref _ftpEncryption, value);
+            this.RaisePropertyChanged(nameof(FtpEncryptionIndex));
+            this.RaisePropertyChanged(nameof(ShowFtpPlaintextWarning));
+            // 隐式 FTPS 与明文/显式的默认端口不同,用户没手动改过端口时跟着切,省一次踩坑。
+            if (value == FtpEncryptionMode.Implicit && Port == FtpSettings.DefaultPort)
+            {
+                Port = FtpSettings.DefaultImplicitPort;
+            }
+            else if (value != FtpEncryptionMode.Implicit && Port == FtpSettings.DefaultImplicitPort)
+            {
+                Port = FtpSettings.DefaultPort;
+            }
+        }
+    }
+
+    /// <summary>FTP 是否使用被动模式(默认开;主动模式在客户端 NAT 后基本不可用)。</summary>
+    public bool FtpPassive
+    {
+        get => _ftpPassive;
+        set => this.RaiseAndSetIfChanged(ref _ftpPassive, value);
+    }
+
+    /// <summary>FTP 是否匿名登录;开启后不再要求填写用户名。</summary>
+    public bool FtpAnonymous
+    {
+        get => _ftpAnonymous;
+        set
+        {
+            this.RaiseAndSetIfChanged(ref _ftpAnonymous, value);
+            this.RaisePropertyChanged(nameof(ShowPasswordField));
+        }
+    }
 
     /// <summary>目标主机地址(主机名或 IP)。</summary>
     public string Host
@@ -536,9 +630,48 @@ public class ConnectionProfileViewModel : ReactiveObject
             PrivateKeyPassphrase = PrivateKeyPassphrase,
             GroupId = GroupId,
             Tags = [.. TagsText.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)],
-            JumpHostProfileId = _jumpHostProfileId
+            JumpHostProfileId = _jumpHostProfileId,
+            // 只有 FTP 才落这块设置:其余协议保持 null,旧数据与旧版本读取零影响。
+            Ftp = ConnectionType == ConnectionType.FTP
+                ? new FtpSettings
+                {
+                    EncryptionMode = FtpEncryption,
+                    DataConnectionMode = FtpPassive ? FtpDataConnectionMode.Passive : FtpDataConnectionMode.Active,
+                    Anonymous = FtpAnonymous,
+                    TrustedCertificateThumbprint = _ftpTrustedThumbprint,
+                    MaxConnections = _ftpMaxConnections,
+                }
+                : null
         };
     }
 
-    private void SelectConnectionType(ConnectionType connectionType) => ConnectionType = connectionType;
+    /// <summary>
+    /// 切换协议标签。顺带把端口切到新协议的默认值(仅当当前端口还是别的协议的默认值时),
+    /// 免得用户从 SSH 切到 FTP 后仍在 22 端口上连不上。
+    /// </summary>
+    private void SelectConnectionType(ConnectionType connectionType)
+    {
+        ConnectionType previous = ConnectionType;
+        ConnectionType = connectionType;
+        if (previous == ConnectionType)
+        {
+            return;
+        }
+        // FTP 没有私钥认证:切过去时把认证方式落回口令,免得表单停在一个用不上的私钥页。
+        if (ConnectionType == ConnectionType.FTP && IsKeyAuth)
+        {
+            AuthMethodIndex = 0;
+        }
+        if (ConnectionType == ConnectionType.FTP && Port == 22)
+        {
+            Port = FtpEncryption == FtpEncryptionMode.Implicit
+                ? FtpSettings.DefaultImplicitPort
+                : FtpSettings.DefaultPort;
+        }
+        else if (ConnectionType != ConnectionType.FTP &&
+                 Port is FtpSettings.DefaultPort or FtpSettings.DefaultImplicitPort)
+        {
+            Port = 22;
+        }
+    }
 }

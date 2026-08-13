@@ -13,6 +13,8 @@
 | `ConPtyShellStreamTests` | Windows ConPTY 本地终端流。 |
 | `SessionMetricsServiceTests` | 会话 CPU/内存/网速采集。 |
 | `VelaShellStoragePathsTests` | 数据目录与密钥文件路径解析。 |
+| `FtpSupportTests` | FTP/FTPS：导入器协议映射、远程文件服务的会话路由、FluentFTP 异常翻译、连接参数回落。 |
+| `WinScpImportTests` `XshellImportTests` | 会话导入:密码解码、INI/注册表解析、协议映射。 |
 
 ## 运行
 
