@@ -14,6 +14,7 @@
 | `SessionMetricsServiceTests` | 会话 CPU/内存/网速采集。 |
 | `VelaShellStoragePathsTests` | 数据目录与密钥文件路径解析。 |
 | `FtpSupportTests` | FTP/FTPS：导入器协议映射、远程文件服务的会话路由、FluentFTP 异常翻译、连接参数回落。 |
+| `Ftp/FtpFileServiceIntegrationTests` `Ftp/LoopbackFtpServer` | 对着进程内环回 FTP 服务器跑真实协议：登录（含匿名）、PASV/EPSV 数据连接、Unix LIST 解析、上传/下载往返、目录增删改、连接池并发。 |
 | `WinScpImportTests` `XshellImportTests` | 会话导入:密码解码、INI/注册表解析、协议映射。 |
 
 ## 运行

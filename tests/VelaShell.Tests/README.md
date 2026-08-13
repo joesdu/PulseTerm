@@ -13,7 +13,7 @@
 | `Services/` | `KeyboardShortcutService`、`CommandSuggestionProvider`、`ThemeService`、`InputLocaleSwitcher`、`ExternalEditSessionManager`、`SyntaxHighlighting`、`SyncDebounceLifecycle`、`PackageVersions`，以及自更新全链路（`UpdateService`/`UpdateApplier`/`UpdateManifest`/`UpdateVersion`/`GitHubReleaseSource`）。 |
 | `Services/`（ZMODEM） | `FileZModemFileSourceTests`、`FolderZModemFileSinkTests` —— 上传文件源与下载落盘目录的边界与路径安全。 |
 | `Docking/` | `DockWorkspace` 分屏模型。 |
-| `Views/` | headless 下的视图行为与视觉回归：设置页、连接弹窗、文件浏览器列、隧道面板、侧栏快捷命令、Dock 动效、菜单字形与像素回归。 |
+| `Views/` | headless 下的视图行为与视觉回归：设置页、连接弹窗（含 FTP 页签与协议下划线定位）、FTP 连接链路（`FtpConnectionFlowTests`：真连环回 FTP 服务器并列出远端文件）、文件浏览器列、隧道面板、侧栏快捷命令、Dock 动效、菜单字形与像素回归。 |
 | `Localization/` | `LocalizedKeyUsageTests`：校验代码中引用的本地化键均存在。 |
 | `Integration/` | `HeadlessUiTests`（无头 UI）、`SshIntegrationTests`（真实 SSH）、`CrossPlatformPublishTests`（跨平台发布）。 |
 | `SmokeTest.cs` | 应用启动冒烟测试。 |
