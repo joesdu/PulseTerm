@@ -213,12 +213,9 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
         _sessionRepository = sessionRepository;
         _sftpService = sftpService;
         _ftpSessionService = ftpSessionService;
-        if (ftpSessionService is not null)
-        {
-            // FTP 没有 SSH 那种可订阅的长驻会话对象:断线只在下一次操作时暴露。
-            // 由服务主动上报,树上的状态圆点才能自动变灰,而不是一直停在绿点上。
-            ftpSessionService.SessionStateChanged += OnFtpSessionStateChanged;
-        }
+        // FTP 没有 SSH 那种可订阅的长驻会话对象:断线只在下一次操作时暴露。
+        // 由服务主动上报,树上的状态圆点才能自动变灰,而不是一直停在绿点上。
+        ftpSessionService?.SessionStateChanged += OnFtpSessionStateChanged;
         _tunnelService = tunnelService;
         _tunnelWorkflowService = tunnelWorkflowService;
         _metricsService = metricsService;
