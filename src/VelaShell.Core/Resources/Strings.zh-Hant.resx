@@ -920,7 +920,7 @@
     <value>本機連接埠</value>
   </data>
   <data name="Main_CloseConfirmBody" xml:space="preserve">
-    <value>仍有使用中的 SSH 工作階段,關閉視窗將中斷所有連線。確定結束嗎?</value>
+    <value>仍有使用中的工作階段,關閉視窗將中斷所有連線。確定結束嗎?</value>
   </data>
   <data name="Main_CloseConfirmTitle" xml:space="preserve">
     <value>關閉 VelaShell</value>

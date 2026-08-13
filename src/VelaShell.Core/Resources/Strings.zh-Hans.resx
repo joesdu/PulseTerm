@@ -1229,7 +1229,7 @@
     <value>未知</value>
   </data>
   <data name="Main_CloseConfirmBody" xml:space="preserve">
-    <value>仍有活动的 SSH 会话,关闭窗口将断开所有连接。确定退出吗?</value>
+    <value>仍有活动的会话,关闭窗口将断开所有连接。确定退出吗?</value>
   </data>
   <data name="Main_CloseConfirmTitle" xml:space="preserve">
     <value>关闭 VelaShell</value>

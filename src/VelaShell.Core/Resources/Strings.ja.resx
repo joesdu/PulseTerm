@@ -920,7 +920,7 @@
     <value>ローカルポート</value>
   </data>
   <data name="Main_CloseConfirmBody" xml:space="preserve">
-    <value>アクティブな SSH セッションがあります。ウィンドウを閉じるとすべて切断されます。終了しますか?</value>
+    <value>アクティブなセッションがあります。ウィンドウを閉じるとすべて切断されます。終了しますか?</value>
   </data>
   <data name="Main_CloseConfirmTitle" xml:space="preserve">
     <value>VelaShell を閉じる</value>
