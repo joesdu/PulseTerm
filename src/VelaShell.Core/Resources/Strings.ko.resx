@@ -2910,6 +2910,15 @@ Windows는 exe 전체 경로 또는 명령 이름(예: notepad), Linux는 명령
   <data name="Tree_DuplicateConnection" xml:space="preserve">
     <value>연결 복제</value>
   </data>
+  <data name="Tree_DeleteGroup" xml:space="preserve">
+    <value>그룹 삭제</value>
+  </data>
+  <data name="Tree_DeleteGroupConfirm" xml:space="preserve">
+    <value>"{0}" 그룹을 삭제하시겠습니까? 그룹 안의 연결 {1}개도 함께 삭제되며 이 작업은 되돌릴 수 없습니다.</value>
+  </data>
+  <data name="Tree_DeleteGroupConfirmEmpty" xml:space="preserve">
+    <value>비어 있는 "{0}" 그룹을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</value>
+  </data>
   <data name="Tree_EditConnection" xml:space="preserve">
     <value>연결 편집</value>
   </data>

@@ -57,6 +57,25 @@ public partial class SessionTreeView : UserControl
         }
     }
 
+    /// <summary>
+    /// 右键分组行时先选中它:分组菜单里的命令同样作用于 SelectedNode。
+    /// 左键不在这里处理 —— 展开/折叠仍走 Group_Tapped,选中交给 TreeView 自己。
+    /// </summary>
+    private void Group_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!e.GetCurrentPoint(null).Properties.IsRightButtonPressed)
+        {
+            return;
+        }
+        if (
+            sender is Control { DataContext: SessionTreeNodeViewModel { IsGroup: true } node }
+            && DataContext is SessionTreeViewModel viewModel
+        )
+        {
+            viewModel.SelectedNode = node;
+        }
+    }
+
     /// <summary>双击会话行直接连接(分组行仅展开/折叠)。</summary>
     private void Session_DoubleTapped(object? sender, TappedEventArgs e)
     {

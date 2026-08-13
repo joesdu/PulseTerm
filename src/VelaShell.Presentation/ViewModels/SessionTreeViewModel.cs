@@ -70,6 +70,10 @@ public sealed class SessionTreeViewModel : ReactiveObject
             hasSelectedSession
         );
         MoveToGroupCommand = ReactiveCommand.Create<SessionTreeNodeViewModel>(MoveSelectedToGroup);
+        DeleteGroupCommand = ReactiveCommand.CreateFromTask(
+            DeleteSelectedGroupAsync,
+            this.WhenAnyValue(x => x.SelectedNode).Select(node => node is { IsGroup: true })
+        );
     }
 
     /// <summary>树的根级节点集合,包含各分组节点及直接挂在根级的未分组会话。</summary>
@@ -125,6 +129,16 @@ public sealed class SessionTreeViewModel : ReactiveObject
 
     /// <summary>把选中的会话移动到指定分组节点(参数为“移动到分组”子菜单项)。</summary>
     public ReactiveCommand<SessionTreeNodeViewModel, RxVoid> MoveToGroupCommand { get; }
+
+    /// <summary>删除选中的分组,连同组内全部连接一并删除(落库 + 移除树节点)。</summary>
+    public ReactiveCommand<RxVoid, RxVoid> DeleteGroupCommand { get; }
+
+    /// <summary>
+    /// 删除分组前的确认回调,由视图提供弹窗;参数是已本地化好的提示语,返回 true 才继续删。
+    /// 与 <c>FileBrowserViewModel.ConfirmDelete</c> 同形:未挂回调(无头宿主/单测)时直接删,
+    /// 界面上则永远挂着——不确认就删掉整组连接是不可接受的。
+    /// </summary>
+    public Func<string, Task<bool>>? ConfirmDeleteGroup { get; set; }
 
     /// <summary>右键“连接”或双击会话时触发,由宿主发起 SSH 连接。</summary>
     public event Action<SessionProfile>? ConnectRequested;
@@ -427,6 +441,44 @@ public sealed class SessionTreeViewModel : ReactiveObject
             node.SyncChannelLetter = letter;
         }
         return node;
+    }
+
+    /// <summary>
+    /// 删除选中的分组:组内连接随分组一并删除(用户在确认框里被明确告知会删掉几条)。
+    /// 落库顺序是先删会话再删分组 —— 反过来的话,中途失败会留下一批 GroupId 指向已消失分组的
+    /// 会话,下次加载时它们既不在分组下、也不在树根,等于凭空消失。
+    /// </summary>
+    private async Task DeleteSelectedGroupAsync()
+    {
+        if (SelectedNode is not { IsGroup: true } group)
+        {
+            return;
+        }
+        List<Guid> memberIds = [.. group.Children.Select(child => child.Id)];
+        if (ConfirmDeleteGroup is not null)
+        {
+            string message = memberIds.Count == 0
+                ? Strings.Format("Tree_DeleteGroupConfirmEmpty", group.Name)
+                : Strings.Format("Tree_DeleteGroupConfirm", group.Name, memberIds.Count);
+            if (!await ConfirmDeleteGroup(message))
+            {
+                return;
+            }
+        }
+        foreach (Guid sessionId in memberIds)
+        {
+            await _repository.DeleteSessionAsync(sessionId);
+            _sessionCache.Remove(sessionId);
+            _statusCache.Remove(sessionId);
+            _syncChannelCache.Remove(sessionId);
+        }
+        await _repository.DeleteGroupAsync(group.Id);
+        Nodes.Remove(group);
+        // GroupNodes 里存的就是同一批分组节点实例(“移动到分组”子菜单绑定它),
+        // 不同步移除的话,菜单里会留下一个指向已删分组的落点。
+        GroupNodes.Remove(group);
+        SelectedNode = null;
+        RefreshHasNoSessions();
     }
 
     private async Task DeleteSelectedSessionAsync()

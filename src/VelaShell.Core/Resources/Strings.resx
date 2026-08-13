@@ -2968,6 +2968,15 @@ Overwrite it?</value>
   <data name="Tree_DuplicateConnection" xml:space="preserve">
     <value>Duplicate Connection</value>
   </data>
+  <data name="Tree_DeleteGroup" xml:space="preserve">
+    <value>Delete Group</value>
+  </data>
+  <data name="Tree_DeleteGroupConfirm" xml:space="preserve">
+    <value>Delete group "{0}"? The {1} connection(s) inside it will be deleted as well. This cannot be undone.</value>
+  </data>
+  <data name="Tree_DeleteGroupConfirmEmpty" xml:space="preserve">
+    <value>Delete the empty group "{0}"? This cannot be undone.</value>
+  </data>
   <data name="Tree_EditConnection" xml:space="preserve">
     <value>Edit Connection</value>
   </data>

@@ -3059,6 +3059,15 @@ Windows 填 exe 完整路径或命令名(如 notepad);Linux 填命令名(如 ged
   <data name="Tree_DuplicateConnection" xml:space="preserve">
     <value>复制连接</value>
   </data>
+  <data name="Tree_DeleteGroup" xml:space="preserve">
+    <value>删除分组</value>
+  </data>
+  <data name="Tree_DeleteGroupConfirm" xml:space="preserve">
+    <value>确定要删除分组“{0}”吗？组内的 {1} 个连接会一并删除，此操作不可撤销。</value>
+  </data>
+  <data name="Tree_DeleteGroupConfirmEmpty" xml:space="preserve">
+    <value>确定要删除空分组“{0}”吗？此操作不可撤销。</value>
+  </data>
   <data name="Tree_EditConnection" xml:space="preserve">
     <value>编辑连接</value>
   </data>

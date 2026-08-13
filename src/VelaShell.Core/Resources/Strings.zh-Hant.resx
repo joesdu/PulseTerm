@@ -2910,6 +2910,15 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   <data name="Tree_DuplicateConnection" xml:space="preserve">
     <value>複製連線</value>
   </data>
+  <data name="Tree_DeleteGroup" xml:space="preserve">
+    <value>刪除分組</value>
+  </data>
+  <data name="Tree_DeleteGroupConfirm" xml:space="preserve">
+    <value>確定要刪除分組「{0}」嗎？群組內的 {1} 個連線會一併刪除，此操作無法復原。</value>
+  </data>
+  <data name="Tree_DeleteGroupConfirmEmpty" xml:space="preserve">
+    <value>確定要刪除空分組「{0}」嗎？此操作無法復原。</value>
+  </data>
   <data name="Tree_EditConnection" xml:space="preserve">
     <value>編輯連線</value>
   </data>

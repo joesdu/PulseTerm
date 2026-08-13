@@ -261,6 +261,9 @@ public partial class MainWindow : Window
                             tab.DisconnectCommand.Execute().Subscribe();
                         }
                     });
+
+                // 删除分组会连带删掉组内全部连接,必须先确认(红色危险按钮)。
+                tree.ConfirmDeleteGroup = ConfirmDeleteGroupAsync;
             }
             await vm.InitializeAsync();
         }
@@ -1120,6 +1123,19 @@ public partial class MainWindow : Window
             MessageDialogKind.Warning,
             danger: true);
     }
+
+    /// <summary>
+    /// 删除分组前的确认(资源管理器树右键“删除分组”)。提示语由视图模型按分组名与
+    /// 组内连接数拼好,这里只负责弹窗;确认按钮走 danger 渲染,默认动作是取消。
+    /// </summary>
+    private Task<bool> ConfirmDeleteGroupAsync(string message) =>
+        MessageDialog.ConfirmAsync(this,
+            Strings.Get("Tree_DeleteGroup"),
+            message,
+            Strings.Delete,
+            Strings.Cancel,
+            MessageDialogKind.Warning,
+            danger: true);
 
     /// <summary>指纹按每两字节加冒号分组,便于与服务器端比对。</summary>
     private static string FormatThumbprint(string thumbprint) =>
