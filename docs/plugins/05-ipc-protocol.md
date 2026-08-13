@@ -75,6 +75,9 @@ public interface IHostEndpoint
     Task<RemoteEntry[]> RemoteFsListAsync(string sessionId, string path, CancellationToken ct);
     Task<Stream> RemoteFsOpenReadAsync(string sessionId, string path, CancellationToken ct);
     Task TerminalWriteAsync(string sessionId, string input, CancellationToken ct);
+    // 时序域(ts/open|list|drop|write|query|count|distinct|delete):句柄按 measurement 短名
+    // 寻址,宿主侧记住已打开的实例;未 open 就用 → 明确报错,不隐式建表。
+    Task<TimeSeriesPoint[]> TimeSeriesQueryAsync(string name, TimeSeriesQuery query, CancellationToken ct);
     Task UiPatchAsync(string surfaceId, UiPatch[] patches, CancellationToken ct);
     Task<PermissionState> PermissionQueryAsync(string permissionId);
     // ... 通知(宿主→插件,无应答):事件推送

@@ -38,6 +38,7 @@ public class StreamingRoutingTests
             Host = new TestHostInfo(),
             Log = new CollectingLogger(),
             Storage = new InMemoryStorage(),
+            TimeSeries = new InMemoryTimeSeries(),
             Sessions = new FakeSessions(),
             RemoteFs = remoteFs,
             RemoteExec = new FakeRemoteExec(),

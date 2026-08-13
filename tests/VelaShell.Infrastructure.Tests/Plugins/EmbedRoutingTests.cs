@@ -61,6 +61,7 @@ public class EmbedRoutingTests
         Host = new TestHostInfo(),
         Log = new CollectingLogger(),
         Storage = new InMemoryStorage(),
+        TimeSeries = new InMemoryTimeSeries(),
         Sessions = new FakeSessions(),
         RemoteFs = new FakeRemoteFs(),
         RemoteExec = new FakeRemoteExec(),

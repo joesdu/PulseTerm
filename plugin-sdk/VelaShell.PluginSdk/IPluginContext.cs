@@ -39,6 +39,12 @@ public interface IPluginContext
     /// <summary>键值存储:持久化于 <see cref="DataDirectory" />,插件间互不可见。</summary>
     IPluginStorage Storage { get; }
 
+    /// <summary>
+    /// 时序能力:插件私有的嵌入式时序库(按时间追加 + 按标签检索),
+    /// 适合会话记录、指标采样、事件流;卸载插件时整体删除。
+    /// </summary>
+    TimeSeries.ITimeSeriesApi TimeSeries { get; }
+
     /// <summary>会话能力:枚举当前 SSH 会话(脱敏,不含任何凭据)。</summary>
     ISessionsApi Sessions { get; }
 

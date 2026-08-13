@@ -3,6 +3,7 @@ using SonnetDB.Catalog;
 using SonnetDB.Documents;
 using SonnetDB.Engine;
 using SonnetDB.Model;
+using SonnetDB.Sql;
 using SonnetDB.Sql.Execution;
 using SonnetDB.Storage.Format;
 
@@ -14,7 +15,8 @@ namespace VelaShell.Infrastructure.Persistence;
 /// 数据模型:
 /// - 文档集合(业务数据,JSON):session_groups、session_profiles($.groupId 索引)、
 /// app_config(settings/state 单文档)、known_hosts、ui_config、quick_commands。
-/// - 时序 measurement(时间相关数据):conn_history(最近连接)、audit_log(安全审计)。
+/// - 时序 measurement(时间相关数据):conn_history(最近连接)、audit_log(安全审计)、
+/// session_recording_chunks(会话录制),以及插件私有的 pts_* (见 SonnetDbPluginTimeSeries)。
 /// </summary>
 public sealed class SonnetDbEngine : IDisposable
 {
@@ -121,6 +123,142 @@ public sealed class SonnetDbEngine : IDisposable
         {
             ThrowIfDisposed();
             _db.Write(Point.Create(measurement, timestamp.ToUnixTimeMilliseconds(), tags, fields));
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    /// <summary>批量写入时序数据点(单次入库,少一轮加锁)。</summary>
+    public async Task WriteManyAsync(IEnumerable<Point> points, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(points);
+        Point[] batch = [.. points];
+        if (batch.Length == 0)
+        {
+            return;
+        }
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            ThrowIfDisposed();
+            _db.WriteMany(batch);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    /// <summary>
+    /// 执行带参数的时序 SQL 查询(SELECT)。取值一律走参数,不拼进 SQL 文本 ——
+    /// 插件提供的标签值等外来输入由此与语法隔离。
+    /// </summary>
+    public async Task<SelectExecutionResult> QueryAsync(string sql, SqlParameters parameters,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(parameters);
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            ThrowIfDisposed();
+            return SqlExecutor.Execute(_db, null, sql, parameters, null) switch
+            {
+                SelectExecutionResult select => select,
+                var other => throw new InvalidOperationException($"Expected a SELECT result but got {other?.GetType().Name ?? "null"} for: {sql}")
+            };
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    /// <summary>
+    /// 执行带参数的 DELETE;返回受影响的序列数,方言不支持或语句失败时返回 -1
+    /// (调用方自行降级,与 <see cref="TryExecuteAsync(string,CancellationToken)" /> 同纪律)。
+    /// </summary>
+    public async Task<int> TryDeleteAsync(string sql, SqlParameters parameters, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(parameters);
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            ThrowIfDisposed();
+            return SqlExecutor.Execute(_db, null, sql, parameters, null) is DeleteExecutionResult result
+                ? result.SeriesAffected
+                : -1;
+        }
+        catch
+        {
+            return -1;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    /// <summary>按给定 schema 创建 measurement(已存在则原样沿用);返回生效的 schema。</summary>
+    public async Task<MeasurementSchema> EnsureMeasurementAsync(MeasurementSchema schema, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(schema);
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            ThrowIfDisposed();
+            if (_db.Measurements.TryGet(schema.Name) is { } existing)
+            {
+                return existing;
+            }
+            _db.CreateMeasurement(schema);
+            return schema;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    /// <summary>取 measurement 的 schema;不存在时返回 <see langword="null" />。</summary>
+    public async Task<MeasurementSchema?> GetMeasurementAsync(string name, CancellationToken cancellationToken = default)
+    {
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            ThrowIfDisposed();
+            return _db.Measurements.TryGet(name);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    /// <summary>列出全部 measurement 的 schema 快照。</summary>
+    public async Task<IReadOnlyList<MeasurementSchema>> ListMeasurementsAsync(CancellationToken cancellationToken = default)
+    {
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            ThrowIfDisposed();
+            return _db.Measurements.Snapshot();
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    /// <summary>删除 measurement 及其数据;返回此前是否存在。</summary>
+    public async Task<bool> DropMeasurementAsync(string name, CancellationToken cancellationToken = default)
+    {
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            ThrowIfDisposed();
+            return _db.DropMeasurement(name);
         }
         finally
         {

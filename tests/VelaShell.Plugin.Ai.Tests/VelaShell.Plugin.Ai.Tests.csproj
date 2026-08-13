@@ -5,6 +5,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- 面板是完整 Avalonia 控件:headless 会话里真装载一次 XAML,
+         Popup/资源引用这类"编译得过、运行才炸"的问题才拦得住。 -->
+    <PackageReference Include="Avalonia.Headless" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="coverlet.collector">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

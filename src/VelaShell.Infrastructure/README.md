@@ -13,6 +13,7 @@
 | `Persistence/AesSecretProtector.cs` | `ISecretProtector` 实现：连接密码与私钥口令以 **AES-256-GCM** 加密落盘；Windows 上密钥文件再经 DPAPI（CurrentUser）包裹。 |
 | `Persistence/VelaShellStoragePaths.cs` | 数据目录、密钥文件等路径解析（`%LocalAppData%/VelaShell`）。 |
 | `Persistence/SonnetDbJson.cs` | 文档序列化辅助。 |
+| `Persistence/SonnetDbPluginDataStore.cs` `SonnetDbPluginTimeSeries.cs` | 插件数据的宿主侧后端：KV/机密走 `plugin_data` 文档集合（复合主键 `<插件id>\|<种类>\|<键>`），时序走 `pts_<插件命名空间>_<短名>` measurement；两者都按插件 id 命名空间隔离，卸载时整体清除。 |
 | `Persistence/SonnetDbHostKeyService.cs` | `IHostKeyService` 实现：`known_hosts` 文档集合读写与指纹比对。 |
 | `Ssh/SshConnectionService.cs` | `ISshConnectionService` 实现：连接、认证、Shell 会话生命周期管理。 |
 | `Ssh/TmdsSshClientWrapper.cs` `TmdsSftpClientWrapper.cs` `ShellStreamWrapper.cs` | 把 Tmds.Ssh 的 `SshClient` / `SftpClient` / `RemoteProcess` 包装为 Core 的中立抽象（`ISshClientWrapper` 等）。 |

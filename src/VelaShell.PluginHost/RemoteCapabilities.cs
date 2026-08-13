@@ -345,6 +345,66 @@ internal sealed class RpcStorage(RpcConnection rpc) : VelaShell.PluginSdk.Storag
 }
 
 /// <summary>
+/// 时序能力的 RPC 代理:句柄按 measurement 短名寻址(宿主侧记住已打开的实例),
+/// 数据落宿主 SonnetDB,隔离进程不落本地文件。
+/// </summary>
+internal sealed class RpcTimeSeries(RpcConnection rpc) : VelaShell.PluginSdk.TimeSeries.ITimeSeriesApi
+{
+    private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(60);
+
+    public async Task<VelaShell.PluginSdk.TimeSeries.ITimeSeries> OpenAsync(
+        VelaShell.PluginSdk.TimeSeries.TimeSeriesDefinition definition, CancellationToken cancellationToken = default)
+    {
+        VelaShell.PluginSdk.TimeSeries.TimeSeriesValidation.RequireDefinition(definition);
+        TimeSeriesNameRef? response = await rpc.RequestAsync<TimeSeriesNameRef>(PluginRpc.TimeSeriesOpen,
+            new TimeSeriesOpenRequest(definition), Timeout, cancellationToken).ConfigureAwait(false);
+        return new RpcSeries(rpc, response?.Name ?? definition.Name);
+    }
+
+    public async Task<IReadOnlyList<string>> ListAsync(CancellationToken cancellationToken = default)
+        => await rpc.RequestAsync<string[]>(PluginRpc.TimeSeriesList, null, Timeout, cancellationToken)
+               .ConfigureAwait(false) ?? [];
+
+    public async Task<bool> DropAsync(string name, CancellationToken cancellationToken = default)
+        => await rpc.RequestAsync<bool>(PluginRpc.TimeSeriesDrop, new TimeSeriesNameRef(name), Timeout, cancellationToken)
+            .ConfigureAwait(false);
+
+    /// <summary>单个 measurement 的 RPC 句柄。</summary>
+    private sealed class RpcSeries(RpcConnection rpc, string name) : VelaShell.PluginSdk.TimeSeries.ITimeSeries
+    {
+        public string Name => name;
+
+        public Task WriteAsync(VelaShell.PluginSdk.TimeSeries.TimeSeriesPoint point, CancellationToken cancellationToken = default)
+            => WriteManyAsync([point], cancellationToken);
+
+        public Task WriteManyAsync(IEnumerable<VelaShell.PluginSdk.TimeSeries.TimeSeriesPoint> points,
+            CancellationToken cancellationToken = default)
+            => rpc.RequestAsync<object>(PluginRpc.TimeSeriesWrite,
+                new TimeSeriesWriteRequest(name, [.. points]), Timeout, cancellationToken);
+
+        public async Task<IReadOnlyList<VelaShell.PluginSdk.TimeSeries.TimeSeriesPoint>> QueryAsync(
+            VelaShell.PluginSdk.TimeSeries.TimeSeriesQuery query, CancellationToken cancellationToken = default)
+            => await rpc.RequestAsync<VelaShell.PluginSdk.TimeSeries.TimeSeriesPoint[]>(PluginRpc.TimeSeriesQuery,
+                   new TimeSeriesQueryRequest(name, query), Timeout, cancellationToken).ConfigureAwait(false) ?? [];
+
+        public async Task<long> CountAsync(string field, VelaShell.PluginSdk.TimeSeries.TimeSeriesQuery query,
+            CancellationToken cancellationToken = default)
+            => await rpc.RequestAsync<long>(PluginRpc.TimeSeriesCount,
+                new TimeSeriesCountRequest(name, field, query), Timeout, cancellationToken).ConfigureAwait(false);
+
+        public async Task<IReadOnlyList<string>> DistinctTagValuesAsync(string tag, CancellationToken cancellationToken = default)
+            => await rpc.RequestAsync<string[]>(PluginRpc.TimeSeriesDistinct,
+                   new TimeSeriesDistinctRequest(name, tag), Timeout, cancellationToken).ConfigureAwait(false) ?? [];
+
+        public async Task<int> DeleteAsync(IReadOnlyDictionary<string, string>? tags = null,
+            CancellationToken cancellationToken = default)
+            => await rpc.RequestAsync<int>(PluginRpc.TimeSeriesDelete,
+                new TimeSeriesDeleteRequest(name, tags?.ToDictionary(t => t.Key, t => t.Value, StringComparer.Ordinal)),
+                Timeout, cancellationToken).ConfigureAwait(false);
+    }
+}
+
+/// <summary>
 /// 隔离模式的远端文件只读流:经 RPC 顺序分块拉取(不支持 Seek),
 /// 读尽或释放时通知宿主关闭底层 SFTP 流。
 /// </summary>

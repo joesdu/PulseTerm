@@ -214,6 +214,52 @@ await context.Storage.SetAsync("count", n + 1, ct);
 - 单值建议 ≤256KB;大块数据直接写 `context.DataDirectory` 下的文件
   (卸载时同样被清扫)。无 DB 的 headless 宿主自动退回数据目录 JSON 文件。
 
+### 5.2b TimeSeries —— 私有时序库
+
+按时间追加、按标签检索的数据(会话记录、指标采样、事件流)用它;小配置仍用 Storage。
+
+```csharp
+ITimeSeries series = await context.TimeSeries.OpenAsync(new("chat_messages",
+[
+    TimeSeriesColumn.Tag("conv"),                                   // 标签 = 索引维度
+    TimeSeriesColumn.Field("role", TimeSeriesValueKind.Text),
+    TimeSeriesColumn.Field("seq",  TimeSeriesValueKind.Integer),
+    TimeSeriesColumn.Field("text", TimeSeriesValueKind.Text)
+]), ct);
+
+var clock = new TimeSeriesClock();                                  // 严格递增时间戳
+await series.WriteAsync(new(clock.Next(),
+    new Dictionary<string, string> { ["conv"] = id },
+    new Dictionary<string, TimeSeriesValue>
+    {
+        ["role"] = TimeSeriesValue.FromText("user"),
+        ["seq"]  = TimeSeriesValue.FromInteger(0),
+        ["text"] = TimeSeriesValue.FromText(message)
+    }), ct);
+
+IReadOnlyList<TimeSeriesPoint> latest = await series.QueryAsync(new()
+{
+    Tags = new Dictionary<string, string> { ["conv"] = id },
+    Descending = false,
+    Limit = 500
+}, ct);
+await series.DeleteAsync(new Dictionary<string, string> { ["conv"] = id }, ct);   // 删掉一整条序列
+```
+
+数据落宿主 **SonnetDB** 的时序 measurement,物理名 `pts_<插件命名空间>_<短名>`:
+
+- **按插件强隔离**:命名空间由插件 id 派生(哈希兜底,`a.b` 与 `a-b` 不会撞),
+  插件只能看到自己的 measurement;卸载时按前缀整体 drop;
+- **同序列同毫秒 = 覆盖**:序列 = measurement + 完整标签组合。高频写入务必用
+  `TimeSeriesClock.Next()` 取时间戳;反过来,这条语义也可以**故意**利用 ——
+  用固定时间戳写"每个会话一条摘要",天然只保留最新一份(AI 插件的会话列表就是这么做的);
+- **查询语义**:先按标签/时间过滤,再由宿主排序取 `Limit`。匹配点上万时扫描会被截断,
+  请用 `Since`/`Until` 或更细的标签收窄;
+- **配额**(`TimeSeriesLimits`):每插件 ≤8 个 measurement、每表 ≤32 列、标签值 ≤200 字符、
+  文本字段 ≤1MB、单批 ≤1000 点、单查 ≤5000 条。名称限 `[a-z][a-z0-9_]*`;
+- 无 DB 的 headless 宿主上 `OpenAsync` 抛 `InvalidOperationException`(**不会**静默丢数据),
+  插件应据此降级。单测用 `InMemoryTimeSeries`(同一套校验与覆盖语义)。
+
 ### 5.3 Sessions —— 会话枚举(脱敏)
 
 ```csharp

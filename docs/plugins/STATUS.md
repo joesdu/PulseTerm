@@ -1,6 +1,6 @@
 # 插件系统进度总览
 
-> 更新:2026-08-12。本页是实现进度的**单一权威来源**:按蓝图分项列出 已完成 / 部分完成 /
+> 更新:2026-08-13。本页是实现进度的**单一权威来源**:按蓝图分项列出 已完成 / 部分完成 /
 > 未开始,并给出验收证据(测试)与建议的下一步。写插件请读 [dev-guide.md](dev-guide.md)。
 
 ## 一、总体状态
@@ -12,11 +12,18 @@ inProcess 停靠 / 隔离独立窗口)、可靠性(心跳/自愈/回收)、数�
 多提供商流式对话(OpenAI Responses / OpenAI Chat Completions 兼容 / Anthropic Messages 三种线协议,
 覆盖 OpenAI/Grok/Ollama/中转站,自填 Base URL + API Key,Key 走 Secrets 加密)+ Agent 模式
 (Microsoft.Extensions.AI `FunctionInvokingChatClient` 工具循环,工具桥接 sessions/terminal/remoteExec/remoteFs,
-危险操作面板内逐条审批)。onCommand 惰性激活,五语文案。验收:VelaShell.Plugin.Ai.Tests 14 项
-(工具箱审批闸门/能力桥接语义/设置与机密存取)。容器管理插件未开始。
+危险操作面板内逐条审批)。**会话持久化(2026-08-13)**:对话落插件私有时序库 —— 顶栏历史按钮
+列出全部历史会话(标题/时间/条数)、点击即切回并接着聊、可单条删除或整体清空;输入框 ↑↓ 调取
+此前发过的消息;`@` 唤出所选会话的远端文件选择器(目录下钻、含空格/非 ASCII 路径自动加引号),
+发送时把文件内容随消息附给模型,Agent 侧另有 `list_remote_directory` / `write_remote_file`(需审批)
+完成"读—搜—改"闭环。onCommand 惰性激活,五语文案。验收:VelaShell.Plugin.Ai.Tests 44 项
+(工具箱审批闸门/能力桥接语义/设置与机密存取/会话历史时序读写/@ 引用语法/面板 headless 交互)。
+容器管理插件未开始。
 
-质量基线(每轮全量回归):全仓构建 0 警告 0 错误;测试 ~1280 项全绿,其中插件专项
-75+ 项(含真实双进程 e2e:跨进程激活、杀进程自愈、空闲回收再拉起、嵌入/流式/终端 RPC 链路、.vpx 装卸)。
+质量基线(每轮全量回归):全仓构建 0 警告 0 错误;测试 1605 项全绿,其中插件专项
+114 项(Infrastructure 侧 70 项 + AI 插件 44 项;含真实双进程 e2e:跨进程激活、杀进程自愈、
+空闲回收再拉起、嵌入/流式/终端/时序 RPC 链路、.vpx 装卸;AI 面板另有 headless 装载与
+历史/↑↓/@ 交互测试)。
 
 ## 二、分项进度
 
@@ -35,6 +42,7 @@ inProcess 停靠 / 隔离独立窗口)、可靠性(心跳/自愈/回收)、数�
 | 能力域:sessions/remoteFs/remoteExec | 07 | 复用宿主连接、进度节流、Stat 缺路径返回 null 等语义纪律 | 契约级测试 + e2e |
 | 能力域:commands/events | 07 | 命令面板注册(前缀强制/自动清理)、会话/主题/语言事件 | PluginCommandsApiTests |
 | 能力域:storage/secrets/clipboard | 06/07 | SonnetDB `plugin_data` 单集合复合主键,**按插件强隔离**;机密 DPAPI 加密落库;卸载自动清扫(禁用≠卸载) | SonnetDbPluginDataStoreTests、清扫测试 |
+| 能力域:timeSeries(私有时序库) | 07 | SonnetDB measurement,物理名 `pts_<插件命名空间>_<短名>`(命名空间由 id 派生 + 哈希兜底,插件不可指定);建表/写/查/计数/去重/删,取值全参数化,配额见 `TimeSeriesLimits`;卸载按前缀整体 drop;隔离模式经 `ts/*` 路由 | PluginTimeSeriesTests、TimeSeriesRoutingTests |
 | 能力域:terminal(读/搜/授权回写) | 07 | 缓冲快照读取+正则搜索;回写经授权闸(仅本次/本会话/始终/拒绝,始终持久 SonnetDB)+ 输入串行化队列 | PluginPermissionGateTests、HelloWorldTerminalTests |
 | 能力域:remoteFs 流式读取 | 07 | `OpenReadAsync` 顺序流;隔离模式 RPC 分块(openRead/streamRead/close,EOF 自动释放) | StreamingRoutingTests |
 | 插件管理页 | 02/06 | 侧栏插件图标 → 自绘卡片窗口(与资源监视同规格:min/max/close+缩放):列表/状态/启停/**卸载**/**从 .vpx 安装**/撤销终端授权;Changed 自动刷新 | PluginManagerEnableDisableTests、PluginInstallUninstallTests |
@@ -57,7 +65,7 @@ inProcess 停靠 / 隔离独立窗口)、可靠性(心跳/自愈/回收)、数�
 | --- | --- | --- |
 | 权限系统 + Broker | 06 | **用户决策不做**(第一方/自装插件,信任即安装);若未来开放第三方生态需回访 |
 | .vpx 签名 / 商店 | 10 | .vpx 安装/卸载已做(见管理页);**签名校验与商店分发**按用户决策仍推迟 |
-| 能力域:localFs / audio / net / ai | 07/11 | 未开口。建议 `vela.ai` 随 AI 插件动工时定接口(terminal 域已完成) |
+| 能力域:localFs / audio / net / ai | 07/11 | 未开口。建议 `vela.ai` 随 AI 插件动工时定接口(terminal、timeSeries 域已完成) |
 | 插件管理页 日志查看 | 02/06 | 列表/启停/撤授权已做;查看每插件日志尾部待后续 |
 | SonnetDB 高阶模型开放 | — | 时序/全文/向量等暂不对插件开口,按真实需求再议(apiLevel 只增纪律) |
 | 第一方业务插件 | 15 | AI 插件、容器管理插件尚未动工(框架已就绪) |

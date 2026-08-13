@@ -13,6 +13,7 @@ using LiveMarkdown.Avalonia;
 using Microsoft.Extensions.AI;
 using TextMateSharp.Grammars;
 using VelaShell.Plugin.Ai.Agent;
+using VelaShell.Plugin.Ai.Chat;
 using VelaShell.Plugin.Ai.Configuration;
 using VelaShell.PluginSdk;
 using VelaShell.PluginSdk.Sessions;
@@ -33,6 +34,7 @@ public partial class ChatPanelView : UserControl
     private readonly AgentToolbox _toolbox;
     private readonly McpManager _mcp;
     private readonly List<ChatMessage> _history = [];
+    private readonly ChatHistoryStore _historyStore;
 
     private AiSettings _settings = new();
     private SettingsView? _settingsView;
@@ -40,6 +42,13 @@ public partial class ChatPanelView : UserControl
     private List<SessionInfo> _sessions = [];
     private CancellationTokenSource? _cts;
     private bool _busy;
+
+    // 当前会话在时序库中的身份:摘要点的时间戳恒为 _conversationStartedAt(覆盖式更新),
+    // _persistedCount 既是已入库条数,也是下一条消息的序号。
+    private string _conversationId = ChatHistoryStore.NewConversationId();
+    private DateTimeOffset _conversationStartedAt = DateTimeOffset.UtcNow;
+    private int _persistedCount;
+    private bool _switchingView;
     private bool _autoScroll = true;
     private bool _scrollScheduled;
     private long _totalInputTokens;
@@ -54,6 +63,7 @@ public partial class ChatPanelView : UserControl
         _context = context;
         _store = store;
         _loc = new Loc(context.Host.Locale);
+        _historyStore = new ChatHistoryStore(context);
         _toolbox = new AgentToolbox(context)
         {
             SessionIdProvider = () => SelectedSessionId,
@@ -73,12 +83,18 @@ public partial class ChatPanelView : UserControl
         ChatScroll.ScrollChanged += OnChatScrollChanged;
         NewChatButton.Click += (_, _) => StartNewChat();
         InputBox.AddHandler(KeyDownEvent, OnInputKeyDown, RoutingStrategies.Tunnel);
-        SettingsToggle.IsCheckedChanged += (_, _) =>
+        InputBox.TextChanged += (_, _) => OnInputTextChanged();
+        FilePopup.PlacementTarget = InputWrap;
+        SettingsToggle.IsCheckedChanged += (_, _) => OnViewToggled(SettingsToggle, PanelView.Settings);
+        HistoryToggle.IsCheckedChanged += (_, _) =>
         {
-            bool showSettings = SettingsToggle.IsChecked == true;
-            SettingsHost.IsVisible = showSettings;
-            ChatScroll.IsVisible = !showSettings;
+            OnViewToggled(HistoryToggle, PanelView.History);
+            if (HistoryToggle.IsChecked == true)
+            {
+                _ = RefreshHistoryListAsync();
+            }
         };
+        ClearHistoryButton.Click += (_, _) => _ = OnClearHistoryClickedAsync();
         AgentToggle.IsCheckedChanged += (_, _) =>
         {
             _settings.AgentMode = AgentToggle.IsChecked == true;
@@ -115,6 +131,7 @@ public partial class ChatPanelView : UserControl
         try
         {
             _cts?.Cancel();
+            _fileCts?.Cancel();
         }
         catch
         {
@@ -123,8 +140,12 @@ public partial class ChatPanelView : UserControl
         _ = _mcp.DisposeAsync().AsTask();
     }
 
-    /// <summary>从命令入口外部注入一条消息并直接发送(任意线程可调)。</summary>
-    public void SendExternal(string text) => Dispatcher.UIThread.Post(() => _ = SendAsync(text));
+    /// <summary>
+    /// 从命令入口外部注入一条消息并直接发送(任意线程可调)。
+    /// 注入的内容(如整段终端输出)不当作用户输入:既不进 ↑↓ 历史,
+    /// 里面碰巧出现的 <c>@/path</c> 也不会被当成文件引用去读远端。
+    /// </summary>
+    public void SendExternal(string text) => Dispatcher.UIThread.Post(() => _ = SendAsync(text, fromUser: false));
 
     // ---------- 初始化与状态 ----------
 
@@ -145,6 +166,13 @@ public partial class ChatPanelView : UserControl
                 StatusText.Text = _loc["NoProvider"];
                 SettingsToggle.IsChecked = true;
             }
+            // 历史能力可选:时序不可用的宿主上按钮直接禁用,聊天照常
+            await _historyStore.InitAsync();
+            HistoryToggle.IsEnabled = _historyStore.IsAvailable;
+            if (_historyStore.IsAvailable)
+            {
+                _inputHistory = [.. await _historyStore.RecentUserInputsAsync()];
+            }
         }
         catch (Exception ex)
         {
@@ -162,6 +190,9 @@ public partial class ChatPanelView : UserControl
         NewChatText.Text = _loc["NewChat"];
         ToolTip.SetTip(NewChatButton, _loc["NewChatTip"]);
         ToolTip.SetTip(SettingsToggle, _loc["Settings"]);
+        ToolTip.SetTip(HistoryToggle, _loc["History"]);
+        ClearHistoryButton.Content = _loc["ClearHistory"];
+        HistoryHeader.Text = _loc["HistoryHeader"];
         InputBox.PlaceholderText = _loc["InputPlaceholder"];
         SendText.Text = _loc["Send"];
         StopText.Text = _loc["Stop"];
@@ -341,12 +372,29 @@ public partial class ChatPanelView : UserControl
 
     // ---------- 发送与流式渲染 ----------
 
+    /// <summary>
+    /// 输入框按键(隧道阶段,先于 TextBox 自己的处理):
+    /// @ 选择弹层开着时键盘归它;否则 ↑↓ 调取历史消息(仅当光标在首/末行,
+    /// 多行编辑时的上下移动不受影响),回车发送。
+    /// </summary>
     private void OnInputKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Enter && !e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+        if (FilePopup.IsOpen && HandleFilePickerKey(e))
         {
-            e.Handled = true;
-            _ = SendAsync(InputBox.Text ?? "");
+            return;
+        }
+        switch (e.Key)
+        {
+            case Key.Enter when !e.KeyModifiers.HasFlag(KeyModifiers.Shift):
+                e.Handled = true;
+                _ = SendAsync(InputBox.Text ?? "");
+                break;
+            case Key.Up when CaretOnFirstLine():
+                e.Handled = RecallInput(older: true);
+                break;
+            case Key.Down when CaretOnLastLine():
+                e.Handled = RecallInput(older: false);
+                break;
         }
     }
 
@@ -396,7 +444,12 @@ public partial class ChatPanelView : UserControl
         }, DispatcherPriority.Background);
     }
 
-    private async Task SendAsync(string text)
+    /// <summary>发送一轮对话:展开引用 → 流式渲染 → 记账与入库。</summary>
+    /// <param name="text">消息正文。</param>
+    /// <param name="fromUser">
+    /// 是否为用户在输入框里键入的内容:只有它才进 ↑↓ 历史、才做 <c>@</c> 文件引用展开。
+    /// </param>
+    private async Task SendAsync(string text, bool fromUser = true)
     {
         text = text.Trim();
         if (text.Length == 0 || _busy)
@@ -412,18 +465,35 @@ public partial class ChatPanelView : UserControl
 
         SetBusy(true);
         InputBox.Text = "";
-        SettingsToggle.IsChecked = false;
+        CloseFilePicker();
+        if (fromUser)
+        {
+            RememberInput(text);
+        }
+        SetActiveView(PanelView.Chat);
 
         AddUserBubble(text);
-        _history.Add(new ChatMessage(ChatRole.User, text));
-        var bubble = new AssistantBubble(this);
-        MessagesPanel.Children.Add(bubble.Root);
         RequestAutoScroll(force: true);
 
         _cts = new CancellationTokenSource();
         CancellationToken token = _cts.Token;
+        AssistantBubble? bubble = null;
         try
         {
+            // @ 引用的远端文件在这里展开:气泡里仍显示用户原文,只有送给模型的那份带文件内容。
+            (string modelText, IReadOnlyList<string> attached) = fromUser
+                ? await ResolveAttachmentsAsync(text, token)
+                : (text, []);
+            if (attached.Count > 0)
+            {
+                AddAttachmentCard(attached);
+            }
+            _history.Add(new ChatMessage(ChatRole.User, modelText));
+            await PersistAsync("user", text);
+            bubble = new AssistantBubble(this);
+            MessagesPanel.Children.Add(bubble.Root);
+            RequestAutoScroll(force: true);
+
             IChatClient client = await _store.CreateClientAsync(provider, cancellationToken: token);
             var options = new ChatOptions();
             bool agentMode = _settings.AgentMode;
@@ -504,6 +574,7 @@ public partial class ChatPanelView : UserControl
 
             var response = updates.ToChatResponse();
             _history.AddMessages(response);
+            await PersistAsync("assistant", response.Text);
             if (response.Usage is { } usage)
             {
                 _totalInputTokens += usage.InputTokenCount ?? 0;
@@ -518,16 +589,26 @@ public partial class ChatPanelView : UserControl
         catch (Exception ex)
         {
             _context.Log.Error("AI request failed.", ex);
-            bubble.AppendText($"\n\n**[{_loc["Error"]}]** {ex.Message}");
+            bubble?.AppendText($"\n\n**[{_loc["Error"]}]** {ex.Message}");
         }
         finally
         {
             _cts?.Dispose();
             _cts = null;
             SetBusy(false);
-            bubble.FinishStreaming();
+            bubble?.FinishStreaming();
             RequestAutoScroll();
         }
+    }
+
+    /// <summary>把一条消息写进历史(时序库);能力不可用或空文本时什么也不做。</summary>
+    private async Task PersistAsync(string role, string text)
+    {
+        if (!_historyStore.IsAvailable || string.IsNullOrWhiteSpace(text))
+        {
+            return;
+        }
+        await _historyStore.AppendAsync(_conversationId, _conversationStartedAt, _persistedCount++, role, text);
     }
 
     private void RenderUpdate(AssistantBubble bubble, ChatResponseUpdate update)
@@ -585,14 +666,19 @@ public partial class ChatPanelView : UserControl
         if (agentMode)
         {
             prompt +=
-                " You can call tools to inspect the user's selected SSH session (read terminal output, run one-shot commands, read files). " +
-                "Prefer read-only commands; destructive commands require user approval and should be proposed carefully. " +
+                " You can call tools to inspect the user's selected SSH session (read terminal output, run one-shot commands, list directories, read files) " +
+                "and to edit remote files (write_remote_file overwrites the whole file — read it first, then send the complete new content). " +
+                "Prefer read-only commands; destructive commands and file writes require user approval and should be proposed carefully. " +
+                "The user can attach remote files to a message with @path; their content is included verbatim after the message. " +
                 "Additional tools may come from user-configured MCP servers (their names are prefixed with the server name).";
         }
         return prompt;
     }
 
-    /// <summary>新建会话:终止进行中的请求,清空历史与消息流,回到聊天视图。</summary>
+    /// <summary>
+    /// 新建会话:终止进行中的请求,清空消息流并换一个会话 id ——
+    /// 已发生的对话此刻已在时序库里,可从历史里翻回来。
+    /// </summary>
     private void StartNewChat()
     {
         _cts?.Cancel();
@@ -600,8 +686,12 @@ public partial class ChatPanelView : UserControl
         MessagesPanel.Children.Clear();
         _totalInputTokens = 0;
         _totalOutputTokens = 0;
+        _conversationId = ChatHistoryStore.NewConversationId();
+        _conversationStartedAt = DateTimeOffset.UtcNow;
+        _persistedCount = 0;
+        _inputHistoryIndex = -1;
         StatusText.Text = "";
-        SettingsToggle.IsChecked = false;
+        SetActiveView(PanelView.Chat);
         InputBox.Focus();
     }
 

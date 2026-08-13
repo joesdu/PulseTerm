@@ -20,6 +20,7 @@ public class PluginInstallUninstallTests
         public List<string> Purged { get; } = [];
         public VelaShell.PluginSdk.Storage.IPluginStorage CreateStorage(string pluginId) => new InMemoryStorage();
         public VelaShell.PluginSdk.Secrets.ISecretsApi CreateSecrets(string pluginId) => new FakeSecrets();
+        public VelaShell.PluginSdk.TimeSeries.ITimeSeriesApi CreateTimeSeries(string pluginId) => new InMemoryTimeSeries();
         public Task<IReadOnlyList<string>> ListPluginIdsAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<string>>([]);
         public Task PurgeAsync(string pluginId, CancellationToken cancellationToken = default)
         {
