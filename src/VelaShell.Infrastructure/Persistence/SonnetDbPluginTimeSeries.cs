@@ -142,6 +142,8 @@ public sealed class SonnetDbPluginTimeSeries(SonnetDbEngine engine, string plugi
 
         public string Name { get; } = shortName;
 
+        private static readonly string[] first = ["time"];
+
         public Task WriteAsync(TimeSeriesPoint point, CancellationToken cancellationToken = default)
             => WriteManyAsync([point], cancellationToken);
 
@@ -165,7 +167,7 @@ public sealed class SonnetDbPluginTimeSeries(SonnetDbEngine engine, string plugi
             int limit = TimeSeriesValidation.NormalizeQuery(query);
             var parameters = new SqlParameters();
             string where = BuildWhere(query, parameters);
-            string columns = string.Join(", ", new[] { "time" }.Concat(schema.Columns.Select(c => c.Name)));
+            string columns = string.Join(", ", first.Concat(schema.Columns.Select(c => c.Name)));
 
             // 排序与取数在这里做,不交给 SQL:实测 SonnetDB 的 SELECT 会按「序列分组、组内时间升序」
             // 返回,ORDER BY 方向不生效,LIMIT 也是截扫描结果而非截排序结果 —— 直接下推会拿到错的那几行。

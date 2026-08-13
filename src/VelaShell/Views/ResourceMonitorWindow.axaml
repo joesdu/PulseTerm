@@ -348,10 +348,13 @@
         <!-- ── 主体:左导航 + 内容 ── -->
         <Grid Grid.Row="1" ColumnDefinitions="200,*">
 
-          <Border Grid.Column="0"
+          <!-- 侧栏铺到卡片底部,故须带左下内圆角:方角的 bg-sidebar 背景会盖住外框在圆弧处
+               的描边,表现为左下角"断线"。上方是标题条,左上角不归它管。 -->
+          <Border x:Name="SidebarStrip" Grid.Column="0"
                   Background="{DynamicResource VelaBgSidebar}"
                   BorderBrush="{DynamicResource VelaBorderPrimary}"
-                  BorderThickness="0,0,1,0">
+                  BorderThickness="0,0,1,0"
+                  CornerRadius="0,0,0,7">
             <DockPanel Margin="8,10">
 
               <!-- 采样间隔与说明固定在底部 -->
