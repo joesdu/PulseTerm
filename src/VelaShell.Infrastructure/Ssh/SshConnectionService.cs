@@ -201,6 +201,26 @@ public class SshConnectionService(
             RaiseSessionEvent(SessionConnected, session);
             return session;
         }
+        // 调用方主动取消(关标签 / 退出应用 / 用户在凭据框上取消):原样上抛 OperationCanceledException。
+        // 曾经这里把所有取消一律翻成 TimeoutException,于是上层那条
+        // `catch (OperationCanceledException)`(安静撤掉"连接中"标签的路径)永远命中不了,
+        // 用户取消反而会看到"连接超时"的失败覆盖层并留下一个连不上的死标签。
+        // 只有调用方没取消却收到取消(= 底层库内部超时)才翻成 TimeoutException,
+        // 与 TmdsSshInterop.Translate 的取消语义保持一致。
+        catch (OperationCanceledException)
+            when (cancellationToken.IsCancellationRequested)
+        {
+            client?.Dispose();
+            session.Status = SessionStatus.Error;
+            session.ErrorMessage = $"Connection to {connectionInfo.Host}:{connectionInfo.Port} was cancelled.";
+            lock (_sessionsGate)
+            {
+                _sessions.Remove(session);
+            }
+            logger?.LogDebug("SSH session {SessionId} to {Host}:{Port} was cancelled by the caller",
+                session.SessionId, connectionInfo.Host, connectionInfo.Port);
+            throw;
+        }
         catch (OperationCanceledException)
         {
             client?.Dispose();
@@ -210,7 +230,7 @@ public class SshConnectionService(
             {
                 _sessions.Remove(session);
             }
-            logger?.LogWarning("SSH session {SessionId} to {Host}:{Port} timed out or was cancelled",
+            logger?.LogWarning("SSH session {SessionId} to {Host}:{Port} timed out",
                 session.SessionId, connectionInfo.Host, connectionInfo.Port);
             throw new TimeoutException(session.ErrorMessage);
         }

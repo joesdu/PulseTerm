@@ -2595,7 +2595,9 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
         return ex switch
         {
             VelaSshAuthenticationException => $"{Strings.Format("Msg_AuthFailed", target)}\n{detail}",
-            VelaSshOperationTimeoutException => Strings.Format("Msg_ConnectTimeout", target),
+            // TimeoutException 来自 SshConnectionService:底层库内部超时(调用方并未取消)时它对外
+            // 统一抛这个类型。不列进来的话真超时会掉进兜底文案,显示一句英文原始消息。
+            VelaSshOperationTimeoutException or TimeoutException => Strings.Format("Msg_ConnectTimeout", target),
             VelaSshConnectionException => $"{Strings.Format("Msg_ConnectFailed", target)}\n{detail}",
             SocketException => Strings.Format("Msg_NetworkError", target),
             _ => Strings.Format("Msg_ConnectGenericFailed", target, detail),

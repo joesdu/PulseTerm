@@ -1,7 +1,9 @@
 using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
+using Avalonia.Layout;
 using Avalonia.Logging;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
@@ -22,7 +24,7 @@ namespace VelaShell.Tests.Views;
 /// </summary>
 [TestClass]
 [TestCategory("MonitorUI")]
-public sealed class ResourceMonitorUiTests
+public sealed partial class ResourceMonitorUiTests
 {
     private static HeadlessUnitTestSession _session = null!;
     private static LocalizationService _localization = null!;
@@ -737,12 +739,118 @@ public sealed class ResourceMonitorUiTests
         });
     }
 
+    [TestMethod]
+    public void NicStrip_WheelOverTheCards_ScrollsSideways()
+    {
+        // 横向滚动条没有滚轮就只能拖 —— 用户反馈的两件事之一(另一件是它遮住卡片)。
+        StripCase("Network", "NicStrip", nics: 6, body: (window, strip, card) =>
+        {
+            Point overCard = card.TranslatePoint(new(40, 20), window)!.Value;
+
+            window.MouseWheel(overCard, new(0, -1));
+            Pump(window);
+            double afterDown = strip.Offset.X;
+            Assert.IsGreaterThan(0, afterDown, "滚轮下滚应把网卡卡片条往右带。");
+
+            window.MouseWheel(overCard, new(0, 1));
+            Pump(window);
+            Assert.IsLessThan(afterDown, strip.Offset.X, "滚轮上滚应往回带。");
+
+            // 到头就别再吞事件:连滚 40 格后停在右端,不越界。
+            for (int i = 0; i < 40; i++)
+            {
+                window.MouseWheel(overCard, new(0, -1));
+            }
+            Pump(window);
+            Assert.AreEqual(strip.Extent.Width - strip.Viewport.Width, strip.Offset.X, 0.5, "滚到底应正好停在右端。");
+        });
+    }
+
+    [TestMethod]
+    public void GpuStrip_WheelOverTheCards_ScrollsSideways()
+    {
+        StripCase("Gpu", "GpuStrip", gpus: 6, body: (window, strip, card) =>
+        {
+            window.MouseWheel(card.TranslatePoint(new(40, 20), window)!.Value, new(0, -1));
+            Pump(window);
+            Assert.IsGreaterThan(0, strip.Offset.X, "滚轮下滚应把显卡卡片条往右带。");
+        });
+    }
+
+    [TestMethod]
+    public void NicStrip_HorizontalScrollBar_DoesNotCoverTheCards()
+    {
+        // 悬浮式滚动条不占布局高度,会直接压在卡片最后 16px 上(底排的收发读数)。
+        // 内容底部留白就是让给它的那一条 —— 留白没了,遮挡立刻回来。
+        StripCase("Network", "NicStrip", nics: 6, body: (_, strip, card) =>
+            AssertBarClearsCards(strip, card));
+    }
+
+    [TestMethod]
+    public void GpuStrip_HorizontalScrollBar_DoesNotCoverTheCards()
+    {
+        StripCase("Gpu", "GpuStrip", gpus: 6, body: (_, strip, card) =>
+            AssertBarClearsCards(strip, card));
+    }
+
+    /// <summary>横向滚动条的顶边必须落在卡片底边之下,否则它盖住的就是卡片最后一排读数。</summary>
+    private static void AssertBarClearsCards(ScrollViewer strip, Button card)
+    {
+        ScrollBar bar = strip.GetVisualDescendants().OfType<ScrollBar>()
+            .Single(b => b.Orientation == Orientation.Horizontal);
+        Assert.IsTrue(bar.IsEffectivelyVisible, "卡片超出一屏时应该出现横向滚动条。");
+
+        double barTop = bar.TranslatePoint(default, strip)!.Value.Y;
+        double cardBottom = card.TranslatePoint(default, strip)!.Value.Y + card.Bounds.Height;
+
+        Assert.IsGreaterThanOrEqualTo(cardBottom, barTop,
+            $"滚动条顶边 {barTop} 压在卡片底边 {cardBottom} 之上,卡片底排读数会被遮掉。");
+    }
+
+    /// <summary>切到某一页,取出具名的横向卡片条与第一张卡片,跑完 body 后收摊。</summary>
+    private static void StripCase(
+        string page, string stripName, Action<ResourceMonitorWindow, ScrollViewer, Button> body,
+        int nics = 2, int gpus = 2)
+    {
+        OnUi(() =>
+        {
+            UseChinese();
+            (ResourceMonitorWindow window, ResourceMonitorWindowViewModel vm) =
+                Open(WithGpus(gpus), samples: 8, nics: nics);
+            vm.SelectPageCommand.Execute(page).Subscribe();
+            Pump(window);
+            try
+            {
+                ScrollViewer strip = window.GetVisualDescendants().OfType<ScrollViewer>()
+                    .Single(s => s.Name == stripName);
+                Button card = strip.GetVisualDescendants().OfType<Button>()
+                    .First(b => b.Classes.Contains("item"));
+
+                Assert.IsGreaterThan(strip.Viewport.Width, strip.Extent.Width,
+                    "样本里的卡片没有多到超出一屏,量不出横向滚动的行为。");
+
+                body(window, strip, card);
+                SaveFrame(window, $"resource-monitor-{stripName.ToLowerInvariant()}.png");
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    private static void Pump(Window window)
+    {
+        Dispatcher.UIThread.RunJobs();
+        window.UpdateLayout();
+    }
+
     private static (ResourceMonitorWindow Window, ResourceMonitorWindowViewModel ViewModel) Open(
         SessionMetrics metrics, int samples = 1, bool connections = true, int cores = 0,
-        SessionStaticInfo? staticInfo = null)
+        SessionStaticInfo? staticInfo = null, int nics = 2)
     {
         var vm = new ResourceMonitorWindowViewModel(
-            new FakeMetricsService(metrics, connections, cores, staticInfo), Guid.NewGuid(), "web-prod-01");
+            new FakeMetricsService(metrics, connections, cores, staticInfo, nics), Guid.NewGuid(), "web-prod-01");
         var window = new ResourceMonitorWindow { DataContext = vm };
         window.Show();
         for (int i = 0; i < samples; i++)
@@ -778,6 +886,24 @@ public sealed class ResourceMonitorUiTests
         metrics.NetTxBytesPerSec = 3_400_000;
         return metrics;
     }
+
+    /// <summary>指定张数的 GPU 样本(卡片条一屏放不下时才量得出横向滚动)。</summary>
+    private static SessionMetrics WithGpus(int count)
+    {
+        if (count == 2)
+        {
+            return WithGpu();
+        }
+        string lines = string.Join('\n', Enumerable.Range(0, count).Select(i =>
+            $"{i}, NVIDIA A100-SXM4-80GB, GPU-{i}, {12 + (i * 9)}, {5 + i}, {6200 + (i * 900)}, 81920, {43 + i}, 96.00, 400.00, 35, 1215, 1593"));
+        SessionMetrics metrics = SessionMetrics.Parse(GpuSectionPattern.Replace(FullProbeOutput, $"__GP__\n{lines}\n"))!;
+        metrics.CorePercents = [42.0, 7.5];
+        metrics.HasNetRates = true;
+        return metrics;
+    }
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"__GP__\n.*?\n(?=__GA__)", System.Text.RegularExpressions.RegexOptions.Singleline)]
+    private static partial System.Text.RegularExpressions.Regex GpuSectionPattern { get; }
 
     /// <summary>没有 nvidia-smi 的主机:GPU 分段为空。</summary>
     private static SessionMetrics WithoutGpu()
@@ -830,7 +956,8 @@ public sealed class ResourceMonitorUiTests
     /// 这样曲线会有真实形状 —— 固定值只能证明"没崩",证明不了图画对了。
     /// </summary>
     private sealed class FakeMetricsService(
-        SessionMetrics metrics, bool connections = true, int cores = 0, SessionStaticInfo? staticInfo = null)
+        SessionMetrics metrics, bool connections = true, int cores = 0, SessionStaticInfo? staticInfo = null,
+        int nics = 2)
         : ISessionMetricsService
     {
         private int _tick;
@@ -853,10 +980,11 @@ public sealed class ResourceMonitorUiTests
                 new("nvme0n1", 20_000_000 + (wave * 160_000_000), 8_000_000 + ((1 - wave) * 70_000_000), 30 + (wave * 60)),
                 new("sda", 1_000_000 * wave, 500_000, 12 * wave)
             ];
+            // 网卡张数可调:横向卡片条的滚动回归要靠"多到一屏放不下"才量得出来。
             metrics.NicRates =
             [
-                new("eth0", 6_000_000 + (wave * 22_000_000), 900_000 + ((1 - wave) * 6_000_000)),
-                new("eth1", 300_000 * wave, 100_000)
+                .. Enumerable.Range(0, nics).Select(i =>
+                    new NetInterfaceRate($"eth{i}", 6_000_000 + (wave * 22_000_000) - (i * 500_000), 900_000 + ((1 - wave) * 6_000_000)))
             ];
             metrics.ConnectionRates = connections
                 ? [

@@ -241,6 +241,40 @@ public class SessionMetricsExtrasTests
     }
 
     [TestMethod]
+    public void ProcessProbe_TruncatesWideEnoughAndMarksTheCut()
+    {
+        // 起因:探针在远端把整行切到 90 列,而前缀(pid/%cpu/rss)先吃掉近 20 列,
+        // 命令行只剩七十来字 —— 界面上列宽明明还有富余,命令却断在半个词上
+        //(用户反馈 "-auth /run/us",真身是 /run/user/…;dockerd 那行丢了 .sock 后缀)。
+        string command = SessionMetrics.BuildCommand(MetricsScope.Processes);
+
+        Assert.DoesNotContain("cut -c1-90", command, "90 列在常见窗口宽度下就会切掉命令行。");
+
+        System.Text.RegularExpressions.Match match =
+            System.Text.RegularExpressions.Regex.Match(command, @"awk -v n=(\d+) '\{ if \(length\(\$0\) > n\)");
+        Assert.IsTrue(match.Success, "进程段必须保留列数上限,否则超长命令行每秒回传一次会把带宽吃光。");
+
+        int columns = int.Parse(match.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
+        Assert.IsGreaterThan(200, columns, "留给命令行的列数要够常见窗口宽度铺满进程列。");
+        Assert.IsLessThan(1000, columns, "上限也不能取消 —— 巨型 classpath 的 java 命令行能有上万字。");
+
+        // 切口必须留痕:没有这个省略号,界面分不清"命令本来就这么短"和"被截断了"。
+        Assert.Contains("\"…\"", command, "超长行要在远端补省略号。");
+    }
+
+    [TestMethod]
+    public void Parse_ProcessLine_KeepsTheProbesTruncationMarker()
+    {
+        // 省略号由远端 awk 补,解析侧原样带过 —— 中途被 Trim 或当成分隔符吃掉就白标了。
+        var m = SessionMetrics.Parse(
+            "__P__\n4\n__L__\n1.0 0.5 0.2\n__M__\n1024 512\n__O__\nDebian\n" +
+            "__TM__\n 4242   1.0 12345 /usr/bin/Xwayland :1024 -rootless -auth /run/user/1000/x…\n");
+
+        Assert.IsNotNull(m);
+        Assert.AreEqual("/usr/bin/Xwayland :1024 -rootless -auth /run/user/1000/x…", m.TopByMemory[0].Command);
+    }
+
+    [TestMethod]
     public void Parse_WithoutExtraSections_LeavesDetailFieldsEmpty()
     {
         // 状态栏口径(MetricsScope.Basic)不采集细分段,解析必须优雅降级。
