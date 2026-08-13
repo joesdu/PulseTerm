@@ -330,6 +330,9 @@
   <data name="Monitor_NicDetails" xml:space="preserve">
     <value>网卡详情</value>
   </data>
+  <data name="Monitor_NicDriver" xml:space="preserve">
+    <value>驱动</value>
+  </data>
   <data name="Monitor_NicDropped" xml:space="preserve">
     <value>丢包 收/发</value>
   </data>
@@ -345,8 +348,14 @@
   <data name="Monitor_NicIp" xml:space="preserve">
     <value>IPv4</value>
   </data>
+  <data name="Monitor_NicIpv6" xml:space="preserve">
+    <value>IPv6</value>
+  </data>
   <data name="Monitor_NicLink" xml:space="preserve">
     <value>链路速率</value>
+  </data>
+  <data name="Monitor_NicLinkUnknown" xml:space="preserve">
+    <value>未知</value>
   </data>
   <data name="Monitor_NicMac" xml:space="preserve">
     <value>MAC 地址</value>
@@ -359,6 +368,24 @@
   </data>
   <data name="Monitor_NicTxTotal" xml:space="preserve">
     <value>累计发送</value>
+  </data>
+  <data name="Monitor_NicType" xml:space="preserve">
+    <value>类型</value>
+  </data>
+  <data name="Monitor_NicTypeEthernet" xml:space="preserve">
+    <value>以太网</value>
+  </data>
+  <data name="Monitor_NicTypeLoopback" xml:space="preserve">
+    <value>回环</value>
+  </data>
+  <data name="Monitor_NicTypeVirtual" xml:space="preserve">
+    <value>虚拟</value>
+  </data>
+  <data name="Monitor_NicTypeWireless" xml:space="preserve">
+    <value>无线</value>
+  </data>
+  <data name="Monitor_NotApplicable" xml:space="preserve">
+    <value>不适用</value>
   </data>
   <data name="Monitor_Now" xml:space="preserve">
     <value>现在</value>

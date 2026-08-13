@@ -712,6 +712,9 @@
   <data name="Monitor_NicDetails" xml:space="preserve">
     <value>網卡詳情</value>
   </data>
+  <data name="Monitor_NicDriver" xml:space="preserve">
+    <value>驅動程式</value>
+  </data>
   <data name="Monitor_NicDropped" xml:space="preserve">
     <value>丟包 收/發</value>
   </data>
@@ -727,8 +730,14 @@
   <data name="Monitor_NicIp" xml:space="preserve">
     <value>IPv4</value>
   </data>
+  <data name="Monitor_NicIpv6" xml:space="preserve">
+    <value>IPv6</value>
+  </data>
   <data name="Monitor_NicLink" xml:space="preserve">
     <value>連結速率</value>
+  </data>
+  <data name="Monitor_NicLinkUnknown" xml:space="preserve">
+    <value>未知</value>
   </data>
   <data name="Monitor_NicMac" xml:space="preserve">
     <value>MAC 位址</value>
@@ -741,6 +750,24 @@
   </data>
   <data name="Monitor_NicTxTotal" xml:space="preserve">
     <value>累計傳送</value>
+  </data>
+  <data name="Monitor_NicType" xml:space="preserve">
+    <value>類型</value>
+  </data>
+  <data name="Monitor_NicTypeEthernet" xml:space="preserve">
+    <value>乙太網路</value>
+  </data>
+  <data name="Monitor_NicTypeLoopback" xml:space="preserve">
+    <value>回送</value>
+  </data>
+  <data name="Monitor_NicTypeVirtual" xml:space="preserve">
+    <value>虛擬</value>
+  </data>
+  <data name="Monitor_NicTypeWireless" xml:space="preserve">
+    <value>無線</value>
+  </data>
+  <data name="Monitor_NotApplicable" xml:space="preserve">
+    <value>不適用</value>
   </data>
   <data name="Monitor_Now" xml:space="preserve">
     <value>現在</value>

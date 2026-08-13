@@ -11,6 +11,7 @@ using Avalonia.VisualTree;
 using ReactiveUI.Primitives;
 using VelaShell.Controls.Controls;
 using VelaShell.Core.Localization;
+using VelaShell.Core.Resources;
 using VelaShell.Core.Services;
 using VelaShell.Localization;
 using VelaShell.ViewModels;
@@ -740,6 +741,132 @@ public sealed partial class ResourceMonitorUiTests
     }
 
     [TestMethod]
+    public void NetworkPage_OnALargeWindow_DetailsBandIsFullWidthAndStaysCompact()
+    {
+        // 改版前:详情是左边一张定宽卡,窗口放大后被拉高,几行明细在里面上下摊开
+        //(用户反馈"太稀疏")。现在它是整行一条属性带,高度只由字段数决定。
+        OnUi(() =>
+        {
+            UseChinese();
+            (ResourceMonitorWindow window, ResourceMonitorWindowViewModel vm) = OpenLarge("Network");
+            try
+            {
+                Border details = CardOf(window, Strings.Get("Monitor_NicDetails"));
+                Border connections = CardOf(window, Strings.Get("Monitor_TopConnections"));
+
+                Assert.AreEqual(connections.Bounds.Width, details.Bounds.Width, 1.0,
+                    "详情与连接表现在是上下两条整行的带,宽度应当一样。");
+                Assert.IsLessThan(220.0, details.Bounds.Height,
+                    $"详情带应按内容定高,而不是被窗口高度拉稀(实际 {details.Bounds.Height:F0}px)。");
+                Assert.IsGreaterThan(details.Bounds.Bottom, connections.Bounds.Top,
+                    "连接表应排在详情带下面。");
+                Assert.IsGreaterThan(details.Bounds.Height, connections.Bounds.Height);
+
+                // 曲线与连接表按 2:1 分剩余高度:曲线写死高度时,750 的默认窗口连一行连接都放不下,
+                // 最大化后曲线又不跟着长。这里钉住"两者都随窗口长大"这条性质。
+                Border chart = CardOf(window, Strings.Get("Monitor_Throughput"));
+                Assert.IsGreaterThan(400.0, chart.Bounds.Height,
+                    $"1080 高的窗口里曲线应该跟着长(实际 {chart.Bounds.Height:F0}px)。");
+                Assert.IsGreaterThan(chart.Bounds.Height / 3, connections.Bounds.Height,
+                    "连接表不该被曲线挤没。");
+
+                SaveFrame(window, "resource-monitor-network-large.png");
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [TestMethod]
+    public void GpuPage_OnALargeWindow_DetailsBandIsFullWidthAndStaysCompact()
+    {
+        OnUi(() =>
+        {
+            UseChinese();
+            (ResourceMonitorWindow window, ResourceMonitorWindowViewModel vm) = OpenLarge("Gpu");
+            try
+            {
+                Border details = CardOf(window, Strings.Get("Monitor_GpuDetails"));
+                Border processes = CardOf(window, Strings.Get("Monitor_GpuProcesses"));
+
+                Assert.AreEqual(processes.Bounds.Width, details.Bounds.Width, 1.0,
+                    "GPU 详情与进程表改成上下两行后宽度应当一样。");
+                Assert.IsLessThan(220.0, details.Bounds.Height,
+                    $"GPU 详情带应按内容定高(实际 {details.Bounds.Height:F0}px)。");
+                Assert.IsGreaterThan(details.Bounds.Bottom, processes.Bounds.Top,
+                    "进程表应排在详情带下面。");
+
+                SaveFrame(window, "resource-monitor-gpu-large.png");
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [TestMethod]
+    public void NicDetails_FillInWhatTheProbeKnows_AndNeverShowADash()
+    {
+        // 用户反馈:网卡详情里还挂着"—"。取不到的字段一律不出行,链路速率这种必出的
+        // 字段则给一句人话(虚拟网卡"不适用"、物理网卡读不到才是"未知")。
+        OnUi(() =>
+        {
+            UseChinese();
+            (ResourceMonitorWindow window, ResourceMonitorWindowViewModel vm) = OpenLarge("Network");
+            try
+            {
+                NicRow eth0 = vm.Nics.Single(n => n.Name == "eth0");
+                NicRow eth1 = vm.Nics.Single(n => n.Name == "eth1");
+
+                Assert.DoesNotContain(row => row.Value == "—", eth0.Details, "详情里不该再出现占位符。");
+                Assert.DoesNotContain(row => row.Value == "—", eth1.Details, "详情里不该再出现占位符。");
+
+                Assert.AreEqual("以太网", Value(eth0, "Monitor_NicType"));
+                Assert.AreEqual("ixgbe", Value(eth0, "Monitor_NicDriver"));
+                Assert.AreEqual("10 Gbps · 全双工", Value(eth0, "Monitor_NicLink"));
+                Assert.AreEqual("2001:db8:1::31/64", Value(eth0, "Monitor_NicIpv6"), "IPv6 是这次新采的字段。");
+                Assert.IsNotEmpty(Value(eth0, "Monitor_NicRxTotal"), "累计收发要一次成型,不能先塞占位符。");
+
+                // eth1 走 virtio:sysfs 的 speed 是空的,写"未知"是误导 —— 它根本没有协商速率。
+                Assert.AreEqual("虚拟", Value(eth1, "Monitor_NicType"));
+                Assert.AreEqual("不适用", Value(eth1, "Monitor_NicLink"));
+                // 没有 IPv6 的网卡不出这一行,而不是留个"—"占位。
+                Assert.IsNull(eth1.Details.FirstOrDefault(r => r.Key == Strings.Get("Monitor_NicIpv6")));
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    /// <summary>取某张网卡详情里某个字段的值;没有该行时返回空串。</summary>
+    private static string Value(NicRow row, string key) =>
+        row.Details.FirstOrDefault(r => r.Key == Strings.Get(key))?.Value ?? "";
+
+    /// <summary>按卡片标题找到那张卡(标题文本的最近一层 Border.card)。</summary>
+    private static Border CardOf(ResourceMonitorWindow window, string title)
+    {
+        TextBlock label = window.GetVisualDescendants().OfType<TextBlock>()
+            .Single(t => t.Text == title && t.IsEffectivelyVisible);
+        return label.GetVisualAncestors().OfType<Border>().First(b => b.Classes.Contains("card"));
+    }
+
+    /// <summary>把窗口撑到接近最大化的尺寸再切页 —— "放大后才稀疏"的问题只有大窗口量得出来。</summary>
+    private static (ResourceMonitorWindow Window, ResourceMonitorWindowViewModel ViewModel) OpenLarge(string page)
+    {
+        (ResourceMonitorWindow window, ResourceMonitorWindowViewModel vm) = Open(WithGpu(), samples: 8, nics: 2);
+        window.Width = 1720;
+        window.Height = 1080;
+        vm.SelectPageCommand.Execute(page).Subscribe();
+        Pump(window);
+        return (window, vm);
+    }
+
+    [TestMethod]
     public void NicStrip_WheelOverTheCards_ScrollsSideways()
     {
         // 横向滚动条没有滚轮就只能拖 —— 用户反馈的两件事之一(另一件是它遮住卡片)。
@@ -929,6 +1056,7 @@ public sealed partial class ResourceMonitorUiTests
         // WiFi 那张读不到 speed(空字段)但载波已建立,必须判为已连接。
         "__NF__\neth0|b4:2e:99:0c:1a:77|9000|10000|up|1|full|0|0|0|0\neth1|b4:2e:99:0c:1a:78|1500||dormant|1|full|12|0|0|0\n" +
         "__IP__\nlo 127.0.0.1/8\neth0 10.0.2.31/24\neth1 192.168.124.192/24\n" +
+        "__I6__\neth0 2001:db8:1::31/64\n" +
         "__MI__\nMemAvailable: 8000000\nBuffers: 500000\nCached: 3000000\nSReclaimable: 200000\nShmem: 100000\nDirty: 12000\n" +
         "__IO__\nnvme0n1|200000|100000|5000\nsda|50000|25000|1200\n" +
         "__CX__\n987654321\n" +
@@ -1010,7 +1138,14 @@ public sealed partial class ResourceMonitorUiTests
                     new("sda", "ST16000NM000J", 16_000_900_661_248, true, "sata")
                 ],
                 GpuDriver = "550.90.07",
-                GpuCount = 2
+                GpuCount = 2,
+                // eth0 是真物理网卡(sysfs 有速率),eth1 走 virtio —— 它没有"链路速率"这回事,
+                // 详情里该写"不适用"而不是一个"—"。
+                Nics =
+                [
+                    new("eth0", 1, "ixgbe", false, true),
+                    new("eth1", 1, "virtio_net", false, true)
+                ]
             });
     }
 
