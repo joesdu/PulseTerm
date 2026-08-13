@@ -69,7 +69,9 @@ public sealed class XshellImportService(ISessionRepository repository) : ISessio
                 password = XshellCrypto.TryDecryptPassword(parsed.EncryptedPassword, userName, sid);
             }
 
-            int port = parsed.Port > 0 ? parsed.Port : 22;
+            FtpSettings? ftpSettings = MapFtpSettings(parsed.Protocol);
+            // 端口缺省值按协议给:FTP 是 21,不是 SSH 的 22。
+            int port = parsed.Port > 0 ? parsed.Port : ftpSettings is null ? 22 : FtpSettings.DefaultPort;
             items.Add(new ImportedSession
             {
                 Name = Path.GetFileNameWithoutExtension(file),
@@ -82,7 +84,8 @@ public sealed class XshellImportService(ISessionRepository repository) : ISessio
                 HasEncryptedPassword = hasEncrypted,
                 Password = password,
                 AlreadyExists = existingKeys.Contains(DedupKey(parsed.Host!, port, parsed.UserName ?? string.Empty)),
-                Source = file
+                Source = file,
+                FtpSettings = ftpSettings
             });
         }
 
@@ -98,13 +101,23 @@ public sealed class XshellImportService(ISessionRepository repository) : ISessio
     public async Task<SessionImportOutcome> ImportAsync(IReadOnlyList<ImportedSession> items, string groupName, CancellationToken cancellationToken = default) =>
         await SessionImportWriter.WriteAsync(_repository, items, groupName, "Xshell", cancellationToken).ConfigureAwait(false);
 
-    /// <summary>把 Xshell 协议字段映射为 VelaShell 连接类型;仅 SSH / SFTP 受支持。</summary>
+    /// <summary>把 Xshell 协议字段映射为 VelaShell 连接类型;SSH / SFTP / FTP / FTPS 受支持。</summary>
     private static (ConnectionType Type, bool Supported) MapProtocol(string? protocol) =>
         protocol?.Trim().ToUpperInvariant() switch
         {
             "SFTP" => (ConnectionType.SFTP, true),
             "SSH" or null or "" => (ConnectionType.SSH, true),
+            "FTP" or "FTPS" => (ConnectionType.FTP, true),
             _ => (ConnectionType.SSH, false)
+        };
+
+    /// <summary>Xshell 的 FTPS 走显式 TLS(默认 21 端口),明文 FTP 不加密。</summary>
+    private static FtpSettings? MapFtpSettings(string? protocol) =>
+        protocol?.Trim().ToUpperInvariant() switch
+        {
+            "FTPS" => new FtpSettings { EncryptionMode = FtpEncryptionMode.Explicit },
+            "FTP" => new FtpSettings { EncryptionMode = FtpEncryptionMode.None },
+            _ => null
         };
 
     private static string DedupKey(string host, int port, string user) => $"{host.Trim()}|{port}|{user.Trim()}";

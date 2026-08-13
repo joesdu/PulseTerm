@@ -9,7 +9,7 @@ namespace VelaShell.ViewModels;
 /// <summary>持有一个独立 SFTP 文档的全部状态与生命周期资源。</summary>
 public sealed class SftpDocumentViewModel : ReactiveObject, IAsyncDisposable
 {
-    private readonly IConnectionWorkflowService _workflow;
+    private readonly Func<Guid, CancellationToken, Task> _disconnectAsync;
     private readonly SerializedSftpService _serializedSftp;
     private readonly CancellationTokenSource _lifetime = new();
     private Task? _closeTask;
@@ -35,12 +35,40 @@ public sealed class SftpDocumentViewModel : ReactiveObject, IAsyncDisposable
         TransferOptions transferOptions,
         FileTransferViewModel? transferSink = null,
         Func<Task<string?>>? getDefaultEditorPath = null)
+        : this(profile,
+               (session ?? throw new ArgumentNullException(nameof(session))).SessionId,
+               (workflow ?? throw new ArgumentNullException(nameof(workflow))).DisconnectAsync,
+               sftpService,
+               transferOptions,
+               transferSink,
+               getDefaultEditorPath) =>
+        Session = session;
+
+    /// <summary>
+    /// 以「一个会话标识 + 一个断开回调」构造文档,不绑定具体协议。
+    /// FTP 会话走这条:它没有 <see cref="SshSession" />,也不经 <see cref="IConnectionWorkflowService" />
+    /// (那是 SSH 握手),但文件面板与传输栈完全共用 —— 它们只认 <see cref="ISftpService" /> + 会话标识。
+    /// </summary>
+    /// <param name="profile">用于建立连接的会话配置。</param>
+    /// <param name="sessionId">已建立的会话标识。</param>
+    /// <param name="disconnectAsync">关闭文档时断开该会话的回调。</param>
+    /// <param name="sftpService">底层远程文件服务,构造时会被包成本文档独占的串行化视图。</param>
+    /// <param name="transferOptions">设置 → 文件传输 的选项快照。</param>
+    /// <param name="transferSink">承载本文档所发起传输的浮动传输组件;为 null 时不上报进度。</param>
+    /// <param name="getDefaultEditorPath">解析「默认编辑器」的回调。</param>
+    public SftpDocumentViewModel(
+        SessionProfile profile,
+        Guid sessionId,
+        Func<Guid, CancellationToken, Task> disconnectAsync,
+        ISftpService sftpService,
+        TransferOptions transferOptions,
+        FileTransferViewModel? transferSink = null,
+        Func<Task<string?>>? getDefaultEditorPath = null)
     {
         Profile = profile ?? throw new ArgumentNullException(nameof(profile));
-        Session = session ?? throw new ArgumentNullException(nameof(session));
-        _workflow = workflow ?? throw new ArgumentNullException(nameof(workflow));
-        _serializedSftp = new SerializedSftpService(sftpService ?? throw new ArgumentNullException(nameof(sftpService)), session.SessionId);
-        SessionId = session.SessionId;
+        _disconnectAsync = disconnectAsync ?? throw new ArgumentNullException(nameof(disconnectAsync));
+        _serializedSftp = new SerializedSftpService(sftpService ?? throw new ArgumentNullException(nameof(sftpService)), sessionId);
+        SessionId = sessionId;
         Title = string.IsNullOrWhiteSpace(profile.Name) ? profile.Host : profile.Name;
         RemoteFiles = new FileBrowserViewModel(_serializedSftp, SessionId)
         {
@@ -65,8 +93,8 @@ public sealed class SftpDocumentViewModel : ReactiveObject, IAsyncDisposable
 
     /// <summary>用于建立连接的会话配置。</summary>
     public SessionProfile Profile { get; }
-    /// <summary>当前活跃的 SSH 会话。</summary>
-    public SshSession Session { get; }
+    /// <summary>当前活跃的 SSH 会话;FTP 文档没有 SSH 会话,为 null。</summary>
+    public SshSession? Session { get; }
     /// <summary>SSH 会话的唯一标识。</summary>
     public Guid SessionId { get; }
     /// <summary>SFTP 文档标签页的显示标题。</summary>
@@ -169,7 +197,7 @@ public sealed class SftpDocumentViewModel : ReactiveObject, IAsyncDisposable
         }
         finally
         {
-            await _workflow.DisconnectAsync(SessionId).ConfigureAwait(false);
+            await _disconnectAsync(SessionId, CancellationToken.None).ConfigureAwait(false);
         }
     }
 }

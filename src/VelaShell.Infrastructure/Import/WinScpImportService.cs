@@ -64,11 +64,20 @@ public sealed class WinScpImportService(ISessionRepository repository) : ISessio
                 continue;
             }
             (ConnectionType type, bool supported, string protocol) = MapProtocol(raw.FsProtocol);
+            FtpSettings? ftpSettings = type == ConnectionType.FTP
+                ? new FtpSettings { EncryptionMode = MapFtps(raw.Ftps) }
+                : null;
             bool hasEncrypted = !string.IsNullOrWhiteSpace(raw.Password);
             string? password = hasEncrypted && !masterPassword
                 ? WinScpCrypto.Decrypt(raw.Host, raw.Username, raw.Password)
                 : null;
-            int port = raw.Port is int p and > 0 ? p : 22;
+            // 端口缺省值按协议给:FTP 是 21(隐式 FTPS 是 990),不是 SSH 的 22。
+            int defaultPort = ftpSettings is null
+                ? 22
+                : ftpSettings.EncryptionMode == FtpEncryptionMode.Implicit
+                    ? Core.Models.FtpSettings.DefaultImplicitPort
+                    : Core.Models.FtpSettings.DefaultPort;
+            int port = raw.Port is int p and > 0 ? p : defaultPort;
 
             items.Add(new ImportedSession
             {
@@ -82,7 +91,8 @@ public sealed class WinScpImportService(ISessionRepository repository) : ISessio
                 HasEncryptedPassword = hasEncrypted,
                 Password = password,
                 AlreadyExists = existingKeys.Contains(DedupKey(raw.Host, port, raw.Username)),
-                Source = sourceLabel
+                Source = sourceLabel,
+                FtpSettings = ftpSettings
             });
         }
 
@@ -174,16 +184,31 @@ public sealed class WinScpImportService(ISessionRepository repository) : ISessio
         return result;
     }
 
-    /// <summary>把 WinSCP 的 FSProtocol 数值映射为 VelaShell 连接类型;仅 SSH 系(SCP/SFTP)受支持。</summary>
+    /// <summary>
+    /// 把 WinSCP 的 FSProtocol 数值映射为 VelaShell 连接类型:SSH 系(SCP/SFTP)与 FTP/FTPS 受支持,
+    /// WebDAV 与 S3 仍不支持。
+    /// </summary>
     private static (ConnectionType Type, bool Supported, string Protocol) MapProtocol(int? fsProtocol) =>
         fsProtocol switch
         {
             0 => (ConnectionType.SSH, true, "SCP"),
             1 or 2 or null => (ConnectionType.SSH, true, "SFTP"),
-            5 => (ConnectionType.SSH, false, "FTP"),
+            5 => (ConnectionType.FTP, true, "FTP"),
             6 => (ConnectionType.SSH, false, "WebDAV"),
             7 => (ConnectionType.SSH, false, "S3"),
             _ => (ConnectionType.SSH, false, "?")
+        };
+
+    /// <summary>
+    /// WinSCP 的 <c>Ftps</c> 取值 → 加密方式:0/缺失=明文,1=隐式,2(SSL)/3(TLS)=显式。
+    /// 缺失时用「不加密」而不是「自动」—— 用户在 WinSCP 里就是这么连的,导入不该悄悄改变行为。
+    /// </summary>
+    private static FtpEncryptionMode MapFtps(int? ftps) =>
+        ftps switch
+        {
+            1 => FtpEncryptionMode.Implicit,
+            2 or 3 => FtpEncryptionMode.Explicit,
+            _ => FtpEncryptionMode.None
         };
 
     private static string DedupKey(string host, int port, string user) => $"{host.Trim()}|{port}|{user.Trim()}";
@@ -245,7 +270,8 @@ public sealed class WinScpImportService(ISessionRepository repository) : ISessio
                         session.GetValue("UserName") as string ?? string.Empty,
                         session.GetValue("Password") as string,
                         session.GetValue("PortNumber") as int?,
-                        session.GetValue("FSProtocol") as int?));
+                        session.GetValue("FSProtocol") as int?,
+                        session.GetValue("Ftps") as int?));
                 }
             }
         }
@@ -280,7 +306,8 @@ public sealed class WinScpImportService(ISessionRepository repository) : ISessio
                         current.GetValueOrDefault("UserName", string.Empty),
                         current.GetValueOrDefault("Password"),
                         ParseInt(current.GetValueOrDefault("PortNumber")),
-                        ParseInt(current.GetValueOrDefault("FSProtocol"))));
+                        ParseInt(current.GetValueOrDefault("FSProtocol")),
+                        ParseInt(current.GetValueOrDefault("Ftps"))));
                 }
                 current.Clear();
                 sessionName = null;
@@ -334,5 +361,5 @@ public sealed class WinScpImportService(ISessionRepository repository) : ISessio
     /// <summary>去除会话名中的 BOM 与首尾空白(WinSCP.ini 偶有残留 BOM 混入名称)。</summary>
     private static string CleanName(string raw) => raw.Trim('﻿', ' ', '\t', '\r', '\n');
 
-    private sealed record WinScpRawSession(string Name, string Host, string Username, string? Password, int? Port, int? FsProtocol);
+    private sealed record WinScpRawSession(string Name, string Host, string Username, string? Password, int? Port, int? FsProtocol, int? Ftps = null);
 }

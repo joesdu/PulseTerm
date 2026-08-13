@@ -124,8 +124,12 @@ public sealed class SonnetDbRecentConnectionService(SonnetDbEngine engine) : IRe
 
     private static string AsString(object? value) => value?.ToString() ?? string.Empty;
 
+    /// <summary>
+    /// 时序库里协议存的是 Int64。白名单化(<see cref="Enum.IsDefined{TEnum}" />)而非逐值比对:
+    /// 未知值仍降级为 SSH,但新增协议无需再改这里。
+    /// </summary>
     private static ConnectionType ParseConnectionType(object? value) =>
-        value is long raw && raw == (long)ConnectionType.SFTP
-            ? ConnectionType.SFTP
+        value is long raw && Enum.IsDefined((ConnectionType)raw)
+            ? (ConnectionType)raw
             : ConnectionType.SSH;
 }

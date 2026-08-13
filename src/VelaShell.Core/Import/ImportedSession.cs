@@ -40,4 +40,10 @@ public sealed class ImportedSession
 
     /// <summary>来源标识(文件路径或注册表键),用于诊断。</summary>
     public string Source { get; init; } = string.Empty;
+
+    /// <summary>
+    /// FTP / FTPS 的协议专属设置(加密方式等);仅当 <see cref="ConnectionType" /> 为
+    /// <see cref="Models.ConnectionType.FTP" /> 时非空。
+    /// </summary>
+    public FtpSettings? FtpSettings { get; init; }
 }

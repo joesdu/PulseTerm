@@ -12,6 +12,7 @@ using ReactiveUI.Primitives.Concurrency;
 using ReactiveUI.Primitives.Signals;
 using VelaShell.Core.Data;
 using VelaShell.Core.Diagnostics;
+using VelaShell.Core.Ftp;
 using VelaShell.Core.Models;
 using VelaShell.Core.Processes;
 using VelaShell.Core.Recording;
@@ -99,6 +100,7 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
     private readonly ISessionRepository? _sessionRepository;
     private readonly ISettingsService? _settingsService;
     private readonly ISftpService? _sftpService;
+    private readonly IFtpSessionService? _ftpSessionService;
     private readonly ISshConnectionService? _sshConnectionService;
     private readonly Func<ITerminalEmulator> _terminalEmulatorFactory;
     private readonly ITunnelService? _tunnelService;
@@ -180,7 +182,8 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
         IQuickCommandRepository? quickCommandRepository = null,
         IRemoteProcessService? remoteProcessService = null,
         ITraceRouteService? traceRouteService = null,
-        ICommandRegistry? commandRegistry = null
+        ICommandRegistry? commandRegistry = null,
+        IFtpSessionService? ftpSessionService = null
     )
     {
         // 注册表可注入(DI 里与插件命令桥共享同一单例);无 UI 单测传 null 时自建。
@@ -205,6 +208,7 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
         _settingsService = settingsService;
         _sessionRepository = sessionRepository;
         _sftpService = sftpService;
+        _ftpSessionService = ftpSessionService;
         _tunnelService = tunnelService;
         _tunnelWorkflowService = tunnelWorkflowService;
         _metricsService = metricsService;
@@ -392,6 +396,12 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
     /// 取消时返回 null。
     /// </summary>
     public Func<SessionProfile, Task<SessionProfile?>>? InteractiveAuthenticator { get; set; }
+
+    /// <summary>
+    /// FTPS 服务器证书未通过校验时的信任提示;返回 true 表示用户同意信任该指纹。
+    /// 由 View 层挂上(与 <see cref="InteractiveAuthenticator" /> 同样的手法);未挂时按拒绝处理。
+    /// </summary>
+    public Func<SessionProfile, VelaFtpCertificateException, Task<bool>>? FtpCertificateTrustPrompt { get; set; }
 
     /// <summary>最近一次连接的错误消息,若上次尝试成功则为 null。</summary>
     public string? LastConnectionError
@@ -2352,6 +2362,11 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
             await OpenSftpDocumentForProfileAsync(profile, cancellationToken).ConfigureAwait(true);
             return null;
         }
+        if (profile.ConnectionType == ConnectionType.FTP)
+        {
+            await OpenFtpDocumentForProfileAsync(profile, cancellationToken).ConfigureAwait(true);
+            return null;
+        }
         if (_connectionWorkflowService is null || _sshConnectionService is null)
         {
             return null;
@@ -2546,6 +2561,127 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
             }
         }
         return null;
+    }
+
+    /// <summary>
+    /// 打开一个 FTP / FTPS 文档标签:建立 FTP 会话并复用与 SFTP 完全相同的双栏文件面板。
+    /// <para>
+    /// 与 SFTP 的两点不同:一是不走 <see cref="IConnectionWorkflowService" />(那是 SSH 握手),
+    /// 二是 FTPS 证书没过校验时会抛 <see cref="VelaFtpCertificateException" /> ——
+    /// 此时弹一次信任提示,用户同意就把指纹记进配置再重连(刻意不在证书回调里同步等 UI,那样极易死锁)。
+    /// </para>
+    /// </summary>
+    public async Task<SftpDocument?> OpenFtpDocumentForProfileAsync(
+        SessionProfile profile,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+        if (_ftpSessionService is null || _sftpService is null)
+        {
+            return null;
+        }
+
+        SessionProfile current = profile;
+        for (int attempt = 0; attempt < 3; attempt++)
+        {
+            if (attempt > 0 || RequiresFtpCredentials(current))
+            {
+                if (InteractiveAuthenticator is not { } prompt)
+                {
+                    return null;
+                }
+                SessionProfile? prompted = await prompt(current).ConfigureAwait(true);
+                if (prompted is null)
+                {
+                    return null;
+                }
+                current = prompted;
+            }
+
+            try
+            {
+                Guid sessionId = await _ftpSessionService
+                    .OpenSessionAsync(FtpConnectionInfo.FromProfile(current), cancellationToken)
+                    .ConfigureAwait(true);
+                AppSettings settings = _latestSettings ?? await LoadSettingsSnapshotAsync().ConfigureAwait(true);
+                var document = new SftpDocument(
+                    new SftpDocumentViewModel(
+                        current,
+                        sessionId,
+                        (id, token) => _ftpSessionService.CloseSessionAsync(id, token),
+                        _sftpService,
+                        settings.Transfer,
+                        FileTransfer,
+                        QueryDefaultEditorPathAsync));
+                Layout.AddDocument(document);
+                Sidebar.SessionTree?.SetSessionStatus(current.Id, SessionStatus.Connected);
+                return document;
+            }
+            catch (OperationCanceledException)
+            {
+                return null;
+            }
+            catch (VelaFtpCertificateException certificate)
+            {
+                // 用户同意信任 → 记下指纹后重来一次;拒绝(或没有提示钩子)→ 按普通连接失败上报。
+                if (FtpCertificateTrustPrompt is { } trustPrompt &&
+                    await trustPrompt(current, certificate).ConfigureAwait(true))
+                {
+                    current = WithTrustedCertificate(current, certificate.Thumbprint);
+                    await PersistFtpTrustAsync(current).ConfigureAwait(true);
+                    attempt--; // 信任后的这次重连不算认证重试
+                    continue;
+                }
+                LastConnectionError = certificate.Message;
+                StatusBar.Status = LastConnectionError;
+                return null;
+            }
+            catch (VelaFtpAuthenticationException)
+            {
+                continue;
+            }
+            catch (Exception ex)
+            {
+                LastConnectionError = DescribeConnectionError(ex, current);
+                StatusBar.Status = LastConnectionError;
+                return null;
+            }
+        }
+        return null;
+    }
+
+    /// <summary>FTP 缺少登录凭据时才需要弹登录框;匿名登录不需要用户名与口令。</summary>
+    private static bool RequiresFtpCredentials(SessionProfile profile) =>
+        profile.Ftp?.Anonymous != true &&
+        (string.IsNullOrWhiteSpace(profile.Username) || string.IsNullOrEmpty(profile.Password));
+
+    /// <summary>返回一份把服务器证书指纹记为已信任的配置副本。</summary>
+    private static SessionProfile WithTrustedCertificate(SessionProfile profile, string thumbprint)
+    {
+        FtpSettings settings = profile.Ftp?.Clone() ?? new FtpSettings();
+        settings.TrustedCertificateThumbprint = thumbprint;
+        profile.Ftp = settings;
+        return profile;
+    }
+
+    /// <summary>把新信任的证书指纹写回仓储(仅对已保存的配置;临时配置只在本次连接内有效)。</summary>
+    private async Task PersistFtpTrustAsync(SessionProfile profile)
+    {
+        if (_sessionRepository is null)
+        {
+            return;
+        }
+        try
+        {
+            if (await _sessionRepository.GetSessionAsync(profile.Id).ConfigureAwait(true) is not null)
+            {
+                await _sessionRepository.SaveSessionAsync(profile).ConfigureAwait(true);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or InvalidOperationException)
+        {
+            // 信任指纹没落盘不影响本次连接,下次会再问一遍。
+        }
     }
 
     /// <summary>
