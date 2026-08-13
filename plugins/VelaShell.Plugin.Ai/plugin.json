@@ -1,8 +1,8 @@
 {
   "id": "velashell.ai",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "displayName": "AI Assistant",
-  "description": "多提供商 AI 助手:OpenAI / Anthropic / Grok / Ollama / 自定义中转站,流式对话、Agent 模式与自定义 MCP 服务器工具。",
+  "description": "多提供商 AI 助手:OpenAI / Anthropic / Grok / Ollama / 自定义中转站,流式对话、Agent 模式与自定义 MCP 服务器工具;会话存入时序库可随时翻回,输入框 ↑↓ 调历史、@ 引用服务器文件。",
   "publisher": "velashell",
   "entry": "VelaShell.Plugin.Ai.dll",
   "apiLevel": 1,

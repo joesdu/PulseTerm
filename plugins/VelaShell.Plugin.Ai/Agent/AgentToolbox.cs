@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.Extensions.AI;
 using VelaShell.PluginSdk;
 using VelaShell.PluginSdk.RemoteExec;
+using VelaShell.PluginSdk.RemoteFs;
 using VelaShell.PluginSdk.Sessions;
 
 namespace VelaShell.Plugin.Ai.Agent;
@@ -18,6 +19,7 @@ namespace VelaShell.Plugin.Ai.Agent;
 public sealed class AgentToolbox(IPluginContext context)
 {
     private const int MaxFileBytes = 256 * 1024;
+    private const int MaxDirectoryEntries = 200;
 
     /// <summary>当前选中的目标会话 id(由聊天面板提供;null = 未选)。</summary>
     public Func<string?>? SessionIdProvider { get; set; }
@@ -39,6 +41,10 @@ public sealed class AgentToolbox(IPluginContext context)
             "Run a one-shot, non-interactive shell command on the selected SSH session over a separate exec channel (it does NOT type into the user's terminal). Requires user approval. Prefer read-only commands."),
         AIFunctionFactory.Create(ReadRemoteFileAsync, "read_remote_file",
             "Read a small text file from the selected SSH session via SFTP (up to 256 KB). Returns the file content as text."),
+        AIFunctionFactory.Create(ListRemoteDirectoryAsync, "list_remote_directory",
+            "List a directory on the selected SSH session via SFTP (name, type, size, modified time). Use it to find files before reading or editing them."),
+        AIFunctionFactory.Create(WriteRemoteFileAsync, "write_remote_file",
+            "Overwrite (or create) a text file on the selected SSH session via SFTP. Requires user approval. Always read the file first and send back its full new content — this replaces the file, it does not patch it."),
         AIFunctionFactory.Create(WriteTerminalAsync, "write_terminal",
             "Type text into the user's visible terminal of the selected SSH session, as if the user typed it. A trailing newline executes the command. The host will additionally ask the user for permission. Use only when the user explicitly wants something typed into their terminal.")
     ];
@@ -133,6 +139,79 @@ public sealed class AgentToolbox(IPluginContext context)
         catch (Exception ex)
         {
             return $"Failed to read file: {ex.Message}";
+        }
+    }
+
+    private async Task<string> ListRemoteDirectoryAsync(
+        [Description("Absolute path of the remote directory to list.")] string path,
+        CancellationToken cancellationToken = default)
+    {
+        if (ResolveSessionId() is not { } sessionId)
+        {
+            return NoSessionMessage;
+        }
+        try
+        {
+            IReadOnlyList<RemoteFileEntry> entries = await context.RemoteFs
+                .ListDirectoryAsync(sessionId, path, cancellationToken).ConfigureAwait(false);
+            if (entries.Count == 0)
+            {
+                return "(directory is empty)";
+            }
+            var sb = new StringBuilder();
+            foreach (RemoteFileEntry entry in entries.Take(MaxDirectoryEntries))
+            {
+                sb.AppendLine(JsonSerializer.Serialize(new
+                {
+                    name = entry.Name,
+                    path = entry.FullPath,
+                    type = entry.IsDirectory ? "dir" : "file",
+                    size = entry.Size,
+                    modified = entry.LastModified.ToString("u"),
+                    permissions = entry.Permissions
+                }));
+            }
+            if (entries.Count > MaxDirectoryEntries)
+            {
+                sb.AppendLine($"…({entries.Count - MaxDirectoryEntries} more entries omitted; narrow the path or use run_command with ls/find)");
+            }
+            return sb.ToString();
+        }
+        catch (Exception ex)
+        {
+            return $"Failed to list directory: {ex.Message}";
+        }
+    }
+
+    private async Task<string> WriteRemoteFileAsync(
+        [Description("Absolute path of the remote file to overwrite (parent directory must exist).")] string path,
+        [Description("The complete new content of the file (UTF-8). This replaces the whole file.")] string content,
+        CancellationToken cancellationToken = default)
+    {
+        if (ResolveSessionId() is not { } sessionId)
+        {
+            return NoSessionMessage;
+        }
+        content ??= "";
+        if (Encoding.UTF8.GetByteCount(content) > MaxFileBytes)
+        {
+            return $"Refusing to write more than {MaxFileBytes / 1024} KB in one call; split the change or use run_command.";
+        }
+        // 审批摘要带上前几行内容:用户要看清到底写了什么,而不只是路径。
+        string preview = content.Length <= 400 ? content : content[..400] + "…";
+        if (!await ApproveAsync($"write_remote_file: {path}\n{preview}", cancellationToken).ConfigureAwait(false))
+        {
+            return "The user DENIED writing this file. Do not retry; ask the user how to proceed.";
+        }
+        try
+        {
+            await context.RemoteFs.WriteAllBytesAsync(sessionId, path, Encoding.UTF8.GetBytes(content), cancellationToken)
+                         .ConfigureAwait(false);
+            return $"Wrote {Encoding.UTF8.GetByteCount(content)} bytes to {path}.";
+        }
+        catch (Exception ex)
+        {
+            return $"Failed to write file: {ex.Message}";
         }
     }
 

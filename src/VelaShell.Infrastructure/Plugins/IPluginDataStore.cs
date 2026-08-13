@@ -1,5 +1,6 @@
 using VelaShell.PluginSdk.Secrets;
 using VelaShell.PluginSdk.Storage;
+using VelaShell.PluginSdk.TimeSeries;
 
 namespace VelaShell.Infrastructure.Plugins;
 
@@ -16,9 +17,12 @@ public interface IPluginDataStore
     /// <summary>创建绑定到指定插件的机密存储能力(值加密落库;无保护器时报不可用,绝不明文兜底)。</summary>
     ISecretsApi CreateSecrets(string pluginId);
 
+    /// <summary>创建绑定到指定插件的时序能力(measurement 名带插件命名空间前缀)。</summary>
+    ITimeSeriesApi CreateTimeSeries(string pluginId);
+
     /// <summary>列出当前存有数据的全部插件 id(卸载清理的扫描依据)。</summary>
     Task<IReadOnlyList<string>> ListPluginIdsAsync(CancellationToken cancellationToken = default);
 
-    /// <summary>整体删除某插件的全部数据(KV + 机密)。</summary>
+    /// <summary>整体删除某插件的全部数据(KV + 机密 + 时序 measurement)。</summary>
     Task PurgeAsync(string pluginId, CancellationToken cancellationToken = default);
 }

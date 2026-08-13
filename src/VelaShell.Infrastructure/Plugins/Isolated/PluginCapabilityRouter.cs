@@ -20,6 +20,7 @@ internal sealed class PluginCapabilityRouter : IDisposable
     private readonly TaskCompletionSource _handshake = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly ConcurrentDictionary<string, IDisposable> _commandRegistrations = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, Stream> _openStreams = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, PluginSdk.TimeSeries.ITimeSeries> _openSeries = new(StringComparer.Ordinal);
     private readonly string _hostVersion;
     private volatile bool _handshakeDone;
     private bool _disposed;
@@ -258,6 +259,50 @@ internal sealed class PluginCapabilityRouter : IDisposable
                 return await _context.Storage.RemoveAsync(Get<StorageKeyRef>(payload).Key, cancellationToken).ConfigureAwait(false);
             case PluginRpc.StorageKeys:
                 return await _context.Storage.GetKeysAsync(cancellationToken).ConfigureAwait(false);
+            case PluginRpc.TimeSeriesOpen:
+                {
+                    TimeSeriesOpenRequest request = Get<TimeSeriesOpenRequest>(payload);
+                    PluginSdk.TimeSeries.ITimeSeries series = await _context.TimeSeries
+                        .OpenAsync(request.Definition, cancellationToken).ConfigureAwait(false);
+                    _openSeries[series.Name] = series;
+                    return new TimeSeriesNameRef(series.Name);
+                }
+            case PluginRpc.TimeSeriesList:
+                return await _context.TimeSeries.ListAsync(cancellationToken).ConfigureAwait(false);
+            case PluginRpc.TimeSeriesDrop:
+                {
+                    string name = Get<TimeSeriesNameRef>(payload).Name;
+                    _openSeries.TryRemove(name, out _);
+                    return await _context.TimeSeries.DropAsync(name, cancellationToken).ConfigureAwait(false);
+                }
+            case PluginRpc.TimeSeriesWrite:
+                {
+                    TimeSeriesWriteRequest request = Get<TimeSeriesWriteRequest>(payload);
+                    await Series(request.Name).WriteManyAsync(request.Points, cancellationToken).ConfigureAwait(false);
+                    return null;
+                }
+            case PluginRpc.TimeSeriesQuery:
+                {
+                    TimeSeriesQueryRequest request = Get<TimeSeriesQueryRequest>(payload);
+                    IReadOnlyList<PluginSdk.TimeSeries.TimeSeriesPoint> points = await Series(request.Name)
+                        .QueryAsync(request.Query, cancellationToken).ConfigureAwait(false);
+                    return points.ToArray();
+                }
+            case PluginRpc.TimeSeriesCount:
+                {
+                    TimeSeriesCountRequest request = Get<TimeSeriesCountRequest>(payload);
+                    return await Series(request.Name).CountAsync(request.Field, request.Query, cancellationToken).ConfigureAwait(false);
+                }
+            case PluginRpc.TimeSeriesDistinct:
+                {
+                    TimeSeriesDistinctRequest request = Get<TimeSeriesDistinctRequest>(payload);
+                    return await Series(request.Name).DistinctTagValuesAsync(request.Tag, cancellationToken).ConfigureAwait(false);
+                }
+            case PluginRpc.TimeSeriesDelete:
+                {
+                    TimeSeriesDeleteRequest request = Get<TimeSeriesDeleteRequest>(payload);
+                    return await Series(request.Name).DeleteAsync(request.Tags, cancellationToken).ConfigureAwait(false);
+                }
             case PluginRpc.SecretsGet:
                 return await _context.Secrets.GetAsync(Get<SecretRef>(payload).Name, cancellationToken).ConfigureAwait(false);
             case PluginRpc.SecretsSet:
@@ -378,6 +423,12 @@ internal sealed class PluginCapabilityRouter : IDisposable
         return new(VelaPluginApi.Level, _hostVersion, _context.Host.Locale, _context.Host.Theme,
             SupportsEmbedding: _embedHost is { IsSupported: true });
     }
+
+    /// <summary>取已打开的 measurement 句柄;插件必须先 <see cref="PluginRpc.TimeSeriesOpen" />。</summary>
+    private PluginSdk.TimeSeries.ITimeSeries Series(string name)
+        => _openSeries.TryGetValue(name, out PluginSdk.TimeSeries.ITimeSeries? series)
+            ? series
+            : throw new InvalidOperationException($"Time series '{name}' is not open (call OpenAsync first).");
 
     private Progress<RemoteTransferProgress>? ProgressFor(string? progressToken)
         => progressToken is null

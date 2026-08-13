@@ -867,6 +867,8 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
             // 无 DB 的宿主(headless 测试)退回数据目录文件。
             Storage = options.DataStore?.CreateStorage(manifest.Id)
                       ?? new JsonFilePluginStorage(dataDirectory),
+            // 时序只有 SonnetDB 后端能提供(文件退化实现没有意义):无 DB 的宿主一律报不可用。
+            TimeSeries = options.DataStore?.CreateTimeSeries(manifest.Id) ?? new UnavailableTimeSeries(),
             Sessions = options.Connections is { } connections
                 ? new SessionsCapability(connections)
                 : new EmptySessionsApi(),
@@ -1046,5 +1048,19 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
     {
         public Task<ExecResult> RunAsync(string sessionId, string command, ExecOptions? options = null, CancellationToken cancellationToken = default)
             => Task.FromException<ExecResult>(new InvalidOperationException("Remote exec capability is unavailable in this host."));
+    }
+
+    /// <summary>无数据库的宿主上的时序能力:明确报不可用,绝不静默丢数据。</summary>
+    private sealed class UnavailableTimeSeries : PluginSdk.TimeSeries.ITimeSeriesApi
+    {
+        private static InvalidOperationException Unavailable() => new("Time series capability is unavailable in this host.");
+
+        public Task<PluginSdk.TimeSeries.ITimeSeries> OpenAsync(PluginSdk.TimeSeries.TimeSeriesDefinition definition, CancellationToken cancellationToken = default)
+            => Task.FromException<PluginSdk.TimeSeries.ITimeSeries>(Unavailable());
+
+        public Task<IReadOnlyList<string>> ListAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<string>>([]);
+
+        public Task<bool> DropAsync(string name, CancellationToken cancellationToken = default) => Task.FromResult(false);
     }
 }
