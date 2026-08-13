@@ -8,29 +8,14 @@
         x:Class="VelaShell.Views.SessionImportView"
         x:DataType="vm:SessionImportViewModel"
         Title="{Binding Title}"
-        Width="560" Height="600"
+        Width="560" MaxHeight="660"
+        SizeToContent="Height"
         CanResize="False"
         WindowDecorations="None"
         TransparencyLevelHint="Transparent"
         Background="Transparent"
         WindowStartupLocation="CenterOwner">
   <Window.Styles>
-    <Style Selector="TextBlock.field-label">
-      <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
-      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
-      <Setter Property="FontWeight" Value="Medium" />
-      <Setter Property="Margin" Value="0,0,0,5" />
-    </Style>
-    <Style Selector="TextBox">
-      <Setter Property="Background" Value="{DynamicResource VelaBgInput}" />
-      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
-      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
-      <Setter Property="CornerRadius" Value="4" />
-      <Setter Property="MinHeight" Value="32" />
-      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
-      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
-      <Setter Property="VerticalContentAlignment" Value="Center" />
-    </Style>
     <Style Selector="Button.dlg-outline">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
@@ -61,6 +46,9 @@
       <Setter Property="Cursor" Value="Hand" />
       <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
     </Style>
+    <Style Selector="Button.link-accent">
+      <Setter Property="Foreground" Value="{DynamicResource VelaAccent}" />
+    </Style>
   </Window.Styles>
 
   <Border CornerRadius="8"
@@ -69,7 +57,7 @@
           BorderThickness="1"
           BoxShadow="0 8 32 0 #80000000"
           Margin="12">
-    <Grid RowDefinitions="48,Auto,Auto,*,52">
+    <Grid RowDefinitions="48,Auto,Auto,Auto,*,52">
 
       <!-- Header -->
       <Border Grid.Row="0" Height="48" Padding="20,0"
@@ -96,101 +84,157 @@
         </Grid>
       </Border>
 
-      <!-- 来源选择 -->
-      <StackPanel Grid.Row="1" Margin="20,16,20,8">
-        <TextBlock Classes="field-label" Text="{Binding SourceLabel}" />
-        <Grid ColumnDefinitions="*,8,Auto,8,Auto">
-          <TextBox Grid.Column="0" Text="{Binding SourceText}" />
-          <Button Grid.Column="2" Classes="dlg-outline"
-                  Content="{loc:Localize XImport_Browse}"
-                  IsVisible="{Binding CanBrowse}" Click="Browse_Click" />
-          <Button Grid.Column="4" Classes="dlg-outline"
-                  Content="{loc:Localize XImport_Rescan}"
-                  Command="{Binding ScanCommand}" />
-        </Grid>
-      </StackPanel>
+      <!-- 结果摘要:打开即自动扫描,这里直接告诉用户「点导入会发生什么」 -->
+      <Border Grid.Row="1" Margin="20,16,20,10" Padding="14,12" CornerRadius="6"
+              Background="{DynamicResource VelaBgInput}"
+              BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="1">
+        <StackPanel Spacing="4">
+          <TextBlock Text="{Binding Headline}"
+                     Foreground="{DynamicResource VelaTextPrimary}"
+                     FontSize="{DynamicResource VelaFontSize13}" FontWeight="SemiBold"
+                     TextWrapping="Wrap" />
+          <TextBlock Text="{Binding Detail}"
+                     Foreground="{DynamicResource VelaTextSecondary}"
+                     FontSize="{DynamicResource VelaFontSize11}" TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
 
       <!-- 主密码警告 -->
-      <Border Grid.Row="2" Margin="20,0,20,8" Padding="12,8" CornerRadius="4"
+      <Border Grid.Row="2" Margin="20,0,20,10" Padding="12,8" CornerRadius="4"
               Background="{DynamicResource VelaBgInput}"
               BorderBrush="#66FFB020" BorderThickness="1"
-              IsVisible="{Binding MasterPasswordEnabled}">
-        <TextBlock Text="{loc:Localize XImport_MasterPwWarn}"
+              IsVisible="{Binding HasMasterPasswordWarning}">
+        <TextBlock Text="{Binding MasterPasswordWarning}"
                    Foreground="{DynamicResource VelaTextSecondary}"
                    FontSize="{DynamicResource VelaFontSize11}" TextWrapping="Wrap" />
       </Border>
 
-      <!-- 会话列表 -->
-      <Border Grid.Row="3" Margin="20,0,20,0" CornerRadius="4"
-              Background="{DynamicResource VelaBgInput}"
-              BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="1">
-        <Grid>
-          <ScrollViewer>
-            <ItemsControl ItemsSource="{Binding Items}" Margin="2">
-              <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="vm:SessionImportItemViewModel">
-                  <Border Padding="10,7" Margin="1" CornerRadius="3">
-                    <Grid ColumnDefinitions="Auto,10,*,Auto">
-                      <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}"
-                                IsEnabled="{Binding CanSelect}"
-                                MinHeight="0" Padding="0" VerticalAlignment="Center" />
-                      <StackPanel Grid.Column="2" Spacing="2" VerticalAlignment="Center">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                          <TextBlock Text="{Binding Name}"
-                                     Foreground="{DynamicResource VelaTextPrimary}"
-                                     FontSize="{DynamicResource VelaFontSize12}" FontWeight="Medium" />
-                          <Border Background="{DynamicResource VelaBgHover}"
-                                  CornerRadius="3" Padding="5,1" VerticalAlignment="Center">
-                            <TextBlock Text="{Binding Protocol}"
-                                       Foreground="{DynamicResource VelaTextTertiary}"
-                                       FontSize="{DynamicResource VelaFontSize9}" FontFamily="{DynamicResource VelaUiMonoFont}" />
-                          </Border>
-                          <TextBlock Text="{Binding ExistsHint}"
-                                     IsVisible="{Binding ExistsHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                     Foreground="{DynamicResource VelaTextMuted}"
-                                     FontSize="{DynamicResource VelaFontSize10}" VerticalAlignment="Center" />
-                        </StackPanel>
-                        <TextBlock Text="{Binding Endpoint}"
-                                   Foreground="{DynamicResource VelaTextTertiary}"
-                                   FontSize="{DynamicResource VelaFontSize10}"
-                                   FontFamily="{DynamicResource VelaUiMonoFont}" />
+      <!-- 自定义选择模式的工具条 -->
+      <Grid Grid.Row="3" Margin="20,0,20,8" ColumnDefinitions="*,Auto,Auto"
+            IsVisible="{Binding IsAdvanced}">
+        <CheckBox Grid.Column="0" IsChecked="{Binding SkipExisting}"
+                  MinHeight="0" Padding="6,0,0,0" VerticalAlignment="Center">
+          <TextBlock Text="{loc:Localize XImport_SkipExisting}"
+                     Foreground="{DynamicResource VelaTextSecondary}"
+                     FontSize="{DynamicResource VelaFontSize11}" VerticalAlignment="Center" />
+        </CheckBox>
+        <Button Grid.Column="1" Classes="link"
+                Content="{loc:Localize XImport_SelectAll}"
+                Command="{Binding SelectAllCommand}" VerticalAlignment="Center" />
+        <Button Grid.Column="2" Classes="link"
+                Content="{loc:Localize XImport_SelectNone}"
+                Command="{Binding SelectNoneCommand}" VerticalAlignment="Center" />
+      </Grid>
+
+      <!-- 来源卡片:自动模式只显示一行状态,自定义模式展开逐条会话 -->
+      <ScrollViewer Grid.Row="4" Margin="20,0,20,0">
+        <ItemsControl ItemsSource="{Binding Sources}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:SessionImportSourceViewModel">
+              <Border Margin="0,0,0,8" Padding="12,10" CornerRadius="5"
+                      Background="{DynamicResource VelaBgInput}"
+                      BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="1">
+                <StackPanel Spacing="6">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Grid.Column="0" Spacing="2">
+                      <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="{Binding SourceKey}"
+                                   Foreground="{DynamicResource VelaTextPrimary}"
+                                   FontSize="{DynamicResource VelaFontSize12}" FontWeight="SemiBold" />
+                        <Border Background="{DynamicResource VelaBgHover}"
+                                CornerRadius="3" Padding="5,1" VerticalAlignment="Center"
+                                IsVisible="{Binding HasItems}">
+                          <TextBlock Text="{Binding Items.Count}"
+                                     Foreground="{DynamicResource VelaTextTertiary}"
+                                     FontSize="{DynamicResource VelaFontSize9}"
+                                     FontFamily="{DynamicResource VelaUiMonoFont}" />
+                        </Border>
                       </StackPanel>
-                      <TextBlock Grid.Column="3" Text="{Binding PasswordStatus}"
-                                 Foreground="{DynamicResource VelaTextMuted}"
-                                 FontSize="{DynamicResource VelaFontSize10}" VerticalAlignment="Center" />
-                    </Grid>
-                  </Border>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
-          </ScrollViewer>
-          <TextBlock Text="{Binding StatusMessage}"
-                     IsVisible="{Binding HasNoItems}"
-                     Foreground="{DynamicResource VelaTextMuted}"
-                     FontSize="{DynamicResource VelaFontSize11}" TextWrapping="Wrap" TextAlignment="Center"
-                     HorizontalAlignment="Center" VerticalAlignment="Center"
-                     Margin="24" />
-        </Grid>
-      </Border>
+                      <TextBlock Text="{Binding StatusLine}"
+                                 Foreground="{DynamicResource VelaTextTertiary}"
+                                 FontSize="{DynamicResource VelaFontSize10}" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2"
+                                VerticalAlignment="Center"
+                                IsVisible="{Binding ShowSourceActions}">
+                      <Button Classes="link" Content="{loc:Localize XImport_Browse}"
+                              IsVisible="{Binding CanBrowse}"
+                              ToolTip.Tip="{Binding SourceLabel}"
+                              Click="Browse_Click" />
+                      <Button Classes="link" Content="{loc:Localize XImport_Rescan}"
+                              Command="{Binding ScanCommand}" />
+                    </StackPanel>
+                  </Grid>
+
+                  <TextBlock Text="{Binding SourceText}"
+                             IsVisible="{Binding IsExpanded}"
+                             Foreground="{DynamicResource VelaTextMuted}"
+                             FontSize="{DynamicResource VelaFontSize10}"
+                             FontFamily="{DynamicResource VelaUiMonoFont}"
+                             TextTrimming="CharacterEllipsis" />
+
+                  <ItemsControl ItemsSource="{Binding Items}"
+                                IsVisible="{Binding ShowItems}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:SessionImportItemViewModel">
+                        <Border Padding="6,6" Margin="0,1" CornerRadius="3"
+                                Background="{DynamicResource VelaBgSurface}">
+                          <Grid ColumnDefinitions="Auto,10,*,Auto">
+                            <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}"
+                                      IsEnabled="{Binding CanSelect}"
+                                      MinHeight="0" Padding="0" VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="2" Spacing="2" VerticalAlignment="Center">
+                              <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="{Binding Name}"
+                                           Foreground="{DynamicResource VelaTextPrimary}"
+                                           FontSize="{DynamicResource VelaFontSize12}" FontWeight="Medium" />
+                                <Border Background="{DynamicResource VelaBgHover}"
+                                        CornerRadius="3" Padding="5,1" VerticalAlignment="Center">
+                                  <TextBlock Text="{Binding Protocol}"
+                                             Foreground="{DynamicResource VelaTextTertiary}"
+                                             FontSize="{DynamicResource VelaFontSize9}"
+                                             FontFamily="{DynamicResource VelaUiMonoFont}" />
+                                </Border>
+                                <TextBlock Text="{Binding ExistsHint}"
+                                           IsVisible="{Binding ExistsHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                           Foreground="{DynamicResource VelaTextMuted}"
+                                           FontSize="{DynamicResource VelaFontSize10}" VerticalAlignment="Center" />
+                              </StackPanel>
+                              <TextBlock Text="{Binding Endpoint}"
+                                         Foreground="{DynamicResource VelaTextTertiary}"
+                                         FontSize="{DynamicResource VelaFontSize10}"
+                                         FontFamily="{DynamicResource VelaUiMonoFont}" />
+                            </StackPanel>
+                            <TextBlock Grid.Column="3" Text="{Binding PasswordStatus}"
+                                       Foreground="{DynamicResource VelaTextMuted}"
+                                       FontSize="{DynamicResource VelaFontSize10}" VerticalAlignment="Center" />
+                          </Grid>
+                        </Border>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
 
       <!-- Footer -->
-      <Border Grid.Row="4" Height="52" Padding="20,0"
+      <Border Grid.Row="5" Height="52" Padding="20,0"
               BorderThickness="0,1,0,0"
               BorderBrush="{DynamicResource VelaBorderPrimary}">
-        <Grid ColumnDefinitions="Auto,Auto,*,Auto">
-          <Button Grid.Column="0" Classes="link"
-                  Content="{loc:Localize XImport_SelectAll}"
-                  Command="{Binding SelectAllCommand}" VerticalAlignment="Center" />
-          <Button Grid.Column="1" Classes="link"
-                  Content="{loc:Localize XImport_SelectNone}"
-                  Command="{Binding SelectNoneCommand}" VerticalAlignment="Center" />
-          <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8"
+        <Grid ColumnDefinitions="Auto,*,Auto">
+          <Button Grid.Column="0" Classes="link link-accent"
+                  Content="{Binding ModeToggleText}"
+                  Command="{Binding ToggleAdvancedCommand}"
+                  VerticalAlignment="Center" />
+          <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8"
                       VerticalAlignment="Center">
-            <TextBlock Text="{Binding SelectionSummary}"
-                       Foreground="{DynamicResource VelaTextTertiary}"
-                       FontSize="{DynamicResource VelaFontSize11}" VerticalAlignment="Center" Margin="0,0,4,0" />
+            <Button Classes="link" Content="{loc:Localize XImport_Rescan}"
+                    Command="{Binding RescanAllCommand}" />
             <Button Classes="dlg-outline" Content="{loc:Localize Cancel}" Click="Cancel_Click" />
-            <Button Classes="dlg-primary" Content="{loc:Localize XImport_ImportButton}"
+            <Button Classes="dlg-primary" Content="{Binding ImportButtonText}"
                     Command="{Binding ImportCommand}" />
           </StackPanel>
         </Grid>

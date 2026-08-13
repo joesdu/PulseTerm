@@ -3,6 +3,7 @@ using Tmds.Ssh;
 using VelaShell.Core.Data;
 using VelaShell.Core.Diagnostics;
 using VelaShell.Core.Ftp;
+using VelaShell.Core.Import;
 using VelaShell.Core.Models;
 using VelaShell.Core.Processes;
 using VelaShell.Core.Recording;
@@ -54,10 +55,14 @@ public static class InfrastructureServiceCollectionExtensions
                 [paths.RootDirectory, paths.LegacyDotDirectory]);
         });
         // 会话一键迁移:各来源(Xshell / WinSCP)解析 + 还原密码 + 写入会话仓储。
+        // 同时以 ISessionImportService 集合注册 —— 导入对话框打开即遍历全部来源自动扫描,
+        // 用户无需先选「从哪个工具导入」;新增来源只要在这里追加一行。
         services.AddSingleton<XshellImportService>(sp =>
             new(sp.GetRequiredService<ISessionRepository>()));
         services.AddSingleton<WinScpImportService>(sp =>
             new(sp.GetRequiredService<ISessionRepository>()));
+        services.AddSingleton<ISessionImportService>(sp => sp.GetRequiredService<XshellImportService>());
+        services.AddSingleton<ISessionImportService>(sp => sp.GetRequiredService<WinScpImportService>());
         services.AddSingleton<IHostKeyService>(sp =>
         {
             VelaShellStoragePaths paths = sp.GetRequiredService<VelaShellStoragePaths>();

@@ -3,6 +3,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="using:VelaShell.ViewModels"
+        xmlns:behaviors="using:VelaShell.Behaviors"
         xmlns:conv="using:VelaShell.Converters"
         xmlns:pc="using:VelaShell.Controls.Controls"
         xmlns:loc="using:VelaShell.Localization"
@@ -947,8 +948,17 @@
 
               <!-- ══ GPU ══ -->
               <Grid Margin="16" IsVisible="{Binding IsGpuPage}" RowDefinitions="Auto,12,296,12,*">
-                <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-                  <ItemsControl ItemsSource="{Binding Gpus}">
+                <!-- 横向卡片条。两处必须成对出现,缺一个就是一个已修过的老毛病:
+                     · HorizontalWheelScroll.Enabled —— 没有它,滚轮在这条上完全不动(Avalonia 只把
+                       滚轮的横向分量算进横向偏移,普通鼠标压根不产生横向分量),只能去拖那条滚动条;
+                     · ItemsControl 底部 16px 留白 —— 悬浮式横向滚动条不占布局高度,直接压在卡片
+                       最后 16px 上(实测 bar=(0,116,870,16) 对 132 高的卡片),把底排读数遮掉半行。
+                     留白给在内容的 Margin 上而不是 ScrollViewer.Padding:后者会让子项按"视口宽减留白"
+                     排布却按视口宽报告尺寸,末尾那张卡会被裁掉一条(与磁盘列表同一处结论)。 -->
+                <ScrollViewer x:Name="GpuStrip" Grid.Row="0"
+                              behaviors:HorizontalWheelScroll.Enabled="True"
+                              HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                  <ItemsControl ItemsSource="{Binding Gpus}" Margin="0,0,0,16">
                     <ItemsControl.ItemsPanel>
                       <ItemsPanelTemplate>
                         <StackPanel Orientation="Horizontal" Spacing="12" />
@@ -1457,8 +1467,11 @@
 
               <!-- ══ 网络 ══ -->
               <Grid Margin="16" IsVisible="{Binding IsNetworkPage}" RowDefinitions="Auto,12,300,12,*">
-                <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-                  <ItemsControl ItemsSource="{Binding Nics}">
+                <!-- 横向卡片条:滚轮横滚 + 底部 16px 让给悬浮滚动条,详见 GPU 页同一处的注释。 -->
+                <ScrollViewer x:Name="NicStrip" Grid.Row="0"
+                              behaviors:HorizontalWheelScroll.Enabled="True"
+                              HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                  <ItemsControl ItemsSource="{Binding Nics}" Margin="0,0,0,16">
                     <ItemsControl.ItemsPanel>
                       <ItemsPanelTemplate>
                         <StackPanel Orientation="Horizontal" Spacing="12" />

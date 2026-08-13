@@ -46,9 +46,26 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
     /// 查询光标列,不在行首则先补一个换行再画提示符(zsh 的默认行为)。
     /// </summary>
     // 函数体末尾的 printf 发 OSC 7(file://主机/当前目录),供「文件浏览器跟随终端目录」(map-pin)读取 shell cwd。
-    // 仅 bash 会调用 prompt_nl(经 PROMPT_COMMAND),故 \e/\$PWD 等 bash-only 语法对 dash/sh 无副作用(它们从不调用)。
     //
-    // 整行最后的 printf '\r\033[2K' 是"登录时提示符出现两次"的解药:注入这一行本身要占掉 shell
+    // 整段 bash 代码必须裹在 test -n "$BASH_VERSION" && eval '...' 里:fish 在执行前先解析整行,
+    // 只要行内出现 bash 语法就整行报错并把命令原文糊在屏幕上(用户反馈:
+    // "fish: Unsupported use of '='. In fish, please use 'set PROMPT_COMMAND prompt_nl'"),
+    // 因此"守卫失败就不执行"救不了,代码必须在 fish 眼里只是一个单引号字面量 —— eval 的参数正是如此。
+    // 实测(容器内 bash 5/zsh 5/fish 4.6/dash):非 bash 一律静默,只剩末尾的清行 printf。
+    // 例外是 csh/tcsh:它对未定义变量直接报错("BASH_VERSION: Undefined variable."),
+    // 而任何变量无关的 bash 探测(command -v shopt / readlink /proc/$$/exe)要么在 tcsh 里同样报错,
+    // 要么在 macOS 上失效 —— 登录 shell 是 tcsh 的情况按噪声一行接受。
+    //
+    // 函数体内一律用双引号 + 八进制 \033,不用 $'\e[6n':单引号要在 eval 字符串里转义成 '\'',
+    // 而 DSR 直接由 printf 发出即可,不必走 read -p,顺带省掉转义与子 shell。
+    //
+    // read 必须带 -t 1:对端终端不应答 DSR 时(stdin 被重定向、抢输被别的程序吃掉等)
+    // 无超时的 read 会一直阻塞,表现为每画一次提示符就卡死。
+    //
+    // PROMPT_COMMAND 只追加不覆盖:直接赋值会踢掉用户自己的 starship/direnv/atuin 等钩子。
+    // case 去重让重连时的再次注入不会把 prompt_nl 叠加成多份。
+    //
+    // 整行最后的 printf "\r\033[2K" 是"登录时提示符出现两次"的解药:注入这一行本身要占掉 shell
     // 的一个提示符周期 —— 登录提示符先画出来(还带上 tty 回显里没被抑制针覆盖的那个前导空格),
     // 命令执行完 shell 再画一个新的,于是屏幕上并排两行 [root@host ~]#。
     // 这里在新提示符画出来之前把光标所在的整行擦掉(\r 回到行首 + CSI 2K 清整行),
@@ -56,10 +73,12 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
     // 新提示符正好落在被清空的那一行 —— 净效果就是只剩一个提示符,与 WindTerm 等工具一致。
     // 放在整行末尾(而不是 SendSilentCommand 里)是为了让用户配置的"连接后执行命令"
     // 接在它后面:先清行,用户命令的输出才从干净的行首开始。
-    // 转义用八进制 \033 而不是 \e:这一句由对端的任意 shell 执行(函数体只被 bash 调用,它不是),
-    // 而 \e 是 bash/zsh 扩展 —— dash/busybox ash 的 printf 会把它原样打成字面量 "\e[2K"。
+    // 它在守卫之外,由对端的任意 shell 执行,所以转义只能用八进制 \033 —— \e 是 bash/zsh 扩展,
+    // dash/busybox ash 的 printf 会把它原样打成字面量 "\e[2K"(fish 的 printf 认 \033,实测通过)。
     private const string PromptNewlineFix =
-        """prompt_nl() { local c; IFS='[;' read -p $'\e[6n' -d R -rs _ _ c; ((c>1)) && echo; printf '\e]7;file://%s%s\e\\' "$HOSTNAME" "$PWD"; }; PROMPT_COMMAND=prompt_nl; printf '\r\033[2K'""";
+        """
+        test -n "$BASH_VERSION" && eval 'prompt_nl() { local c; printf "\033[6n"; IFS="[;" read -t 1 -d R -rs _ _ c; ((c>1)) 2>/dev/null && echo; printf "\033]7;file://%s%s\033\\\\" "$HOSTNAME" "$PWD"; }; case ";$PROMPT_COMMAND;" in *";prompt_nl;"*) ;; *) PROMPT_COMMAND="${PROMPT_COMMAND:+$PROMPT_COMMAND;}prompt_nl";; esac'; printf "\r\033[2K"
+        """;
 
     /// <summary>RIS(ESC c)完全重置序列:重开会话前清掉旧进程的残留缓冲。</summary>
     private static readonly byte[] RisResetSequence = [0x1B, (byte)'c']; // ESC c
@@ -2712,7 +2731,9 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
         return ex switch
         {
             VelaSshAuthenticationException => $"{Strings.Format("Msg_AuthFailed", target)}\n{detail}",
-            VelaSshOperationTimeoutException => Strings.Format("Msg_ConnectTimeout", target),
+            // TimeoutException 来自 SshConnectionService:底层库内部超时(调用方并未取消)时它对外
+            // 统一抛这个类型。不列进来的话真超时会掉进兜底文案,显示一句英文原始消息。
+            VelaSshOperationTimeoutException or TimeoutException => Strings.Format("Msg_ConnectTimeout", target),
             VelaSshConnectionException => $"{Strings.Format("Msg_ConnectFailed", target)}\n{detail}",
             SocketException => Strings.Format("Msg_NetworkError", target),
             _ => Strings.Format("Msg_ConnectGenericFailed", target, detail),

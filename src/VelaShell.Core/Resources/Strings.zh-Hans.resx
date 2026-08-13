@@ -3606,29 +3606,11 @@ Windows 填 exe 完整路径或命令名(如 notepad);Linux 填命令名(如 ged
   <data name="Trace_GeoAttribution" xml:space="preserve">
     <value>IP 归属地数据由 DB-IP.com 提供 (CC BY 4.0)</value>
   </data>
-  <data name="XImport_MenuItem" xml:space="preserve">
-    <value>从 Xshell 导入…</value>
-  </data>
-  <data name="XImport_Title" xml:space="preserve">
-    <value>从 Xshell 导入会话</value>
-  </data>
-  <data name="XImport_SessionsDir" xml:space="preserve">
-    <value>Xshell 会话目录</value>
-  </data>
   <data name="XImport_Browse" xml:space="preserve">
     <value>浏览…</value>
   </data>
   <data name="XImport_Rescan" xml:space="preserve">
-    <value>扫描</value>
-  </data>
-  <data name="XImport_MasterPwWarn" xml:space="preserve">
-    <value>该工具启用了主密码，无法还原已保存的密码；会话将以不含密码的方式导入。</value>
-  </data>
-  <data name="XImport_WinScpMenuItem" xml:space="preserve">
-    <value>从 WinSCP 导入…</value>
-  </data>
-  <data name="XImport_TitleFmt" xml:space="preserve">
-    <value>从 {0} 导入会话</value>
+    <value>重新扫描</value>
   </data>
   <data name="XImport_GroupFmt" xml:space="preserve">
     <value>{0} 导入</value>
@@ -3647,24 +3629,6 @@ Windows 填 exe 完整路径或命令名(如 notepad);Linux 填命令名(如 ged
   </data>
   <data name="XImport_ImportButton" xml:space="preserve">
     <value>导入</value>
-  </data>
-  <data name="XImport_DefaultGroup" xml:space="preserve">
-    <value>Xshell 导入</value>
-  </data>
-  <data name="XImport_NotDetected" xml:space="preserve">
-    <value>未能自动检测到来源，请手动选择。</value>
-  </data>
-  <data name="XImport_NoSessions" xml:space="preserve">
-    <value>该目录下未找到会话。</value>
-  </data>
-  <data name="XImport_Found" xml:space="preserve">
-    <value>发现 {0} 个会话。</value>
-  </data>
-  <data name="XImport_DirNotFound" xml:space="preserve">
-    <value>目录不存在。</value>
-  </data>
-  <data name="XImport_SelectedCount" xml:space="preserve">
-    <value>已选 {0} 项 · {1} 个含密码</value>
   </data>
   <data name="XImport_Unsupported" xml:space="preserve">
     <value>协议不支持</value>
@@ -3756,5 +3720,55 @@ Windows 填 exe 完整路径或命令名(如 notepad);Linux 填命令名(如 ged
   </data>
   <data name="Ftp_CertTrust" xml:space="preserve">
     <value>信任并连接</value>
+  <data name="PluginManager_VpxFilter"><value>VelaShell 插件包</value></data>  <data name="XImport_MenuItemAll" xml:space="preserve">
+    <value>从其他工具导入会话…</value>
+  </data>
+  <data name="XImport_TitleAll" xml:space="preserve">
+    <value>导入会话</value>
+  </data>
+  <data name="XImport_Scanning" xml:space="preserve">
+    <value>正在扫描本机…</value>
+  </data>
+  <data name="XImport_AutoHint" xml:space="preserve">
+    <value>VelaShell 会自动查找本机的 Xshell 与 WinSCP 会话。</value>
+  </data>
+  <data name="XImport_ReadyHeadlineFmt" xml:space="preserve">
+    <value>将导入 {0} 个会话</value>
+  </data>
+  <data name="XImport_ReadySubFmt" xml:space="preserve">
+    <value>其中 {0} 个已自动还原密码 · 已跳过 {1} 个（重复或协议不支持）</value>
+  </data>
+  <data name="XImport_ReadySubNoSkipFmt" xml:space="preserve">
+    <value>其中 {0} 个已自动还原密码</value>
+  </data>
+  <data name="XImport_NothingSelected" xml:space="preserve">
+    <value>当前未勾选任何会话，请在下方挑选。</value>
+  </data>
+  <data name="XImport_NoSourceDetected" xml:space="preserve">
+    <value>本机未找到 Xshell 或 WinSCP 的会话。</value>
+  </data>
+  <data name="XImport_SourceFoundFmt" xml:space="preserve">
+    <value>{0} 个会话 · {1} 个含密码</value>
+  </data>
+  <data name="XImport_SourceNotFound" xml:space="preserve">
+    <value>未找到会话；如使用绿色版可手动指定配置文件。</value>
+  </data>
+  <data name="XImport_SourceScanning" xml:space="preserve">
+    <value>扫描中…</value>
+  </data>
+  <data name="XImport_Advanced" xml:space="preserve">
+    <value>自己挑选会话</value>
+  </data>
+  <data name="XImport_BackToAuto" xml:space="preserve">
+    <value>返回自动模式</value>
+  </data>
+  <data name="XImport_SkipExisting" xml:space="preserve">
+    <value>跳过已存在的会话</value>
+  </data>
+  <data name="XImport_ImportCountFmt" xml:space="preserve">
+    <value>导入 {0} 个</value>
+  </data>
+  <data name="XImport_MasterPwWarnFmt" xml:space="preserve">
+    <value>{0} 启用了主密码，无法还原已保存的密码；这些会话将以不含密码的方式导入。</value>
   </data>
 </root>
