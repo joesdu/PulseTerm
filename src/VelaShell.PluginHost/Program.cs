@@ -60,7 +60,11 @@ internal static class Program
         {
             // 退出信号,正常路径。
         }
-        return run.IsCompletedSuccessfully ? run.Result : 1;
+        int exitCode = run.IsCompletedSuccessfully ? run.Result : 1;
+        // 硬退而不是 return:插件是第三方代码,可能起了前台线程;Main 返回后运行时会等它们,
+        // 进程于是赖着不走。派发循环都停了,这里没有任何理由再等谁。
+        Environment.Exit(exitCode);
+        return exitCode;
     }
 
     private static async Task<int> RunAsync(string pipeName, string token, string pluginId, string pluginVersion,
@@ -92,19 +96,29 @@ internal static class Program
                     }
                 case PluginRpc.PluginDeactivate:
                     {
-                        await shutdownSource.CancelAsync().ConfigureAwait(false);
-                        if (plugin is not null)
+                        // try/finally 是硬要求:DeactivateAsync 是第三方代码,抛异常(或被上面那句
+                        // CancelAsync 撞出 OperationCanceledException)就会跳过下面的关窗与退出信号,
+                        // 本进程从此挂在 ExitCode.Task 上不走 —— 主程序退出后它就是个孤儿宿主,
+                        // 白占内存不说,还锁着 bin 里的插件 dll 让下次编译直接失败。
+                        try
                         {
-                            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-                            await plugin.DeactivateAsync(cts.Token).WaitAsync(cts.Token).ConfigureAwait(false);
+                            await shutdownSource.CancelAsync().ConfigureAwait(false);
+                            if (plugin is not null)
+                            {
+                                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+                                await plugin.DeactivateAsync(cts.Token).WaitAsync(cts.Token).ConfigureAwait(false);
+                            }
                         }
-                        context?.Dispose(); // 关掉本插件的全部窗口
-                                            // 先应答再退出:让宿主拿到干净的完成信号。
-                        _ = Task.Run(async () =>
+                        finally
                         {
-                            await Task.Delay(100).ConfigureAwait(false);
-                            ExitCode.TrySetResult(0);
-                        });
+                            context?.Dispose(); // 关掉本插件的全部窗口
+                                                // 先应答再退出:让宿主拿到干净的完成信号。
+                            _ = Task.Run(async () =>
+                            {
+                                await Task.Delay(100).ConfigureAwait(false);
+                                ExitCode.TrySetResult(0);
+                            });
+                        }
                         return null;
                     }
                 case "ping":
@@ -177,6 +191,11 @@ internal static class Program
                 // 拿不到父进程 = 已经没了。
             }
             ExitCode.TrySetResult(3);
+
+            // 父进程没了之后再给优雅收尾两秒就地兜底硬退:此时管道多半是半开的,
+            // RPC 拆解可能永远等不到对端,而"父进程都不在了"这件事已经没有任何回旋余地。
+            await Task.Delay(TimeSpan.FromSeconds(2)).ConfigureAwait(false);
+            Environment.Exit(3);
         });
     }
 }
