@@ -26,6 +26,9 @@
                 <ResourceInclude Source="avares://VelaShell.Controls/Themes/VelaShellTokens.axaml" />
                 <ResourceInclude Source="avares://VelaShell.Controls/Themes/Icons.axaml" />
                 <ResourceInclude Source="avares://VelaShell/Themes/ButtonThemes.axaml" />
+                <!-- 滚动条控件主题:覆盖 Fluent 的 {x:Type ScrollBar}(资源查找先于
+                     Application.Styles,故必须放在这里而不是 Styles 里)。 -->
+                <ResourceInclude Source="avares://VelaShell/Themes/ScrollBarThemes.axaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <!-- 界面字体/字号令牌(含整套字号阶梯)在 VelaTokens.axaml 里定义,

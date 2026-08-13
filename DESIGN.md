@@ -300,6 +300,20 @@ The existing SFTP file browser is the primary reusable component for the dual-pa
 - Hover: `VelaBgHover`
 - Disabled: 0.35 opacity
 
+### 5.8 Scrollbars (`Themes/ScrollBarThemes.axaml`, overrides Fluent's `{x:Type ScrollBar}`)
+
+Windows Explorer semantics, both orientations, application-wide (ScrollViewer, lists, AvaloniaEdit, terminal scrollback):
+
+- Lane: 16px, always reserved (`VelaScrollBarSize`) — expanding never shifts layout
+- Idle: 2px thumb hugging the outer edge (`CornerRadius:1`), no track, no arrows — Fluent's resting look, kept as-is
+- Expanded (pointer over the bar, or `AllowAutoHide=false`): `VelaScrollBarTrackFill` lane fades in, chevron buttons fade in at both ends, thumb becomes a 6px **centered** pill (`CornerRadius:3`) — *not* Fluent's full-width block
+- Colors are sampled pixel-for-pixel from a Windows 11 dark scrollbar, not invented: the lane is **one or two steps darker** than the surface it covers (reference: content `#191919`, lane `#171717`), never a lighter band; thumb and arrows are neutral grey `#959595`. Hence `VelaScrollBarTrackFill` = `#232532` dark / `#EDE7D0` light
+- Thumb fill: `VelaScrollBarThumbFill` → `…PointerOver` → `…Pressed`; arrows `VelaScrollBarArrowFill` with `…ButtonBackgroundPointerOver/Pressed` behind them
+- Chevrons use this file's own `VelaScrollBarArrow{Up,Down,Left,Right}` geometries (8×6.4 units, ~1.4px stroke at the 7px render size). Fluent's chevron paths are hairlines drawn for large sizes and turn into a grey smudge below ~12px
+- Transition: 0.1s on thumb padding/corner radius and on track/arrow opacity. Thickness is real layout (padding), never `RenderTransform` scaling — scaling would squash the round cap into an ellipse
+- The thumb control keeps the full 16px width, so the grab area does not shrink with the visible pill
+- Isolated plugin processes (`VelaShell.PluginHost`) intentionally stay on stock Fluent — that host may not reference app assemblies
+
 ---
 
 ## 6. Motion & Interaction

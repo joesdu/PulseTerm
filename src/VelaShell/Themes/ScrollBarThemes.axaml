@@ -1,0 +1,363 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    x:CompileBindings="False">
+
+  <!-- ============================== 滚动条(全应用统一) ==============================
+       替换 Fluent 自带的 ScrollBar 控件主题(键就是 {x:Type ScrollBar},放在
+       Application.Resources 里,查找顺序先于 Application.Styles 里的 FluentTheme,
+       于是全应用的横/纵滚动条 —— 含 ScrollViewer、ListBox、AvaloniaEdit、终端回滚条 ——
+       一次生效,各视图不必单独改)。
+
+       改的只有【悬停展开态】,理由:Fluent 展开时把滑块直接铺满整条 16px 滑道(方角实心块),
+       视觉上"鼠标一放上去就变成一根很粗的棒子";Windows(资源管理器)是滑道变深、两端出
+       箭头,而滑块仍是滑道中央一根 6px 的圆头细条。这里按后者做。
+
+       未激活态刻意保持 Fluent 原样:贴外边缘的 2px 细条,不显滑道、不显箭头。
+       两态之间靠 Thumb 的 Padding/CornerRadius 过渡(0.1s),不用 RenderTransform 缩放 ——
+       缩放会把圆角一并压扁成椭圆,而按边距布局能拿到真正的圆头。
+
+       几何(与 Fluent 的 ScrollBarSize=16 对齐,故不改变任何布局占位):
+         滑道 16 → 未激活滑块 2(贴外边缘)→ 展开滑块 6(居中,左右各留 5)。
+
+       尺寸与配色不是估的,是拿 Windows 11 深色滚动条的截图逐像素量的:
+         正文底 #191919 / 滑道 #171717 —— 滑道比正文【暗一两级】,只是一条凹槽的暗示,
+                                          不是一条更亮的带子(这一点最容易做反);
+         滑块 #959595,6px 宽,滑道共 17px(左 6 右 5 的留白,即居中);
+         箭头 #959595,约 6~7px 宽的实心细人字纹。
+       故本主题:滑道取比各深色面板底暗一格的 #232532,滑块/箭头取中性灰 #959595。 -->
+
+  <ResourceDictionary.ThemeDictionaries>
+    <ResourceDictionary x:Key="Dark">
+      <!-- 滑道底/滑块/箭头三支色是照着 Windows 11 深色滚动条逐像素取的(见文件头注释):
+           滑道并不比正文底更亮,而是【略暗一格】—— 参考图里正文 #191919、滑道 #171717,
+           差一两级,几乎只是一条"凹槽"的暗示;滑块与箭头则是中性灰 #959595。
+           这里的 #232532 相对侧栏 #252734、终端 #282A36 正好也是暗一格的关系。
+           不透明:滚动条是覆盖式的,半透明会让正文文字从滑道里透出来。 -->
+      <SolidColorBrush x:Key="VelaScrollBarTrackFill" Color="#232532" />
+      <SolidColorBrush x:Key="VelaScrollBarThumbFill" Color="#959595" />
+      <SolidColorBrush x:Key="VelaScrollBarThumbFillPointerOver" Color="#B9B9B9" />
+      <SolidColorBrush x:Key="VelaScrollBarThumbFillPressed" Color="#D6D6D6" />
+      <SolidColorBrush x:Key="VelaScrollBarThumbFillDisabled" Color="#00000000" />
+      <SolidColorBrush x:Key="VelaScrollBarArrowFill" Color="#959595" />
+      <SolidColorBrush x:Key="VelaScrollBarArrowFillPointerOver" Color="#E8E8E8" />
+      <SolidColorBrush x:Key="VelaScrollBarArrowFillDisabled" Color="#5A5A5A" />
+      <SolidColorBrush x:Key="VelaScrollBarButtonBackgroundPointerOver" Color="#1AFFFFFF" />
+      <SolidColorBrush x:Key="VelaScrollBarButtonBackgroundPressed" Color="#2EFFFFFF" />
+    </ResourceDictionary>
+    <ResourceDictionary x:Key="Light">
+      <!-- 浅色同理:滑道比正文底暗一格(Windows 浅色是白底 #FFFFFF 配 #F0F0F0 滑道),
+           滑块/箭头是中性灰。 -->
+      <SolidColorBrush x:Key="VelaScrollBarTrackFill" Color="#EDE7D0" />
+      <SolidColorBrush x:Key="VelaScrollBarThumbFill" Color="#8C8C8C" />
+      <SolidColorBrush x:Key="VelaScrollBarThumbFillPointerOver" Color="#6B6B6B" />
+      <SolidColorBrush x:Key="VelaScrollBarThumbFillPressed" Color="#4A4A4A" />
+      <SolidColorBrush x:Key="VelaScrollBarThumbFillDisabled" Color="#00000000" />
+      <SolidColorBrush x:Key="VelaScrollBarArrowFill" Color="#5D5D5D" />
+      <SolidColorBrush x:Key="VelaScrollBarArrowFillPointerOver" Color="#1F1F1F" />
+      <SolidColorBrush x:Key="VelaScrollBarArrowFillDisabled" Color="#AFAFAF" />
+      <SolidColorBrush x:Key="VelaScrollBarButtonBackgroundPointerOver" Color="#14000000" />
+      <SolidColorBrush x:Key="VelaScrollBarButtonBackgroundPressed" Color="#26000000" />
+    </ResourceDictionary>
+  </ResourceDictionary.ThemeDictionaries>
+
+  <!-- 滑道宽 = Fluent 的 ScrollBarSize,别改:终端回滚条等处按这个宽度扣了正文留白。 -->
+  <x:Double x:Key="VelaScrollBarSize">16</x:Double>
+  <!-- 箭头字形按参考图量的:约 6~7px 宽的小人字纹。
+       字形自带一套厚度合适的路径,没沿用 Fluent 那四条 —— 它们是给大尺寸画的发丝线
+       (20 单位宽里只有 1.2 单位粗),缩到 7px 后笔画不足半个像素,渲染出来是灰蒙蒙一团;
+       这里的路径按 8×5.6 的比例画,缩到 7px 正好落在 1px 上,和 Windows 一样是实心细纹。 -->
+  <x:Double x:Key="VelaScrollBarArrowSize">7</x:Double>
+  <StreamGeometry x:Key="VelaScrollBarArrowUp">M 0,6.4 L 4,2.4 L 8,6.4 L 8,4 L 4,0 L 0,4 Z</StreamGeometry>
+  <StreamGeometry x:Key="VelaScrollBarArrowDown">M 0,0 L 4,4 L 8,0 L 8,2.4 L 4,6.4 L 0,2.4 Z</StreamGeometry>
+  <StreamGeometry x:Key="VelaScrollBarArrowLeft">M 4,0 L 0,4 L 4,8 L 6.4,8 L 2.4,4 L 6.4,0 Z</StreamGeometry>
+  <StreamGeometry x:Key="VelaScrollBarArrowRight">M 4,0 L 8,4 L 4,8 L 1.6,8 L 5.6,4 L 1.6,0 Z</StreamGeometry>
+
+  <!-- 右键菜单沿用 Fluent 的文案资源(StringScrollBar*,随 FluentTheme 一起在册):
+       换主题不能顺手把 Windows 滚动条本来就有的"滚动到此处/上一页…"弄丢。 -->
+  <MenuFlyout x:Key="VelaVerticalScrollBarContextFlyout">
+    <MenuItem Header="{DynamicResource StringScrollBarScrollHere}" Command="{Binding $parent[ScrollBar].ScrollHere}" />
+    <Separator />
+    <MenuItem Header="{DynamicResource StringScrollBarTop}" Command="{Binding $parent[ScrollBar].ScrollToHome}" />
+    <MenuItem Header="{DynamicResource StringScrollBarBottom}" Command="{Binding $parent[ScrollBar].ScrollToEnd}" />
+    <Separator />
+    <MenuItem Header="{DynamicResource StringScrollBarPageUp}" Command="{Binding $parent[ScrollBar].PageUp}" />
+    <MenuItem Header="{DynamicResource StringScrollBarPageDown}" Command="{Binding $parent[ScrollBar].PageDown}" />
+    <Separator />
+    <MenuItem Header="{DynamicResource StringScrollBarScrollUp}" Command="{Binding $parent[ScrollBar].LineUp}" />
+    <MenuItem Header="{DynamicResource StringScrollBarScrollDown}" Command="{Binding $parent[ScrollBar].LineDown}" />
+  </MenuFlyout>
+
+  <MenuFlyout x:Key="VelaHorizontalScrollBarContextFlyout">
+    <MenuItem Header="{DynamicResource StringScrollBarScrollHere}" Command="{Binding $parent[ScrollBar].ScrollHere}" />
+    <Separator />
+    <MenuItem Header="{DynamicResource StringScrollBarLeftEdge}" Command="{Binding $parent[ScrollBar].ScrollToHome}" />
+    <MenuItem Header="{DynamicResource StringScrollBarRightEdge}" Command="{Binding $parent[ScrollBar].ScrollToEnd}" />
+    <Separator />
+    <MenuItem Header="{DynamicResource StringScrollBarPageLeft}" Command="{Binding $parent[ScrollBar].PageLeft}" />
+    <MenuItem Header="{DynamicResource StringScrollBarPageRight}" Command="{Binding $parent[ScrollBar].PageRight}" />
+    <Separator />
+    <MenuItem Header="{DynamicResource StringScrollBarScrollLeft}" Command="{Binding $parent[ScrollBar].LineLeft}" />
+    <MenuItem Header="{DynamicResource StringScrollBarScrollRight}" Command="{Binding $parent[ScrollBar].LineRight}" />
+  </MenuFlyout>
+
+  <!-- 滑块:控件本身始终占满 16px 滑道(抓取区不缩水,和 Windows 一样好抓),
+       可见的那根条子是模板里的 Border,用 Padding 当内缩边距决定它的粗细与位置。
+       粗细/圆角都由 ScrollBar 主题按展开态改写,过渡在这里挂。 -->
+  <ControlTheme x:Key="VelaScrollBarThumb" TargetType="Thumb">
+    <Setter Property="Background" Value="{DynamicResource VelaScrollBarThumbFill}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}"
+                CornerRadius="{TemplateBinding CornerRadius}"
+                Margin="{TemplateBinding Padding}" />
+      </ControlTemplate>
+    </Setter>
+    <Setter Property="Transitions">
+      <Transitions>
+        <ThicknessTransition Property="Padding" Duration="0:0:0.1" />
+        <CornerRadiusTransition Property="CornerRadius" Duration="0:0:0.1" />
+        <BrushTransition Property="Background" Duration="0:0:0.1" />
+      </Transitions>
+    </Setter>
+
+    <Style Selector="^:pointerover">
+      <Setter Property="Background" Value="{DynamicResource VelaScrollBarThumbFillPointerOver}" />
+    </Style>
+    <Style Selector="^:pressed">
+      <Setter Property="Background" Value="{DynamicResource VelaScrollBarThumbFillPressed}" />
+    </Style>
+    <Style Selector="^:disabled">
+      <Setter Property="Background" Value="{DynamicResource VelaScrollBarThumbFillDisabled}" />
+    </Style>
+  </ControlTheme>
+
+  <!-- 翻页区(滑块两侧的空白):只负责点击翻页,永远不画东西。 -->
+  <ControlTheme x:Key="VelaScrollBarPageButton" TargetType="RepeatButton">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="VerticalAlignment" Value="Stretch" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}" />
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+  <!-- 两端的箭头按钮:未激活态整体隐形(Opacity 0),展开时随滑道一起淡入。 -->
+  <ControlTheme x:Key="VelaScrollBarLineButton" TargetType="RepeatButton">
+    <Setter Property="Opacity" Value="0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="TextElement.Foreground" Value="{DynamicResource VelaScrollBarArrowFill}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}">
+          <ContentPresenter Content="{TemplateBinding Content}"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.1" />
+      </Transitions>
+    </Setter>
+
+    <Style Selector="^:pointerover">
+      <Setter Property="Background" Value="{DynamicResource VelaScrollBarButtonBackgroundPointerOver}" />
+      <Setter Property="TextElement.Foreground" Value="{DynamicResource VelaScrollBarArrowFillPointerOver}" />
+    </Style>
+    <Style Selector="^:pressed">
+      <Setter Property="Background" Value="{DynamicResource VelaScrollBarButtonBackgroundPressed}" />
+      <Setter Property="TextElement.Foreground" Value="{DynamicResource VelaScrollBarArrowFillPointerOver}" />
+    </Style>
+    <Style Selector="^:disabled">
+      <Setter Property="TextElement.Foreground" Value="{DynamicResource VelaScrollBarArrowFillDisabled}" />
+    </Style>
+  </ControlTheme>
+
+  <ControlTheme x:Key="{x:Type ScrollBar}" TargetType="ScrollBar">
+    <Setter Property="MinWidth" Value="{DynamicResource VelaScrollBarSize}" />
+    <Setter Property="MinHeight" Value="{DynamicResource VelaScrollBarSize}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+
+    <Style Selector="^:vertical">
+      <Setter Property="ContextFlyout" Value="{StaticResource VelaVerticalScrollBarContextFlyout}" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Grid x:Name="Root">
+            <Border Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}">
+              <Grid RowDefinitions="Auto,*,Auto">
+                <Rectangle x:Name="TrackRect"
+                           Fill="{DynamicResource VelaScrollBarTrackFill}"
+                           Opacity="0"
+                           Grid.RowSpan="3">
+                  <Rectangle.Transitions>
+                    <Transitions>
+                      <DoubleTransition Property="Opacity" Duration="0:0:0.1" />
+                    </Transitions>
+                  </Rectangle.Transitions>
+                </Rectangle>
+
+                <RepeatButton Name="PART_LineUpButton"
+                              Theme="{StaticResource VelaScrollBarLineButton}"
+                              Grid.Row="0"
+                              Focusable="False"
+                              MinWidth="{DynamicResource VelaScrollBarSize}"
+                              Height="{DynamicResource VelaScrollBarSize}"
+                              AutomationProperties.Name="Line up">
+                  <PathIcon Data="{StaticResource VelaScrollBarArrowUp}"
+                            Width="{DynamicResource VelaScrollBarArrowSize}"
+                            Height="{DynamicResource VelaScrollBarArrowSize}" />
+                </RepeatButton>
+
+                <Track Grid.Row="1"
+                       Minimum="{TemplateBinding Minimum}"
+                       Maximum="{TemplateBinding Maximum}"
+                       Value="{TemplateBinding Value, Mode=TwoWay}"
+                       DeferThumbDrag="{TemplateBinding ScrollViewer.IsDeferredScrollingEnabled}"
+                       ViewportSize="{TemplateBinding ViewportSize}"
+                       Orientation="{TemplateBinding Orientation}"
+                       IsDirectionReversed="True">
+                  <Track.DecreaseButton>
+                    <RepeatButton Name="PART_PageUpButton"
+                                  Classes="largeIncrease"
+                                  Theme="{StaticResource VelaScrollBarPageButton}"
+                                  Focusable="False"
+                                  AutomationProperties.Name="Page up" />
+                  </Track.DecreaseButton>
+                  <Track.IncreaseButton>
+                    <RepeatButton Name="PART_PageDownButton"
+                                  Classes="largeIncrease"
+                                  Theme="{StaticResource VelaScrollBarPageButton}"
+                                  Focusable="False"
+                                  AutomationProperties.Name="Page down" />
+                  </Track.IncreaseButton>
+                  <!-- 未激活:右边缘 2px 细条(16 − 14 内缩);展开态在下面的样式里改写。 -->
+                  <Thumb Theme="{StaticResource VelaScrollBarThumb}"
+                         Width="{DynamicResource VelaScrollBarSize}"
+                         MinHeight="{DynamicResource VelaScrollBarSize}"
+                         Padding="14,0,0,0"
+                         CornerRadius="1"
+                         AutomationProperties.Name="Position" />
+                </Track>
+
+                <RepeatButton Name="PART_LineDownButton"
+                              Theme="{StaticResource VelaScrollBarLineButton}"
+                              Grid.Row="2"
+                              Focusable="False"
+                              MinWidth="{DynamicResource VelaScrollBarSize}"
+                              Height="{DynamicResource VelaScrollBarSize}"
+                              AutomationProperties.Name="Line down">
+                  <PathIcon Data="{StaticResource VelaScrollBarArrowDown}"
+                            Width="{DynamicResource VelaScrollBarArrowSize}"
+                            Height="{DynamicResource VelaScrollBarArrowSize}" />
+                </RepeatButton>
+              </Grid>
+            </Border>
+          </Grid>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+
+    <Style Selector="^:horizontal">
+      <Setter Property="ContextFlyout" Value="{StaticResource VelaHorizontalScrollBarContextFlyout}" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Grid x:Name="Root">
+            <Border Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}">
+              <Grid ColumnDefinitions="Auto,*,Auto">
+                <Rectangle x:Name="TrackRect"
+                           Fill="{DynamicResource VelaScrollBarTrackFill}"
+                           Opacity="0"
+                           Grid.ColumnSpan="3">
+                  <Rectangle.Transitions>
+                    <Transitions>
+                      <DoubleTransition Property="Opacity" Duration="0:0:0.1" />
+                    </Transitions>
+                  </Rectangle.Transitions>
+                </Rectangle>
+
+                <RepeatButton Name="PART_LineUpButton"
+                              Theme="{StaticResource VelaScrollBarLineButton}"
+                              Grid.Column="0"
+                              Focusable="False"
+                              MinHeight="{DynamicResource VelaScrollBarSize}"
+                              Width="{DynamicResource VelaScrollBarSize}"
+                              AutomationProperties.Name="Column left">
+                  <PathIcon Data="{StaticResource VelaScrollBarArrowLeft}"
+                            Width="{DynamicResource VelaScrollBarArrowSize}"
+                            Height="{DynamicResource VelaScrollBarArrowSize}" />
+                </RepeatButton>
+
+                <Track Grid.Column="1"
+                       Minimum="{TemplateBinding Minimum}"
+                       Maximum="{TemplateBinding Maximum}"
+                       Value="{TemplateBinding Value, Mode=TwoWay}"
+                       DeferThumbDrag="{TemplateBinding ScrollViewer.IsDeferredScrollingEnabled}"
+                       ViewportSize="{TemplateBinding ViewportSize}"
+                       Orientation="{TemplateBinding Orientation}">
+                  <Track.DecreaseButton>
+                    <RepeatButton Name="PART_PageUpButton"
+                                  Classes="largeIncrease"
+                                  Theme="{StaticResource VelaScrollBarPageButton}"
+                                  Focusable="False"
+                                  AutomationProperties.Name="Page left" />
+                  </Track.DecreaseButton>
+                  <Track.IncreaseButton>
+                    <RepeatButton Name="PART_PageDownButton"
+                                  Classes="largeIncrease"
+                                  Theme="{StaticResource VelaScrollBarPageButton}"
+                                  Focusable="False"
+                                  AutomationProperties.Name="Page right" />
+                  </Track.IncreaseButton>
+                  <!-- 未激活:下边缘 2px 细条;展开态在下面的样式里改写。 -->
+                  <Thumb Theme="{StaticResource VelaScrollBarThumb}"
+                         Height="{DynamicResource VelaScrollBarSize}"
+                         MinWidth="{DynamicResource VelaScrollBarSize}"
+                         Padding="0,14,0,0"
+                         CornerRadius="1"
+                         AutomationProperties.Name="Position" />
+                </Track>
+
+                <RepeatButton Name="PART_LineDownButton"
+                              Theme="{StaticResource VelaScrollBarLineButton}"
+                              Grid.Column="2"
+                              Focusable="False"
+                              MinHeight="{DynamicResource VelaScrollBarSize}"
+                              Width="{DynamicResource VelaScrollBarSize}"
+                              AutomationProperties.Name="Column right">
+                  <PathIcon Data="{StaticResource VelaScrollBarArrowRight}"
+                            Width="{DynamicResource VelaScrollBarArrowSize}"
+                            Height="{DynamicResource VelaScrollBarArrowSize}" />
+                </RepeatButton>
+              </Grid>
+            </Border>
+          </Grid>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+
+    <!-- 展开态(鼠标移到滚动条上/正在拖动):滑道淡入、两端箭头淡入,
+         滑块从贴边 2px 细条变成滑道中央 6px 的圆头条 —— 就是 Windows 的那套。
+         这三条选择器都带激活条件(StyleTrigger 优先级),故能改写模板里内联的默认值。 -->
+    <Style Selector="^[IsExpanded=true] /template/ Rectangle#TrackRect">
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="^[IsExpanded=true] /template/ RepeatButton">
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="^:vertical[IsExpanded=true] /template/ Thumb">
+      <Setter Property="Padding" Value="5,0" />
+      <Setter Property="CornerRadius" Value="3" />
+    </Style>
+    <Style Selector="^:horizontal[IsExpanded=true] /template/ Thumb">
+      <Setter Property="Padding" Value="0,5" />
+      <Setter Property="CornerRadius" Value="3" />
+    </Style>
+  </ControlTheme>
+
+</ResourceDictionary>
