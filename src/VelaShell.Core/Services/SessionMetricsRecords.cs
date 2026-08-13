@@ -185,6 +185,27 @@ public sealed class SessionStaticInfo
 
     /// <summary>DRM 卡的静态标识(卡名、厂商、lspci 型号名),用于给 sysfs 采到的卡补名字。</summary>
     public IReadOnlyList<GpuCardInfo> GpuCards { get; init; } = [];
+
+    /// <summary>网卡的静态属性(驱动、介质类型、ethtool 兜底速率),按会话探测一次。</summary>
+    public IReadOnlyList<NicStaticInfo> Nics { get; init; } = [];
+}
+
+/// <summary>
+/// 一张网卡的静态属性。与每轮采样的 <see cref="NicInfo" /> 分开:这些值在会话生命周期内不变,
+/// 而 ethtool 兜底速率要 fork 一个进程 —— 放进每秒一次的探针里,几十张 veth 的机器会被拖垮。
+/// </summary>
+/// <param name="Name">接口名。</param>
+/// <param name="TypeCode">ARPHRD 介质类型(<c>/sys/class/net/*/type</c>:1 = 以太网,772 = 回环)。</param>
+/// <param name="Driver">内核驱动名;虚拟接口没有 <c>device/driver</c> 时为空。</param>
+/// <param name="IsWireless">是否是无线接口(有 <c>wireless</c> 目录)。</param>
+/// <param name="HasDevice">是否挂在真实设备上 —— 没有就是 lo / bridge / veth 这类纯虚拟接口。</param>
+/// <param name="SpeedMbps">ethtool 读到的链路速率(Mbps);sysfs 的 speed 可读时为 0(以那边为准)。</param>
+public sealed record NicStaticInfo(
+    string Name, int TypeCode = 0, string Driver = "", bool IsWireless = false, bool HasDevice = false,
+    long SpeedMbps = 0)
+{
+    /// <summary>是否是回环接口(ARPHRD_LOOPBACK)。</summary>
+    public bool IsLoopback => TypeCode == 772;
 }
 
 /// <summary>一张显卡的静态标识(DRM 卡、或只在 PCI 上看得见的卡)。</summary>
@@ -218,9 +239,11 @@ public sealed record BlockDevice(string Name, string Model, long SizeBytes, bool
 /// <param name="TxDropped">累计丢弃的发送包;读不到时为 null。</param>
 /// <param name="RxErrors">累计接收错误;读不到时为 null。</param>
 /// <param name="TxErrors">累计发送错误;读不到时为 null。</param>
+/// <param name="Ipv6Address">全局作用域的 IPv6 地址(含前缀长度);无地址或单栈主机上为空。</param>
 public sealed record NicInfo(
     string Name, string Mac, int Mtu, long SpeedMbps, string OperState, string IpAddress, bool? Carrier = null,
-    string Duplex = "", long? RxDropped = null, long? TxDropped = null, long? RxErrors = null, long? TxErrors = null)
+    string Duplex = "", long? RxDropped = null, long? TxDropped = null, long? RxErrors = null, long? TxErrors = null,
+    string Ipv6Address = "")
 {
     /// <summary>
     /// 链路是否连通。operstate 与 carrier 任一为真即算连通 —— 有些无线驱动在关联完成后

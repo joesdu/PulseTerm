@@ -12,7 +12,7 @@
         x:DataType="vm:ResourceMonitorWindowViewModel"
         Icon="/Assets/velashell.ico"
         Title="{loc:Localize Monitor_Title}"
-        Width="1120" Height="750"
+        Width="1280" Height="820"
         MinWidth="960" MinHeight="620"
         TransparencyLevelHint="Transparent"
         Background="Transparent"
@@ -947,7 +947,10 @@
               </Grid>
 
               <!-- ══ GPU ══ -->
-              <Grid Margin="16" IsVisible="{Binding IsGpuPage}" RowDefinitions="Auto,12,296,12,*">
+              <!-- 与网络页同构:卡片条 / 两张曲线 / GPU 详情(整行、Auto 高)/ GPU 进程(整行)。
+                   详情与进程原来是左右两列,窗口一放大两张卡各自被拉高,内容却只有那几行,
+                   中间摊出大片空白。曲线与进程表同样按 2:1 分剩余高度(理由见网络页)。 -->
+              <Grid Margin="16" IsVisible="{Binding IsGpuPage}" RowDefinitions="Auto,12,2*,12,Auto,12,*">
                 <!-- 横向卡片条。两处必须成对出现,缺一个就是一个已修过的老毛病:
                      · HorizontalWheelScroll.Enabled —— 没有它,滚轮在这条上完全不动(Avalonia 只把
                        滚轮的横向分量算进横向偏移,普通鼠标压根不产生横向分量),只能去拖那条滚动条;
@@ -1076,29 +1079,35 @@
                   </Border>
                 </Grid>
 
-                <Grid Grid.Row="4" ColumnDefinitions="320,12,*">
-                  <Border Classes="card" Grid.Column="0">
-                    <DockPanel>
-                      <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="6" Margin="0,0,0,8">
-                        <pc:LucideIcon Width="14" Height="14" Data="{StaticResource Icon.info}"
-                                       Foreground="{DynamicResource VelaShellMagenta}" VerticalAlignment="Center" />
-                        <TextBlock Text="{loc:Localize Monitor_GpuDetails}" Classes="card-title" />
-                      </StackPanel>
-                      <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                        <ItemsControl Margin="0,0,14,0" ItemsSource="{Binding SelectedGpu.Details}">
-                          <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="vm:KeyValueRow">
-                              <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,6">
-                                <TextBlock Text="{Binding Key}" Classes="key" />
-                                <TextBlock Grid.Column="1" Text="{Binding Value}" Classes="val" />
-                              </Grid>
-                            </DataTemplate>
-                          </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                      </ScrollViewer>
-                    </DockPanel>
-                  </Border>
-                  <Border Classes="card" Grid.Column="2">
+                <Border Classes="card" Grid.Row="4">
+                  <DockPanel>
+                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="6" Margin="0,0,0,8">
+                      <pc:LucideIcon Width="14" Height="14" Data="{StaticResource Icon.info}"
+                                     Foreground="{DynamicResource VelaShellMagenta}" VerticalAlignment="Center" />
+                      <TextBlock Text="{loc:Localize Monitor_GpuDetails}" Classes="card-title" />
+                      <TextBlock Text="{Binding SelectedGpu.Label}" Classes="card-sub" />
+                    </StackPanel>
+                    <!-- 与网卡详情同一种属性带:每项按自身宽度排、自动折行,不设统一列宽
+                         (型号名和"96 / 400 W"差着数倍宽度)。 -->
+                    <ItemsControl ItemsSource="{Binding SelectedGpu.Details}">
+                      <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                          <WrapPanel />
+                        </ItemsPanelTemplate>
+                      </ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:KeyValueRow">
+                          <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,28,6">
+                            <TextBlock Text="{Binding Key}" Classes="key" />
+                            <TextBlock Text="{Binding Value}" Classes="val" />
+                          </StackPanel>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </DockPanel>
+                </Border>
+
+                <Border Classes="card" Grid.Row="6">
                     <DockPanel>
                       <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="6" Margin="0,0,0,8">
                         <pc:LucideIcon Width="14" Height="14" Data="{StaticResource Icon.list-ordered}"
@@ -1127,9 +1136,8 @@
                           </ItemsControl.ItemTemplate>
                         </ItemsControl>
                       </ScrollViewer>
-                    </DockPanel>
-                  </Border>
-                </Grid>
+                  </DockPanel>
+                </Border>
               </Grid>
 
               <!-- ══ 内存 ══ -->
@@ -1466,7 +1474,11 @@
               </Grid>
 
               <!-- ══ 网络 ══ -->
-              <Grid Margin="16" IsVisible="{Binding IsNetworkPage}" RowDefinitions="Auto,12,300,12,*">
+              <!-- 四条横带自上而下:卡片条 / 吞吐曲线 / 网卡详情 / 连接占用 Top。
+                   详情那条是 Auto 高 —— 它只有一两排属性,给星号就会被窗口高度拉稀(改版前的老毛病)。
+                   曲线与连接表按 2:1 分剩余高度,不给曲线写死高度:写死 300 时,750 高的默认窗口
+                   连一行连接都放不下(截帧眼校),而最大化后曲线又不跟着长、表格底下空一大片。 -->
+              <Grid Margin="16" IsVisible="{Binding IsNetworkPage}" RowDefinitions="Auto,12,2*,12,Auto,12,*">
                 <!-- 横向卡片条:滚轮横滚 + 底部 16px 让给悬浮滚动条,详见 GPU 页同一处的注释。 -->
                 <ScrollViewer x:Name="NicStrip" Grid.Row="0"
                               behaviors:HorizontalWheelScroll.Enabled="True"
@@ -1585,48 +1597,50 @@
                   </DockPanel>
                 </Border>
 
-                <!-- 详情卡定宽:八行明细就那么宽,让星号列给"连接占用 Top"——
-                     那张表的对端地址与进程名才是真吃宽度的。 -->
-                <Grid Grid.Row="4" ColumnDefinitions="392,12,*">
-                  <Border Classes="card" Grid.Column="0">
-                    <DockPanel>
-                      <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="7" Margin="0,0,0,8">
-                        <pc:LucideIcon Width="14" Height="14" Data="{StaticResource Icon.info}"
-                                       Foreground="{DynamicResource VelaShellCyan}" VerticalAlignment="Center" />
-                        <TextBlock Text="{loc:Localize Monitor_NicDetails}" Classes="card-title" />
-                        <TextBlock Text="{Binding SelectedNic.Name}" Classes="card-sub" />
-                      </StackPanel>
-                      <!-- 左右两列各四行,行等高铺满卡片:固定行距会让八行挤在上半截,
-                           下面空一大块。 -->
-                      <ItemsControl ItemsSource="{Binding SelectedNic.Details}">
-                        <ItemsControl.ItemsPanel>
-                          <ItemsPanelTemplate>
-                            <UniformGrid Columns="2" />
-                          </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                          <DataTemplate x:DataType="vm:KeyValueRow">
-                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" Margin="0,0,16,0"
-                                  VerticalAlignment="Center">
-                              <TextBlock Text="{Binding Key}" Classes="key" />
-                              <TextBlock Grid.Column="1" Text="{Binding Value}" Classes="val"
-                                         TextAlignment="Right" TextTrimming="CharacterEllipsis" />
-                            </Grid>
-                          </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                      </ItemsControl>
-                    </DockPanel>
-                  </Border>
+                <!-- 网卡详情:整行一条属性带,高度由字段数决定(Auto)。
+                     改版前它是左边一张定宽卡、右边留给连接表,窗口一放大卡片就被拉高,
+                     八行明细在里面上下摊开,中间全是空白 —— 用户反馈的"太稀疏"就是这个。 -->
+                <Border Classes="card" Grid.Row="4">
+                  <DockPanel>
+                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="7" Margin="0,0,0,8">
+                      <pc:LucideIcon Width="14" Height="14" Data="{StaticResource Icon.info}"
+                                     Foreground="{DynamicResource VelaShellCyan}" VerticalAlignment="Center" />
+                      <TextBlock Text="{loc:Localize Monitor_NicDetails}" Classes="card-title" />
+                      <TextBlock Text="{Binding SelectedNic.Name}" Classes="card-sub" />
+                    </StackPanel>
+                    <!-- WrapPanel 不设 ItemWidth:IPv6 地址比 MTU 长四五倍,统一列宽要么把地址
+                         截成省略号、要么让 MTU 后面拖一大截空白。每项按自身宽度排,靠右侧 Margin 断开,
+                         窗口越宽一行装得越多,窄了自动折行。 -->
+                    <ItemsControl ItemsSource="{Binding SelectedNic.Details}">
+                      <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                          <WrapPanel />
+                        </ItemsPanelTemplate>
+                      </ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:KeyValueRow">
+                          <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,28,6">
+                            <TextBlock Text="{Binding Key}" Classes="key" />
+                            <TextBlock Text="{Binding Value}" Classes="val" />
+                          </StackPanel>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </DockPanel>
+                </Border>
 
-                  <!-- 连接占用 Top:ss -ti 的逐连接字节计数差分;拿不到就给一句人话,不留空白 -->
-                  <Border Classes="card" Grid.Column="2">
+                <!-- 连接占用 Top:整行一张表(对端地址与进程名本来就吃宽度),
+                     多出来的窗口高度也归它。ss -ti 的逐连接字节计数差分;拿不到给一句人话,不留空白。 -->
+                <Border Classes="card" Grid.Row="6">
                     <DockPanel>
                       <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="7" Margin="0,0,0,8">
                         <pc:LucideIcon Width="14" Height="14" Data="{StaticResource Icon.arrow-up-down}"
                                        Foreground="{DynamicResource VelaShellCyan}" VerticalAlignment="Center" />
                         <TextBlock Text="{loc:Localize Monitor_TopConnections}" Classes="card-title" />
                       </StackPanel>
-                      <Grid DockPanel.Dock="Top" ColumnDefinitions="*,90,70,70" Margin="0,0,14,4"
+                      <!-- 对端定宽、进程占星号:改成整行后再让对端吃星号,地址与进程名之间
+                           会拉开一千多像素的空档(截帧眼校)。320 够放下 IPv6 socket 地址。 -->
+                      <Grid DockPanel.Dock="Top" ColumnDefinitions="320,*,110,110" Margin="0,0,14,4"
                             IsVisible="{Binding !ConnectionsUnavailable}">
                         <TextBlock Text="{loc:Localize Monitor_ColPeer}" Classes="col" />
                         <TextBlock Grid.Column="1" Text="{loc:Localize Monitor_ColProcess}" Classes="col" />
@@ -1639,7 +1653,7 @@
                           <ItemsControl Margin="0,0,14,0" ItemsSource="{Binding TopConnections}">
                             <ItemsControl.ItemTemplate>
                               <DataTemplate x:DataType="vm:ConnectionRow">
-                                <Grid ColumnDefinitions="*,90,70,70" Height="26">
+                                <Grid ColumnDefinitions="320,*,110,110" Height="26">
                                   <TextBlock Text="{Binding Peer}" Classes="cell"
                                              Foreground="{DynamicResource VelaTextPrimary}" Margin="0,0,8,0" />
                                   <TextBlock Grid.Column="1" Text="{Binding Process}" Classes="cell" Margin="0,0,8,0" />
@@ -1657,9 +1671,8 @@
                                    HorizontalAlignment="Center" VerticalAlignment="Center"
                                    IsVisible="{Binding ConnectionsUnavailable}" />
                       </Panel>
-                    </DockPanel>
-                  </Border>
-                </Grid>
+                  </DockPanel>
+                </Border>
               </Grid>
             </Grid>
 

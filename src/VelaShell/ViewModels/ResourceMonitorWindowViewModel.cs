@@ -951,46 +951,67 @@ public sealed class ResourceMonitorWindowViewModel : ReactiveObject, IDisposable
             row.TxText = MetricFormat.Rate(rate.TxBytesPerSec);
             row.Revision++;
         }
+        // 累计收发来自另一个分段(__NI__),先索引起来 —— 详情要一次成型:
+        // 先塞占位符再回填的话,首帧那两行会明晃晃地写着"—"。
+        Dictionary<string, NetInterfaceCounter> counters = [];
+        foreach (NetInterfaceCounter counter in m.NicCounters)
+        {
+            counters[counter.Name] = counter;
+            _ = EnsureNic(counter.Name);
+        }
         foreach (NicInfo nic in m.NicInfos)
         {
             NicRow row = EnsureNic(nic.Name);
+            // 驱动名、介质类型这些不随采样变的属性走会话级静态探针(__NS__),
+            // 它还带着 ethtool 的兜底速率 —— sysfs 的 speed 在虚拟化网卡上是 -1。
+            NicStaticInfo? attributes = _static?.Nics
+                .FirstOrDefault(n => string.Equals(n.Name, nic.Name, StringComparison.Ordinal));
             row.IpAddress = nic.IpAddress;
             row.IsUp = nic.LinkUp;
             row.StateText = row.IsUp ? Strings.Get("Connected") : Strings.Get("Disconnected");
-            row.LinkText = nic.SpeedMbps > 0
-                ? nic.SpeedMbps >= 1000
-                    ? $"{nic.SpeedMbps / 1000} Gbps"
-                    : $"{nic.SpeedMbps} Mbps"
-                : NotAvailable;
-            // 明细按设计稿排成左右两列各四行:左列是身份与链路,右列是流量与差错。
+            long speedMbps = nic.SpeedMbps > 0 ? nic.SpeedMbps : attributes?.SpeedMbps ?? 0;
+            row.LinkText = speedMbps > 0
+                ? speedMbps >= 1000
+                    ? $"{speedMbps / 1000} Gbps"
+                    : $"{speedMbps} Mbps"
+                : LinkFallbackText(attributes);
             // 双工挂在链路速率后面 —— 单独占一行不值,合起来正好读成 "10 Gbps · 全双工"。
-            string link = nic.Duplex switch
+            // 只在真有速率时挂:"不适用 · 全双工"读不通(虚拟网卡的 duplex 字段常年是个残留值)。
+            string link = speedMbps > 0
+                ? nic.Duplex switch
+                {
+                    "full" => $"{row.LinkText} · {Strings.Get("Monitor_NicFullDuplex")}",
+                    "half" => $"{row.LinkText} · {Strings.Get("Monitor_NicHalfDuplex")}",
+                    _ => row.LinkText
+                }
+                : row.LinkText;
+
+            // 详情条按"身份 → 链路 → 地址 → 流量 → 差错"排;取不到的字段直接不出行,
+            // 而不是留一个"—"占着位置:一整排"—"既占地方又什么都没说(用户反馈)。
+            List<KeyValueRow> details = [];
+            Add("Monitor_NicType", NicTypeText(attributes));
+            Add("Monitor_NicDriver", attributes?.Driver ?? "");
+            Add("Monitor_NicMac", nic.Mac);
+            Add("Monitor_NicMtu", nic.Mtu > 0 ? nic.Mtu.ToString(CultureInfo.InvariantCulture) : "");
+            Add("Monitor_NicLink", link);
+            Add("Monitor_NicIp", nic.IpAddress);
+            Add("Monitor_NicIpv6", nic.Ipv6Address);
+            if (counters.TryGetValue(nic.Name, out NetInterfaceCounter? counter))
             {
-                "full" => $"{row.LinkText} · {Strings.Get("Monitor_NicFullDuplex")}",
-                "half" => $"{row.LinkText} · {Strings.Get("Monitor_NicHalfDuplex")}",
-                _ => row.LinkText
-            };
-            row.Details =
-            [
-                new(Strings.Get("Monitor_NicMac"), nic.Mac.Length > 0 ? nic.Mac : NotAvailable),
-                new(Strings.Get("Monitor_NicMtu"), nic.Mtu.ToString(CultureInfo.InvariantCulture)),
-                new(Strings.Get("Monitor_NicLink"), link),
-                new(Strings.Get("Monitor_NicIp"), nic.IpAddress.Length > 0 ? nic.IpAddress : NotAvailable),
-                new(Strings.Get("Monitor_NicRxTotal"), NotAvailable),
-                new(Strings.Get("Monitor_NicTxTotal"), NotAvailable),
-                new(Strings.Get("Monitor_NicDropped"), Pair(nic.RxDropped, nic.TxDropped)),
-                new(Strings.Get("Monitor_NicErrors"), Pair(nic.RxErrors, nic.TxErrors))
-            ];
-        }
-        // 累计收发按网卡计数器直接展示(与设计的"累计接收/发送"一致)。
-        // 计数器与属性来自两个分段,这里按位替换而不是追加,免得刷新一次多两行。
-        foreach (NetInterfaceCounter counter in m.NicCounters)
-        {
-            NicRow row = EnsureNic(counter.Name);
-            List<KeyValueRow> details = [.. row.Details];
-            Replace(details, "Monitor_NicRxTotal", MetricFormat.Bytes(counter.RxBytes));
-            Replace(details, "Monitor_NicTxTotal", MetricFormat.Bytes(counter.TxBytes));
+                Add("Monitor_NicRxTotal", MetricFormat.Bytes(counter.RxBytes));
+                Add("Monitor_NicTxTotal", MetricFormat.Bytes(counter.TxBytes));
+            }
+            Add("Monitor_NicDropped", Pair(nic.RxDropped, nic.TxDropped));
+            Add("Monitor_NicErrors", Pair(nic.RxErrors, nic.TxErrors));
             row.Details = details;
+
+            void Add(string key, string value)
+            {
+                if (value.Length > 0 && value != NotAvailable)
+                {
+                    details.Add(new(Strings.Get(key), value));
+                }
+            }
         }
         if (ReferenceEquals(SelectedNic, PlaceholderNic) && Nics.Count > 0)
         {
@@ -1073,22 +1094,31 @@ public sealed class ResourceMonitorWindowViewModel : ReactiveObject, IDisposable
             {
                 row.MemHistory.Push(vram);
             }
-            row.Details =
-            [
-                new(Strings.Get("Monitor_GpuVendor"), VendorLabel(gpu.Vendor)),
-                new(Strings.Get("Monitor_GpuDriver"),
-                    gpu.Vendor == GpuVendor.Nvidia && _static?.GpuDriver is { Length: > 0 } d ? d : NotAvailable),
-                new(Strings.Get("Monitor_GpuClock"), (gpu.ClockMhz, gpu.MemClockMhz) switch
+            // 与网卡详情同一条规矩:读不到的字段整行不出,不留"—"占位 ——
+            // 数据中心卡没有风扇、虚拟化卡没有时钟,一排"—"既占地方又什么都没说。
+            List<KeyValueRow> gpuDetails = [];
+            AddGpu("Monitor_GpuVendor", VendorLabel(gpu.Vendor));
+            AddGpu("Monitor_GpuDriver",
+                gpu.Vendor == GpuVendor.Nvidia && _static?.GpuDriver is { Length: > 0 } d ? d : "");
+            AddGpu("Monitor_GpuClock", (gpu.ClockMhz, gpu.MemClockMhz) switch
+            {
+                ({ } core, { } mem) => $"{core} / {mem} MHz",
+                ({ } core, _) => $"{core} MHz",
+                _ => ""
+            });
+            AddGpu("Monitor_GpuPower", row.PowerText);
+            AddGpu("Monitor_GpuTemp", row.TempText);
+            AddGpu("Monitor_GpuFan", Format(gpu.FanPercent, f => $"{f}%"));
+            AddGpu("Monitor_GpuMemory", row.MemText);
+            row.Details = gpuDetails;
+
+            void AddGpu(string key, string value)
+            {
+                if (value.Length > 0 && value != NotAvailable)
                 {
-                    ({ } core, { } mem) => $"{core} / {mem} MHz",
-                    ({ } core, _) => $"{core} MHz",
-                    _ => NotAvailable
-                }),
-                new(Strings.Get("Monitor_GpuPower"), row.PowerText),
-                new(Strings.Get("Monitor_GpuTemp"), row.TempText),
-                new(Strings.Get("Monitor_GpuFan"), Format(gpu.FanPercent, f => $"{f}%")),
-                new(Strings.Get("Monitor_GpuMemory"), row.MemText)
-            ];
+                    gpuDetails.Add(new(Strings.Get(key), value));
+                }
+            }
             row.Revision++;
         }
 
@@ -1354,6 +1384,38 @@ public sealed class ResourceMonitorWindowViewModel : ReactiveObject, IDisposable
     }
 
     /// <summary>“收 / 发”成对读数;任一侧探不到就整格显示占位符。</summary>
+    /// <summary>
+    /// 半虚拟化 / 软件网卡的驱动名。这类设备根本不存在"协商出来的链路速率",
+    /// sysfs 的 speed 读出来是 -1(用户截图里那个刺眼的"链路速率 —"就是 virtio_net)。
+    /// </summary>
+    private static readonly string[] VirtualNicDrivers =
+        ["virtio_net", "hv_netvsc", "vmxnet3", "xen-netfront", "veth", "tun", "bridge", "macvlan", "netkit", "vif"];
+
+    private static bool IsVirtualNic(string driver) =>
+        driver.Length > 0 && VirtualNicDrivers.Contains(driver, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>网卡介质类型的人话;静态属性没探到(老会话缓存/探针不可用)时返回空,该行整条不出。</summary>
+    private static string NicTypeText(NicStaticInfo? attributes) =>
+        attributes switch
+        {
+            null => "",
+            { IsLoopback: true } => Strings.Get("Monitor_NicTypeLoopback"),
+            { IsWireless: true } => Strings.Get("Monitor_NicTypeWireless"),
+            { HasDevice: false } => Strings.Get("Monitor_NicTypeVirtual"),
+            { Driver: { } d } when IsVirtualNic(d) => Strings.Get("Monitor_NicTypeVirtual"),
+            _ => Strings.Get("Monitor_NicTypeEthernet")
+        };
+
+    /// <summary>
+    /// 链路速率取不到时的措辞:虚拟网卡是"不适用"(它没有协商速率这回事),
+    /// 物理网卡才是"未知"(驱动没暴露 speed,ethtool 也没兜住)。都写"—"就分不出这两件事。
+    /// </summary>
+    private static string LinkFallbackText(NicStaticInfo? attributes) =>
+        attributes is not null
+        && (attributes.IsLoopback || !attributes.HasDevice || IsVirtualNic(attributes.Driver))
+            ? Strings.Get("Monitor_NotApplicable")
+            : Strings.Get("Monitor_NicLinkUnknown");
+
     private static string Pair(long? rx, long? tx) =>
         (rx, tx) switch
         {
@@ -1362,21 +1424,6 @@ public sealed class ResourceMonitorWindowViewModel : ReactiveObject, IDisposable
             (null, { } t) => $"{NotAvailable} / {t}",
             _ => NotAvailable
         };
-
-    /// <summary>就地替换某个键的值,键不存在时追加。</summary>
-    private static void Replace(List<KeyValueRow> rows, string key, string value)
-    {
-        string label = Strings.Get(key);
-        int index = rows.FindIndex(r => r.Key == label);
-        if (index >= 0)
-        {
-            rows[index] = new(label, value);
-        }
-        else
-        {
-            rows.Add(new(label, value));
-        }
-    }
 
     /// <summary>lsblk 的 TRAN 值 → 展示用的接口名;不认识的传输层原样大写显示。</summary>
     private static string TransportLabel(string transport) => transport.ToLowerInvariant() switch

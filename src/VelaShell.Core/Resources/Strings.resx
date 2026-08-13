@@ -226,6 +226,9 @@
   <data name="Monitor_NicDetails" xml:space="preserve">
     <value>Adapter details</value>
   </data>
+  <data name="Monitor_NicDriver" xml:space="preserve">
+    <value>Driver</value>
+  </data>
   <data name="Monitor_NicDropped" xml:space="preserve">
     <value>Dropped rx/tx</value>
   </data>
@@ -241,8 +244,14 @@
   <data name="Monitor_NicIp" xml:space="preserve">
     <value>IPv4</value>
   </data>
+  <data name="Monitor_NicIpv6" xml:space="preserve">
+    <value>IPv6</value>
+  </data>
   <data name="Monitor_NicLink" xml:space="preserve">
     <value>Link speed</value>
+  </data>
+  <data name="Monitor_NicLinkUnknown" xml:space="preserve">
+    <value>Unknown</value>
   </data>
   <data name="Monitor_NicMac" xml:space="preserve">
     <value>MAC address</value>
@@ -255,6 +264,24 @@
   </data>
   <data name="Monitor_NicTxTotal" xml:space="preserve">
     <value>Total sent</value>
+  </data>
+  <data name="Monitor_NicType" xml:space="preserve">
+    <value>Type</value>
+  </data>
+  <data name="Monitor_NicTypeEthernet" xml:space="preserve">
+    <value>Ethernet</value>
+  </data>
+  <data name="Monitor_NicTypeLoopback" xml:space="preserve">
+    <value>Loopback</value>
+  </data>
+  <data name="Monitor_NicTypeVirtual" xml:space="preserve">
+    <value>Virtual</value>
+  </data>
+  <data name="Monitor_NicTypeWireless" xml:space="preserve">
+    <value>Wireless</value>
+  </data>
+  <data name="Monitor_NotApplicable" xml:space="preserve">
+    <value>N/A</value>
   </data>
   <data name="Monitor_Now" xml:space="preserve">
     <value>now</value>
@@ -3629,7 +3656,8 @@ Overwrite it?</value>
   </data>
   <data name="Ftp_CertTrust" xml:space="preserve">
     <value>Trust and connect</value>
-  <data name="PluginManager_VpxFilter"><value>VelaShell plugin package</value></data>  <data name="XImport_MenuItemAll" xml:space="preserve">
+  </data>
+  <data name="XImport_MenuItemAll" xml:space="preserve">
     <value>Import sessions from another tool…</value>
   </data>
   <data name="XImport_TitleAll" xml:space="preserve">

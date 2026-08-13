@@ -712,6 +712,9 @@
   <data name="Monitor_NicDetails" xml:space="preserve">
     <value>어댑터 세부 정보</value>
   </data>
+  <data name="Monitor_NicDriver" xml:space="preserve">
+    <value>드라이버</value>
+  </data>
   <data name="Monitor_NicDropped" xml:space="preserve">
     <value>손실 수신/송신</value>
   </data>
@@ -727,8 +730,14 @@
   <data name="Monitor_NicIp" xml:space="preserve">
     <value>IPv4</value>
   </data>
+  <data name="Monitor_NicIpv6" xml:space="preserve">
+    <value>IPv6</value>
+  </data>
   <data name="Monitor_NicLink" xml:space="preserve">
     <value>링크 속도</value>
+  </data>
+  <data name="Monitor_NicLinkUnknown" xml:space="preserve">
+    <value>알 수 없음</value>
   </data>
   <data name="Monitor_NicMac" xml:space="preserve">
     <value>MAC 주소</value>
@@ -741,6 +750,24 @@
   </data>
   <data name="Monitor_NicTxTotal" xml:space="preserve">
     <value>총 송신</value>
+  </data>
+  <data name="Monitor_NicType" xml:space="preserve">
+    <value>유형</value>
+  </data>
+  <data name="Monitor_NicTypeEthernet" xml:space="preserve">
+    <value>이더넷</value>
+  </data>
+  <data name="Monitor_NicTypeLoopback" xml:space="preserve">
+    <value>루프백</value>
+  </data>
+  <data name="Monitor_NicTypeVirtual" xml:space="preserve">
+    <value>가상</value>
+  </data>
+  <data name="Monitor_NicTypeWireless" xml:space="preserve">
+    <value>무선</value>
+  </data>
+  <data name="Monitor_NotApplicable" xml:space="preserve">
+    <value>해당 없음</value>
   </data>
   <data name="Monitor_Now" xml:space="preserve">
     <value>현재</value>
@@ -3628,7 +3655,8 @@ Windows는 exe 전체 경로 또는 명령 이름(예: notepad), Linux는 명령
   </data>
   <data name="Ftp_CertTrust" xml:space="preserve">
     <value>신뢰하고 연결</value>
-  <data name="PluginManager_VpxFilter"><value>VelaShell 플러그인 패키지</value></data>  <data name="XImport_MenuItemAll" xml:space="preserve">
+  </data>
+  <data name="XImport_MenuItemAll" xml:space="preserve">
     <value>다른 도구에서 세션 가져오기…</value>
   </data>
   <data name="XImport_TitleAll" xml:space="preserve">

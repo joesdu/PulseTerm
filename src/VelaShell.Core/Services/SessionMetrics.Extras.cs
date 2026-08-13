@@ -22,8 +22,13 @@ public sealed partial class SessionMetrics
         // 网卡属性放在每次采样里而不是一次性静态探针:插拔网线、WiFi 重连、IP 变更都要跟着变。
         // 字段用 | 分隔:WiFi 读 speed 会 EINVAL 输出空串,空格分隔会让 operstate 左移一位
         // 被当成速率吃掉 —— 表现为主力无线网卡永远显示"已断开"。
+        // 仍按 [ -e device ] 只挑挂在真实设备上的接口:卡片条的数据源 __NI__ 用的是同一个闸门,
+        // 这里放宽会凭空多出 lo / docker0 / veth 的卡片(EnsureNic 是按名字建卡的)。
         """echo __NF__; for i in /sys/class/net/*; do n=${i##*/}; if [ -e "$i/device" ]; then echo "$n|$(cat "$i/address" 2>/dev/null)|$(cat "$i/mtu" 2>/dev/null)|$(cat "$i/speed" 2>/dev/null)|$(cat "$i/operstate" 2>/dev/null)|$(cat "$i/carrier" 2>/dev/null)|$(cat "$i/duplex" 2>/dev/null)|$(cat "$i/statistics/rx_dropped" 2>/dev/null)|$(cat "$i/statistics/tx_dropped" 2>/dev/null)|$(cat "$i/statistics/rx_errors" 2>/dev/null)|$(cat "$i/statistics/tx_errors" 2>/dev/null)"; fi; done 2>/dev/null; """ +
         """echo __IP__; ip -4 -o addr show 2>/dev/null | awk '{print $2" "$4}'; """ +
+        // IPv6 只取全局作用域:链路本地(fe80::/10)每张网卡都有一个,列出来既没信息量又会把
+        // "IPv4/IPv6"两行挤成一样长的噪声。
+        """echo __I6__; ip -6 -o addr show scope global 2>/dev/null | awk '{print $2" "$4}'; """ +
         // 已建立的 TCP 连接及其累计收发字节(ss -i 的第二行);进程名只有本用户的连接拿得到,
         // 非 root 时其余显示 “—”。ss 不存在(busybox)时整段为空,界面给出"无法获取"提示。
         """echo __SS__; ss -tinpH state established 2>/dev/null | awk 'NR%2==1{local=$3; peer=$4; proc=""; if (match($0, /users:\(\("[^"]+"/)) { proc=substr($0, RSTART+9, RLENGTH-10) }} NR%2==0{s=""; r=""; for(i=1;i<=NF;i++){ if($i ~ /^bytes_sent:/){split($i,a,":"); s=a[2]} else if($i ~ /^bytes_acked:/ && s==""){split($i,a,":"); s=a[2]} else if($i ~ /^bytes_received:/){split($i,a,":"); r=a[2]} } print local"|"peer"|"proc"|"s"|"r}' | head -n 40""";
@@ -97,7 +102,14 @@ public sealed partial class SessionMetrics
         // 只对筛出来的显示设备再读厂商/设备/驱动。
         """echo __GC__; for f in $(awk 'FNR==1 && /^0x03/{print FILENAME}' /sys/bus/pci/devices/*/class 2>/dev/null); do d=${f%/class}; echo "${d##*/}|$(cat "$d/vendor" 2>/dev/null)|$(cat "$d/device" 2>/dev/null)|$(basename "$(readlink -f "$d/driver" 2>/dev/null)" 2>/dev/null)"; done 2>/dev/null; """ +
         // __GW__:WSL2 没有 PCI 也没有 DRM,GPU 走 /dev/dxg 的 D3D12 直通。
-        """echo __GW__; [ -e /dev/dxg ] && echo dxg""";
+        """echo __GW__; [ -e /dev/dxg ] && echo dxg; """ +
+        // __NS__:网卡的静态属性 "名称|type|驱动|无线|有物理设备|ethtool 速率"。
+        // 放静态段的原因是 ethtool 要 fork:hv_netvsc / 虚拟化网卡上 sysfs 的 speed 是空的
+        //(界面上就是那个刺眼的"链路速率 —"),只能靠 ethtool 兜底,而它一秒一次跑不起
+        // —— 几十张 veth 的 docker 主机会被 fork 淹掉。速率变化只在插拔/重协商时发生,
+        // 会话内探一次足够;sysfs 能读到时仍以每轮采样的那份为准。
+        // ethtool 只对有物理设备的接口跑,虚拟接口问它也只会得到 "Operation not supported"。
+        """echo __NS__; for i in /sys/class/net/*; do n=${i##*/}; [ -d "$i" ] || continue; d=0; drv=""; w=0; sp=""; if [ -e "$i/device" ]; then d=1; if [ -e "$i/device/driver" ]; then drv=$(basename "$(readlink -f "$i/device/driver")"); fi; case "$(cat "$i/speed" 2>/dev/null)" in ''|-*) sp=$(ethtool "$n" 2>/dev/null | awk '/Speed:/{gsub(/[^0-9]/,"",$2); if ($2 != "") print $2; exit}');; esac; fi; [ -d "$i/wireless" ] && w=1; echo "$n|$(cat "$i/type" 2>/dev/null)|$drv|$w|$d|$sp"; done 2>/dev/null""";
 
     /// <summary>
     /// 按采集范围组装探针命令。<see cref="MetricsScope.Basic" /> 返回与状态栏一致的原命令,
@@ -333,16 +345,9 @@ public sealed partial class SessionMetrics
 
         TopByMemory = ParseProcessList(SectionAt(output, "__TM__"), ParseProcessExtras(SectionAt(output, "__TP__")));
 
-        // __IP__:"接口 地址/掩码位";一张网卡可能有多个地址,只记第一个。
-        var ips = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (string line in LinesOf(SectionAt(output, "__IP__")))
-        {
-            string[] parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length >= 2)
-            {
-                _ = ips.TryAdd(parts[0], parts[1]);
-            }
-        }
+        // __IP__ / __I6__:"接口 地址/掩码位";一张网卡可能有多个地址,只记第一个。
+        Dictionary<string, string> ips = AddressesOf(output, "__IP__");
+        Dictionary<string, string> ipv6 = AddressesOf(output, "__I6__");
 
         // __NF__:"名称|MAC|MTU|速率|operstate|carrier|duplex|丢包收|丢包发|错误收|错误发"
         //(字段可能为空,不能用 RemoveEmptyEntries)。
@@ -367,9 +372,25 @@ public sealed partial class SessionMetrics
                 ips.GetValueOrDefault(name, ""),
                 carrier,
                 At(f, 6),
-                CountAt(f, 7), CountAt(f, 8), CountAt(f, 9), CountAt(f, 10)));
+                CountAt(f, 7), CountAt(f, 8), CountAt(f, 9), CountAt(f, 10),
+                ipv6.GetValueOrDefault(name, "")));
         }
         NicInfos = nics;
+
+        // "接口 地址/掩码位" 的分段解析(IPv4 与 IPv6 同格式);一张网卡多个地址时只记第一个。
+        static Dictionary<string, string> AddressesOf(string output, string marker)
+        {
+            var map = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (string line in LinesOf(SectionAt(output, marker)))
+            {
+                string[] parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length >= 2)
+                {
+                    _ = map.TryAdd(parts[0], parts[1]);
+                }
+            }
+            return map;
+        }
 
         // 老内核 / 虚拟网卡缺这些 sysfs 项时字段是空的 —— 空要变 null(界面显示占位符),
         // 不能变 0(那会被读成"一个包都没丢")。
@@ -568,6 +589,26 @@ public sealed partial class SessionMetrics
             gpuCount = cards.Count;
         }
 
+        // __NS__:"名称|type|驱动|无线|有物理设备|ethtool 速率"。字段可能为空,不能用 RemoveEmptyEntries。
+        var nics = new List<NicStaticInfo>();
+        foreach (string line in LinesOf(SectionAt(output, "__NS__")))
+        {
+            string[] f = line.Split('|');
+            if (f.Length < 5 || f[0].Trim().Length == 0)
+            {
+                continue;
+            }
+            nics.Add(new(
+                f[0].Trim(),
+                int.TryParse(f[1].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int type) ? type : 0,
+                f[2].Trim(),
+                f[3].Trim() == "1",
+                f[4].Trim() == "1",
+                f.Length > 5 && long.TryParse(f[5].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out long sp) && sp > 0
+                    ? sp
+                    : 0));
+        }
+
         return new()
         {
             // /proc/cpuinfo 的 model name 在 aarch64 / 部分虚拟机上根本不存在,
@@ -582,7 +623,8 @@ public sealed partial class SessionMetrics
             Disks = disks,
             GpuDriver = driver,
             GpuCount = gpuCount,
-            GpuCards = cards
+            GpuCards = cards,
+            Nics = nics
         };
     }
 

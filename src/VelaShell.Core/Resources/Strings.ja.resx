@@ -712,6 +712,9 @@
   <data name="Monitor_NicDetails" xml:space="preserve">
     <value>アダプター詳細</value>
   </data>
+  <data name="Monitor_NicDriver" xml:space="preserve">
+    <value>ドライバー</value>
+  </data>
   <data name="Monitor_NicDropped" xml:space="preserve">
     <value>破棄 受/送</value>
   </data>
@@ -727,8 +730,14 @@
   <data name="Monitor_NicIp" xml:space="preserve">
     <value>IPv4</value>
   </data>
+  <data name="Monitor_NicIpv6" xml:space="preserve">
+    <value>IPv6</value>
+  </data>
   <data name="Monitor_NicLink" xml:space="preserve">
     <value>リンク速度</value>
+  </data>
+  <data name="Monitor_NicLinkUnknown" xml:space="preserve">
+    <value>不明</value>
   </data>
   <data name="Monitor_NicMac" xml:space="preserve">
     <value>MAC アドレス</value>
@@ -741,6 +750,24 @@
   </data>
   <data name="Monitor_NicTxTotal" xml:space="preserve">
     <value>送信合計</value>
+  </data>
+  <data name="Monitor_NicType" xml:space="preserve">
+    <value>種類</value>
+  </data>
+  <data name="Monitor_NicTypeEthernet" xml:space="preserve">
+    <value>イーサネット</value>
+  </data>
+  <data name="Monitor_NicTypeLoopback" xml:space="preserve">
+    <value>ループバック</value>
+  </data>
+  <data name="Monitor_NicTypeVirtual" xml:space="preserve">
+    <value>仮想</value>
+  </data>
+  <data name="Monitor_NicTypeWireless" xml:space="preserve">
+    <value>無線</value>
+  </data>
+  <data name="Monitor_NotApplicable" xml:space="preserve">
+    <value>該当なし</value>
   </data>
   <data name="Monitor_Now" xml:space="preserve">
     <value>現在</value>
@@ -3628,7 +3655,8 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   </data>
   <data name="Ftp_CertTrust" xml:space="preserve">
     <value>信頼して接続</value>
-  <data name="PluginManager_VpxFilter"><value>VelaShell プラグインパッケージ</value></data>  <data name="XImport_MenuItemAll" xml:space="preserve">
+  </data>
+  <data name="XImport_MenuItemAll" xml:space="preserve">
     <value>他のツールからセッションをインポート…</value>
   </data>
   <data name="XImport_TitleAll" xml:space="preserve">

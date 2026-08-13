@@ -466,6 +466,62 @@ public class SessionMetricsExtrasTests
     }
 
     [TestMethod]
+    public void Parse_Nics_TakesTheFirstGlobalIpv6PerInterface()
+    {
+        // IPv6 是新采的一段:双栈主机上一张网卡常有多个全局地址(SLAAC + 固定),只记第一个;
+        // 链路本地(fe80::)在探针侧就按 scope global 滤掉了,这里不该出现。
+        var m = SessionMetrics.Parse(
+            "__P__\n8\n__L__\n0.5 0.4 0.3\n" +
+            "__NF__\neth0|b4:2e:99:0c:1a:77|1500|1000|up|1|full|0|0|0|0\n" +
+            "eth1|b4:2e:99:0c:1a:78|1500|1000|up|1|full|0|0|0|0\n" +
+            "__IP__\neth0 10.0.2.31/24\n" +
+            "__I6__\neth0 2001:db8:1::31/64\neth0 fd00::7a/128\n");
+
+        Assert.IsNotNull(m);
+        Assert.AreEqual("2001:db8:1::31/64", m.NicInfos[0].Ipv6Address);
+        // 没有 IPv6 的网卡是空串,界面据此整行不出 —— 不能塞占位符。
+        Assert.IsEmpty(m.NicInfos[1].Ipv6Address);
+    }
+
+    [TestMethod]
+    public void ParseStatic_Nics_ReadsDriverMediumAndEthtoolSpeed()
+    {
+        // __NS__:驱动 / 介质类型 / 无线 / 有无物理设备 / ethtool 兜底速率。
+        // 这一段是"网卡详情里那个刺眼的链路速率 —"的解药:virtio 这类半虚拟化网卡的
+        // sysfs speed 是 -1,界面据 HasDevice + 驱动名把它说成"不适用"而不是"未知"。
+        SessionStaticInfo info = SessionMetrics.ParseStatic(
+            "__CM__\nAMD EPYC 9754\n" +
+            "__NS__\neth0|1|ixgbe|0|1|10000\nwlp4s0|1|iwlwifi|1|1|\nlo|772||0|0|\nvirt0|1|virtio_net|0|1|\n");
+
+        Assert.HasCount(4, info.Nics);
+
+        NicStaticInfo eth0 = info.Nics[0];
+        Assert.AreEqual("ixgbe", eth0.Driver);
+        Assert.AreEqual(10000, eth0.SpeedMbps, "sysfs 读不到时才有这个值,来自 ethtool。");
+        Assert.IsTrue(eth0.HasDevice);
+        Assert.IsFalse(eth0.IsWireless);
+        Assert.IsFalse(eth0.IsLoopback);
+
+        Assert.IsTrue(info.Nics[1].IsWireless);
+        Assert.AreEqual(0, info.Nics[1].SpeedMbps, "ethtool 也没给出速率时不能瞎填。");
+
+        Assert.IsTrue(info.Nics[2].IsLoopback, "type=772 是回环。");
+        Assert.IsFalse(info.Nics[2].HasDevice);
+
+        Assert.AreEqual("virtio_net", info.Nics[3].Driver);
+    }
+
+    [TestMethod]
+    public void StaticCommand_ProbesNicAttributesWithoutForkingPerSample()
+    {
+        // ethtool 要 fork,只能待在会话级静态探针里:放进每秒一轮的细分探针,
+        // 几十张 veth 的 docker 主机会被 fork 淹掉。
+        Assert.Contains("__NS__", SessionMetrics.StaticCommand);
+        Assert.Contains("ethtool", SessionMetrics.StaticCommand);
+        Assert.DoesNotContain("ethtool", SessionMetrics.BuildCommand(MetricsScope.Full));
+    }
+
+    [TestMethod]
     public void Parse_DiskIo_SkipsLoopAndOtherPseudoDevices()
     {
         var m = SessionMetrics.Parse(
