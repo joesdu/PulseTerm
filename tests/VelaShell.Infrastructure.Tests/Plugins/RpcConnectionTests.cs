@@ -1,4 +1,5 @@
 using System.IO.Pipes;
+using System.Runtime.ExceptionServices;
 using System.Text.Json;
 using VelaShell.PluginSdk;
 using VelaShell.PluginSdk.Rpc;
@@ -138,6 +139,42 @@ public class RpcConnectionTests
         finally
         {
             await cleanup();
+        }
+    }
+
+    [TestMethod]
+    public async Task Dispose_WithIdleReadLoop_ThrowsNothing()
+    {
+        // 停用插件/退出应用走的就是这条路:读循环正等着下一帧,本端主动关闭连接。
+        // 这是最常规的分支,不该长成异常 —— 曾经把 _lifetime.Token 传给 ReadAsync,
+        // 取消会把待决的读撕成 OperationCanceledException,虽被读循环 catch 吞掉、
+        // 退出码照样是 0,却在每次退出时给调试器刷一条首发异常。
+        (RpcConnection server, RpcConnection client, Func<ValueTask> _) = await ConnectPairAsync();
+        var thrown = new List<Exception>();
+        void Record(object? _, FirstChanceExceptionEventArgs e)
+        {
+            lock (thrown)
+            {
+                thrown.Add(e.Exception);
+            }
+        }
+
+        // 读循环此刻确实在等待读取(而不是尚未起步),否则这条测试会空跑通过。
+        await Task.Delay(200);
+        AppDomain.CurrentDomain.FirstChanceException += Record;
+        try
+        {
+            await client.DisposeAsync();
+            await server.DisposeAsync();
+            await Task.Delay(200); // 给读循环收尾的时间,晚到的异常也要算数
+        }
+        finally
+        {
+            AppDomain.CurrentDomain.FirstChanceException -= Record;
+        }
+        lock (thrown)
+        {
+            Assert.IsEmpty(thrown, $"关闭连接不应抛任何异常,实际抛出:{string.Join(", ", thrown.Select(e => e.GetType().Name))}");
         }
     }
 
