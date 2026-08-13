@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
@@ -101,6 +102,9 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
     private readonly ISettingsService? _settingsService;
     private readonly ISftpService? _sftpService;
     private readonly IFtpSessionService? _ftpSessionService;
+
+    /// <summary>FTP 会话标识 → 会话配置标识:状态事件只带会话标识,树上按配置标识定位节点。</summary>
+    private readonly ConcurrentDictionary<Guid, Guid> _ftpSessionProfiles = new();
     private readonly ISshConnectionService? _sshConnectionService;
     private readonly Func<ITerminalEmulator> _terminalEmulatorFactory;
     private readonly ITunnelService? _tunnelService;
@@ -209,6 +213,12 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
         _sessionRepository = sessionRepository;
         _sftpService = sftpService;
         _ftpSessionService = ftpSessionService;
+        if (ftpSessionService is not null)
+        {
+            // FTP 没有 SSH 那种可订阅的长驻会话对象:断线只在下一次操作时暴露。
+            // 由服务主动上报,树上的状态圆点才能自动变灰,而不是一直停在绿点上。
+            ftpSessionService.SessionStateChanged += OnFtpSessionStateChanged;
+        }
         _tunnelService = tunnelService;
         _tunnelWorkflowService = tunnelWorkflowService;
         _metricsService = metricsService;
@@ -2530,7 +2540,8 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
                         FileTransfer,
                         QueryDefaultEditorPathAsync));
                 Layout.AddDocument(document);
-                Sidebar.SessionTree?.SetSessionStatus(current.Id, SessionStatus.Connected);
+                // 与 FTP 同理:连接续体可能落在后台线程上,树节点是绑定属性,必须回主线程再改。
+                SetTreeSessionStatus(current.Id, SessionStatus.Connected);
                 return document;
             }
             catch (OperationCanceledException)
@@ -2613,8 +2624,11 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
                         settings.Transfer,
                         FileTransfer,
                         QueryDefaultEditorPathAsync));
+                // 用**原始** profile 的标识登记:登录弹窗可能换过 current 的字段,
+                // 但树上的节点始终是按最初那条配置的 Id 建的。
+                _ftpSessionProfiles[sessionId] = profile.Id;
                 Layout.AddDocument(document);
-                Sidebar.SessionTree?.SetSessionStatus(current.Id, SessionStatus.Connected);
+                SetTreeSessionStatus(profile.Id, SessionStatus.Connected);
                 return document;
             }
             catch (OperationCanceledException)
@@ -2649,6 +2663,40 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
         }
         return null;
     }
+
+    /// <summary>
+    /// FTP 会话状态变化 → 资源管理器树的状态圆点。可能来自任意线程(操作失败的那条),
+    /// 因此统一切回 UI 线程再改绑定属性。
+    /// </summary>
+    private void OnFtpSessionStateChanged(object? sender, FtpSessionStateChange change)
+    {
+        if (!_ftpSessionProfiles.TryGetValue(change.SessionId, out Guid profileId))
+        {
+            return;
+        }
+        if (change.State == FtpSessionState.Closed)
+        {
+            _ftpSessionProfiles.TryRemove(change.SessionId, out _);
+        }
+        SetTreeSessionStatus(profileId, change.State switch
+        {
+            FtpSessionState.Connected => SessionStatus.Connected,
+            // 掉线显示为「离线」而不是「未连接」:文档还开着,用户需要看出是断了而不是没连过。
+            FtpSessionState.Faulted => SessionStatus.Error,
+            _ => SessionStatus.Disconnected,
+        });
+    }
+
+    /// <summary>
+    /// 在主线程上更新树节点状态(绑定属性不得在后台线程改)。
+    /// <para>
+    /// 用 <c>RxSchedulers.MainThreadScheduler</c> 而不是裸 <c>Dispatcher.UIThread.Post</c>:
+    /// 与本类其它 VM 更新一致,并且在没有跑 Avalonia 消息循环的宿主(headless 测试)里也能落地
+    /// —— 直接 Post 的作业在那种环境下永远不会被执行。
+    /// </para>
+    /// </summary>
+    private void SetTreeSessionStatus(Guid profileId, SessionStatus status) =>
+        RxSchedulers.MainThreadScheduler.Schedule(() => Sidebar.SessionTree?.SetSessionStatus(profileId, status));
 
     /// <summary>FTP 缺少登录凭据时才需要弹登录框;匿名登录不需要用户名与口令。</summary>
     private static bool RequiresFtpCredentials(SessionProfile profile) =>
