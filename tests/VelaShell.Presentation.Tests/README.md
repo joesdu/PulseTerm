@@ -12,6 +12,7 @@
 | `ViewModels/TabBarViewModelTests` | 标签页栏行为。 |
 | `Services/ConnectionWorkflowServiceTests` | 连接工作流（校验 → 认证 → 建链）。 |
 | `Services/TunnelWorkflowServiceTests` | 隧道工作流（类型分派、快照、停止、移除）。 |
+| `ViewModels/SessionImportViewModelTests` | 会话导入的全自动行为（多来源自动扫描、跨来源去重、智能勾选、按来源写入）。 |
 | `CommandRegistryTests` | 全局命令注册表。 |
 
 ## 运行

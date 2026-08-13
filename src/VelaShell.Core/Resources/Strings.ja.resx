@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -3514,29 +3514,11 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   <data name="Trace_GeoAttribution" xml:space="preserve">
     <value>IP 位置データ提供: DB-IP.com (CC BY 4.0)</value>
   </data>
-  <data name="XImport_MenuItem" xml:space="preserve">
-    <value>Xshell からインポート…</value>
-  </data>
-  <data name="XImport_Title" xml:space="preserve">
-    <value>Xshell セッションをインポート</value>
-  </data>
-  <data name="XImport_SessionsDir" xml:space="preserve">
-    <value>Xshell セッションフォルダー</value>
-  </data>
   <data name="XImport_Browse" xml:space="preserve">
     <value>参照…</value>
   </data>
   <data name="XImport_Rescan" xml:space="preserve">
-    <value>スキャン</value>
-  </data>
-  <data name="XImport_MasterPwWarn" xml:space="preserve">
-    <value>このツールはマスターパスワードが有効なため、保存されたパスワードを復元できません。セッションはパスワードなしでインポートされます。</value>
-  </data>
-  <data name="XImport_WinScpMenuItem" xml:space="preserve">
-    <value>WinSCP からインポート…</value>
-  </data>
-  <data name="XImport_TitleFmt" xml:space="preserve">
-    <value>{0} からセッションをインポート</value>
+    <value>再スキャン</value>
   </data>
   <data name="XImport_GroupFmt" xml:space="preserve">
     <value>{0} インポート</value>
@@ -3555,24 +3537,6 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   </data>
   <data name="XImport_ImportButton" xml:space="preserve">
     <value>インポート</value>
-  </data>
-  <data name="XImport_DefaultGroup" xml:space="preserve">
-    <value>Xshell インポート</value>
-  </data>
-  <data name="XImport_NotDetected" xml:space="preserve">
-    <value>インポート元を自動検出できませんでした。手動で選択してください。</value>
-  </data>
-  <data name="XImport_NoSessions" xml:space="preserve">
-    <value>このフォルダーにセッションが見つかりません。</value>
-  </data>
-  <data name="XImport_Found" xml:space="preserve">
-    <value>{0} 件のセッションが見つかりました。</value>
-  </data>
-  <data name="XImport_DirNotFound" xml:space="preserve">
-    <value>フォルダーが見つかりません。</value>
-  </data>
-  <data name="XImport_SelectedCount" xml:space="preserve">
-    <value>{0} 件選択 · {1} 件パスワードあり</value>
   </data>
   <data name="XImport_Unsupported" xml:space="preserve">
     <value>未対応のプロトコル</value>
@@ -3614,4 +3578,55 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   <data name="PluginManager_Installed"><value>「{0}」をインストールしました。</value></data>
   <data name="PluginManager_InstallFailed"><value>インストール失敗: {0}</value></data>
   <data name="PluginManager_ConfirmUninstall"><value>「{0}」をアンインストールしますか？データも削除されます。</value></data>
-  <data name="PluginManager_VpxFilter"><value>VelaShell プラグインパッケージ</value></data></root>
+  <data name="PluginManager_VpxFilter"><value>VelaShell プラグインパッケージ</value></data>  <data name="XImport_MenuItemAll" xml:space="preserve">
+    <value>他のツールからセッションをインポート…</value>
+  </data>
+  <data name="XImport_TitleAll" xml:space="preserve">
+    <value>セッションのインポート</value>
+  </data>
+  <data name="XImport_Scanning" xml:space="preserve">
+    <value>この PC をスキャンしています…</value>
+  </data>
+  <data name="XImport_AutoHint" xml:space="preserve">
+    <value>VelaShell がこの PC の Xshell と WinSCP のセッションを自動で探します。</value>
+  </data>
+  <data name="XImport_ReadyHeadlineFmt" xml:space="preserve">
+    <value>{0} 件のセッションをインポートします</value>
+  </data>
+  <data name="XImport_ReadySubFmt" xml:space="preserve">
+    <value>うち {0} 件はパスワード復元済み · {1} 件はスキップ（重複または未対応）</value>
+  </data>
+  <data name="XImport_ReadySubNoSkipFmt" xml:space="preserve">
+    <value>うち {0} 件はパスワード復元済み</value>
+  </data>
+  <data name="XImport_NothingSelected" xml:space="preserve">
+    <value>選択されたセッションがありません。下から選んでください。</value>
+  </data>
+  <data name="XImport_NoSourceDetected" xml:space="preserve">
+    <value>この PC に Xshell / WinSCP のセッションが見つかりませんでした。</value>
+  </data>
+  <data name="XImport_SourceFoundFmt" xml:space="preserve">
+    <value>{0} 件 · パスワードあり {1} 件</value>
+  </data>
+  <data name="XImport_SourceNotFound" xml:space="preserve">
+    <value>見つかりません。ポータブル版の場合は設定ファイルを手動で指定してください。</value>
+  </data>
+  <data name="XImport_SourceScanning" xml:space="preserve">
+    <value>スキャン中…</value>
+  </data>
+  <data name="XImport_Advanced" xml:space="preserve">
+    <value>自分で選ぶ</value>
+  </data>
+  <data name="XImport_BackToAuto" xml:space="preserve">
+    <value>自動に戻る</value>
+  </data>
+  <data name="XImport_SkipExisting" xml:space="preserve">
+    <value>既にあるセッションをスキップ</value>
+  </data>
+  <data name="XImport_ImportCountFmt" xml:space="preserve">
+    <value>{0} 件をインポート</value>
+  </data>
+  <data name="XImport_MasterPwWarnFmt" xml:space="preserve">
+    <value>{0} はマスターパスワードが有効なため、保存されたパスワードを復元できません。これらのセッションはパスワードなしでインポートされます。</value>
+  </data>
+</root>
