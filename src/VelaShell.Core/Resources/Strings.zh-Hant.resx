@@ -3628,7 +3628,8 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   </data>
   <data name="Ftp_CertTrust" xml:space="preserve">
     <value>信任並連線</value>
-  <data name="PluginManager_VpxFilter"><value>VelaShell 外掛程式套件</value></data>  <data name="XImport_MenuItemAll" xml:space="preserve">
+  </data>
+  <data name="XImport_MenuItemAll" xml:space="preserve">
     <value>從其他工具匯入工作階段…</value>
   </data>
   <data name="XImport_TitleAll" xml:space="preserve">

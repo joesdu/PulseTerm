@@ -3720,7 +3720,8 @@ Windows 填 exe 完整路径或命令名(如 notepad);Linux 填命令名(如 ged
   </data>
   <data name="Ftp_CertTrust" xml:space="preserve">
     <value>信任并连接</value>
-  <data name="PluginManager_VpxFilter"><value>VelaShell 插件包</value></data>  <data name="XImport_MenuItemAll" xml:space="preserve">
+  </data>
+  <data name="XImport_MenuItemAll" xml:space="preserve">
     <value>从其他工具导入会话…</value>
   </data>
   <data name="XImport_TitleAll" xml:space="preserve">

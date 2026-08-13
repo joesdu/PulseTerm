@@ -3628,7 +3628,8 @@ Windows는 exe 전체 경로 또는 명령 이름(예: notepad), Linux는 명령
   </data>
   <data name="Ftp_CertTrust" xml:space="preserve">
     <value>신뢰하고 연결</value>
-  <data name="PluginManager_VpxFilter"><value>VelaShell 플러그인 패키지</value></data>  <data name="XImport_MenuItemAll" xml:space="preserve">
+  </data>
+  <data name="XImport_MenuItemAll" xml:space="preserve">
     <value>다른 도구에서 세션 가져오기…</value>
   </data>
   <data name="XImport_TitleAll" xml:space="preserve">
