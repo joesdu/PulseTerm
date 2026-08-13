@@ -123,7 +123,7 @@ public sealed class XshellImportService(ISessionRepository repository) : ISessio
     private static string DedupKey(string host, int port, string user) => $"{host.Trim()}|{port}|{user.Trim()}";
 
     /// <summary>按 BOM 自动识别编码(Xshell 为 UTF-16 LE)读入全部行。</summary>
-    private static IReadOnlyList<string> ReadLines(string path)
+    private static List<string> ReadLines(string path)
     {
         using var reader = new StreamReader(path, Encoding.Unicode, detectEncodingFromByteOrderMarks: true);
         var lines = new List<string>();

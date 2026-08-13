@@ -122,7 +122,7 @@ public class IsolatedPluginTests
         System.Diagnostics.Process.GetProcessById(secondPid).Kill();
         await WaitForAsync(() => manager.Plugins.Single().State == PluginState.Failed,
             TimeSpan.FromSeconds(15), "窗口内第二次崩溃应判 Failed 放弃自愈");
-        StringAssert.Contains(manager.Plugins.Single().Error, "crashed");
+        Assert.Contains("crashed", manager.Plugins.Single().Error);
 
         await manager.DisposeAsync();
     }

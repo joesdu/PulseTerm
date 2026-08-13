@@ -80,7 +80,7 @@ public class StreamingRoutingTests
                     break;
                 }
             }
-            CollectionAssert.AreEqual(payload, assembled.ToArray());
+            Assert.AreSequenceEqual(payload, assembled.ToArray());
 
             // EOF 后宿主已自动释放:再拉块报"流未打开"。
             await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>

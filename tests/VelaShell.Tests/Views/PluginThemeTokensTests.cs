@@ -25,7 +25,7 @@ public sealed class PluginThemeTokensTests
             // 语义画刷(主题字典,当前变体解析):#AARRGGBB。
             ThemeTokenDto error = byKey["VelaError"];
             Assert.AreEqual("brush", error.Kind);
-            StringAssert.StartsWith(error.Value, "#");
+            Assert.StartsWith("#", error.Value);
 
             // 字号阶梯(与主题无关的 double)。
             ThemeTokenDto fontSize = byKey["VelaFontSize12"];
@@ -39,7 +39,7 @@ public sealed class PluginThemeTokensTests
             Assert.IsFalse(string.IsNullOrWhiteSpace(uiFont.Value));
 
             // 图标几何等非 Vela* 或不可序列化资源不外发。
-            Assert.IsFalse(byKey.Keys.Any(k => k.StartsWith("Icon.", StringComparison.Ordinal)));
+            Assert.DoesNotContain(k => k.StartsWith("Icon.", StringComparison.Ordinal), byKey.Keys);
         }, CancellationToken.None).GetAwaiter().GetResult();
     }
 }

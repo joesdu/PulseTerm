@@ -439,8 +439,8 @@ public sealed class SonnetDbQuickCommandRepository(
     }
 
     private static bool GroupsEquivalent(
-        IReadOnlyList<QuickCommandGroup> left,
-        IReadOnlyList<QuickCommandGroup> right
+        List<QuickCommandGroup> left,
+        List<QuickCommandGroup> right
     ) =>
         left.Count == right.Count
         && left.Zip(right)

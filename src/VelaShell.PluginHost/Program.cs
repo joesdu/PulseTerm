@@ -113,11 +113,12 @@ internal static class Program
                         {
                             context?.Dispose(); // 关掉本插件的全部窗口
                                                 // 先应答再退出:让宿主拿到干净的完成信号。
+                                                // 显式 None:这条退出信号必须发出,不受请求生命周期取消影响。
                             _ = Task.Run(async () =>
                             {
-                                await Task.Delay(100).ConfigureAwait(false);
+                                await Task.Delay(100, CancellationToken.None).ConfigureAwait(false);
                                 ExitCode.TrySetResult(0);
-                            });
+                            }, CancellationToken.None);
                         }
                         return null;
                     }

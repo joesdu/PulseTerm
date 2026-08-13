@@ -14,7 +14,7 @@ public class SftpServiceTests
     private readonly ISshConnectionService _connectionService;
     private readonly Guid _sessionId;
     private readonly ISftpClientWrapper _sftpClient;
-    private readonly ISftpService _sftpService;
+    private readonly SftpService _sftpService;
 
     public SftpServiceTests()
     {

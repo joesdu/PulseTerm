@@ -30,7 +30,7 @@ internal sealed class RemoteFsCapability(ISftpService sftp, ISshConnectionServic
     }
 
     /// <summary>把 SDK 进度包成宿主进度并节流:至少间隔 100ms 才转发一次,末帧(完成)始终放行。</summary>
-    private static IProgress<TransferProgress>? Throttle(IProgress<RemoteTransferProgress>? progress)
+    private static Progress<TransferProgress>? Throttle(IProgress<RemoteTransferProgress>? progress)
     {
         if (progress is null)
         {

@@ -355,13 +355,17 @@ public sealed partial class ConPtyShellStream : IShellStreamWrapper
         [LibraryImport("kernel32.dll")]
         public static partial void DeleteProcThreadAttributeList(IntPtr lpAttributeList);
 
-        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-        public static extern bool CreateProcess(
+        // EntryPoint 必须写全:LibraryImport 不做 DllImport 那套 CharSet 自动加 "W" 后缀,
+        // 漏了就是运行期 EntryPointNotFoundException(编译期无感)。
+        [LibraryImport("kernel32.dll", EntryPoint = "CreateProcessW", SetLastError = true,
+            StringMarshalling = StringMarshalling.Utf16)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static partial bool CreateProcess(
             string? lpApplicationName,
             string lpCommandLine,
             IntPtr lpProcessAttributes,
             IntPtr lpThreadAttributes,
-            bool bInheritHandles,
+            [MarshalAs(UnmanagedType.Bool)] bool bInheritHandles,
             uint dwCreationFlags,
             IntPtr lpEnvironment,
             string? lpCurrentDirectory,
@@ -375,13 +379,15 @@ public sealed partial class ConPtyShellStream : IShellStreamWrapper
             public short Y;
         }
 
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        // 三个字符串字段本进程从不设置(始终 null),声明成指针即可让整个结构保持 blittable
+        // —— LibraryImport 的源生成封送要求结构可直接按位传递,含 string 字段会拒绝生成。
+        [StructLayout(LayoutKind.Sequential)]
         public struct STARTUPINFO
         {
             public int cb;
-            public string? lpReserved;
-            public string? lpDesktop;
-            public string? lpTitle;
+            public IntPtr lpReserved;
+            public IntPtr lpDesktop;
+            public IntPtr lpTitle;
             public int dwX;
             public int dwY;
             public int dwXSize;
@@ -398,7 +404,7 @@ public sealed partial class ConPtyShellStream : IShellStreamWrapper
             public IntPtr hStdError;
         }
 
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        [StructLayout(LayoutKind.Sequential)]
         public struct STARTUPINFOEX
         {
             public STARTUPINFO StartupInfo;

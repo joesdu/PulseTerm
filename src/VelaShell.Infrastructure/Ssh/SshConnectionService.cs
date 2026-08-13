@@ -217,8 +217,12 @@ public class SshConnectionService(
             {
                 _sessions.Remove(session);
             }
-            logger?.LogDebug("SSH session {SessionId} to {Host}:{Port} was cancelled by the caller",
-                session.SessionId, connectionInfo.Host, connectionInfo.Port);
+            // 先问级别再拼参数:Debug 关闭时不为这条日志创建 object[]。
+            if (logger?.IsEnabled(LogLevel.Debug) == true)
+            {
+                logger.LogDebug("SSH session {SessionId} to {Host}:{Port} was cancelled by the caller",
+                    session.SessionId, connectionInfo.Host, connectionInfo.Port);
+            }
             throw;
         }
         catch (OperationCanceledException)

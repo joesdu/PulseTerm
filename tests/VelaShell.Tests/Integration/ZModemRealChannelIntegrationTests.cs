@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
@@ -20,6 +21,11 @@ namespace VelaShell.Tests.Integration;
 /// 走的就是生产管线:TmdsSshClientWrapper → ShellStreamWrapper → SshTerminalBridge
 /// → ZModemTerminalRouter → 引擎,只有 UI 被替身化。
 /// </summary>
+// MSTEST0045(建议给 [Timeout] 加 CooperativeCancellation)在这里不适用:本组用例卡住的地方
+// 是 docker CLI、SSH 握手与 lrzsz 传输,它们都不观察 TestContext 的取消令牌;改成协作取消后
+// 超时形同虚设,挂死的用例会一直占着 CI。保留强制超时。
+[SuppressMessage("Usage", "MSTEST0045:Use cooperative cancellation with [Timeout]",
+    Justification = "被等待的 docker/SSH 操作不接受测试取消令牌,协作取消无法中断它们。")]
 [TestClass]
 public class ZModemRealChannelIntegrationTests
 {
@@ -123,7 +129,7 @@ public class ZModemRealChannelIntegrationTests
                 // 用远端自己的校验和验证落盘完整性(busybox md5sum)。
                 string expected = Convert.ToHexStringLower(MD5.HashData(payload));
                 string output = await client.RunCommandAsync($"md5sum /tmp/{remoteName}");
-                StringAssert.StartsWith(output.Trim(), expected);
+                Assert.StartsWith(expected, output.Trim());
             }
             finally
             {

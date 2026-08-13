@@ -417,8 +417,8 @@ public sealed partial class SessionMetrics
     /// <summary>解析 ps 的 "pid pcpu rss args" 输出;命令行含空格,取前三列后其余全部作为命令。</summary>
     /// <param name="section">ps 分段。</param>
     /// <param name="extras">按 PID 索引的共享/换出量;取不到就整段为空,对应列显示占位符。</param>
-    private static IReadOnlyList<ProcessUsage> ParseProcessList(
-        string section, IReadOnlyDictionary<int, (long? Shared, long? Swap)> extras)
+    private static List<ProcessUsage> ParseProcessList(
+        string section, Dictionary<int, (long? Shared, long? Swap)> extras)
     {
         var list = new List<ProcessUsage>();
         foreach (string line in LinesOf(section))

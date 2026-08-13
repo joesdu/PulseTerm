@@ -332,7 +332,7 @@ public sealed class TraceWorldMap : Control
         return built;
     }
 
-    private static IReadOnlyList<Geometry> Build(MapView view, IReadOnlyList<double[]> rings)
+    private static List<Geometry> Build(MapView view, IReadOnlyList<double[]> rings)
     {
         List<Geometry> result = [];
         if (rings.Count == 0)
@@ -404,7 +404,7 @@ public sealed class TraceWorldMap : Control
     private static readonly Lazy<IReadOnlyList<double[]>> ProvinceRings =
         new(() => LoadRings("avares://VelaShell/Assets/world-provinces.txt"));
 
-    private static IReadOnlyList<double[]> LoadRings(string uri)
+    private static List<double[]> LoadRings(string uri)
     {
         try
         {

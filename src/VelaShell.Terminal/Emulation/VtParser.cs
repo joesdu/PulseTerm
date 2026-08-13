@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 
 namespace VelaShell.Terminal.Emulation;
@@ -144,7 +145,7 @@ public sealed class VtParser(IVtActions actions)
                     case State.Vt52CursorCol:
                         break;
                     default:
-                        throw new ArgumentOutOfRangeException();
+                        throw new UnreachableException($"Unhandled VT parser state {_state}.");
                 }
                 break;
         }
@@ -526,7 +527,7 @@ public sealed class VtParser(IVtActions actions)
             case State.SosPmApcString:
                 break;
             default:
-                throw new ArgumentOutOfRangeException();
+                throw new UnreachableException($"Unhandled VT parser state {_state}.");
         }
     }
 

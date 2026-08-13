@@ -438,7 +438,7 @@ public sealed class FtpFileService : ISftpService, IFtpSessionService
         };
 
     /// <summary>把 FluentFTP 的进度回调翻译成 VelaShell 的传输进度快照。</summary>
-    private static IProgress<FtpProgress>? MapProgress(IProgress<TransferProgress>? progress, string fileName, long totalBytes) =>
+    private static Progress<FtpProgress>? MapProgress(IProgress<TransferProgress>? progress, string fileName, long totalBytes) =>
         progress is null
             ? null
             : new Progress<FtpProgress>(p => progress.Report(new()

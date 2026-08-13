@@ -81,7 +81,12 @@ public class ConPtyShellStreamTests
         while (sw.Elapsed < timeout)
         {
             Task<int> read = stream.ReadAsync(buffer, 0, buffer.Length, CancellationToken.None);
-            if (await Task.WhenAny(read, Task.Delay(timeout - sw.Elapsed)) != read)
+            // 超时定时器随本轮结束一起取消,否则每读一次都留下一个跑满 timeout 的计时器。
+            using var timeoutCts = new CancellationTokenSource();
+            var delay = Task.Delay(timeout - sw.Elapsed, timeoutCts.Token);
+            Task winner = await Task.WhenAny(read, delay);
+            await timeoutCts.CancelAsync();
+            if (winner != read)
             {
                 break;
             }
@@ -108,7 +113,11 @@ public class ConPtyShellStreamTests
         while (sw.Elapsed < timeout)
         {
             Task<int> read = stream.ReadAsync(buffer, 0, buffer.Length, CancellationToken.None);
-            if (await Task.WhenAny(read, Task.Delay(timeout - sw.Elapsed)) != read)
+            using var timeoutCts = new CancellationTokenSource();
+            var delay = Task.Delay(timeout - sw.Elapsed, timeoutCts.Token);
+            Task winner = await Task.WhenAny(read, delay);
+            await timeoutCts.CancelAsync();
+            if (winner != read)
             {
                 return false;
             }

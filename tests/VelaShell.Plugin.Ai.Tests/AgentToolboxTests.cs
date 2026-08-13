@@ -10,6 +10,9 @@ namespace VelaShell.Plugin.Ai.Tests;
 [TestClass]
 public sealed class AgentToolboxTests
 {
+    private static readonly string[] ExpectedToolNames =
+        ["list_sessions", "read_terminal", "run_command", "read_remote_file", "write_terminal"];
+
     private static async Task<string> InvokeAsync(AgentToolbox toolbox, string name, Dictionary<string, object?>? args = null)
     {
         AIFunction function = toolbox.CreateTools().OfType<AIFunction>().Single(f => f.Name == name);
@@ -25,9 +28,7 @@ public sealed class AgentToolboxTests
 
         string[] names = toolbox.CreateTools().OfType<AIFunction>().Select(f => f.Name).ToArray();
 
-        CollectionAssert.AreEquivalent(
-            new[] { "list_sessions", "read_terminal", "run_command", "read_remote_file", "write_terminal" },
-            names);
+        Assert.AreSequenceEqual(ExpectedToolNames, names, Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
     }
 
     [TestMethod]
@@ -39,8 +40,8 @@ public sealed class AgentToolboxTests
 
         string result = await InvokeAsync(toolbox, "list_sessions");
 
-        StringAssert.Contains(result, "prod-1");
-        StringAssert.Contains(result, "root");
+        Assert.Contains("prod-1", result);
+        Assert.Contains("root", result);
     }
 
     [TestMethod]
@@ -51,7 +52,7 @@ public sealed class AgentToolboxTests
 
         string result = await InvokeAsync(toolbox, "read_terminal");
 
-        StringAssert.Contains(result, "No SSH session");
+        Assert.Contains("No SSH session", result);
     }
 
     [TestMethod]
@@ -64,7 +65,7 @@ public sealed class AgentToolboxTests
 
         string result = await InvokeAsync(toolbox, "read_terminal");
 
-        StringAssert.Contains(result, "active (running)");
+        Assert.Contains("active (running)", result);
     }
 
     [TestMethod]
@@ -76,8 +77,8 @@ public sealed class AgentToolboxTests
 
         string result = await InvokeAsync(toolbox, "run_command", new() { ["command"] = "rm -rf /" });
 
-        StringAssert.Contains(result, "DENIED");
-        Assert.AreEqual(0, context.FakeRemoteExec.Executed.Count);
+        Assert.Contains("DENIED", result);
+        Assert.IsEmpty(context.FakeRemoteExec.Executed);
     }
 
     [TestMethod]
@@ -95,7 +96,7 @@ public sealed class AgentToolboxTests
         string result = await InvokeAsync(toolbox, "run_command", new() { ["command"] = "uptime" });
 
         Assert.AreEqual("up 42 days", result);
-        Assert.AreEqual(1, context.FakeRemoteExec.Executed.Count);
+        Assert.HasCount(1, context.FakeRemoteExec.Executed);
     }
 
     [TestMethod]
@@ -132,7 +133,7 @@ public sealed class AgentToolboxTests
 
         string result = await InvokeAsync(toolbox, "read_remote_file", new() { ["path"] = "/etc/hostname" });
 
-        StringAssert.Contains(result, "web-01");
+        Assert.Contains("web-01", result);
     }
 
     [TestMethod]
@@ -149,8 +150,8 @@ public sealed class AgentToolboxTests
 
         string result = await InvokeAsync(toolbox, "write_terminal", new() { ["text"] = "echo hi\n" });
 
-        StringAssert.Contains(result, "denied");
-        Assert.AreEqual(0, context.FakeTerminal.Writes.Count);
+        Assert.Contains("denied", result);
+        Assert.IsEmpty(context.FakeTerminal.Writes);
     }
 
     [TestMethod]
@@ -166,8 +167,8 @@ public sealed class AgentToolboxTests
 
         string result = await InvokeAsync(toolbox, "write_terminal", new() { ["text"] = "echo hi\n" });
 
-        StringAssert.Contains(result, "typed");
-        Assert.AreEqual(1, context.FakeTerminal.Writes.Count);
+        Assert.Contains("typed", result);
+        Assert.HasCount(1, context.FakeTerminal.Writes);
         Assert.AreEqual("echo hi\n", context.FakeTerminal.Writes[0].Input);
     }
 }

@@ -221,7 +221,9 @@ internal sealed class PluginProcessClient : IAsyncDisposable
     {
         if (_shuttingDown == 0 && Interlocked.Exchange(ref _disposed, 1) == 0)
         {
-            _ = _connection.DisposeAsync();
+            // Exited 是同步事件回调,不能在这里阻塞等管道回收;交给后台任务并吞掉异常,
+            // 既满足"ValueTask 只消费一次"(CA2012),也不留未观察任务异常。
+            _ = DisposeConnectionAsync();
             _router.Dispose();
             try
             {
@@ -231,6 +233,18 @@ internal sealed class PluginProcessClient : IAsyncDisposable
             {
                 // 崩溃回调不扩散。
             }
+        }
+    }
+
+    private async Task DisposeConnectionAsync()
+    {
+        try
+        {
+            await _connection.DisposeAsync().ConfigureAwait(false);
+        }
+        catch
+        {
+            // 进程已退出,管道回收失败无处上报也无需上报。
         }
     }
 
@@ -259,14 +273,21 @@ internal sealed class PluginProcessClient : IAsyncDisposable
     }
 
     /// <summary>
-    /// 限时等待进程退出,超时返回 false。刻意不用取消令牌:
-    /// <see cref="Process.WaitForExitAsync(CancellationToken)" /> 超时会抛 TaskCanceledException,
-    /// 而"子进程没在期限内退出"是预期内的常规分支,不该在调试器里刷首发异常。
+    /// 限时等待进程退出,超时返回 false。刻意不抛超时异常:
+    /// <see cref="Process.WaitForExitAsync(CancellationToken)" /> 与 <c>WaitAsync(timeout)</c>
+    /// 超时都会抛(TaskCanceled/Timeout),而"子进程没在期限内退出"是预期内的常规分支,
+    /// 不该在调试器里刷首发异常。因此仍走 WhenAny,但给 Task.Delay 配取消令牌:
+    /// 进程先退出时立刻取消,不把定时器留到超时(CA2027)。
     /// </summary>
     private static async Task<bool> WaitForExitAsync(Process process, TimeSpan timeout)
     {
         Task exited = process.WaitForExitAsync();
-        return await Task.WhenAny(exited, Task.Delay(timeout)).ConfigureAwait(false) == exited;
+        using var delayCts = new CancellationTokenSource();
+        // 取消的 Task.Delay 落在 Canceled 而非 Faulted,不会进未观察任务异常通道,无需 Observe。
+        var delay = Task.Delay(timeout, delayCts.Token);
+        bool exitedFirst = await Task.WhenAny(exited, delay).ConfigureAwait(false) == exited;
+        await delayCts.CancelAsync().ConfigureAwait(false);
+        return exitedFirst;
     }
 
     private static void TryKill(Process? process)

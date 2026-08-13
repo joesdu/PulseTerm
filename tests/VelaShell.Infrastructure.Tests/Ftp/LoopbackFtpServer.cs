@@ -71,7 +71,7 @@ internal sealed class LoopbackFtpServer : IDisposable
                 return;
             }
             Interlocked.Increment(ref AcceptedConnections);
-            Task session = Task.Run(() => HandleClientAsync(client));
+            var session = Task.Run(() => HandleClientAsync(client));
             lock (_sync)
             {
                 _clients.Add(session);
@@ -168,21 +168,21 @@ internal sealed class LoopbackFtpServer : IDisposable
                 await SendListingAsync(state, argument, writer, command == "NLST").ConfigureAwait(false);
                 return true;
             case "SIZE":
-            {
-                string path = Local(Normalize(state, argument));
-                await writer.WriteLineAsync(File.Exists(path)
-                    ? $"213 {new FileInfo(path).Length}"
-                    : "550 Not found").ConfigureAwait(false);
-                return true;
-            }
+                {
+                    string path = Local(Normalize(state, argument));
+                    await writer.WriteLineAsync(File.Exists(path)
+                        ? $"213 {new FileInfo(path).Length}"
+                        : "550 Not found").ConfigureAwait(false);
+                    return true;
+                }
             case "MDTM":
-            {
-                string path = Local(Normalize(state, argument));
-                await writer.WriteLineAsync(File.Exists(path)
-                    ? $"213 {File.GetLastWriteTimeUtc(path):yyyyMMddHHmmss}"
-                    : "550 Not found").ConfigureAwait(false);
-                return true;
-            }
+                {
+                    string path = Local(Normalize(state, argument));
+                    await writer.WriteLineAsync(File.Exists(path)
+                        ? $"213 {File.GetLastWriteTimeUtc(path):yyyyMMddHHmmss}"
+                        : "550 Not found").ConfigureAwait(false);
+                    return true;
+                }
             case "RETR":
                 await SendFileAsync(state, argument, writer).ConfigureAwait(false);
                 return true;
@@ -191,68 +191,68 @@ internal sealed class LoopbackFtpServer : IDisposable
                 await ReceiveFileAsync(state, argument, writer, append: command == "APPE").ConfigureAwait(false);
                 return true;
             case "DELE":
-            {
-                string path = Local(Normalize(state, argument));
-                if (File.Exists(path))
                 {
-                    File.Delete(path);
-                    await writer.WriteLineAsync("250 Deleted").ConfigureAwait(false);
+                    string path = Local(Normalize(state, argument));
+                    if (File.Exists(path))
+                    {
+                        File.Delete(path);
+                        await writer.WriteLineAsync("250 Deleted").ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        await writer.WriteLineAsync("550 Not found").ConfigureAwait(false);
+                    }
+                    return true;
                 }
-                else
-                {
-                    await writer.WriteLineAsync("550 Not found").ConfigureAwait(false);
-                }
-                return true;
-            }
             case "MKD":
             case "XMKD":
-            {
-                string remote = Normalize(state, argument);
-                Directory.CreateDirectory(Local(remote));
-                await writer.WriteLineAsync($"257 \"{remote}\" created").ConfigureAwait(false);
-                return true;
-            }
+                {
+                    string remote = Normalize(state, argument);
+                    Directory.CreateDirectory(Local(remote));
+                    await writer.WriteLineAsync($"257 \"{remote}\" created").ConfigureAwait(false);
+                    return true;
+                }
             case "RMD":
             case "XRMD":
-            {
-                string path = Local(Normalize(state, argument));
-                if (Directory.Exists(path))
                 {
-                    Directory.Delete(path, true);
-                    await writer.WriteLineAsync("250 Removed").ConfigureAwait(false);
+                    string path = Local(Normalize(state, argument));
+                    if (Directory.Exists(path))
+                    {
+                        Directory.Delete(path, true);
+                        await writer.WriteLineAsync("250 Removed").ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        await writer.WriteLineAsync("550 Not found").ConfigureAwait(false);
+                    }
+                    return true;
                 }
-                else
-                {
-                    await writer.WriteLineAsync("550 Not found").ConfigureAwait(false);
-                }
-                return true;
-            }
             case "RNFR":
                 state.RenameFrom = Local(Normalize(state, argument));
                 await writer.WriteLineAsync("350 Ready for destination").ConfigureAwait(false);
                 return true;
             case "RNTO":
-            {
-                string target = Local(Normalize(state, argument));
-                if (state.RenameFrom is { } source && (File.Exists(source) || Directory.Exists(source)))
                 {
-                    if (Directory.Exists(source))
+                    string target = Local(Normalize(state, argument));
+                    if (state.RenameFrom is { } source && (File.Exists(source) || Directory.Exists(source)))
                     {
-                        Directory.Move(source, target);
+                        if (Directory.Exists(source))
+                        {
+                            Directory.Move(source, target);
+                        }
+                        else
+                        {
+                            File.Move(source, target, true);
+                        }
+                        await writer.WriteLineAsync("250 Renamed").ConfigureAwait(false);
                     }
                     else
                     {
-                        File.Move(source, target, true);
+                        await writer.WriteLineAsync("550 Rename failed").ConfigureAwait(false);
                     }
-                    await writer.WriteLineAsync("250 Renamed").ConfigureAwait(false);
+                    state.RenameFrom = null;
+                    return true;
                 }
-                else
-                {
-                    await writer.WriteLineAsync("550 Rename failed").ConfigureAwait(false);
-                }
-                state.RenameFrom = null;
-                return true;
-            }
             case "SITE":
                 // SITE CHMOD:真实服务器上是可选命令,这里接受并忽略,足以验证调用链路。
                 await writer.WriteLineAsync("200 OK").ConfigureAwait(false);
@@ -266,7 +266,7 @@ internal sealed class LoopbackFtpServer : IDisposable
         }
     }
 
-    private async Task OpenPassiveAsync(SessionState state, StreamWriter writer, bool extended)
+    private static async Task OpenPassiveAsync(SessionState state, StreamWriter writer, bool extended)
     {
         state.CloseData();
         var listener = new TcpListener(IPAddress.Loopback, 0);

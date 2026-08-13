@@ -31,7 +31,7 @@ public class HelloWorldTerminalTests
         try
         {
             await ctx.RecordingCommands.RunAsync("velashell.hello-world.grep-errors");
-            Assert.IsTrue(ctx.CollectingLog.Entries.Any(e => e.Message.Contains("disk full")),
+            Assert.Contains(e => e.Message.Contains("disk full"), ctx.CollectingLog.Entries,
                 "应在终端输出里搜到 error 行");
         }
         finally
@@ -47,7 +47,7 @@ public class HelloWorldTerminalTests
         try
         {
             await ctx.RecordingCommands.RunAsync("velashell.hello-world.echo-terminal");
-            Assert.IsTrue(ctx.FakeTerminal.Writes.Any(w => w.Input.Contains("hello-from-plugin")));
+            Assert.Contains(w => w.Input.Contains("hello-from-plugin"), ctx.FakeTerminal.Writes);
         }
         finally
         {
@@ -63,8 +63,8 @@ public class HelloWorldTerminalTests
         {
             ctx.FakeTerminal.DenyWrites = true;
             await ctx.RecordingCommands.RunAsync("velashell.hello-world.echo-terminal"); // 不抛
-            Assert.IsFalse(ctx.FakeTerminal.Writes.Any());
-            Assert.IsTrue(ctx.CollectingLog.Entries.Any(e => e.Message.Contains("denied")));
+            Assert.IsEmpty(ctx.FakeTerminal.Writes);
+            Assert.Contains(e => e.Message.Contains("denied"), ctx.CollectingLog.Entries);
         }
         finally
         {

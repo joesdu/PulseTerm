@@ -83,9 +83,9 @@ public sealed record TerminalColorScheme(
 
     private static bool HexEquals(string? a, string? b) => string.Equals(a?.Trim(), b?.Trim(), StringComparison.OrdinalIgnoreCase);
 
-    private static bool HexSequenceEquals(IReadOnlyList<string>? a, IReadOnlyList<string> b)
+    private static bool HexSequenceEquals(List<string>? a, string[] b)
     {
-        if (a is null || a.Count != b.Count)
+        if (a is null || a.Count != b.Length)
         {
             return false;
         }

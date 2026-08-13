@@ -20,13 +20,15 @@ namespace VelaShell.Tests.Localization;
 /// </remarks>
 [TestClass]
 [TestCategory("i18n")]
-public class LocalizedKeyUsageTests
+public partial class LocalizedKeyUsageTests
 {
     /// <summary>XAML 里的位置参数写法 {loc:Localize SomeKey}(LocalizeExtension 的唯一用法)。</summary>
-    private static readonly Regex XamlKey = new(@"\{loc:Localize\s+([A-Za-z0-9_]+)\s*\}", RegexOptions.Compiled);
+    [GeneratedRegex(@"\{loc:Localize\s+([A-Za-z0-9_]+)\s*\}")]
+    private static partial Regex XamlKey { get; }
 
     /// <summary>代码里的字面量取词 Strings.Get("SomeKey");变量传参匹配不到,也不该匹配。</summary>
-    private static readonly Regex CodeKey = new(@"Strings\.Get\(""([A-Za-z0-9_]+)""\)", RegexOptions.Compiled);
+    [GeneratedRegex(@"Strings\.Get\(""([A-Za-z0-9_]+)""\)")]
+    private static partial Regex CodeKey { get; }
 
     [TestMethod]
     public void EveryLocalizeKeyUsedInXaml_ExistsInResources()

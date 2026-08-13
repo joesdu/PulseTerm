@@ -59,20 +59,12 @@ public sealed class TmdsSshClientWrapperTests
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 
-        try
-        {
-            await wrapper.ConnectAsync(cts.Token);
-            Assert.Fail("Expected the connect to fail.");
-        }
-        catch (VelaSshOperationTimeoutException)
-        {
-            Assert.Fail("主动取消不应被翻译为超时异常。");
-        }
-        catch (OperationCanceledException)
-        {
-            // 期望路径:取消语义被保留
-        }
+        // 断言写在 catch 外:取消语义被保留(抛 OperationCanceledException),
+        // 而不是被翻译成超时异常(两者互不继承,拿到实例后直接判类型即可)。
+        OperationCanceledException cancelled =
+            await Assert.ThrowsAsync<OperationCanceledException>(() => wrapper.ConnectAsync(cts.Token));
 
+        Assert.IsNotInstanceOfType<VelaSshOperationTimeoutException>(cancelled, "主动取消不应被翻译为超时异常。");
         Assert.IsFalse(wrapper.IsConnected);
     }
 

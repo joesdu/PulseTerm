@@ -64,7 +64,7 @@ public sealed class SonnetDbPluginDataStore(SonnetDbEngine engine, ISecretProtec
         return json is null ? null : JsonSerializer.Deserialize<ValueDoc>(json)?.V;
     }
 
-    private Task SetRawAsync(string pluginId, string kind, string key, JsonElement value, CancellationToken cancellationToken)
+    private Task<object?> SetRawAsync(string pluginId, string kind, string key, JsonElement value, CancellationToken cancellationToken)
     {
         string json = JsonSerializer.Serialize(new ValueDoc(value));
         return engine.WithCollectionAsync<object?>(SonnetDbEngine.PluginDataCollection, store =>

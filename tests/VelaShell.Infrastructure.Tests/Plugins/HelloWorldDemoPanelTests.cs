@@ -13,6 +13,14 @@ namespace VelaShell.Infrastructure.Tests.Plugins;
 [TestCategory("Plugins")]
 public class HelloWorldDemoPanelTests
 {
+    private static readonly string[] ExpectedCommandIds =
+    [
+        "velashell.hello-world.panel",
+        "velashell.hello-world.panel-window",
+        "velashell.hello-world.list-sessions",
+        "velashell.hello-world.uptime"
+    ];
+
     private static async Task<TestPluginContext> ActivateAsync()
     {
         var ctx = new TestPluginContext { PluginId = "velashell.hello-world" };
@@ -27,13 +35,7 @@ public class HelloWorldDemoPanelTests
         try
         {
             string[] ids = [.. ctx.RecordingCommands.Registered.Select(c => c.Id)];
-            CollectionAssert.IsSubsetOf(new[]
-            {
-                "velashell.hello-world.panel",
-                "velashell.hello-world.panel-window",
-                "velashell.hello-world.list-sessions",
-                "velashell.hello-world.uptime"
-            }, ids);
+            CollectionAssert.IsSubsetOf(ExpectedCommandIds, ids);
         }
         finally
         {
@@ -76,8 +78,8 @@ public class HelloWorldDemoPanelTests
             ctx.FakeSessions.AddConnected(host: "prod-1");
             ctx.FakeRemoteExec.Handler = (_, cmd) => cmd == "uptime" ? "up 42 days" : "";
             await ctx.RecordingCommands.RunAsync("velashell.hello-world.uptime");
-            Assert.IsTrue(ctx.FakeRemoteExec.Executed.Any(e => e.Command == "uptime"));
-            Assert.IsTrue(ctx.CollectingLog.Entries.Any(e => e.Message.Contains("up 42 days")));
+            Assert.Contains(e => e.Command == "uptime", ctx.FakeRemoteExec.Executed);
+            Assert.Contains(e => e.Message.Contains("up 42 days"), ctx.CollectingLog.Entries);
         }
         finally
         {

@@ -692,7 +692,7 @@ public sealed class ProcessManagerViewModel : ReactiveObject, IDisposable
     /// 收集一棵进程树的全部 PID,子在前父在后 —— 先杀父的话子进程会被 init 收养,
     /// 后续按 ppid 就找不到它们了。
     /// </summary>
-    private IReadOnlyList<int> CollectTree(int rootPid)
+    private List<int> CollectTree(int rootPid)
     {
         Dictionary<int, List<int>> children = [];
         foreach (ProcessRowViewModel row in _all)

@@ -62,15 +62,15 @@ public class PluginManagerTests
         manager.Discover();
         var byId = manager.Plugins.ToDictionary(p => p.Id);
 
-        Assert.AreEqual(5, byId.Count);
+        Assert.HasCount(5, byId);
         Assert.AreEqual(PluginState.Discovered, byId["a.ok"].State);
         Assert.AreEqual(PluginState.Invalid, byId["bad-json"].State);
         Assert.IsNotNull(byId["bad-json"].Error);
         Assert.AreEqual(PluginState.Disabled, byId["a.disabled"].State);
         Assert.AreEqual(PluginState.Incompatible, byId["a.future"].State);
-        StringAssert.Contains(byId["a.future"].Error, "apiLevel");
+        Assert.Contains("apiLevel", byId["a.future"].Error);
         Assert.AreEqual(PluginState.Incompatible, byId["a.newer"].State);
-        StringAssert.Contains(byId["a.newer"].Error, "9.9.9");
+        Assert.Contains("9.9.9", byId["a.newer"].Error);
     }
 
     [TestMethod]
@@ -105,10 +105,10 @@ public class PluginManagerTests
         manager.Discover();
 
         List<PluginDescriptor> dups = [.. manager.Plugins.Where(p => p.Id == "a.dup")];
-        Assert.AreEqual(2, dups.Count);
-        Assert.AreEqual(1, dups.Count(d => d.State == PluginState.Discovered));
+        Assert.HasCount(2, dups);
+        Assert.ContainsSingle(d => d.State == PluginState.Discovered, dups);
         PluginDescriptor rejected = dups.Single(d => d.State == PluginState.Invalid);
-        StringAssert.Contains(rejected.Error, "Duplicate");
+        Assert.Contains("Duplicate", rejected.Error);
     }
 
     [TestMethod]
@@ -144,7 +144,7 @@ public class PluginManagerTests
         await manager.StartAsync();
         PluginDescriptor descriptor = manager.Plugins.Single();
         Assert.AreEqual(PluginState.Failed, descriptor.State);
-        StringAssert.Contains(descriptor.Error, "Ghost.dll");
+        Assert.Contains("Ghost.dll", descriptor.Error);
         await manager.DisposeAsync();
     }
 
@@ -155,7 +155,7 @@ public class PluginManagerTests
         var manager = new PluginManager(Options());
         await manager.StartAsync();
         await manager.StartAsync();
-        Assert.AreEqual(1, manager.Plugins.Count(p => p.Id == "a.ok"));
+        Assert.ContainsSingle(p => p.Id == "a.ok", manager.Plugins);
         await manager.DisposeAsync();
     }
 }

@@ -31,7 +31,7 @@ public class PluginManifestReaderTests
     {
         PluginManifestException ex = Assert.ThrowsExactly<PluginManifestException>(() =>
             PluginManifestReader.Parse("""{ "id": "a.b", "version": "1.0.0", "displayName": "X" }"""));
-        StringAssert.Contains(ex.Message, "JSON");
+        Assert.Contains("JSON", ex.Message);
     }
 
     [TestMethod]
