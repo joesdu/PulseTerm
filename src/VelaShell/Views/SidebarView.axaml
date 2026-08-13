@@ -36,15 +36,13 @@
           </Button>
           <Button Background="Transparent" Padding="0" Width="24" Height="24"
                   CornerRadius="3" Cursor="Hand"
-                  ToolTip.Tip="{loc:Localize XImport_MenuItem}">
+                  ToolTip.Tip="{loc:Localize XImport_MenuItemAll}">
             <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.ellipsis}"
                            Foreground="{DynamicResource VelaTextTertiary}" />
             <Button.Flyout>
               <MenuFlyout Placement="BottomEdgeAlignedRight">
-                <MenuItem Header="{loc:Localize XImport_MenuItem}"
-                          Click="ImportXshell_Click" />
-                <MenuItem Header="{loc:Localize XImport_WinScpMenuItem}"
-                          Click="ImportWinScp_Click" />
+                <MenuItem Header="{loc:Localize XImport_MenuItemAll}"
+                          Click="ImportSessions_Click" />
               </MenuFlyout>
             </Button.Flyout>
           </Button>

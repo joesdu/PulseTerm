@@ -1,10 +1,10 @@
+using System.Windows.Input;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using ReactiveUI.Primitives;
 using VelaShell.Core.Import;
-using VelaShell.Core.Resources;
 using VelaShell.Presentation.ViewModels;
 
 namespace VelaShell.Views;
@@ -36,12 +36,20 @@ public partial class SessionImportView : Window
         await viewModel.InitializeAsync();
     }
 
-    /// <summary>Esc 等价于取消。</summary>
+    /// <summary>Esc 等价于取消;Enter 直接执行默认(全自动)导入。</summary>
     protected override void OnKeyDown(KeyEventArgs e)
     {
         if (e.Key == Key.Escape)
         {
             this.PostClose(null);
+            e.Handled = true;
+            return;
+        }
+        // CanExecute 为 false 时执行 ReactiveCommand 会把异常抛进订阅链,这里先问一句再执行。
+        if (e.Key == Key.Enter && DataContext is SessionImportViewModel viewModel &&
+            ((ICommand)viewModel.ImportCommand).CanExecute(null))
+        {
+            viewModel.ImportCommand.Execute().Subscribe();
             e.Handled = true;
             return;
         }
@@ -59,41 +67,43 @@ public partial class SessionImportView : Window
 
     private void Cancel_Click(object? sender, RoutedEventArgs e) => this.PostClose(null);
 
+    /// <summary>为某一个来源手动指定配置文件/会话目录,并立即重扫该来源。</summary>
     private async void Browse_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not SessionImportViewModel viewModel)
+        if (sender is not Control { DataContext: SessionImportSourceViewModel source })
         {
             return;
         }
-        string? picked = viewModel.BrowseKind switch
+        string title = $"{source.SourceKey} · {source.SourceLabel}";
+        string? picked = source.BrowseKind switch
         {
-            ImportBrowseKind.File => await PickFileAsync(),
-            ImportBrowseKind.Folder => await PickFolderAsync(),
+            ImportBrowseKind.File => await PickFileAsync(title),
+            ImportBrowseKind.Folder => await PickFolderAsync(title),
             _ => null
         };
         if (picked is { Length: > 0 })
         {
-            viewModel.SourceText = picked;
-            viewModel.ScanCommand.Execute().Subscribe();
+            source.SourceText = picked;
+            source.ScanCommand.Execute().Subscribe();
         }
     }
 
-    private async Task<string?> PickFolderAsync()
+    private async Task<string?> PickFolderAsync(string title)
     {
         IReadOnlyList<IStorageFolder> folders = await StorageProvider.OpenFolderPickerAsync(new()
         {
-            Title = Strings.Get("XImport_Browse"),
+            Title = title,
             AllowMultiple = false,
             SuggestedStartLocation = await StorageDefaults.HomeAsync(this)
         });
         return folders.AsParallel().FirstOrDefault()?.TryGetLocalPath();
     }
 
-    private async Task<string?> PickFileAsync()
+    private async Task<string?> PickFileAsync(string title)
     {
         IReadOnlyList<IStorageFile> files = await StorageProvider.OpenFilePickerAsync(new()
         {
-            Title = Strings.Get("XImport_Browse"),
+            Title = title,
             AllowMultiple = false,
             SuggestedStartLocation = await StorageDefaults.HomeAsync(this)
         });

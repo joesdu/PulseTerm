@@ -11,7 +11,8 @@ public sealed class SessionImportItemViewModel : ReactiveObject
     public SessionImportItemViewModel(ImportedSession source)
     {
         Source = source ?? throw new ArgumentNullException(nameof(source));
-        IsSelected = source.IsSupported;
+        IsDuplicate = source.AlreadyExists;
+        IsSelected = source.IsSupported && !IsDuplicate;
     }
 
     /// <summary>底层已解析的会话数据。</summary>
@@ -46,9 +47,21 @@ public sealed class SessionImportItemViewModel : ReactiveObject
         Source.HasEncryptedPassword ? Strings.Get("XImport_PwFailed") :
         Strings.Get("XImport_PwNone");
 
-    /// <summary>是否在 VelaShell 中已存在同目标会话(用于提示重复)。</summary>
-    public bool AlreadyExists => Source.AlreadyExists;
+    /// <summary>
+    /// 是否与已有会话重复:VelaShell 中已存在同目标(<see cref="ImportedSession.AlreadyExists" />),
+    /// 或本次扫描中另一个来源已经给出了同一目标(由聚合视图模型跨来源去重后回填)。
+    /// 重复项默认不勾选。
+    /// </summary>
+    public bool IsDuplicate
+    {
+        get;
+        set
+        {
+            this.RaiseAndSetIfChanged(ref field, value);
+            this.RaisePropertyChanged(nameof(ExistsHint));
+        }
+    }
 
-    /// <summary>已存在提示文案(仅在 <see cref="AlreadyExists" /> 时非空)。</summary>
-    public string ExistsHint => Source.AlreadyExists ? Strings.Get("XImport_Duplicate") : string.Empty;
+    /// <summary>重复提示文案(仅在 <see cref="IsDuplicate" /> 时非空)。</summary>
+    public string ExistsHint => IsDuplicate ? Strings.Get("XImport_Duplicate") : string.Empty;
 }
