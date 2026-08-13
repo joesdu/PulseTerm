@@ -67,7 +67,7 @@
           BorderBrush="Transparent" VerticalAlignment="Stretch">
     <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
       <Ellipse Width="7" Height="7" VerticalAlignment="Center"
-               Fill="{Binding ViewModel.Session.Status, Converter={x:Static conv:SessionStatusToBrushConverter.Instance}}" />
+               Fill="{Binding ViewModel.Status, Converter={x:Static conv:SessionStatusToBrushConverter.Instance}}" />
       <Border Width="3" Height="12" CornerRadius="1.5" VerticalAlignment="Center"
               Background="{Binding ConnectionAccentBrush}" />
       <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.folder-open}"

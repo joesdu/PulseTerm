@@ -1,8 +1,12 @@
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Reflection;
+using Avalonia.Controls;
+using Avalonia.Controls.Shapes;
 using Avalonia.Headless;
+using Avalonia.Logging;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using NSubstitute;
 using ReactiveUI.Primitives;
 using VelaShell.Core.Data;
@@ -655,6 +659,105 @@ public sealed class StandaloneSftpDocumentBehaviorTests
             sftpService
         );
     }
+
+    [TestMethod]
+    [TestCategory("Sftp")]
+    public async Task SftpTabItem_ForAnFtpDocumentWithoutSshSession_BindsTheStatusDotWithoutErrors()
+    {
+        // FTP 文档没有 SshSession(它不走 SSH 握手)。标签页曾直接绑 ViewModel.Session.Status,
+        // 于是每开一个 FTP 标签就刷一条
+        // "An error occurred binding 'Fill' to 'ViewModel.Session.Status': 'Value is null.'",
+        // 那颗状态灯还自始至终不上色。状态改由视图模型给出,两个问题一起消失。
+        ISftpService sftp = Substitute.For<ISftpService>();
+        var sessionId = Guid.NewGuid();
+        ConfigureInitialLoad(sftp, sessionId);
+
+        await _session.Dispatch(() =>
+        {
+            var sink = new BindingErrorSink();
+            ILogSink? previous = Logger.Sink;
+            Logger.Sink = sink;
+            try
+            {
+                // 先用一条必错的绑定验明接收器在工作,否则"没有错误"只是空跑。
+                var canary = new TextBlock();
+                canary.Bind(TextBlock.TextProperty, new Avalonia.Data.Binding("Missing.Deeper"));
+                var probe = new Window { Content = canary, DataContext = new object() };
+                probe.Show();
+                Dispatcher.UIThread.RunJobs();
+                probe.Close();
+                Assert.IsNotEmpty(sink.Errors, "绑定错误接收器没有生效,后面的断言会一直是空跑。");
+                sink.Errors.Clear();
+
+                var document = new SftpDocument(new SftpDocumentViewModel(
+                    CreateFtpProfile(),
+                    sessionId,
+                    static (_, _) => Task.CompletedTask,
+                    sftp,
+                    new TransferOptions()));
+                Assert.IsNull(document.ViewModel.Session, "FTP 文档不该有 SSH 会话。");
+                Assert.AreEqual(SessionStatus.Connected, document.ViewModel.Status);
+
+                var tab = new SftpDockTabItem { DataContext = document };
+                var window = new Window { Content = tab };
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+                window.UpdateLayout();
+                try
+                {
+                    Ellipse dot = tab.GetVisualDescendants().OfType<Ellipse>().First();
+                    Assert.IsNotNull(dot.Fill, "状态灯没有拿到画刷,标签上就是个看不见的点。");
+                }
+                finally
+                {
+                    window.Close();
+                }
+            }
+            finally
+            {
+                Logger.Sink = previous;
+            }
+
+            Assert.IsEmpty(sink.Errors, $"出现了 {sink.Errors.Count} 条绑定错误,例如:{sink.Errors.FirstOrDefault()}");
+            return Task.CompletedTask;
+        }, CancellationToken.None);
+    }
+
+    /// <summary>只收集绑定相关的告警/错误,供上面的回归测试断言。</summary>
+    private sealed class BindingErrorSink : ILogSink
+    {
+        public List<string> Errors { get; } = [];
+
+        public bool IsEnabled(LogEventLevel level, string area) =>
+            level >= LogEventLevel.Warning && area == LogArea.Binding;
+
+        public void Log(LogEventLevel level, string area, object? source, string messageTemplate)
+        {
+            if (IsEnabled(level, area))
+            {
+                Errors.Add(messageTemplate);
+            }
+        }
+
+        public void Log(LogEventLevel level, string area, object? source, string messageTemplate, params object?[] propertyValues)
+        {
+            if (IsEnabled(level, area))
+            {
+                Errors.Add(messageTemplate + " | " + string.Join(", ", propertyValues));
+            }
+        }
+    }
+
+    private static SessionProfile CreateFtpProfile() => new()
+    {
+        ConnectionType = ConnectionType.FTP,
+        Name = "Files",
+        Host = "files.example.com",
+        Port = 21,
+        Username = "anonymous",
+        AuthMethod = AuthMethod.Password,
+        Password = "secret",
+    };
 
     private static void ConfigureInitialLoad(ISftpService sftp, Guid sessionId)
     {

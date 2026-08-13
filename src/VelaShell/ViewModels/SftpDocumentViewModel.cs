@@ -41,8 +41,13 @@ public sealed class SftpDocumentViewModel : ReactiveObject, IAsyncDisposable
                sftpService,
                transferOptions,
                transferSink,
-               getDefaultEditorPath) =>
+               getDefaultEditorPath)
+    {
         Session = session;
+        // 标签页状态灯读的是 Status,而它的真值住在 SshSession 上 —— 转发一次属性变更,
+        // 灯才会跟着会话断开/重连改色。FTP 走另一个构造函数,没有这条线。
+        session.PropertyChanged += OnSessionPropertyChanged;
+    }
 
     /// <summary>
     /// 以「一个会话标识 + 一个断开回调」构造文档,不绑定具体协议。
@@ -95,6 +100,18 @@ public sealed class SftpDocumentViewModel : ReactiveObject, IAsyncDisposable
     public SessionProfile Profile { get; }
     /// <summary>当前活跃的 SSH 会话;FTP 文档没有 SSH 会话,为 null。</summary>
     public SshSession? Session { get; }
+
+    /// <summary>
+    /// 标签页状态灯的连接状态。必须由本视图模型给出,不能让界面直接绑 <c>Session.Status</c>:
+    /// FTP 文档的 <see cref="Session" /> 是 null,那样每开一个 FTP 标签都会刷一条
+    /// <c>An error occurred binding 'Fill' to 'ViewModel.Session.Status': 'Value is null.'</c>,
+    /// 而且那颗灯自始至终不上色。
+    /// </summary>
+    /// <remarks>
+    /// FTP 没有会话级状态可读(<c>IFtpSessionService</c> 只管开/关),而文档只在登录成功后才建出来,
+    /// 因此按「已连接」呈现;掉线由文件面板的错误提示承担。等 FTP 侧补上状态跟踪再接上来。
+    /// </remarks>
+    public SessionStatus Status => Session?.Status ?? SessionStatus.Connected;
     /// <summary>SSH 会话的唯一标识。</summary>
     public Guid SessionId { get; }
     /// <summary>SFTP 文档标签页的显示标题。</summary>
@@ -138,10 +155,22 @@ public sealed class SftpDocumentViewModel : ReactiveObject, IAsyncDisposable
         }
     }
 
+    private void OnSessionPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(SshSession.Status) or null)
+        {
+            this.RaisePropertyChanged(nameof(Status));
+        }
+    }
+
     /// <summary>分离文件浏览器并取消生命周期令牌。</summary>
     public void Detach()
     {
         _lifetime.Cancel();
+        if (Session is { } session)
+        {
+            session.PropertyChanged -= OnSessionPropertyChanged;
+        }
         RemoteFiles.Detach();
         LocalFiles.Detach();
     }
