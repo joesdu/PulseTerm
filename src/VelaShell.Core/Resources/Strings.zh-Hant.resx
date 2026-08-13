@@ -25,9 +25,6 @@
   <!-- Auth (7) -->
   <!-- Settings Dialog -->
   <!-- File Browser / SFTP (§6) -->
-  <data name="ActiveTunnels" xml:space="preserve">
-    <value>作用中的隧道</value>
-  </data>
   <data name="AddCommand" xml:space="preserve">
     <value>新增命令</value>
   </data>
@@ -105,9 +102,6 @@
   </data>
   <data name="Category" xml:space="preserve">
     <value>分類</value>
-  </data>
-  <data name="ChangePermissions" xml:space="preserve">
-    <value>權限 (chmod)…</value>
   </data>
   <data name="CloseTab" xml:space="preserve">
     <value>關閉分頁</value>
@@ -556,9 +550,6 @@
   <data name="Monitor_CoreCount" xml:space="preserve">
     <value>{0} 個邏輯核心</value>
   </data>
-  <data name="Monitor_CoreSelected" xml:space="preserve">
-    <value>{0} 核 · 已選 CPU{1} {2:F0}%</value>
-  </data>
   <data name="Monitor_CoreSelectedLabel" xml:space="preserve">
     <value>{0} 核 · 已選 {1} {2:F0}%</value>
   </data>
@@ -814,9 +805,6 @@
   <data name="Monitor_TitleFormat" xml:space="preserve">
     <value>系統資源監控 — {0}</value>
   </data>
-  <data name="Monitor_TopByCpu" xml:space="preserve">
-    <value>CPU 佔用最高處理程序</value>
-  </data>
   <data name="Monitor_TopByMemory" xml:space="preserve">
     <value>佔用最高處理程序</value>
   </data>
@@ -856,9 +844,6 @@
   <data name="Monitor_WindowSeconds" xml:space="preserve">
     <value>{0} 秒前</value>
   </data>
-  <data name="Monitor_WindowStart" xml:space="preserve">
-    <value>60 秒前</value>
-  </data>
   <data name="Sftp_FileTypeExt" xml:space="preserve">
     <value>{0} 檔案</value>
   </data>
@@ -897,9 +882,6 @@
   </data>
   <data name="KeySvc_AlertChangedAccepted" xml:space="preserve">
     <value>{0} 的主機指紋已變更,使用者確認永久信任新指紋:{1}</value>
-  </data>
-  <data name="KeySvc_AlertChangedBlocked" xml:space="preserve">
-    <value>{0} 的主機指紋與 known_hosts 記錄不符,連線已被阻斷(疑似中間人)。新指紋:{1}</value>
   </data>
   <data name="KeySvc_AlertChangedTrustOnce" xml:space="preserve">
     <value>{0} 的主機指紋已變更,使用者選擇僅本次信任(不落盤):{1}</value>
@@ -1202,9 +1184,6 @@
   <data name="Msg_PlaybackTitle" xml:space="preserve">
     <value>重播: {0}({1})</value>
   </data>
-  <data name="Msg_ProxyError" xml:space="preserve">
-    <value>代理錯誤：無法透過代理連線到 {0}。</value>
-  </data>
   <data name="Msg_ReadKeysFailed" xml:space="preserve">
     <value>讀取金鑰失敗:{0}</value>
   </data>
@@ -1276,12 +1255,6 @@
   </data>
   <data name="Msg_TunnelNotConnectedAuto" xml:space="preserve">
     <value>未連線 • 建立或啟動隧道時自動連線</value>
-  </data>
-  <data name="Msg_TunnelRouteDynamic" xml:space="preserve">
-    <value>{0}:{1} → SOCKS5 代理</value>
-  </data>
-  <data name="Msg_TunnelRouteRemote" xml:space="preserve">
-    <value>伺服器:{0} → {1}:{2}</value>
   </data>
   <data name="Msg_TunnelRunning" xml:space="preserve">
     <value>執行中 • {0}</value>
@@ -1599,9 +1572,6 @@
   <data name="Reject" xml:space="preserve">
     <value>拒絕</value>
   </data>
-  <data name="RemoteAddress" xml:space="preserve">
-    <value>遠端位址</value>
-  </data>
   <data name="RemoteForward" xml:space="preserve">
     <value>遠端轉發</value>
   </data>
@@ -1620,14 +1590,8 @@
   <data name="Search" xml:space="preserve">
     <value>搜尋</value>
   </data>
-  <data name="SearchCommands" xml:space="preserve">
-    <value>搜尋命令</value>
-  </data>
   <data name="SelectDownloadFolder" xml:space="preserve">
     <value>選擇儲存位置</value>
-  </data>
-  <data name="ServerGroups" xml:space="preserve">
-    <value>伺服器群組</value>
   </data>
   <data name="Sessions" xml:space="preserve">
     <value>工作階段</value>
@@ -2742,9 +2706,6 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   <data name="StatusBar_OpenMonitor" xml:space="preserve">
     <value>開啟資源監視器</value>
   </data>
-  <data name="StatusBar_Swap" xml:space="preserve">
-    <value>Swap</value>
-  </data>
   <data name="Svc_Active" xml:space="preserve">
     <value>活躍</value>
   </data>
@@ -2819,9 +2780,6 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   </data>
   <data name="Svc_Yesterday" xml:space="preserve">
     <value>昨天</value>
-  </data>
-  <data name="SyncGroup" xml:space="preserve">
-    <value>同步群組</value>
   </data>
   <data name="SyncSvc_ApiFailed" xml:space="preserve">
     <value>GitHub API 請求失敗({0}):{1}</value>
@@ -2898,9 +2856,6 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   <data name="System" xml:space="preserve">
     <value>系統</value>
   </data>
-  <data name="SystemMonitor" xml:space="preserve">
-    <value>系統監控</value>
-  </data>
   <data name="Term_NoMatches" xml:space="preserve">
     <value>無相符項</value>
   </data>
@@ -2970,17 +2925,11 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   <data name="Tree_SessionSettings" xml:space="preserve">
     <value>工作階段設定</value>
   </data>
-  <data name="Trust" xml:space="preserve">
-    <value>信任</value>
-  </data>
   <data name="TrustOnce" xml:space="preserve">
     <value>僅信任本次</value>
   </data>
   <data name="TrustPermanently" xml:space="preserve">
     <value>永久信任</value>
-  </data>
-  <data name="TrustThisHost" xml:space="preserve">
-    <value>信任此主機</value>
   </data>
   <data name="Tunnel_AliasLabel" xml:space="preserve">
     <value>別名(可選)</value>
@@ -3454,23 +3403,11 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   <data name="Trace_ColLoss" xml:space="preserve">
     <value>遺失%</value>
   </data>
-  <data name="Trace_ColSent" xml:space="preserve">
-    <value>已送出</value>
-  </data>
   <data name="Trace_ColLast" xml:space="preserve">
     <value>最近</value>
   </data>
   <data name="Trace_ColAvg" xml:space="preserve">
     <value>平均</value>
-  </data>
-  <data name="Trace_ColBest" xml:space="preserve">
-    <value>最快</value>
-  </data>
-  <data name="Trace_ColWorst" xml:space="preserve">
-    <value>最慢</value>
-  </data>
-  <data name="Trace_ColStdDev" xml:space="preserve">
-    <value>標準差</value>
   </data>
   <data name="Trace_Running" xml:space="preserve">
     <value>追蹤中…</value>
