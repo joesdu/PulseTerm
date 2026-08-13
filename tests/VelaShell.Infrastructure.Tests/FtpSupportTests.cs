@@ -190,7 +190,7 @@ public class FtpSupportTests
             Username = "deploy",
         };
 
-        FtpConnectionInfo info = FtpConnectionInfo.FromProfile(profile);
+        var info = FtpConnectionInfo.FromProfile(profile);
 
         Assert.AreEqual(FtpSettings.DefaultPort, info.Port);
         Assert.AreEqual(FtpEncryptionMode.Auto, info.Settings.EncryptionMode);
@@ -209,7 +209,7 @@ public class FtpSupportTests
             Ftp = new FtpSettings { Anonymous = true },
         };
 
-        FtpConnectionInfo info = FtpConnectionInfo.FromProfile(profile);
+        var info = FtpConnectionInfo.FromProfile(profile);
 
         Assert.AreEqual(FtpConnectionInfo.AnonymousUser, info.EffectiveUsername);
         Assert.IsNotEmpty(info.EffectivePassword);

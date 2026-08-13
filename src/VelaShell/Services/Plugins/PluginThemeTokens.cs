@@ -84,5 +84,5 @@ internal static class PluginThemeTokens
     private static string PortableFontFallback(FontFamily font) =>
         string.Join(", ",
             font.FamilyNames.Select(name => name.Trim())
-                .Where(name => name.Length > 0 && !name.Contains('#') && !name.Contains(":")));
+                .Where(name => name.Length > 0 && !name.Contains('#') && !name.Contains(':')));
 }

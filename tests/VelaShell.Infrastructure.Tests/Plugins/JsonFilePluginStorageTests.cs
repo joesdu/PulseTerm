@@ -1,5 +1,4 @@
 using VelaShell.PluginSdk.Hosting;
-using VelaShell.PluginSdk.Storage;
 
 namespace VelaShell.Infrastructure.Tests.Plugins;
 
@@ -7,6 +6,9 @@ namespace VelaShell.Infrastructure.Tests.Plugins;
 [TestCategory("Plugins")]
 public class JsonFilePluginStorageTests
 {
+    private static readonly string[] NameKeyOnly = ["name"];
+    private static readonly int[] Numbers = [1, 2, 3];
+
     private string _dir = null!;
 
     [TestInitialize]
@@ -32,7 +34,7 @@ public class JsonFilePluginStorageTests
     [TestMethod]
     public async Task SetGetRemove_RoundTrips()
     {
-        IPluginStorage storage = new JsonFilePluginStorage(_dir);
+        JsonFilePluginStorage storage = new(_dir);
         await storage.SetAsync("count", 42);
         await storage.SetAsync("name", "vela");
         Assert.AreEqual(42, await storage.GetAsync<int>("count"));
@@ -40,15 +42,15 @@ public class JsonFilePluginStorageTests
         Assert.IsNull(await storage.GetAsync<string>("missing"));
         Assert.IsTrue(await storage.RemoveAsync("count"));
         Assert.IsFalse(await storage.RemoveAsync("count"));
-        CollectionAssert.AreEquivalent(new[] { "name" }, (await storage.GetKeysAsync()).ToArray());
+        Assert.AreSequenceEqual(NameKeyOnly, (await storage.GetKeysAsync()).ToArray(), Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
     }
 
     [TestMethod]
     public async Task Values_PersistAcrossInstances()
     {
-        await new JsonFilePluginStorage(_dir).SetAsync("key", new[] { 1, 2, 3 });
+        await new JsonFilePluginStorage(_dir).SetAsync("key", Numbers);
         int[]? roundTripped = await new JsonFilePluginStorage(_dir).GetAsync<int[]>("key");
-        CollectionAssert.AreEqual(new[] { 1, 2, 3 }, roundTripped);
+        Assert.AreSequenceEqual(Numbers, roundTripped);
     }
 
     [TestMethod]
@@ -56,7 +58,7 @@ public class JsonFilePluginStorageTests
     {
         string file = Path.Combine(_dir, "storage.json");
         await File.WriteAllTextAsync(file, "{ not valid json !!!");
-        IPluginStorage storage = new JsonFilePluginStorage(_dir);
+        JsonFilePluginStorage storage = new(_dir);
         Assert.IsNull(await storage.GetAsync<string>("anything"));
         await storage.SetAsync("fresh", true);
         Assert.IsTrue(await storage.GetAsync<bool>("fresh"));

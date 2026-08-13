@@ -22,6 +22,11 @@ public class SonnetDbPluginDataStoreTests
             : ciphertext;
     }
 
+    private static readonly int[] SnapshotValues = [1, 2, 3];
+    private static readonly string[] CountAndSnapshotKeys = ["count", "snapshot"];
+    private static readonly string[] BothPluginIds = ["acme.one", "acme.two"];
+    private static readonly string[] SecondPluginIdOnly = ["acme.two"];
+
     private string _dbDir = null!;
     private SonnetDbEngine _engine = null!;
     private SonnetDbPluginDataStore _store = null!;
@@ -55,12 +60,12 @@ public class SonnetDbPluginDataStoreTests
     {
         IPluginStorage storage = _store.CreateStorage("acme.one");
         await storage.SetAsync("count", 42);
-        await storage.SetAsync("snapshot", new Snapshot("s1", [1, 2, 3]));
+        await storage.SetAsync("snapshot", new Snapshot("s1", SnapshotValues));
         Assert.AreEqual(42, await storage.GetAsync<int>("count"));
         Snapshot? snapshot = await storage.GetAsync<Snapshot>("snapshot");
         Assert.AreEqual("s1", snapshot!.Name);
-        CollectionAssert.AreEqual(new[] { 1, 2, 3 }, snapshot.Values);
-        CollectionAssert.AreEquivalent(new[] { "count", "snapshot" }, (await storage.GetKeysAsync()).ToArray());
+        Assert.AreSequenceEqual(SnapshotValues, snapshot.Values);
+        Assert.AreSequenceEqual(CountAndSnapshotKeys, (await storage.GetKeysAsync()).ToArray(), Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
         Assert.IsTrue(await storage.RemoveAsync("count"));
         Assert.IsFalse(await storage.RemoveAsync("count"));
         Assert.AreEqual(0, await storage.GetAsync<int>("count"));
@@ -91,8 +96,8 @@ public class SonnetDbPluginDataStoreTests
         // 落库的是密文:直接扫原始文档验证。
         List<string> rawDocs = await _engine.WithCollectionAsync(SonnetDbEngine.PluginDataCollection,
             store => store.Scan().Select(row => row.Json).ToList());
-        Assert.IsFalse(rawDocs.Any(json => json.Contains("hunter2-plaintext")), "机密必须加密落库");
-        Assert.IsTrue(rawDocs.Any(json => json.Contains("enc:")));
+        Assert.DoesNotContain(json => json.Contains("hunter2-plaintext"), rawDocs, "机密必须加密落库");
+        Assert.Contains(json => json.Contains("enc:"), rawDocs);
 
         Assert.IsNull(await _store.CreateSecrets("acme.two").GetAsync("token"), "机密同样按插件隔离");
         Assert.IsTrue(await secrets.DeleteAsync("token"));
@@ -106,9 +111,9 @@ public class SonnetDbPluginDataStoreTests
         await _store.CreateSecrets("acme.one").SetAsync("s", "v");
         await _store.CreateStorage("acme.two").SetAsync("k", 2);
 
-        CollectionAssert.AreEqual(new[] { "acme.one", "acme.two" }, (await _store.ListPluginIdsAsync()).ToArray());
+        Assert.AreSequenceEqual(BothPluginIds, (await _store.ListPluginIdsAsync()).ToArray());
         await _store.PurgeAsync("acme.one");
-        CollectionAssert.AreEqual(new[] { "acme.two" }, (await _store.ListPluginIdsAsync()).ToArray());
+        Assert.AreSequenceEqual(SecondPluginIdOnly, (await _store.ListPluginIdsAsync()).ToArray());
         Assert.AreEqual(0, await _store.CreateStorage("acme.one").GetAsync<int>("k"));
         Assert.IsNull(await _store.CreateSecrets("acme.one").GetAsync("s"));
         Assert.AreEqual(2, await _store.CreateStorage("acme.two").GetAsync<int>("k"));

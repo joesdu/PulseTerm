@@ -11,6 +11,9 @@ namespace VelaShell.Presentation.Tests.ViewModels;
 [TestCategory("SessionImport")]
 public class SessionImportViewModelTests
 {
+    private static readonly string[] WebOnly = ["web"];
+    private static readonly string[] DbOnly = ["db"];
+
     [TestMethod]
     public async Task Initialize_ScansEverySource_AndAutoSelectsImportableSessions()
     {
@@ -111,9 +114,9 @@ public class SessionImportViewModelTests
         Assert.IsNotNull(outcome);
         Assert.AreEqual(2, outcome.Imported);
         Assert.AreEqual(1, outcome.PasswordsRecovered);
-        CollectionAssert.AreEqual(new[] { "web" }, xshell.ImportedNames);
-        CollectionAssert.AreEqual(new[] { "db" }, winscp.ImportedNames);   // 重复项不写入
-        StringAssert.Contains(xshell.ImportedGroup ?? string.Empty, "Xshell");   // 按来源各建一个分组
+        Assert.AreSequenceEqual(WebOnly, xshell.ImportedNames);
+        Assert.AreSequenceEqual(DbOnly, winscp.ImportedNames);   // 重复项不写入
+        Assert.Contains("Xshell", xshell.ImportedGroup ?? string.Empty);   // 按来源各建一个分组
     }
 
     [TestMethod]
@@ -142,7 +145,7 @@ public class SessionImportViewModelTests
         await vm.InitializeAsync();
 
         Assert.IsTrue(vm.HasMasterPasswordWarning);
-        StringAssert.Contains(vm.MasterPasswordWarning, "Xshell");
+        Assert.Contains("Xshell", vm.MasterPasswordWarning);
         Assert.IsFalse(vm.MasterPasswordWarning.Contains("WinSCP", StringComparison.Ordinal));
     }
 

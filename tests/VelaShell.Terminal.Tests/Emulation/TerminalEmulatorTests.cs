@@ -7,6 +7,9 @@ namespace VelaShell.Terminal.Tests.Emulation;
 [TestCategory("Emulator")]
 public class TerminalEmulatorTests
 {
+    /// <summary>DA2 / DECRQSS / CPR 三条应答,其余探针不应答。</summary>
+    private static readonly string[] ExpectedProbeReplies = ["\x1b[>41;360;0c", "\x1bP1$r0 q\x1b\\", "\x1b[1;1R"];
+
     private static TerminalEmulator New(int cols = 20, int rows = 6, TerminalType type = TerminalType.XtermColor256) => new(cols, rows, type);
 
     private static void Feed(TerminalEmulator e, string s) => e.Feed(Encoding.UTF8.GetBytes(s));
@@ -409,7 +412,7 @@ public class TerminalEmulatorTests
         Feed(e, "\x1b]11;?\x1b\\");      // OSC 11 背景色:不应答
         Feed(e, "\x1bPzz\x1b\\\x1b[0%m"); // xterm 兼容性探针:不应答、不动光标
         Feed(e, "\x1b[6n");              // CPR
-        CollectionAssert.AreEqual(new[] { "\x1b[>41;360;0c", "\x1bP1$r0 q\x1b\\", "\x1b[1;1R" }, replies);
+        Assert.AreSequenceEqual(ExpectedProbeReplies, replies);
     }
 
     [TestMethod]

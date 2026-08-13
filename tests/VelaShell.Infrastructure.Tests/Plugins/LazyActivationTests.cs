@@ -11,6 +11,8 @@ namespace VelaShell.Infrastructure.Tests.Plugins;
 [TestCategory("Plugins")]
 public class LazyActivationTests
 {
+    private static readonly string[] GhostPluginOnly = ["ghost.plugin"];
+
     private string _root = null!;
     private string _dataRoot = null!;
     private RecordingCommands _commands = null!;
@@ -155,7 +157,7 @@ public class LazyActivationTests
         });
         await manager.StartAsync();
 
-        CollectionAssert.AreEqual(new[] { "ghost.plugin" }, dataStore.Purged, "只清除已卸载插件的 DB 数据");
+        Assert.AreSequenceEqual(GhostPluginOnly, dataStore.Purged, "只清除已卸载插件的 DB 数据");
         Assert.IsFalse(Directory.Exists(Path.Combine(_dataRoot, "ghost.plugin")), "已卸载插件的数据目录应删除");
         Assert.IsTrue(Directory.Exists(Path.Combine(_dataRoot, "acme.disabled")), "禁用 ≠ 卸载,数据保留");
         await manager.DisposeAsync();

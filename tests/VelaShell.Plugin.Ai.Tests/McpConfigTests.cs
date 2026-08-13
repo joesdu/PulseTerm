@@ -7,28 +7,30 @@ namespace VelaShell.Plugin.Ai.Tests;
 [TestClass]
 public sealed class McpConfigTests
 {
+    private static readonly string[] FilesystemServerArgs = ["-y", "@modelcontextprotocol/server-filesystem", "C:\\data"];
+    private static readonly string[] QuotedArgs = ["--root", "C:\\My Files\\docs", "a\"b"];
+    private static readonly string[] SingleEmptyToken = [""];
+
     [TestMethod]
     public void SplitArguments_SplitsOnWhitespace()
     {
-        CollectionAssert.AreEqual(
-            new[] { "-y", "@modelcontextprotocol/server-filesystem", "C:\\data" },
-            McpConfigParser.SplitArguments("-y  @modelcontextprotocol/server-filesystem   C:\\data").ToArray());
+        Assert.AreSequenceEqual(
+            FilesystemServerArgs, McpConfigParser.SplitArguments("-y  @modelcontextprotocol/server-filesystem   C:\\data").ToArray());
     }
 
     [TestMethod]
     public void SplitArguments_QuotesPreserveSpaces_AndDoubledQuoteEscapes()
     {
-        CollectionAssert.AreEqual(
-            new[] { "--root", "C:\\My Files\\docs", "a\"b" },
-            McpConfigParser.SplitArguments("--root \"C:\\My Files\\docs\" \"a\"\"b\"").ToArray());
+        Assert.AreSequenceEqual(
+            QuotedArgs, McpConfigParser.SplitArguments("--root \"C:\\My Files\\docs\" \"a\"\"b\"").ToArray());
     }
 
     [TestMethod]
     public void SplitArguments_EmptyQuotes_YieldEmptyToken()
     {
-        CollectionAssert.AreEqual(new[] { "" }, McpConfigParser.SplitArguments("\"\"").ToArray());
-        Assert.AreEqual(0, McpConfigParser.SplitArguments("   ").Count);
-        Assert.AreEqual(0, McpConfigParser.SplitArguments(null).Count);
+        Assert.AreSequenceEqual(SingleEmptyToken, McpConfigParser.SplitArguments("\"\"").ToArray());
+        Assert.IsEmpty(McpConfigParser.SplitArguments("   "));
+        Assert.IsEmpty(McpConfigParser.SplitArguments(null));
     }
 
     [TestMethod]
@@ -37,7 +39,7 @@ public sealed class McpConfigTests
         Dictionary<string, string?> env = McpConfigParser.ParseEnvironmentLines(
             "API_KEY=abc\r\n\r\nnot-a-pair\r\nCONN=a=b=c\r\n =missing-key");
 
-        Assert.AreEqual(2, env.Count);
+        Assert.HasCount(2, env);
         Assert.AreEqual("abc", env["API_KEY"]);
         Assert.AreEqual("a=b=c", env["CONN"]);
     }
@@ -48,7 +50,7 @@ public sealed class McpConfigTests
         Dictionary<string, string> headers = McpConfigParser.ParseHeaderLines(
             "Authorization: Bearer x:y\r\nplain line\r\nX-Api-Key:  k1 ");
 
-        Assert.AreEqual(2, headers.Count);
+        Assert.HasCount(2, headers);
         Assert.AreEqual("Bearer x:y", headers["Authorization"]);
         Assert.AreEqual("k1", headers["X-Api-Key"]);
     }
@@ -94,7 +96,7 @@ public sealed class McpConfigTests
         await store.SaveAsync(settings);
         AiSettings loaded = await store.LoadAsync();
 
-        Assert.AreEqual(2, loaded.McpServers.Count);
+        Assert.HasCount(2, loaded.McpServers);
         Assert.AreEqual("files", loaded.McpServers[0].Name);
         Assert.AreEqual(McpTransportType.Stdio, loaded.McpServers[0].Transport);
         Assert.AreEqual("npx", loaded.McpServers[0].Command);

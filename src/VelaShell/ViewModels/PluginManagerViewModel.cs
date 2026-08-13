@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics.CodeAnalysis;
 using Avalonia.Threading;
 using ReactiveUI;
 using VelaShell.Core.Resources;
@@ -53,12 +54,14 @@ public sealed class PluginRowViewModel(PluginDescriptor descriptor, bool hasTerm
     public bool HasTerminalGrant => hasTerminalGrant;
 
     /// <summary>撤销终端授权按钮文案。</summary>
+    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "XAML 绑定只解析实例成员。")]
     public string RevokeText => Strings.Get("PluginManager_RevokePermission");
 
     /// <summary>是否可卸载(用户安装,非应用自带)。</summary>
     public bool CanUninstall { get; init; }
 
     /// <summary>卸载按钮文案。</summary>
+    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "XAML 绑定只解析实例成员。")]
     public string UninstallText => Strings.Get("PluginManager_Uninstall");
 }
 
@@ -76,15 +79,18 @@ public sealed class PluginManagerViewModel : ReactiveObject, IDisposable
     public ObservableCollection<PluginRowViewModel> Plugins { get; } = [];
 
     /// <summary>标题文案。</summary>
+    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "XAML 绑定只解析实例成员。")]
     public string Title => Strings.Get("PluginManager_Title");
 
     /// <summary>"安装 .vpx" 按钮文案。</summary>
+    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "XAML 绑定只解析实例成员。")]
     public string InstallText => Strings.Get("PluginManager_Install");
 
     /// <summary>是否可安装(有可写用户目录)。</summary>
     public bool CanInstall => _manager.IsInstallSupported;
 
     /// <summary>空态文案。</summary>
+    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "XAML 绑定只解析实例成员。")]
     public string EmptyText => Strings.Get("PluginManager_Empty");
 
     /// <summary>顶部状态提示(安装成功/失败),null 时不显示。</summary>

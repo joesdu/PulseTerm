@@ -71,7 +71,7 @@ public class RpcConnectionTests
         {
             PluginSessionNotFoundException ex = await Assert.ThrowsExactlyAsync<PluginSessionNotFoundException>(
                 () => client.RequestAsync<object>("anything", null, TimeSpan.FromSeconds(5)));
-            StringAssert.Contains(ex.Message, "s-42");
+            Assert.Contains("s-42", ex.Message);
         }
         finally
         {
@@ -146,9 +146,9 @@ public class RpcConnectionTests
     {
         // 两个并发慢请求总耗时应接近单个,而不是两倍(读循环不被处理器阻塞)。
         (RpcConnection _, RpcConnection client, Func<ValueTask> cleanup) = await ConnectPairAsync(
-            async (_, _, _) =>
+            async (_, _, token) =>
             {
-                await Task.Delay(300);
+                await Task.Delay(300, token);
                 return new Echo("done");
             });
         try

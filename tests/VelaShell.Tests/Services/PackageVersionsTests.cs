@@ -14,8 +14,12 @@ namespace VelaShell.Tests.Services;
 /// </remarks>
 [TestClass]
 [TestCategory("PackageVersions")]
-public class PackageVersionsTests
+public partial class PackageVersionsTests
 {
+    /// <summary>版本形如 12.1.0。</summary>
+    [GeneratedRegex(@"^\d+\.\d+")]
+    private static partial Regex VersionPrefix { get; }
+
     /// <summary>构建目标确实把包版本写进了程序集(失效则此处为空)。</summary>
     [TestMethod]
     public void Read_FindsPackageVersions_EmbeddedAtBuildTime()
@@ -34,7 +38,7 @@ public class PackageVersionsTests
         string? version = PackageVersions.Of(packageId);
 
         Assert.IsNotNull(version, $"关于页要显示 {packageId} 的版本,应能查到。");
-        Assert.MatchesRegex(new Regex(@"^\d+\.\d+"), version, "版本应形如 12.1.0。");
+        Assert.MatchesRegex(VersionPrefix, version, "版本应形如 12.1.0。");
     }
 
     /// <summary>SSH 库被隔离在 Infrastructure 层,按包名查得到才说明没走类型引用那条路。</summary>

@@ -32,7 +32,7 @@ public sealed class SessionImportViewUiTests
             Dispatcher.UIThread.RunJobs();
 
             // 打开即扫完:两个来源各一张卡片,勾选与统计都已就绪。
-            Assert.AreEqual(2, vm.Sources.Count);
+            Assert.HasCount(2, vm.Sources);
             Assert.AreEqual(3, vm.TotalCount);
             Assert.AreEqual(2, vm.SelectedCount);   // 重复项自动跳过
             Assert.IsFalse(vm.IsBusy);
@@ -42,7 +42,7 @@ public sealed class SessionImportViewUiTests
 
             Button import = PrimaryButton(window);
             Assert.IsTrue(import.IsEffectivelyEnabled, "扫描完成后导入按钮应可直接点击。");
-            StringAssert.Contains((string)import.Content!, "2", "导入按钮要写清将导入几个会话。");
+            Assert.Contains("2", (string)import.Content!, "导入按钮要写清将导入几个会话。");
 
             window.Close();
         }, CancellationToken.None).GetAwaiter().GetResult();
@@ -67,7 +67,7 @@ public sealed class SessionImportViewUiTests
             vm.Sources[0].Items[0].IsSelected = false;
             Dispatcher.UIThread.RunJobs();
             Assert.AreEqual(1, vm.SelectedCount);
-            StringAssert.Contains((string)PrimaryButton(window).Content!, "1");
+            Assert.Contains("1", (string)PrimaryButton(window).Content!);
 
             window.Close();
         }, CancellationToken.None).GetAwaiter().GetResult();

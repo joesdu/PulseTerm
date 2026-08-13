@@ -140,7 +140,7 @@ public sealed class SerializedSftpService(ISftpService inner, Guid sessionId) : 
         }
     }
 
-    private Task ExecuteAsync(Guid sessionId, Func<CancellationToken, Task> operation, CancellationToken cancellationToken, bool serialize = true) =>
+    private Task<bool> ExecuteAsync(Guid sessionId, Func<CancellationToken, Task> operation, CancellationToken cancellationToken, bool serialize = true) =>
         ExecuteAsync(sessionId, async token =>
         {
             await operation(token).ConfigureAwait(false);

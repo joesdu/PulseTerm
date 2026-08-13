@@ -379,7 +379,7 @@ internal sealed class PluginCapabilityRouter : IDisposable
             SupportsEmbedding: _embedHost is { IsSupported: true });
     }
 
-    private IProgress<RemoteTransferProgress>? ProgressFor(string? progressToken)
+    private Progress<RemoteTransferProgress>? ProgressFor(string? progressToken)
         => progressToken is null
             ? null
             : new Progress<RemoteTransferProgress>(p =>

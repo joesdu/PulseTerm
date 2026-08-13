@@ -679,7 +679,7 @@ public partial class ChatPanelView : UserControl
         => this.TryFindResource(key, out object? value) && value is IBrush brush ? brush : null;
 
     /// <summary>lucide 描边图标(24 视图框经 Viewbox 等比缩放)。</summary>
-    private Control MakeIcon(string geometryKey, string brushKey, double size)
+    private Viewbox MakeIcon(string geometryKey, string brushKey, double size)
     {
         var path = new Avalonia.Controls.Shapes.Path
         {

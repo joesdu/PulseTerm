@@ -16,7 +16,7 @@ public sealed class AiSettingsStoreTests
 
         AiSettings settings = await store.LoadAsync();
 
-        Assert.AreEqual(0, settings.Providers.Count);
+        Assert.IsEmpty(settings.Providers);
         Assert.IsFalse(settings.AgentMode);
         Assert.IsFalse(settings.AutoApproveCommands);
     }
@@ -46,7 +46,7 @@ public sealed class AiSettingsStoreTests
         await store.SaveAsync(settings);
         AiSettings loaded = await store.LoadAsync();
 
-        Assert.AreEqual(1, loaded.Providers.Count);
+        Assert.HasCount(1, loaded.Providers);
         Assert.AreEqual("Claude", loaded.Providers[0].Name);
         Assert.AreEqual(ChatProtocol.AnthropicMessages, loaded.Providers[0].Protocol);
         Assert.AreEqual(4096, loaded.Providers[0].MaxTokens);

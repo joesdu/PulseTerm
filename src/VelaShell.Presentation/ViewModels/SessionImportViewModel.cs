@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics.CodeAnalysis;
 using ReactiveUI;
 using ReactiveUI.Primitives;
 using VelaShell.Core.Import;
@@ -39,6 +40,7 @@ public sealed class SessionImportViewModel : ReactiveObject
     }
 
     /// <summary>对话框标题。</summary>
+    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "XAML 绑定只解析实例成员。")]
     public string Title => Strings.Get("XImport_TitleAll");
 
     /// <summary>所有来源(每个来源一张卡片)。</summary>

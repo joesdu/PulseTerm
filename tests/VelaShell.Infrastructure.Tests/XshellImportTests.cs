@@ -44,7 +44,7 @@ public class XshellImportTests
         byte[] cipher = Rc4.Transform(key, plain);
         byte[] round = Rc4.Transform(key, cipher);
 
-        CollectionAssert.AreEqual(plain, round);
+        Assert.AreSequenceEqual(plain, round);
     }
 
     /// <summary>

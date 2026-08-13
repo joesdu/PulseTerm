@@ -64,7 +64,7 @@ public class PluginInstallUninstallTests
     });
 
     /// <summary>把 HelloWorld 打成一个 .vpx(zip:plugin.json + dll)。</summary>
-    private string BuildVpx(string id = "acme.packaged")
+    private static string BuildVpx(string id = "acme.packaged")
     {
         string stage = Path.Combine(Path.GetTempPath(), "velashell-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(stage);
@@ -103,9 +103,9 @@ public class PluginInstallUninstallTests
         string id = await manager.InstallFromVpxAsync(BuildVpx());
 
         Assert.IsTrue(await manager.UninstallAsync(id));
-        Assert.IsFalse(manager.Plugins.Any(p => p.Id == id));
+        Assert.DoesNotContain(p => p.Id == id, manager.Plugins);
         Assert.IsFalse(Directory.Exists(Path.Combine(_userRoot, id)), "插件目录应被删除");
-        CollectionAssert.Contains(_dataStore.Purged, id);
+        Assert.Contains(id, _dataStore.Purged);
 
         await manager.DisposeAsync();
     }
@@ -158,7 +158,7 @@ public class PluginInstallUninstallTests
         await manager.InstallFromVpxAsync(BuildVpx("acme.dup"));
         // 覆盖安装同 id:不抛,替换。
         string id = await manager.InstallFromVpxAsync(BuildVpx("acme.dup"));
-        Assert.AreEqual(1, manager.Plugins.Count(p => p.Id == "acme.dup"));
+        Assert.ContainsSingle(p => p.Id == "acme.dup", manager.Plugins);
         Assert.AreEqual(PluginState.Active, manager.Plugins.Single(p => p.Id == id).State);
         await manager.DisposeAsync();
     }

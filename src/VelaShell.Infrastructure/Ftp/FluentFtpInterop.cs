@@ -1,4 +1,3 @@
-using FluentFTP;
 using FluentFTP.Exceptions;
 using VelaShell.Core.Ftp;
 
@@ -14,32 +13,21 @@ internal static class FluentFtpInterop
     /// <summary>把 FluentFTP/Socket 的异常翻译成库中立异常;已是中立异常的原样返回。</summary>
     public static Exception Translate(Exception ex, string operation)
     {
-        switch (ex)
+        return ex switch
         {
-            case VelaFtpClientException:
-            case OperationCanceledException:
-                return ex;
-            case FtpAuthenticationException auth:
-                return new VelaFtpAuthenticationException(
-                    $"FTP login failed: {auth.CompletionCode} {auth.Message}", auth);
-            case FtpCommandException cmd:
-                return TranslateCommand(cmd, operation);
-            case FtpSecurityNotAvailableException tls:
-                return new VelaFtpConnectionException(
-                    $"The server does not support the requested FTPS mode ({operation}).", tls);
-            case TimeoutException timeout:
-                return new VelaFtpConnectionException($"FTP {operation} timed out.", timeout);
-            case System.Net.Sockets.SocketException socket:
-                return new VelaFtpConnectionException($"FTP {operation} failed: {socket.Message}", socket);
-            case System.Security.Authentication.AuthenticationException tlsAuth:
-                return new VelaFtpConnectionException($"TLS handshake failed: {tlsAuth.Message}", tlsAuth);
-            case IOException io:
-                return new VelaFtpConnectionException($"FTP {operation} failed: {io.Message}", io);
-            case FtpException ftp:
-                return new VelaFtpOperationException($"FTP {operation} failed: {ftp.Message}", ftp);
-            default:
-                return ex;
-        }
+            VelaFtpClientException or OperationCanceledException => ex,
+            FtpAuthenticationException auth => new VelaFtpAuthenticationException(
+                                $"FTP login failed: {auth.CompletionCode} {auth.Message}", auth),
+            FtpCommandException cmd => TranslateCommand(cmd, operation),
+            FtpSecurityNotAvailableException tls => new VelaFtpConnectionException(
+                                $"The server does not support the requested FTPS mode ({operation}).", tls),
+            TimeoutException timeout => new VelaFtpConnectionException($"FTP {operation} timed out.", timeout),
+            System.Net.Sockets.SocketException socket => new VelaFtpConnectionException($"FTP {operation} failed: {socket.Message}", socket),
+            System.Security.Authentication.AuthenticationException tlsAuth => new VelaFtpConnectionException($"TLS handshake failed: {tlsAuth.Message}", tlsAuth),
+            IOException io => new VelaFtpConnectionException($"FTP {operation} failed: {io.Message}", io),
+            FtpException ftp => new VelaFtpOperationException($"FTP {operation} failed: {ftp.Message}", ftp),
+            _ => ex,
+        };
     }
 
     /// <summary>

@@ -110,7 +110,7 @@ internal sealed class ProtectedSecretsCapability(string dataDirectory, ISecretPr
 /// <summary>机密能力不可用(无保护器)时的空实现:绝不明文兜底,直接报不可用。</summary>
 internal sealed class UnavailableSecrets : ISecretsApi
 {
-    private static Exception Unavailable() =>
+    private static InvalidOperationException Unavailable() =>
         new InvalidOperationException("Secrets capability is unavailable in this host (no secret protector).");
 
     public Task<string?> GetAsync(string name, CancellationToken cancellationToken = default) => Task.FromException<string?>(Unavailable());
@@ -121,7 +121,7 @@ internal sealed class UnavailableSecrets : ISecretsApi
 /// <summary>剪贴板能力不可用(无 UI 宿主)时的空实现。</summary>
 internal sealed class UnavailableClipboard : PluginSdk.Clipboard.IClipboardApi
 {
-    private static Exception Unavailable() =>
+    private static InvalidOperationException Unavailable() =>
         new InvalidOperationException("Clipboard capability is unavailable in this host.");
 
     public Task<string?> GetTextAsync(CancellationToken cancellationToken = default) => Task.FromException<string?>(Unavailable());
@@ -131,7 +131,7 @@ internal sealed class UnavailableClipboard : PluginSdk.Clipboard.IClipboardApi
 /// <summary>终端能力不可用(无 UI 宿主)时的空实现。</summary>
 internal sealed class UnavailableTerminal : PluginSdk.Terminal.ITerminalApi
 {
-    private static Exception Unavailable() =>
+    private static InvalidOperationException Unavailable() =>
         new InvalidOperationException("Terminal capability is unavailable in this host.");
 
     public Task<string> GetOutputAsync(string sessionId, int maxLines = 1000, CancellationToken cancellationToken = default)

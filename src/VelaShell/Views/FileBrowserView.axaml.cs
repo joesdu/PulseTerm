@@ -234,7 +234,7 @@ public partial class FileBrowserView : UserControl
         // 写死就会在用户改过设置后把列算窄一截(文字被截断)。
         Typeface typeface = ResolveMonoTypeface();
         double headerWidth = MeasureTextWidth(spec.Header, ResolveFontSize("VelaFontSize10", 10), typeface);
-        double rowsWidth = vm.Files.Any()
+        double rowsWidth = vm.Files.Count > 0
             ? vm.Files.Max(f => MeasureTextWidth(spec.Cell(f), ResolveFontSize("VelaFontSize11", 11), typeface))
             : 0;
         return Math.Clamp(

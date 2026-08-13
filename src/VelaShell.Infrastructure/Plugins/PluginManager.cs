@@ -752,7 +752,7 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
                 ? $"Activation timed out after {options.ActivationTimeout.TotalSeconds:0}s."
                 : ex.Message;
             Log($"Failed to activate '{manifest.Id}': {descriptor.Error}");
-            CleanupRuntime(runtime);
+            await CleanupRuntimeAsync(runtime).ConfigureAwait(false);
         }
         RaiseChanged();
     }
@@ -942,17 +942,50 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         }
         finally
         {
-            CleanupRuntime(runtime);
+            await CleanupRuntimeAsync(runtime).ConfigureAwait(false);
         }
     }
 
-    /// <summary>拆除命令/事件等宿主侧引用并卸载 ALC / 回收进程(不等待 GC 真正回收)。</summary>
+    /// <summary>回收隔离插件进程(IAsyncDisposable):ValueTask 只消费一次,异常不外溢。</summary>
+    private static async Task DisposeProcessAsync(PluginProcessClient process)
+    {
+        try
+        {
+            await process.DisposeAsync().ConfigureAwait(false);
+        }
+        catch
+        {
+            // 清理失败不阻断。
+        }
+    }
+
+    /// <summary>
+    /// 异步路径上的清理:进程回收与同步清理并发进行,但方法返回时进程确实已被杀掉、
+    /// 管道确实已断开——退出流程据此保证不留孤儿子进程。
+    /// </summary>
+    private static async Task CleanupRuntimeAsync(PluginRuntime runtime)
+    {
+        Task disposeProcess = Task.CompletedTask;
+        if (runtime.Process is { } process)
+        {
+            runtime.Process = null;
+            disposeProcess = DisposeProcessAsync(process); // 与下面的同步清理并行
+        }
+        CleanupRuntime(runtime);
+        await disposeProcess.ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// 拆除命令/事件等宿主侧引用并卸载 ALC / 回收进程(不等待 GC 真正回收)。
+    /// 同步入口只供 Process.Exited 这类无法 await 的回调使用,进程回收退化为后台尽力而为;
+    /// 能 await 的地方一律走 <see cref="CleanupRuntimeAsync" />。
+    /// </summary>
     private static void CleanupRuntime(PluginRuntime runtime)
     {
         if (runtime.Process is { } process)
         {
             runtime.Process = null;
-            _ = process.DisposeAsync(); // 杀进程 + 断管道,后台尽力而为
+            _ = DisposeProcessAsync(process); // 杀进程 + 断管道,后台尽力而为
         }
         try
         {
@@ -992,7 +1025,7 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
 
     private sealed class UnavailableRemoteFs : IRemoteFsApi
     {
-        private static Exception Unavailable() => new InvalidOperationException("Remote file capability is unavailable in this host.");
+        private static InvalidOperationException Unavailable() => new("Remote file capability is unavailable in this host.");
 
         public Task<IReadOnlyList<RemoteFileEntry>> ListDirectoryAsync(string sessionId, string path, CancellationToken cancellationToken = default) => Task.FromException<IReadOnlyList<RemoteFileEntry>>(Unavailable());
         public Task<RemoteFileEntry?> StatAsync(string sessionId, string path, CancellationToken cancellationToken = default) => Task.FromException<RemoteFileEntry?>(Unavailable());

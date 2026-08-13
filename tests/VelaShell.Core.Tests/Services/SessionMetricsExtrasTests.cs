@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using VelaShell.Core.Services;
 
 namespace VelaShell.Core.Tests.Services;
@@ -8,8 +9,12 @@ namespace VelaShell.Core.Tests.Services;
 /// </summary>
 [TestClass]
 [TestCategory("Metrics")]
-public class SessionMetricsExtrasTests
+public partial class SessionMetricsExtrasTests
 {
+    /// <summary>探针里那条“超过 n 列就截断”的 awk 语句,捕获列数上限。</summary>
+    [GeneratedRegex(@"awk -v n=(\d+) '\{ if \(length\(\$0\) > n\)")]
+    private static partial Regex ProcessColumnLimit { get; }
+
     /// <summary>一份包含全部分段的探针输出(MetricsScope.Full 口径)。</summary>
     internal const string FullOutput =
         "__P__\n8\n" +
@@ -250,8 +255,7 @@ public class SessionMetricsExtrasTests
 
         Assert.DoesNotContain("cut -c1-90", command, "90 列在常见窗口宽度下就会切掉命令行。");
 
-        System.Text.RegularExpressions.Match match =
-            System.Text.RegularExpressions.Regex.Match(command, @"awk -v n=(\d+) '\{ if \(length\(\$0\) > n\)");
+        Match match = ProcessColumnLimit.Match(command);
         Assert.IsTrue(match.Success, "进程段必须保留列数上限,否则超长命令行每秒回传一次会把带宽吃光。");
 
         int columns = int.Parse(match.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);

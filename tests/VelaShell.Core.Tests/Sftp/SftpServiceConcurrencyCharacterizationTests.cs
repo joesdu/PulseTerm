@@ -46,7 +46,7 @@ public sealed class SftpServiceConcurrencyCharacterizationTests
                 Interlocked.Decrement(ref activeCalls);
             }
         });
-        ISftpService service = new SftpService(connection, _ => client);
+        SftpService service = new(connection, _ => client);
 
         // When
         Task<List<RemoteFileInfo>> first = service.ListDirectoryAsync(sessionId, "/one");

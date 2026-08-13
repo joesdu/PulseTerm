@@ -53,7 +53,7 @@ public class PluginCommandsApiTests
         {
             await Task.Delay(20);
         }
-        Assert.IsTrue(log.Entries.Any(e => e.Level == PluginLogLevel.Error && e.Exception is InvalidOperationException));
+        Assert.Contains(e => e.Level == PluginLogLevel.Error && e.Exception is InvalidOperationException, log.Entries);
     }
 
     [TestMethod]

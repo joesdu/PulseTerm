@@ -1,7 +1,6 @@
 using System.Text;
 using VelaShell.Core.Data;
 using VelaShell.Infrastructure.Plugins.Capabilities;
-using VelaShell.PluginSdk.Secrets;
 
 namespace VelaShell.Infrastructure.Tests.Plugins;
 
@@ -46,13 +45,13 @@ public class ProtectedSecretsCapabilityTests
     [TestMethod]
     public async Task SetGetDelete_RoundTrips_AndPersistsAcrossInstances()
     {
-        ISecretsApi secrets = new ProtectedSecretsCapability(_dir, new Base64Protector());
+        ProtectedSecretsCapability secrets = new(_dir, new Base64Protector());
         await secrets.SetAsync("api-token", "s3cret-value");
         Assert.AreEqual("s3cret-value", await secrets.GetAsync("api-token"));
         Assert.IsNull(await secrets.GetAsync("missing"));
 
         // 新实例(模拟重启)仍能解出。
-        ISecretsApi reopened = new ProtectedSecretsCapability(_dir, new Base64Protector());
+        ProtectedSecretsCapability reopened = new(_dir, new Base64Protector());
         Assert.AreEqual("s3cret-value", await reopened.GetAsync("api-token"));
 
         Assert.IsTrue(await reopened.DeleteAsync("api-token"));
@@ -63,17 +62,17 @@ public class ProtectedSecretsCapabilityTests
     [TestMethod]
     public async Task SecretsFile_NeverContainsPlaintext()
     {
-        ISecretsApi secrets = new ProtectedSecretsCapability(_dir, new Base64Protector());
+        ProtectedSecretsCapability secrets = new(_dir, new Base64Protector());
         await secrets.SetAsync("password", "hunter2-plaintext");
         string onDisk = await File.ReadAllTextAsync(Path.Combine(_dir, "secrets.json"));
-        Assert.IsFalse(onDisk.Contains("hunter2-plaintext"), "机密必须加密落盘");
-        StringAssert.Contains(onDisk, "enc:");
+        Assert.DoesNotContain("hunter2-plaintext", onDisk, "机密必须加密落盘");
+        Assert.Contains("enc:", onDisk);
     }
 
     [TestMethod]
     public async Task WithoutProtector_SecretsCapabilityRefusesInsteadOfPlaintext()
     {
-        ISecretsApi unavailable = new UnavailableSecrets();
+        UnavailableSecrets unavailable = new();
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => unavailable.SetAsync("k", "v"));
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => unavailable.GetAsync("k"));
     }
