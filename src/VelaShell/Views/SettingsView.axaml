@@ -10,7 +10,7 @@
         x:Class="VelaShell.Views.SettingsView"
         x:DataType="vm:SettingsViewModel"
         Title="{loc:Localize Settings}"
-        Width="848" Height="748"
+        Width="948" Height="768"
         CanResize="False"
         WindowDecorations="None"
         TransparencyLevelHint="Transparent"

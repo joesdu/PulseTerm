@@ -19,7 +19,8 @@ namespace VelaShell.Views;
 ///
 /// 圆角要显式声明:WM_NCCALCSIZE 把非客户区裁到零之后,DWM 的默认策略(DWMWCP_DEFAULT =
 /// 系统自行判断)对这种"没有可见框架"的窗口不保证圆角,还原、改尺寸时尤其容易掉回直角。
-/// 用 DWMWA_WINDOW_CORNER_PREFERENCE 钉成 ROUND 即可,见 <see cref="ApplyRoundedCorners" />。
+/// 用 DWMWA_WINDOW_CORNER_PREFERENCE 显式声明即可,但必须【跟着窗口状态走】:普通态圆角、
+/// 最大化/全屏直角,见 <see cref="ApplyCornerPreference" />。
 ///
 /// 【但别再加 DwmExtendFrameIntoClientArea】(#171 试过又撤掉):它能把 DWM 投影一并拿回来,
 /// 代价却是主窗口启动时挂着一层要手动缩放一次才消散的显示效果,不划算,已按决定回退。
@@ -118,29 +119,47 @@ internal static partial class Win32WindowChrome
                 0,
                 SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER
             );
-            ApplyRoundedCorners(handle.Handle);
+            ApplyCornerPreference(window, handle.Handle);
         }
+        // 兜底:WM_SIZE 里读到的 Avalonia 窗口状态可能还没跟上这一拍(还原时尤其明显),
+        // 状态属性真正落定后再钉一次,两条路合起来才不会停在错的那一档。
+        window.PropertyChanged += (_, args) =>
+        {
+            if (args.Property == Window.WindowStateProperty
+                && window.TryGetPlatformHandle() is { } current)
+            {
+                ApplyCornerPreference(window, current.Handle);
+            }
+        };
     }
 
     /// <summary>
-    /// 把窗口轮廓钉成 Win11 圆角。
+    /// 按窗口当前状态钉 Win11 的圆角策略:普通态圆角,最大化/全屏直角。
     /// </summary>
     /// <remarks>
     /// 不设这个属性时 DWM 走 DWMWCP_DEFAULT —— 由系统判断该不该圆,而本窗口的非客户区已在
-    /// WM_NCCALCSIZE 里裁到零,判断结果并不稳定:常见表现是最大化还原或改完尺寸之后变回直角。
-    /// 声明成 ROUND 就与系统默认窗口一致了。属性只描述轮廓裁剪,不往客户区合成任何东西,
-    /// 因此不会重蹈 DwmExtendFrameIntoClientArea 的启动残影(见类型注释)。
-    /// 22000 以下不认这个属性,会返回 E_INVALIDARG,直接不发;失败也忽略 —— 掉回直角只是观感。
+    /// WM_NCCALCSIZE 里裁到零,判断结果并不稳定:常见表现是改完尺寸之后变回直角。
+    ///
+    /// 但【不能无条件钉 ROUND】:最大化的窗口铺满工作区,圆角会在屏幕边缘啃出四个缺口。
+    /// 启动即最大化时尤其明显 —— 窗口状态在 Show 之前就设好了(App 恢复上次的最大化),
+    /// Attach 这一刻窗口已是最大化,无条件 ROUND 就把圆角钉在了铺满的窗口上,
+    /// 而手动还原再最大化时系统真正走了一遍 zoom,反倒显得"第二次就正常了"。
+    ///
+    /// 判定同时看 Avalonia 的 WindowState 与 Win32 的 IsZoomed:两者在状态切换的瞬间
+    /// 谁先更新并不确定,取并集才不会在中间态判错。
+    /// 22000 以下不认这个属性,会返回 E_INVALIDARG,直接不发;失败也忽略 —— 圆角只是观感。
     /// </remarks>
-    private static void ApplyRoundedCorners(IntPtr hWnd)
+    private static void ApplyCornerPreference(Window window, IntPtr hWnd)
     {
         const int DWMWA_WINDOW_CORNER_PREFERENCE = 33,
+            DWMWCP_DONOTROUND = 1,
             DWMWCP_ROUND = 2;
         if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000))
         {
             return;
         }
-        int corner = DWMWCP_ROUND;
+        bool flat = window.WindowState is WindowState.Maximized or WindowState.FullScreen || IsZoomed(hWnd);
+        int corner = flat ? DWMWCP_DONOTROUND : DWMWCP_ROUND;
         _ = DwmSetWindowAttribute(hWnd, DWMWA_WINDOW_CORNER_PREFERENCE, in corner, sizeof(int));
     }
 
@@ -162,15 +181,14 @@ internal static partial class Win32WindowChrome
             WM_NCMOUSELEAVE = 0x02A2,
             WM_NCLBUTTONDOWN = 0x00A1,
             WM_NCLBUTTONUP = 0x00A2;
-        const int HTCLIENT = 1,
-            SIZE_RESTORED = 0;
+        const int HTCLIENT = 1;
         switch (msg)
         {
-            case WM_SIZE when wParam.ToInt64() == SIZE_RESTORED:
-                // 还原/改尺寸后补钉一次圆角:最大化期间窗口本就是直角,退出最大化时
-                // DWM 不一定把圆角还回来(#171 之后收到的反馈:窗口一缩小就变直角)。
-                // 幂等且极廉价,不设 handled,尺寸消息照常交给 Avalonia。
-                ApplyRoundedCorners(hWnd);
+            case WM_SIZE:
+                // 每次尺寸变化都按当前状态重钉一次:退出最大化时 DWM 不一定把圆角还回来
+                // (反馈:窗口一缩小就变直角),进入最大化又必须收掉圆角,免得铺满的窗口
+                // 在屏幕四角啃出缺口。幂等且极廉价,不设 handled,尺寸消息照常交给 Avalonia。
+                ApplyCornerPreference(window, hWnd);
                 break;
             case WM_NCCALCSIZE when wParam != IntPtr.Zero:
                 // 客户区占满窗口(去掉可视的系统标题/边框,保留 DWM 框架语义)。
