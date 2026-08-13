@@ -25,9 +25,6 @@
   <!-- Auth (7) -->
   <!-- Settings Dialog -->
   <!-- File Browser / SFTP (§6) -->
-  <data name="ActiveTunnels" xml:space="preserve">
-    <value>활성 터널</value>
-  </data>
   <data name="AddCommand" xml:space="preserve">
     <value>명령 추가</value>
   </data>
@@ -105,9 +102,6 @@
   </data>
   <data name="Category" xml:space="preserve">
     <value>분류</value>
-  </data>
-  <data name="ChangePermissions" xml:space="preserve">
-    <value>권한 (chmod)…</value>
   </data>
   <data name="CloseTab" xml:space="preserve">
     <value>탭 닫기</value>
@@ -556,9 +550,6 @@
   <data name="Monitor_CoreCount" xml:space="preserve">
     <value>논리 코어 {0}개</value>
   </data>
-  <data name="Monitor_CoreSelected" xml:space="preserve">
-    <value>{0} 코어 · CPU{1} {2:F0}%</value>
-  </data>
   <data name="Monitor_CoreSelectedLabel" xml:space="preserve">
     <value>{0} 코어 · {1} {2:F0}%</value>
   </data>
@@ -814,9 +805,6 @@
   <data name="Monitor_TitleFormat" xml:space="preserve">
     <value>시스템 리소스 — {0}</value>
   </data>
-  <data name="Monitor_TopByCpu" xml:space="preserve">
-    <value>CPU 상위 프로세스</value>
-  </data>
   <data name="Monitor_TopByMemory" xml:space="preserve">
     <value>메모리 상위 프로세스</value>
   </data>
@@ -856,9 +844,6 @@
   <data name="Monitor_WindowSeconds" xml:space="preserve">
     <value>{0}초 전</value>
   </data>
-  <data name="Monitor_WindowStart" xml:space="preserve">
-    <value>60초 전</value>
-  </data>
   <data name="Sftp_FileTypeExt" xml:space="preserve">
     <value>{0} 파일</value>
   </data>
@@ -897,9 +882,6 @@
   </data>
   <data name="KeySvc_AlertChangedAccepted" xml:space="preserve">
     <value>{0}의 호스트 지문이 변경되었으며 사용자가 새 지문의 영구 신뢰를 확인했습니다: {1}</value>
-  </data>
-  <data name="KeySvc_AlertChangedBlocked" xml:space="preserve">
-    <value>{0}의 호스트 지문이 known_hosts 기록과 일치하지 않아 연결이 차단되었습니다(중간자 공격 의심). 새 지문: {1}</value>
   </data>
   <data name="KeySvc_AlertChangedTrustOnce" xml:space="preserve">
     <value>{0}의 호스트 지문이 변경되었으며 사용자가 이번만 신뢰를 선택했습니다(저장 안 함): {1}</value>
@@ -1202,9 +1184,6 @@
   <data name="Msg_PlaybackTitle" xml:space="preserve">
     <value>재생: {0}({1})</value>
   </data>
-  <data name="Msg_ProxyError" xml:space="preserve">
-    <value>프록시 오류: 프록시를 통해 {0}에 연결할 수 없습니다.</value>
-  </data>
   <data name="Msg_ReadKeysFailed" xml:space="preserve">
     <value>키 읽기 실패: {0}</value>
   </data>
@@ -1276,12 +1255,6 @@
   </data>
   <data name="Msg_TunnelNotConnectedAuto" xml:space="preserve">
     <value>연결 안 됨 • 터널 생성 또는 시작 시 자동 연결</value>
-  </data>
-  <data name="Msg_TunnelRouteDynamic" xml:space="preserve">
-    <value>{0}:{1} → SOCKS5 프록시</value>
-  </data>
-  <data name="Msg_TunnelRouteRemote" xml:space="preserve">
-    <value>서버:{0} → {1}:{2}</value>
   </data>
   <data name="Msg_TunnelRunning" xml:space="preserve">
     <value>실행 중 • {0}</value>
@@ -1599,9 +1572,6 @@
   <data name="Reject" xml:space="preserve">
     <value>거부</value>
   </data>
-  <data name="RemoteAddress" xml:space="preserve">
-    <value>원격 주소</value>
-  </data>
   <data name="RemoteForward" xml:space="preserve">
     <value>원격 포워딩</value>
   </data>
@@ -1620,14 +1590,8 @@
   <data name="Search" xml:space="preserve">
     <value>검색</value>
   </data>
-  <data name="SearchCommands" xml:space="preserve">
-    <value>명령 검색</value>
-  </data>
   <data name="SelectDownloadFolder" xml:space="preserve">
     <value>저장 위치 선택</value>
-  </data>
-  <data name="ServerGroups" xml:space="preserve">
-    <value>서버 그룹</value>
   </data>
   <data name="Sessions" xml:space="preserve">
     <value>세션</value>
@@ -2742,9 +2706,6 @@ Windows는 exe 전체 경로 또는 명령 이름(예: notepad), Linux는 명령
   <data name="StatusBar_OpenMonitor" xml:space="preserve">
     <value>리소스 모니터 열기</value>
   </data>
-  <data name="StatusBar_Swap" xml:space="preserve">
-    <value>스왑</value>
-  </data>
   <data name="Svc_Active" xml:space="preserve">
     <value>활성</value>
   </data>
@@ -2819,9 +2780,6 @@ Windows는 exe 전체 경로 또는 명령 이름(예: notepad), Linux는 명령
   </data>
   <data name="Svc_Yesterday" xml:space="preserve">
     <value>어제</value>
-  </data>
-  <data name="SyncGroup" xml:space="preserve">
-    <value>동기화 그룹</value>
   </data>
   <data name="SyncSvc_ApiFailed" xml:space="preserve">
     <value>GitHub API 요청 실패({0}): {1}</value>
@@ -2898,9 +2856,6 @@ Windows는 exe 전체 경로 또는 명령 이름(예: notepad), Linux는 명령
   <data name="System" xml:space="preserve">
     <value>시스템</value>
   </data>
-  <data name="SystemMonitor" xml:space="preserve">
-    <value>시스템 모니터</value>
-  </data>
   <data name="Term_NoMatches" xml:space="preserve">
     <value>일치 항목 없음</value>
   </data>
@@ -2970,17 +2925,11 @@ Windows는 exe 전체 경로 또는 명령 이름(예: notepad), Linux는 명령
   <data name="Tree_SessionSettings" xml:space="preserve">
     <value>세션 설정</value>
   </data>
-  <data name="Trust" xml:space="preserve">
-    <value>신뢰</value>
-  </data>
   <data name="TrustOnce" xml:space="preserve">
     <value>이번만 신뢰</value>
   </data>
   <data name="TrustPermanently" xml:space="preserve">
     <value>항상 신뢰</value>
-  </data>
-  <data name="TrustThisHost" xml:space="preserve">
-    <value>이 호스트 신뢰</value>
   </data>
   <data name="Tunnel_AliasLabel" xml:space="preserve">
     <value>별칭 (선택)</value>
@@ -3454,23 +3403,11 @@ Windows는 exe 전체 경로 또는 명령 이름(예: notepad), Linux는 명령
   <data name="Trace_ColLoss" xml:space="preserve">
     <value>손실%</value>
   </data>
-  <data name="Trace_ColSent" xml:space="preserve">
-    <value>보냄</value>
-  </data>
   <data name="Trace_ColLast" xml:space="preserve">
     <value>최근</value>
   </data>
   <data name="Trace_ColAvg" xml:space="preserve">
     <value>평균</value>
-  </data>
-  <data name="Trace_ColBest" xml:space="preserve">
-    <value>최고</value>
-  </data>
-  <data name="Trace_ColWorst" xml:space="preserve">
-    <value>최악</value>
-  </data>
-  <data name="Trace_ColStdDev" xml:space="preserve">
-    <value>표준편차</value>
   </data>
   <data name="Trace_Running" xml:space="preserve">
     <value>추적 중…</value>

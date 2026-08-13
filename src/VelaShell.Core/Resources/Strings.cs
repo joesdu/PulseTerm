@@ -34,9 +34,6 @@ public static class Strings
     /// <summary>“最近连接”分组标题文案。</summary>
     public static string RecentConnections => ResourceManager.GetString(nameof(RecentConnections), CultureInfo.CurrentUICulture) ?? nameof(RecentConnections);
 
-    /// <summary>“服务器分组”标题文案。</summary>
-    public static string ServerGroups => ResourceManager.GetString(nameof(ServerGroups), CultureInfo.CurrentUICulture) ?? nameof(ServerGroups);
-
     /// <summary>“设置”标签/按钮文案。</summary>
     public static string Settings => ResourceManager.GetString(nameof(Settings), CultureInfo.CurrentUICulture) ?? nameof(Settings);
 
@@ -60,9 +57,6 @@ public static class Strings
 
     /// <summary>“拆分”窗格菜单/按钮文案。</summary>
     public static string Split => ResourceManager.GetString(nameof(Split), CultureInfo.CurrentUICulture) ?? nameof(Split);
-
-    /// <summary>“同步分组”菜单/按钮文案。</summary>
-    public static string SyncGroup => ResourceManager.GetString(nameof(SyncGroup), CultureInfo.CurrentUICulture) ?? nameof(SyncGroup);
 
     /// <summary>文件列表“文件名”列标题文案。</summary>
     public static string FileName => ResourceManager.GetString(nameof(FileName), CultureInfo.CurrentUICulture) ?? nameof(FileName);
@@ -100,20 +94,8 @@ public static class Strings
     /// <summary>“本地端口”输入项标签文案。</summary>
     public static string LocalPort => ResourceManager.GetString(nameof(LocalPort), CultureInfo.CurrentUICulture) ?? nameof(LocalPort);
 
-    /// <summary>“远程地址”输入项标签文案。</summary>
-    public static string RemoteAddress => ResourceManager.GetString(nameof(RemoteAddress), CultureInfo.CurrentUICulture) ?? nameof(RemoteAddress);
-
     /// <summary>“新建隧道”按钮文案。</summary>
     public static string NewTunnel => ResourceManager.GetString(nameof(NewTunnel), CultureInfo.CurrentUICulture) ?? nameof(NewTunnel);
-
-    /// <summary>“活动隧道”列表标题文案。</summary>
-    public static string ActiveTunnels => ResourceManager.GetString(nameof(ActiveTunnels), CultureInfo.CurrentUICulture) ?? nameof(ActiveTunnels);
-
-    /// <summary>命令面板搜索框占位/标题文案。</summary>
-    public static string SearchCommands => ResourceManager.GetString(nameof(SearchCommands), CultureInfo.CurrentUICulture) ?? nameof(SearchCommands);
-
-    /// <summary>“系统监控”面板标题文案。</summary>
-    public static string SystemMonitor => ResourceManager.GetString(nameof(SystemMonitor), CultureInfo.CurrentUICulture) ?? nameof(SystemMonitor);
 
     /// <summary>“网络”分类/面板标题文案。</summary>
     public static string Network => ResourceManager.GetString(nameof(Network), CultureInfo.CurrentUICulture) ?? nameof(Network);
@@ -220,9 +202,6 @@ public static class Strings
     /// <summary>“主机密钥验证”对话框标题文案。</summary>
     public static string HostKeyVerification => ResourceManager.GetString(nameof(HostKeyVerification), CultureInfo.CurrentUICulture) ?? nameof(HostKeyVerification);
 
-    /// <summary>“信任此主机”选项文案。</summary>
-    public static string TrustThisHost => ResourceManager.GetString(nameof(TrustThisHost), CultureInfo.CurrentUICulture) ?? nameof(TrustThisHost);
-
     /// <summary>“浏览密钥文件”按钮文案。</summary>
     public static string BrowseKeyFile => ResourceManager.GetString(nameof(BrowseKeyFile), CultureInfo.CurrentUICulture) ?? nameof(BrowseKeyFile);
 
@@ -246,9 +225,6 @@ public static class Strings
 
     /// <summary>“密钥类型”标签文案。</summary>
     public static string KeyType => ResourceManager.GetString(nameof(KeyType), CultureInfo.CurrentUICulture) ?? nameof(KeyType);
-
-    /// <summary>“信任”按钮文案。</summary>
-    public static string Trust => ResourceManager.GetString(nameof(Trust), CultureInfo.CurrentUICulture) ?? nameof(Trust);
 
     /// <summary>“拒绝”按钮文案。</summary>
     public static string Reject => ResourceManager.GetString(nameof(Reject), CultureInfo.CurrentUICulture) ?? nameof(Reject);
@@ -304,9 +280,6 @@ public static class Strings
 
     /// <summary>“属性”菜单文案。</summary>
     public static string Properties => ResourceManager.GetString(nameof(Properties), CultureInfo.CurrentUICulture) ?? nameof(Properties);
-
-    /// <summary>“修改权限”对话框标题文案。</summary>
-    public static string ChangePermissions => ResourceManager.GetString(nameof(ChangePermissions), CultureInfo.CurrentUICulture) ?? nameof(ChangePermissions);
 
     /// <summary>权限矩阵“所有者”列标签文案。</summary>
     public static string PermissionOwner => ResourceManager.GetString(nameof(PermissionOwner), CultureInfo.CurrentUICulture) ?? nameof(PermissionOwner);

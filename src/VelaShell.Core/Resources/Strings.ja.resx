@@ -25,9 +25,6 @@
   <!-- Auth (7) -->
   <!-- Settings Dialog -->
   <!-- File Browser / SFTP (§6) -->
-  <data name="ActiveTunnels" xml:space="preserve">
-    <value>アクティブなトンネル</value>
-  </data>
   <data name="AddCommand" xml:space="preserve">
     <value>コマンドを追加</value>
   </data>
@@ -105,9 +102,6 @@
   </data>
   <data name="Category" xml:space="preserve">
     <value>カテゴリ</value>
-  </data>
-  <data name="ChangePermissions" xml:space="preserve">
-    <value>権限 (chmod)…</value>
   </data>
   <data name="CloseTab" xml:space="preserve">
     <value>タブを閉じる</value>
@@ -556,9 +550,6 @@
   <data name="Monitor_CoreCount" xml:space="preserve">
     <value>{0} 論理コア</value>
   </data>
-  <data name="Monitor_CoreSelected" xml:space="preserve">
-    <value>{0} コア · CPU{1} {2:F0}%</value>
-  </data>
   <data name="Monitor_CoreSelectedLabel" xml:space="preserve">
     <value>{0} コア · {1} {2:F0}%</value>
   </data>
@@ -814,9 +805,6 @@
   <data name="Monitor_TitleFormat" xml:space="preserve">
     <value>システムリソース — {0}</value>
   </data>
-  <data name="Monitor_TopByCpu" xml:space="preserve">
-    <value>CPU 使用率トップ</value>
-  </data>
   <data name="Monitor_TopByMemory" xml:space="preserve">
     <value>メモリ使用量トップ</value>
   </data>
@@ -856,9 +844,6 @@
   <data name="Monitor_WindowSeconds" xml:space="preserve">
     <value>{0} 秒前</value>
   </data>
-  <data name="Monitor_WindowStart" xml:space="preserve">
-    <value>60 秒前</value>
-  </data>
   <data name="Sftp_FileTypeExt" xml:space="preserve">
     <value>{0} ファイル</value>
   </data>
@@ -897,9 +882,6 @@
   </data>
   <data name="KeySvc_AlertChangedAccepted" xml:space="preserve">
     <value>{0} のホストフィンガープリントが変更され、ユーザーが新しいフィンガープリントの永続的な信頼を確認しました:{1}</value>
-  </data>
-  <data name="KeySvc_AlertChangedBlocked" xml:space="preserve">
-    <value>{0} のホストフィンガープリントが known_hosts の記録と一致しないため、接続をブロックしました(中間者攻撃の疑い)。新しいフィンガープリント:{1}</value>
   </data>
   <data name="KeySvc_AlertChangedTrustOnce" xml:space="preserve">
     <value>{0} のホストフィンガープリントが変更され、ユーザーは今回のみ信頼を選択しました(保存されません):{1}</value>
@@ -1202,9 +1184,6 @@
   <data name="Msg_PlaybackTitle" xml:space="preserve">
     <value>再生: {0}({1})</value>
   </data>
-  <data name="Msg_ProxyError" xml:space="preserve">
-    <value>プロキシエラー: プロキシ経由で {0} に接続できません。</value>
-  </data>
   <data name="Msg_ReadKeysFailed" xml:space="preserve">
     <value>鍵の読み込みに失敗しました: {0}</value>
   </data>
@@ -1276,12 +1255,6 @@
   </data>
   <data name="Msg_TunnelNotConnectedAuto" xml:space="preserve">
     <value>未接続 • トンネルの作成/起動時に自動接続</value>
-  </data>
-  <data name="Msg_TunnelRouteDynamic" xml:space="preserve">
-    <value>{0}:{1} → SOCKS5 プロキシ</value>
-  </data>
-  <data name="Msg_TunnelRouteRemote" xml:space="preserve">
-    <value>サーバー:{0} → {1}:{2}</value>
   </data>
   <data name="Msg_TunnelRunning" xml:space="preserve">
     <value>実行中 • {0}</value>
@@ -1599,9 +1572,6 @@
   <data name="Reject" xml:space="preserve">
     <value>拒否</value>
   </data>
-  <data name="RemoteAddress" xml:space="preserve">
-    <value>リモートアドレス</value>
-  </data>
   <data name="RemoteForward" xml:space="preserve">
     <value>リモート転送</value>
   </data>
@@ -1620,14 +1590,8 @@
   <data name="Search" xml:space="preserve">
     <value>検索</value>
   </data>
-  <data name="SearchCommands" xml:space="preserve">
-    <value>コマンドを検索</value>
-  </data>
   <data name="SelectDownloadFolder" xml:space="preserve">
     <value>保存先フォルダーを選択</value>
-  </data>
-  <data name="ServerGroups" xml:space="preserve">
-    <value>サーバーグループ</value>
   </data>
   <data name="Sessions" xml:space="preserve">
     <value>セッション</value>
@@ -2742,9 +2706,6 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   <data name="StatusBar_OpenMonitor" xml:space="preserve">
     <value>リソースモニターを開く</value>
   </data>
-  <data name="StatusBar_Swap" xml:space="preserve">
-    <value>スワップ</value>
-  </data>
   <data name="Svc_Active" xml:space="preserve">
     <value>アクティブ</value>
   </data>
@@ -2819,9 +2780,6 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   </data>
   <data name="Svc_Yesterday" xml:space="preserve">
     <value>昨日</value>
-  </data>
-  <data name="SyncGroup" xml:space="preserve">
-    <value>同期グループ</value>
   </data>
   <data name="SyncSvc_ApiFailed" xml:space="preserve">
     <value>GitHub API リクエストに失敗しました({0}):{1}</value>
@@ -2898,9 +2856,6 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   <data name="System" xml:space="preserve">
     <value>システム</value>
   </data>
-  <data name="SystemMonitor" xml:space="preserve">
-    <value>システムモニター</value>
-  </data>
   <data name="Term_NoMatches" xml:space="preserve">
     <value>一致なし</value>
   </data>
@@ -2970,17 +2925,11 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   <data name="Tree_SessionSettings" xml:space="preserve">
     <value>セッション設定</value>
   </data>
-  <data name="Trust" xml:space="preserve">
-    <value>信頼</value>
-  </data>
   <data name="TrustOnce" xml:space="preserve">
     <value>今回のみ信頼</value>
   </data>
   <data name="TrustPermanently" xml:space="preserve">
     <value>常に信頼</value>
-  </data>
-  <data name="TrustThisHost" xml:space="preserve">
-    <value>このホストを信頼</value>
   </data>
   <data name="Tunnel_AliasLabel" xml:space="preserve">
     <value>エイリアス(任意)</value>
@@ -3454,23 +3403,11 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   <data name="Trace_ColLoss" xml:space="preserve">
     <value>損失%</value>
   </data>
-  <data name="Trace_ColSent" xml:space="preserve">
-    <value>送信</value>
-  </data>
   <data name="Trace_ColLast" xml:space="preserve">
     <value>直近</value>
   </data>
   <data name="Trace_ColAvg" xml:space="preserve">
     <value>平均</value>
-  </data>
-  <data name="Trace_ColBest" xml:space="preserve">
-    <value>最速</value>
-  </data>
-  <data name="Trace_ColWorst" xml:space="preserve">
-    <value>最遅</value>
-  </data>
-  <data name="Trace_ColStdDev" xml:space="preserve">
-    <value>標準偏差</value>
   </data>
   <data name="Trace_Running" xml:space="preserve">
     <value>トレース中…</value>

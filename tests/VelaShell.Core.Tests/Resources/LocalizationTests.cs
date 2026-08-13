@@ -50,7 +50,7 @@ public class LocalizationTests : IDisposable
         CultureInfo.CurrentUICulture = new("en");
         var service = new LocalizationService();
         Assert.AreEqual("Quick Connect", service.GetString("QuickConnect"));
-        Assert.AreEqual("Server Groups", service.GetString("ServerGroups"));
+        Assert.AreEqual("Recent Connections", service.GetString("RecentConnections"));
         Assert.AreEqual("Disconnect", service.GetString("Disconnect"));
     }
 
@@ -60,7 +60,7 @@ public class LocalizationTests : IDisposable
         CultureInfo.CurrentUICulture = new("zh-CN");
         var service = new LocalizationService();
         Assert.AreEqual("快速连接", service.GetString("QuickConnect"));
-        Assert.AreEqual("服务器分组", service.GetString("ServerGroups"));
+        Assert.AreEqual("最近连接", service.GetString("RecentConnections"));
         Assert.AreEqual("断开", service.GetString("Disconnect"));
     }
 
@@ -101,7 +101,6 @@ public class LocalizationTests : IDisposable
         CultureInfo.CurrentUICulture = new("en");
         Assert.IsFalse(string.IsNullOrEmpty(Strings.QuickConnect));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.RecentConnections));
-        Assert.IsFalse(string.IsNullOrEmpty(Strings.ServerGroups));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.Settings));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.Notifications));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.NewTab));
@@ -109,7 +108,6 @@ public class LocalizationTests : IDisposable
         Assert.IsFalse(string.IsNullOrEmpty(Strings.Search));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.Copy));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.Split));
-        Assert.IsFalse(string.IsNullOrEmpty(Strings.SyncGroup));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.FileName));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.Size));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.Permissions));
@@ -120,11 +118,7 @@ public class LocalizationTests : IDisposable
         Assert.IsFalse(string.IsNullOrEmpty(Strings.LocalForward));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.RemoteForward));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.LocalPort));
-        Assert.IsFalse(string.IsNullOrEmpty(Strings.RemoteAddress));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.NewTunnel));
-        Assert.IsFalse(string.IsNullOrEmpty(Strings.ActiveTunnels));
-        Assert.IsFalse(string.IsNullOrEmpty(Strings.SearchCommands));
-        Assert.IsFalse(string.IsNullOrEmpty(Strings.SystemMonitor));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.Network));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.Docker));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.Custom));
@@ -152,7 +146,6 @@ public class LocalizationTests : IDisposable
         Assert.IsFalse(string.IsNullOrEmpty(Strings.Host));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.Port));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.HostKeyVerification));
-        Assert.IsFalse(string.IsNullOrEmpty(Strings.TrustThisHost));
     }
 
     [TestMethod]
@@ -161,7 +154,6 @@ public class LocalizationTests : IDisposable
         CultureInfo.CurrentUICulture = new("zh-CN");
         Assert.IsFalse(string.IsNullOrEmpty(Strings.QuickConnect));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.RecentConnections));
-        Assert.IsFalse(string.IsNullOrEmpty(Strings.ServerGroups));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.Settings));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.Notifications));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.NewTab));
@@ -169,7 +161,6 @@ public class LocalizationTests : IDisposable
         Assert.IsFalse(string.IsNullOrEmpty(Strings.Search));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.Copy));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.Split));
-        Assert.IsFalse(string.IsNullOrEmpty(Strings.SyncGroup));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.FileName));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.Size));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.Permissions));
@@ -180,11 +171,7 @@ public class LocalizationTests : IDisposable
         Assert.IsFalse(string.IsNullOrEmpty(Strings.LocalForward));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.RemoteForward));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.LocalPort));
-        Assert.IsFalse(string.IsNullOrEmpty(Strings.RemoteAddress));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.NewTunnel));
-        Assert.IsFalse(string.IsNullOrEmpty(Strings.ActiveTunnels));
-        Assert.IsFalse(string.IsNullOrEmpty(Strings.SearchCommands));
-        Assert.IsFalse(string.IsNullOrEmpty(Strings.SystemMonitor));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.Network));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.Docker));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.Custom));
@@ -212,7 +199,6 @@ public class LocalizationTests : IDisposable
         Assert.IsFalse(string.IsNullOrEmpty(Strings.Host));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.Port));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.HostKeyVerification));
-        Assert.IsFalse(string.IsNullOrEmpty(Strings.TrustThisHost));
     }
 
     /// <summary>

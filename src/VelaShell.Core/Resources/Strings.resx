@@ -70,9 +70,6 @@
   <data name="Monitor_CoreCount" xml:space="preserve">
     <value>{0} logical cores</value>
   </data>
-  <data name="Monitor_CoreSelected" xml:space="preserve">
-    <value>{0} cores · CPU{1} {2:F0}%</value>
-  </data>
   <data name="Monitor_CoreSelectedLabel" xml:space="preserve">
     <value>{0} cores · {1} {2:F0}%</value>
   </data>
@@ -328,9 +325,6 @@
   <data name="Monitor_TitleFormat" xml:space="preserve">
     <value>System Resources — {0}</value>
   </data>
-  <data name="Monitor_TopByCpu" xml:space="preserve">
-    <value>Top processes by CPU</value>
-  </data>
   <data name="Monitor_TopByMemory" xml:space="preserve">
     <value>Top processes by memory</value>
   </data>
@@ -370,9 +364,6 @@
   <data name="Monitor_WindowSeconds" xml:space="preserve">
     <value>{0}s ago</value>
   </data>
-  <data name="Monitor_WindowStart" xml:space="preserve">
-    <value>60s ago</value>
-  </data>
   <data name="Ready" xml:space="preserve">
     <value>Ready</value>
   </data>
@@ -382,9 +373,6 @@
   </data>
   <data name="RecentConnections" xml:space="preserve">
     <value>Recent Connections</value>
-  </data>
-  <data name="ServerGroups" xml:space="preserve">
-    <value>Server Groups</value>
   </data>
   <data name="Settings" xml:space="preserve">
     <value>Settings</value>
@@ -410,9 +398,6 @@
   </data>
   <data name="StatusBar_OpenMonitor" xml:space="preserve">
     <value>Open resource monitor</value>
-  </data>
-  <data name="SyncGroup" xml:space="preserve">
-    <value>Sync Group</value>
   </data>
   <!-- File Browser (7) -->
   <data name="FileName" xml:space="preserve">
@@ -458,22 +443,10 @@
   <data name="LocalPort" xml:space="preserve">
     <value>Local Port</value>
   </data>
-  <data name="RemoteAddress" xml:space="preserve">
-    <value>Remote Address</value>
-  </data>
   <data name="NewTunnel" xml:space="preserve">
     <value>New Tunnel</value>
   </data>
-  <data name="ActiveTunnels" xml:space="preserve">
-    <value>Active Tunnels</value>
-  </data>
   <!-- Quick Commands (5) -->
-  <data name="SearchCommands" xml:space="preserve">
-    <value>Search Commands</value>
-  </data>
-  <data name="SystemMonitor" xml:space="preserve">
-    <value>System Monitor</value>
-  </data>
   <data name="Network" xml:space="preserve">
     <value>Network</value>
   </data>
@@ -603,9 +576,6 @@
   <data name="HostKeyVerification" xml:space="preserve">
     <value>Host Key Verification</value>
   </data>
-  <data name="TrustThisHost" xml:space="preserve">
-    <value>Trust This Host</value>
-  </data>
   <!-- Settings Dialog -->
   <data name="BrowseKeyFile" xml:space="preserve">
     <value>Browse...</value>
@@ -630,9 +600,6 @@
   </data>
   <data name="KeyType" xml:space="preserve">
     <value>Key Type</value>
-  </data>
-  <data name="Trust" xml:space="preserve">
-    <value>Trust</value>
   </data>
   <data name="Reject" xml:space="preserve">
     <value>Reject</value>
@@ -706,9 +673,6 @@
   </data>
   <data name="Properties" xml:space="preserve">
     <value>Properties</value>
-  </data>
-  <data name="ChangePermissions" xml:space="preserve">
-    <value>Permissions (chmod)…</value>
   </data>
   <data name="PermissionOwner" xml:space="preserve">
     <value>Owner</value>
@@ -1155,9 +1119,6 @@ If this keeps happening, close any other VelaShell windows and try again.</value
   <data name="KeySvc_AlertChangedAccepted" xml:space="preserve">
     <value>Host fingerprint of {0} changed; the user confirmed permanent trust of the new fingerprint: {1}</value>
   </data>
-  <data name="KeySvc_AlertChangedBlocked" xml:space="preserve">
-    <value>Host fingerprint of {0} does not match the known_hosts record; the connection was blocked (possible man-in-the-middle). New fingerprint: {1}</value>
-  </data>
   <data name="KeySvc_AlertChangedTrustOnce" xml:space="preserve">
     <value>Host fingerprint of {0} changed; the user chose to trust it this time only (not saved): {1}</value>
   </data>
@@ -1414,9 +1375,6 @@ Paste anyway?</value>
   <data name="Msg_PlaybackTitle" xml:space="preserve">
     <value>Playback: {0} ({1})</value>
   </data>
-  <data name="Msg_ProxyError" xml:space="preserve">
-    <value>Proxy error: cannot connect to {0} through the proxy.</value>
-  </data>
   <data name="Msg_ReadKeysFailed" xml:space="preserve">
     <value>Failed to read keys: {0}</value>
   </data>
@@ -1488,12 +1446,6 @@ Paste anyway?</value>
   </data>
   <data name="Msg_TunnelNotConnectedAuto" xml:space="preserve">
     <value>Not connected • connects automatically when a tunnel is created or started</value>
-  </data>
-  <data name="Msg_TunnelRouteDynamic" xml:space="preserve">
-    <value>{0}:{1} → SOCKS5 proxy</value>
-  </data>
-  <data name="Msg_TunnelRouteRemote" xml:space="preserve">
-    <value>Server:{0} → {1}:{2}</value>
   </data>
   <data name="Msg_TunnelRunning" xml:space="preserve">
     <value>Running • {0}</value>
@@ -2833,9 +2785,6 @@ Overwrite it?</value>
   <data name="Sidebar_ToggleSection" xml:space="preserve">
     <value>Collapse or expand this section</value>
   </data>
-  <data name="StatusBar_Swap" xml:space="preserve">
-    <value>Swap</value>
-  </data>
   <data name="Svc_Active" xml:space="preserve">
     <value>Active</value>
   </data>
@@ -3455,23 +3404,11 @@ Overwrite it?</value>
   <data name="Trace_ColLoss" xml:space="preserve">
     <value>Loss%</value>
   </data>
-  <data name="Trace_ColSent" xml:space="preserve">
-    <value>Sent</value>
-  </data>
   <data name="Trace_ColLast" xml:space="preserve">
     <value>Last</value>
   </data>
   <data name="Trace_ColAvg" xml:space="preserve">
     <value>Avg</value>
-  </data>
-  <data name="Trace_ColBest" xml:space="preserve">
-    <value>Best</value>
-  </data>
-  <data name="Trace_ColWorst" xml:space="preserve">
-    <value>Worst</value>
-  </data>
-  <data name="Trace_ColStdDev" xml:space="preserve">
-    <value>StDev</value>
   </data>
   <data name="Trace_Running" xml:space="preserve">
     <value>Tracing…</value>

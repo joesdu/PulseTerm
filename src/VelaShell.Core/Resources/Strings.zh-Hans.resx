@@ -174,9 +174,6 @@
   <data name="Monitor_CoreCount" xml:space="preserve">
     <value>{0} 个逻辑核心</value>
   </data>
-  <data name="Monitor_CoreSelected" xml:space="preserve">
-    <value>{0} 核 · 已选 CPU{1} {2:F0}%</value>
-  </data>
   <data name="Monitor_CoreSelectedLabel" xml:space="preserve">
     <value>{0} 核 · 已选 {1} {2:F0}%</value>
   </data>
@@ -432,9 +429,6 @@
   <data name="Monitor_TitleFormat" xml:space="preserve">
     <value>系统资源监控 — {0}</value>
   </data>
-  <data name="Monitor_TopByCpu" xml:space="preserve">
-    <value>CPU 占用最高进程</value>
-  </data>
   <data name="Monitor_TopByMemory" xml:space="preserve">
     <value>占用最高进程</value>
   </data>
@@ -474,9 +468,6 @@
   <data name="Monitor_WindowSeconds" xml:space="preserve">
     <value>{0} 秒前</value>
   </data>
-  <data name="Monitor_WindowStart" xml:space="preserve">
-    <value>60 秒前</value>
-  </data>
   <data name="Ready" xml:space="preserve">
     <value>就绪</value>
   </data>
@@ -485,9 +476,6 @@
   </data>
   <data name="RecentConnections" xml:space="preserve">
     <value>最近连接</value>
-  </data>
-  <data name="ServerGroups" xml:space="preserve">
-    <value>服务器分组</value>
   </data>
   <data name="Settings" xml:space="preserve">
     <value>设置</value>
@@ -512,9 +500,6 @@
   </data>
   <data name="StatusBar_OpenMonitor" xml:space="preserve">
     <value>打开资源监视器</value>
-  </data>
-  <data name="SyncGroup" xml:space="preserve">
-    <value>同步组</value>
   </data>
   <data name="FileName" xml:space="preserve">
     <value>文件名</value>
@@ -558,20 +543,8 @@
   <data name="LocalPort" xml:space="preserve">
     <value>本地端口</value>
   </data>
-  <data name="RemoteAddress" xml:space="preserve">
-    <value>远程地址</value>
-  </data>
   <data name="NewTunnel" xml:space="preserve">
     <value>新建隧道</value>
-  </data>
-  <data name="ActiveTunnels" xml:space="preserve">
-    <value>活动隧道</value>
-  </data>
-  <data name="SearchCommands" xml:space="preserve">
-    <value>搜索命令</value>
-  </data>
-  <data name="SystemMonitor" xml:space="preserve">
-    <value>系统监控</value>
   </data>
   <data name="Network" xml:space="preserve">
     <value>网络</value>
@@ -697,9 +670,6 @@
   <data name="HostKeyVerification" xml:space="preserve">
     <value>主机密钥验证</value>
   </data>
-  <data name="TrustThisHost" xml:space="preserve">
-    <value>信任此主机</value>
-  </data>
   <data name="BrowseKeyFile" xml:space="preserve">
     <value>浏览...</value>
   </data>
@@ -723,9 +693,6 @@
   </data>
   <data name="KeyType" xml:space="preserve">
     <value>密钥类型</value>
-  </data>
-  <data name="Trust" xml:space="preserve">
-    <value>信任</value>
   </data>
   <data name="Reject" xml:space="preserve">
     <value>拒绝</value>
@@ -798,9 +765,6 @@
   </data>
   <data name="Properties" xml:space="preserve">
     <value>属性</value>
-  </data>
-  <data name="ChangePermissions" xml:space="preserve">
-    <value>权限 (chmod)…</value>
   </data>
   <data name="PermissionOwner" xml:space="preserve">
     <value>所有者</value>
@@ -1246,9 +1210,6 @@
   <data name="KeySvc_AlertChangedAccepted" xml:space="preserve">
     <value>{0} 的主机指纹已变更,用户确认永久信任新指纹:{1}</value>
   </data>
-  <data name="KeySvc_AlertChangedBlocked" xml:space="preserve">
-    <value>{0} 的主机指纹与 known_hosts 记录不符,连接已被阻断(疑似中间人)。新指纹:{1}</value>
-  </data>
   <data name="KeySvc_AlertChangedTrustOnce" xml:space="preserve">
     <value>{0} 的主机指纹已变更,用户选择仅本次信任(不落盘):{1}</value>
   </data>
@@ -1505,9 +1466,6 @@
   <data name="Msg_PlaybackTitle" xml:space="preserve">
     <value>回放: {0}({1})</value>
   </data>
-  <data name="Msg_ProxyError" xml:space="preserve">
-    <value>代理错误：无法通过代理连接到 {0}。</value>
-  </data>
   <data name="Msg_ReadKeysFailed" xml:space="preserve">
     <value>读取密钥失败:{0}</value>
   </data>
@@ -1579,12 +1537,6 @@
   </data>
   <data name="Msg_TunnelNotConnectedAuto" xml:space="preserve">
     <value>未连接 • 创建或启动隧道时自动连接</value>
-  </data>
-  <data name="Msg_TunnelRouteDynamic" xml:space="preserve">
-    <value>{0}:{1} → SOCKS5 代理</value>
-  </data>
-  <data name="Msg_TunnelRouteRemote" xml:space="preserve">
-    <value>服务器:{0} → {1}:{2}</value>
   </data>
   <data name="Msg_TunnelRunning" xml:space="preserve">
     <value>运行中 • {0}</value>
@@ -2924,9 +2876,6 @@ Windows 填 exe 完整路径或命令名(如 notepad);Linux 填命令名(如 ged
   <data name="Sidebar_ToggleSection" xml:space="preserve">
     <value>折叠或展开此区域</value>
   </data>
-  <data name="StatusBar_Swap" xml:space="preserve">
-    <value>Swap</value>
-  </data>
   <data name="Svc_Active" xml:space="preserve">
     <value>活跃</value>
   </data>
@@ -3546,23 +3495,11 @@ Windows 填 exe 完整路径或命令名(如 notepad);Linux 填命令名(如 ged
   <data name="Trace_ColLoss" xml:space="preserve">
     <value>丢包%</value>
   </data>
-  <data name="Trace_ColSent" xml:space="preserve">
-    <value>已发</value>
-  </data>
   <data name="Trace_ColLast" xml:space="preserve">
     <value>最近</value>
   </data>
   <data name="Trace_ColAvg" xml:space="preserve">
     <value>平均</value>
-  </data>
-  <data name="Trace_ColBest" xml:space="preserve">
-    <value>最快</value>
-  </data>
-  <data name="Trace_ColWorst" xml:space="preserve">
-    <value>最慢</value>
-  </data>
-  <data name="Trace_ColStdDev" xml:space="preserve">
-    <value>标准差</value>
   </data>
   <data name="Trace_Running" xml:space="preserve">
     <value>追踪中…</value>
