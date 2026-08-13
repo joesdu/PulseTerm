@@ -3655,7 +3655,8 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   </data>
   <data name="Ftp_CertTrust" xml:space="preserve">
     <value>信頼して接続</value>
-  <data name="PluginManager_VpxFilter"><value>VelaShell プラグインパッケージ</value></data>  <data name="XImport_MenuItemAll" xml:space="preserve">
+  </data>
+  <data name="XImport_MenuItemAll" xml:space="preserve">
     <value>他のツールからセッションをインポート…</value>
   </data>
   <data name="XImport_TitleAll" xml:space="preserve">

@@ -5,7 +5,7 @@ using VelaShell.Core.Sftp;
 namespace VelaShell.Infrastructure.Sftp;
 
 /// <summary>
-/// 按会话归属把远程文件操作分派到对应后端的路由:FTP 会话交给 <see cref="FtpFileService" />,
+/// 按会话归属把远程文件操作分派到对应后端的路由:FTP 会话交给 <see cref="Ftp.FtpFileService" />,
 /// 其余(SSH 上的 SFTP)走原本的实现。
 /// <para>
 /// 之所以能这么干,是因为 <see cref="ISftpService" /> 的每个成员都以 <c>Guid sessionId</c> 为键、

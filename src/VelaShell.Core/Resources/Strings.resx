@@ -3656,7 +3656,8 @@ Overwrite it?</value>
   </data>
   <data name="Ftp_CertTrust" xml:space="preserve">
     <value>Trust and connect</value>
-  <data name="PluginManager_VpxFilter"><value>VelaShell plugin package</value></data>  <data name="XImport_MenuItemAll" xml:space="preserve">
+  </data>
+  <data name="XImport_MenuItemAll" xml:space="preserve">
     <value>Import sessions from another tool…</value>
   </data>
   <data name="XImport_TitleAll" xml:space="preserve">
