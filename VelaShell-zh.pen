@@ -43448,7 +43448,7 @@
                   "id": "L0Xa1",
                   "name": "rowA",
                   "width": "fill_container",
-                  "height": 314,
+                  "height": 408,
                   "gap": 12,
                   "children": [
                     {
@@ -43534,7 +43534,7 @@
                               "children": [
                                 {
                                   "type": "frame",
-                                  "id": "f8DHi",
+                                  "id": "HhPea",
                                   "name": "disk-nvme0n1",
                                   "width": "fill_container",
                                   "height": "fill_container",
@@ -43544,15 +43544,15 @@
                                   "strokeWidth": 1,
                                   "strokeAlignment": "inner",
                                   "layout": "vertical",
-                                  "gap": 4,
                                   "padding": [
-                                    7,
-                                    9
+                                    8,
+                                    10
                                   ],
+                                  "justifyContent": "space_between",
                                   "children": [
                                     {
                                       "type": "frame",
-                                      "id": "sj7Bh",
+                                      "id": "bN3am",
                                       "name": "r1",
                                       "width": "fill_container",
                                       "justifyContent": "space_between",
@@ -43560,14 +43560,14 @@
                                       "children": [
                                         {
                                           "type": "frame",
-                                          "id": "o7llO",
+                                          "id": "O7rqg",
                                           "name": "r1l",
                                           "gap": 6,
                                           "alignItems": "center",
                                           "children": [
                                             {
                                               "type": "text",
-                                              "id": "B18Pvc",
+                                              "id": "V6R0L",
                                               "name": "dName",
                                               "fill": "$text-primary",
                                               "content": "nvme0n1",
@@ -43577,7 +43577,7 @@
                                             },
                                             {
                                               "type": "text",
-                                              "id": "psuUi",
+                                              "id": "W4sfS",
                                               "name": "dKind",
                                               "fill": "$text-muted",
                                               "content": "Samsung PM9A3 · NVMe",
@@ -43589,7 +43589,7 @@
                                         },
                                         {
                                           "type": "text",
-                                          "id": "Xx6uH",
+                                          "id": "t3tE4T",
                                           "name": "dAct",
                                           "fill": "$term-green",
                                           "content": "活动 82%",
@@ -43601,28 +43601,28 @@
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "wsi5n",
+                                      "id": "q54wJ",
                                       "name": "bar",
                                       "clip": true,
-                                      "width": 246,
-                                      "height": 6,
+                                      "width": "fill_container",
+                                      "height": 8,
                                       "fill": "$bg-active",
-                                      "cornerRadius": 3,
+                                      "cornerRadius": 4,
                                       "children": [
                                         {
                                           "type": "rectangle",
-                                          "cornerRadius": 3,
-                                          "id": "xaE1G",
+                                          "cornerRadius": 4,
+                                          "id": "Clei2",
                                           "name": "barFill",
                                           "fill": "$term-green",
                                           "width": 113,
-                                          "height": 6
+                                          "height": 8
                                         }
                                       ]
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "r9vLoU",
+                                      "id": "ZmKPI",
                                       "name": "r3",
                                       "width": "fill_container",
                                       "justifyContent": "space_between",
@@ -43630,22 +43630,22 @@
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "GRMT9",
+                                          "id": "fdWqK",
                                           "name": "dCap",
-                                          "fill": "$text-muted",
+                                          "fill": "$text-secondary",
                                           "content": "1.7 / 3.6 TB",
                                           "fontFamily": "JetBrains Mono",
-                                          "fontSize": 9,
+                                          "fontSize": 10,
                                           "fontWeight": "normal"
                                         },
                                         {
                                           "type": "text",
-                                          "id": "xdz5B",
+                                          "id": "CB7O9",
                                           "name": "dPct",
                                           "fill": "$term-green",
                                           "content": "46%",
                                           "fontFamily": "JetBrains Mono",
-                                          "fontSize": 9,
+                                          "fontSize": 10,
                                           "fontWeight": "600"
                                         }
                                       ]
@@ -43654,7 +43654,7 @@
                                 },
                                 {
                                   "type": "frame",
-                                  "id": "ZrxbQ",
+                                  "id": "WutMS",
                                   "name": "disk-nvme1n1",
                                   "width": "fill_container",
                                   "height": "fill_container",
@@ -43664,15 +43664,15 @@
                                   "strokeWidth": 1,
                                   "strokeAlignment": "inner",
                                   "layout": "vertical",
-                                  "gap": 4,
                                   "padding": [
-                                    7,
-                                    9
+                                    8,
+                                    10
                                   ],
+                                  "justifyContent": "space_between",
                                   "children": [
                                     {
                                       "type": "frame",
-                                      "id": "ba4v4",
+                                      "id": "b9ibD",
                                       "name": "r1",
                                       "width": "fill_container",
                                       "justifyContent": "space_between",
@@ -43680,14 +43680,14 @@
                                       "children": [
                                         {
                                           "type": "frame",
-                                          "id": "YA1Za",
+                                          "id": "f3uE3d",
                                           "name": "r1l",
                                           "gap": 6,
                                           "alignItems": "center",
                                           "children": [
                                             {
                                               "type": "text",
-                                              "id": "pQUAi",
+                                              "id": "tkCGG",
                                               "name": "dName",
                                               "fill": "$text-primary",
                                               "content": "nvme1n1",
@@ -43697,7 +43697,7 @@
                                             },
                                             {
                                               "type": "text",
-                                              "id": "FNfJB",
+                                              "id": "rVYGZ",
                                               "name": "dKind",
                                               "fill": "$text-muted",
                                               "content": "Samsung PM9A3 · NVMe",
@@ -43709,7 +43709,7 @@
                                         },
                                         {
                                           "type": "text",
-                                          "id": "WJxDy",
+                                          "id": "Bx5sJ",
                                           "name": "dAct",
                                           "fill": "$term-green",
                                           "content": "活动 31%",
@@ -43721,28 +43721,28 @@
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "GEFmj",
+                                      "id": "EOfMr",
                                       "name": "bar",
                                       "clip": true,
-                                      "width": 246,
-                                      "height": 6,
+                                      "width": "fill_container",
+                                      "height": 8,
                                       "fill": "$bg-active",
-                                      "cornerRadius": 3,
+                                      "cornerRadius": 4,
                                       "children": [
                                         {
                                           "type": "rectangle",
-                                          "cornerRadius": 3,
-                                          "id": "r44Fql",
+                                          "cornerRadius": 4,
+                                          "id": "fuCtz",
                                           "name": "barFill",
                                           "fill": "$term-green",
                                           "width": 93,
-                                          "height": 6
+                                          "height": 8
                                         }
                                       ]
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "w2zuO",
+                                      "id": "zp2IA",
                                       "name": "r3",
                                       "width": "fill_container",
                                       "justifyContent": "space_between",
@@ -43750,22 +43750,22 @@
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "MWrx0",
+                                          "id": "OrHYe",
                                           "name": "dCap",
-                                          "fill": "$text-muted",
+                                          "fill": "$text-secondary",
                                           "content": "1.4 / 3.6 TB",
                                           "fontFamily": "JetBrains Mono",
-                                          "fontSize": 9,
+                                          "fontSize": 10,
                                           "fontWeight": "normal"
                                         },
                                         {
                                           "type": "text",
-                                          "id": "ru8aM",
+                                          "id": "mdE69",
                                           "name": "dPct",
                                           "fill": "$term-green",
                                           "content": "38%",
                                           "fontFamily": "JetBrains Mono",
-                                          "fontSize": 9,
+                                          "fontSize": 10,
                                           "fontWeight": "600"
                                         }
                                       ]
@@ -43774,7 +43774,7 @@
                                 },
                                 {
                                   "type": "frame",
-                                  "id": "Ztq91",
+                                  "id": "V6wn7H",
                                   "name": "disk-sda",
                                   "width": "fill_container",
                                   "height": "fill_container",
@@ -43784,15 +43784,15 @@
                                   "strokeWidth": 1,
                                   "strokeAlignment": "inner",
                                   "layout": "vertical",
-                                  "gap": 4,
                                   "padding": [
-                                    7,
-                                    9
+                                    8,
+                                    10
                                   ],
+                                  "justifyContent": "space_between",
                                   "children": [
                                     {
                                       "type": "frame",
-                                      "id": "K98zj5",
+                                      "id": "X6no6A",
                                       "name": "r1",
                                       "width": "fill_container",
                                       "justifyContent": "space_between",
@@ -43800,14 +43800,14 @@
                                       "children": [
                                         {
                                           "type": "frame",
-                                          "id": "n8azE",
+                                          "id": "TykUe",
                                           "name": "r1l",
                                           "gap": 6,
                                           "alignItems": "center",
                                           "children": [
                                             {
                                               "type": "text",
-                                              "id": "exLUZ",
+                                              "id": "FfGdF",
                                               "name": "dName",
                                               "fill": "$text-primary",
                                               "content": "sda",
@@ -43817,7 +43817,7 @@
                                             },
                                             {
                                               "type": "text",
-                                              "id": "krwnP",
+                                              "id": "Tg0Rq",
                                               "name": "dKind",
                                               "fill": "$text-muted",
                                               "content": "Seagate EXOS · SATA",
@@ -43829,7 +43829,7 @@
                                         },
                                         {
                                           "type": "text",
-                                          "id": "a69NXG",
+                                          "id": "sQnf4",
                                           "name": "dAct",
                                           "fill": "$term-green",
                                           "content": "活动 12%",
@@ -43841,28 +43841,28 @@
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "b7n0E",
+                                      "id": "Hu08W",
                                       "name": "bar",
                                       "clip": true,
-                                      "width": 246,
-                                      "height": 6,
+                                      "width": "fill_container",
+                                      "height": 8,
                                       "fill": "$bg-active",
-                                      "cornerRadius": 3,
+                                      "cornerRadius": 4,
                                       "children": [
                                         {
                                           "type": "rectangle",
-                                          "cornerRadius": 3,
-                                          "id": "mxTyk",
+                                          "cornerRadius": 4,
+                                          "id": "uyZ1m",
                                           "name": "barFill",
                                           "fill": "$warning",
                                           "width": 175,
-                                          "height": 6
+                                          "height": 8
                                         }
                                       ]
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "iVorM",
+                                      "id": "AoMlC",
                                       "name": "r3",
                                       "width": "fill_container",
                                       "justifyContent": "space_between",
@@ -43870,22 +43870,22 @@
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "kf5PB",
+                                          "id": "XFeNN",
                                           "name": "dCap",
-                                          "fill": "$text-muted",
+                                          "fill": "$text-secondary",
                                           "content": "11.2 / 15.8 TB",
                                           "fontFamily": "JetBrains Mono",
-                                          "fontSize": 9,
+                                          "fontSize": 10,
                                           "fontWeight": "normal"
                                         },
                                         {
                                           "type": "text",
-                                          "id": "KoInf",
+                                          "id": "XyGqQ",
                                           "name": "dPct",
                                           "fill": "$warning",
                                           "content": "71%",
                                           "fontFamily": "JetBrains Mono",
-                                          "fontSize": 9,
+                                          "fontSize": 10,
                                           "fontWeight": "600"
                                         }
                                       ]
@@ -43894,7 +43894,7 @@
                                 },
                                 {
                                   "type": "frame",
-                                  "id": "kvI73",
+                                  "id": "kH5RN",
                                   "name": "disk-sdb",
                                   "width": "fill_container",
                                   "height": "fill_container",
@@ -43904,15 +43904,15 @@
                                   "strokeWidth": 1,
                                   "strokeAlignment": "inner",
                                   "layout": "vertical",
-                                  "gap": 4,
                                   "padding": [
-                                    7,
-                                    9
+                                    8,
+                                    10
                                   ],
+                                  "justifyContent": "space_between",
                                   "children": [
                                     {
                                       "type": "frame",
-                                      "id": "tlAnj",
+                                      "id": "Mf5lL",
                                       "name": "r1",
                                       "width": "fill_container",
                                       "justifyContent": "space_between",
@@ -43920,14 +43920,14 @@
                                       "children": [
                                         {
                                           "type": "frame",
-                                          "id": "IzF1x",
+                                          "id": "g8xHP",
                                           "name": "r1l",
                                           "gap": 6,
                                           "alignItems": "center",
                                           "children": [
                                             {
                                               "type": "text",
-                                              "id": "boa1c",
+                                              "id": "yrqqU",
                                               "name": "dName",
                                               "fill": "$text-primary",
                                               "content": "sdb",
@@ -43937,7 +43937,7 @@
                                             },
                                             {
                                               "type": "text",
-                                              "id": "m0uFr",
+                                              "id": "Ki8y2",
                                               "name": "dKind",
                                               "fill": "$text-muted",
                                               "content": "Seagate EXOS · SATA",
@@ -43949,7 +43949,7 @@
                                         },
                                         {
                                           "type": "text",
-                                          "id": "Y9zOV",
+                                          "id": "LSf3S",
                                           "name": "dAct",
                                           "fill": "$term-green",
                                           "content": "活动 4%",
@@ -43961,28 +43961,28 @@
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "b0ErnO",
+                                      "id": "hg8i0",
                                       "name": "bar",
                                       "clip": true,
-                                      "width": 246,
-                                      "height": 6,
+                                      "width": "fill_container",
+                                      "height": 8,
                                       "fill": "$bg-active",
-                                      "cornerRadius": 3,
+                                      "cornerRadius": 4,
                                       "children": [
                                         {
                                           "type": "rectangle",
-                                          "cornerRadius": 3,
-                                          "id": "Q7sdC",
+                                          "cornerRadius": 4,
+                                          "id": "CEgME",
                                           "name": "barFill",
                                           "fill": "$error",
                                           "width": 229,
-                                          "height": 6
+                                          "height": 8
                                         }
                                       ]
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "pnjgE",
+                                      "id": "lnvR6",
                                       "name": "r3",
                                       "width": "fill_container",
                                       "justifyContent": "space_between",
@@ -43990,22 +43990,22 @@
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "Tl4tw",
+                                          "id": "b3siO",
                                           "name": "dCap",
-                                          "fill": "$text-muted",
+                                          "fill": "$text-secondary",
                                           "content": "14.6 / 15.8 TB",
                                           "fontFamily": "JetBrains Mono",
-                                          "fontSize": 9,
+                                          "fontSize": 10,
                                           "fontWeight": "normal"
                                         },
                                         {
                                           "type": "text",
-                                          "id": "qb7gs",
+                                          "id": "z7ctXo",
                                           "name": "dPct",
                                           "fill": "$error",
                                           "content": "93%",
                                           "fontFamily": "JetBrains Mono",
-                                          "fontSize": 9,
+                                          "fontSize": 10,
                                           "fontWeight": "600"
                                         }
                                       ]
@@ -44638,7 +44638,7 @@
                     },
                     {
                       "type": "frame",
-                      "id": "FR8LV",
+                      "id": "HsWh8",
                       "name": "partTable",
                       "width": "fill_container",
                       "height": "fill_container",
@@ -44646,7 +44646,7 @@
                       "children": [
                         {
                           "type": "frame",
-                          "id": "yQYYj",
+                          "id": "qqXjR",
                           "name": "partHead",
                           "width": "fill_container",
                           "height": 26,
@@ -44665,15 +44665,15 @@
                           "children": [
                             {
                               "type": "frame",
-                              "id": "Y1yR43",
-                              "name": "pth-挂载点",
-                              "width": 150,
+                              "id": "RDfy9",
+                              "clip": true,
+                              "width": "fill_container",
                               "height": "fill_container",
                               "alignItems": "center",
                               "children": [
                                 {
                                   "type": "text",
-                                  "id": "IhW5l",
+                                  "id": "ZcnJR",
                                   "name": "pthT",
                                   "fill": "$text-muted",
                                   "content": "挂载点",
@@ -44685,15 +44685,15 @@
                             },
                             {
                               "type": "frame",
-                              "id": "pEehZ",
-                              "name": "pth-设备",
-                              "width": 130,
+                              "id": "Re03M",
+                              "clip": true,
+                              "width": 190,
                               "height": "fill_container",
                               "alignItems": "center",
                               "children": [
                                 {
                                   "type": "text",
-                                  "id": "K9dnU",
+                                  "id": "GGA5f",
                                   "name": "pthT",
                                   "fill": "$text-muted",
                                   "content": "设备",
@@ -44705,15 +44705,15 @@
                             },
                             {
                               "type": "frame",
-                              "id": "g8tgZ",
-                              "name": "pth-文件系统",
+                              "id": "f1SMOl",
+                              "clip": true,
                               "width": 90,
                               "height": "fill_container",
                               "alignItems": "center",
                               "children": [
                                 {
                                   "type": "text",
-                                  "id": "m8cfP",
+                                  "id": "Q3rD7I",
                                   "name": "pthT",
                                   "fill": "$text-muted",
                                   "content": "文件系统",
@@ -44725,18 +44725,18 @@
                             },
                             {
                               "type": "frame",
-                              "id": "a5j1c",
-                              "name": "pth-容量",
+                              "id": "lrCUZ",
+                              "clip": true,
                               "width": 180,
                               "height": "fill_container",
                               "alignItems": "center",
                               "children": [
                                 {
                                   "type": "text",
-                                  "id": "i1csFm",
+                                  "id": "G1URCQ",
                                   "name": "pthT",
                                   "fill": "$text-muted",
-                                  "content": "容量",
+                                  "content": "使用率",
                                   "fontFamily": "Inter",
                                   "fontSize": 10,
                                   "fontWeight": "500"
@@ -44745,15 +44745,16 @@
                             },
                             {
                               "type": "frame",
-                              "id": "XM35o",
-                              "name": "pth-已用 / 总量",
-                              "width": 180,
+                              "id": "a5E0Z4",
+                              "clip": true,
+                              "width": 150,
                               "height": "fill_container",
+                              "justifyContent": "end",
                               "alignItems": "center",
                               "children": [
                                 {
                                   "type": "text",
-                                  "id": "eFy5s",
+                                  "id": "h7Ffji",
                                   "name": "pthT",
                                   "fill": "$text-muted",
                                   "content": "已用 / 总量",
@@ -44765,19 +44766,19 @@
                             },
                             {
                               "type": "frame",
-                              "id": "WdYUT",
-                              "name": "pth-使用率",
-                              "width": "fill_container",
+                              "id": "uSEIg",
+                              "clip": true,
+                              "width": 64,
                               "height": "fill_container",
                               "justifyContent": "end",
                               "alignItems": "center",
                               "children": [
                                 {
                                   "type": "text",
-                                  "id": "gC654",
+                                  "id": "AyBuq",
                                   "name": "pthT",
                                   "fill": "$text-muted",
-                                  "content": "使用率",
+                                  "content": "%",
                                   "fontFamily": "Inter",
                                   "fontSize": 10,
                                   "fontWeight": "500"
@@ -44788,7 +44789,7 @@
                         },
                         {
                           "type": "frame",
-                          "id": "PdGcD",
+                          "id": "U6N3l2",
                           "name": "rowsScrollWrap",
                           "width": "fill_container",
                           "height": "fill_container",
@@ -44796,7 +44797,7 @@
                           "children": [
                             {
                               "type": "frame",
-                              "id": "lJ9Tp",
+                              "id": "x1wplX",
                               "name": "rowsArea",
                               "width": "fill_container",
                               "height": "fill_container",
@@ -44804,24 +44805,29 @@
                               "children": [
                                 {
                                   "type": "frame",
-                                  "id": "Xbeqw",
+                                  "id": "NZo5i",
                                   "name": "pr-/",
                                   "width": "fill_container",
                                   "height": "fill_container",
-                                  "cornerRadius": 3,
+                                  "fill": "#00000000",
+                                  "cornerRadius": 4,
+                                  "padding": [
+                                    0,
+                                    6
+                                  ],
                                   "alignItems": "center",
                                   "children": [
                                     {
                                       "type": "frame",
-                                      "id": "zss9g",
-                                      "name": "pc0",
-                                      "width": 150,
+                                      "id": "oGfDG",
+                                      "clip": true,
+                                      "width": "fill_container",
                                       "height": "fill_container",
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "nyu37",
+                                          "id": "CzKMO",
                                           "name": "pt0",
                                           "fill": "$text-primary",
                                           "content": "/",
@@ -44833,16 +44839,15 @@
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "W86ug",
-                                      "name": "pc1",
+                                      "id": "wfkya",
                                       "clip": true,
-                                      "width": 130,
+                                      "width": 190,
                                       "height": "fill_container",
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "lvFJE",
+                                          "id": "OAatc",
                                           "name": "pt1",
                                           "fill": "$text-secondary",
                                           "content": "/dev/nvme0n1p2",
@@ -44854,15 +44859,15 @@
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "VFjP6",
-                                      "name": "pc2",
+                                      "id": "gHAP3",
+                                      "clip": true,
                                       "width": 90,
                                       "height": "fill_container",
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "C2Tto0",
+                                          "id": "UGpky",
                                           "name": "pt2",
                                           "fill": "$text-secondary",
                                           "content": "ext4",
@@ -44874,7 +44879,7 @@
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "eNvar",
+                                      "id": "S1BuHl",
                                       "name": "pc3",
                                       "width": 180,
                                       "height": "fill_container",
@@ -44882,22 +44887,22 @@
                                       "children": [
                                         {
                                           "type": "frame",
-                                          "id": "zYQ3V",
+                                          "id": "BdKlm",
                                           "name": "bar",
                                           "clip": true,
                                           "width": 160,
-                                          "height": 6,
+                                          "height": 8,
                                           "fill": "$bg-active",
-                                          "cornerRadius": 3,
+                                          "cornerRadius": 4,
                                           "children": [
                                             {
                                               "type": "rectangle",
-                                              "cornerRadius": 3,
-                                              "id": "i3JHu6",
+                                              "cornerRadius": 4,
+                                              "id": "qRw2y",
                                               "name": "barFill",
                                               "fill": "$term-green",
                                               "width": 74,
-                                              "height": 6
+                                              "height": 8
                                             }
                                           ]
                                         }
@@ -44905,15 +44910,16 @@
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "Gt3gR",
-                                      "name": "pc4",
-                                      "width": 180,
+                                      "id": "jhQqf",
+                                      "clip": true,
+                                      "width": 150,
                                       "height": "fill_container",
+                                      "justifyContent": "end",
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "BWDgc",
+                                          "id": "Fu5Mf",
                                           "name": "pt4",
                                           "fill": "$text-secondary",
                                           "content": "1.6 / 3.5 TB",
@@ -44925,16 +44931,16 @@
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "hx1ll",
-                                      "name": "pc5",
-                                      "width": "fill_container",
+                                      "id": "U87UB",
+                                      "clip": true,
+                                      "width": 64,
                                       "height": "fill_container",
                                       "justifyContent": "end",
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "V7lW7",
+                                          "id": "jbmVS",
                                           "name": "pt5",
                                           "fill": "$term-green",
                                           "content": "46%",
@@ -44948,24 +44954,29 @@
                                 },
                                 {
                                   "type": "frame",
-                                  "id": "E9e8C",
+                                  "id": "xG45F",
                                   "name": "pr-/boot/efi",
                                   "width": "fill_container",
                                   "height": "fill_container",
-                                  "cornerRadius": 3,
+                                  "fill": "$bg-page",
+                                  "cornerRadius": 4,
+                                  "padding": [
+                                    0,
+                                    6
+                                  ],
                                   "alignItems": "center",
                                   "children": [
                                     {
                                       "type": "frame",
-                                      "id": "ItW2D",
-                                      "name": "pc0",
-                                      "width": 150,
+                                      "id": "E6OhzU",
+                                      "clip": true,
+                                      "width": "fill_container",
                                       "height": "fill_container",
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "o9uFrU",
+                                          "id": "yqvvR",
                                           "name": "pt0",
                                           "fill": "$text-primary",
                                           "content": "/boot/efi",
@@ -44977,16 +44988,15 @@
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "e21hs",
-                                      "name": "pc1",
+                                      "id": "qhC5b",
                                       "clip": true,
-                                      "width": 130,
+                                      "width": 190,
                                       "height": "fill_container",
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "dR0Ta",
+                                          "id": "i5rtY",
                                           "name": "pt1",
                                           "fill": "$text-secondary",
                                           "content": "/dev/nvme0n1p1",
@@ -44998,15 +45008,15 @@
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "PGm56",
-                                      "name": "pc2",
+                                      "id": "B2dwt",
+                                      "clip": true,
                                       "width": 90,
                                       "height": "fill_container",
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "TV8PF",
+                                          "id": "xfG5d",
                                           "name": "pt2",
                                           "fill": "$text-secondary",
                                           "content": "vfat",
@@ -45018,7 +45028,7 @@
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "l1ucb",
+                                      "id": "Q8JAiD",
                                       "name": "pc3",
                                       "width": 180,
                                       "height": "fill_container",
@@ -45026,22 +45036,22 @@
                                       "children": [
                                         {
                                           "type": "frame",
-                                          "id": "c7rhI",
+                                          "id": "CwYC8",
                                           "name": "bar",
                                           "clip": true,
                                           "width": 160,
-                                          "height": 6,
+                                          "height": 8,
                                           "fill": "$bg-active",
-                                          "cornerRadius": 3,
+                                          "cornerRadius": 4,
                                           "children": [
                                             {
                                               "type": "rectangle",
-                                              "cornerRadius": 3,
-                                              "id": "KbByV",
+                                              "cornerRadius": 4,
+                                              "id": "X6tzqC",
                                               "name": "barFill",
                                               "fill": "$term-green",
                                               "width": 13,
-                                              "height": 6
+                                              "height": 8
                                             }
                                           ]
                                         }
@@ -45049,15 +45059,16 @@
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "nO8Br",
-                                      "name": "pc4",
-                                      "width": 180,
+                                      "id": "S3dXb",
+                                      "clip": true,
+                                      "width": 150,
                                       "height": "fill_container",
+                                      "justifyContent": "end",
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "MuPGz",
+                                          "id": "PNQOU",
                                           "name": "pt4",
                                           "fill": "$text-secondary",
                                           "content": "42 / 512 MB",
@@ -45069,16 +45080,16 @@
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "kWZzJ",
-                                      "name": "pc5",
-                                      "width": "fill_container",
+                                      "id": "d31QZ3",
+                                      "clip": true,
+                                      "width": 64,
                                       "height": "fill_container",
                                       "justifyContent": "end",
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "gkKUz",
+                                          "id": "ocOml",
                                           "name": "pt5",
                                           "fill": "$term-green",
                                           "content": "8%",
@@ -45092,24 +45103,29 @@
                                 },
                                 {
                                   "type": "frame",
-                                  "id": "AbTO5",
+                                  "id": "t0V2sp",
                                   "name": "pr-/var/lib/docker",
                                   "width": "fill_container",
                                   "height": "fill_container",
-                                  "cornerRadius": 3,
+                                  "fill": "#00000000",
+                                  "cornerRadius": 4,
+                                  "padding": [
+                                    0,
+                                    6
+                                  ],
                                   "alignItems": "center",
                                   "children": [
                                     {
                                       "type": "frame",
-                                      "id": "S92wlJ",
-                                      "name": "pc0",
-                                      "width": 150,
+                                      "id": "wddwB",
+                                      "clip": true,
+                                      "width": "fill_container",
                                       "height": "fill_container",
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "D5I8fI",
+                                          "id": "NzSA8",
                                           "name": "pt0",
                                           "fill": "$text-primary",
                                           "content": "/var/lib/docker",
@@ -45121,16 +45137,15 @@
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "Y323j",
-                                      "name": "pc1",
+                                      "id": "p2hOR",
                                       "clip": true,
-                                      "width": 130,
+                                      "width": 190,
                                       "height": "fill_container",
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "HkEMH",
+                                          "id": "ugFvA",
                                           "name": "pt1",
                                           "fill": "$text-secondary",
                                           "content": "/dev/nvme1n1p1",
@@ -45142,15 +45157,15 @@
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "pJOT8",
-                                      "name": "pc2",
+                                      "id": "n026C",
+                                      "clip": true,
                                       "width": 90,
                                       "height": "fill_container",
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "LJAWS",
+                                          "id": "n2lRO",
                                           "name": "pt2",
                                           "fill": "$text-secondary",
                                           "content": "xfs",
@@ -45162,7 +45177,7 @@
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "BI3KJ",
+                                      "id": "y6GHKL",
                                       "name": "pc3",
                                       "width": 180,
                                       "height": "fill_container",
@@ -45170,22 +45185,22 @@
                                       "children": [
                                         {
                                           "type": "frame",
-                                          "id": "aUYal",
+                                          "id": "t1Xpl",
                                           "name": "bar",
                                           "clip": true,
                                           "width": 160,
-                                          "height": 6,
+                                          "height": 8,
                                           "fill": "$bg-active",
-                                          "cornerRadius": 3,
+                                          "cornerRadius": 4,
                                           "children": [
                                             {
                                               "type": "rectangle",
-                                              "cornerRadius": 3,
-                                              "id": "VbNpF",
+                                              "cornerRadius": 4,
+                                              "id": "hpclC",
                                               "name": "barFill",
                                               "fill": "$term-green",
                                               "width": 61,
-                                              "height": 6
+                                              "height": 8
                                             }
                                           ]
                                         }
@@ -45193,15 +45208,16 @@
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "xielB",
-                                      "name": "pc4",
-                                      "width": 180,
+                                      "id": "ltadQ",
+                                      "clip": true,
+                                      "width": 150,
                                       "height": "fill_container",
+                                      "justifyContent": "end",
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "irH3e",
+                                          "id": "AWH5O",
                                           "name": "pt4",
                                           "fill": "$text-secondary",
                                           "content": "1.4 / 3.6 TB",
@@ -45213,16 +45229,16 @@
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "mWbHn",
-                                      "name": "pc5",
-                                      "width": "fill_container",
+                                      "id": "SemSd",
+                                      "clip": true,
+                                      "width": 64,
                                       "height": "fill_container",
                                       "justifyContent": "end",
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "MXCv7",
+                                          "id": "BgBia",
                                           "name": "pt5",
                                           "fill": "$term-green",
                                           "content": "38%",
@@ -45236,24 +45252,29 @@
                                 },
                                 {
                                   "type": "frame",
-                                  "id": "o4Wwnk",
+                                  "id": "GJ5pr",
                                   "name": "pr-/data",
                                   "width": "fill_container",
                                   "height": "fill_container",
-                                  "cornerRadius": 3,
+                                  "fill": "$bg-page",
+                                  "cornerRadius": 4,
+                                  "padding": [
+                                    0,
+                                    6
+                                  ],
                                   "alignItems": "center",
                                   "children": [
                                     {
                                       "type": "frame",
-                                      "id": "mME0F",
-                                      "name": "pc0",
-                                      "width": 150,
+                                      "id": "hh7O8",
+                                      "clip": true,
+                                      "width": "fill_container",
                                       "height": "fill_container",
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "FCIEJ",
+                                          "id": "rOhWb",
                                           "name": "pt0",
                                           "fill": "$text-primary",
                                           "content": "/data",
@@ -45265,16 +45286,15 @@
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "KtPsg",
-                                      "name": "pc1",
+                                      "id": "m4EFW",
                                       "clip": true,
-                                      "width": 130,
+                                      "width": 190,
                                       "height": "fill_container",
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "iJszn",
+                                          "id": "G1Ky03",
                                           "name": "pt1",
                                           "fill": "$text-secondary",
                                           "content": "/dev/sda1",
@@ -45286,15 +45306,15 @@
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "m4Ghn",
-                                      "name": "pc2",
+                                      "id": "EPJqI",
+                                      "clip": true,
                                       "width": 90,
                                       "height": "fill_container",
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "zApxS",
+                                          "id": "L8aX0k",
                                           "name": "pt2",
                                           "fill": "$text-secondary",
                                           "content": "xfs",
@@ -45306,7 +45326,7 @@
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "yGNYT",
+                                      "id": "jI8h3",
                                       "name": "pc3",
                                       "width": 180,
                                       "height": "fill_container",
@@ -45314,22 +45334,22 @@
                                       "children": [
                                         {
                                           "type": "frame",
-                                          "id": "dGUKw",
+                                          "id": "gm7uE",
                                           "name": "bar",
                                           "clip": true,
                                           "width": 160,
-                                          "height": 6,
+                                          "height": 8,
                                           "fill": "$bg-active",
-                                          "cornerRadius": 3,
+                                          "cornerRadius": 4,
                                           "children": [
                                             {
                                               "type": "rectangle",
-                                              "cornerRadius": 3,
-                                              "id": "j6BIS",
+                                              "cornerRadius": 4,
+                                              "id": "AxL1e",
                                               "name": "barFill",
                                               "fill": "$warning",
                                               "width": 114,
-                                              "height": 6
+                                              "height": 8
                                             }
                                           ]
                                         }
@@ -45337,15 +45357,16 @@
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "pjTd4",
-                                      "name": "pc4",
-                                      "width": 180,
+                                      "id": "EotPs",
+                                      "clip": true,
+                                      "width": 150,
                                       "height": "fill_container",
+                                      "justifyContent": "end",
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "fUvT2",
+                                          "id": "K5orTy",
                                           "name": "pt4",
                                           "fill": "$text-secondary",
                                           "content": "11.2 / 15.8 TB",
@@ -45357,16 +45378,16 @@
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "RFpQb",
-                                      "name": "pc5",
-                                      "width": "fill_container",
+                                      "id": "qqlWC",
+                                      "clip": true,
+                                      "width": 64,
                                       "height": "fill_container",
                                       "justifyContent": "end",
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "P4jYc",
+                                          "id": "MDrZS",
                                           "name": "pt5",
                                           "fill": "$warning",
                                           "content": "71%",
@@ -45380,24 +45401,29 @@
                                 },
                                 {
                                   "type": "frame",
-                                  "id": "V5G4Xb",
+                                  "id": "bIxOE",
                                   "name": "pr-/backup",
                                   "width": "fill_container",
                                   "height": "fill_container",
-                                  "cornerRadius": 3,
+                                  "fill": "#00000000",
+                                  "cornerRadius": 4,
+                                  "padding": [
+                                    0,
+                                    6
+                                  ],
                                   "alignItems": "center",
                                   "children": [
                                     {
                                       "type": "frame",
-                                      "id": "iIkQm",
-                                      "name": "pc0",
-                                      "width": 150,
+                                      "id": "uBcOU",
+                                      "clip": true,
+                                      "width": "fill_container",
                                       "height": "fill_container",
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "sCsd6",
+                                          "id": "mzx7s",
                                           "name": "pt0",
                                           "fill": "$text-primary",
                                           "content": "/backup",
@@ -45409,16 +45435,15 @@
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "zpSml",
-                                      "name": "pc1",
+                                      "id": "tNHVq",
                                       "clip": true,
-                                      "width": 130,
+                                      "width": 190,
                                       "height": "fill_container",
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "YUiWr",
+                                          "id": "u96j0",
                                           "name": "pt1",
                                           "fill": "$text-secondary",
                                           "content": "/dev/sdb1",
@@ -45430,15 +45455,15 @@
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "a3bXW0",
-                                      "name": "pc2",
+                                      "id": "xEQ3j",
+                                      "clip": true,
                                       "width": 90,
                                       "height": "fill_container",
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "Mw1kB",
+                                          "id": "M5pofQ",
                                           "name": "pt2",
                                           "fill": "$text-secondary",
                                           "content": "ext4",
@@ -45450,7 +45475,7 @@
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "lSKVw",
+                                      "id": "ZagQm",
                                       "name": "pc3",
                                       "width": 180,
                                       "height": "fill_container",
@@ -45458,22 +45483,22 @@
                                       "children": [
                                         {
                                           "type": "frame",
-                                          "id": "eFH7q",
+                                          "id": "QxuGI",
                                           "name": "bar",
                                           "clip": true,
                                           "width": 160,
-                                          "height": 6,
+                                          "height": 8,
                                           "fill": "$bg-active",
-                                          "cornerRadius": 3,
+                                          "cornerRadius": 4,
                                           "children": [
                                             {
                                               "type": "rectangle",
-                                              "cornerRadius": 3,
-                                              "id": "enzTD",
+                                              "cornerRadius": 4,
+                                              "id": "ua7hZ",
                                               "name": "barFill",
                                               "fill": "$error",
                                               "width": 149,
-                                              "height": 6
+                                              "height": 8
                                             }
                                           ]
                                         }
@@ -45481,15 +45506,16 @@
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "avaCf",
-                                      "name": "pc4",
-                                      "width": 180,
+                                      "id": "Nj1dd",
+                                      "clip": true,
+                                      "width": 150,
                                       "height": "fill_container",
+                                      "justifyContent": "end",
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "pDavR",
+                                          "id": "yjUlS",
                                           "name": "pt4",
                                           "fill": "$text-secondary",
                                           "content": "14.6 / 15.8 TB",
@@ -45501,16 +45527,16 @@
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "BO5HH",
-                                      "name": "pc5",
-                                      "width": "fill_container",
+                                      "id": "hotD3",
+                                      "clip": true,
+                                      "width": 64,
                                       "height": "fill_container",
                                       "justifyContent": "end",
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "kCoND",
+                                          "id": "DfjjG",
                                           "name": "pt5",
                                           "fill": "$error",
                                           "content": "93%",
@@ -45524,24 +45550,29 @@
                                 },
                                 {
                                   "type": "frame",
-                                  "id": "feN3o",
+                                  "id": "Qqacu",
                                   "name": "pr-/mnt/nas",
                                   "width": "fill_container",
                                   "height": "fill_container",
-                                  "cornerRadius": 3,
+                                  "fill": "$bg-page",
+                                  "cornerRadius": 4,
+                                  "padding": [
+                                    0,
+                                    6
+                                  ],
                                   "alignItems": "center",
                                   "children": [
                                     {
                                       "type": "frame",
-                                      "id": "s2cWD",
-                                      "name": "pc0",
-                                      "width": 150,
+                                      "id": "jdjZj",
+                                      "clip": true,
+                                      "width": "fill_container",
                                       "height": "fill_container",
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "hq91B",
+                                          "id": "TNLwY",
                                           "name": "pt0",
                                           "fill": "$text-primary",
                                           "content": "/mnt/nas",
@@ -45553,16 +45584,15 @@
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "OeJ9y",
-                                      "name": "pc1",
+                                      "id": "IujK6",
                                       "clip": true,
-                                      "width": 130,
+                                      "width": 190,
                                       "height": "fill_container",
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "DVSH4",
+                                          "id": "MR2UD",
                                           "name": "pt1",
                                           "fill": "$text-secondary",
                                           "content": "nfs://10.0.3.8/vol1",
@@ -45574,15 +45604,15 @@
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "xdlMP",
-                                      "name": "pc2",
+                                      "id": "X0LCjb",
+                                      "clip": true,
                                       "width": 90,
                                       "height": "fill_container",
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "zqePW",
+                                          "id": "ZQNga",
                                           "name": "pt2",
                                           "fill": "$text-secondary",
                                           "content": "nfs4",
@@ -45594,7 +45624,7 @@
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "Xbdhd",
+                                      "id": "ZDSvu",
                                       "name": "pc3",
                                       "width": 180,
                                       "height": "fill_container",
@@ -45602,22 +45632,22 @@
                                       "children": [
                                         {
                                           "type": "frame",
-                                          "id": "CP5S9",
+                                          "id": "A5EZVn",
                                           "name": "bar",
                                           "clip": true,
                                           "width": 160,
-                                          "height": 6,
+                                          "height": 8,
                                           "fill": "$bg-active",
-                                          "cornerRadius": 3,
+                                          "cornerRadius": 4,
                                           "children": [
                                             {
                                               "type": "rectangle",
-                                              "cornerRadius": 3,
-                                              "id": "EC2JI",
+                                              "cornerRadius": 4,
+                                              "id": "u6QHWa",
                                               "name": "barFill",
                                               "fill": "$term-green",
                                               "width": 99,
-                                              "height": 6
+                                              "height": 8
                                             }
                                           ]
                                         }
@@ -45625,15 +45655,16 @@
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "WnmFX",
-                                      "name": "pc4",
-                                      "width": 180,
+                                      "id": "eA9gy",
+                                      "clip": true,
+                                      "width": 150,
                                       "height": "fill_container",
+                                      "justifyContent": "end",
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "xo9Ue",
+                                          "id": "v2Li5",
                                           "name": "pt4",
                                           "fill": "$text-secondary",
                                           "content": "24.8 / 40.0 TB",
@@ -45645,16 +45676,16 @@
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "ydFC4",
-                                      "name": "pc5",
-                                      "width": "fill_container",
+                                      "id": "RxTTp",
+                                      "clip": true,
+                                      "width": 64,
                                       "height": "fill_container",
                                       "justifyContent": "end",
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "EjetE",
+                                          "id": "m1CuNf",
                                           "name": "pt5",
                                           "fill": "$term-green",
                                           "content": "62%",
@@ -45670,7 +45701,7 @@
                             },
                             {
                               "type": "frame",
-                              "id": "XOooc",
+                              "id": "Dyb5K",
                               "name": "scrollbar",
                               "width": 6,
                               "height": "fill_container",
@@ -45679,15 +45710,15 @@
                               "layout": "none",
                               "children": [
                                 {
-                                  "type": "rectangle",
-                                  "cornerRadius": 3,
-                                  "id": "fQNys",
+                                  "type": "frame",
+                                  "id": "ChLID",
                                   "x": 0,
                                   "y": 0,
                                   "name": "scrollThumb",
-                                  "fill": "$border-secondary",
                                   "width": 6,
-                                  "height": 112
+                                  "height": 112,
+                                  "fill": "$border-secondary",
+                                  "cornerRadius": 3
                                 }
                               ]
                             }
@@ -47576,7 +47607,6 @@
                   "id": "MToK0",
                   "name": "netChartCard",
                   "width": "fill_container",
-                  "height": 300,
                   "fill": "$bg-input",
                   "cornerRadius": 8,
                   "stroke": "$border-primary",
@@ -47651,7 +47681,7 @@
                       "name": "plot",
                       "clip": true,
                       "width": 840,
-                      "height": 214,
+                      "height": 182,
                       "fill": "$bg-page",
                       "cornerRadius": 4,
                       "stroke": "$border-primary",
@@ -47663,7 +47693,7 @@
                           "type": "rectangle",
                           "id": "XHUkK",
                           "x": 0,
-                          "y": 27,
+                          "y": 23,
                           "name": "gridH1",
                           "opacity": 0.45,
                           "fill": "$border-primary",
@@ -47674,7 +47704,7 @@
                           "type": "rectangle",
                           "id": "Ff5XB",
                           "x": 0,
-                          "y": 54,
+                          "y": 46,
                           "name": "gridH2",
                           "opacity": 0.45,
                           "fill": "$border-primary",
@@ -47685,7 +47715,7 @@
                           "type": "rectangle",
                           "id": "KYiaM",
                           "x": 0,
-                          "y": 80,
+                          "y": 68,
                           "name": "gridH3",
                           "opacity": 0.45,
                           "fill": "$border-primary",
@@ -47696,7 +47726,7 @@
                           "type": "rectangle",
                           "id": "J3rYDc",
                           "x": 0,
-                          "y": 134,
+                          "y": 114,
                           "name": "gridH5",
                           "opacity": 0.45,
                           "fill": "$border-primary",
@@ -47707,7 +47737,7 @@
                           "type": "rectangle",
                           "id": "PSHEV",
                           "x": 0,
-                          "y": 161,
+                          "y": 137,
                           "name": "gridH6",
                           "opacity": 0.45,
                           "fill": "$border-primary",
@@ -47718,7 +47748,7 @@
                           "type": "rectangle",
                           "id": "t8nWn6",
                           "x": 0,
-                          "y": 187,
+                          "y": 159,
                           "name": "gridH7",
                           "opacity": 0.45,
                           "fill": "$border-primary",
@@ -47734,7 +47764,7 @@
                           "opacity": 0.3,
                           "fill": "$border-primary",
                           "width": 1,
-                          "height": 214
+                          "height": 182
                         },
                         {
                           "type": "rectangle",
@@ -47745,7 +47775,7 @@
                           "opacity": 0.3,
                           "fill": "$border-primary",
                           "width": 1,
-                          "height": 214
+                          "height": 182
                         },
                         {
                           "type": "rectangle",
@@ -47756,7 +47786,7 @@
                           "opacity": 0.3,
                           "fill": "$border-primary",
                           "width": 1,
-                          "height": 214
+                          "height": 182
                         },
                         {
                           "type": "rectangle",
@@ -47767,7 +47797,7 @@
                           "opacity": 0.3,
                           "fill": "$border-primary",
                           "width": 1,
-                          "height": 214
+                          "height": 182
                         },
                         {
                           "type": "rectangle",
@@ -47778,7 +47808,7 @@
                           "opacity": 0.3,
                           "fill": "$border-primary",
                           "width": 1,
-                          "height": 214
+                          "height": 182
                         },
                         {
                           "type": "rectangle",
@@ -47789,7 +47819,7 @@
                           "opacity": 0.3,
                           "fill": "$border-primary",
                           "width": 1,
-                          "height": 214
+                          "height": 182
                         },
                         {
                           "type": "rectangle",
@@ -47800,7 +47830,7 @@
                           "opacity": 0.3,
                           "fill": "$border-primary",
                           "width": 1,
-                          "height": 214
+                          "height": 182
                         },
                         {
                           "type": "path",
@@ -47817,7 +47847,7 @@
                           ],
                           "fill": "#8BE9FD33",
                           "width": 840,
-                          "height": 214
+                          "height": 182
                         },
                         {
                           "type": "path",
@@ -47834,7 +47864,7 @@
                           ],
                           "fill": "#00000000",
                           "width": 840,
-                          "height": 214,
+                          "height": 182,
                           "stroke": "#8BE9FD",
                           "strokeWidth": 1.6,
                           "strokeLinejoin": "round"
@@ -47854,7 +47884,7 @@
                           ],
                           "fill": "#FF79C633",
                           "width": 840,
-                          "height": 214
+                          "height": 182
                         },
                         {
                           "type": "path",
@@ -47871,7 +47901,7 @@
                           ],
                           "fill": "#00000000",
                           "width": 840,
-                          "height": 214,
+                          "height": 182,
                           "stroke": "#FF79C6",
                           "strokeWidth": 1.6,
                           "strokeLinejoin": "round"
@@ -47880,7 +47910,7 @@
                           "type": "rectangle",
                           "id": "LW8HU",
                           "x": 0,
-                          "y": 107,
+                          "y": 91,
                           "name": "midLine",
                           "fill": "$border-secondary",
                           "width": 840,
@@ -47890,7 +47920,7 @@
                           "type": "text",
                           "id": "L2UBkp",
                           "x": 8,
-                          "y": 6,
+                          "y": 5,
                           "name": "axTop",
                           "fill": "$text-muted",
                           "content": "↓ 40 MB/s",
@@ -47902,7 +47932,7 @@
                           "type": "text",
                           "id": "UMZ68",
                           "x": 8,
-                          "y": 198,
+                          "y": 168,
                           "name": "axBtm",
                           "fill": "$text-muted",
                           "content": "↑ 40 MB/s",
@@ -47914,7 +47944,7 @@
                           "type": "text",
                           "id": "ojLvi",
                           "x": 784,
-                          "y": 94,
+                          "y": 80,
                           "name": "axMid",
                           "fill": "$text-muted",
                           "content": "现在 →",
@@ -48017,6 +48047,7 @@
                   "name": "rowC",
                   "width": "fill_container",
                   "height": "fill_container",
+                  "layout": "vertical",
                   "gap": 12,
                   "children": [
                     {
@@ -48024,7 +48055,6 @@
                       "id": "ykioc",
                       "name": "nicDetailCard",
                       "width": "fill_container",
-                      "height": "fill_container",
                       "fill": "$bg-input",
                       "cornerRadius": 8,
                       "stroke": "$border-primary",
@@ -48075,31 +48105,88 @@
                         },
                         {
                           "type": "frame",
-                          "id": "g4v3oV",
-                          "name": "detailGrid",
+                          "id": "cknRl",
+                          "name": "detailBand",
                           "width": "fill_container",
-                          "height": "fill_container",
-                          "gap": 20,
+                          "layout": "vertical",
+                          "gap": 6,
                           "children": [
                             {
                               "type": "frame",
-                              "id": "ak7MZ",
-                              "name": "detailCol",
+                              "id": "eosw9",
+                              "name": "bandRow",
                               "width": "fill_container",
-                              "layout": "vertical",
-                              "gap": 8,
+                              "gap": 28,
+                              "alignItems": "center",
                               "children": [
                                 {
                                   "type": "frame",
-                                  "id": "b2eRH",
-                                  "name": "d-MAC 地址",
-                                  "width": "fill_container",
-                                  "justifyContent": "space_between",
+                                  "id": "RI2nj",
+                                  "name": "d-类型",
+                                  "gap": 8,
                                   "alignItems": "center",
                                   "children": [
                                     {
                                       "type": "text",
-                                      "id": "dAi0T",
+                                      "id": "WWwFW",
+                                      "name": "dK",
+                                      "fill": "$text-secondary",
+                                      "content": "类型",
+                                      "fontFamily": "Inter",
+                                      "fontSize": 10,
+                                      "fontWeight": "normal"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "SpD3m",
+                                      "name": "dV",
+                                      "fill": "$text-primary",
+                                      "content": "以太网",
+                                      "fontFamily": "JetBrains Mono",
+                                      "fontSize": 10,
+                                      "fontWeight": "500"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "OROl9",
+                                  "name": "d-驱动",
+                                  "gap": 8,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "ySWyy",
+                                      "name": "dK",
+                                      "fill": "$text-secondary",
+                                      "content": "驱动",
+                                      "fontFamily": "Inter",
+                                      "fontSize": 10,
+                                      "fontWeight": "normal"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "lizB9",
+                                      "name": "dV",
+                                      "fill": "$text-primary",
+                                      "content": "ixgbe",
+                                      "fontFamily": "JetBrains Mono",
+                                      "fontSize": 10,
+                                      "fontWeight": "500"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "YcphD",
+                                  "name": "d-MAC 地址",
+                                  "gap": 8,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "N9ljp6",
                                       "name": "dK",
                                       "fill": "$text-secondary",
                                       "content": "MAC 地址",
@@ -48109,7 +48196,7 @@
                                     },
                                     {
                                       "type": "text",
-                                      "id": "h1P3V",
+                                      "id": "HtD3T",
                                       "name": "dV",
                                       "fill": "$text-primary",
                                       "content": "b4:2e:99:0c:1a:77",
@@ -48121,15 +48208,14 @@
                                 },
                                 {
                                   "type": "frame",
-                                  "id": "uY59L",
+                                  "id": "Era4p",
                                   "name": "d-MTU",
-                                  "width": "fill_container",
-                                  "justifyContent": "space_between",
+                                  "gap": 8,
                                   "alignItems": "center",
                                   "children": [
                                     {
                                       "type": "text",
-                                      "id": "N1gMvE",
+                                      "id": "mQoj9",
                                       "name": "dK",
                                       "fill": "$text-secondary",
                                       "content": "MTU",
@@ -48139,7 +48225,7 @@
                                     },
                                     {
                                       "type": "text",
-                                      "id": "rls84",
+                                      "id": "Y3Uimr",
                                       "name": "dV",
                                       "fill": "$text-primary",
                                       "content": "9000",
@@ -48151,58 +48237,27 @@
                                 },
                                 {
                                   "type": "frame",
-                                  "id": "f9JrMp",
-                                  "name": "d-驱动 / 固件",
-                                  "width": "fill_container",
-                                  "justifyContent": "space_between",
+                                  "id": "OZXRL",
+                                  "name": "d-链路速率",
+                                  "gap": 8,
                                   "alignItems": "center",
                                   "children": [
                                     {
                                       "type": "text",
-                                      "id": "FGFlH",
+                                      "id": "V0Pa5h",
                                       "name": "dK",
                                       "fill": "$text-secondary",
-                                      "content": "驱动 / 固件",
+                                      "content": "链路速率",
                                       "fontFamily": "Inter",
                                       "fontSize": 10,
                                       "fontWeight": "normal"
                                     },
                                     {
                                       "type": "text",
-                                      "id": "Sfzyc",
+                                      "id": "qoSqQ",
                                       "name": "dV",
                                       "fill": "$text-primary",
-                                      "content": "ice / 4.30",
-                                      "fontFamily": "JetBrains Mono",
-                                      "fontSize": 10,
-                                      "fontWeight": "500"
-                                    }
-                                  ]
-                                },
-                                {
-                                  "type": "frame",
-                                  "id": "Ne0mF",
-                                  "name": "d-队列数",
-                                  "width": "fill_container",
-                                  "justifyContent": "space_between",
-                                  "alignItems": "center",
-                                  "children": [
-                                    {
-                                      "type": "text",
-                                      "id": "OW0sg",
-                                      "name": "dK",
-                                      "fill": "$text-secondary",
-                                      "content": "队列数",
-                                      "fontFamily": "Inter",
-                                      "fontSize": 10,
-                                      "fontWeight": "normal"
-                                    },
-                                    {
-                                      "type": "text",
-                                      "id": "SQZIH",
-                                      "name": "dV",
-                                      "fill": "$text-primary",
-                                      "content": "64",
+                                      "content": "10 Gbps · 全双工",
                                       "fontFamily": "JetBrains Mono",
                                       "fontSize": 10,
                                       "fontWeight": "500"
@@ -48213,23 +48268,80 @@
                             },
                             {
                               "type": "frame",
-                              "id": "apwT6",
-                              "name": "detailCol",
+                              "id": "BgO0c",
+                              "name": "bandRow",
                               "width": "fill_container",
-                              "layout": "vertical",
-                              "gap": 8,
+                              "gap": 28,
+                              "alignItems": "center",
                               "children": [
                                 {
                                   "type": "frame",
-                                  "id": "y7LMAs",
-                                  "name": "d-累计接收",
-                                  "width": "fill_container",
-                                  "justifyContent": "space_between",
+                                  "id": "T2wx47",
+                                  "name": "d-IPv4",
+                                  "gap": 8,
                                   "alignItems": "center",
                                   "children": [
                                     {
                                       "type": "text",
-                                      "id": "n7UlQ",
+                                      "id": "D3xms",
+                                      "name": "dK",
+                                      "fill": "$text-secondary",
+                                      "content": "IPv4",
+                                      "fontFamily": "Inter",
+                                      "fontSize": 10,
+                                      "fontWeight": "normal"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "jKAbp",
+                                      "name": "dV",
+                                      "fill": "$text-primary",
+                                      "content": "10.0.2.31/24",
+                                      "fontFamily": "JetBrains Mono",
+                                      "fontSize": 10,
+                                      "fontWeight": "500"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "Sy930",
+                                  "name": "d-IPv6",
+                                  "gap": 8,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "s2g8A",
+                                      "name": "dK",
+                                      "fill": "$text-secondary",
+                                      "content": "IPv6",
+                                      "fontFamily": "Inter",
+                                      "fontSize": 10,
+                                      "fontWeight": "normal"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "nJs9e",
+                                      "name": "dV",
+                                      "fill": "$text-primary",
+                                      "content": "2001:db8:1::31/64",
+                                      "fontFamily": "JetBrains Mono",
+                                      "fontSize": 10,
+                                      "fontWeight": "500"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "cHJix",
+                                  "name": "d-累计接收",
+                                  "gap": 8,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "W73EcR",
                                       "name": "dK",
                                       "fill": "$text-secondary",
                                       "content": "累计接收",
@@ -48239,7 +48351,7 @@
                                     },
                                     {
                                       "type": "text",
-                                      "id": "iFf9D",
+                                      "id": "QAMXJ",
                                       "name": "dV",
                                       "fill": "$text-primary",
                                       "content": "4.20 TB",
@@ -48251,15 +48363,14 @@
                                 },
                                 {
                                   "type": "frame",
-                                  "id": "Z2uyOr",
+                                  "id": "Vok9G",
                                   "name": "d-累计发送",
-                                  "width": "fill_container",
-                                  "justifyContent": "space_between",
+                                  "gap": 8,
                                   "alignItems": "center",
                                   "children": [
                                     {
                                       "type": "text",
-                                      "id": "gLZ1k",
+                                      "id": "wljxI",
                                       "name": "dK",
                                       "fill": "$text-secondary",
                                       "content": "累计发送",
@@ -48269,7 +48380,7 @@
                                     },
                                     {
                                       "type": "text",
-                                      "id": "KHB7P",
+                                      "id": "Bqk1c",
                                       "name": "dV",
                                       "fill": "$text-primary",
                                       "content": "1.08 TB",
@@ -48281,15 +48392,14 @@
                                 },
                                 {
                                   "type": "frame",
-                                  "id": "P2Xsty",
+                                  "id": "jqWLz",
                                   "name": "d-丢包 收/发",
-                                  "width": "fill_container",
-                                  "justifyContent": "space_between",
+                                  "gap": 8,
                                   "alignItems": "center",
                                   "children": [
                                     {
                                       "type": "text",
-                                      "id": "xxsFo",
+                                      "id": "werLd",
                                       "name": "dK",
                                       "fill": "$text-secondary",
                                       "content": "丢包 收/发",
@@ -48299,7 +48409,7 @@
                                     },
                                     {
                                       "type": "text",
-                                      "id": "P1ScMR",
+                                      "id": "KSh69",
                                       "name": "dV",
                                       "fill": "$text-primary",
                                       "content": "0 / 0",
@@ -48311,15 +48421,14 @@
                                 },
                                 {
                                   "type": "frame",
-                                  "id": "exyxE",
+                                  "id": "RT6m1",
                                   "name": "d-错误 收/发",
-                                  "width": "fill_container",
-                                  "justifyContent": "space_between",
+                                  "gap": 8,
                                   "alignItems": "center",
                                   "children": [
                                     {
                                       "type": "text",
-                                      "id": "GBXV6",
+                                      "id": "riq6v",
                                       "name": "dK",
                                       "fill": "$text-secondary",
                                       "content": "错误 收/发",
@@ -48329,7 +48438,7 @@
                                     },
                                     {
                                       "type": "text",
-                                      "id": "KqUyd",
+                                      "id": "c7bVjw",
                                       "name": "dV",
                                       "fill": "$text-primary",
                                       "content": "0 / 0",
@@ -48349,7 +48458,7 @@
                       "type": "frame",
                       "id": "J9o9o",
                       "name": "talkerCard",
-                      "width": 380,
+                      "width": "fill_container",
                       "height": "fill_container",
                       "fill": "$bg-input",
                       "cornerRadius": 8,
@@ -48400,7 +48509,7 @@
                                   "id": "kNKmh",
                                   "name": "sub",
                                   "fill": "$text-muted",
-                                  "content": "ss -ti 逐连接差分 · 显示 1-4 / 128",
+                                  "content": "ss -ti 逐连接差分 · 显示 1-2 / 128",
                                   "fontFamily": "Inter",
                                   "fontSize": 10,
                                   "fontWeight": "normal"
@@ -48440,7 +48549,7 @@
                                   "type": "frame",
                                   "id": "u5d3Ja",
                                   "name": "h",
-                                  "width": "fill_container",
+                                  "width": 320,
                                   "height": "fill_container",
                                   "alignItems": "center",
                                   "children": [
@@ -48460,7 +48569,7 @@
                                   "type": "frame",
                                   "id": "IwM0n",
                                   "name": "h",
-                                  "width": 90,
+                                  "width": "fill_container",
                                   "height": "fill_container",
                                   "alignItems": "center",
                                   "children": [
@@ -48480,7 +48589,7 @@
                                   "type": "frame",
                                   "id": "KN2ps",
                                   "name": "h",
-                                  "width": 70,
+                                  "width": 110,
                                   "height": "fill_container",
                                   "justifyContent": "end",
                                   "alignItems": "center",
@@ -48501,7 +48610,7 @@
                                   "type": "frame",
                                   "id": "sT7Bj",
                                   "name": "h",
-                                  "width": 70,
+                                  "width": 110,
                                   "height": "fill_container",
                                   "justifyContent": "end",
                                   "alignItems": "center",
@@ -48549,7 +48658,7 @@
                                           "id": "YkDls",
                                           "name": "c",
                                           "clip": true,
-                                          "width": "fill_container",
+                                          "width": 320,
                                           "height": "fill_container",
                                           "alignItems": "center",
                                           "children": [
@@ -48570,7 +48679,7 @@
                                           "id": "TYxoe",
                                           "name": "c",
                                           "clip": true,
-                                          "width": 90,
+                                          "width": "fill_container",
                                           "height": "fill_container",
                                           "alignItems": "center",
                                           "children": [
@@ -48591,7 +48700,7 @@
                                           "id": "zcHEY",
                                           "name": "c",
                                           "clip": true,
-                                          "width": 70,
+                                          "width": 110,
                                           "height": "fill_container",
                                           "justifyContent": "end",
                                           "alignItems": "center",
@@ -48613,7 +48722,7 @@
                                           "id": "UqJll",
                                           "name": "c",
                                           "clip": true,
-                                          "width": 70,
+                                          "width": 110,
                                           "height": "fill_container",
                                           "justifyContent": "end",
                                           "alignItems": "center",
@@ -48645,7 +48754,7 @@
                                           "id": "Y19cu",
                                           "name": "c",
                                           "clip": true,
-                                          "width": "fill_container",
+                                          "width": 320,
                                           "height": "fill_container",
                                           "alignItems": "center",
                                           "children": [
@@ -48666,7 +48775,7 @@
                                           "id": "P1Z37",
                                           "name": "c",
                                           "clip": true,
-                                          "width": 90,
+                                          "width": "fill_container",
                                           "height": "fill_container",
                                           "alignItems": "center",
                                           "children": [
@@ -48687,7 +48796,7 @@
                                           "id": "qiSNK",
                                           "name": "c",
                                           "clip": true,
-                                          "width": 70,
+                                          "width": 110,
                                           "height": "fill_container",
                                           "justifyContent": "end",
                                           "alignItems": "center",
@@ -48709,7 +48818,7 @@
                                           "id": "Q2Ioq4",
                                           "name": "c",
                                           "clip": true,
-                                          "width": 70,
+                                          "width": 110,
                                           "height": "fill_container",
                                           "justifyContent": "end",
                                           "alignItems": "center",
@@ -48720,198 +48829,6 @@
                                               "name": "t",
                                               "fill": "$term-magenta",
                                               "content": "1.9 MB/s",
-                                              "fontFamily": "JetBrains Mono",
-                                              "fontSize": 10,
-                                              "fontWeight": "normal"
-                                            }
-                                          ]
-                                        }
-                                      ]
-                                    },
-                                    {
-                                      "type": "frame",
-                                      "id": "n7Y9x2",
-                                      "name": "tk-10.0.4.31:9092",
-                                      "width": "fill_container",
-                                      "height": 26,
-                                      "alignItems": "center",
-                                      "children": [
-                                        {
-                                          "type": "frame",
-                                          "id": "TvMib",
-                                          "name": "c",
-                                          "clip": true,
-                                          "width": "fill_container",
-                                          "height": "fill_container",
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "text",
-                                              "id": "dj1jx",
-                                              "name": "t",
-                                              "fill": "$text-primary",
-                                              "content": "10.0.4.31:9092",
-                                              "fontFamily": "JetBrains Mono",
-                                              "fontSize": 10,
-                                              "fontWeight": "normal"
-                                            }
-                                          ]
-                                        },
-                                        {
-                                          "type": "frame",
-                                          "id": "eCkCl",
-                                          "name": "c",
-                                          "clip": true,
-                                          "width": 90,
-                                          "height": "fill_container",
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "text",
-                                              "id": "K8DQF",
-                                              "name": "t",
-                                              "fill": "$text-muted",
-                                              "content": "—",
-                                              "fontFamily": "JetBrains Mono",
-                                              "fontSize": 10,
-                                              "fontWeight": "normal"
-                                            }
-                                          ]
-                                        },
-                                        {
-                                          "type": "frame",
-                                          "id": "aEna6",
-                                          "name": "c",
-                                          "clip": true,
-                                          "width": 70,
-                                          "height": "fill_container",
-                                          "justifyContent": "end",
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "text",
-                                              "id": "kuLzm",
-                                              "name": "t",
-                                              "fill": "$term-cyan",
-                                              "content": "3.1 MB/s",
-                                              "fontFamily": "JetBrains Mono",
-                                              "fontSize": 10,
-                                              "fontWeight": "normal"
-                                            }
-                                          ]
-                                        },
-                                        {
-                                          "type": "frame",
-                                          "id": "eRRIR",
-                                          "name": "c",
-                                          "clip": true,
-                                          "width": 70,
-                                          "height": "fill_container",
-                                          "justifyContent": "end",
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "text",
-                                              "id": "ZKn74",
-                                              "name": "t",
-                                              "fill": "$term-magenta",
-                                              "content": "0.7 MB/s",
-                                              "fontFamily": "JetBrains Mono",
-                                              "fontSize": 10,
-                                              "fontWeight": "normal"
-                                            }
-                                          ]
-                                        }
-                                      ]
-                                    },
-                                    {
-                                      "type": "frame",
-                                      "id": "qTySW",
-                                      "name": "tk-10.0.2.9:6379",
-                                      "width": "fill_container",
-                                      "height": 26,
-                                      "alignItems": "center",
-                                      "children": [
-                                        {
-                                          "type": "frame",
-                                          "id": "sp7sw",
-                                          "name": "c",
-                                          "clip": true,
-                                          "width": "fill_container",
-                                          "height": "fill_container",
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "text",
-                                              "id": "mQRK7",
-                                              "name": "t",
-                                              "fill": "$text-primary",
-                                              "content": "10.0.2.9:6379",
-                                              "fontFamily": "JetBrains Mono",
-                                              "fontSize": 10,
-                                              "fontWeight": "normal"
-                                            }
-                                          ]
-                                        },
-                                        {
-                                          "type": "frame",
-                                          "id": "Gm69I",
-                                          "name": "c",
-                                          "clip": true,
-                                          "width": 90,
-                                          "height": "fill_container",
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "text",
-                                              "id": "fDO0s",
-                                              "name": "t",
-                                              "fill": "$text-secondary",
-                                              "content": "redis-server",
-                                              "fontFamily": "JetBrains Mono",
-                                              "fontSize": 10,
-                                              "fontWeight": "normal"
-                                            }
-                                          ]
-                                        },
-                                        {
-                                          "type": "frame",
-                                          "id": "k3KXv",
-                                          "name": "c",
-                                          "clip": true,
-                                          "width": 70,
-                                          "height": "fill_container",
-                                          "justifyContent": "end",
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "text",
-                                              "id": "v8hGp",
-                                              "name": "t",
-                                              "fill": "$term-cyan",
-                                              "content": "1.4 MB/s",
-                                              "fontFamily": "JetBrains Mono",
-                                              "fontSize": 10,
-                                              "fontWeight": "normal"
-                                            }
-                                          ]
-                                        },
-                                        {
-                                          "type": "frame",
-                                          "id": "iqYaS",
-                                          "name": "c",
-                                          "clip": true,
-                                          "width": 70,
-                                          "height": "fill_container",
-                                          "justifyContent": "end",
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "text",
-                                              "id": "e0G1B",
-                                              "name": "t",
-                                              "fill": "$term-magenta",
-                                              "content": "0.2 MB/s",
                                               "fontFamily": "JetBrains Mono",
                                               "fontSize": 10,
                                               "fontWeight": "normal"
@@ -50115,7 +50032,7 @@
                       "fill": "$text-secondary",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "磁盘：左侧物理盘列表（容量条 + 活动率），单选联动右图",
+                      "content": "磁盘：上半区定高(放得下 4 块盘);盘卡三段 —— 名称/型号·接口/活动率贴顶,8px 占用条居中,容量与占用率贴底",
                       "lineHeight": 1.5,
                       "fontFamily": "Inter",
                       "fontSize": 10,
@@ -50179,7 +50096,7 @@
                       "fill": "$text-secondary",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "分区表逐挂载点显示容量条，超阈值转警告 / 危险色",
+                      "content": "分区表列:挂载点 / 设备 / 文件系统 / 占用条 / 已用总量 / 使用率;隔行底纹,读数与条同步转警告/危险色",
                       "lineHeight": 1.5,
                       "fontFamily": "Inter",
                       "fontSize": 10,
@@ -50304,7 +50221,7 @@
                       "fill": "$text-secondary",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "网卡详情:MAC / MTU / 链路速率 / IPv4 / 累计收发",
+                      "content": "网卡详情:定宽 392,左右两列各四行 —— MAC / MTU / 链路速率·双工 / IPv4 | 累计收 / 累计发 / 丢包 / 错误",
                       "lineHeight": 1.5,
                       "fontFamily": "Inter",
                       "fontSize": 10,
@@ -50336,7 +50253,7 @@
                       "fill": "$text-secondary",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "连接占用 Top:ss -ti 的逐连接字节计数两次采样差分,按收发合计排序",
+                      "content": "连接占用 Top:吃剩余宽度(对端与进程名最占地方);ss -ti 逐连接差分,按收发合计排序",
                       "lineHeight": 1.5,
                       "fontFamily": "Inter",
                       "fontSize": 10,
@@ -50421,7 +50338,7 @@
           "children": [
             {
               "type": "frame",
-              "id": "VhoC8",
+              "id": "d6hWEr",
               "name": "sec-GPU 视图",
               "width": "fill_container",
               "fill": "$bg-input",
@@ -50438,24 +50355,24 @@
               "children": [
                 {
                   "type": "text",
-                  "id": "QRykS",
+                  "id": "G2jiP",
                   "name": "secT",
                   "fill": "$text-primary",
                   "content": "GPU 视图",
                   "fontFamily": "Inter",
-                  "fontSize": 12,
+                  "fontSize": 11,
                   "fontWeight": "600"
                 },
                 {
                   "type": "frame",
-                  "id": "X6xuc",
+                  "id": "J1RSJp",
                   "name": "li",
                   "width": "fill_container",
                   "gap": 6,
                   "children": [
                     {
                       "type": "text",
-                      "id": "CA04j",
+                      "id": "K8JsI",
                       "name": "liDot",
                       "fill": "$accent",
                       "content": "·",
@@ -50465,7 +50382,7 @@
                     },
                     {
                       "type": "text",
-                      "id": "TCHbY",
+                      "id": "u8QVQa",
                       "name": "liT",
                       "fill": "$text-secondary",
                       "textGrowth": "fixed-width",
@@ -50480,14 +50397,14 @@
                 },
                 {
                   "type": "frame",
-                  "id": "pgaxc",
+                  "id": "kTZnl",
                   "name": "li",
                   "width": "fill_container",
                   "gap": 6,
                   "children": [
                     {
                       "type": "text",
-                      "id": "Bo6zm",
+                      "id": "BM3fz",
                       "name": "liDot",
                       "fill": "$accent",
                       "content": "·",
@@ -50497,7 +50414,7 @@
                     },
                     {
                       "type": "text",
-                      "id": "G43q2",
+                      "id": "VZE3J",
                       "name": "liT",
                       "fill": "$text-secondary",
                       "textGrowth": "fixed-width",
@@ -50512,14 +50429,14 @@
                 },
                 {
                   "type": "frame",
-                  "id": "U9j4f",
+                  "id": "jM8CV",
                   "name": "li",
                   "width": "fill_container",
                   "gap": 6,
                   "children": [
                     {
                       "type": "text",
-                      "id": "n0aXS",
+                      "id": "R52sl",
                       "name": "liDot",
                       "fill": "$accent",
                       "content": "·",
@@ -50529,7 +50446,7 @@
                     },
                     {
                       "type": "text",
-                      "id": "shkbm",
+                      "id": "IU6W9",
                       "name": "liT",
                       "fill": "$text-secondary",
                       "textGrowth": "fixed-width",
@@ -50544,14 +50461,14 @@
                 },
                 {
                   "type": "frame",
-                  "id": "ifdkq",
+                  "id": "flAwf",
                   "name": "li",
                   "width": "fill_container",
                   "gap": 6,
                   "children": [
                     {
                       "type": "text",
-                      "id": "FkXIc",
+                      "id": "YN2FO",
                       "name": "liDot",
                       "fill": "$accent",
                       "content": "·",
@@ -50561,12 +50478,12 @@
                     },
                     {
                       "type": "text",
-                      "id": "sDAuA",
+                      "id": "XdG33",
                       "name": "liT",
                       "fill": "$text-secondary",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "型号名:AMD 读 product_name,Intel 靠静态探针的 lspci 按 PCI 槽位匹配",
+                      "content": "虚拟化兜底:静态探针扫 /sys/bus/pci 的 0x03 显示类设备。直通卡未装驱动、KVM virtio-gpu、ESXi SVGA 都没有 DRM 节点,靠这段才看得见(指标全 —,给出槽位与驱动)",
                       "lineHeight": 1.5,
                       "fontFamily": "Inter",
                       "fontSize": 10,
@@ -50576,14 +50493,14 @@
                 },
                 {
                   "type": "frame",
-                  "id": "Qo4YQ",
+                  "id": "CXvj5",
                   "name": "li",
                   "width": "fill_container",
                   "gap": 6,
                   "children": [
                     {
                       "type": "text",
-                      "id": "lpvfE",
+                      "id": "eMIkJ",
                       "name": "liDot",
                       "fill": "$accent",
                       "content": "·",
@@ -50593,12 +50510,12 @@
                     },
                     {
                       "type": "text",
-                      "id": "N2ORC4",
+                      "id": "OwZJb",
                       "name": "liT",
                       "fill": "$text-secondary",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "多卡混排:卡片条一卡一张,序号 NVIDIA 在前、DRM 卡接续,选中卡展开双图与详情",
+                      "content": "WSL2 无 PCI 无 DRM:有 /dev/dxg 即认定 GPU 经 D3D12 直通(NVIDIA 卡仍走 nvidia-smi)",
                       "lineHeight": 1.5,
                       "fontFamily": "Inter",
                       "fontSize": 10,
@@ -50608,14 +50525,14 @@
                 },
                 {
                   "type": "frame",
-                  "id": "fIEuW",
+                  "id": "c2TC9",
                   "name": "li",
                   "width": "fill_container",
                   "gap": 6,
                   "children": [
                     {
                       "type": "text",
-                      "id": "onB2s",
+                      "id": "qZJEi",
                       "name": "liDot",
                       "fill": "$accent",
                       "content": "·",
@@ -50625,7 +50542,71 @@
                     },
                     {
                       "type": "text",
-                      "id": "r303g",
+                      "id": "EIN89",
+                      "name": "liT",
+                      "fill": "$text-secondary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "型号名:AMD 读 product_name,其余靠静态探针的 lspci 按 PCI 槽位匹配;lspci 缺失时退回厂商名",
+                      "lineHeight": 1.5,
+                      "fontFamily": "Inter",
+                      "fontSize": 10,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "QWyQH",
+                  "name": "li",
+                  "width": "fill_container",
+                  "gap": 6,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "RMIa7",
+                      "name": "liDot",
+                      "fill": "$accent",
+                      "content": "·",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 10,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "y2F6Y7",
+                      "name": "liT",
+                      "fill": "$text-secondary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "多卡混排:卡片条一卡一张,序号 NVIDIA 在前、DRM 卡接续、只在 PCI 上看得见的卡排最后",
+                      "lineHeight": 1.5,
+                      "fontFamily": "Inter",
+                      "fontSize": 10,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "uXBzr",
+                  "name": "li",
+                  "width": "fill_container",
+                  "gap": 6,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "THaix",
+                      "name": "liDot",
+                      "fill": "$accent",
+                      "content": "·",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 10,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Z3mYi",
                       "name": "liT",
                       "fill": "$text-secondary",
                       "textGrowth": "fixed-width",
@@ -52926,7 +52907,7 @@
                   "id": "X7uiq",
                   "name": "rowB",
                   "width": "fill_container",
-                  "height": 268,
+                  "height": 253,
                   "gap": 12,
                   "children": [
                     {
@@ -53009,7 +52990,7 @@
                           "name": "plot",
                           "clip": true,
                           "width": 390,
-                          "height": 196,
+                          "height": 178,
                           "fill": "$bg-page",
                           "cornerRadius": 4,
                           "stroke": "$border-primary",
@@ -53021,7 +53002,7 @@
                               "type": "rectangle",
                               "id": "QB8Kp",
                               "x": 0,
-                              "y": 49,
+                              "y": 45,
                               "name": "gridH1",
                               "opacity": 0.55,
                               "fill": "$border-primary",
@@ -53032,7 +53013,7 @@
                               "type": "rectangle",
                               "id": "ab5vD",
                               "x": 0,
-                              "y": 98,
+                              "y": 89,
                               "name": "gridH2",
                               "opacity": 0.55,
                               "fill": "$border-primary",
@@ -53043,7 +53024,7 @@
                               "type": "rectangle",
                               "id": "M1V7Qu",
                               "x": 0,
-                              "y": 147,
+                              "y": 134,
                               "name": "gridH3",
                               "opacity": 0.55,
                               "fill": "$border-primary",
@@ -53059,7 +53040,7 @@
                               "opacity": 0.35,
                               "fill": "$border-primary",
                               "width": 1,
-                              "height": 196
+                              "height": 178
                             },
                             {
                               "type": "rectangle",
@@ -53070,7 +53051,7 @@
                               "opacity": 0.35,
                               "fill": "$border-primary",
                               "width": 1,
-                              "height": 196
+                              "height": 178
                             },
                             {
                               "type": "rectangle",
@@ -53081,7 +53062,7 @@
                               "opacity": 0.35,
                               "fill": "$border-primary",
                               "width": 1,
-                              "height": 196
+                              "height": 178
                             },
                             {
                               "type": "rectangle",
@@ -53092,7 +53073,7 @@
                               "opacity": 0.35,
                               "fill": "$border-primary",
                               "width": 1,
-                              "height": 196
+                              "height": 178
                             },
                             {
                               "type": "rectangle",
@@ -53103,7 +53084,7 @@
                               "opacity": 0.35,
                               "fill": "$border-primary",
                               "width": 1,
-                              "height": 196
+                              "height": 178
                             },
                             {
                               "type": "path",
@@ -53120,7 +53101,7 @@
                               ],
                               "fill": "#FF79C638",
                               "width": 390,
-                              "height": 196
+                              "height": 178
                             },
                             {
                               "type": "path",
@@ -53137,7 +53118,7 @@
                               ],
                               "fill": "#00000000",
                               "width": 390,
-                              "height": 196,
+                              "height": 178,
                               "stroke": "#FF79C6",
                               "strokeWidth": 1.5,
                               "strokeLinejoin": "round"
@@ -53157,7 +53138,7 @@
                               ],
                               "fill": "#BD93F926",
                               "width": 390,
-                              "height": 196
+                              "height": 178
                             },
                             {
                               "type": "path",
@@ -53174,7 +53155,7 @@
                               ],
                               "fill": "#00000000",
                               "width": 390,
-                              "height": 196,
+                              "height": 178,
                               "stroke": "#BD93F9",
                               "strokeWidth": 1.5,
                               "strokeLinejoin": "round"
@@ -53183,7 +53164,7 @@
                               "type": "text",
                               "id": "D3shu9",
                               "x": 8,
-                              "y": 6,
+                              "y": 5,
                               "name": "axisTop",
                               "fill": "$text-muted",
                               "content": "100%",
@@ -53195,7 +53176,7 @@
                               "type": "text",
                               "id": "F5DiG",
                               "x": 8,
-                              "y": 180,
+                              "y": 163,
                               "name": "axisL",
                               "fill": "$text-muted",
                               "content": "60 秒前",
@@ -53207,7 +53188,7 @@
                               "type": "text",
                               "id": "E6hrBO",
                               "x": 358,
-                              "y": 180,
+                              "y": 163,
                               "name": "axisR",
                               "fill": "$text-muted",
                               "content": "现在",
@@ -53384,7 +53365,7 @@
                           "name": "plot",
                           "clip": true,
                           "width": 390,
-                          "height": 196,
+                          "height": 178,
                           "fill": "$bg-page",
                           "cornerRadius": 4,
                           "stroke": "$border-primary",
@@ -53396,7 +53377,7 @@
                               "type": "rectangle",
                               "id": "iqGx4",
                               "x": 0,
-                              "y": 49,
+                              "y": 45,
                               "name": "gridH1",
                               "opacity": 0.55,
                               "fill": "$border-primary",
@@ -53407,7 +53388,7 @@
                               "type": "rectangle",
                               "id": "o5iKeB",
                               "x": 0,
-                              "y": 98,
+                              "y": 89,
                               "name": "gridH2",
                               "opacity": 0.55,
                               "fill": "$border-primary",
@@ -53418,7 +53399,7 @@
                               "type": "rectangle",
                               "id": "QfPyY",
                               "x": 0,
-                              "y": 147,
+                              "y": 134,
                               "name": "gridH3",
                               "opacity": 0.55,
                               "fill": "$border-primary",
@@ -53434,7 +53415,7 @@
                               "opacity": 0.35,
                               "fill": "$border-primary",
                               "width": 1,
-                              "height": 196
+                              "height": 178
                             },
                             {
                               "type": "rectangle",
@@ -53445,7 +53426,7 @@
                               "opacity": 0.35,
                               "fill": "$border-primary",
                               "width": 1,
-                              "height": 196
+                              "height": 178
                             },
                             {
                               "type": "rectangle",
@@ -53456,7 +53437,7 @@
                               "opacity": 0.35,
                               "fill": "$border-primary",
                               "width": 1,
-                              "height": 196
+                              "height": 178
                             },
                             {
                               "type": "rectangle",
@@ -53467,7 +53448,7 @@
                               "opacity": 0.35,
                               "fill": "$border-primary",
                               "width": 1,
-                              "height": 196
+                              "height": 178
                             },
                             {
                               "type": "rectangle",
@@ -53478,7 +53459,7 @@
                               "opacity": 0.35,
                               "fill": "$border-primary",
                               "width": 1,
-                              "height": 196
+                              "height": 178
                             },
                             {
                               "type": "path",
@@ -53495,7 +53476,7 @@
                               ],
                               "fill": "#8BE9FD38",
                               "width": 390,
-                              "height": 196
+                              "height": 178
                             },
                             {
                               "type": "path",
@@ -53512,7 +53493,7 @@
                               ],
                               "fill": "#00000000",
                               "width": 390,
-                              "height": 196,
+                              "height": 178,
                               "stroke": "#8BE9FD",
                               "strokeWidth": 1.5,
                               "strokeLinejoin": "round"
@@ -53521,7 +53502,7 @@
                               "type": "text",
                               "id": "iKozD",
                               "x": 8,
-                              "y": 6,
+                              "y": 5,
                               "name": "axisTop",
                               "fill": "$text-muted",
                               "content": "80.0 GB",
@@ -53533,7 +53514,7 @@
                               "type": "text",
                               "id": "KKIRP",
                               "x": 8,
-                              "y": 180,
+                              "y": 163,
                               "name": "axisL",
                               "fill": "$text-muted",
                               "content": "60 秒前",
@@ -53545,7 +53526,7 @@
                               "type": "text",
                               "id": "Od7ww",
                               "x": 358,
-                              "y": 180,
+                              "y": 163,
                               "name": "axisR",
                               "fill": "$text-muted",
                               "content": "现在",
@@ -53650,14 +53631,14 @@
                   "name": "rowC",
                   "width": "fill_container",
                   "height": "fill_container",
+                  "layout": "vertical",
                   "gap": 12,
                   "children": [
                     {
                       "type": "frame",
                       "id": "KgRX0",
                       "name": "gpuDetailCard",
-                      "width": 320,
-                      "height": "fill_container",
+                      "width": "fill_container",
                       "fill": "$bg-input",
                       "cornerRadius": 8,
                       "stroke": "$border-primary",
@@ -53708,250 +53689,232 @@
                         },
                         {
                           "type": "frame",
-                          "id": "IR4wV",
-                          "name": "detailList",
+                          "id": "Koz7y",
+                          "name": "detailBand",
                           "width": "fill_container",
-                          "height": "fill_container",
                           "layout": "vertical",
-                          "gap": 4,
+                          "gap": 6,
                           "children": [
                             {
                               "type": "frame",
-                              "id": "fg5sS",
-                              "name": "gd-厂商",
+                              "id": "KMNw8",
+                              "name": "bandRow",
                               "width": "fill_container",
-                              "justifyContent": "space_between",
+                              "gap": 28,
                               "alignItems": "center",
                               "children": [
                                 {
-                                  "type": "text",
-                                  "id": "W3NCwY",
-                                  "name": "gdK",
-                                  "fill": "$text-secondary",
-                                  "content": "厂商",
-                                  "fontFamily": "Inter",
-                                  "fontSize": 10,
-                                  "fontWeight": "normal"
+                                  "type": "frame",
+                                  "id": "zrDbi",
+                                  "name": "gd-厂商",
+                                  "gap": 8,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "jSuOf",
+                                      "name": "gdK",
+                                      "fill": "$text-secondary",
+                                      "content": "厂商",
+                                      "fontFamily": "Inter",
+                                      "fontSize": 10,
+                                      "fontWeight": "normal"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "yk6Hu",
+                                      "name": "gdV",
+                                      "fill": "$text-primary",
+                                      "content": "NVIDIA",
+                                      "fontFamily": "JetBrains Mono",
+                                      "fontSize": 10,
+                                      "fontWeight": "500"
+                                    }
+                                  ]
                                 },
                                 {
-                                  "type": "text",
-                                  "id": "IhOav",
-                                  "name": "gdV",
-                                  "fill": "$text-primary",
-                                  "content": "NVIDIA",
-                                  "fontFamily": "JetBrains Mono",
-                                  "fontSize": 10,
-                                  "fontWeight": "500"
+                                  "type": "frame",
+                                  "id": "Cn4QG",
+                                  "name": "gd-驱动 / CUDA",
+                                  "gap": 8,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "xQqYX",
+                                      "name": "gdK",
+                                      "fill": "$text-secondary",
+                                      "content": "驱动 / CUDA",
+                                      "fontFamily": "Inter",
+                                      "fontSize": 10,
+                                      "fontWeight": "normal"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "XY5WR",
+                                      "name": "gdV",
+                                      "fill": "$text-primary",
+                                      "content": "550.90.07 / 12.4",
+                                      "fontFamily": "JetBrains Mono",
+                                      "fontSize": 10,
+                                      "fontWeight": "500"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "rkxan",
+                                  "name": "gd-核心 / 显存时钟",
+                                  "gap": 8,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "nvLLo",
+                                      "name": "gdK",
+                                      "fill": "$text-secondary",
+                                      "content": "核心 / 显存时钟",
+                                      "fontFamily": "Inter",
+                                      "fontSize": 10,
+                                      "fontWeight": "normal"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "NcLe6",
+                                      "name": "gdV",
+                                      "fill": "$text-primary",
+                                      "content": "1410 / 1593 MHz",
+                                      "fontFamily": "JetBrains Mono",
+                                      "fontSize": 10,
+                                      "fontWeight": "500"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "KFT4D",
+                                  "name": "gd-功耗 / 上限",
+                                  "gap": 8,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "vw4Wn",
+                                      "name": "gdK",
+                                      "fill": "$text-secondary",
+                                      "content": "功耗 / 上限",
+                                      "fontFamily": "Inter",
+                                      "fontSize": 10,
+                                      "fontWeight": "normal"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "N6nEJD",
+                                      "name": "gdV",
+                                      "fill": "$text-primary",
+                                      "content": "382 / 400 W",
+                                      "fontFamily": "JetBrains Mono",
+                                      "fontSize": 10,
+                                      "fontWeight": "500"
+                                    }
+                                  ]
                                 }
                               ]
                             },
                             {
                               "type": "frame",
-                              "id": "egw7d",
-                              "name": "gd-驱动 / CUDA",
+                              "id": "SFic8",
+                              "name": "bandRow",
                               "width": "fill_container",
-                              "justifyContent": "space_between",
+                              "gap": 28,
                               "alignItems": "center",
                               "children": [
                                 {
-                                  "type": "text",
-                                  "id": "MB9jM",
-                                  "name": "gdK",
-                                  "fill": "$text-secondary",
-                                  "content": "驱动 / CUDA",
-                                  "fontFamily": "Inter",
-                                  "fontSize": 10,
-                                  "fontWeight": "normal"
+                                  "type": "frame",
+                                  "id": "tFvkD",
+                                  "name": "gd-温度 / 上限",
+                                  "gap": 8,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "mo2tt",
+                                      "name": "gdK",
+                                      "fill": "$text-secondary",
+                                      "content": "温度 / 上限",
+                                      "fontFamily": "Inter",
+                                      "fontSize": 10,
+                                      "fontWeight": "normal"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "snssc",
+                                      "name": "gdV",
+                                      "fill": "$text-primary",
+                                      "content": "71 / 85 °C",
+                                      "fontFamily": "JetBrains Mono",
+                                      "fontSize": 10,
+                                      "fontWeight": "500"
+                                    }
+                                  ]
                                 },
                                 {
-                                  "type": "text",
-                                  "id": "E69qoo",
-                                  "name": "gdV",
-                                  "fill": "$text-primary",
-                                  "content": "550.90.07 / 12.4",
-                                  "fontFamily": "JetBrains Mono",
-                                  "fontSize": 10,
-                                  "fontWeight": "500"
-                                }
-                              ]
-                            },
-                            {
-                              "type": "frame",
-                              "id": "r7QWFt",
-                              "name": "gd-核心 / 显存时钟",
-                              "width": "fill_container",
-                              "justifyContent": "space_between",
-                              "alignItems": "center",
-                              "children": [
-                                {
-                                  "type": "text",
-                                  "id": "UdntG",
-                                  "name": "gdK",
-                                  "fill": "$text-secondary",
-                                  "content": "核心 / 显存时钟",
-                                  "fontFamily": "Inter",
-                                  "fontSize": 10,
-                                  "fontWeight": "normal"
+                                  "type": "frame",
+                                  "id": "u5vT7",
+                                  "name": "gd-持久模式 / ECC",
+                                  "gap": 8,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "TbSqX",
+                                      "name": "gdK",
+                                      "fill": "$text-secondary",
+                                      "content": "持久模式 / ECC",
+                                      "fontFamily": "Inter",
+                                      "fontSize": 10,
+                                      "fontWeight": "normal"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "S65zg",
+                                      "name": "gdV",
+                                      "fill": "$text-primary",
+                                      "content": "开启 / 开启",
+                                      "fontFamily": "JetBrains Mono",
+                                      "fontSize": 10,
+                                      "fontWeight": "500"
+                                    }
+                                  ]
                                 },
                                 {
-                                  "type": "text",
-                                  "id": "azdoE",
-                                  "name": "gdV",
-                                  "fill": "$text-primary",
-                                  "content": "1410 / 1593 MHz",
-                                  "fontFamily": "JetBrains Mono",
-                                  "fontSize": 10,
-                                  "fontWeight": "500"
-                                }
-                              ]
-                            },
-                            {
-                              "type": "frame",
-                              "id": "W51rs",
-                              "name": "gd-功耗 / 上限",
-                              "width": "fill_container",
-                              "justifyContent": "space_between",
-                              "alignItems": "center",
-                              "children": [
-                                {
-                                  "type": "text",
-                                  "id": "mWegZ",
-                                  "name": "gdK",
-                                  "fill": "$text-secondary",
-                                  "content": "功耗 / 上限",
-                                  "fontFamily": "Inter",
-                                  "fontSize": 10,
-                                  "fontWeight": "normal"
-                                },
-                                {
-                                  "type": "text",
-                                  "id": "v0wwSL",
-                                  "name": "gdV",
-                                  "fill": "$text-primary",
-                                  "content": "382 / 400 W",
-                                  "fontFamily": "JetBrains Mono",
-                                  "fontSize": 10,
-                                  "fontWeight": "500"
-                                }
-                              ]
-                            },
-                            {
-                              "type": "frame",
-                              "id": "WvDNL",
-                              "name": "gd-温度 / 上限",
-                              "width": "fill_container",
-                              "justifyContent": "space_between",
-                              "alignItems": "center",
-                              "children": [
-                                {
-                                  "type": "text",
-                                  "id": "y39o7",
-                                  "name": "gdK",
-                                  "fill": "$text-secondary",
-                                  "content": "温度 / 上限",
-                                  "fontFamily": "Inter",
-                                  "fontSize": 10,
-                                  "fontWeight": "normal"
-                                },
-                                {
-                                  "type": "text",
-                                  "id": "qOu4S",
-                                  "name": "gdV",
-                                  "fill": "$text-primary",
-                                  "content": "71 / 85 °C",
-                                  "fontFamily": "JetBrains Mono",
-                                  "fontSize": 10,
-                                  "fontWeight": "500"
-                                }
-                              ]
-                            },
-                            {
-                              "type": "frame",
-                              "id": "dDBiN",
-                              "name": "gd-风扇",
-                              "width": "fill_container",
-                              "justifyContent": "space_between",
-                              "alignItems": "center",
-                              "children": [
-                                {
-                                  "type": "text",
-                                  "id": "uGayh",
-                                  "name": "gdK",
-                                  "fill": "$text-secondary",
-                                  "content": "风扇",
-                                  "fontFamily": "Inter",
-                                  "fontSize": 10,
-                                  "fontWeight": "normal"
-                                },
-                                {
-                                  "type": "text",
-                                  "id": "Jn7cM",
-                                  "name": "gdV",
-                                  "fill": "$text-muted",
-                                  "content": "—(被动散热)",
-                                  "fontFamily": "JetBrains Mono",
-                                  "fontSize": 10,
-                                  "fontWeight": "500"
-                                }
-                              ]
-                            },
-                            {
-                              "type": "frame",
-                              "id": "U0IIP",
-                              "name": "gd-持久模式 / ECC",
-                              "width": "fill_container",
-                              "justifyContent": "space_between",
-                              "alignItems": "center",
-                              "children": [
-                                {
-                                  "type": "text",
-                                  "id": "xDT0y",
-                                  "name": "gdK",
-                                  "fill": "$text-secondary",
-                                  "content": "持久模式 / ECC",
-                                  "fontFamily": "Inter",
-                                  "fontSize": 10,
-                                  "fontWeight": "normal"
-                                },
-                                {
-                                  "type": "text",
-                                  "id": "d1nelu",
-                                  "name": "gdV",
-                                  "fill": "$text-primary",
-                                  "content": "开启 / 开启",
-                                  "fontFamily": "JetBrains Mono",
-                                  "fontSize": 10,
-                                  "fontWeight": "500"
-                                }
-                              ]
-                            },
-                            {
-                              "type": "frame",
-                              "id": "LMci9",
-                              "name": "gd-显存",
-                              "width": "fill_container",
-                              "justifyContent": "space_between",
-                              "alignItems": "center",
-                              "children": [
-                                {
-                                  "type": "text",
-                                  "id": "nTb5E",
-                                  "name": "gdK",
-                                  "fill": "$text-secondary",
-                                  "content": "显存",
-                                  "fontFamily": "Inter",
-                                  "fontSize": 10,
-                                  "fontWeight": "normal"
-                                },
-                                {
-                                  "type": "text",
-                                  "id": "owZNv",
-                                  "name": "gdV",
-                                  "fill": "$text-primary",
-                                  "content": "68.4 / 80.0 GB",
-                                  "fontFamily": "JetBrains Mono",
-                                  "fontSize": 10,
-                                  "fontWeight": "500"
+                                  "type": "frame",
+                                  "id": "NnOoN",
+                                  "name": "gd-显存",
+                                  "gap": 8,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "Sfrfz",
+                                      "name": "gdK",
+                                      "fill": "$text-secondary",
+                                      "content": "显存",
+                                      "fontFamily": "Inter",
+                                      "fontSize": 10,
+                                      "fontWeight": "normal"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "v9kii",
+                                      "name": "gdV",
+                                      "fill": "$text-primary",
+                                      "content": "68.4 / 80.0 GB",
+                                      "fontFamily": "JetBrains Mono",
+                                      "fontSize": 10,
+                                      "fontWeight": "500"
+                                    }
+                                  ]
                                 }
                               ]
                             }
@@ -54478,292 +54441,6 @@
                                           ]
                                         }
                                       ]
-                                    },
-                                    {
-                                      "type": "frame",
-                                      "id": "nevIo",
-                                      "name": "gtr2",
-                                      "width": "fill_container",
-                                      "height": "fill_container",
-                                      "fill": "#00000000",
-                                      "cornerRadius": 3,
-                                      "alignItems": "center",
-                                      "children": [
-                                        {
-                                          "type": "frame",
-                                          "id": "f6AsH",
-                                          "name": "gtd2-0",
-                                          "clip": true,
-                                          "width": "fill_container",
-                                          "height": "fill_container",
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "text",
-                                              "id": "Et8Wp",
-                                              "name": "gtdT",
-                                              "fill": "$text-primary",
-                                              "content": "ollama serve",
-                                              "fontFamily": "JetBrains Mono",
-                                              "fontSize": 10,
-                                              "fontWeight": "500"
-                                            }
-                                          ]
-                                        },
-                                        {
-                                          "type": "frame",
-                                          "id": "LiHWK",
-                                          "name": "gtd2-1",
-                                          "clip": true,
-                                          "width": 60,
-                                          "height": "fill_container",
-                                          "justifyContent": "end",
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "text",
-                                              "id": "P0vy3",
-                                              "name": "gtdT",
-                                              "fill": "$text-secondary",
-                                              "content": "2",
-                                              "fontFamily": "JetBrains Mono",
-                                              "fontSize": 10,
-                                              "fontWeight": "normal"
-                                            }
-                                          ]
-                                        },
-                                        {
-                                          "type": "frame",
-                                          "id": "RvFnx",
-                                          "name": "gtd2-2",
-                                          "clip": true,
-                                          "width": 70,
-                                          "height": "fill_container",
-                                          "justifyContent": "end",
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "text",
-                                              "id": "ufsJB",
-                                              "name": "gtdT",
-                                              "fill": "$text-secondary",
-                                              "content": "2 318",
-                                              "fontFamily": "JetBrains Mono",
-                                              "fontSize": 10,
-                                              "fontWeight": "normal"
-                                            }
-                                          ]
-                                        },
-                                        {
-                                          "type": "frame",
-                                          "id": "hGw93",
-                                          "name": "gtd2-3",
-                                          "clip": true,
-                                          "width": 60,
-                                          "height": "fill_container",
-                                          "justifyContent": "end",
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "text",
-                                              "id": "oE15b",
-                                              "name": "gtdT",
-                                              "fill": "$text-secondary",
-                                              "content": "C",
-                                              "fontFamily": "JetBrains Mono",
-                                              "fontSize": 10,
-                                              "fontWeight": "normal"
-                                            }
-                                          ]
-                                        },
-                                        {
-                                          "type": "frame",
-                                          "id": "szKL2",
-                                          "name": "gtd2-4",
-                                          "clip": true,
-                                          "width": 90,
-                                          "height": "fill_container",
-                                          "justifyContent": "end",
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "text",
-                                              "id": "inxIQ",
-                                              "name": "gtdT",
-                                              "fill": "$text-secondary",
-                                              "content": "6.0 GB",
-                                              "fontFamily": "JetBrains Mono",
-                                              "fontSize": 10,
-                                              "fontWeight": "normal"
-                                            }
-                                          ]
-                                        },
-                                        {
-                                          "type": "frame",
-                                          "id": "aYUHU",
-                                          "name": "gtd2-5",
-                                          "clip": true,
-                                          "width": 60,
-                                          "height": "fill_container",
-                                          "justifyContent": "end",
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "text",
-                                              "id": "JeqTQ",
-                                              "name": "gtdT",
-                                              "fill": "$term-magenta",
-                                              "content": "12%",
-                                              "fontFamily": "JetBrains Mono",
-                                              "fontSize": 10,
-                                              "fontWeight": "normal"
-                                            }
-                                          ]
-                                        }
-                                      ]
-                                    },
-                                    {
-                                      "type": "frame",
-                                      "id": "WnRKQ",
-                                      "name": "gtr3",
-                                      "width": "fill_container",
-                                      "height": "fill_container",
-                                      "fill": "#00000000",
-                                      "cornerRadius": 3,
-                                      "alignItems": "center",
-                                      "children": [
-                                        {
-                                          "type": "frame",
-                                          "id": "PUDrm",
-                                          "name": "gtd3-0",
-                                          "clip": true,
-                                          "width": "fill_container",
-                                          "height": "fill_container",
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "text",
-                                              "id": "b4dpQH",
-                                              "name": "gtdT",
-                                              "fill": "$text-primary",
-                                              "content": "Xorg",
-                                              "fontFamily": "JetBrains Mono",
-                                              "fontSize": 10,
-                                              "fontWeight": "500"
-                                            }
-                                          ]
-                                        },
-                                        {
-                                          "type": "frame",
-                                          "id": "FpNzB",
-                                          "name": "gtd3-1",
-                                          "clip": true,
-                                          "width": 60,
-                                          "height": "fill_container",
-                                          "justifyContent": "end",
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "text",
-                                              "id": "v9haU",
-                                              "name": "gtdT",
-                                              "fill": "$text-secondary",
-                                              "content": "3",
-                                              "fontFamily": "JetBrains Mono",
-                                              "fontSize": 10,
-                                              "fontWeight": "normal"
-                                            }
-                                          ]
-                                        },
-                                        {
-                                          "type": "frame",
-                                          "id": "KBQYA",
-                                          "name": "gtd3-2",
-                                          "clip": true,
-                                          "width": 70,
-                                          "height": "fill_container",
-                                          "justifyContent": "end",
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "text",
-                                              "id": "ZlttN",
-                                              "name": "gtdT",
-                                              "fill": "$text-secondary",
-                                              "content": "1 044",
-                                              "fontFamily": "JetBrains Mono",
-                                              "fontSize": 10,
-                                              "fontWeight": "normal"
-                                            }
-                                          ]
-                                        },
-                                        {
-                                          "type": "frame",
-                                          "id": "ehFbE",
-                                          "name": "gtd3-3",
-                                          "clip": true,
-                                          "width": 60,
-                                          "height": "fill_container",
-                                          "justifyContent": "end",
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "text",
-                                              "id": "movXn",
-                                              "name": "gtdT",
-                                              "fill": "$text-secondary",
-                                              "content": "G",
-                                              "fontFamily": "JetBrains Mono",
-                                              "fontSize": 10,
-                                              "fontWeight": "normal"
-                                            }
-                                          ]
-                                        },
-                                        {
-                                          "type": "frame",
-                                          "id": "hkGV8",
-                                          "name": "gtd3-4",
-                                          "clip": true,
-                                          "width": 90,
-                                          "height": "fill_container",
-                                          "justifyContent": "end",
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "text",
-                                              "id": "ZDCY1",
-                                              "name": "gtdT",
-                                              "fill": "$text-secondary",
-                                              "content": "0.2 GB",
-                                              "fontFamily": "JetBrains Mono",
-                                              "fontSize": 10,
-                                              "fontWeight": "normal"
-                                            }
-                                          ]
-                                        },
-                                        {
-                                          "type": "frame",
-                                          "id": "G8h6A",
-                                          "name": "gtd3-5",
-                                          "clip": true,
-                                          "width": 60,
-                                          "height": "fill_container",
-                                          "justifyContent": "end",
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "text",
-                                              "id": "Fn4qq",
-                                              "name": "gtdT",
-                                              "fill": "$term-magenta",
-                                              "content": "0%",
-                                              "fontFamily": "JetBrains Mono",
-                                              "fontSize": 10,
-                                              "fontWeight": "normal"
-                                            }
-                                          ]
-                                        }
-                                      ]
                                     }
                                   ]
                                 },
@@ -54786,7 +54463,7 @@
                                       "name": "scrollThumb",
                                       "fill": "$border-secondary",
                                       "width": 6,
-                                      "height": 44
+                                      "height": 20
                                     }
                                   ]
                                 }
