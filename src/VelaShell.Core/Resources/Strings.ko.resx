@@ -920,7 +920,7 @@
     <value>로컬 포트</value>
   </data>
   <data name="Main_CloseConfirmBody" xml:space="preserve">
-    <value>활성 SSH 세션이 있습니다. 창을 닫으면 모든 연결이 끊어집니다. 종료하시겠습니까?</value>
+    <value>활성 세션이 있습니다. 창을 닫으면 모든 연결이 끊어집니다. 종료하시겠습니까?</value>
   </data>
   <data name="Main_CloseConfirmTitle" xml:space="preserve">
     <value>VelaShell 닫기</value>

@@ -1138,7 +1138,7 @@ If this keeps happening, close any other VelaShell windows and try again.</value
     <value>Unknown</value>
   </data>
   <data name="Main_CloseConfirmBody" xml:space="preserve">
-    <value>Active SSH sessions are still running; closing the window will disconnect them all. Quit anyway?</value>
+    <value>Active sessions are still running; closing the window will disconnect them all. Quit anyway?</value>
   </data>
   <data name="Main_CloseConfirmTitle" xml:space="preserve">
     <value>Close VelaShell</value>
