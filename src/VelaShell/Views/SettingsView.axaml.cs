@@ -48,7 +48,12 @@ public partial class SettingsView : Window
             root.Margin = new Thickness(0);
             root.CornerRadius = new CornerRadius(0);
             root.BorderThickness = new Thickness(0);
-            root.BoxShadow = default; // 清空 32px 模糊投影(实心底上无意义且徒增开销)
+            root.BoxShadow = default; // 清空模糊投影(实心底上无意义且徒增开销)
+        }
+        // 卡片压平成直角后,左侧导航的内圆角会在直角上啃出一个缺口,一并抹掉。
+        if (this.FindControl<Border>("NavStrip") is { } nav)
+        {
+            nav.CornerRadius = new CornerRadius(0);
         }
     }
 

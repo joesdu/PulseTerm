@@ -179,7 +179,7 @@
                 Padding="4"
                 MinWidth="320"
                 MaxWidth="560"
-                BoxShadow="0 6 24 0 #66000000">
+                BoxShadow="{DynamicResource VelaShadowWindow}">
           <!-- ListBox 本体同样不可聚焦:Win+Shift+S 截图覆盖层抢走系统焦点时不触发
                Deactivated,若焦点落进弹层,切回后所有按键都进了(已被系统隐藏的)
                弹层窗口——终端表现为"彻底失灵"选中态全部由
@@ -255,7 +255,7 @@
                 Width="340"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"
-                BoxShadow="0 8 32 0 #80000000">
+                BoxShadow="{DynamicResource VelaShadowWindow}">
           <StackPanel Orientation="Vertical" Spacing="16" HorizontalAlignment="Center">
 
             <!-- 图标圆底 -->
