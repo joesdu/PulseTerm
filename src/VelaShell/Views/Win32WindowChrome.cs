@@ -17,14 +17,17 @@ namespace VelaShell.Views;
 /// 可视的系统标题栏和边框没了。WM_NCHITTEST 其余区域一律报 HTCLIENT,否则系统会按
 /// WS_CAPTION 在顶部划出一条非客户带,吞掉自绘标题栏的输入(Avalonia 12 的 extend 模式踩过)。
 ///
-/// 光有样式位还不够:WM_NCCALCSIZE 把非客户区裁到零之后,DWM 认为这个窗口没有可投影的框架,
-/// 投影随之消失(#171)。必须再用非零 MARGINS 调 DwmExtendFrameIntoClientArea 把框架"借"回
-/// 客户区,投影才回来 —— 客户区被 Avalonia 全幅不透明绘制盖住,借回来的那 1px 玻璃看不见。
-/// Win11 的圆角再用 DWMWA_WINDOW_CORNER_PREFERENCE 显式钉一次,不依赖系统的默认推断。
+/// 圆角要显式声明:WM_NCCALCSIZE 把非客户区裁到零之后,DWM 的默认策略(DWMWCP_DEFAULT =
+/// 系统自行判断)对这种"没有可见框架"的窗口不保证圆角,还原、改尺寸时尤其容易掉回直角。
+/// 用 DWMWA_WINDOW_CORNER_PREFERENCE 钉成 ROUND 即可,见 <see cref="ApplyRoundedCorners" />。
 ///
-/// 只适用于【不透明】窗体:透明窗体(TransparencyLevelHint=Transparent)会把借回的框架透出来,
-/// 那类窗体照旧用自绘卡片的 BoxShadow(VelaShadowWindow 令牌)拿投影。
-/// 新的自绘不透明窗体只要调用 <see cref="Attach" /> 即可获得同样的外观。
+/// 【但别再加 DwmExtendFrameIntoClientArea】(#171 试过又撤掉):它能把 DWM 投影一并拿回来,
+/// 代价却是主窗口启动时挂着一层要手动缩放一次才消散的显示效果,不划算,已按决定回退。
+/// 两者别混为一谈 —— 圆角属性只影响窗口轮廓怎么裁,不参与合成,不产生那层残影。
+/// 主窗口因此有圆角、没投影;次级窗体本来就不走这条路,它们是透明窗 + 自绘卡片的
+/// BoxShadow(VelaShadowWindow 令牌),不受影响。
+///
+/// 主窗口与任务管理器共用这一套,新的自绘窗体只要调用 <see cref="Attach" /> 即可获得同样的外观。
 /// </remarks>
 internal static partial class Win32WindowChrome
 {
@@ -115,43 +118,30 @@ internal static partial class Win32WindowChrome
                 0,
                 SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER
             );
-            ApplyDwmFrame(handle.Handle);
+            ApplyRoundedCorners(handle.Handle);
         }
     }
 
     /// <summary>
-    /// 把 DWM 框架借 1px 回客户区(拿回投影),并在 Win11 上显式声明圆角。
+    /// 把窗口轮廓钉成 Win11 圆角。
     /// </summary>
     /// <remarks>
-    /// 仅有 WS_THICKFRAME 而在 WM_NCCALCSIZE 里把非客户区裁到零,DWM 会判定此窗口无框架可投影,
-    /// 于是不再合成投影 —— 表现为窗口与桌面/背后窗口糊在一起、分不清层级(#171)。
-    /// DwmExtendFrameIntoClientArea 传非零 MARGINS 即可让 DWM 继续按有框架的窗口处理;
-    /// 借回的 1px 落在客户区最外圈,被 Avalonia 的不透明绘制完全盖住,不产生可见的玻璃边。
-    /// 两个调用都失败即忽略:拿不到投影只是观感回退,不该让窗口打不开。
+    /// 不设这个属性时 DWM 走 DWMWCP_DEFAULT —— 由系统判断该不该圆,而本窗口的非客户区已在
+    /// WM_NCCALCSIZE 里裁到零,判断结果并不稳定:常见表现是最大化还原或改完尺寸之后变回直角。
+    /// 声明成 ROUND 就与系统默认窗口一致了。属性只描述轮廓裁剪,不往客户区合成任何东西,
+    /// 因此不会重蹈 DwmExtendFrameIntoClientArea 的启动残影(见类型注释)。
+    /// 22000 以下不认这个属性,会返回 E_INVALIDARG,直接不发;失败也忽略 —— 掉回直角只是观感。
     /// </remarks>
-    private static void ApplyDwmFrame(IntPtr hWnd)
+    private static void ApplyRoundedCorners(IntPtr hWnd)
     {
         const int DWMWA_WINDOW_CORNER_PREFERENCE = 33,
             DWMWCP_ROUND = 2;
-        var margins = new MARGINS
+        if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000))
         {
-            Left = 1,
-            Right = 1,
-            Top = 1,
-            Bottom = 1,
-        };
-        _ = DwmExtendFrameIntoClientArea(hWnd, in margins);
-        // 圆角属性 Win11(22000+)才认;更低版本会返回 E_INVALIDARG,直接不发。
-        if (OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000))
-        {
-            int corner = DWMWCP_ROUND;
-            _ = DwmSetWindowAttribute(
-                hWnd,
-                DWMWA_WINDOW_CORNER_PREFERENCE,
-                in corner,
-                sizeof(int)
-            );
+            return;
         }
+        int corner = DWMWCP_ROUND;
+        _ = DwmSetWindowAttribute(hWnd, DWMWA_WINDOW_CORNER_PREFERENCE, in corner, sizeof(int));
     }
 
     private static IntPtr WndProc(
@@ -166,14 +156,22 @@ internal static partial class Win32WindowChrome
         Action? toggleMaximize
     )
     {
-        const uint WM_NCCALCSIZE = 0x0083,
+        const uint WM_SIZE = 0x0005,
+            WM_NCCALCSIZE = 0x0083,
             WM_NCHITTEST = 0x0084,
             WM_NCMOUSELEAVE = 0x02A2,
             WM_NCLBUTTONDOWN = 0x00A1,
             WM_NCLBUTTONUP = 0x00A2;
-        const int HTCLIENT = 1;
+        const int HTCLIENT = 1,
+            SIZE_RESTORED = 0;
         switch (msg)
         {
+            case WM_SIZE when wParam.ToInt64() == SIZE_RESTORED:
+                // 还原/改尺寸后补钉一次圆角:最大化期间窗口本就是直角,退出最大化时
+                // DWM 不一定把圆角还回来(#171 之后收到的反馈:窗口一缩小就变直角)。
+                // 幂等且极廉价,不设 handled,尺寸消息照常交给 Avalonia。
+                ApplyRoundedCorners(hWnd);
+                break;
             case WM_NCCALCSIZE when wParam != IntPtr.Zero:
                 // 客户区占满窗口(去掉可视的系统标题/边框,保留 DWM 框架语义)。
                 // 最大化时窗口矩形按惯例大出边框宽度,须裁回工作区,否则四周越屏。
@@ -258,20 +256,7 @@ internal static partial class Win32WindowChrome
     private static partial bool GetMonitorInfoW(IntPtr hMonitor, ref MONITORINFO info);
 
     [LibraryImport("dwmapi.dll")]
-    private static partial int DwmExtendFrameIntoClientArea(IntPtr hWnd, in MARGINS margins);
-
-    [LibraryImport("dwmapi.dll")]
     private static partial int DwmSetWindowAttribute(IntPtr hWnd, int attribute, in int value, int size);
-
-    /// <summary>DWM 的框架外扩量,字段顺序即 cxLeftWidth/cxRightWidth/cyTopHeight/cyBottomHeight。</summary>
-    [StructLayout(LayoutKind.Sequential)]
-    private struct MARGINS
-    {
-        public int Left,
-            Right,
-            Top,
-            Bottom;
-    }
 
     [StructLayout(LayoutKind.Sequential)]
     private struct WINRECT
