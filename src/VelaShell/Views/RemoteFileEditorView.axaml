@@ -7,8 +7,8 @@
         xmlns:loc="using:VelaShell.Localization"
         mc:Ignorable="d" d:DesignWidth="920" d:DesignHeight="640"
         x:Class="VelaShell.Views.RemoteFileEditorView"
-        Width="920" Height="640"
-        MinWidth="520" MinHeight="360"
+        Width="928" Height="648"
+        MinWidth="528" MinHeight="368"
         CanResize="True"
         WindowDecorations="None"
         TransparencyLevelHint="Transparent"
@@ -46,8 +46,8 @@
           Background="{DynamicResource VelaBgSurface}"
           BorderBrush="{DynamicResource VelaBorderSecondary}"
           BorderThickness="1"
-          BoxShadow="0 8 32 0 #80000000"
-          Margin="12"
+          BoxShadow="{DynamicResource VelaShadowWindow}"
+          Margin="16"
           ClipToBounds="True">
     <Grid RowDefinitions="48,*,32">
 

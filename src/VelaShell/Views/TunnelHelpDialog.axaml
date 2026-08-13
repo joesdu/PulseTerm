@@ -7,7 +7,7 @@
         mc:Ignorable="d" d:DesignWidth="680" d:DesignHeight="620"
         x:Class="VelaShell.Views.TunnelHelpDialog"
         Title="{loc:Localize TunnelHelp_Title}"
-        Width="680" Height="620"
+        Width="688" Height="628"
         CanResize="False"
         WindowDecorations="None"
         TransparencyLevelHint="Transparent"
@@ -59,8 +59,8 @@
           Background="{DynamicResource VelaBgSurface}"
           BorderBrush="{DynamicResource VelaBorderSecondary}"
           BorderThickness="1"
-          BoxShadow="0 8 32 0 #80000000"
-          Margin="12"
+          BoxShadow="{DynamicResource VelaShadowWindow}"
+          Margin="16"
           ClipToBounds="True">
     <Grid RowDefinitions="48,*,52">
 

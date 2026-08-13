@@ -10,7 +10,7 @@
         x:Class="VelaShell.Views.HostKeyPromptView"
         x:DataType="vm:HostKeyPromptViewModel"
         Title="{x:Static res:Strings.HostKeyVerification}"
-        Width="484"
+        Width="492"
         SizeToContent="Height"
         CanResize="False"
         ShowInTaskbar="False"
@@ -20,7 +20,7 @@
         WindowStartupLocation="CenterOwner">
 
   <!-- 主机密钥验证(TOFU)。外壳遵循标准弹窗规格:bg-surface 卡片、圆角 8、
-       1px border-secondary、阴影 0 8 32 #80000000、48px 可拖动标题栏 + 52px 按钮栏。 -->
+       1px border-secondary、阴影取 VelaShadowWindow 令牌(随主题深浅)、48px 可拖动标题栏 + 52px 按钮栏。 -->
 
   <Window.Styles>
     <Style Selector="TextBlock.mono">
@@ -75,8 +75,8 @@
           Background="{DynamicResource VelaBgSurface}"
           BorderBrush="{DynamicResource VelaBorderSecondary}"
           BorderThickness="1"
-          BoxShadow="0 8 32 0 #80000000"
-          Margin="12"
+          BoxShadow="{DynamicResource VelaShadowWindow}"
+          Margin="16"
           ClipToBounds="True">
     <Grid RowDefinitions="48,Auto,52">
 

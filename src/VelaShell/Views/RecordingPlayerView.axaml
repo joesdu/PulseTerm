@@ -5,8 +5,8 @@
         x:Class="VelaShell.Views.RecordingPlayerView"
         x:DataType="vm:RecordingPlayerViewModel"
         Title="{loc:Localize Recorder_Title}"
-        Width="1200" Height="820"
-        MinWidth="860" MinHeight="600"
+        Width="1208" Height="828"
+        MinWidth="868" MinHeight="608"
         CanResize="True"
         WindowDecorations="None"
         TransparencyLevelHint="Transparent"
@@ -74,8 +74,8 @@
           Background="{DynamicResource VelaBgSurface}"
           BorderBrush="{DynamicResource VelaBorderSecondary}"
           BorderThickness="1"
-          BoxShadow="0 8 32 0 #80000000"
-          Margin="12"
+          BoxShadow="{DynamicResource VelaShadowWindow}"
+          Margin="16"
           ClipToBounds="True">
     <Grid RowDefinitions="56,*">
 

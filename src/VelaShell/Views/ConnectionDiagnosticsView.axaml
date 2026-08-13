@@ -9,7 +9,7 @@
         x:Class="VelaShell.Views.ConnectionDiagnosticsView"
         x:DataType="vm:ConnectionDiagnosticsViewModel"
         Title="{loc:Localize Diag_Title}"
-        Width="760" Height="480"
+        Width="768" Height="488"
         CanResize="False"
         WindowDecorations="None"
         TransparencyLevelHint="Transparent"
@@ -53,8 +53,8 @@
           Background="{DynamicResource VelaBgSurface}"
           BorderBrush="{DynamicResource VelaBorderSecondary}"
           BorderThickness="1"
-          BoxShadow="0 8 32 0 #80000000"
-          Margin="12">
+          BoxShadow="{DynamicResource VelaShadowWindow}"
+          Margin="16">
     <DockPanel>
 
       <!-- Header (design diagHeader):可拖动 + 标题/副标题 | 导出/重新检测/关闭 -->

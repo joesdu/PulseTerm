@@ -10,7 +10,7 @@
         x:Class="VelaShell.Views.ConnectionProfileView"
         x:DataType="vm:ConnectionProfileViewModel"
         Title="{loc:Localize Profile_Title}"
-        Width="500"
+        Width="508"
         SizeToContent="Height"
         CanResize="False"
         WindowDecorations="None"
@@ -142,8 +142,8 @@
           Background="{DynamicResource VelaBgSurface}"
           BorderBrush="{DynamicResource VelaBorderSecondary}"
           BorderThickness="1"
-          BoxShadow="0 8 32 0 #80000000"
-          Margin="12">
+          BoxShadow="{DynamicResource VelaShadowWindow}"
+          Margin="16">
     <StackPanel>
 
       <!-- Header: plug 图标 + 标题 + 关闭 -->

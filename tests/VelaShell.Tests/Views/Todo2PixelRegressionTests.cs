@@ -84,9 +84,11 @@ public sealed class Todo2PixelRegressionTests
             var limeColors = new Dictionary<string, int>();
             var purpleColors = new Dictionary<string, int>();
             // Fixed protocol strip sample excludes tab text and the selected underline.
-            for (int y = 52; y < 78 && y < height; y++)
+            // 坐标是从窗口左上角量的,故随卡片外边距整体平移:外边距 12 → 16(#171 投影画布)
+            // 之后条带右移下移各 4px,采样窗口不跟着挪就会取到卡片外的空白,一个强调色像素都数不到。
+            for (int y = 56; y < 82 && y < height; y++)
             {
-                for (int x = 72; x < 174 && x < width; x++)
+                for (int x = 76; x < 178 && x < width; x++)
                 {
                     int offset = (y * width + x) * stride;
                     byte blue = Marshal.ReadByte(buffer, offset);
