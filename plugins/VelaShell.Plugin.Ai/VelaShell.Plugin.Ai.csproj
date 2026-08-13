@@ -23,7 +23,7 @@
     <PackageReference Include="Anthropic" Version="12.40.0" />
     <!-- MCP 官方 C# SDK(Core = 纯客户端/低层,无 Hosting/DI 依赖):
          McpClientTool 即 M.E.AI 的 AIFunction,直接并入 Agent 工具循环。 -->
-    <PackageReference Include="ModelContextProtocol.Core" Version="2.1.0" />
+    <PackageReference Include="ModelContextProtocol.Core" Version="2.2.0" />
     <!-- Markdown 渲染:LiveMarkdown.Avalonia(内部仍是 Markdig 解析,增量做在渲染层 ——
          按 SourceSpan 脏检查只更新受影响节点,解析放后台线程)。自带 TextMate 代码高亮、
          跨块选择、表格/任务列表。程序集名不以 "Avalonia" 开头,因此走插件 ALC 隔离加载
