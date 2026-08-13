@@ -3,11 +3,17 @@ namespace VelaShell.Core.Models;
 /// <summary>一条已保存的 SSH 连接配置,描述连接目标主机所需的地址、认证方式与凭据等信息。</summary>
 public class SessionProfile
 {
-    /// <summary>连接协议类型;缺失或未知值均按 SSH 处理。</summary>
+    /// <summary>
+    /// 连接协议类型;缺失或未知值均按 SSH 处理。
+    /// <para>
+    /// 用 <see cref="Enum.IsDefined{TEnum}" /> 做白名单而非逐值三元:语义仍是「不认识的一律降级为 SSH」
+    /// (旧数据兼容策略不变),但新增协议时不必再回来改这里 —— 之前正是这处三元把扩展口焊死了。
+    /// </para>
+    /// </summary>
     public ConnectionType ConnectionType
     {
         get;
-        set => field = value == ConnectionType.SFTP ? ConnectionType.SFTP : ConnectionType.SSH;
+        set => field = Enum.IsDefined(value) ? value : ConnectionType.SSH;
     } = ConnectionType.SSH;
 
     /// <summary>配置的全局唯一标识,创建时自动生成。</summary>
@@ -54,4 +60,10 @@ public class SessionProfile
     /// 跳板配置自身还可以再配跳板,链式即多段跳。null = 直连。
     /// </summary>
     public Guid? JumpHostProfileId { get; set; }
+
+    /// <summary>
+    /// FTP / FTPS 的协议专属设置;仅在 <see cref="ConnectionType" /> 为
+    /// <see cref="ConnectionType.FTP" /> 时有意义,其余协议为 null。
+    /// </summary>
+    public FtpSettings? Ftp { get; set; }
 }

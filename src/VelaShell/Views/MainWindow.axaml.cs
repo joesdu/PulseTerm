@@ -11,6 +11,7 @@ using ReactiveUI;
 using ReactiveUI.Primitives;
 using VelaShell.Core.Data;
 using VelaShell.Core.Diagnostics;
+using VelaShell.Core.Ftp;
 using VelaShell.Core.Import;
 using VelaShell.Core.Models;
 using VelaShell.Core.Processes;
@@ -202,6 +203,7 @@ public partial class MainWindow : Window
             vm.NewConnectionRequested += (_, _) => _ = OpenProfileDialogAsync(null);
             vm.SettingsRequested += (_, _) => _ = OpenSettingsAsync();
             vm.InteractiveAuthenticator = PromptCredentialsAsync;
+            vm.FtpCertificateTrustPrompt = PromptFtpCertificateTrustAsync;
             vm.MultilinePasteConfirmer = ConfirmMultilinePasteAsync;
             vm.ZModemDownloadFolderPicker = PromptForZModemDownloadFolderAsync;
             vm.ZModemUploadFilePicker = PromptForZModemUploadFilesAsync;
@@ -1093,6 +1095,38 @@ public partial class MainWindow : Window
     /// 登录验证流程(设计:身份验证 第1步/第2步):补全用户名与认证凭据。
     /// 一次只弹一扇(见 <see cref="_credentialPromptGate" />),排队的连接依次拿到弹窗。
     /// </summary>
+    /// <summary>
+    /// FTPS 证书未通过校验时的信任提示。把指纹与主体摊开给用户看,确认后由 VM 记进配置并重连。
+    /// <para>
+    /// 这条链路刻意做成「连接失败 → 提示 → 重连」而不是在 TLS 回调里同步等用户点按钮:
+    /// 后者要把异步对话框阻塞成同步,极易死锁(FTP 的证书回调不保证在哪个线程上触发)。
+    /// </para>
+    /// </summary>
+    private async Task<bool> PromptFtpCertificateTrustAsync(SessionProfile profile, VelaFtpCertificateException certificate)
+    {
+        string message = string.Join(Environment.NewLine,
+            Strings.Format("Ftp_CertUntrustedFmt", profile.Host),
+            string.Empty,
+            $"{Strings.Get("Ftp_CertSubject")}: {certificate.Subject}",
+            $"{Strings.Get("Ftp_CertIssuer")}: {certificate.Issuer}",
+            $"{Strings.Get("Ftp_CertExpires")}: {certificate.ExpiresOn:yyyy-MM-dd}",
+            $"{Strings.Get("Ftp_CertFingerprint")}: {FormatThumbprint(certificate.Thumbprint)}",
+            $"{Strings.Get("Ftp_CertProblem")}: {certificate.PolicyErrors}");
+        return await MessageDialog.ConfirmAsync(this,
+            Strings.Get("Ftp_CertTitle"),
+            message,
+            Strings.Get("Ftp_CertTrust"),
+            Strings.Cancel,
+            MessageDialogKind.Warning,
+            danger: true);
+    }
+
+    /// <summary>指纹按每两字节加冒号分组,便于与服务器端比对。</summary>
+    private static string FormatThumbprint(string thumbprint) =>
+        thumbprint.Length < 2
+            ? thumbprint
+            : string.Join(':', Enumerable.Range(0, thumbprint.Length / 2).Select(i => thumbprint.Substring(i * 2, 2)));
+
     private async Task<SessionProfile?> PromptCredentialsAsync(SessionProfile profile)
     {
         // 不带 ConfigureAwait(false):后续 ShowDialog 必须回到 UI 线程。

@@ -8,4 +8,7 @@ public enum ConnectionType
 
     /// <summary>SFTP 文件连接。</summary>
     SFTP = 1,
+
+    /// <summary>FTP / FTPS 文件连接;是否加密由 <see cref="FtpSettings.EncryptionMode" /> 决定。</summary>
+    FTP = 2,
 }

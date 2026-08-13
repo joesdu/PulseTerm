@@ -45,6 +45,9 @@ VelaShell 是一个使用 .NET 11 与 Avalonia 构建的桌面终端应用，支
 - **ZMODEM（rz / sz）**  
   终端内直接收发文件：从输出流中识别 ZMODEM 引导序列后接管通道，由自研 ZMODEM 协议引擎完成传输，结束后自动复位回终端。收发双向、传输无关（SSH / 本地 ConPTY 通用），排障可置 `VELASHELL_ZMODEM_TRACE=1` 打开协议帧跟踪。
 
+- **FTP / FTPS**  
+  连接配置可选 FTP 类型：支持显式 / 隐式 FTPS 与明文 FTP、匿名登录、被动/主动模式；服务器证书未通过校验时给出 SHA-256 指纹交由用户确认，信任后按指纹固定。基于 [FluentFTP](https://github.com/robinrodricks/FluentFTP)（MIT），自带连接池以支持并发传输（FTP 一条控制连接同时只能跑一条命令），并复用与 SFTP 完全相同的双栏文件面板与传输栈。设计与取舍见 [`docs/FTP客户端可行性调研.md`](docs/FTP客户端可行性调研.md)。
+
 - **独立 SFTP 标签与远程文件编辑**  
   连接配置可选 SSH 或 SFTP 类型；SFTP 标签在停靠工作区内以独立文档呈现，支持本地/远程双栏浏览与拖拽互传。远程文件可在内置编辑器中打开（AvaloniaEdit，按扩展名自动语法高亮），保存即回传；也可交给外部编辑器并监听落盘回传。
 
@@ -275,7 +278,7 @@ dotnet test --logger "console;verbosity=detailed"
 
 ## 🚧 开发状态
 
-项目处于活跃开发阶段。核心链路（终端引擎、SSH/SFTP、ZMODEM、本地终端、跳板机、会话管理、身份验证、持久化、设置中心、云同步、会话录制）已可用；部分设置项目前仅持久化、待接线到运行时，**Telnet / 串口**协议与**证书认证**暂未开放（可行性与改造清单见 [`docs/Telnet与串口可行性调研.md`](docs/Telnet与串口可行性调研.md)）。完整的完成情况与待办清单见 [`plan.md`](plan.md) §10–§12。
+项目处于活跃开发阶段。核心链路（终端引擎、SSH/SFTP、FTP/FTPS、ZMODEM、本地终端、跳板机、会话管理、身份验证、持久化、设置中心、云同步、会话录制）已可用；部分设置项目前仅持久化、待接线到运行时，**Telnet / 串口**协议与**证书认证**暂未开放（可行性与改造清单见 [`docs/Telnet与串口可行性调研.md`](docs/Telnet与串口可行性调研.md)）。完整的完成情况与待办清单见 [`plan.md`](plan.md) §10–§12。
 
 ---
 

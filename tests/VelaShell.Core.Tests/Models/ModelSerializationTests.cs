@@ -104,6 +104,53 @@ public class ModelSerializationTests
         Assert.AreEqual(ConnectionType.SSH, invalid!.ConnectionType);
     }
 
+    /// <summary>
+    /// FTP 协议与其专属设置的往返。枚举钳制已从「逐值三元」换成 Enum.IsDefined 白名单,
+    /// 语义不变(未知值仍降级为 SSH,见上一条测试),但新协议不再被静默改写成 SSH。
+    /// </summary>
+    [TestMethod]
+    public void SessionProfile_Ftp_RoundTripsTypeAndSettings()
+    {
+        SessionProfile ftp = new()
+        {
+            ConnectionType = ConnectionType.FTP,
+            Host = "ftp.example.com",
+            Port = 990,
+            Ftp = new FtpSettings
+            {
+                EncryptionMode = FtpEncryptionMode.Implicit,
+                DataConnectionMode = FtpDataConnectionMode.Active,
+                Anonymous = true,
+                TrustedCertificateThumbprint = "AABBCC",
+                MaxConnections = 6,
+            },
+        };
+
+        string json = JsonSerializer.Serialize(ftp, _options);
+        SessionProfile? roundTrip = JsonSerializer.Deserialize<SessionProfile>(json, _options);
+
+        Assert.IsNotNull(roundTrip);
+        Assert.AreEqual(ConnectionType.FTP, roundTrip!.ConnectionType);
+        Assert.IsNotNull(roundTrip.Ftp);
+        Assert.AreEqual(FtpEncryptionMode.Implicit, roundTrip.Ftp!.EncryptionMode);
+        Assert.AreEqual(FtpDataConnectionMode.Active, roundTrip.Ftp.DataConnectionMode);
+        Assert.IsTrue(roundTrip.Ftp.Anonymous);
+        Assert.AreEqual("AABBCC", roundTrip.Ftp.TrustedCertificateThumbprint);
+        Assert.AreEqual(6, roundTrip.Ftp.MaxConnections);
+    }
+
+    /// <summary>非 FTP 配置不带 Ftp 块 —— 旧版本读到的 JSON 结构不变。</summary>
+    [TestMethod]
+    public void SessionProfile_NonFtp_OmitsFtpSettings()
+    {
+        SessionProfile? roundTrip = JsonSerializer.Deserialize<SessionProfile>(
+            JsonSerializer.Serialize(new SessionProfile { ConnectionType = ConnectionType.SSH }, _options),
+            _options);
+
+        Assert.IsNotNull(roundTrip);
+        Assert.IsNull(roundTrip!.Ftp);
+    }
+
     [TestMethod]
     public void AppearanceOptions_BackgroundImage_DefaultsAndRoundTrip()
     {

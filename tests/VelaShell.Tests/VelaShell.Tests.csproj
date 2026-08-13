@@ -21,6 +21,13 @@
     <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
   </ItemGroup>
 
+  <!-- 环回 FTP 服务器与 Infrastructure.Tests 共用一份:FTP 的端到端验证既要覆盖
+       后端本身(那边),也要覆盖应用的连接路径(这边),没必要维护两份协议实现。 -->
+  <ItemGroup>
+    <Compile Include="..\VelaShell.Infrastructure.Tests\Ftp\LoopbackFtpServer.cs"
+             Link="Ftp\LoopbackFtpServer.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\src\VelaShell\VelaShell.csproj" />
     <ProjectReference Include="..\..\src\VelaShell.Infrastructure\VelaShell.Infrastructure.csproj" />
