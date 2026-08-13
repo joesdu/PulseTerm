@@ -6,7 +6,8 @@
              xmlns:loc="using:VelaShell.Localization"
              mc:Ignorable="d" d:DesignWidth="560" d:DesignHeight="440"
              x:Class="VelaShell.Views.CommandPaletteView"
-             x:DataType="vm:CommandPaletteViewModel">
+             x:DataType="vm:CommandPaletteViewModel"
+             ClipToBounds="False">
 
   <UserControl.Styles>
     <Style Selector="Border.pal-item">
@@ -69,7 +70,7 @@
           BorderBrush="{DynamicResource VelaBorderSecondary}"
           BorderThickness="1"
           CornerRadius="8"
-          BoxShadow="0 8 32 0 #80000000">
+          BoxShadow="{DynamicResource VelaShadowWindow}">
     <DockPanel>
 
       <!-- Search bar -->

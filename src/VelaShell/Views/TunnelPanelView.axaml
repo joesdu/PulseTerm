@@ -8,7 +8,8 @@
              xmlns:loc="using:VelaShell.Localization"
              mc:Ignorable="d" d:DesignWidth="340" d:DesignHeight="460"
              x:Class="VelaShell.Views.TunnelPanelView"
-             x:DataType="vm:TunnelPanelViewModel">
+             x:DataType="vm:TunnelPanelViewModel"
+             ClipToBounds="False">
 
   <!-- 隧道管理器,遵循设计框 B3Rth:340px 浮动面板、bg-surface、圆角 6、
        1px border-secondary、阴影 blur16 y+4(spec §10)。
@@ -40,13 +41,16 @@
     </Style>
   </UserControl.Styles>
 
+  <!-- 根上的 ClipToBounds="False" 不能删:Avalonia 的 UserControl 默认裁到自身边界,而这张卡片
+       正好铺满 UserControl,于是 BoxShadow 画在边界外、被整块裁掉 —— 只有四个圆角与矩形裁剪框
+       之间那点楔形空隙露得出来,看着就是"下面两个角有黑东西"(#171 后续反馈)。 -->
   <Border Width="340"
           VerticalAlignment="Top"
           Background="{DynamicResource VelaBgSurface}"
           BorderBrush="{DynamicResource VelaBorderSecondary}"
           BorderThickness="1"
           CornerRadius="6"
-          BoxShadow="0 4 16 0 #60000000">
+          BoxShadow="{DynamicResource VelaShadowWindow}">
     <StackPanel>
 
       <!-- 标题栏(36px,设计 tunHeader):图标 + 隧道 + 数量徽标 | 关闭 -->

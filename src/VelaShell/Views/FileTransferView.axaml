@@ -7,7 +7,8 @@
              xmlns:loc="using:VelaShell.Localization"
              mc:Ignorable="d" d:DesignWidth="280" d:DesignHeight="160"
              x:Class="VelaShell.Views.FileTransferView"
-             x:DataType="vm:FileTransferViewModel">
+             x:DataType="vm:FileTransferViewModel"
+             ClipToBounds="False">
 
   <!-- 拖拽位移加在 UserControl 自身而不是内层 Border:UserControl 的布局尺寸是裹住面板的,
        把内层移出去会有裁剪与命中测试风险;而 UserControl 的父级是整行 Grid,空间足够。
@@ -26,7 +27,7 @@
           BorderBrush="{DynamicResource VelaBorderSecondary}"
           BorderThickness="1"
           CornerRadius="6"
-          BoxShadow="0 4 16 0 #60000000"
+          BoxShadow="{DynamicResource VelaShadowWindow}"
           IsVisible="{Binding IsPanelVisible}">
     <StackPanel>
 
