@@ -35,31 +35,30 @@ internal sealed class FtpConnectionPool(
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         await _slots.WaitAsync(cancellationToken).ConfigureAwait(false);
+        AsyncFtpClient? client = null;
         try
         {
-            AsyncFtpClient client = _idle.TryTake(out AsyncFtpClient? pooled)
+            // 新建连接同样要翻译异常:服务器没了的时候这里抛的是裸 SocketException,
+            // 不翻译就会越过 Infrastructure 边界直接甩到界面上。
+            client = _idle.TryTake(out AsyncFtpClient? pooled)
                 ? pooled
                 : await CreateAsync(cancellationToken).ConfigureAwait(false);
 
             // 空闲期间可能被服务器按 idle timeout 踢掉(FTP 服务器普遍很短),这里就地重连。
             if (!client.IsConnected)
             {
-                try
-                {
-                    await client.Connect(cancellationToken).ConfigureAwait(false);
-                }
-                catch (Exception ex)
-                {
-                    Forget(client);
-                    throw FluentFtpInterop.Translate(ex, "reconnect");
-                }
+                await client.Connect(cancellationToken).ConfigureAwait(false);
             }
             return new Lease(this, client);
         }
-        catch
+        catch (Exception ex)
         {
+            if (client is not null)
+            {
+                Forget(client);
+            }
             _slots.Release();
-            throw;
+            throw FluentFtpInterop.Translate(ex, "connect");
         }
     }
 
@@ -113,11 +112,15 @@ internal sealed class FtpConnectionPool(
         return client;
     }
 
+    /// <summary>
+    /// 归还连接。已经掉线的连接**不放回池子** —— 否则它会被反复租出去、每次都要先失败再重连,
+    /// 断线后的每一个操作都得多等一个连接超时。
+    /// </summary>
     private void Return(AsyncFtpClient client)
     {
-        if (_disposed)
+        if (_disposed || !client.IsConnected)
         {
-            client.Dispose();
+            Forget(client);
         }
         else
         {

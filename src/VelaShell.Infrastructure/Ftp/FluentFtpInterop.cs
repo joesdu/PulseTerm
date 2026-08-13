@@ -26,9 +26,19 @@ internal static class FluentFtpInterop
             System.Security.Authentication.AuthenticationException tlsAuth => new VelaFtpConnectionException($"TLS handshake failed: {tlsAuth.Message}", tlsAuth),
             IOException io => new VelaFtpConnectionException($"FTP {operation} failed: {io.Message}", io),
             FtpException ftp => new VelaFtpOperationException($"FTP {operation} failed: {ftp.Message}", ftp),
+            // FluentFTP 在**底层套接字已死**时会从内部抛出 NullReference / ObjectDisposed /
+            // InvalidOperation —— 它并不总把断线包成 FtpException。不翻译的话,用户双击一个
+            // 远端文件只会看到「Object reference not set to an instance of an object」
+            // (实机反馈的「null 错误」就是它),既不知道发生了什么,也不知道该重连。
+            NullReferenceException or ObjectDisposedException or InvalidOperationException =>
+                new VelaFtpConnectionException(
+                    $"FTP connection was lost during {operation}; reconnect and try again.", ex),
             _ => ex,
         };
     }
+
+    /// <summary>该异常是否代表「连接已失效」——据此把会话标记为离线并丢弃池中的坏连接。</summary>
+    public static bool IsConnectionLost(Exception ex) => ex is VelaFtpConnectionException;
 
     /// <summary>
     /// 按 FTP 应答码分类。5xx 里 550 既可能是「不存在」也可能是「没权限」,

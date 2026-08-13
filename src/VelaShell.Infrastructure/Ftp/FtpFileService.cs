@@ -28,6 +28,9 @@ public sealed class FtpFileService : ISftpService, IFtpSessionService
     private readonly ConcurrentDictionary<Guid, FtpConnectionPool> _sessions = new();
 
     /// <inheritdoc />
+    public event EventHandler<FtpSessionStateChange>? SessionStateChanged;
+
+    /// <inheritdoc />
     public async Task<Guid> OpenSessionAsync(FtpConnectionInfo info, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(info);
@@ -52,6 +55,7 @@ public sealed class FtpFileService : ISftpService, IFtpSessionService
         }
         var sessionId = Guid.NewGuid();
         _sessions[sessionId] = pool;
+        SessionStateChanged?.Invoke(this, new(sessionId, FtpSessionState.Connected));
         return sessionId;
     }
 
@@ -64,6 +68,7 @@ public sealed class FtpFileService : ISftpService, IFtpSessionService
         if (_sessions.TryRemove(sessionId, out FtpConnectionPool? pool))
         {
             await pool.DisposeAsync().ConfigureAwait(false);
+            SessionStateChanged?.Invoke(this, new(sessionId, FtpSessionState.Closed));
         }
     }
 
@@ -78,7 +83,7 @@ public sealed class FtpFileService : ISftpService, IFtpSessionService
         }
         catch (Exception ex)
         {
-            throw FluentFtpInterop.Translate(ex, "list directory");
+            throw Fault(sessionId, ex, "list directory");
         }
     }
 
@@ -112,7 +117,7 @@ public sealed class FtpFileService : ISftpService, IFtpSessionService
         }
         catch (Exception ex)
         {
-            throw FluentFtpInterop.Translate(ex, "upload");
+            throw Fault(sessionId, ex, "upload");
         }
     }
 
@@ -145,7 +150,7 @@ public sealed class FtpFileService : ISftpService, IFtpSessionService
         }
         catch (Exception ex)
         {
-            throw FluentFtpInterop.Translate(ex, "download");
+            throw Fault(sessionId, ex, "download");
         }
     }
 
@@ -188,7 +193,7 @@ public sealed class FtpFileService : ISftpService, IFtpSessionService
         }
         catch (Exception ex)
         {
-            throw FluentFtpInterop.Translate(ex, "delete");
+            throw Fault(sessionId, ex, "delete");
         }
     }
 
@@ -202,7 +207,7 @@ public sealed class FtpFileService : ISftpService, IFtpSessionService
         }
         catch (Exception ex)
         {
-            throw FluentFtpInterop.Translate(ex, "create directory");
+            throw Fault(sessionId, ex, "create directory");
         }
     }
 
@@ -218,7 +223,7 @@ public sealed class FtpFileService : ISftpService, IFtpSessionService
         }
         catch (Exception ex)
         {
-            throw FluentFtpInterop.Translate(ex, "create file");
+            throw Fault(sessionId, ex, "create file");
         }
     }
 
@@ -236,7 +241,7 @@ public sealed class FtpFileService : ISftpService, IFtpSessionService
         }
         catch (Exception ex)
         {
-            throw FluentFtpInterop.Translate(ex, "rename");
+            throw Fault(sessionId, ex, "rename");
         }
     }
 
@@ -279,7 +284,7 @@ public sealed class FtpFileService : ISftpService, IFtpSessionService
         }
         catch (Exception ex)
         {
-            throw FluentFtpInterop.Translate(ex, "chmod");
+            throw Fault(sessionId, ex, "chmod");
         }
     }
 
@@ -297,7 +302,7 @@ public sealed class FtpFileService : ISftpService, IFtpSessionService
         }
         catch (Exception ex)
         {
-            throw FluentFtpInterop.Translate(ex, "stat");
+            throw Fault(sessionId, ex, "stat");
         }
     }
 
@@ -316,7 +321,7 @@ public sealed class FtpFileService : ISftpService, IFtpSessionService
         catch (Exception ex)
         {
             lease.Dispose();
-            throw FluentFtpInterop.Translate(ex, "open");
+            throw Fault(sessionId, ex, "open");
         }
     }
 
@@ -332,7 +337,7 @@ public sealed class FtpFileService : ISftpService, IFtpSessionService
         }
         catch (Exception ex)
         {
-            throw FluentFtpInterop.Translate(ex, "exists");
+            throw Fault(sessionId, ex, "exists");
         }
     }
 
@@ -347,7 +352,7 @@ public sealed class FtpFileService : ISftpService, IFtpSessionService
         }
         catch (Exception ex)
         {
-            throw FluentFtpInterop.Translate(ex, "pwd");
+            throw Fault(sessionId, ex, "pwd");
         }
     }
 
@@ -362,10 +367,37 @@ public sealed class FtpFileService : ISftpService, IFtpSessionService
 
     // ---- 内部实现 ---------------------------------------------------------
 
-    private async Task<FtpConnectionPool.Lease> RentAsync(Guid sessionId, CancellationToken cancellationToken) =>
-        _sessions.TryGetValue(sessionId, out FtpConnectionPool? pool)
-            ? await pool.RentAsync(cancellationToken).ConfigureAwait(false)
-            : throw new VelaFtpConnectionException($"FTP session {sessionId} is not open.");
+    private async Task<FtpConnectionPool.Lease> RentAsync(Guid sessionId, CancellationToken cancellationToken)
+    {
+        if (!_sessions.TryGetValue(sessionId, out FtpConnectionPool? pool))
+        {
+            throw new VelaFtpConnectionException($"FTP session {sessionId} is not open.");
+        }
+        try
+        {
+            return await pool.RentAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            // 租不到连接(服务器没了 / 重连失败)同样是一次「会话掉线」,要上报出去,
+            // 否则界面上的状态圆点会一直停在绿色。
+            throw Fault(sessionId, ex, "connect");
+        }
+    }
+
+    /// <summary>
+    /// 把库异常翻译成中立异常;若属于连接级失败,顺带把该会话标记为已失效并广播出去
+    /// —— 资源管理器树的状态圆点据此自动从「活跃」变「离线」。
+    /// </summary>
+    private Exception Fault(Guid sessionId, Exception ex, string operation)
+    {
+        Exception translated = FluentFtpInterop.Translate(ex, operation);
+        if (FluentFtpInterop.IsConnectionLost(translated))
+        {
+            SessionStateChanged?.Invoke(this, new(sessionId, FtpSessionState.Faulted));
+        }
+        return translated;
+    }
 
     private static async Task<AsyncFtpClient> CreateConnectedClientAsync(FtpConnectionInfo info, CertificateProbe probe, CancellationToken cancellationToken)
     {
