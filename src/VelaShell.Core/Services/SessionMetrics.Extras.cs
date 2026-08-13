@@ -40,12 +40,34 @@ public sealed partial class SessionMetrics
         """echo __GS__; for c in /sys/class/drm/card*; do n=${c##*/}; case "$n" in *-*) continue;; esac; [ -d "$c/device" ] || continue; v=$(cat "$c/device/vendor" 2>/dev/null); [ -n "$v" ] || continue; echo "$n|$v|$(cat "$c/device/gpu_busy_percent" 2>/dev/null)|$(cat "$c/device/mem_info_vram_used" 2>/dev/null)|$(cat "$c/device/mem_info_vram_total" 2>/dev/null)|$(cat "$c"/device/hwmon/hwmon*/temp1_input 2>/dev/null | head -1)|$(cat "$c"/device/hwmon/hwmon*/power1_average 2>/dev/null | head -1)|$(cat "$c"/device/hwmon/hwmon*/freq1_input 2>/dev/null | head -1)|$(cat "$c/gt_cur_freq_mhz" 2>/dev/null)|$(cat "$c/device/product_name" 2>/dev/null)"; done 2>/dev/null""";
 
     /// <summary>
-    /// 进程段:按常驻内存取前 20 行(命令行截断到 90 列,避免刷屏)。20 行是一屏能放下的量 ——
-    /// 8 行时列表下半截空着,再多则纯粹是每轮多传的字节。
+    /// 进程段每行保留的列数(整行,含 <c>pid/%cpu/rss</c> 前缀,前缀本身要吃掉近 20 列)。
+    /// </summary>
+    /// <remarks>
+    /// 原值 90 会让命令行在远端就被切掉,而切口没有任何标记 —— 界面上表现为"列宽明明还有富余,
+    /// 命令却断在半个词上"(用户反馈:<c>… -auth /run/us</c>,真身是 <c>/run/user/…</c>;
+    /// dockerd 那行的 <c>--containerd=/run/containerd/containerd.sock</c> 同样丢了后缀)。
+    /// <para>
+    /// 取 300:窗口在 2K 屏最大化时,进程列约 1800px,按 10 号等宽字算差不多 300 字,
+    /// 再宽也超出了这张表的用途。20 行 × 最多 210 字的增量只在监视窗口打开时才发生,
+    /// 而超长命令行(带巨型 classpath 的 java、一串 flag 的浏览器)仍被这一刀挡在远端。
+    /// </para>
+    /// </remarks>
+    private const int ProcessCommandColumns = 300;
+
+    /// <summary>
+    /// 进程段:按常驻内存取前 20 行(整行截断到 <see cref="ProcessCommandColumns" /> 列,避免刷屏)。
+    /// 20 行是一屏能放下的量 —— 8 行时列表下半截空着,再多则纯粹是每轮多传的字节。
     /// 只留这一份 —— 界面上的进程表只有内存页一处,再跑一次按 CPU 排序的 ps 是白花的开销。
     /// </summary>
-    private const string ProcessCommand =
-        "echo __TM__; ps -eo pid,pcpu,rss,args --sort=-rss 2>/dev/null | tail -n +2 | head -n 20 | cut -c1-90; " +
+    /// <remarks>
+    /// 截断走 awk 而不是 <c>cut -c1-N</c>:cut 的切口不留任何痕迹,界面无从分辨"命令本来就这么短"
+    /// 与"被截断了";awk 只在真的超长时补一个省略号,读的人一眼能看出还有下文。
+    /// 客户端反推不了这件事 —— 解析侧的行已被 TrimEntries 去掉前导空格(ps 的 PID 是右对齐的),
+    /// 而且 SectionAt 还会把首行的空格一并 Trim,按行长比对必然误判。
+    /// </remarks>
+    private static readonly string ProcessCommand =
+        "echo __TM__; ps -eo pid,pcpu,rss,args --sort=-rss 2>/dev/null | tail -n +2 | head -n 20 | " +
+        "awk -v n=" + ProcessCommandColumns + " '{ if (length($0) > n) print substr($0, 1, n) \"…\"; else print }'; " +
         // 共享内存与换出量 ps 给不了:共享驻留页在 /proc/<pid>/statm 第 3 列(单位是页),
         // 换出量在 /proc/<pid>/status 的 VmSwap(单位 kB)。所有文件一次性喂给同一个 awk,
         // 避免每个进程 fork 两次 —— 1 秒一轮的轮询下那是 40 个进程/秒的额外开销。
@@ -386,6 +408,9 @@ public sealed partial class SessionMetrics
                 continue;
             }
             _ = extras.TryGetValue(pid, out (long? Shared, long? Swap) extra);
+
+            // 命令行原样带过:超长行末尾的省略号是远端 awk 补的(见 ProcessCommand),
+            // 界面只管照显,列宽不够时再由 TextTrimming 叠一层自己的省略号。
             list.Add(new(pid, parts[3], Num(parts[1]), rssKb * 1024, extra.Shared, extra.Swap));
         }
         return list;

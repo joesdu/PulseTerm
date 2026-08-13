@@ -323,6 +323,37 @@ public class SshConnectionServiceTests
 
     [TestMethod]
     [TestCategory("EdgeCase")]
+    public async Task ConnectAsync_CallerCancelled_PropagatesOperationCanceledException()
+    {
+        // 调用方自己取消(关标签/退出应用/凭据框上取消)必须保留取消语义:
+        // 上层靠 catch(OperationCanceledException) 安静撤掉"连接中"标签。
+        // 回归:此前所有取消一律翻成 TimeoutException,那条分支永远命中不了,
+        // 用户取消反而拿到"连接超时"的失败覆盖层和一个连不上的死标签。
+        using var cts = new CancellationTokenSource();
+        ISshClientWrapper? mockClientWrapper = Substitute.For<ISshClientWrapper>();
+        mockClientWrapper.When(x => x.ConnectAsync(Arg.Any<CancellationToken>()))
+                         .Do(_ =>
+                         {
+                             cts.Cancel();
+                             throw new OperationCanceledException(cts.Token);
+                         });
+        var connectionInfo = new ConnectionInfo
+        {
+            Host = "slow.example.com",
+            Port = 22,
+            Username = "testuser",
+            AuthMethod = AuthMethod.Password,
+            Password = "testpass"
+        };
+        var service = new SshConnectionService(_ => mockClientWrapper);
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            async () => await service.ConnectAsync(connectionInfo, cts.Token));
+        mockClientWrapper.Received(1).Dispose();
+        Assert.IsEmpty(service.Sessions);
+    }
+
+    [TestMethod]
+    [TestCategory("EdgeCase")]
     public async Task RapidConnectDisconnect_NoRaceCondition()
     {
         ISshClientWrapper? mockClient = Substitute.For<ISshClientWrapper>();

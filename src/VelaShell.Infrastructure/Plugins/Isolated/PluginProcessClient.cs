@@ -112,6 +112,10 @@ internal sealed class PluginProcessClient : IAsyncDisposable
             Task connect = pipe.WaitForConnectionAsync(connectCts.Token);
             Task exited = process.WaitForExitAsync(connectCts.Token);
             Task first = await Task.WhenAny(connect, exited).ConfigureAwait(false);
+            // 落败的那条支路只会以取消/管道释放收场,且没人会 await 它:显式吞掉,
+            // 否则它的异常在 GC 时以未观察任务异常的形式冒出来(调试器里一条无源头的噪声)。
+            Observe(connect);
+            Observe(exited);
             if (first == exited)
             {
                 throw new InvalidOperationException($"Plugin host process exited before connecting (exit code {process.ExitCode}).");
@@ -157,6 +161,12 @@ internal sealed class PluginProcessClient : IAsyncDisposable
             throw;
         }
     }
+
+    /// <summary>标记一个无人 await 的任务为"已观察",使其异常不再进入未观察任务异常通道。</summary>
+    private static void Observe(Task task) =>
+        _ = task.ContinueWith(static t => _ = t.Exception, CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
 
     private static Process Launch(PluginManifest manifest, string entryPath, string pipeName, string token, string dataDirectory)
     {
@@ -236,16 +246,27 @@ internal sealed class PluginProcessClient : IAsyncDisposable
         {
             // 插件停用失败/超时/已断开:照样回收进程。
         }
-        try
-        {
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-            await _process.WaitForExitAsync(cts.Token).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
+        // 停用应答已收到 → 先断管道:PluginHost 的读循环读到干净 EOF 即自行退场
+        // (Program.cs 的 connection.Disconnected → ExitCode)。此前是"先干等再断管道",
+        // 退出只能靠子进程自己那 100ms 定时器,一旦它没能按时收摊,这里就等满 2 秒再强杀
+        // ——每次退出应用都多花 2 秒,并在调试器里留下一条 WaitForExitAsync 的取消异常。
+        await _connection.DisposeAsync().ConfigureAwait(false);
+        if (!await WaitForExitAsync(_process, TimeSpan.FromSeconds(2)).ConfigureAwait(false))
         {
             TryKill(_process);
         }
         await DisposeAsync().ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// 限时等待进程退出,超时返回 false。刻意不用取消令牌:
+    /// <see cref="Process.WaitForExitAsync(CancellationToken)" /> 超时会抛 TaskCanceledException,
+    /// 而"子进程没在期限内退出"是预期内的常规分支,不该在调试器里刷首发异常。
+    /// </summary>
+    private static async Task<bool> WaitForExitAsync(Process process, TimeSpan timeout)
+    {
+        Task exited = process.WaitForExitAsync();
+        return await Task.WhenAny(exited, Task.Delay(timeout)).ConfigureAwait(false) == exited;
     }
 
     private static void TryKill(Process? process)
