@@ -10,7 +10,7 @@
         x:Class="VelaShell.Views.SettingsView"
         x:DataType="vm:SettingsViewModel"
         Title="{loc:Localize Settings}"
-        Width="840" Height="740"
+        Width="848" Height="748"
         CanResize="False"
         WindowDecorations="None"
         TransparencyLevelHint="Transparent"
@@ -185,8 +185,8 @@
           Background="{DynamicResource VelaBgSurface}"
           BorderBrush="{DynamicResource VelaBorderSecondary}"
           BorderThickness="1"
-          BoxShadow="0 8 32 0 #80000000"
-          Margin="12"
+          BoxShadow="{DynamicResource VelaShadowWindow}"
+          Margin="16"
           ClipToBounds="True">
     <Grid ColumnDefinitions="200,*">
 

@@ -6,6 +6,12 @@
     <!-- 强调色标记 -->
     <SolidColorBrush x:Key="VelaAccentText" Color="#BD93F9" />
 
+    <!-- 自绘窗体卡片的外投影(#171 层级不清)。透明窗体的投影只能画在窗口矩形之内,
+         超出外边距的部分会被窗口边缘直接裁掉,所以两层的最大延展(offsetY + blur)
+         必须 ≤ 卡片外边距 16:近处一层压出边缘、远处一层给出扩散。
+         调这里的同时要调外边距,否则又变成截断的一块糊影。 -->
+    <BoxShadows x:Key="VelaShadowWindow">0 2 4 0 #59000000, 0 6 10 0 #A6000000</BoxShadows>
+
     <!-- 语义标记 -->
     <SolidColorBrush x:Key="VelaWarning" Color="#FFB86C" />
     <SolidColorBrush x:Key="VelaError"   Color="#FF5555" />

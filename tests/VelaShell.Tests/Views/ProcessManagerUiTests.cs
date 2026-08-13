@@ -68,6 +68,30 @@ public sealed class ProcessManagerUiTests
     }
 
     [TestMethod]
+    public void Window_CardShadow_ResolvesFromToken_AndHasRoomToDraw()
+    {
+        OnUi(() =>
+        {
+            using var fixture = Fixture.Show();
+
+            // 投影是这类窗口区分层级的唯一手段(#171),而它有两种"静悄悄失效"的方式:
+            // 令牌名写错 → DynamicResource 解析不到,BoxShadow 静静地空着;外边距不够 →
+            // 投影画在窗口矩形之外被裁掉,画了等于没画。两种都不报错,只是看起来没有阴影。
+            Border card = fixture.Find<Border>("RootCard");
+            Assert.IsGreaterThan(0, card.BoxShadow.Count, "VelaShadowWindow 令牌没解析出投影。");
+
+            double reach = 0;
+            for (int i = 0; i < card.BoxShadow.Count; i++)
+            {
+                BoxShadow shadow = card.BoxShadow[i];
+                reach = Math.Max(reach, Math.Abs(shadow.OffsetY) + shadow.Blur);
+            }
+            Assert.IsGreaterThanOrEqualTo(reach, card.Margin.Bottom,
+                $"卡片外边距 {card.Margin.Bottom} 装不下延展 {reach} 的投影,超出的部分会被窗口边缘裁掉。");
+        });
+    }
+
+    [TestMethod]
     public void Gauges_CarryDistinctColourClasses()
     {
         OnUi(() =>

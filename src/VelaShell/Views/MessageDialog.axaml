@@ -5,7 +5,7 @@
         xmlns:pc="using:VelaShell.Controls.Controls"
         mc:Ignorable="d" d:DesignWidth="444" d:DesignHeight="220"
         x:Class="VelaShell.Views.MessageDialog"
-        Width="444"
+        Width="452"
         SizeToContent="Height"
         CanResize="False"
         ShowInTaskbar="False"
@@ -15,7 +15,7 @@
         WindowStartupLocation="CenterOwner">
 
   <!-- 通用消息/确认/输入弹窗。外观遵循设计的标准弹窗规格(如 oNZIM 密码验证弹窗):
-       420px bg-surface 卡片、圆角 8、1px border-secondary 外描边、阴影 0 8 32 #80000000;
+       420px bg-surface 卡片、圆角 8、1px border-secondary 外描边、阴影取 VelaShadowWindow 令牌(随主题深浅);
        48px 标题栏(可拖动) + 内容区 + 52px 按钮栏,分隔线均为 border-primary。 -->
 
   <Window.Styles>
@@ -106,8 +106,8 @@
           Background="{DynamicResource VelaBgSurface}"
           BorderBrush="{DynamicResource VelaBorderSecondary}"
           BorderThickness="1"
-          BoxShadow="0 8 32 0 #80000000"
-          Margin="12"
+          BoxShadow="{DynamicResource VelaShadowWindow}"
+          Margin="16"
           ClipToBounds="True">
     <Grid RowDefinitions="48,Auto,52">
 

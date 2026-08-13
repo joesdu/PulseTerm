@@ -10,7 +10,7 @@
         x:Class="VelaShell.Views.LocalPathPickerDialog"
         x:DataType="vm:LocalFilePaneViewModel"
         Title="{loc:Localize Sftp_PickUploadTitle}"
-        Width="640" Height="520"
+        Width="672" Height="552"
         MinWidth="420" MinHeight="320"
         WindowDecorations="None"
         TransparencyLevelHint="Transparent"
@@ -65,11 +65,13 @@
     </Style>
   </Window.Styles>
 
+  <!-- 外边距是投影的画布:此前这里没有外边距,投影整个被窗口边缘裁掉,等于没画(#171)。 -->
   <Border Background="{DynamicResource VelaBgSurface}"
           BorderBrush="{DynamicResource VelaBorderSecondary}"
           BorderThickness="1"
           CornerRadius="8"
-          BoxShadow="0 8 32 0 #80000000">
+          Margin="16"
+          BoxShadow="{DynamicResource VelaShadowWindow}">
     <DockPanel>
 
       <!-- 标题栏(可拖动) -->

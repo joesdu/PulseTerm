@@ -140,9 +140,10 @@ public partial class ProcessManagerView : Window
     /// <param name="rounded">true = 普通态的圆角浮层,false = 铺满的矩形。</param>
     private void ApplyCardShape(bool rounded)
     {
-        RootCard.Margin = rounded ? new Thickness(8) : default;
+        RootCard.Margin = rounded ? new Thickness(16) : default;
         RootCard.BorderThickness = rounded ? new Thickness(1) : default;
         RootCard.CornerRadius = rounded ? new CornerRadius(8) : default;
+        ResizeGripLayout.Apply(ResizeGrips, rounded);
         TitleBarStrip.CornerRadius = rounded ? new CornerRadius(InnerRadius, InnerRadius, 0, 0) : default;
         StatusStrip.CornerRadius = rounded ? new CornerRadius(0, 0, InnerRadius, InnerRadius) : default;
     }
