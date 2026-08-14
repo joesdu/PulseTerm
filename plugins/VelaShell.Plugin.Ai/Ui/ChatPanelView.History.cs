@@ -246,7 +246,7 @@ public partial class ChatPanelView
         }
         _inputHistoryIndex = next;
         InputBox.Text = next == -1 ? _inputDraft : _inputHistory[next];
-        InputBox.CaretIndex = InputBox.Text?.Length ?? 0;
+        InputBox.CaretOffset = InputBox.Text?.Length ?? 0;
         return true;
     }
 
@@ -254,7 +254,7 @@ public partial class ChatPanelView
     private bool CaretOnFirstLine()
     {
         string text = InputBox.Text ?? "";
-        int caret = Math.Clamp(InputBox.CaretIndex, 0, text.Length);
+        int caret = Math.Clamp(InputBox.CaretOffset, 0, text.Length);
         return text.AsSpan(0, caret).IndexOf('\n') < 0;
     }
 
@@ -262,7 +262,7 @@ public partial class ChatPanelView
     private bool CaretOnLastLine()
     {
         string text = InputBox.Text ?? "";
-        int caret = Math.Clamp(InputBox.CaretIndex, 0, text.Length);
+        int caret = Math.Clamp(InputBox.CaretOffset, 0, text.Length);
         return text.AsSpan(caret).IndexOf('\n') < 0;
     }
 

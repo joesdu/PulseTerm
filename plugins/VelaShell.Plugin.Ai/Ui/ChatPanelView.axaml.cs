@@ -83,7 +83,12 @@ public partial class ChatPanelView : UserControl
         ChatScroll.ScrollChanged += OnChatScrollChanged;
         NewChatButton.Click += (_, _) => StartNewChat();
         InputBox.AddHandler(KeyDownEvent, OnInputKeyDown, RoutingStrategies.Tunnel);
-        InputBox.TextChanged += (_, _) => OnInputTextChanged();
+        InputBox.TextChanged += (_, _) =>
+        {
+            InputPlaceholder.IsVisible = InputBox.Document.TextLength == 0;
+            OnInputTextChanged();
+        };
+        SetUpInputEditor();
         FilePopup.PlacementTarget = InputWrap;
         SettingsToggle.IsCheckedChanged += (_, _) => OnViewToggled(SettingsToggle, PanelView.Settings);
         HistoryToggle.IsCheckedChanged += (_, _) =>
@@ -131,7 +136,10 @@ public partial class ChatPanelView : UserControl
         try
         {
             _cts?.Cancel();
+            // 面板级取消源:补全请求之间靠代次判废,只有面板真的关了才在这里取消
             _fileCts?.Cancel();
+            _fileCts?.Dispose();
+            _fileCts = null;
         }
         catch
         {
@@ -193,7 +201,7 @@ public partial class ChatPanelView : UserControl
         ToolTip.SetTip(HistoryToggle, _loc["History"]);
         ClearHistoryButton.Content = _loc["ClearHistory"];
         HistoryHeader.Text = _loc["HistoryHeader"];
-        InputBox.PlaceholderText = _loc["InputPlaceholder"];
+        InputPlaceholder.Text = _loc["InputPlaceholder"];
         SendText.Text = _loc["Send"];
         StopText.Text = _loc["Stop"];
         // 代码块头部按钮的提示藏在 LiveMarkdown 的 ControlTemplate 里,只能经 DynamicResource 灌进去
@@ -379,6 +387,11 @@ public partial class ChatPanelView : UserControl
     /// </summary>
     private void OnInputKeyDown(object? sender, KeyEventArgs e)
     {
+        // 已完成的 @ 引用是一整块:退格/删除整块带走(见 HandleReferenceBlockDelete)
+        if (HandleReferenceBlockDelete(e))
+        {
+            return;
+        }
         if (FilePopup.IsOpen && HandleFilePickerKey(e))
         {
             return;
@@ -480,13 +493,13 @@ public partial class ChatPanelView : UserControl
         AssistantBubble? bubble = null;
         try
         {
-            // @ 引用的远端文件在这里展开:气泡里仍显示用户原文,只有送给模型的那份带文件内容。
-            (string modelText, IReadOnlyList<string> attached) = fromUser
+            // @ 引用的远端文件在这里展开:气泡里显示的是短名芯片,只有送给模型的那份带完整路径与文件内容。
+            (string modelText, IReadOnlyList<string> _, IReadOnlyList<string> unreadable) = fromUser
                 ? await ResolveAttachmentsAsync(text, token)
-                : (text, []);
-            if (attached.Count > 0)
+                : (text, [], []);
+            if (unreadable.Count > 0)
             {
-                AddAttachmentCard(attached);
+                AddAttachmentFailureNote(unreadable);
             }
             _history.Add(new ChatMessage(ChatRole.User, modelText));
             await PersistAsync("user", text);
@@ -692,7 +705,7 @@ public partial class ChatPanelView : UserControl
         _inputHistoryIndex = -1;
         StatusText.Text = "";
         SetActiveView(PanelView.Chat);
-        InputBox.Focus();
+        InputBox.TextArea.Focus();
     }
 
     // ---------- 审批交互 ----------
@@ -742,12 +755,52 @@ public partial class ChatPanelView : UserControl
 
     // ---------- 气泡构建 ----------
 
+    /// <summary>
+    /// 用户气泡:与 VSCode 里 GitHub Copilot 的提问块一致 —— 引用到的文件先以芯片列出,
+    /// 正文按 Markdown 渲染(与助手气泡同一套渲染器)。
+    /// </summary>
+    /// <remarks>
+    /// 两处刻意与输入框保持一致:①正文里的 <c>@</c> 引用显示成短名(<c>@abc.txt</c>),
+    /// 不再把 <c>@/root/abc.txt</c> 这种长路径原样铺出来 —— 用户在输入框里看到的就是短名,
+    /// 发出去后不该突然变回长路径;②用户自己写的 Markdown 该渲染出来,而不是显示源码。
+    /// 送给模型的那份文本不受影响(仍是带完整路径的原文,见 ResolveAttachmentsAsync)。
+    /// </remarks>
     private void AddUserBubble(string text)
     {
         var stack = new StackPanel();
         stack.Children.Add(new TextBlock { Classes = { "roleHeader" }, Text = _loc["You"] });
-        stack.Children.Add(new SelectableTextBlock { Classes = { "body" }, Text = text });
+
+        List<string> references = FileReference.Parse(text);
+        if (references.Count > 0)
+        {
+            var chips = new WrapPanel { Margin = new(0, 0, 0, 4) };
+            foreach (string path in references)
+            {
+                chips.Children.Add(BuildReferenceChip(path));
+            }
+            stack.Children.Add(chips);
+        }
+
+        var body = new MarkdownSegment(this);
+        body.Append(FileReference.Shorten(text));
+        stack.Children.Add(body.Host);
         MessagesPanel.Children.Add(new Border { Classes = { "msg", "userMsg" }, Child = stack });
+    }
+
+    /// <summary>一枚文件引用芯片(与输入框里那段彩色引用同色同名,悬停给全路径)。</summary>
+    private Border BuildReferenceChip(string path)
+    {
+        var row = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 4 };
+        row.Children.Add(MakeIcon("Icon.file", "VelaAccent", 10));
+        row.Children.Add(new TextBlock
+        {
+            Classes = { "refChipText" },
+            Text = FileReference.DisplayName(path),
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+        });
+        var chip = new Border { Classes = { "refChip" }, Child = row };
+        ToolTip.SetTip(chip, path);
+        return chip;
     }
 
     private static string Truncate(string text, int max)

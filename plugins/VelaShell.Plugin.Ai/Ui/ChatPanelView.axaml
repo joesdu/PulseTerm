@@ -1,5 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ae="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
+             xmlns:aee="clr-namespace:AvaloniaEdit.Editing;assembly=AvaloniaEdit"
              xmlns:md="clr-namespace:LiveMarkdown.Avalonia;assembly=LiveMarkdown.Avalonia"
              xmlns:mdm="clr-namespace:LiveMarkdown.Avalonia;assembly=LiveMarkdown.Avalonia.Mermaid"
              x:Class="VelaShell.Plugin.Ai.Ui.ChatPanelView">
@@ -25,6 +27,9 @@
     <!-- LiveMarkdown 自带样式必须先并进来,后面的皮肤覆盖才压得住(Avalonia 同优先级按声明顺序,后者胜)。 -->
     <StyleInclude Source="avares://LiveMarkdown.Avalonia/Styles.axaml" />
     <StyleInclude Source="avares://LiveMarkdown.Avalonia.Mermaid/Styles.axaml" />
+    <!-- 输入框(AvaloniaEdit)的控件模板:宿主 App.axaml 里也并了一份,但插件不能假定
+         装载方一定并过 —— 自己带上,面板在哪儿都能正常成型。 -->
+    <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" />
 
     <Style Selector="TextBlock.dim">
       <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
@@ -130,27 +135,43 @@
     <Style Selector="Border.inputWrap:focus-within">
       <Setter Property="BorderBrush" Value="{DynamicResource VelaAccent}" />
     </Style>
-    <Style Selector="Border.inputWrap TextBox">
+    <!-- 输入框是 AvaloniaEdit(要的是 Markdown 高亮与 @ 引用芯片这类内联富文本,
+         纯 TextBox 给不了)。外层 Border.inputWrap 继续承担边框/焦点态,编辑器本身去壳:
+         透明底、无边框,内边距给在编辑器上(它的模板会把 Padding 传给内部滚动区)。 -->
+    <Style Selector="Border.inputWrap ae|TextEditor">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderThickness" Value="0" />
       <Setter Property="CornerRadius" Value="0" />
       <Setter Property="MinHeight" Value="0" />
       <Setter Property="Padding" Value="10,7" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiFont}" />
       <Setter Property="FontSize" Value="{DynamicResource VelaFontSize13}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
     </Style>
-    <Style Selector="Border.inputWrap TextBox /template/ Border#PART_BorderElement">
+    <Style Selector="Border.inputWrap ae|TextEditor /template/ Border">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderThickness" Value="0" />
     </Style>
-    <Style Selector="Border.inputWrap TextBox:pointerover /template/ Border#PART_BorderElement">
-      <Setter Property="Background" Value="Transparent" />
-      <Setter Property="BorderBrush" Value="Transparent" />
-      <Setter Property="BorderThickness" Value="0" />
+    <!-- 用户气泡里的文件引用芯片(输入框内那段引用是编辑器自己上色的,见 InputEditor.cs;
+         两处取同一对令牌,观感一致)。 -->
+    <Style Selector="Border.refChip">
+      <Setter Property="Background" Value="{DynamicResource VelaAccentDim}" />
+      <Setter Property="CornerRadius" Value="3" />
+      <Setter Property="Padding" Value="5,1" />
+      <Setter Property="Margin" Value="0,0,4,0" />
+      <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
-    <Style Selector="Border.inputWrap TextBox:focus /template/ Border#PART_BorderElement">
+    <Style Selector="TextBlock.refChipText">
+      <Setter Property="Foreground" Value="{DynamicResource VelaAccent}" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+    </Style>
+
+    <!-- 选区随主题令牌(编辑器默认是硬编码的黑白)。 -->
+    <Style Selector="Border.inputWrap aee|TextArea">
+      <Setter Property="SelectionBrush" Value="{DynamicResource VelaAccentDim}" />
+      <Setter Property="SelectionForeground" Value="{DynamicResource VelaTextPrimary}" />
+      <Setter Property="SelectionCornerRadius" Value="2" />
       <Setter Property="Background" Value="Transparent" />
-      <Setter Property="BorderBrush" Value="Transparent" />
-      <Setter Property="BorderThickness" Value="0" />
     </Style>
 
     <!-- ===== LiveMarkdown 皮肤 =====
@@ -400,7 +421,18 @@
             </StackPanel>
           </Border>
         </Popup>
-        <TextBox x:Name="InputBox" AcceptsReturn="True" TextWrapping="Wrap" MaxHeight="120" />
+        <!-- 编辑器没有占位提示,拿一个不吃命中测试的 TextBlock 叠上去,由代码后置随文本显隐。 -->
+        <Panel>
+          <ae:TextEditor x:Name="InputBox"
+                         WordWrap="True"
+                         MaxHeight="120"
+                         ShowLineNumbers="False"
+                         HorizontalScrollBarVisibility="Disabled"
+                         VerticalScrollBarVisibility="Auto" />
+          <TextBlock x:Name="InputPlaceholder" Classes="dim"
+                     Margin="12,8" IsHitTestVisible="False"
+                     VerticalAlignment="Top" />
+        </Panel>
         <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,0,5,0" VerticalAlignment="Bottom" Height="34">
           <Button x:Name="SendButton" Theme="{DynamicResource VelaAccentPillButtonTheme}"
                   Height="24" Padding="10,0" VerticalAlignment="Center">

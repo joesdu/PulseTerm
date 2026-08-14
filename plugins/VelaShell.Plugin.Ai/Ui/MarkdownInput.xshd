@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  聊天输入框的 Markdown 着色(AvaloniaEdit 的 xshd)。
+
+  刻意自带一份、而不是拿 HighlightingManager 里内置的 "MarkDown":那是<b>进程级共享单例</b>,
+  插件去改它的颜色会连带改掉宿主远端编辑器里的同一份定义。这份只在本插件里加载,不注册进管理器。
+
+  颜色一律留空,由 ChatPanelView.ApplyInputHighlightPalette() 在运行时按 Vela* 主题令牌上色,
+  并随主题切换重上一次 —— 这样深浅色都不用维护两份规则。
+-->
+<SyntaxDefinition name="VelaAiMarkdownInput" xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008">
+
+  <Color name="Heading" fontWeight="bold" />
+  <Color name="Bold" fontWeight="bold" />
+  <Color name="Italic" fontStyle="italic" />
+  <Color name="InlineCode" />
+  <Color name="CodeFence" />
+  <Color name="Quote" fontStyle="italic" />
+  <Color name="ListMarker" />
+  <Color name="Link" />
+
+  <RuleSet>
+    <!-- 围栏代码块:跨行,整段一个色 -->
+    <Span color="CodeFence" multiline="true">
+      <Begin>```</Begin>
+      <End>```</End>
+    </Span>
+
+    <!-- 标题 / 引用 / 列表标记都是行首语法(xshd 的规则逐行匹配,^ 即行首) -->
+    <Rule color="Heading">^[ ]{0,3}\#{1,6}[ \t].*$</Rule>
+    <Rule color="Quote">^[ ]{0,3}&gt;.*$</Rule>
+    <Rule color="ListMarker">^[ \t]*([*+\-]|\d+[.)])(?=[ \t])</Rule>
+
+    <!-- 行内:反引号代码、粗体、斜体、链接 -->
+    <Rule color="InlineCode">`[^`\n]+`</Rule>
+    <!-- 反向引用用具名组:xshd 会把每条规则的正则再包一层组,编号引用(\1)会错位失效。
+         具名组用 (?'x'…)/\k'x' 这种写法,免得 XML 里满屏 &lt; 转义。 -->
+    <Rule color="Bold">(?'bold'\*\*|__)(?=\S)(.+?)(?&lt;=\S)\k'bold'</Rule>
+    <Rule color="Italic">(?&lt;![*_\w])(?'em'[*_])(?=\S)([^*_\n]+?)(?&lt;=\S)\k'em'(?![*_\w])</Rule>
+    <Rule color="Link">!?\[[^\]\n]*\]\([^)\n]*\)</Rule>
+  </RuleSet>
+
+</SyntaxDefinition>

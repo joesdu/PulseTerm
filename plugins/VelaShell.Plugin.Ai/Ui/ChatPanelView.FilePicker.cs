@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Avalonia;
 using Avalonia.Controls;
@@ -25,11 +26,40 @@ public partial class ChatPanelView
     /// <summary>候选列表最多显示多少条。</summary>
     private const int MaxCandidates = 50;
 
+    /// <summary>连打时先攒一下再列目录(毫秒):一次停顿只发一次 SFTP 请求。</summary>
+    private const int PickerDebounceMs = 180;
+
+    /// <summary>目录列举结果的缓存寿命(毫秒):够一次连续补全用,又不至于一直看着旧目录。</summary>
+    private const long DirectoryCacheTtlMs = 5000;
+
+    /// <summary>缓存的目录数上限(超了整体清空:补全过程只会用到最近那几个目录)。</summary>
+    private const int MaxCachedDirectories = 32;
+
     private readonly List<RemoteFileEntry> _fileCandidates = [];
+
+    /// <summary>目录列举缓存,键 = 会话 + 目录。仅用于补全期间的过滤,带 TTL。</summary>
+    private readonly Dictionary<(string Session, string Directory), (IReadOnlyList<RemoteFileEntry> Entries, long At)>
+        _directoryCache = [];
+
     private int _fileIndex;
     private int _fileTokenStart = -1;
     private bool _pickerSuspended;
+
+    /// <summary>
+    /// 面板生命周期内唯一的取消源:只在 <see cref="Detach" />(面板真的关了)时取消。
+    /// </summary>
+    /// <remarks>
+    /// 曾经这里是"每敲一个键就取消上一次、另起一个",于是长路径退格时每个字符都要取消一次
+    /// 正在飞的 SFTP 列目录 —— 一次取消要沿十来层异步栈回卷,既刷屏(调试器里每层报一次
+    /// first-chance 异常)又实打实地卡输入。现在改为【代次判废】:新请求只把
+    /// <see cref="_pickerGeneration" /> 加一,旧请求跑完自己发现过期就安静丢弃结果
+    /// (结果仍进缓存,不浪费),不再互相取消。
+    /// </remarks>
     private CancellationTokenSource? _fileCts;
+
+    /// <summary>补全请求代次:只有最新一次的结果准许上屏。</summary>
+    private int _pickerGeneration;
+
     private string? _cwdSessionId;
     private string _cwd = "";
 
@@ -44,10 +74,13 @@ public partial class ChatPanelView
     }
 
     /// <summary>按光标处的 <c>@token</c> 刷新候选列表;不在引用里就收起弹层。</summary>
-    private async Task UpdateFilePickerAsync()
+    /// <param name="immediate">
+    /// 跳过防抖:补全落定后继续下钻目录时用 —— 那是一次明确的用户动作,不该再等一拍。
+    /// </param>
+    private async Task UpdateFilePickerAsync(bool immediate = false)
     {
         string text = InputBox.Text ?? "";
-        int caret = Math.Clamp(InputBox.CaretIndex, 0, text.Length);
+        int caret = Math.Clamp(InputBox.CaretOffset, 0, text.Length);
         if (!FileReference.TryFindToken(text, caret, out int start, out _, out string reference))
         {
             CloseFilePicker();
@@ -59,41 +92,93 @@ public partial class ChatPanelView
             return;
         }
         _fileTokenStart = start;
+        int generation = ++_pickerGeneration;
 
-        _fileCts?.Cancel();
-        _fileCts?.Dispose();
-        _fileCts = new();
+        _fileCts ??= new();
         CancellationToken cancellationToken = _fileCts.Token;
         try
         {
             string cwd = await ResolveWorkingDirectoryAsync(sessionId, cancellationToken);
             (string directory, string filter) = FileReference.Split(reference, cwd);
-            IReadOnlyList<RemoteFileEntry> entries = await _context.RemoteFs
-                .ListDirectoryAsync(sessionId, directory, cancellationToken);
-            if (cancellationToken.IsCancellationRequested)
+
+            // 只是过滤词变了(用户在同一个目录里接着敲文件名)——缓存里就有,本地筛,不碰网络。
+            if (TryGetCachedEntries(sessionId, directory, out IReadOnlyList<RemoteFileEntry>? cached))
             {
+                ShowCandidates(cached, filter, directory);
                 return;
             }
-            _fileCandidates.Clear();
-            _fileCandidates.AddRange(entries
-                .Where(e => filter.Length == 0 || e.Name.Contains(filter, StringComparison.OrdinalIgnoreCase))
-                .OrderByDescending(e => e.IsDirectory)
-                .ThenBy(e => e.Name, StringComparer.OrdinalIgnoreCase)
-                .Take(MaxCandidates));
-            _fileIndex = 0;
-            RenderFileCandidates(directory);
+            if (!immediate)
+            {
+                // 防抖:连打时每一键都会走到这儿,但只有最后一键能过下面这道代次检查。
+                await Task.Delay(PickerDebounceMs);
+                if (generation != _pickerGeneration)
+                {
+                    return;
+                }
+            }
+            IReadOnlyList<RemoteFileEntry> entries = await _context.RemoteFs
+                .ListDirectoryAsync(sessionId, directory, cancellationToken);
+            CacheEntries(sessionId, directory, entries);
+            if (generation != _pickerGeneration)
+            {
+                return; // 已被后来的输入顶掉:结果留在缓存里,但不上屏
+            }
+            ShowCandidates(entries, filter, directory);
         }
         catch (OperationCanceledException)
         {
-            // 输入还在继续,这次列目录作废
+            // 面板已关闭(Detach):这次列目录作废
         }
         catch (Exception ex)
         {
+            if (generation != _pickerGeneration)
+            {
+                return;
+            }
             _fileCandidates.Clear();
             FileList.Children.Clear();
             FilePopupHeader.Text = $"{_loc["Error"]}: {ex.Message}";
             FilePopup.IsOpen = true;
         }
+    }
+
+    /// <summary>按过滤词筛出候选并上屏(目录在前、同类按名排)。</summary>
+    private void ShowCandidates(IReadOnlyList<RemoteFileEntry> entries, string filter, string directory)
+    {
+        _fileCandidates.Clear();
+        _fileCandidates.AddRange(entries
+            .Where(e => filter.Length == 0 || e.Name.Contains(filter, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(e => e.IsDirectory)
+            .ThenBy(e => e.Name, StringComparer.OrdinalIgnoreCase)
+            .Take(MaxCandidates));
+        _fileIndex = 0;
+        RenderFileCandidates(directory);
+    }
+
+    private bool TryGetCachedEntries(string sessionId, string directory,
+        [NotNullWhen(true)] out IReadOnlyList<RemoteFileEntry>? entries)
+    {
+        entries = null;
+        if (!_directoryCache.TryGetValue((sessionId, directory), out (IReadOnlyList<RemoteFileEntry> Entries, long At) hit))
+        {
+            return false;
+        }
+        if (Environment.TickCount64 - hit.At > DirectoryCacheTtlMs)
+        {
+            _directoryCache.Remove((sessionId, directory));
+            return false;
+        }
+        entries = hit.Entries;
+        return true;
+    }
+
+    private void CacheEntries(string sessionId, string directory, IReadOnlyList<RemoteFileEntry> entries)
+    {
+        if (_directoryCache.Count >= MaxCachedDirectories)
+        {
+            _directoryCache.Clear();
+        }
+        _directoryCache[(sessionId, directory)] = (entries, Environment.TickCount64);
     }
 
     private void RenderFileCandidates(string directory)
@@ -108,9 +193,9 @@ public partial class ChatPanelView
         }
         FilePopup.IsOpen = true;
         // 弹层不接管键盘:万一它抢到了焦点,立刻还给输入框,否则用户就打不了字了
-        if (!InputBox.IsFocused)
+        if (!InputBox.TextArea.IsFocused)
         {
-            InputBox.Focus();
+            InputBox.TextArea.Focus();
         }
         HighlightCandidate();
     }
@@ -210,7 +295,7 @@ public partial class ChatPanelView
         }
         RemoteFileEntry entry = _fileCandidates[index];
         string text = InputBox.Text ?? "";
-        int caret = Math.Clamp(InputBox.CaretIndex, 0, text.Length);
+        int caret = Math.Clamp(InputBox.CaretOffset, 0, text.Length);
         if (_fileTokenStart >= caret)
         {
             return;
@@ -225,7 +310,7 @@ public partial class ChatPanelView
         try
         {
             InputBox.Text = string.Concat(text.AsSpan(0, _fileTokenStart), replacement, text.AsSpan(caret));
-            InputBox.CaretIndex = _fileTokenStart + replacement.Length;
+            InputBox.CaretOffset = _fileTokenStart + replacement.Length;
         }
         finally
         {
@@ -233,7 +318,7 @@ public partial class ChatPanelView
         }
         if (entry.IsDirectory)
         {
-            _ = UpdateFilePickerAsync(); // 继续下钻
+            _ = UpdateFilePickerAsync(immediate: true); // 继续下钻:用户刚点了确认,别再等防抖
         }
         else
         {
@@ -241,12 +326,94 @@ public partial class ChatPanelView
         }
     }
 
+    /// <summary>
+    /// 收起弹层。只判废在飞的补全请求(代次加一),<b>不</b>取消 <see cref="_fileCts" /> ——
+    /// 那是面板级的,取消掉后面就没得用了;况且每敲一个非引用字符都会走到这里。
+    /// </summary>
     private void CloseFilePicker()
     {
-        _fileCts?.Cancel();
+        _pickerGeneration++;
         FilePopup.IsOpen = false;
         _fileCandidates.Clear();
         _fileTokenStart = -1;
+    }
+
+    /// <summary>
+    /// 退格/删除键落在一条<b>已完成</b>的 <c>@</c> 引用边上时,整块一起删。
+    /// 返回 true 表示这次按键已被接管。
+    /// </summary>
+    /// <remarks>
+    /// 选中的文件在输入框里是一整块(Claude Code / OpenCode 里那枚芯片的等价物),
+    /// 删就整块删:一次退格 = 一次补全刷新(而且刷新后已不在引用里,连目录都不用列),
+    /// 而不是像以前那样一个字符一次、每次都发一趟 SFTP。
+    /// </remarks>
+    private bool HandleReferenceBlockDelete(KeyEventArgs e)
+    {
+        if (e.Key is not (Key.Back or Key.Delete) || e.KeyModifiers != KeyModifiers.None)
+        {
+            return false;
+        }
+        string text = InputBox.Text ?? "";
+        if (text.Length == 0 || InputBox.SelectionLength > 0)
+        {
+            return false; // 有选区时按常规删选区
+        }
+        int caret = Math.Clamp(InputBox.CaretOffset, 0, text.Length);
+        int start, end;
+        if (e.Key == Key.Back)
+        {
+            if (!FileReference.TryFindCompletedReferenceBefore(text, caret, out start))
+            {
+                return false;
+            }
+            end = caret;
+        }
+        else
+        {
+            // 前向删除:光标停在块左边时同样整块删(与退格对称)
+            int blockEnd = FindCompletedReferenceEnd(text, caret);
+            if (blockEnd < 0)
+            {
+                return false;
+            }
+            start = caret;
+            end = blockEnd;
+        }
+        _pickerSuspended = true;
+        try
+        {
+            InputBox.Text = string.Concat(text.AsSpan(0, start), text.AsSpan(end));
+            InputBox.CaretOffset = start;
+        }
+        finally
+        {
+            _pickerSuspended = false;
+        }
+        CloseFilePicker();
+        e.Handled = true;
+        return true;
+    }
+
+    /// <summary>光标处若正好起头一条已完成引用,返回它的右边界(含尾空格);否则 -1。</summary>
+    private static int FindCompletedReferenceEnd(string text, int caret)
+    {
+        if (caret >= text.Length || text[caret] != '@')
+        {
+            return -1;
+        }
+        for (int end = caret + 1; end <= text.Length; end++)
+        {
+            if (FileReference.TryFindCompletedReferenceBefore(text, end, out int start) && start == caret)
+            {
+                // 引号形态先在闭引号处就命中,尾空格属于这块,一并带走
+                return end < text.Length && text[end] == ' ' ? end + 1 : end;
+            }
+            if (end < text.Length && text[end] == '\n')
+            {
+                return -1;
+            }
+        }
+        return -1;
     }
 
     private async Task<string> ResolveWorkingDirectoryAsync(string sessionId, CancellationToken cancellationToken)
@@ -271,23 +438,29 @@ public partial class ChatPanelView
 
     /// <summary>
     /// 把消息里 <c>@</c> 引用的文件读出来附在消息后面(给模型看的那一份)。
-    /// 返回展开后的文本与成功附带的路径;读失败/二进制/超限都以文字说明,不打断发送。
+    /// 返回展开后的文本、成功附带的路径,以及<b>没能读到</b>的路径;读失败/二进制/超限
+    /// 都以文字说明,不打断发送。
     /// </summary>
-    private async Task<(string ModelText, IReadOnlyList<string> Attached)> ResolveAttachmentsAsync(
-        string text, CancellationToken cancellationToken)
+    /// <remarks>
+    /// 单独回报读失败的那几个,是因为气泡里已经用芯片列出了引用的文件(Copilot 的做法),
+    /// 再补一张"已附带 N 个文件"的卡片纯属重复;真正需要提醒用户的只有"这个没读到"。
+    /// </remarks>
+    private async Task<(string ModelText, IReadOnlyList<string> Attached, IReadOnlyList<string> Failed)>
+        ResolveAttachmentsAsync(string text, CancellationToken cancellationToken)
     {
         List<string> references = FileReference.Parse(text);
         if (references.Count == 0)
         {
-            return (text, []);
+            return (text, [], []);
         }
         if (SelectedSessionId is not { } sessionId)
         {
-            return (text + $"\n\n[{_loc["NoSession"]}]", []);
+            return (text + $"\n\n[{_loc["NoSession"]}]", [], references);
         }
         string cwd = await ResolveWorkingDirectoryAsync(sessionId, cancellationToken);
         var builder = new StringBuilder(text);
         var attached = new List<string>();
+        var failed = new List<string>();
         builder.Append("\n\n").Append(_loc["AttachIntro"]);
         foreach (string reference in references.Take(MaxAttachedFiles))
         {
@@ -312,27 +485,26 @@ public partial class ChatPanelView
             catch (Exception ex)
             {
                 builder.Append($"\n\n===== {path} =====\n[{_loc["AttachFailed"]}: {ex.Message}]");
+                failed.Add(path);
             }
         }
         if (references.Count > MaxAttachedFiles)
         {
             builder.Append($"\n\n[{_loc.F("AttachLimit", MaxAttachedFiles)}]");
+            failed.AddRange(references.Skip(MaxAttachedFiles).Select(r => FileReference.Expand(r, cwd)));
         }
-        return (builder.ToString(), attached);
+        return (builder.ToString(), attached, failed);
     }
 
-    /// <summary>在消息流里补一张"已附带 N 个文件"的小卡片。</summary>
-    private void AddAttachmentCard(IReadOnlyList<string> paths)
+    /// <summary>没读到的引用在消息流里补一行提示(读到的已经在气泡的芯片里了,不再重复报)。</summary>
+    private void AddAttachmentFailureNote(IReadOnlyList<string> paths)
     {
         var stack = new StackPanel { Spacing = 2 };
-        stack.Children.Add(new TextBlock { Classes = { "dim" }, Text = _loc.F("AttachedCount", paths.Count) });
-        foreach (string path in paths)
+        stack.Children.Add(new TextBlock
         {
-            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-            row.Children.Add(MakeIcon("Icon.file-text", "VelaTextMuted", 11));
-            row.Children.Add(new TextBlock { Classes = { "fileName" }, Text = path });
-            stack.Children.Add(row);
-        }
+            Classes = { "dim" },
+            Text = _loc.F("AttachFailedList", string.Join(", ", paths.Select(FileReference.DisplayName)))
+        });
         MessagesPanel.Children.Add(new Border { Classes = { "toolCard" }, Child = stack });
     }
 

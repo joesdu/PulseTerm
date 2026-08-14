@@ -11,10 +11,22 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- 输入框的 Markdown 着色定义。EmbeddedResource 而非 AvaloniaResource:
+         HighlightingLoader 要的是普通 Stream(与宿主 Syntax/*.xshd 的处置一致)。 -->
+    <EmbeddedResource Include="Ui\MarkdownInput.xshd" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- SDK 由宿主统一提供(共享契约程序集),不随插件输出复制。 -->
     <ProjectReference Include="..\..\plugin-sdk\VelaShell.PluginSdk\VelaShell.PluginSdk.csproj" Private="false" ExcludeAssets="runtime" />
     <!-- 仅编译期引用 Avalonia,运行时由装载方共享同一套(版本须与宿主一致)。 -->
     <PackageReference Include="Avalonia" Version="12.1.1" ExcludeAssets="runtime" />
+    <!-- 输入框是 AvaloniaEdit(Markdown 高亮 + @ 引用芯片,纯 TextBox 给不了内联富文本)。
+         程序集名 AvaloniaEdit 命中 PluginAssemblyLoadContext 的 SharedPrefixes("Avalonia"),
+         运行时一律回落到装载方那份,故此处同样只要编译期引用。
+         注意:因此本插件必须进程内装载(plugin.json 未声明 isolated)—— 隔离宿主进程里
+         没有 AvaloniaEdit,回落会找不到程序集。 -->
+    <PackageReference Include="Avalonia.AvaloniaEdit" Version="12.0.0" ExcludeAssets="runtime" />
     <!-- AI 栈(用户决策 2026-08-10):Microsoft.Extensions.AI 抽象 + 各家官方 SDK,
          统一到 IChatClient;Agent 循环用 FunctionInvokingChatClient。
          这些依赖随插件目录分发,由插件 ALC 按 deps.json 隔离解析,与宿主互不干扰。 -->
