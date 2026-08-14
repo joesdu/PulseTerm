@@ -4,6 +4,7 @@ using VelaShell.Infrastructure.Plugins;
 using VelaShell.Infrastructure.Plugins.Capabilities;
 using VelaShell.PluginSdk.Secrets;
 using VelaShell.PluginSdk.Storage;
+using VelaShell.PluginSdk.TimeSeries;
 
 namespace VelaShell.Infrastructure.Persistence;
 
@@ -30,6 +31,9 @@ public sealed class SonnetDbPluginDataStore(SonnetDbEngine engine, ISecretProtec
         protector is null ? new UnavailableSecrets() : new DbSecrets(this, pluginId, protector);
 
     /// <inheritdoc />
+    public ITimeSeriesApi CreateTimeSeries(string pluginId) => new SonnetDbPluginTimeSeries(engine, pluginId);
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<string>> ListPluginIdsAsync(CancellationToken cancellationToken = default) =>
         await engine.WithCollectionAsync<IReadOnlyList<string>>(SonnetDbEngine.PluginDataCollection, store =>
             [.. store.Scan()
@@ -53,6 +57,16 @@ public sealed class SonnetDbPluginDataStore(SonnetDbEngine engine, ISecretProtec
             }
             return null;
         }, cancellationToken).ConfigureAwait(false);
+
+        // 时序数据不在文档集合里:按插件命名空间前缀把 measurement 一并 drop。
+        string measurementPrefix = SonnetDbPluginTimeSeries.PrefixFor(pluginId);
+        IReadOnlyList<SonnetDB.Catalog.MeasurementSchema> measurements =
+            await engine.ListMeasurementsAsync(cancellationToken).ConfigureAwait(false);
+        foreach (string name in measurements.Select(m => m.Name)
+                                            .Where(n => n.StartsWith(measurementPrefix, StringComparison.Ordinal)))
+        {
+            await engine.DropMeasurementAsync(name, cancellationToken).ConfigureAwait(false);
+        }
     }
 
     private static string DocId(string pluginId, string kind, string key) => $"{pluginId}|{kind}|{key}";

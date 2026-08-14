@@ -920,7 +920,7 @@
     <value>ローカルポート</value>
   </data>
   <data name="Main_CloseConfirmBody" xml:space="preserve">
-    <value>アクティブな SSH セッションがあります。ウィンドウを閉じるとすべて切断されます。終了しますか?</value>
+    <value>アクティブなセッションがあります。ウィンドウを閉じるとすべて切断されます。終了しますか?</value>
   </data>
   <data name="Main_CloseConfirmTitle" xml:space="preserve">
     <value>VelaShell を閉じる</value>
@@ -1267,6 +1267,9 @@
   </data>
   <data name="Msg_UpdateServiceNotAvailable" xml:space="preserve">
     <value>自動更新サービスは未対応です。プロジェクトのリリースページから新しいバージョンを入手してください。</value>
+  </data>
+  <data name="SetAbout_ArchEmulated" xml:space="preserve">
+    <value>{0}、{1} 上でエミュレーション実行</value>
   </data>
   <data name="SetAbout_Checking" xml:space="preserve">
     <value>更新を確認しています…</value>
@@ -2688,6 +2691,12 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   <data name="ShowHiddenFiles" xml:space="preserve">
     <value>隠しファイルを表示</value>
   </data>
+  <data name="Sidebar_ClearRecent" xml:space="preserve">
+    <value>最近の接続を消去</value>
+  </data>
+  <data name="Sidebar_ClearRecentConfirm" xml:space="preserve">
+    <value>最近の接続履歴をすべて消去します。この操作は取り消せません。続行しますか?</value>
+  </data>
   <data name="Sidebar_Explorer" xml:space="preserve">
     <value>エクスプローラー</value>
   </data>
@@ -2909,6 +2918,15 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   </data>
   <data name="Tree_DuplicateConnection" xml:space="preserve">
     <value>接続を複製</value>
+  </data>
+  <data name="Tree_DeleteGroup" xml:space="preserve">
+    <value>グループを削除</value>
+  </data>
+  <data name="Tree_DeleteGroupConfirm" xml:space="preserve">
+    <value>グループ「{0}」を削除しますか？中の接続 {1} 件もまとめて削除され、この操作は元に戻せません。</value>
+  </data>
+  <data name="Tree_DeleteGroupConfirmEmpty" xml:space="preserve">
+    <value>空のグループ「{0}」を削除しますか？この操作は元に戻せません。</value>
   </data>
   <data name="Tree_EditConnection" xml:space="preserve">
     <value>接続を編集</value>
@@ -3643,6 +3661,63 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   </data>
   <data name="XImport_MasterPwWarnFmt" xml:space="preserve">
     <value>{0} はマスターパスワードが有効なため、保存されたパスワードを復元できません。これらのセッションはパスワードなしでインポートされます。</value>
+  </data>
+  <data name="SetVm_SectionProxy" xml:space="preserve">
+    <value>プロキシ</value>
+  </data>
+  <data name="SetProxy_Title" xml:space="preserve">
+    <value>プロキシ</value>
+  </data>
+  <data name="SetProxy_Subtitle" xml:space="preserve">
+    <value>// すべての送信接続(SSH / FTP / HTTP)にプロキシを設定</value>
+  </data>
+  <data name="SetProxy_Type" xml:space="preserve">
+    <value>プロキシの種類</value>
+  </data>
+  <data name="SetProxy_TypeDesc" xml:space="preserve">
+    <value>// ホスト・ポート・資格情報は HTTP と SOCKS5 のみ</value>
+  </data>
+  <data name="SetProxy_TypeNone" xml:space="preserve">
+    <value>プロキシなし</value>
+  </data>
+  <data name="SetProxy_TypeSystem" xml:space="preserve">
+    <value>システムプロキシ</value>
+  </data>
+  <data name="SetProxy_TypeHttp" xml:space="preserve">
+    <value>HTTP プロキシ</value>
+  </data>
+  <data name="SetProxy_TypeSocks5" xml:space="preserve">
+    <value>SOCKS5 プロキシ</value>
+  </data>
+  <data name="SetProxy_SettingsSection" xml:space="preserve">
+    <value>プロキシ設定</value>
+  </data>
+  <data name="SetProxy_Host" xml:space="preserve">
+    <value>ホスト</value>
+  </data>
+  <data name="SetProxy_Port" xml:space="preserve">
+    <value>ポート</value>
+  </data>
+  <data name="SetProxy_Username" xml:space="preserve">
+    <value>ユーザー名</value>
+  </data>
+  <data name="SetProxy_Password" xml:space="preserve">
+    <value>パスワード</value>
+  </data>
+  <data name="SetProxy_ProxyDns" xml:space="preserve">
+    <value>DNS 解決にプロキシを使用</value>
+  </data>
+  <data name="SetProxy_ProxyDnsDesc" xml:space="preserve">
+    <value>// オン = ホスト名をプロキシ側で解決、オフ = ローカルで解決してから接続</value>
+  </data>
+  <data name="Msg_ProxyMisconfigured" xml:space="preserve">
+    <value>プロキシが有効ですが、ホストまたはポートが未設定です。「設定 → プロキシ」を確認してください。</value>
+  </data>
+  <data name="Msg_ProxyConnectFailed" xml:space="preserve">
+    <value>プロキシ接続に失敗しました: {0}</value>
+  </data>
+  <data name="Msg_ProxyAuthFailed" xml:space="preserve">
+    <value>プロキシ認証に失敗しました。ユーザー名とパスワードを確認してください。</value>
   </data>
   <data name="Plugin_ProtocolUnavailable" xml:space="preserve">
     <value>このプロトコルを提供するプラグインが利用できません。プラグイン管理画面でインストールまたは有効化してください。</value>

@@ -12,8 +12,8 @@
         x:DataType="vm:ResourceMonitorWindowViewModel"
         Icon="/Assets/velashell.ico"
         Title="{loc:Localize Monitor_Title}"
-        Width="1280" Height="820"
-        MinWidth="960" MinHeight="620"
+        Width="1296" Height="836"
+        MinWidth="976" MinHeight="636"
         TransparencyLevelHint="Transparent"
         Background="Transparent"
         WindowStartupLocation="CenterOwner"
@@ -268,11 +268,11 @@
 
   <Panel>
     <Border x:Name="RootCard"
-            Margin="8" CornerRadius="8" ClipToBounds="True"
+            Margin="16" CornerRadius="8" ClipToBounds="True"
             Background="{DynamicResource VelaBgSurface}"
             BorderBrush="{DynamicResource VelaBorderSecondary}"
             BorderThickness="1"
-            BoxShadow="0 8 32 0 #80000000">
+            BoxShadow="{DynamicResource VelaShadowWindow}">
       <Grid RowDefinitions="56,*">
 
         <!-- ── 头部 ── -->
@@ -348,10 +348,13 @@
         <!-- ── 主体:左导航 + 内容 ── -->
         <Grid Grid.Row="1" ColumnDefinitions="200,*">
 
-          <Border Grid.Column="0"
+          <!-- 侧栏铺到卡片底部,故须带左下内圆角:方角的 bg-sidebar 背景会盖住外框在圆弧处
+               的描边,表现为左下角"断线"。上方是标题条,左上角不归它管。 -->
+          <Border x:Name="SidebarStrip" Grid.Column="0"
                   Background="{DynamicResource VelaBgSidebar}"
                   BorderBrush="{DynamicResource VelaBorderPrimary}"
-                  BorderThickness="0,0,1,0">
+                  BorderThickness="0,0,1,0"
+                  CornerRadius="0,0,0,7">
             <DockPanel Margin="8,10">
 
               <!-- 采样间隔与说明固定在底部 -->
@@ -1691,14 +1694,14 @@
     </Border>
 
     <Panel x:Name="ResizeGrips" ZIndex="200">
-      <Border Tag="North" Height="5" VerticalAlignment="Top" Margin="10,0" Background="Transparent" Cursor="TopSide" PointerPressed="ResizeEdge_PointerPressed" />
-      <Border Tag="South" Height="5" VerticalAlignment="Bottom" Margin="10,0" Background="Transparent" Cursor="BottomSide" PointerPressed="ResizeEdge_PointerPressed" />
-      <Border Tag="West" Width="5" HorizontalAlignment="Left" Margin="0,10" Background="Transparent" Cursor="LeftSide" PointerPressed="ResizeEdge_PointerPressed" />
-      <Border Tag="East" Width="5" HorizontalAlignment="Right" Margin="0,10" Background="Transparent" Cursor="RightSide" PointerPressed="ResizeEdge_PointerPressed" />
-      <Border Tag="NorthWest" Width="10" Height="10" HorizontalAlignment="Left" VerticalAlignment="Top" Background="Transparent" Cursor="TopLeftCorner" PointerPressed="ResizeEdge_PointerPressed" />
-      <Border Tag="NorthEast" Width="10" Height="10" HorizontalAlignment="Right" VerticalAlignment="Top" Background="Transparent" Cursor="TopRightCorner" PointerPressed="ResizeEdge_PointerPressed" />
-      <Border Tag="SouthWest" Width="10" Height="10" HorizontalAlignment="Left" VerticalAlignment="Bottom" Background="Transparent" Cursor="BottomLeftCorner" PointerPressed="ResizeEdge_PointerPressed" />
-      <Border Tag="SouthEast" Width="10" Height="10" HorizontalAlignment="Right" VerticalAlignment="Bottom" Background="Transparent" Cursor="BottomRightCorner" PointerPressed="ResizeEdge_PointerPressed" />
+      <Border Tag="North" Height="16" VerticalAlignment="Top" Margin="22,0" Background="Transparent" Cursor="TopSide" PointerPressed="ResizeEdge_PointerPressed" />
+      <Border Tag="South" Height="16" VerticalAlignment="Bottom" Margin="22,0" Background="Transparent" Cursor="BottomSide" PointerPressed="ResizeEdge_PointerPressed" />
+      <Border Tag="West" Width="16" HorizontalAlignment="Left" Margin="0,22" Background="Transparent" Cursor="LeftSide" PointerPressed="ResizeEdge_PointerPressed" />
+      <Border Tag="East" Width="16" HorizontalAlignment="Right" Margin="0,22" Background="Transparent" Cursor="RightSide" PointerPressed="ResizeEdge_PointerPressed" />
+      <Border Tag="NorthWest" Width="22" Height="22" HorizontalAlignment="Left" VerticalAlignment="Top" Background="Transparent" Cursor="TopLeftCorner" PointerPressed="ResizeEdge_PointerPressed" />
+      <Border Tag="NorthEast" Width="22" Height="22" HorizontalAlignment="Right" VerticalAlignment="Top" Background="Transparent" Cursor="TopRightCorner" PointerPressed="ResizeEdge_PointerPressed" />
+      <Border Tag="SouthWest" Width="22" Height="22" HorizontalAlignment="Left" VerticalAlignment="Bottom" Background="Transparent" Cursor="BottomLeftCorner" PointerPressed="ResizeEdge_PointerPressed" />
+      <Border Tag="SouthEast" Width="22" Height="22" HorizontalAlignment="Right" VerticalAlignment="Bottom" Background="Transparent" Cursor="BottomRightCorner" PointerPressed="ResizeEdge_PointerPressed" />
     </Panel>
   </Panel>
 </Window>

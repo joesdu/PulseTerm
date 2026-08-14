@@ -67,10 +67,18 @@ public sealed class FakeRemoteFs : IRemoteFsApi
             : null;
     }
 
+    /// <summary>
+    /// <see cref="ListDirectoryAsync" /> 至今被调用了多少次。
+    /// 列目录在真实环境里是一次 SFTP 往返,"敲一个字符列一次"就是卡顿的来源,
+    /// 因此凡是靠缓存/防抖压请求数的功能(如 AI 面板的 <c>@</c> 补全)都拿它来钉行为。
+    /// </summary>
+    public int ListDirectoryCalls { get; private set; }
+
     /// <inheritdoc />
     public Task<IReadOnlyList<RemoteFileEntry>> ListDirectoryAsync(string sessionId, string path,
         CancellationToken cancellationToken = default)
     {
+        ListDirectoryCalls++;
         string normalized = Normalize(path);
         if (StatCore(sessionId, normalized) is not { IsDirectory: true })
         {

@@ -1229,7 +1229,7 @@
     <value>未知</value>
   </data>
   <data name="Main_CloseConfirmBody" xml:space="preserve">
-    <value>仍有活动的 SSH 会话,关闭窗口将断开所有连接。确定退出吗?</value>
+    <value>仍有活动的会话,关闭窗口将断开所有连接。确定退出吗?</value>
   </data>
   <data name="Main_CloseConfirmTitle" xml:space="preserve">
     <value>关闭 VelaShell</value>
@@ -1549,6 +1549,9 @@
   </data>
   <data name="Msg_UpdateServiceNotAvailable" xml:space="preserve">
     <value>自动更新服务尚未接入,请前往项目发布页获取新版本。</value>
+  </data>
+  <data name="SetAbout_ArchEmulated" xml:space="preserve">
+    <value>{0},在 {1} 上仿真运行</value>
   </data>
   <data name="SetAbout_Checking" xml:space="preserve">
     <value>正在检查更新…</value>
@@ -2867,6 +2870,12 @@ Windows 填 exe 完整路径或命令名(如 notepad);Linux 填命令名(如 ged
   <data name="Shell_Cmd" xml:space="preserve">
     <value>命令提示符 (CMD)</value>
   </data>
+  <data name="Sidebar_ClearRecent" xml:space="preserve">
+    <value>清除最近连接</value>
+  </data>
+  <data name="Sidebar_ClearRecentConfirm" xml:space="preserve">
+    <value>将清除全部最近连接记录,此操作不可撤销。确定继续吗?</value>
+  </data>
   <data name="Sidebar_Explorer" xml:space="preserve">
     <value>资源管理器</value>
   </data>
@@ -3058,6 +3067,15 @@ Windows 填 exe 完整路径或命令名(如 notepad);Linux 填命令名(如 ged
   </data>
   <data name="Tree_DuplicateConnection" xml:space="preserve">
     <value>复制连接</value>
+  </data>
+  <data name="Tree_DeleteGroup" xml:space="preserve">
+    <value>删除分组</value>
+  </data>
+  <data name="Tree_DeleteGroupConfirm" xml:space="preserve">
+    <value>确定要删除分组“{0}”吗？组内的 {1} 个连接会一并删除，此操作不可撤销。</value>
+  </data>
+  <data name="Tree_DeleteGroupConfirmEmpty" xml:space="preserve">
+    <value>确定要删除空分组“{0}”吗？此操作不可撤销。</value>
   </data>
   <data name="Tree_EditConnection" xml:space="preserve">
     <value>编辑连接</value>
@@ -3735,6 +3753,63 @@ Windows 填 exe 完整路径或命令名(如 notepad);Linux 填命令名(如 ged
   </data>
   <data name="XImport_MasterPwWarnFmt" xml:space="preserve">
     <value>{0} 启用了主密码，无法还原已保存的密码；这些会话将以不含密码的方式导入。</value>
+  </data>
+  <data name="SetVm_SectionProxy" xml:space="preserve">
+    <value>网络代理</value>
+  </data>
+  <data name="SetProxy_Title" xml:space="preserve">
+    <value>网络代理</value>
+  </data>
+  <data name="SetProxy_Subtitle" xml:space="preserve">
+    <value>// 为应用全部出站连接(SSH / FTP / HTTP)配置代理</value>
+  </data>
+  <data name="SetProxy_Type" xml:space="preserve">
+    <value>代理类型</value>
+  </data>
+  <data name="SetProxy_TypeDesc" xml:space="preserve">
+    <value>// 仅 HTTP 与 SOCKS5 需要填写主机、端口与凭据</value>
+  </data>
+  <data name="SetProxy_TypeNone" xml:space="preserve">
+    <value>无代理</value>
+  </data>
+  <data name="SetProxy_TypeSystem" xml:space="preserve">
+    <value>系统代理</value>
+  </data>
+  <data name="SetProxy_TypeHttp" xml:space="preserve">
+    <value>HTTP 代理</value>
+  </data>
+  <data name="SetProxy_TypeSocks5" xml:space="preserve">
+    <value>SOCKS5 代理</value>
+  </data>
+  <data name="SetProxy_SettingsSection" xml:space="preserve">
+    <value>代理设置</value>
+  </data>
+  <data name="SetProxy_Host" xml:space="preserve">
+    <value>主机</value>
+  </data>
+  <data name="SetProxy_Port" xml:space="preserve">
+    <value>端口</value>
+  </data>
+  <data name="SetProxy_Username" xml:space="preserve">
+    <value>用户名</value>
+  </data>
+  <data name="SetProxy_Password" xml:space="preserve">
+    <value>密码</value>
+  </data>
+  <data name="SetProxy_ProxyDns" xml:space="preserve">
+    <value>使用代理执行 DNS 查找</value>
+  </data>
+  <data name="SetProxy_ProxyDnsDesc" xml:space="preserve">
+    <value>// 开 = 主机名交给代理端解析;关 = 本地解析后再经代理连接</value>
+  </data>
+  <data name="Msg_ProxyMisconfigured" xml:space="preserve">
+    <value>已启用代理,但代理主机或端口未配置,请检查「设置 → 网络代理」。</value>
+  </data>
+  <data name="Msg_ProxyConnectFailed" xml:space="preserve">
+    <value>代理连接失败:{0}</value>
+  </data>
+  <data name="Msg_ProxyAuthFailed" xml:space="preserve">
+    <value>代理认证失败,请检查代理用户名与密码。</value>
   </data>
   <data name="Plugin_ProtocolUnavailable" xml:space="preserve">
     <value>提供该协议的插件当前不可用。请在插件管理页安装或启用它。</value>

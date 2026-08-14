@@ -8,7 +8,7 @@
         x:Class="VelaShell.Views.SessionImportView"
         x:DataType="vm:SessionImportViewModel"
         Title="{Binding Title}"
-        Width="560" MaxHeight="660"
+        Width="568" MaxHeight="668"
         SizeToContent="Height"
         CanResize="False"
         WindowDecorations="None"
@@ -55,8 +55,8 @@
           Background="{DynamicResource VelaBgSurface}"
           BorderBrush="{DynamicResource VelaBorderSecondary}"
           BorderThickness="1"
-          BoxShadow="0 8 32 0 #80000000"
-          Margin="12">
+          BoxShadow="{DynamicResource VelaShadowWindow}"
+          Margin="16">
     <Grid RowDefinitions="48,Auto,Auto,Auto,*,52">
 
       <!-- Header -->

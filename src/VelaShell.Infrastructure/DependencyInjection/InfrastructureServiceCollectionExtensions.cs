@@ -14,8 +14,10 @@ using VelaShell.Core.Sftp;
 using VelaShell.Core.Ssh;
 using VelaShell.Core.Sync;
 using VelaShell.Core.Tunnels;
+using VelaShell.Core.Net;
 using VelaShell.Infrastructure.Ftp;
 using VelaShell.Infrastructure.Import;
+using VelaShell.Infrastructure.Net;
 using VelaShell.Infrastructure.Persistence;
 using VelaShell.Infrastructure.Plugins.Protocols;
 using VelaShell.Infrastructure.Sftp;
@@ -86,6 +88,10 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<ISecurityAlertService>(sp => new SecurityAlertService(
             sp.GetRequiredService<ISettingsService>(), sp.GetService<IAuditLogService>()));
 
+        // 统一代理解析:全部出站通道(SSH / FTP / HttpClient)共用的唯一代理出口。
+        services.AddSingleton<IProxyResolver>(sp =>
+            new ProxyResolver(sp.GetRequiredService<ISettingsService>()));
+
         // SSH connection service
         services.AddSingleton<ISshConnectionService>(sp =>
         {
@@ -93,8 +99,9 @@ public static class InfrastructureServiceCollectionExtensions
             ISettingsService settings = sp.GetRequiredService<ISettingsService>();
             IHostKeyPrompt? prompt = sp.GetService<IHostKeyPrompt>();
             ISecurityAlertService? alerts = sp.GetService<ISecurityAlertService>();
+            IProxyResolver proxyResolver = sp.GetRequiredService<IProxyResolver>();
             return new SshConnectionService(ci =>
-                CreateSshClientWrapper(ci, hostKey, settings, prompt, alerts));
+                CreateSshClientWrapper(ci, hostKey, settings, prompt, alerts, proxyResolver));
         });
 
         // SFTP service
@@ -212,14 +219,23 @@ public static class InfrastructureServiceCollectionExtensions
 
     private static TmdsSshClientWrapper CreateSshClientWrapper(
         VelaConnectionInfo ci, IHostKeyService? hostKey, ISettingsService? settings,
-        IHostKeyPrompt? prompt, ISecurityAlertService? alerts)
+        IHostKeyPrompt? prompt, ISecurityAlertService? alerts, IProxyResolver? proxyResolver = null)
     {
-        return new TmdsSshClientWrapper(BuildSshClientSettings(ci, hostKey, settings, prompt, alerts));
+        SshClientSettings s = BuildSshClientSettings(ci, hostKey, settings, prompt, alerts,
+            out SshClientSettings firstHop);
+        // 网络代理作用于首个真实 TCP 出站(有跳板链时是最内层跳板,其余各跳都在 SSH 通道里);
+        // 中继在 ConnectAsync 时按当前设置决定,故这里只传目标与设置引用。
+        VelaConnectionInfo firstCi = ci;
+        while (firstCi.JumpHost is not null)
+        {
+            firstCi = firstCi.JumpHost;
+        }
+        return new TmdsSshClientWrapper(s, firstHop, firstCi.Host, firstCi.Port, proxyResolver);
     }
 
     private static SshClientSettings BuildSshClientSettings(
         VelaConnectionInfo ci, IHostKeyService? hostKey, ISettingsService? settings,
-        IHostKeyPrompt? prompt, ISecurityAlertService? alerts)
+        IHostKeyPrompt? prompt, ISecurityAlertService? alerts, out SshClientSettings firstHopSettings)
     {
         var s = new SshClientSettings($"{ci.Username}@{ci.Host}")
         {
@@ -238,8 +254,9 @@ public static class InfrastructureServiceCollectionExtensions
         AddCredential(s, ci);
 
         // ProxyJump
+        firstHopSettings = s;
         if (ci.JumpHost is not null)
-            s.Proxy = BuildProxyChain(ci.JumpHost, hostKey, settings, prompt, alerts);
+            s.Proxy = BuildProxyChain(ci.JumpHost, hostKey, settings, prompt, alerts, out firstHopSettings);
 
         // Host key verification
         if (hostKey is not null)
@@ -355,7 +372,7 @@ public static class InfrastructureServiceCollectionExtensions
 
     private static SshProxy BuildProxyChain(VelaConnectionInfo jumpHost,
         IHostKeyService? hostKey, ISettingsService? ss,
-        IHostKeyPrompt? prompt, ISecurityAlertService? alerts)
+        IHostKeyPrompt? prompt, ISecurityAlertService? alerts, out SshClientSettings firstHopSettings)
     {
         var proxy = new SshClientSettings($"{jumpHost.Username}@{jumpHost.Host}")
         {
@@ -364,8 +381,10 @@ public static class InfrastructureServiceCollectionExtensions
         };
         AddCredential(proxy, jumpHost);
 
+        // 最内层跳板(无自己的跳板)才是真实 TCP 出站的那一跳。
+        firstHopSettings = proxy;
         if (jumpHost.JumpHost is not null)
-            proxy.Proxy = BuildProxyChain(jumpHost.JumpHost, hostKey, ss, prompt, alerts);
+            proxy.Proxy = BuildProxyChain(jumpHost.JumpHost, hostKey, ss, prompt, alerts, out firstHopSettings);
 
         if (hostKey is not null)
         {

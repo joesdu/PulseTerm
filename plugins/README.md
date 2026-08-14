@@ -6,11 +6,17 @@ SDK 契约见 [plugin-sdk/](../plugin-sdk/),开发文档见
 
 ## 现有插件
 
-| 目录 | id | 随包分发 | 说明 |
-| --- | --- | --- | --- |
-| [VelaShell.Plugin.HelloWorld](VelaShell.Plugin.HelloWorld/) | `velashell.hello-world` | 否 | 官方示例:SDK 各能力的最小用法 |
-| [VelaShell.Plugin.Ai](VelaShell.Plugin.Ai/) | `velashell.ai` | 是 | AI 助手:多提供商流式对话 + Agent 模式(读终端/执行命令带审批) |
-| [VelaShell.Plugin.S3](VelaShell.Plugin.S3/) | `velashell.s3` | 是 | S3 兼容对象存储:协议 + 桶管理器 + 对象检视器(协议能力域的首个使用者) |
+| 目录 | id | 随包分发 | 装载模式 | 说明 |
+| --- | --- | --- | --- | --- |
+| [VelaShell.Plugin.HelloWorld](VelaShell.Plugin.HelloWorld/) | `velashell.hello-world` | 否 | 隔离进程 | 官方示例:SDK 各能力的最小用法 |
+| [VelaShell.Plugin.Ai](VelaShell.Plugin.Ai/) | `velashell.ai` | 是 | 进程内 | AI 助手:多提供商流式对话 + Agent 模式(读终端/执行命令带审批)+ 自定义 MCP 服务器 |
+| [VelaShell.Plugin.S3](VelaShell.Plugin.S3/) | `velashell.s3` | 是 | 进程内 | S3 兼容对象存储:协议 + 桶管理器 + 对象检视器(协议能力域的首个使用者) |
+
+装载模式由 `plugin.json` 的 `hostMode` 决定(`isolated` / `inProcess`,默认进程内)。
+隔离插件跑在独立的 [`VelaShell.PluginHost`](../src/VelaShell.PluginHost) 进程里,崩溃不波及宿主;
+AI 插件因为要用宿主的 AvaloniaEdit 作输入框(隔离进程里没有这个程序集)必须进程内装载;
+S3 插件则是因为**协议能力只在进程内可用** —— 协议是宿主反向调用插件的高频通道,
+隔离进程的 RPC 只承载插件→宿主方向(清单校验会直接拒绝 protocols + isolated 的组合)。
 
 "随包分发"由 csproj 的 `<VelaPluginShip>` 控制(默认 `true`)。示例插件设 `false`:
 本机构建仍镜像进 `src/VelaShell/bin/<配置>/net11.0/plugins/`,F5 能装载它验证插件系统,

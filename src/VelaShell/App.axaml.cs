@@ -101,6 +101,12 @@ public class App : Application
             .BuildServiceProvider();
         _themeService = _serviceProvider.GetRequiredService<IThemeService>();
 
+        // 进程级默认代理:覆盖应用内全部 HttpClient(更新检查、Gist 同步、Webhook、
+        // 头像、插件)的出站请求;每次请求动态取当前代理设置,保存即生效。
+        // SSH / FTP 的代理走各自适配层,同样消费这一个 IProxyResolver。
+        VelaShell.Infrastructure.Net.VelaWebProxy.Install(
+            _serviceProvider.GetRequiredService<VelaShell.Core.Net.IProxyResolver>());
+
         // 本地化字符串的实时重绑定({loc:Localize})跟随 DI 服务(#4)。
         ILocalizationService localization =
             _serviceProvider.GetRequiredService<ILocalizationService>();

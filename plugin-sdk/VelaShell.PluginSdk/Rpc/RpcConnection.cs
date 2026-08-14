@@ -145,7 +145,11 @@ public sealed class RpcConnection : IAsyncDisposable
                     throw new IOException($"Invalid RPC frame length {length}.");
                 }
                 byte[] body = new byte[length];
-                await TryFillAsync(body, allowCleanEndOfStream: false).ConfigureAwait(false);
+                // false = 本端正在关闭(帧读到一半),此时 body 是半截的,不能拿去反序列化。
+                if (!await TryFillAsync(body, allowCleanEndOfStream: false).ConfigureAwait(false))
+                {
+                    return;
+                }
                 RpcMessage? message = JsonSerializer.Deserialize<RpcMessage>(body, JsonOptions);
                 if (message is null)
                 {
@@ -166,17 +170,34 @@ public sealed class RpcConnection : IAsyncDisposable
 
     /// <summary>
     /// 读满缓冲区。帧边界上的 0 字节(对端干净关闭)在 <paramref name="allowCleanEndOfStream" />
-    /// 时返回 false;帧中途 EOF 是协议破损,抛 <see cref="IOException" />。
+    /// 时返回 false;本端主动关闭同样返回 false;帧中途 EOF 是协议破损,抛 <see cref="IOException" />。
     /// </summary>
+    /// <remarks>
+    /// 这里【刻意不把 <c>_lifetime.Token</c> 传给 ReadAsync】。传了的话,
+    /// <see cref="DisposeAsync" /> 取消令牌会把待决的读撕成 OperationCanceledException ——
+    /// 虽然被读循环的 catch 吞掉、退出码照样是 0,但每次停用插件/退出应用都在调试器里
+    /// 刷一条首发异常,而主动关闭是这条路径上最常规的分支,不该长成异常的样子。
+    /// 实测(字节模式 + PipeOptions.Asynchronous,与 PluginProcessClient 同配置):
+    /// 释放本端流会让待决的 ReadAsync 返回 0 字节,与对端关闭的表现一致,全程无异常。
+    /// 因此收尾改由 <see cref="DisposeAsync" /> 的 <c>_stream.DisposeAsync()</c> 负责,
+    /// 令牌只留给循环条件、请求处理器与限时等待。
+    /// </remarks>
     private async Task<bool> TryFillAsync(Memory<byte> buffer, bool allowCleanEndOfStream)
     {
         int offset = 0;
         while (offset < buffer.Length)
         {
-            int read = await _stream.ReadAsync(buffer[offset..], _lifetime.Token).ConfigureAwait(false);
+            // 关闭是先取消令牌、后释放流:这一句挡住"取消之后还去读已释放的流",
+            // 否则会拿到一条 ObjectDisposedException —— 换个类型的首发异常,等于没治。
+            if (_lifetime.IsCancellationRequested)
+            {
+                return false;
+            }
+            int read = await _stream.ReadAsync(buffer[offset..]).ConfigureAwait(false);
             if (read == 0)
             {
-                if (allowCleanEndOfStream && offset == 0)
+                // 本端正在关闭:流被释放导致的 0 字节不是协议破损,安静收摊。
+                if (_lifetime.IsCancellationRequested || (allowCleanEndOfStream && offset == 0))
                 {
                     return false;
                 }

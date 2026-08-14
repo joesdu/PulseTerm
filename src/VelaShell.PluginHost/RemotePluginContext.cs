@@ -32,6 +32,7 @@ internal sealed class RemotePluginContext : IPluginContext, IDisposable
         // KV 落宿主 SonnetDB(经 RPC):按插件 id 命名空间隔离,卸载整体清除;
         // DataDirectory 仍归插件自由写文件(大块数据),卸载时同样被清扫。
         Storage = new RpcStorage(rpc);
+        TimeSeries = new RpcTimeSeries(rpc);
         Sessions = new RpcSessions(rpc);
         RemoteFsProxy = new(rpc);
         RemoteExec = new RpcRemoteExec(rpc);
@@ -57,6 +58,7 @@ internal sealed class RemotePluginContext : IPluginContext, IDisposable
     public IHostInfo Host => HostInfo;
     public IPluginLogger Log { get; }
     public IPluginStorage Storage { get; }
+    public VelaShell.PluginSdk.TimeSeries.ITimeSeriesApi TimeSeries { get; }
     public ISessionsApi Sessions { get; }
     public IRemoteFsApi RemoteFs => RemoteFsProxy;
     public IRemoteExecApi RemoteExec { get; }

@@ -26,6 +26,7 @@ internal sealed class PluginContext : IPluginContext, IDisposable
     public required IHostInfo Host { get; init; }
     public required IPluginLogger Log { get; init; }
     public required IPluginStorage Storage { get; init; }
+    public required PluginSdk.TimeSeries.ITimeSeriesApi TimeSeries { get; init; }
     public required ISessionsApi Sessions { get; init; }
     public required IRemoteFsApi RemoteFs { get; init; }
     public required IRemoteExecApi RemoteExec { get; init; }

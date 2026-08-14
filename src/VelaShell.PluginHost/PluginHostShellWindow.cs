@@ -16,6 +16,20 @@ namespace VelaShell.PluginHost;
 internal sealed class PluginHostShellWindow : Window
 {
     private const double InnerRadius = 7;
+
+    /// <summary>卡片外边距,即投影的画布宽度;与主程序 VelaShadowWindow 的最大延展一致。</summary>
+    private const double CardGutter = 16;
+
+    /// <summary>卡片贴边时(macOS 不透明矩形)的抓取区尺寸,压在内容上故取最小值。</summary>
+    private const double FlushGripEdge = 5,
+        FlushGripCorner = 10;
+
+    /// <summary>
+    /// 卡片投影,与主程序暗色的 VelaShadowWindow 令牌同值(此进程不加载宿主的主题字典,
+    /// 拿不到那个令牌,只能照抄;改一处要记得改另一处)。近处一层压出边缘、远处一层给扩散。
+    /// </summary>
+    private const string CardShadow = "0 2 4 0 #59000000, 0 6 10 0 #A6000000";
+
     private readonly Border _rootCard;
     private readonly Border _titleStrip;
     private readonly Panel _resizeGrips;
@@ -37,11 +51,13 @@ internal sealed class PluginHostShellWindow : Window
 
         _rootCard = new Border
         {
-            Margin = new Thickness(8),
+            // 外边距是投影的画布:透明窗体的投影超出窗口矩形的部分会被直接裁掉,
+            // 故留白必须 ≥ 投影的最大延展(offsetY + blur = 16),与主程序同一口径。
+            Margin = new Thickness(CardGutter),
             CornerRadius = new CornerRadius(8),
             ClipToBounds = true,
             BorderThickness = new Thickness(1),
-            BoxShadow = BoxShadows.Parse("0 8 32 0 #80000000"),
+            BoxShadow = BoxShadows.Parse(CardShadow),
             Child = grid
         };
         Bind(_rootCard, Border.BackgroundProperty, "VelaBgSurface");
@@ -142,35 +158,33 @@ internal sealed class PluginHostShellWindow : Window
     private Panel BuildResizeGrips()
     {
         var panel = new Panel { ZIndex = 200 };
-        AddGrip(panel, "North", WindowEdge.North, StandardCursorType.TopSide, height: 5, hMargin: 10);
-        AddGrip(panel, "South", WindowEdge.South, StandardCursorType.BottomSide, height: 5, hMargin: 10, bottom: true);
-        AddGrip(panel, "West", WindowEdge.West, StandardCursorType.LeftSide, width: 5, vMargin: 10);
-        AddGrip(panel, "East", WindowEdge.East, StandardCursorType.RightSide, width: 5, vMargin: 10, right: true);
+        AddGrip(panel, WindowEdge.North, StandardCursorType.TopSide);
+        AddGrip(panel, WindowEdge.South, StandardCursorType.BottomSide, bottom: true);
+        AddGrip(panel, WindowEdge.West, StandardCursorType.LeftSide, vertical: true);
+        AddGrip(panel, WindowEdge.East, StandardCursorType.RightSide, vertical: true, right: true);
         AddCorner(panel, WindowEdge.NorthWest, StandardCursorType.TopLeftCorner, left: true, top: true);
         AddCorner(panel, WindowEdge.NorthEast, StandardCursorType.TopRightCorner, left: false, top: true);
         AddCorner(panel, WindowEdge.SouthWest, StandardCursorType.BottomLeftCorner, left: true, top: false);
         AddCorner(panel, WindowEdge.SouthEast, StandardCursorType.BottomRightCorner, left: false, top: false);
+        ApplyGripThickness(panel, rounded: true);
         return panel;
     }
 
-    private void AddGrip(Panel panel, string _, WindowEdge edge, StandardCursorType cursor,
-        double width = double.NaN, double height = double.NaN, double hMargin = 0, double vMargin = 0,
-        bool bottom = false, bool right = false)
+    private void AddGrip(Panel panel, WindowEdge edge, StandardCursorType cursor,
+        bool vertical = false, bool bottom = false, bool right = false)
     {
         var border = new Border
         {
+            Tag = edge,
             Background = Brushes.Transparent,
-            Cursor = new Cursor(cursor),
-            Margin = new Thickness(hMargin, vMargin)
+            Cursor = new Cursor(cursor)
         };
-        if (!double.IsNaN(width))
+        if (vertical)
         {
-            border.Width = width;
             border.HorizontalAlignment = right ? HorizontalAlignment.Right : HorizontalAlignment.Left;
         }
-        if (!double.IsNaN(height))
+        else
         {
-            border.Height = height;
             border.VerticalAlignment = bottom ? VerticalAlignment.Bottom : VerticalAlignment.Top;
         }
         border.PointerPressed += (_, e) => BeginResize(edge, e);
@@ -181,8 +195,7 @@ internal sealed class PluginHostShellWindow : Window
     {
         var border = new Border
         {
-            Width = 10,
-            Height = 10,
+            Tag = edge,
             Background = Brushes.Transparent,
             Cursor = new Cursor(cursor),
             HorizontalAlignment = left ? HorizontalAlignment.Left : HorizontalAlignment.Right,
@@ -190,6 +203,39 @@ internal sealed class PluginHostShellWindow : Window
         };
         border.PointerPressed += (_, e) => BeginResize(edge, e);
         panel.Children.Add(border);
+    }
+
+    /// <summary>
+    /// 抓取区厚度跟随卡片形态:圆角态铺满 16px 的投影留白(否则那圈留白看得见点不动),
+    /// 铺满态收回 5px(否则会压在内容上吃掉最靠边控件的点击,比如滚动条)。
+    /// </summary>
+    private static void ApplyGripThickness(Panel grips, bool rounded)
+    {
+        double edge = rounded ? CardGutter : FlushGripEdge;
+        double corner = rounded ? CardGutter + 6 : FlushGripCorner;
+        foreach (Control child in grips.Children)
+        {
+            if (child is not Border { Tag: WindowEdge tag })
+            {
+                continue;
+            }
+            switch (tag)
+            {
+                // 上下边让开四角的宽度,否则角上的抓取区被边压住,拿不到斜向缩放。
+                case WindowEdge.North or WindowEdge.South:
+                    child.Height = edge;
+                    child.Margin = new Thickness(corner, 0);
+                    break;
+                case WindowEdge.West or WindowEdge.East:
+                    child.Width = edge;
+                    child.Margin = new Thickness(0, corner);
+                    break;
+                default:
+                    child.Width = corner;
+                    child.Height = corner;
+                    break;
+            }
+        }
     }
 
     private void OnHeaderPressed(object? sender, PointerPressedEventArgs e)
@@ -246,10 +292,11 @@ internal sealed class PluginHostShellWindow : Window
 
     private void ApplyCardShape(bool rounded)
     {
-        _rootCard.Margin = rounded ? new Thickness(8) : default;
+        _rootCard.Margin = rounded ? new Thickness(CardGutter) : default;
         _rootCard.BorderThickness = rounded ? new Thickness(1) : default;
         _rootCard.CornerRadius = rounded ? new CornerRadius(8) : default;
         _titleStrip.CornerRadius = rounded ? new CornerRadius(InnerRadius, InnerRadius, 0, 0) : default;
+        ApplyGripThickness(_resizeGrips, rounded);
     }
 
     private static void Bind(Control control, AvaloniaProperty property, string resourceKey) =>

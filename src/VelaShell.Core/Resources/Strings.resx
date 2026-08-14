@@ -1138,7 +1138,7 @@ If this keeps happening, close any other VelaShell windows and try again.</value
     <value>Unknown</value>
   </data>
   <data name="Main_CloseConfirmBody" xml:space="preserve">
-    <value>Active SSH sessions are still running; closing the window will disconnect them all. Quit anyway?</value>
+    <value>Active sessions are still running; closing the window will disconnect them all. Quit anyway?</value>
   </data>
   <data name="Main_CloseConfirmTitle" xml:space="preserve">
     <value>Close VelaShell</value>
@@ -1458,6 +1458,9 @@ Paste anyway?</value>
   </data>
   <data name="Msg_UpdateServiceNotAvailable" xml:space="preserve">
     <value>Auto-update is not available yet; please get new releases from the project releases page.</value>
+  </data>
+  <data name="SetAbout_ArchEmulated" xml:space="preserve">
+    <value>{0}, emulated on {1}</value>
   </data>
   <data name="SetAbout_Checking" xml:space="preserve">
     <value>Checking for updates…</value>
@@ -2776,6 +2779,12 @@ Overwrite it?</value>
   <data name="Shell_Cmd" xml:space="preserve">
     <value>Command Prompt (CMD)</value>
   </data>
+  <data name="Sidebar_ClearRecent" xml:space="preserve">
+    <value>Clear Recent Connections</value>
+  </data>
+  <data name="Sidebar_ClearRecentConfirm" xml:space="preserve">
+    <value>This will clear all recent connection records. This action cannot be undone. Continue?</value>
+  </data>
   <data name="Sidebar_Explorer" xml:space="preserve">
     <value>Explorer</value>
   </data>
@@ -2967,6 +2976,15 @@ Overwrite it?</value>
   </data>
   <data name="Tree_DuplicateConnection" xml:space="preserve">
     <value>Duplicate Connection</value>
+  </data>
+  <data name="Tree_DeleteGroup" xml:space="preserve">
+    <value>Delete Group</value>
+  </data>
+  <data name="Tree_DeleteGroupConfirm" xml:space="preserve">
+    <value>Delete group "{0}"? The {1} connection(s) inside it will be deleted as well. This cannot be undone.</value>
+  </data>
+  <data name="Tree_DeleteGroupConfirmEmpty" xml:space="preserve">
+    <value>Delete the empty group "{0}"? This cannot be undone.</value>
   </data>
   <data name="Tree_EditConnection" xml:space="preserve">
     <value>Edit Connection</value>
@@ -3644,6 +3662,63 @@ Overwrite it?</value>
   </data>
   <data name="XImport_MasterPwWarnFmt" xml:space="preserve">
     <value>{0} has a master password enabled, so saved passwords can't be recovered. Those sessions are imported without passwords.</value>
+  </data>
+  <data name="SetVm_SectionProxy" xml:space="preserve">
+    <value>Proxy</value>
+  </data>
+  <data name="SetProxy_Title" xml:space="preserve">
+    <value>Proxy</value>
+  </data>
+  <data name="SetProxy_Subtitle" xml:space="preserve">
+    <value>// Route all outbound connections (SSH / FTP / HTTP) through a proxy</value>
+  </data>
+  <data name="SetProxy_Type" xml:space="preserve">
+    <value>Proxy type</value>
+  </data>
+  <data name="SetProxy_TypeDesc" xml:space="preserve">
+    <value>// Only HTTP and SOCKS5 take host, port and credentials</value>
+  </data>
+  <data name="SetProxy_TypeNone" xml:space="preserve">
+    <value>No proxy</value>
+  </data>
+  <data name="SetProxy_TypeSystem" xml:space="preserve">
+    <value>System proxy</value>
+  </data>
+  <data name="SetProxy_TypeHttp" xml:space="preserve">
+    <value>HTTP proxy</value>
+  </data>
+  <data name="SetProxy_TypeSocks5" xml:space="preserve">
+    <value>SOCKS5 proxy</value>
+  </data>
+  <data name="SetProxy_SettingsSection" xml:space="preserve">
+    <value>Proxy settings</value>
+  </data>
+  <data name="SetProxy_Host" xml:space="preserve">
+    <value>Host</value>
+  </data>
+  <data name="SetProxy_Port" xml:space="preserve">
+    <value>Port</value>
+  </data>
+  <data name="SetProxy_Username" xml:space="preserve">
+    <value>Username</value>
+  </data>
+  <data name="SetProxy_Password" xml:space="preserve">
+    <value>Password</value>
+  </data>
+  <data name="SetProxy_ProxyDns" xml:space="preserve">
+    <value>Use proxy for DNS lookups</value>
+  </data>
+  <data name="SetProxy_ProxyDnsDesc" xml:space="preserve">
+    <value>// On: the proxy resolves hostnames; off: resolve locally, then connect via proxy</value>
+  </data>
+  <data name="Msg_ProxyMisconfigured" xml:space="preserve">
+    <value>Proxy is enabled but its host or port is not configured. Check Settings &gt; Proxy.</value>
+  </data>
+  <data name="Msg_ProxyConnectFailed" xml:space="preserve">
+    <value>Proxy connection failed: {0}</value>
+  </data>
+  <data name="Msg_ProxyAuthFailed" xml:space="preserve">
+    <value>Proxy authentication failed; check the proxy username and password.</value>
   </data>
   <data name="Plugin_ProtocolUnavailable" xml:space="preserve">
     <value>The plugin providing this protocol is unavailable. Install or enable it in the plugin manager.</value>

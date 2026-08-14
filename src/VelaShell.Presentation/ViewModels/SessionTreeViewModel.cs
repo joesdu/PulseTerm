@@ -69,7 +69,13 @@ public sealed class SessionTreeViewModel : ReactiveObject
             () => RaiseForSelected(DiagnoseRequested),
             hasSelectedSession
         );
-        MoveToGroupCommand = ReactiveCommand.Create<SessionTreeNodeViewModel>(MoveSelectedToGroup);
+        MoveToGroupCommand = ReactiveCommand.CreateFromTask<SessionTreeNodeViewModel>(
+            MoveSelectedToGroupAsync
+        );
+        DeleteGroupCommand = ReactiveCommand.CreateFromTask(
+            DeleteSelectedGroupAsync,
+            this.WhenAnyValue(x => x.SelectedNode).Select(node => node is { IsGroup: true })
+        );
     }
 
     /// <summary>树的根级节点集合,包含各分组节点及直接挂在根级的未分组会话。</summary>
@@ -125,6 +131,16 @@ public sealed class SessionTreeViewModel : ReactiveObject
 
     /// <summary>把选中的会话移动到指定分组节点(参数为“移动到分组”子菜单项)。</summary>
     public ReactiveCommand<SessionTreeNodeViewModel, RxVoid> MoveToGroupCommand { get; }
+
+    /// <summary>删除选中的分组,连同组内全部连接一并删除(落库 + 移除树节点)。</summary>
+    public ReactiveCommand<RxVoid, RxVoid> DeleteGroupCommand { get; }
+
+    /// <summary>
+    /// 删除分组前的确认回调,由视图提供弹窗;参数是已本地化好的提示语,返回 true 才继续删。
+    /// 与 <c>FileBrowserViewModel.ConfirmDelete</c> 同形:未挂回调(无头宿主/单测)时直接删,
+    /// 界面上则永远挂着——不确认就删掉整组连接是不可接受的。
+    /// </summary>
+    public Func<string, Task<bool>>? ConfirmDeleteGroup { get; set; }
 
     /// <summary>右键“连接”或双击会话时触发,由宿主发起 SSH 连接。</summary>
     public event Action<SessionProfile>? ConnectRequested;
@@ -198,10 +214,28 @@ public sealed class SessionTreeViewModel : ReactiveObject
         RefreshHasNoSessions();
     }
 
-    /// <summary>把指定会话移动到目标分组并落库;<paramref name="targetGroupId" /> 为 <see cref="Guid.Empty" /> 表示移回树根(未分组)。</summary>
+    /// <summary>
+    /// 把指定会话移动到目标分组;<paramref name="targetGroupId" /> 为 <see cref="Guid.Empty" /> 表示移回树根(未分组)。
+    /// 树的改动是同步的,落库异步跟进(调用方不关心持久化时机时用这个重载)。
+    /// </summary>
     /// <param name="sessionId">要移动的会话标识。</param>
     /// <param name="targetGroupId">目标分组标识;<see cref="Guid.Empty" /> 表示未分组(树根)。</param>
-    public void MoveSessionToGroup(Guid sessionId, Guid targetGroupId)
+    public void MoveSessionToGroup(Guid sessionId, Guid targetGroupId) =>
+        _ = MoveSessionToGroupAsync(sessionId, targetGroupId);
+
+    /// <summary>
+    /// 移动会话到目标分组并落库。源分组因此空掉时连同分组一并删除 —— 分组在本应用里
+    /// 只是会话的容器,空容器既没有可展示的内容,也无法再被拖入(拖放落点是分组行本身),
+    /// 留着只会变成永远清不掉的僵尸目录。
+    /// </summary>
+    /// <remarks>
+    /// 树节点的增删全部排在第一个 await 之前:同步入口 <see cref="MoveSessionToGroup" />
+    /// 靠这一点让界面立即更新,只把持久化留给后台。
+    /// 落库顺序是先存会话、再删分组 —— 反过来的话中途失败会留下一批 GroupId 指向已消失
+    /// 分组的会话,下次加载时它们既不在分组下、也不在树根,等于凭空消失
+    /// (与 <see cref="DeleteSelectedGroupAsync" /> 同一处置)。
+    /// </remarks>
+    public async Task MoveSessionToGroupAsync(Guid sessionId, Guid targetGroupId)
     {
         SessionTreeNodeViewModel? sourceNode = FindSessionNode(
             sessionId,
@@ -211,6 +245,22 @@ public sealed class SessionTreeViewModel : ReactiveObject
         {
             return;
         }
+        // 原地不动直接返回。少了这道判断,“拖回自己所在的分组”会先把节点摘下来、
+        // 把分组判为空而删掉,再往这个已删除的分组里挂回去 —— 会话凭空消失。
+        if ((sourceGroup?.Id ?? Guid.Empty) == targetGroupId)
+        {
+            return;
+        }
+        SessionTreeNodeViewModel? targetGroup = null;
+        if (targetGroupId != Guid.Empty)
+        {
+            targetGroup = Nodes.FirstOrDefault(node => node.IsGroup && node.Id == targetGroupId);
+            if (targetGroup is null)
+            {
+                // 目标分组不存在:整个移动放弃,不能把节点摘下来又挂不回去。
+                return;
+            }
+        }
         if (sourceGroup is not null)
         {
             sourceGroup.Children.Remove(sourceNode);
@@ -219,21 +269,29 @@ public sealed class SessionTreeViewModel : ReactiveObject
         {
             Nodes.Remove(sourceNode);
         }
-        if (targetGroupId == Guid.Empty)
+        if (targetGroup is null)
         {
             // “未分组”落点 = 树根(设计 FrJPu)。
             sourceNode.IsRootLevel = true;
-            Nodes.Add(sourceNode);
+            InsertRootSessionSorted(sourceNode);
         }
         else
         {
-            SessionTreeNodeViewModel? targetGroup = Nodes.FirstOrDefault(node =>
-                node.IsGroup && node.Id == targetGroupId
-            );
-            if (targetGroup is not null)
+            sourceNode.IsRootLevel = false;
+            InsertSorted(targetGroup.Children, sourceNode);
+            // 拖进折叠着的分组时展开一下,否则会话看起来像是"没了"。
+            targetGroup.IsExpanded = true;
+        }
+        bool sourceGroupEmptied = sourceGroup is { Children.Count: 0 };
+        if (sourceGroupEmptied)
+        {
+            Nodes.Remove(sourceGroup!);
+            // GroupNodes 里是同一批分组节点实例(“移动到分组”子菜单绑定它),
+            // 不同步移除的话,菜单里会留下一个指向已删分组的落点。
+            GroupNodes.Remove(sourceGroup!);
+            if (ReferenceEquals(SelectedNode, sourceGroup))
             {
-                sourceNode.IsRootLevel = false;
-                targetGroup.Children.Add(sourceNode);
+                SelectedNode = null;
             }
         }
         if (_sessionCache.TryGetValue(sessionId, out SessionProfile? session))
@@ -241,8 +299,88 @@ public sealed class SessionTreeViewModel : ReactiveObject
             // Guid.Empty 是“未分组”落点:落库必须存 null,否则下次加载时会话会
             // 因找不到分组而从树里消失。
             session.GroupId = targetGroupId == Guid.Empty ? null : targetGroupId;
-            _ = _repository.SaveSessionAsync(session);
+            await _repository.SaveSessionAsync(session);
         }
+        if (sourceGroupEmptied)
+        {
+            await _repository.DeleteGroupAsync(sourceGroup!.Id);
+        }
+    }
+
+    /// <summary>
+    /// 拖放落点解析:把"鼠标松开时所在的节点"翻译成目标分组 Id
+    /// (<see cref="Guid.Empty" /> = 未分组/树根)。放在视图模型里而非视图里,
+    /// 是为了让落点规则可单测 —— 视图只负责找出鼠标下的那个节点。
+    /// </summary>
+    /// <param name="node">鼠标下的节点;树的空白处传 null。</param>
+    public Guid ResolveDropTargetGroupId(SessionTreeNodeViewModel? node) =>
+        node switch
+        {
+            null => Guid.Empty,              // 空白处 = 未分组
+            { IsGroup: true } => node.Id,    // 分组行 = 该分组
+            // 会话行 = 它所在的分组(根级会话即未分组),这样"拖到某台机器上"
+            // 与"拖到它所在的分组上"是一回事,不必精确瞄准分组标题行。
+            _ => FindGroupIdOfSession(node.Id) ?? Guid.Empty
+        };
+
+    /// <summary>
+    /// 落点的显示名,供拖拽时跟随光标的提示标签使用:
+    /// <see cref="Guid.Empty" />(树根)= “未分组”,其余取分组名;
+    /// 分组已不在树上(理论上不该发生)时同样回落到“未分组”,而不是显示一个 Guid。
+    /// </summary>
+    public string DescribeDropTarget(Guid targetGroupId) =>
+        targetGroupId == Guid.Empty
+            ? Strings.Get("Svc_Ungrouped")
+            : Nodes.FirstOrDefault(node => node.IsGroup && node.Id == targetGroupId)?.Name
+              ?? Strings.Get("Svc_Ungrouped");
+
+    /// <summary>返回会话当前所属分组 Id;根级(未分组)为 <see cref="Guid.Empty" />,节点不存在为 null。</summary>
+    public Guid? FindGroupIdOfSession(Guid sessionId)
+    {
+        if (FindSessionNode(sessionId, out SessionTreeNodeViewModel? parentGroup) is null)
+        {
+            return null;
+        }
+        return parentGroup?.Id ?? Guid.Empty;
+    }
+
+    /// <summary>按名称把会话节点插进分组子集合,保持与 <see cref="LoadTreeAsync" /> 一致的排序。</summary>
+    private static void InsertSorted(
+        ObservableCollection<SessionTreeNodeViewModel> children,
+        SessionTreeNodeViewModel node
+    )
+    {
+        int index = 0;
+        while (
+            index < children.Count
+            && string.Compare(children[index].Name, node.Name, StringComparison.OrdinalIgnoreCase) < 0
+        )
+        {
+            index++;
+        }
+        children.Insert(index, node);
+    }
+
+    /// <summary>
+    /// 把会话节点插进树根的未分组区段。根级布局是“全部分组在前、未分组会话在后”
+    /// (见 <see cref="LoadTreeAsync" />),所以先跳过分组节点再按名称排位 ——
+    /// 直接 Add 会让刚移出来的会话固定落在最后,与重新加载后的顺序对不上。
+    /// </summary>
+    private void InsertRootSessionSorted(SessionTreeNodeViewModel node)
+    {
+        int index = 0;
+        while (index < Nodes.Count && Nodes[index].IsGroup)
+        {
+            index++;
+        }
+        while (
+            index < Nodes.Count
+            && string.Compare(Nodes[index].Name, node.Name, StringComparison.OrdinalIgnoreCase) < 0
+        )
+        {
+            index++;
+        }
+        Nodes.Insert(index, node);
     }
 
     /// <summary>宿主上报某配置的连接状态,驱动状态圆点与「活跃/连接中/离线」标签。</summary>
@@ -318,13 +456,13 @@ public sealed class SessionTreeViewModel : ReactiveObject
     private void RefreshHasNoSessions() =>
         HasNoSessions = !Nodes.Any(node => !node.IsGroup || node.Children.Count > 0);
 
-    private void MoveSelectedToGroup(SessionTreeNodeViewModel? targetGroup)
+    private async Task MoveSelectedToGroupAsync(SessionTreeNodeViewModel? targetGroup)
     {
         if (targetGroup is not { IsGroup: true } || SelectedNode is not { IsGroup: false } node)
         {
             return;
         }
-        MoveSessionToGroup(node.Id, targetGroup.Id);
+        await MoveSessionToGroupAsync(node.Id, targetGroup.Id);
     }
 
     private async Task DuplicateSelectedSessionAsync()
@@ -430,6 +568,44 @@ public sealed class SessionTreeViewModel : ReactiveObject
             node.SyncChannelLetter = letter;
         }
         return node;
+    }
+
+    /// <summary>
+    /// 删除选中的分组:组内连接随分组一并删除(用户在确认框里被明确告知会删掉几条)。
+    /// 落库顺序是先删会话再删分组 —— 反过来的话,中途失败会留下一批 GroupId 指向已消失分组的
+    /// 会话,下次加载时它们既不在分组下、也不在树根,等于凭空消失。
+    /// </summary>
+    private async Task DeleteSelectedGroupAsync()
+    {
+        if (SelectedNode is not { IsGroup: true } group)
+        {
+            return;
+        }
+        List<Guid> memberIds = [.. group.Children.Select(child => child.Id)];
+        if (ConfirmDeleteGroup is not null)
+        {
+            string message = memberIds.Count == 0
+                ? Strings.Format("Tree_DeleteGroupConfirmEmpty", group.Name)
+                : Strings.Format("Tree_DeleteGroupConfirm", group.Name, memberIds.Count);
+            if (!await ConfirmDeleteGroup(message))
+            {
+                return;
+            }
+        }
+        foreach (Guid sessionId in memberIds)
+        {
+            await _repository.DeleteSessionAsync(sessionId);
+            _sessionCache.Remove(sessionId);
+            _statusCache.Remove(sessionId);
+            _syncChannelCache.Remove(sessionId);
+        }
+        await _repository.DeleteGroupAsync(group.Id);
+        Nodes.Remove(group);
+        // GroupNodes 里存的就是同一批分组节点实例(“移动到分组”子菜单绑定它),
+        // 不同步移除的话,菜单里会留下一个指向已删分组的落点。
+        GroupNodes.Remove(group);
+        SelectedNode = null;
+        RefreshHasNoSessions();
     }
 
     private async Task DeleteSelectedSessionAsync()

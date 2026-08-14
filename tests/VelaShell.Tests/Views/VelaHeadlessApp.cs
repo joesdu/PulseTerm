@@ -31,6 +31,8 @@ public class VelaHeadlessApp : Application
         Resources.MergedDictionaries.Add(LoadDictionary("avares://VelaShell.Controls/Themes/VelaShellTokens.axaml"));
         Resources.MergedDictionaries.Add(LoadDictionary("avares://VelaShell.Controls/Themes/Icons.axaml"));
         Resources.MergedDictionaries.Add(LoadDictionary("avares://VelaShell/Themes/ButtonThemes.axaml"));
+        // 滚动条控件主题:覆盖 Fluent 的 {x:Type ScrollBar},必须在 Resources 里(查找先于 Styles)。
+        Resources.MergedDictionaries.Add(LoadDictionary("avares://VelaShell/Themes/ScrollBarThemes.axaml"));
         // App.axaml 的 ThemeDictionaries:终端调色板(VelaShell*)与资源图表的色阶都在这里,
         // 漏掉它测试里这些画刷全是 null —— 曲线画不出来还一路绿。
         Resources.ThemeDictionaries[ThemeVariant.Dark] = Wrap("avares://VelaShell/Themes/DarkTheme.axaml");

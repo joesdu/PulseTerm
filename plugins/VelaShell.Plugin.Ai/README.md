@@ -22,10 +22,16 @@ Base URL 与 API Key 全部用户自填;API Key 经宿主 **Secrets 能力加密
 插件不直连数据库 —— 一切持久化走 SDK 能力,宿主统一落 **SonnetDB** 的
 `plugin_data` 集合(按插件 id 命名空间隔离,卸载自动清除):
 
-| 数据 | 能力 | SonnetDB 文档主键 |
+| 数据 | 能力 | SonnetDB 落点 |
 | --- | --- | --- |
-| 接入配置/开关/系统提示词(`AiSettings` 整体 JSON) | `Storage` | `velashell.ai\|kv\|settings` |
-| 各接入的 API Key(DPAPI 加密后入库) | `Secrets` | `velashell.ai\|secret\|apikey:<providerId>` |
+| 接入配置/开关/系统提示词(`AiSettings` 整体 JSON) | `Storage` | 文档 `velashell.ai\|kv\|settings` |
+| 各接入的 API Key(DPAPI 加密后入库) | `Secrets` | 文档 `velashell.ai\|secret\|apikey:<providerId>` |
+| 历史会话的每条消息 | `TimeSeries` | measurement `chat_messages`(标签 `conv` = 会话 id,时间即消息时刻) |
+| 历史会话摘要(标题/起止时刻/条数) | `TimeSeries` | measurement `chat_sessions`,每个会话**一个**点 |
+
+会话摘要刻意把时间戳固定为**会话创建时刻**,于是每次更新都命中「同序列同时间戳 = 覆盖」这条
+时序语义,天然只保留最新一份,不必先删后写(最后更新时刻另存 `updated` 字段用于排序)。
+时序能力不可用时(headless / 无数据库的宿主)整体降级:写入静默跳过,聊天照常工作,只是不留历史。
 
 ## 界面
 
@@ -34,7 +40,9 @@ Base URL 与 API Key 全部用户自填;API Key 经宿主 **Secrets 能力加密
 危险操作描边换 `VelaError`(停止/删除/拒绝);输入区仿宿主 input-affix 容器
 (聚焦强调描边);图标复用宿主 `Icon.*` lucide 几何;Agent/设置为自带
 ControlTheme 的芯片开关(`Ui/AiTheme.axaml`,隔离进程下仅令牌也能退化可用)。
-顶栏右侧 **新会话** 按钮:终止当前请求并开始全新对话。
+顶栏右侧 **新会话** 按钮:终止当前请求并开始全新对话;**历史**开关列出既往会话(存于插件私有
+时序库,见上)可随时翻回或删除。输入框支持 **↑↓ 调出历史输入**,以及 **`@` 引用服务器文件**
+(补全远端路径,发送时把引用展开为真实路径交给模型)。
 
 回复以 **Markdown 渲染**,用 [LiveMarkdown.Avalonia](https://github.com/DearVa/LiveMarkdown.Avalonia)
 (Apache-2.0;内部仍是 Markdig 解析,但解析放后台线程,并按 `SourceSpan` 脏检查
@@ -124,5 +132,7 @@ SVG 目前只对 `data:` URI 和本地路径生效;要放开就把 `ConfigureMar
 
 ## 测试
 
-`tests/VelaShell.Plugin.Ai.Tests`:基于 `VelaShell.PluginSdk.Testing` 替身,
-覆盖工具箱审批闸门、能力桥接语义与设置/机密存取。
+[`tests/VelaShell.Plugin.Ai.Tests`](../../tests/VelaShell.Plugin.Ai.Tests):基于
+`VelaShell.PluginSdk.Testing` 替身,覆盖工具箱审批闸门与能力桥接语义、设置/机密存取、
+MCP 配置解析、`@` 文件引用语法、会话历史的时序持久化,以及聊天面板的 headless 装载
+(XAML 真装载一次,顺带守住"宿主令牌缺席时也能装载"这条隔离进程首帧的前提)。

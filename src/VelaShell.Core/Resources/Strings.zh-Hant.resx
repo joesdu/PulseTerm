@@ -920,7 +920,7 @@
     <value>本機連接埠</value>
   </data>
   <data name="Main_CloseConfirmBody" xml:space="preserve">
-    <value>仍有使用中的 SSH 工作階段,關閉視窗將中斷所有連線。確定結束嗎?</value>
+    <value>仍有使用中的工作階段,關閉視窗將中斷所有連線。確定結束嗎?</value>
   </data>
   <data name="Main_CloseConfirmTitle" xml:space="preserve">
     <value>關閉 VelaShell</value>
@@ -1267,6 +1267,9 @@
   </data>
   <data name="Msg_UpdateServiceNotAvailable" xml:space="preserve">
     <value>自動更新服務尚未接入,請前往專案發佈頁取得新版本。</value>
+  </data>
+  <data name="SetAbout_ArchEmulated" xml:space="preserve">
+    <value>{0},在 {1} 上模擬執行</value>
   </data>
   <data name="SetAbout_Checking" xml:space="preserve">
     <value>正在檢查更新…</value>
@@ -2688,6 +2691,12 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   <data name="ShowHiddenFiles" xml:space="preserve">
     <value>顯示隱藏檔案</value>
   </data>
+  <data name="Sidebar_ClearRecent" xml:space="preserve">
+    <value>清除最近連線</value>
+  </data>
+  <data name="Sidebar_ClearRecentConfirm" xml:space="preserve">
+    <value>將清除全部最近連線記錄,此操作無法復原。確定要繼續嗎?</value>
+  </data>
   <data name="Sidebar_Explorer" xml:space="preserve">
     <value>資源總管</value>
   </data>
@@ -2909,6 +2918,15 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   </data>
   <data name="Tree_DuplicateConnection" xml:space="preserve">
     <value>複製連線</value>
+  </data>
+  <data name="Tree_DeleteGroup" xml:space="preserve">
+    <value>刪除分組</value>
+  </data>
+  <data name="Tree_DeleteGroupConfirm" xml:space="preserve">
+    <value>確定要刪除分組「{0}」嗎？群組內的 {1} 個連線會一併刪除，此操作無法復原。</value>
+  </data>
+  <data name="Tree_DeleteGroupConfirmEmpty" xml:space="preserve">
+    <value>確定要刪除空分組「{0}」嗎？此操作無法復原。</value>
   </data>
   <data name="Tree_EditConnection" xml:space="preserve">
     <value>編輯連線</value>
@@ -3643,6 +3661,63 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   </data>
   <data name="XImport_MasterPwWarnFmt" xml:space="preserve">
     <value>{0} 已啟用主密碼，無法還原已儲存的密碼；這些工作階段將以不含密碼的方式匯入。</value>
+  </data>
+  <data name="SetVm_SectionProxy" xml:space="preserve">
+    <value>網路代理</value>
+  </data>
+  <data name="SetProxy_Title" xml:space="preserve">
+    <value>網路代理</value>
+  </data>
+  <data name="SetProxy_Subtitle" xml:space="preserve">
+    <value>// 為應用全部出站連線(SSH / FTP / HTTP)設定代理</value>
+  </data>
+  <data name="SetProxy_Type" xml:space="preserve">
+    <value>代理類型</value>
+  </data>
+  <data name="SetProxy_TypeDesc" xml:space="preserve">
+    <value>// 僅 HTTP 與 SOCKS5 需要填寫主機、連接埠與憑證</value>
+  </data>
+  <data name="SetProxy_TypeNone" xml:space="preserve">
+    <value>無代理</value>
+  </data>
+  <data name="SetProxy_TypeSystem" xml:space="preserve">
+    <value>系統代理</value>
+  </data>
+  <data name="SetProxy_TypeHttp" xml:space="preserve">
+    <value>HTTP 代理</value>
+  </data>
+  <data name="SetProxy_TypeSocks5" xml:space="preserve">
+    <value>SOCKS5 代理</value>
+  </data>
+  <data name="SetProxy_SettingsSection" xml:space="preserve">
+    <value>代理設定</value>
+  </data>
+  <data name="SetProxy_Host" xml:space="preserve">
+    <value>主機</value>
+  </data>
+  <data name="SetProxy_Port" xml:space="preserve">
+    <value>連接埠</value>
+  </data>
+  <data name="SetProxy_Username" xml:space="preserve">
+    <value>使用者名稱</value>
+  </data>
+  <data name="SetProxy_Password" xml:space="preserve">
+    <value>密碼</value>
+  </data>
+  <data name="SetProxy_ProxyDns" xml:space="preserve">
+    <value>使用代理執行 DNS 查詢</value>
+  </data>
+  <data name="SetProxy_ProxyDnsDesc" xml:space="preserve">
+    <value>// 開 = 主機名稱交給代理端解析;關 = 本地解析後再經代理連線</value>
+  </data>
+  <data name="Msg_ProxyMisconfigured" xml:space="preserve">
+    <value>已啟用代理,但代理主機或連接埠未設定,請檢查「設定 → 網路代理」。</value>
+  </data>
+  <data name="Msg_ProxyConnectFailed" xml:space="preserve">
+    <value>代理連線失敗:{0}</value>
+  </data>
+  <data name="Msg_ProxyAuthFailed" xml:space="preserve">
+    <value>代理驗證失敗,請檢查代理使用者名稱與密碼。</value>
   </data>
   <data name="Plugin_ProtocolUnavailable" xml:space="preserve">
     <value>提供該協定的外掛程式目前無法使用。請在外掛程式管理頁安裝或啟用它。</value>

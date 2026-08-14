@@ -9,7 +9,7 @@
         x:Class="VelaShell.Views.AuthenticationDialogView"
         x:DataType="vm:AuthenticationDialogViewModel"
         Title="{loc:Localize Auth_Title}"
-        Width="420"
+        Width="428"
         SizeToContent="Height"
         CanResize="False"
         WindowDecorations="None"
@@ -78,8 +78,8 @@
           Background="{DynamicResource VelaBgSurface}"
           BorderBrush="{DynamicResource VelaBorderSecondary}"
           BorderThickness="1"
-          BoxShadow="0 8 32 0 #80000000"
-          Margin="12">
+          BoxShadow="{DynamicResource VelaShadowWindow}"
+          Margin="16">
     <StackPanel>
 
       <!-- Header -->

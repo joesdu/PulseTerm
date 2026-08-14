@@ -6,7 +6,7 @@
 
 ## 🎯 设计原则
 
-- **无 UI 依赖**：只引用 `Microsoft.Extensions.Logging.Abstractions` 与 `ReactiveUI`（用于 `ReactiveObject` 数据模型），**不引用 Avalonia**。
+- **无 UI 依赖**：唯一的包引用是 `ReactiveUI`（用于 `ReactiveObject` 数据模型），**不引用 Avalonia**。
 - **接口优先**：对外只暴露接口（`I*Service`、`I*Store`、`I*Wrapper`），具体实现落在 `VelaShell.Infrastructure`。上层通过 DI 注入依赖，便于 Mock 与替换。
 - **SSH 库中立**：Core **不引用任何具体 SSH 库**。SSH/SFTP 能力全部经 `Ssh/` 下的中立抽象（`ISshClientWrapper`、`ISftpClientWrapper`、`SftpEntry`、`VelaSshClientException` 等）访问，具体依赖（当前为 `Tmds.Ssh`）只存在于 Infrastructure。这条约束已被验证有效：从 SSH.NET 迁移到 Tmds.Ssh 时 Core 一行未改。
 
@@ -14,14 +14,18 @@
 
 | 目录 | 职责 |
 |------|------|
-| `Models/` | 领域模型与枚举：`ConnectionInfo`、`ServerGroup`、`SshSession`、`AppSettings`、`KnownHost`、`QuickCommand`、`TunnelConfig`、`TransferTask`、`AuditEntry`、`TerminalColorScheme` 等，多为 `ReactiveObject` 或不可变记录。 |
+| `Models/` | 领域模型与枚举：`ConnectionInfo`、`ConnectionType`、`ServerGroup`、`SessionProfile`、`SshSession`、`AppSettings`/`AppState`、`FtpSettings`、`KnownHost`、`QuickCommand`、`TunnelConfig`、`TransferTask`、`RemoteFileInfo`、`AuditEntry`、`TerminalColorScheme` 等，多为 `ReactiveObject` 或不可变记录。另有两个纯逻辑件：`UserPathResolver`（设置里路径取值的唯一权威解析器 —— **相对路径以用户主目录为基准，绝不落到进程工作目录上**）与 `CommonUsageCatalog`（命令补全的静态用法表）。 |
 | `Data/` | 持久化契约（**纯接口**，实现全在 Infrastructure）：`IAppDataStore`、`ISessionRepository`、`ISettingsService`、`IRecentConnectionService`、`IAuditLogService`、`IQuickCommandRepository`、`ISecretProtector`（凭据加密）。 |
-| `Ssh/` | SSH/SFTP 中立抽象层：客户端/Shell/SFTP 包装接口（`ISshClientWrapper`/`IShellStreamWrapper`/`ISftpClientWrapper`）、`ISshConnectionService`、`ISshKeyService`、`IHostKeyService`/`IHostKeyPrompt`、`HostKeyVerification`（主机指纹 TOFU 校验）、`PortForwarding`、`TerminalMode`、`SecurityAlertService`、`VelaSshClientException` 异常族。 |
-| `Sftp/` | 文件传输领域逻辑：`ISftpService`、`ITransferManager` 及其实现、`SerializedSftpService`（通道串行化）、`RemoteIdentityResolver`、`DragDropFormats`、`ThrottledStream`（限速流）。 |
+| `Ssh/` | SSH/SFTP 中立抽象层：客户端/Shell/SFTP 包装接口（`ISshClientWrapper`/`IShellStreamWrapper`/`ISftpClientWrapper`）、`ISshConnectionService`、`ISshKeyService`、`IHostKeyService`/`IHostKeyPrompt`、`HostKeyVerification`（主机指纹 TOFU 校验）、`PortForwarding`、`TerminalMode`、`SftpEntry`、`SecurityAlertService`、`VelaSshClientException` 异常族。 |
+| `Sftp/` | 文件传输领域逻辑：`ISftpService`、`ITransferManager` 及其实现、`SerializedSftpService`（通道串行化）、`RemoteIdentityResolver`、`DragDropFormats`、`ThrottledStream`（限速流）。`ISftpService` 的每个成员都以 `Guid sessionId` 为键、返回协议无关的 `RemoteFileInfo`，因此文件浏览器/传输管理器对「后端是 SFTP 还是 FTP」完全无感（路由实现在 Infrastructure）。 |
+| `Ftp/` | FTP/FTPS 会话契约：`IFtpSessionService`、`FtpConnectionInfo`、`VelaFtpException`。与 SSH 并列为一等协议，共用上面那套远程文件抽象。 |
+| `Processes/` | 远端进程管理（任务管理器）契约：`IRemoteProcessService`、`RemoteProcessInfo`、`RemoteProcessProbe`（实现方持有相邻两次采样，快照给出**瞬时** CPU 占用而非生命周期平均值）。 |
+| `Diagnostics/` | 路由追踪：`TraceRoute`（逐跳模型与 `HopVerdict` 判定 —— 着色与告警以判定为准，而不是直接看丢包率）、`IIpGeolocationService`（IP 归属地推断契约）。 |
+| `Import/` | 从其他工具导入会话的契约与结果模型：`ISessionImportService`、`ImportedSession`、`SessionImportScan`、`SessionImportOutcome`（WinSCP / Xshell 的具体解密与解析在 Infrastructure）。 |
 | `ZModem/` | **自研 ZMODEM 协议引擎**（传输无关）：`Protocol/`（帧读写、ZDLE 转义、CRC-16/32、`ZModemSender`/`ZModemReceiver`）、`Model/`、`Abstractions/`（`IByteDuplex` 与文件源/汇契约，为未来 Telnet/串口预留）、`Diagnostics/ZModemTrace`（置 `VELASHELL_ZMODEM_TRACE=1` 打开帧跟踪）。 |
 | `Tunnels/` | 端口转发隧道契约 `ITunnelService`。 |
 | `Sync/` | 云同步契约与载荷：`IGistSyncService`、`SyncModels`、`SyncCrypto`（PBKDF2 + AES-256-GCM 端到端加密）。 |
-| `Services/` | 跨层服务契约与逻辑：`IThemeService`/`ThemeService`、`ISessionMetricsService`（CPU/内存/网速采集）、`SettingsPreviewService`。 |
+| `Services/` | 跨层服务契约与逻辑：`IThemeService`/`ThemeService`、`ISessionMetricsService` 与 `SessionMetrics`(`.Extras`/`Records`)（CPU/内存/磁盘/网络指标的解析与换算）、`SettingsPreviewService`。 |
 | `Recording/` | 会话录制存储契约 `ISessionRecordingStore`。 |
 | `Localization/` | `ILocalizationService` + `LocalizationService`，运行时语言切换。 |
 | `Resources/` | 强类型本地化资源。`Strings.resx`（英文，开发语言）+ `zh-Hans`/`zh-Hant`/`ja`/`ko` 卫星资源。`Strings.cs` 为**手写**的强类型访问层（`Get`/`Format` + 常用键属性），非设计器生成。 |
@@ -39,9 +43,9 @@
 ## 🔗 依赖关系
 
 ```text
-VelaShell.Core  ──(被依赖)──►  Terminal / Infrastructure / Presentation / Controls / App
+VelaShell.Core  ──(被依赖)──►  Terminal / Infrastructure / Presentation / App
         │
-        └─ 仅依赖：Microsoft.Extensions.Logging.Abstractions、ReactiveUI
+        └─ 仅依赖：ReactiveUI
 ```
 
-> Core 是依赖图的汇点，不引用任何其他 VelaShell 项目。测试见 [`tests/VelaShell.Core.Tests`](../../tests/VelaShell.Core.Tests)。
+> Core 是依赖图的汇点，不引用任何其他 VelaShell 项目。（`VelaShell.Controls` 是纯控件层，同样不引用 Core。）测试见 [`tests/VelaShell.Core.Tests`](../../tests/VelaShell.Core.Tests)。

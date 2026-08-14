@@ -48,6 +48,9 @@ public sealed class TestPluginContext : IPluginContext, IDisposable
     /// <summary>默认存储替身。</summary>
     public InMemoryStorage MemoryStorage { get; } = new();
 
+    /// <summary>默认时序替身。</summary>
+    public InMemoryTimeSeries MemoryTimeSeries { get; } = new();
+
     /// <summary>默认会话替身。</summary>
     public FakeSessions FakeSessions { get; } = new();
 
@@ -120,6 +123,9 @@ public sealed class TestPluginContext : IPluginContext, IDisposable
     /// <inheritdoc cref="IPluginContext.Storage" />
     public IPluginStorage Storage { get; init; }
 
+    /// <inheritdoc cref="IPluginContext.TimeSeries" />
+    public TimeSeries.ITimeSeriesApi TimeSeries { get; init; }
+
     /// <inheritdoc cref="IPluginContext.Sessions" />
     public ISessionsApi Sessions { get; init; }
 
@@ -158,6 +164,7 @@ public sealed class TestPluginContext : IPluginContext, IDisposable
     {
         Log = CollectingLog;
         Storage = MemoryStorage;
+        TimeSeries = MemoryTimeSeries;
         Sessions = FakeSessions;
         RemoteFs = FakeRemoteFs;
         RemoteExec = FakeRemoteExec;

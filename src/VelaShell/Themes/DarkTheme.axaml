@@ -6,6 +6,15 @@
     <!-- 强调色标记 -->
     <SolidColorBrush x:Key="VelaAccentText" Color="#BD93F9" />
 
+    <!-- 全应用浮层卡片的外投影(#171 层级不清):自绘窗体、命令面板、隧道面板、传输浮层等
+         一律用这一个,浮层的投影语言只有一套。
+         两层的最大延展(offsetY + blur)= 16,与卡片外边距一致:透明窗体的投影只能画在
+         窗口矩形之内,超出外边距的部分会被窗口边缘直接裁掉,调这里就要连外边距一起调,
+         否则又变成截断的一块糊影。近处一层压出边缘、远处一层给出扩散。
+         【不透明度必须分主题】:同一个 50% 纯黑压在亮色卡片下面会变成一坨发脏的矩形
+         (命令面板/隧道面板此前硬编码 #80000000 就是这个毛病),亮色那套在 LightTheme。 -->
+    <BoxShadows x:Key="VelaShadowWindow">0 2 4 0 #59000000, 0 6 10 0 #A6000000</BoxShadows>
+
     <!-- 语义标记 -->
     <SolidColorBrush x:Key="VelaWarning" Color="#FFB86C" />
     <SolidColorBrush x:Key="VelaError"   Color="#FF5555" />

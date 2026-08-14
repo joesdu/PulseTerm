@@ -920,7 +920,7 @@
     <value>로컬 포트</value>
   </data>
   <data name="Main_CloseConfirmBody" xml:space="preserve">
-    <value>활성 SSH 세션이 있습니다. 창을 닫으면 모든 연결이 끊어집니다. 종료하시겠습니까?</value>
+    <value>활성 세션이 있습니다. 창을 닫으면 모든 연결이 끊어집니다. 종료하시겠습니까?</value>
   </data>
   <data name="Main_CloseConfirmTitle" xml:space="preserve">
     <value>VelaShell 닫기</value>
@@ -1267,6 +1267,9 @@
   </data>
   <data name="Msg_UpdateServiceNotAvailable" xml:space="preserve">
     <value>자동 업데이트 서비스가 아직 연결되지 않았습니다. 프로젝트 릴리스 페이지에서 새 버전을 받으세요.</value>
+  </data>
+  <data name="SetAbout_ArchEmulated" xml:space="preserve">
+    <value>{0}, {1}에서 에뮬레이션 실행</value>
   </data>
   <data name="SetAbout_Checking" xml:space="preserve">
     <value>업데이트를 확인하는 중…</value>
@@ -2688,6 +2691,12 @@ Windows는 exe 전체 경로 또는 명령 이름(예: notepad), Linux는 명령
   <data name="ShowHiddenFiles" xml:space="preserve">
     <value>숨김 파일 표시</value>
   </data>
+  <data name="Sidebar_ClearRecent" xml:space="preserve">
+    <value>최근 연결 지우기</value>
+  </data>
+  <data name="Sidebar_ClearRecentConfirm" xml:space="preserve">
+    <value>최근 연결 기록을 모두 지웁니다. 이 작업은 취소할 수 없습니다. 계속할까요?</value>
+  </data>
   <data name="Sidebar_Explorer" xml:space="preserve">
     <value>탐색기</value>
   </data>
@@ -2909,6 +2918,15 @@ Windows는 exe 전체 경로 또는 명령 이름(예: notepad), Linux는 명령
   </data>
   <data name="Tree_DuplicateConnection" xml:space="preserve">
     <value>연결 복제</value>
+  </data>
+  <data name="Tree_DeleteGroup" xml:space="preserve">
+    <value>그룹 삭제</value>
+  </data>
+  <data name="Tree_DeleteGroupConfirm" xml:space="preserve">
+    <value>"{0}" 그룹을 삭제하시겠습니까? 그룹 안의 연결 {1}개도 함께 삭제되며 이 작업은 되돌릴 수 없습니다.</value>
+  </data>
+  <data name="Tree_DeleteGroupConfirmEmpty" xml:space="preserve">
+    <value>비어 있는 "{0}" 그룹을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</value>
   </data>
   <data name="Tree_EditConnection" xml:space="preserve">
     <value>연결 편집</value>
@@ -3643,6 +3661,63 @@ Windows는 exe 전체 경로 또는 명령 이름(예: notepad), Linux는 명령
   </data>
   <data name="XImport_MasterPwWarnFmt" xml:space="preserve">
     <value>{0}에 마스터 암호가 설정되어 있어 저장된 암호를 복구할 수 없습니다. 해당 세션은 암호 없이 가져옵니다.</value>
+  </data>
+  <data name="SetVm_SectionProxy" xml:space="preserve">
+    <value>프록시</value>
+  </data>
+  <data name="SetProxy_Title" xml:space="preserve">
+    <value>프록시</value>
+  </data>
+  <data name="SetProxy_Subtitle" xml:space="preserve">
+    <value>// 모든 아웃바운드 연결(SSH / FTP / HTTP)에 프록시 설정</value>
+  </data>
+  <data name="SetProxy_Type" xml:space="preserve">
+    <value>프록시 유형</value>
+  </data>
+  <data name="SetProxy_TypeDesc" xml:space="preserve">
+    <value>// 호스트·포트·자격 증명은 HTTP 및 SOCKS5에서만 사용</value>
+  </data>
+  <data name="SetProxy_TypeNone" xml:space="preserve">
+    <value>프록시 없음</value>
+  </data>
+  <data name="SetProxy_TypeSystem" xml:space="preserve">
+    <value>시스템 프록시</value>
+  </data>
+  <data name="SetProxy_TypeHttp" xml:space="preserve">
+    <value>HTTP 프록시</value>
+  </data>
+  <data name="SetProxy_TypeSocks5" xml:space="preserve">
+    <value>SOCKS5 프록시</value>
+  </data>
+  <data name="SetProxy_SettingsSection" xml:space="preserve">
+    <value>프록시 설정</value>
+  </data>
+  <data name="SetProxy_Host" xml:space="preserve">
+    <value>호스트</value>
+  </data>
+  <data name="SetProxy_Port" xml:space="preserve">
+    <value>포트</value>
+  </data>
+  <data name="SetProxy_Username" xml:space="preserve">
+    <value>사용자 이름</value>
+  </data>
+  <data name="SetProxy_Password" xml:space="preserve">
+    <value>비밀번호</value>
+  </data>
+  <data name="SetProxy_ProxyDns" xml:space="preserve">
+    <value>DNS 조회에 프록시 사용</value>
+  </data>
+  <data name="SetProxy_ProxyDnsDesc" xml:space="preserve">
+    <value>// 켬 = 프록시가 호스트 이름을 확인, 끔 = 로컬에서 확인 후 연결</value>
+  </data>
+  <data name="Msg_ProxyMisconfigured" xml:space="preserve">
+    <value>프록시가 활성화되어 있지만 호스트 또는 포트가 설정되지 않았습니다. &apos;설정 → 프록시&apos;를 확인하세요.</value>
+  </data>
+  <data name="Msg_ProxyConnectFailed" xml:space="preserve">
+    <value>프록시 연결 실패: {0}</value>
+  </data>
+  <data name="Msg_ProxyAuthFailed" xml:space="preserve">
+    <value>프록시 인증에 실패했습니다. 사용자 이름과 비밀번호를 확인하세요.</value>
   </data>
   <data name="Plugin_ProtocolUnavailable" xml:space="preserve">
     <value>이 프로토콜을 제공하는 플러그인을 사용할 수 없습니다. 플러그인 관리에서 설치하거나 활성화하세요.</value>

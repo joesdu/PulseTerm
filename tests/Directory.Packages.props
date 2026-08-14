@@ -17,6 +17,8 @@
     <PackageVersion Include="Avalonia.Headless" Version="12.1.1" />
     <!-- 菜单等控件的模板由主题提供:没有它 MenuItem 无模板、不可命中,真实点击测不了。 -->
     <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.1" />
+    <!-- AI 面板的输入框(与 src 的 CPM 同版):测试宿主要扮演"装载方"提供这份程序集。 -->
+    <PackageVersion Include="Avalonia.AvaloniaEdit" Version="12.0.0" />
     <PackageVersion Include="ReactiveUI.Testing" Version="24.1.0" />
   </ItemGroup>
 </Project>

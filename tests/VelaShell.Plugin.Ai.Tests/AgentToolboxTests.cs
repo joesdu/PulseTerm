@@ -11,7 +11,10 @@ namespace VelaShell.Plugin.Ai.Tests;
 public sealed class AgentToolboxTests
 {
     private static readonly string[] ExpectedToolNames =
-        ["list_sessions", "read_terminal", "run_command", "read_remote_file", "write_terminal"];
+    [
+        "list_sessions", "read_terminal", "run_command", "read_remote_file",
+        "list_remote_directory", "write_remote_file", "write_terminal"
+    ];
 
     private static async Task<string> InvokeAsync(AgentToolbox toolbox, string name, Dictionary<string, object?>? args = null)
     {
@@ -134,6 +137,55 @@ public sealed class AgentToolboxTests
         string result = await InvokeAsync(toolbox, "read_remote_file", new() { ["path"] = "/etc/hostname" });
 
         Assert.Contains("web-01", result);
+    }
+
+    [TestMethod]
+    public async Task ListRemoteDirectory_ReportsEntriesWithTypeAndSize()
+    {
+        using var context = new TestPluginContext();
+        SessionInfo session = context.FakeSessions.AddConnected();
+        context.FakeRemoteFs.AddFile(session.SessionId, "/srv/app/app.conf", Encoding.UTF8.GetBytes("port=8080"));
+        context.FakeRemoteFs.AddDirectory(session.SessionId, "/srv/app/logs");
+        var toolbox = new AgentToolbox(context) { SessionIdProvider = () => session.SessionId };
+
+        string result = await InvokeAsync(toolbox, "list_remote_directory", new() { ["path"] = "/srv/app" });
+
+        Assert.Contains("app.conf", result);
+        Assert.Contains("\"type\":\"file\"", result);
+        Assert.Contains("\"type\":\"dir\"", result);
+    }
+
+    [TestMethod]
+    public async Task WriteRemoteFile_RequiresApproval_AndWritesOnlyWhenApproved()
+    {
+        using var context = new TestPluginContext();
+        SessionInfo session = context.FakeSessions.AddConnected();
+        context.FakeRemoteFs.AddFile(session.SessionId, "/etc/app.conf", Encoding.UTF8.GetBytes("old"));
+        string? summary = null;
+        var toolbox = new AgentToolbox(context)
+        {
+            SessionIdProvider = () => session.SessionId,
+            ApprovalHandler = s =>
+            {
+                summary = s;
+                return Task.FromResult(false);
+            }
+        };
+
+        string denied = await InvokeAsync(toolbox, "write_remote_file",
+            new() { ["path"] = "/etc/app.conf", ["content"] = "new" });
+
+        Assert.Contains("DENIED", denied);
+        Assert.Contains("/etc/app.conf", summary ?? "", "审批摘要要能看出改的是哪个文件");
+        Assert.Contains("new", summary ?? "", "审批摘要要带上将写入的内容预览");
+        Assert.AreEqual("old", Encoding.UTF8.GetString(context.FakeRemoteFs.GetFile(session.SessionId, "/etc/app.conf")!));
+
+        toolbox.ApprovalHandler = _ => Task.FromResult(true);
+        string approved = await InvokeAsync(toolbox, "write_remote_file",
+            new() { ["path"] = "/etc/app.conf", ["content"] = "new" });
+
+        Assert.Contains("Wrote", approved);
+        Assert.AreEqual("new", Encoding.UTF8.GetString(context.FakeRemoteFs.GetFile(session.SessionId, "/etc/app.conf")!));
     }
 
     [TestMethod]

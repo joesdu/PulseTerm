@@ -10,6 +10,7 @@ using VelaShell.Core.Models;
 using VelaShell.Core.Services;
 using VelaShell.ViewModels;
 using VelaShell.Views;
+using VelaShell.Views.Settings;
 
 namespace VelaShell.Tests.Views;
 
@@ -153,6 +154,106 @@ public class SettingsViewUiTests
         Assert.HasCount(1, snapshots);
         Assert.AreEqual(80, snapshots[0].Appearance.WindowOpacityPercent);
         Assert.AreEqual("left", snapshots[0].Appearance.SidebarPosition);
+    }
+
+    /// <summary>
+    /// 关于页的开源依赖表必须把 <see cref="SettingsViewModel.AboutDependencies" /> 逐条画出来。
+    /// 断言落在**已布局的文本**上而不是集合内容：往 ItemsControl 里加数据是一回事，
+    /// 那些行真的被渲染出来是另一回事（不可见期入列的行会占住高度却画不出来）。
+    /// 名称与许可证一并核对 —— 许可证写错比不写更糟。
+    /// </summary>
+    [TestMethod]
+    public void AboutPage_RendersEveryOpenSourceDependencyRow()
+    {
+        OnUi(async () =>
+        {
+            ISettingsService settings = Substitute.For<ISettingsService>();
+            IThemeService theme = Substitute.For<IThemeService>();
+            settings.GetSettingsAsync().Returns(new AppSettings());
+            var viewModel = new SettingsViewModel(settings, theme);
+            await viewModel.LoadCommand.Execute().FirstAsync();
+            var page = new AboutPage { DataContext = viewModel };
+            var window = new Window
+            {
+                Width = 720,
+                Height = 1400,
+                Content = page,
+            };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            string[] painted =
+            [
+                .. page.GetVisualDescendants()
+                       .OfType<TextBlock>()
+                       .Where(text => text.Bounds.Width > 0 && text.Text is { Length: > 0 })
+                       .Select(text => text.Text!)
+            ];
+            Assert.IsNotEmpty(viewModel.AboutDependencies);
+            foreach (DependencyInfo dependency in viewModel.AboutDependencies)
+            {
+                Assert.Contains(dependency.Name, painted, $"关于页没画出依赖「{dependency.Name}」");
+                Assert.Contains(
+                    dependency.License,
+                    painted,
+                    $"「{dependency.Name}」的许可证没画出来"
+                );
+                Assert.StartsWith("https://", dependency.Url);
+                Assert.StartsWith("https://", dependency.LicenseUrl);
+            }
+            // FTP 与 IP 归属地是随功能一起引入的两个依赖,曾漏登记在册。
+            Assert.Contains("FluentFTP", painted);
+            Assert.Contains("MaxMind.Db", painted);
+            window.Close();
+        });
+    }
+
+    /// <summary>
+    /// 代理页禁用逻辑:仅 http/socks5 类型开放主机/端口/凭据/DNS 编辑,
+    /// 无代理与系统代理下整组禁用。断言落在控件的**有效**启用态
+    /// (IsEnabled 绑定挂在分组容器上,子控件自身的 IsEnabled 恒为 true)。
+    /// </summary>
+    [TestMethod]
+    public void ProxyPage_ConfigGroupEnabledOnlyForHttpAndSocks5()
+    {
+        OnUi(async () =>
+        {
+            ISettingsService settings = Substitute.For<ISettingsService>();
+            IThemeService theme = Substitute.For<IThemeService>();
+            settings.GetSettingsAsync().Returns(new AppSettings());
+            var viewModel = new SettingsViewModel(settings, theme);
+            await viewModel.LoadCommand.Execute().FirstAsync();
+            viewModel.SelectedSectionIndex = 7;
+
+            var window = new SettingsView { DataContext = viewModel };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            TextBox host = window.GetVisualDescendants().OfType<TextBox>()
+                .Single(t => t.Name == "ProxyHostBox");
+            ToggleSwitch dns = window.GetVisualDescendants().OfType<ToggleSwitch>()
+                .Single(t => t.Name == "ProxyDnsToggle");
+
+            // 默认无代理:整组禁用。
+            Assert.IsFalse(host.IsEffectivelyEnabled);
+            Assert.IsFalse(dns.IsEffectivelyEnabled);
+
+            viewModel.ProxyTypeIndex = 2; // HTTP
+            Dispatcher.UIThread.RunJobs();
+            Assert.IsTrue(host.IsEffectivelyEnabled);
+            Assert.IsTrue(dns.IsEffectivelyEnabled);
+
+            viewModel.ProxyTypeIndex = 1; // 系统代理
+            Dispatcher.UIThread.RunJobs();
+            Assert.IsFalse(host.IsEffectivelyEnabled);
+
+            viewModel.ProxyTypeIndex = 3; // SOCKS5
+            Dispatcher.UIThread.RunJobs();
+            Assert.IsTrue(host.IsEffectivelyEnabled);
+            Assert.IsTrue(dns.IsEffectivelyEnabled);
+            window.Close();
+        });
     }
 
     private static void OnUi(Func<Task> body) =>

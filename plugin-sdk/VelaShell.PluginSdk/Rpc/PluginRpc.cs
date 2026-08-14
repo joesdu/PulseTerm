@@ -99,6 +99,33 @@ public static class PluginRpc
     /// <summary>KV 键列举。</summary>
     public const string StorageKeys = "storage/keys";
 
+    /// <summary>
+    /// 时序:打开(必要时创建)measurement。宿主侧记住句柄,后续调用按短名寻址;
+    /// 数据同样落宿主 SonnetDB(按插件 id 命名空间隔离,卸载整体清除)。
+    /// </summary>
+    public const string TimeSeriesOpen = "ts/open";
+
+    /// <summary>时序:列出本插件的 measurement 短名。</summary>
+    public const string TimeSeriesList = "ts/list";
+
+    /// <summary>时序:删除 measurement 及其数据。</summary>
+    public const string TimeSeriesDrop = "ts/drop";
+
+    /// <summary>时序:批量写点。</summary>
+    public const string TimeSeriesWrite = "ts/write";
+
+    /// <summary>时序:按条件查询数据点。</summary>
+    public const string TimeSeriesQuery = "ts/query";
+
+    /// <summary>时序:按条件计数。</summary>
+    public const string TimeSeriesCount = "ts/count";
+
+    /// <summary>时序:列举某标签列的去重取值。</summary>
+    public const string TimeSeriesDistinct = "ts/distinct";
+
+    /// <summary>时序:按标签删除序列数据。</summary>
+    public const string TimeSeriesDelete = "ts/delete";
+
     /// <summary>机密:读 / 写 / 删(机密只存宿主侧,值仅在本机管道上瞬时传输)。</summary>
     public const string SecretsGet = "secrets/get";
 
@@ -251,6 +278,27 @@ public sealed record StorageKeyRef(string Key);
 
 /// <summary>KV 写入载荷(值为任意 JSON)。</summary>
 public sealed record StorageSetRequest(string Key, System.Text.Json.JsonElement Value);
+
+/// <summary>时序:打开 measurement 的载荷。</summary>
+public sealed record TimeSeriesOpenRequest(TimeSeries.TimeSeriesDefinition Definition);
+
+/// <summary>时序:measurement 短名载荷(drop / distinct 等)。</summary>
+public sealed record TimeSeriesNameRef(string Name);
+
+/// <summary>时序:批量写入载荷。</summary>
+public sealed record TimeSeriesWriteRequest(string Name, TimeSeries.TimeSeriesPoint[] Points);
+
+/// <summary>时序:查询载荷。</summary>
+public sealed record TimeSeriesQueryRequest(string Name, TimeSeries.TimeSeriesQuery Query);
+
+/// <summary>时序:计数载荷。</summary>
+public sealed record TimeSeriesCountRequest(string Name, string Field, TimeSeries.TimeSeriesQuery Query);
+
+/// <summary>时序:标签去重取值载荷。</summary>
+public sealed record TimeSeriesDistinctRequest(string Name, string Tag);
+
+/// <summary>时序:按标签删除载荷(标签为空 = 清空该 measurement 的数据)。</summary>
+public sealed record TimeSeriesDeleteRequest(string Name, Dictionary<string, string>? Tags);
 
 /// <summary>机密名载荷。</summary>
 public sealed record SecretRef(string Name);

@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:pc="using:VelaShell.Controls.Controls"
         x:Class="VelaShell.Views.PluginPermissionDialog"
-        Width="460"
+        Width="468"
         SizeToContent="Height"
         CanResize="False"
         ShowInTaskbar="False"
@@ -52,8 +52,8 @@
           Background="{DynamicResource VelaBgSurface}"
           BorderBrush="{DynamicResource VelaBorderSecondary}"
           BorderThickness="1"
-          BoxShadow="0 8 32 0 #80000000"
-          Margin="12"
+          BoxShadow="{DynamicResource VelaShadowWindow}"
+          Margin="16"
           ClipToBounds="True">
     <Grid RowDefinitions="48,Auto,Auto">
 

@@ -163,11 +163,20 @@ public partial class PluginManagerWindow : Window
     {
         if (this.FindControl<Border>("RootCard") is { } card)
         {
-            card.Margin = rounded ? new Thickness(8) : default;
+            card.Margin = rounded ? new Thickness(16) : default;
             card.BorderThickness = rounded ? new Thickness(1) : default;
             card.CornerRadius = rounded ? new CornerRadius(8) : default;
-            card.BoxShadow = rounded ? card.BoxShadow : default;
+            // 铺满态没有外边距,投影只会被整块裁掉,白付一次模糊;圆角态再从令牌取回。
+            // 不能写成 rounded ? card.BoxShadow : default —— 那样最大化清掉之后,
+            // 还原时读到的已经是清掉后的空值,投影一去不返(自身赋值救不回来)。
+            card.BoxShadow =
+                rounded
+                && this.TryFindResource("VelaShadowWindow", out object? shadow)
+                && shadow is BoxShadows shadows
+                    ? shadows
+                    : default;
         }
+        ResizeGripLayout.Apply(ResizeGrips, rounded);
         if (this.FindControl<Border>("TitleBarStrip") is { } strip)
         {
             strip.CornerRadius = rounded ? new CornerRadius(InnerRadius, InnerRadius, 0, 0) : default;

@@ -117,14 +117,18 @@ public partial class ResourceMonitorWindow : Window
     private const double InnerRadius = 7;
 
     /// <summary>
-    /// 切换卡片形态。标题栏必须跟着改:它的方角背景会遮掉外框圆角处的描边,表现为角上"断线"。
+    /// 切换卡片形态。贴着卡片四角、又有不透明背景的子元素都必须跟着改:它们的方角背景会遮掉
+    /// 外框圆角处的描边,表现为角上"断线";反过来铺满态若留着圆角,又会在直角卡片上啃出缺口。
+    /// 这里是标题条(上两角)与侧栏(左下角),右下角是无背景的 Panel,露的是卡片自己。
     /// </summary>
     /// <param name="rounded">true = 普通态圆角浮层,false = 铺满矩形。</param>
     private void ApplyCardShape(bool rounded)
     {
-        RootCard.Margin = rounded ? new Thickness(8) : default;
+        RootCard.Margin = rounded ? new Thickness(16) : default;
         RootCard.BorderThickness = rounded ? new Thickness(1) : default;
         RootCard.CornerRadius = rounded ? new CornerRadius(8) : default;
+        ResizeGripLayout.Apply(ResizeGrips, rounded);
         TitleBarStrip.CornerRadius = rounded ? new CornerRadius(InnerRadius, InnerRadius, 0, 0) : default;
+        SidebarStrip.CornerRadius = rounded ? new CornerRadius(0, 0, 0, InnerRadius) : default;
     }
 }

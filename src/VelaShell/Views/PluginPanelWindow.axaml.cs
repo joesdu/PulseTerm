@@ -99,9 +99,10 @@ public partial class PluginPanelWindow : Window
 
     private void ApplyCardShape(bool rounded)
     {
-        RootCard.Margin = rounded ? new Thickness(8) : default;
+        RootCard.Margin = rounded ? new Thickness(16) : default;
         RootCard.BorderThickness = rounded ? new Thickness(1) : default;
         RootCard.CornerRadius = rounded ? new CornerRadius(8) : default;
+        ResizeGripLayout.Apply(ResizeGrips, rounded);
         TitleBarStrip.CornerRadius = rounded ? new CornerRadius(InnerRadius, InnerRadius, 0, 0) : default;
     }
 }

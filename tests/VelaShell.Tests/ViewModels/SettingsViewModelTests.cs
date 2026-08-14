@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using NSubstitute;
 using ReactiveUI.Primitives;
 using VelaShell.Core.Data;
@@ -141,6 +142,90 @@ public class SettingsViewModelTests
         await vm.SaveCommand.Execute().FirstAsync();
 
         _themeService.Received(1).SetTheme("light");
+    }
+
+    /// <summary>代理设置载入:分组对象直绑回填,类型下拉索引与可编辑标志同步刷新。</summary>
+    [TestMethod]
+    [TestCategory("Settings")]
+    public async Task LoadCommand_PopulatesProxyOptionsAndDerivedIndex()
+    {
+        var settings = new AppSettings
+        {
+            Proxy = new()
+            {
+                Type = "socks5",
+                Host = "proxy.example",
+                Port = 1080,
+                Username = "u",
+                Password = "p",
+                ProxyDns = false,
+            },
+        };
+        _settingsService.GetSettingsAsync().Returns(settings);
+
+        SettingsViewModel vm = CreateVm();
+        await vm.LoadCommand.Execute().FirstAsync();
+
+        Assert.AreSame(settings.Proxy, vm.Proxy);
+        Assert.AreEqual(3, vm.ProxyTypeIndex);
+        Assert.IsTrue(vm.IsProxyEditable);
+        Assert.IsFalse(vm.Proxy.ProxyDns);
+    }
+
+    /// <summary>代理设置保存:类型索引写回字符串,主机/端口/凭据/DNS 开关一并落盘。</summary>
+    [TestMethod]
+    [TestCategory("Settings")]
+    public async Task SaveCommand_PersistsProxyOptions()
+    {
+        SettingsViewModel vm = CreateVm();
+        vm.ProxyTypeIndex = 2; // http
+        vm.Proxy.Host = "proxy.example";
+        vm.Proxy.Port = 3128;
+        vm.Proxy.Username = "user";
+        vm.Proxy.Password = "secret";
+        vm.Proxy.ProxyDns = false;
+
+        await vm.SaveCommand.Execute().FirstAsync();
+
+        await _settingsService
+            .Received(1)
+            .SaveSettingsAsync(
+                Arg.Is<AppSettings>(s =>
+                    s.Proxy.Type == "http"
+                    && s.Proxy.Host == "proxy.example"
+                    && s.Proxy.Port == 3128
+                    && s.Proxy.Username == "user"
+                    && s.Proxy.Password == "secret"
+                    && !s.Proxy.ProxyDns
+                )
+            );
+    }
+
+    /// <summary>代理类型索引与内部字符串的双向映射;仅 http/socks5 开放参数编辑。</summary>
+    [TestMethod]
+    [TestCategory("Settings")]
+    public void ProxyTypeIndex_MapsTypeStringAndGatesEditability()
+    {
+        SettingsViewModel vm = CreateVm();
+
+        Assert.AreEqual(0, vm.ProxyTypeIndex);
+        Assert.IsFalse(vm.IsProxyEditable);
+
+        vm.ProxyTypeIndex = 1;
+        Assert.AreEqual("system", vm.Proxy.Type);
+        Assert.IsFalse(vm.IsProxyEditable);
+
+        vm.ProxyTypeIndex = 2;
+        Assert.AreEqual("http", vm.Proxy.Type);
+        Assert.IsTrue(vm.IsProxyEditable);
+
+        vm.ProxyTypeIndex = 3;
+        Assert.AreEqual("socks5", vm.Proxy.Type);
+        Assert.IsTrue(vm.IsProxyEditable);
+
+        vm.Proxy.Type = "none";
+        Assert.AreEqual(0, vm.ProxyTypeIndex);
+        Assert.IsFalse(vm.IsProxyEditable);
     }
 
     [TestMethod]
@@ -309,5 +394,45 @@ public class SettingsViewModelTests
         Assert.AreEqual("deploy", result.Username);
         Assert.AreEqual(AuthMethod.PrivateKey, result.AuthMethod);
         Assert.AreEqual("/home/user/.ssh/id_rsa", result.PrivateKeyPath);
+    }
+
+    /// <summary>
+    /// 关于页的架构必须报真实架构名。旧实现是 <c>Is64BitOperatingSystem ? "x64" : "x86"</c>,
+    /// 只答"是不是 64 位"—— arm64 被显示成 x64、arm 被显示成 x86。
+    /// 这里用纯函数逐架构断言,不必真有 ARM 机器才能守住。
+    /// </summary>
+    [TestMethod]
+    [DataRow(Architecture.X64, "x64")]
+    [DataRow(Architecture.X86, "x86")]
+    [DataRow(Architecture.Arm64, "arm64")]
+    [DataRow(Architecture.Arm, "arm")]
+    public void DescribeArchitecture_NativeRun_ShowsRealArchitectureName(
+        Architecture architecture,
+        string expected
+    ) => Assert.AreEqual(expected, SettingsViewModel.DescribeArchitecture(architecture, architecture));
+
+    /// <summary>
+    /// 进程架构与系统架构不一致(x64 版跑在 arm64 的仿真层上)时两者都要显示。
+    /// 自更新按**进程**架构选产物,装错架构的人会一直留在仿真轨上,关于页得看得出来。
+    /// </summary>
+    [TestMethod]
+    public void DescribeArchitecture_Emulated_ShowsBothProcessAndOsArchitecture()
+    {
+        string text = SettingsViewModel.DescribeArchitecture(Architecture.X64, Architecture.Arm64);
+
+        Assert.IsTrue(text.Contains("x64", StringComparison.Ordinal), $"缺进程架构:{text}");
+        Assert.IsTrue(text.Contains("arm64", StringComparison.Ordinal), $"缺系统架构:{text}");
+    }
+
+    /// <summary>关于页整行以当前架构收尾(拼接本身没写错)。</summary>
+    [TestMethod]
+    public void AboutOs_EndsWithCurrentArchitecture()
+    {
+        string architecture = SettingsViewModel.DescribeArchitecture(
+            RuntimeInformation.ProcessArchitecture,
+            RuntimeInformation.OSArchitecture
+        );
+
+        Assert.EndsWith($"({architecture})", SettingsViewModel.AboutOs);
     }
 }

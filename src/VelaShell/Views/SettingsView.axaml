@@ -10,7 +10,7 @@
         x:Class="VelaShell.Views.SettingsView"
         x:DataType="vm:SettingsViewModel"
         Title="{loc:Localize Settings}"
-        Width="840" Height="740"
+        Width="948" Height="768"
         CanResize="False"
         WindowDecorations="None"
         TransparencyLevelHint="Transparent"
@@ -185,18 +185,19 @@
           Background="{DynamicResource VelaBgSurface}"
           BorderBrush="{DynamicResource VelaBorderSecondary}"
           BorderThickness="1"
-          BoxShadow="0 8 32 0 #80000000"
-          Margin="12"
+          BoxShadow="{DynamicResource VelaShadowWindow}"
+          Margin="16"
           ClipToBounds="True">
     <Grid ColumnDefinitions="200,*">
 
       <!-- 左侧导航。CornerRadius 跟随外框左侧圆角:方角的 bg-sidebar 背景会盖住外框在
-           圆角处的描边,看起来像边框断开。 -->
-      <Border Grid.Column="0"
+           圆角处的描边,看起来像边框断开。取【内】半径 7 = 外圆角 8 − 1px 边框:
+           照抄外面的 8 会让子元素的圆弧与描边的圆弧重合,照样把那段描边盖掉。 -->
+      <Border x:Name="NavStrip" Grid.Column="0"
               Background="{DynamicResource VelaBgSidebar}"
               BorderBrush="{DynamicResource VelaBorderPrimary}"
               BorderThickness="0,0,1,0"
-              CornerRadius="8,0,0,8">
+              CornerRadius="7,0,0,7">
         <Grid RowDefinitions="48,*">
           <!-- 导航头(可拖动) -->
           <Border Grid.Row="0" Padding="16,0"
@@ -241,10 +242,11 @@
             <pages:ShortcutsPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=4}" />
             <pages:TransferSettingsPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=5}" />
             <pages:SecurityAuditPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=6}" />
-            <pages:SnippetsPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=7}" />
-            <pages:SyncPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=8}" />
-            <pages:AboutPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=9}" />
-            <pages:DonatePage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=10}" />
+            <pages:ProxySettingsPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=7}" />
+            <pages:SnippetsPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=8}" />
+            <pages:SyncPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=9}" />
+            <pages:AboutPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=10}" />
+            <pages:DonatePage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=11}" />
           </Panel>
         </ScrollViewer>
 

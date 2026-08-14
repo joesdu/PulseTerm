@@ -129,6 +129,32 @@ public interface IPluginSettings   // 权限:settings.own(普通)
 }
 ```
 
+## 6b. vela.timeSeries — 私有时序库(已落地)
+
+```csharp
+public interface ITimeSeriesApi          // 权限:随 storage.private,不单独提权
+{
+    Task<ITimeSeries> OpenAsync(TimeSeriesDefinition definition, CancellationToken ct);  // 建表(幂等)
+    Task<IReadOnlyList<string>> ListAsync(CancellationToken ct);
+    Task<bool> DropAsync(string name, CancellationToken ct);
+}
+public interface ITimeSeries
+{
+    Task WriteAsync(TimeSeriesPoint point, CancellationToken ct);
+    Task WriteManyAsync(IEnumerable<TimeSeriesPoint> points, CancellationToken ct);
+    Task<IReadOnlyList<TimeSeriesPoint>> QueryAsync(TimeSeriesQuery query, CancellationToken ct);
+    Task<long> CountAsync(string field, TimeSeriesQuery query, CancellationToken ct);
+    Task<IReadOnlyList<string>> DistinctTagValuesAsync(string tag, CancellationToken ct);
+    Task<int> DeleteAsync(IReadOnlyDictionary<string, string>? tags, CancellationToken ct);
+}
+```
+
+落宿主同一个 SonnetDB;物理 measurement 名 `pts_<插件命名空间>_<短名>`,命名空间由
+插件 id 派生(不可由插件指定),卸载按前缀整体 drop。语义与配额见
+[dev-guide §5.2b](dev-guide.md#52b-timeseries--私有时序库);隔离进程经
+`ts/*` 方法路由到同一实现(见 05)。**插件永不直连数据库,也拿不到 SQL 入口** ——
+标签值等外来输入一律走参数化,列名限 `[a-z0-9_]`。
+
 ## 7. vela.ui — 界面(详见 08)
 
 权限:`ui.contributions`(普通)。包含:命令/菜单/状态栏动态更新、
