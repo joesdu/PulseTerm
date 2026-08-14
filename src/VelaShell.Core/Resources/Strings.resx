@@ -3663,4 +3663,61 @@ Overwrite it?</value>
   <data name="XImport_MasterPwWarnFmt" xml:space="preserve">
     <value>{0} has a master password enabled, so saved passwords can't be recovered. Those sessions are imported without passwords.</value>
   </data>
+  <data name="SetVm_SectionProxy" xml:space="preserve">
+    <value>Proxy</value>
+  </data>
+  <data name="SetProxy_Title" xml:space="preserve">
+    <value>Proxy</value>
+  </data>
+  <data name="SetProxy_Subtitle" xml:space="preserve">
+    <value>// Route all outbound connections (SSH / FTP / HTTP) through a proxy</value>
+  </data>
+  <data name="SetProxy_Type" xml:space="preserve">
+    <value>Proxy type</value>
+  </data>
+  <data name="SetProxy_TypeDesc" xml:space="preserve">
+    <value>// Only HTTP and SOCKS5 take host, port and credentials</value>
+  </data>
+  <data name="SetProxy_TypeNone" xml:space="preserve">
+    <value>No proxy</value>
+  </data>
+  <data name="SetProxy_TypeSystem" xml:space="preserve">
+    <value>System proxy</value>
+  </data>
+  <data name="SetProxy_TypeHttp" xml:space="preserve">
+    <value>HTTP proxy</value>
+  </data>
+  <data name="SetProxy_TypeSocks5" xml:space="preserve">
+    <value>SOCKS5 proxy</value>
+  </data>
+  <data name="SetProxy_SettingsSection" xml:space="preserve">
+    <value>Proxy settings</value>
+  </data>
+  <data name="SetProxy_Host" xml:space="preserve">
+    <value>Host</value>
+  </data>
+  <data name="SetProxy_Port" xml:space="preserve">
+    <value>Port</value>
+  </data>
+  <data name="SetProxy_Username" xml:space="preserve">
+    <value>Username</value>
+  </data>
+  <data name="SetProxy_Password" xml:space="preserve">
+    <value>Password</value>
+  </data>
+  <data name="SetProxy_ProxyDns" xml:space="preserve">
+    <value>Use proxy for DNS lookups</value>
+  </data>
+  <data name="SetProxy_ProxyDnsDesc" xml:space="preserve">
+    <value>// On: the proxy resolves hostnames; off: resolve locally, then connect via proxy</value>
+  </data>
+  <data name="Msg_ProxyMisconfigured" xml:space="preserve">
+    <value>Proxy is enabled but its host or port is not configured. Check Settings &gt; Proxy.</value>
+  </data>
+  <data name="Msg_ProxyConnectFailed" xml:space="preserve">
+    <value>Proxy connection failed: {0}</value>
+  </data>
+  <data name="Msg_ProxyAuthFailed" xml:space="preserve">
+    <value>Proxy authentication failed; check the proxy username and password.</value>
+  </data>
 </root>

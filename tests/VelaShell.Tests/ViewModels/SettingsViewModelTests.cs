@@ -144,6 +144,90 @@ public class SettingsViewModelTests
         _themeService.Received(1).SetTheme("light");
     }
 
+    /// <summary>代理设置载入:分组对象直绑回填,类型下拉索引与可编辑标志同步刷新。</summary>
+    [TestMethod]
+    [TestCategory("Settings")]
+    public async Task LoadCommand_PopulatesProxyOptionsAndDerivedIndex()
+    {
+        var settings = new AppSettings
+        {
+            Proxy = new()
+            {
+                Type = "socks5",
+                Host = "proxy.example",
+                Port = 1080,
+                Username = "u",
+                Password = "p",
+                ProxyDns = false,
+            },
+        };
+        _settingsService.GetSettingsAsync().Returns(settings);
+
+        SettingsViewModel vm = CreateVm();
+        await vm.LoadCommand.Execute().FirstAsync();
+
+        Assert.AreSame(settings.Proxy, vm.Proxy);
+        Assert.AreEqual(3, vm.ProxyTypeIndex);
+        Assert.IsTrue(vm.IsProxyEditable);
+        Assert.IsFalse(vm.Proxy.ProxyDns);
+    }
+
+    /// <summary>代理设置保存:类型索引写回字符串,主机/端口/凭据/DNS 开关一并落盘。</summary>
+    [TestMethod]
+    [TestCategory("Settings")]
+    public async Task SaveCommand_PersistsProxyOptions()
+    {
+        SettingsViewModel vm = CreateVm();
+        vm.ProxyTypeIndex = 2; // http
+        vm.Proxy.Host = "proxy.example";
+        vm.Proxy.Port = 3128;
+        vm.Proxy.Username = "user";
+        vm.Proxy.Password = "secret";
+        vm.Proxy.ProxyDns = false;
+
+        await vm.SaveCommand.Execute().FirstAsync();
+
+        await _settingsService
+            .Received(1)
+            .SaveSettingsAsync(
+                Arg.Is<AppSettings>(s =>
+                    s.Proxy.Type == "http"
+                    && s.Proxy.Host == "proxy.example"
+                    && s.Proxy.Port == 3128
+                    && s.Proxy.Username == "user"
+                    && s.Proxy.Password == "secret"
+                    && !s.Proxy.ProxyDns
+                )
+            );
+    }
+
+    /// <summary>代理类型索引与内部字符串的双向映射;仅 http/socks5 开放参数编辑。</summary>
+    [TestMethod]
+    [TestCategory("Settings")]
+    public void ProxyTypeIndex_MapsTypeStringAndGatesEditability()
+    {
+        SettingsViewModel vm = CreateVm();
+
+        Assert.AreEqual(0, vm.ProxyTypeIndex);
+        Assert.IsFalse(vm.IsProxyEditable);
+
+        vm.ProxyTypeIndex = 1;
+        Assert.AreEqual("system", vm.Proxy.Type);
+        Assert.IsFalse(vm.IsProxyEditable);
+
+        vm.ProxyTypeIndex = 2;
+        Assert.AreEqual("http", vm.Proxy.Type);
+        Assert.IsTrue(vm.IsProxyEditable);
+
+        vm.ProxyTypeIndex = 3;
+        Assert.AreEqual("socks5", vm.Proxy.Type);
+        Assert.IsTrue(vm.IsProxyEditable);
+
+        vm.Proxy.Type = "none";
+        Assert.AreEqual(0, vm.ProxyTypeIndex);
+        Assert.IsFalse(vm.IsProxyEditable);
+    }
+
     [TestMethod]
     [TestCategory("Settings")]
     public void ConnectionProfile_ValidatesRequiredFields()

@@ -122,6 +122,16 @@ public class SettingsViewModel : ReactiveObject
                 HookAppearance(appearance);
                 BroadcastPreview();
             });
+
+        // 代理类型除经 ProxyTypeIndex 写入外还可能被直接改动(载入回填、测试),
+        // 派生的下拉索引与可编辑标志都要跟着刷新。
+        this.WhenAnyValue(x => x.Proxy)
+            .Subscribe(proxy =>
+            {
+                _hookedProxy?.PropertyChanged -= OnProxyItemChanged;
+                _hookedProxy = proxy;
+                proxy?.PropertyChanged += OnProxyItemChanged;
+            });
         SshKeys = new(sshKeyService);
         Snippets =
             snippets
@@ -307,6 +317,13 @@ public class SettingsViewModel : ReactiveObject
         private set => this.RaiseAndSetIfChanged(ref field, value);
     } = new();
 
+    /// <summary>代理页选项(POCO,直接 TwoWay 绑定)。</summary>
+    public ProxyOptions Proxy
+    {
+        get;
+        private set => this.RaiseAndSetIfChanged(ref field, value);
+    } = new();
+
     /// <summary>密钥管理页。</summary>
     public SshKeyManagerViewModel SshKeys { get; }
 
@@ -374,6 +391,10 @@ public class SettingsViewModel : ReactiveObject
             new(
                 Strings.Get("SetVm_SectionSecurity"),
                 "M12 1 3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"
+            ),
+            new(
+                Strings.Get("SetVm_SectionProxy"),
+                "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"
             ),
             new(
                 Strings.Get("SetVm_SectionSnippets"),
@@ -940,6 +961,34 @@ public class SettingsViewModel : ReactiveObject
         }
     }
 
+    /// <summary>代理类型下拉选中项与 <see cref="ProxyOptions.Type" /> 之间的索引映射。</summary>
+    public int ProxyTypeIndex
+    {
+        get =>
+            Proxy.Type switch
+            {
+                "system" => 1,
+                "http" => 2,
+                "socks5" => 3,
+                _ => 0,
+            };
+        set
+        {
+            Proxy.Type = value switch
+            {
+                1 => "system",
+                2 => "http",
+                3 => "socks5",
+                _ => "none",
+            };
+            this.RaisePropertyChanged();
+            this.RaisePropertyChanged(nameof(IsProxyEditable));
+        }
+    }
+
+    /// <summary>代理连接参数(主机/端口/凭据/DNS)是否可编辑:仅 http / socks5 类型开放。</summary>
+    public bool IsProxyEditable => Proxy.Type is "http" or "socks5";
+
     /// <summary>标签栏位置下拉选中项与 <see cref="AppearanceOptions.TabBarPosition" /> 之间的索引映射。</summary>
     public int TabBarPositionIndex
     {
@@ -1131,6 +1180,7 @@ public class SettingsViewModel : ReactiveObject
         Transfer = settings.Transfer;
         Security = settings.Security;
         Keys = settings.Keys;
+        Proxy = settings.Proxy;
 
         // 配色方案下拉:重算“(默认)”标注与选中项(出厂值折射到当前主题默认方案;
         // 显式方案反向匹配;改过单色显示“未选择”)。
@@ -1146,6 +1196,8 @@ public class SettingsViewModel : ReactiveObject
         this.RaisePropertyChanged(nameof(TabBarPositionIndex));
         this.RaisePropertyChanged(nameof(SidebarPositionIndex));
         this.RaisePropertyChanged(nameof(WindowStateIndex));
+        this.RaisePropertyChanged(nameof(ProxyTypeIndex));
+        this.RaisePropertyChanged(nameof(IsProxyEditable));
         _suppressPreview = false;
     }
 
@@ -1175,6 +1227,18 @@ public class SettingsViewModel : ReactiveObject
         catch (ArgumentException)
         {
             /* 非法色值:保持现状 */
+        }
+    }
+
+    private ProxyOptions? _hookedProxy;
+
+    /// <summary>Proxy.Type 被直接改动时,同步派生的下拉索引与「参数可编辑」标志。</summary>
+    private void OnProxyItemChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ProxyOptions.Type))
+        {
+            this.RaisePropertyChanged(nameof(ProxyTypeIndex));
+            this.RaisePropertyChanged(nameof(IsProxyEditable));
         }
     }
 
@@ -1304,6 +1368,7 @@ public class SettingsViewModel : ReactiveObject
         _loaded.Transfer = Transfer;
         _loaded.Security = Security;
         _loaded.Keys = Keys;
+        _loaded.Proxy = Proxy;
         await _settingsService.SaveSettingsAsync(_loaded);
 
         // 即时生效 —— 主题、强调色与语言均无需重启即可应用(#2/#3/#4)。

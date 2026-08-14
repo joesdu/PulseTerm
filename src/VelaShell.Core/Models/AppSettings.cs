@@ -63,6 +63,9 @@ public class AppSettings
     /// <summary>「密钥管理」页的分组选项。</summary>
     public KeyOptions Keys { get; set; } = new();
 
+    /// <summary>「网络代理」页的分组选项。</summary>
+    public ProxyOptions Proxy { get; set; } = new();
+
     /// <summary>
     /// 载入后的规整(由设置服务在反序列化后调用):把旧字段迁移到唯一权威字段,
     /// 保证每个行为只有一个数据来源(设置审计 C-01/M-01)。
@@ -843,4 +846,56 @@ public class KeyOptions : ObservableOptions
 
     /// <summary>规划中(ssh-agent 集成):仅持久化,当前无运行时消费者,不出现在设置界面(设置审计 R-06)。</summary>
     public bool AutoLoadToAgent { get; set; } = true;
+}
+
+/// <summary>
+/// 设置 - 网络代理:应用全部出站连接(SSH / FTP / HTTP 请求)共用的一份代理配置。
+/// 仅 http / socks5 两种类型消费 Host/Port/Username/Password;none 与 system 不读它们。
+/// </summary>
+public class ProxyOptions : ObservableOptions
+{
+    /// <summary>代理类型:none(直连)/ system(跟随系统代理)/ http(HTTP CONNECT)/ socks5。</summary>
+    public string Type
+    {
+        get;
+        set => Set(ref field, value ?? "none");
+    } = "none";
+
+    /// <summary>代理服务器主机名或 IP(仅 http / socks5 类型消费)。</summary>
+    public string Host
+    {
+        get;
+        set => Set(ref field, value ?? "");
+    } = "";
+
+    /// <summary>代理服务器端口(仅 http / socks5 类型消费);0 = 未配置。</summary>
+    public int Port
+    {
+        get;
+        set => Set(ref field, value);
+    }
+
+    /// <summary>代理认证用户名(空 = 不认证;仅 http / socks5 类型消费)。</summary>
+    public string Username
+    {
+        get;
+        set => Set(ref field, value ?? "");
+    } = "";
+
+    /// <summary>代理认证密码(仅 http / socks5 类型消费)。</summary>
+    public string Password
+    {
+        get;
+        set => Set(ref field, value ?? "");
+    } = "";
+
+    /// <summary>
+    /// 是否使用代理执行 DNS 查找(默认开):开 = 把目标主机名交给代理端解析(SOCKS5 发域名、
+    /// HTTP CONNECT 天然如此),本地不发 DNS 请求;关 = 本地先解析成 IP 再经代理连接。
+    /// </summary>
+    public bool ProxyDns
+    {
+        get;
+        set => Set(ref field, value);
+    } = true;
 }

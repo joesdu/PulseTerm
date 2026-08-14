@@ -209,6 +209,53 @@ public class SettingsViewUiTests
         });
     }
 
+    /// <summary>
+    /// 代理页禁用逻辑:仅 http/socks5 类型开放主机/端口/凭据/DNS 编辑,
+    /// 无代理与系统代理下整组禁用。断言落在控件的**有效**启用态
+    /// (IsEnabled 绑定挂在分组容器上,子控件自身的 IsEnabled 恒为 true)。
+    /// </summary>
+    [TestMethod]
+    public void ProxyPage_ConfigGroupEnabledOnlyForHttpAndSocks5()
+    {
+        OnUi(async () =>
+        {
+            ISettingsService settings = Substitute.For<ISettingsService>();
+            IThemeService theme = Substitute.For<IThemeService>();
+            settings.GetSettingsAsync().Returns(new AppSettings());
+            var viewModel = new SettingsViewModel(settings, theme);
+            await viewModel.LoadCommand.Execute().FirstAsync();
+            viewModel.SelectedSectionIndex = 7;
+
+            var window = new SettingsView { DataContext = viewModel };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            TextBox host = window.GetVisualDescendants().OfType<TextBox>()
+                .Single(t => t.Name == "ProxyHostBox");
+            ToggleSwitch dns = window.GetVisualDescendants().OfType<ToggleSwitch>()
+                .Single(t => t.Name == "ProxyDnsToggle");
+
+            // 默认无代理:整组禁用。
+            Assert.IsFalse(host.IsEffectivelyEnabled);
+            Assert.IsFalse(dns.IsEffectivelyEnabled);
+
+            viewModel.ProxyTypeIndex = 2; // HTTP
+            Dispatcher.UIThread.RunJobs();
+            Assert.IsTrue(host.IsEffectivelyEnabled);
+            Assert.IsTrue(dns.IsEffectivelyEnabled);
+
+            viewModel.ProxyTypeIndex = 1; // 系统代理
+            Dispatcher.UIThread.RunJobs();
+            Assert.IsFalse(host.IsEffectivelyEnabled);
+
+            viewModel.ProxyTypeIndex = 3; // SOCKS5
+            Dispatcher.UIThread.RunJobs();
+            Assert.IsTrue(host.IsEffectivelyEnabled);
+            Assert.IsTrue(dns.IsEffectivelyEnabled);
+            window.Close();
+        });
+    }
+
     private static void OnUi(Func<Task> body) =>
         _session.Dispatch(body, CancellationToken.None).GetAwaiter().GetResult();
 }

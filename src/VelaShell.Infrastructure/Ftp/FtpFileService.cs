@@ -1,11 +1,15 @@
 using System.Collections.Concurrent;
+using System.Net;
 using System.Net.Security;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using FluentFTP;
+using FluentFTP.Proxy.AsyncProxy;
 using VelaShell.Core.Ftp;
 using VelaShell.Core.Models;
+using VelaShell.Core.Net;
 using VelaShell.Core.Sftp;
+using VelaShell.Infrastructure.Net;
 using CoreDataMode = VelaShell.Core.Models.FtpDataConnectionMode;
 using CoreEncryption = VelaShell.Core.Models.FtpEncryptionMode;
 
@@ -23,7 +27,7 @@ namespace VelaShell.Infrastructure.Ftp;
 /// 而 FluentFTP 的数据流 <c>CanSeek == false</c>、<c>Seek()</c> 直接抛异常,根本满足不了。
 /// </para>
 /// </summary>
-public sealed class FtpFileService : ISftpService, IFtpSessionService
+public sealed class FtpFileService(IProxyResolver? proxyResolver = null) : ISftpService, IFtpSessionService
 {
     private readonly ConcurrentDictionary<Guid, FtpConnectionPool> _sessions = new();
 
@@ -35,7 +39,7 @@ public sealed class FtpFileService : ISftpService, IFtpSessionService
     {
         ArgumentNullException.ThrowIfNull(info);
         var probe = new CertificateProbe(info.Settings.TrustedCertificateThumbprint);
-        var pool = new FtpConnectionPool(info, token => CreateConnectedClientAsync(info, probe, token));
+        var pool = new FtpConnectionPool(info, token => CreateConnectedClientAsync(info, probe, proxyResolver, token));
         try
         {
             // 第一次租借即完成 TCP 连接、TLS 握手与登录 —— 把失败暴露在「打开会话」这一步,
@@ -399,12 +403,15 @@ public sealed class FtpFileService : ISftpService, IFtpSessionService
         return translated;
     }
 
-    private static async Task<AsyncFtpClient> CreateConnectedClientAsync(FtpConnectionInfo info, CertificateProbe probe, CancellationToken cancellationToken)
+    private static async Task<AsyncFtpClient> CreateConnectedClientAsync(FtpConnectionInfo info, CertificateProbe probe, IProxyResolver? proxyResolver, CancellationToken cancellationToken)
     {
+        ProxyRoute route = proxyResolver?.Resolve(info.Host, info.Port) ?? ProxyRoute.Direct;
         var config = new FtpConfig
         {
             EncryptionMode = MapEncryption(info.Settings.EncryptionMode),
-            DataConnectionType = info.Settings.DataConnectionMode == CoreDataMode.Passive
+            // 主动模式要求服务器反向连入本机,经代理无法到达;走代理时强制被动。
+            DataConnectionType = route.Kind != ProxyKind.None
+                || info.Settings.DataConnectionMode == CoreDataMode.Passive
                 ? FtpDataConnectionType.AutoPassive
                 : FtpDataConnectionType.AutoActive,
             // 绝不无条件信任证书:校验逻辑在 ValidateCertificate 里,未信任的指纹要能一路冒泡到 UI。
@@ -414,7 +421,7 @@ public sealed class FtpFileService : ISftpService, IFtpSessionService
             DataConnectionConnectTimeout = 15_000,
             DataConnectionReadTimeout = 30_000,
         };
-        var client = new AsyncFtpClient(info.Host, info.EffectiveUsername, info.EffectivePassword, info.Port, config);
+        AsyncFtpClient client = await CreateClientAsync(info, route, config, cancellationToken).ConfigureAwait(false);
         client.ValidateCertificate += (_, e) => probe.Validate(e);
         try
         {
@@ -426,6 +433,37 @@ public sealed class FtpFileService : ISftpService, IFtpSessionService
             client.Dispose();
             throw;
         }
+    }
+
+    /// <summary>
+    /// 按统一代理路由实例化 FTP 客户端:直连用普通 <see cref="AsyncFtpClient" />,
+    /// 走代理用 FluentFTP 的代理子类(控制与数据连接一并经代理)。
+    /// 「不用代理做 DNS」时本地先解析成 IP 交给代理端。
+    /// </summary>
+    private static async Task<AsyncFtpClient> CreateClientAsync(
+        FtpConnectionInfo info, ProxyRoute route, FtpConfig config, CancellationToken cancellationToken)
+    {
+        if (route.Kind == ProxyKind.None)
+        {
+            return new AsyncFtpClient(info.Host, info.EffectiveUsername, info.EffectivePassword, info.Port, config);
+        }
+        string ftpHost = route.ProxyDns
+            ? info.Host
+            : await ProxyStreamConnector.ResolveLocallyAsync(info.Host, cancellationToken).ConfigureAwait(false);
+        var profile = new FtpProxyProfile
+        {
+            ProxyHost = route.Host,
+            ProxyPort = route.Port,
+            ProxyCredentials = route.ToCredential(),
+            FtpHost = ftpHost,
+            FtpPort = info.Port,
+            FtpCredentials = new NetworkCredential(info.EffectiveUsername, info.EffectivePassword),
+        };
+        AsyncFtpClient client = route.Kind == ProxyKind.Http
+            ? new AsyncFtpClientHttp11Proxy(profile)
+            : new AsyncFtpClientSocks5Proxy(profile);
+        client.Config = config;
+        return client;
     }
 
     private static FluentFTP.FtpEncryptionMode MapEncryption(CoreEncryption mode) =>
