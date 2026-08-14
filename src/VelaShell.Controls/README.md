@@ -16,6 +16,7 @@
 | `Controls/MeterBar.cs` | 容量 / 占用条：圆角轨道 + 填充，按 >70% / >90% 阈值自动转警告与危险色。 |
 | `Themes/VelaTokens.axaml` `VelaShellTokens.axaml` | **设计 Token 定义**：颜色、间距、圆角、字体等语义化资源，主题切换的单一真源。 |
 | `Themes/Icons.axaml` | 图标几何路径资源字典（Lucide，stroke 2 / 24×24 viewBox）。 |
+| `Assets/Fonts/` | **内置字体**（随程序分发，三平台一致渲染，SIL OFL 1.1）：Cascadia Mono 四静态字重，终端默认字体。刻意不用连字版 —— 本终端按格钉排，连字无法正确呈现；CJK 走系统回退。由 `Program.BuildAvaloniaApp` 以 `fonts:VelaShell` 键注册为 `EmbeddedFontCollection`。 |
 | `DependencyInjection/ControlsServiceCollectionExtensions.cs` | 控件相关服务的 DI 注册入口。 |
 | `Properties/AssemblyInfo.cs` | Avalonia 主题程序集元数据。 |
 
@@ -27,7 +28,7 @@
 
 ## 🔗 依赖关系
 
-- **引用**：`Avalonia`、`Avalonia.Themes.Fluent`、`Microsoft.Extensions.DependencyInjection.Abstractions`。**不引用任何其他 VelaShell 项目。**
+- **引用**：`Avalonia`、`Avalonia.Themes.Fluent`。**不引用任何其他 VelaShell 项目**（连 `Core` 都不引用）。
 - **被引用**：`VelaShell`（App）。
 
 > 启用 `AvaloniaUseCompiledBindingsByDefault`。测试见 [`tests/VelaShell.Controls.Tests`](../../tests/VelaShell.Controls.Tests)。

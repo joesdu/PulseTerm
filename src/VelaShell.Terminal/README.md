@@ -23,11 +23,16 @@
 | `Emulation/TerminalScreen.cs` `TerminalRow.cs` `TerminalCell.cs` | 屏幕/行/单元格数据结构，`CellFlags` 描述粗体、下划线、反显等属性。 |
 | `Emulation/TerminalColor.cs` `TerminalPalette.cs` | 256 色 / 真彩色调色板与 SGR 颜色解析。 |
 | `Emulation/CharWidth.cs` `Charsets.cs` | CJK 双宽字符宽度计算、DEC 线绘字符集映射。 |
+| `Emulation/CombiningPool.cs` | 组合标记（重音/变音符）的进程级驻留池：单元格只存 `int` 索引，于是 `TerminalCell` 不含任何托管引用 —— 数百万格的回滚缓冲不再被 GC 逐格扫描，每格还省 4 字节。 |
+| `Emulation/TerminalType.cs` | 向远端宣示的仿真档位（VT52 … xterm-256color）：决定 `TERM` 字符串、DA 应答与启用的功能集。 |
 | `Emulation/InputEncoder.cs` `MouseEncoder.cs` | 键盘（含应用光标键模式）与鼠标协议（X10 / SGR 等）的输入编码。 |
-| `Emulation/Utf8Sink.cs` `InputEncoder` | 动态编码切换与 UTF-8 增量解码。 |
+| `Emulation/Utf8Sink.cs` | 动态编码切换与 UTF-8 增量解码。 |
 | `Rendering/VelaTerminalControl.cs` | **自绘渲染控件**（热点文件）：直接绘制字形、选区、光标、滚动条；处理输入事件与命中测试。 |
+| `Rendering/TerminalSelectionMath.cs` | 选区几何的纯计算：线性选区与矩形块选（Alt+拖拽）共用的归一化/命中/逐行列区间规则。行为对齐 Windows Terminal —— 块选与否在**按下那一刻**由 Alt 决定，拖拽途中改按不影响。 |
 | `Rendering/GutterLayout.cs` `GutterFoldModel.cs` | 侧栏（行号 / 时间戳）布局与折叠模型。 |
 | `Rendering/TerminalPaletteOverrides.cs` | 主题层对调色板的运行时覆盖。 |
+| `Input/TerminalKeyRouter.cs` | 一次按键的动作归类（编码为字节 / 命中快捷键 / IME 组字中间态不得编码 / 交还基类），把路由决策从控件里剥离出来单测。 |
+| `LocalEcho.cs` | 本地回显策略：把「即将发往主机的键入字节」翻译成「应当喂回终端显示的字节」。用于对端不回显的链路（Telnet 半双工、串口）或主机以 SRM 复位显式要求；SSH 默认关闭，否则远端回显叠加本地回显会出双字符。 |
 | `ScrollbackBuffer.cs` `TerminalLine.cs` | 回滚历史缓冲与逻辑行。 |
 | `BufferSearch.cs` `SearchMatch.cs` | 缓冲区文本搜索与匹配高亮。 |
 | `Semantics/SemanticMatcher.cs` | 语义识别（如 URL / 路径检测）。 |

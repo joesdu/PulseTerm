@@ -17,11 +17,15 @@
 | `ViewModels/TabBarViewModel.cs` `TabViewModel.cs` | 标签页栏与单标签状态。 |
 | `ViewModels/QuickCommands*.cs` `QuickCommandRunnerViewModel.cs` 等 | 快捷命令：分组/条目模型、目标选择与执行请求分发。 |
 | `ViewModels/TerminalTargetSelectorViewModel.cs` | 命令/传输的目标终端选择（多标签广播与定向发送共用）。 |
+| `ViewModels/SessionImport*.cs` | 从其他工具导入会话：多来源自动扫描、跨来源去重、智能勾选与按来源写入（`SessionImportViewModel` + 来源/条目两级子 VM）。 |
 | `Services/ConnectionWorkflowService.cs` | 连接工作流：把「校验 → 认证 → 建立会话」编排为一条可复用流程；跳板机链（`JumpHostProfileId`）的解析、环检测与跳数上限也在此。 |
 | `Services/TunnelWorkflowService.cs` | 隧道工作流：统一封装隧道创建类型分派、快照读取、停止与移除。 |
 | `Services/ConnectionDiagnosticsService.cs` `ConnectionTestResult.cs` | 连接诊断与测试结果模型。 |
 | `Commands/CommandRegistry.cs` | 全局命令注册表，供命令面板与快捷键系统消费。 |
+| `Plugins/PluginCommandsApi.cs` | 插件命令能力（SDK 的 `ICommandsApi`）到命令注册表的桥接：强制 `<pluginId>.` 前缀防冒名，命令体在后台线程执行且异常只记入插件日志，插件停用时注销其全部命令。 |
 | `DependencyInjection/PresentationServiceCollectionExtensions.cs` | 本层 ViewModel 与服务的 DI 注册入口。 |
+
+> `Services/` 下每个工作流都是「接口 + 实现」成对出现（`IConnectionWorkflowService`/`ConnectionWorkflowService` 等），视图与测试都只依赖接口。
 
 ## 🔑 核心思路
 
@@ -31,7 +35,7 @@
 
 ## 🔗 依赖关系
 
-- **引用**：`VelaShell.Core`、`VelaShell.Terminal`、`Microsoft.Extensions.DependencyInjection.Abstractions`。
+- **引用**：`VelaShell.Core`、`VelaShell.Terminal`、`VelaShell.PluginSdk`（仅为插件命令桥接；不引入任何重量级依赖）。**无任何 NuGet 包直接引用。**
 - **被引用**：`VelaShell`（App）。
 
 > 测试见 [`tests/VelaShell.Presentation.Tests`](../../tests/VelaShell.Presentation.Tests)。

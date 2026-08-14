@@ -4,8 +4,12 @@ VelaShell 插件开发 SDK 的源代码:
 
 | 项目 | 说明 |
 | --- | --- |
-| [VelaShell.PluginSdk](VelaShell.PluginSdk/) | 契约程序集:`IVelaPlugin` / `IPluginContext`、能力接口、`plugin.json` 模型。仅依赖 BCL |
+| [VelaShell.PluginSdk](VelaShell.PluginSdk/) | 契约程序集:`IVelaPlugin` / `IPluginContext`、能力接口、`plugin.json` 模型、装载工具与 RPC 线协议。仅依赖 BCL |
 | [VelaShell.PluginSdk.Testing](VelaShell.PluginSdk.Testing/) | 测试替身:`TestPluginContext` 与全部能力的内存实现 |
+
+同一份插件源码有两种运行方式,由 `plugin.json` 的 `hostMode` 决定:进程内(宿主直调)
+或隔离进程([`VelaShell.PluginHost`](../src/VelaShell.PluginHost) + RPC 代理)。能力接口
+传输无关,插件代码不因此改动一行。
 
 - 开发文档:[docs/plugins/dev-guide.md](../docs/plugins/dev-guide.md)
 - 示例插件:[plugins/VelaShell.Plugin.HelloWorld](../plugins/VelaShell.Plugin.HelloWorld/)
