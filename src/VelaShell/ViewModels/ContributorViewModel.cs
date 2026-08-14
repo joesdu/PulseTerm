@@ -11,6 +11,12 @@ public sealed class ContributorViewModel(string handle) : ReactiveObject
 {
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(10) };
 
+    // 失败退避(进程内共享):GitHub 不可达时,每次打开设置都重试只会对注定失败的
+    // 网络反复发起连接,在调试器里刷一屏已被捕获的 IOException。失败后 5 分钟内
+    // 不再自动重试;期间用户若配好代理,退避到期后重开设置即可恢复加载。
+    private static readonly TimeSpan RetryBackoff = TimeSpan.FromMinutes(5);
+    private static DateTime _lastFailureUtc = DateTime.MinValue;
+
     /// <summary>GitHub 用户名(不含 @)。</summary>
     public string Handle { get; } = handle;
 
@@ -37,10 +43,10 @@ public sealed class ContributorViewModel(string handle) : ReactiveObject
     /// <summary>是否已成功加载头像(供视图在头像与占位之间切换)。</summary>
     public bool HasAvatar => Avatar is not null;
 
-    /// <summary>拉取 GitHub 头像(72px,幂等;任何失败都静默保留占位)。</summary>
+    /// <summary>拉取 GitHub 头像(72px,幂等;任何失败都静默保留占位,并进入进程级退避)。</summary>
     public async Task LoadAvatarAsync()
     {
-        if (Avatar is not null)
+        if (Avatar is not null || DateTime.UtcNow - _lastFailureUtc < RetryBackoff)
         {
             return;
         }
@@ -52,7 +58,8 @@ public sealed class ContributorViewModel(string handle) : ReactiveObject
         }
         catch
         {
-            // 离线或 GitHub 不可达:保留首字母占位,不影响关于页其余内容。
+            // 离线或 GitHub 不可达:保留首字母占位,不影响关于页其余内容;记退避起点。
+            _lastFailureUtc = DateTime.UtcNow;
         }
     }
 }
