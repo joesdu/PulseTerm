@@ -22,6 +22,7 @@
     <File Path="LICENSE" />
     <File Path="LICENSE-COMMERCIAL.md" />
     <File Path="plan.md" />
+    <File Path="README.en.md" />
     <File Path="README.md" />
     <File Path="Directory.Build.targets" />
   </Folder>

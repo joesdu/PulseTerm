@@ -51,7 +51,7 @@ Together, VelaShell means **"a terminal as your sail, riding the signal winds to
   Transfer files straight from the terminal: the ZMODEM lead-in sequence is detected in the output stream, the channel is handed to our own ZMODEM protocol engine, and the terminal is restored afterwards. Both directions, transport agnostic (SSH or local ConPTY). Set `VELASHELL_ZMODEM_TRACE=1` for frame-level tracing.
 
 - **FTP / FTPS**  
-  Connection profiles can be FTP: explicit/implicit FTPS and plain FTP, anonymous login, passive/active modes. When a server certificate fails validation you get its SHA-256 fingerprint to confirm, and it is pinned afterwards. Built on [FluentFTP](https://github.com/robinrodricks/FluentFTP) (MIT) with a connection pool for concurrent transfers (a single FTP control connection can only run one command at a time), reusing exactly the same dual-pane file browser and transfer stack as SFTP. Rationale in [`docs/FTP客户端可行性调研.md`](docs/FTP客户端可行性调研.md).
+  Built on [FluentFTP](https://github.com/robinrodricks/FluentFTP) (MIT) with a connection pool for concurrent transfers (a single FTP control connection can only run one command at a time), reusing exactly the same dual-pane file browser and transfer stack as SFTP. Rationale in [`docs-en/ftp-client-feasibility-research.md`](docs-en/ftp-client-feasibility-research.md).
 
 - **Dedicated SFTP tabs and remote file editing**  
   A profile can be SSH or SFTP; SFTP tabs live as their own documents in the dock workspace with local/remote dual-pane browsing, drag-and-drop transfers, resumable transfers and a transfer queue. Remote files open in the built-in editor (AvaloniaEdit, syntax highlighting by extension, plus five hand-written definitions for Shell/YAML/INI/Log/Dockerfile re-skinned for dark themes) and upload on save; you can also hand a file to an external editor and have changes uploaded when it hits disk.
@@ -74,7 +74,7 @@ Together, VelaShell means **"a terminal as your sail, riding the signal winds to
   Live charts for the remote host: CPU (overall, per core, time breakdown, clock, context switches), memory (including cache/buffers/swap), disks (devices, mount points, filesystems, capacity), network connections and the process list.
 
 - **Process manager / traceroute / connection diagnostics**  
-  Inspect and kill remote processes; visualise `traceroute` with geographic data (design in [`docs/路由追踪设计.md`](docs/路由追踪设计.md)); step-by-step diagnostics when a connection fails.
+  Inspect and kill remote processes; visualise `traceroute` with geographic data (design in [`docs-en/route-tracing-design.md`](docs-en/route-tracing-design.md)); step-by-step diagnostics when a connection fails.
 
 - **Quick commands and command palette**  
   Send saved command snippets to the current session in one click; `Ctrl+P` / `Ctrl+K` opens the command palette with fuzzy subsequence search over recent sessions, all saved sessions and global commands.
@@ -94,7 +94,7 @@ Together, VelaShell means **"a terminal as your sail, riding the signal winds to
   Plugins reach host functionality through `IPluginContext`: `Sessions` (enumerate/observe sessions), `Terminal` (read output, write input), `RemoteFs` (remote file read/write and directory listing), `RemoteExec` (run remote commands), `Storage` and `TimeSeries` (per-plugin private document and time-series storage), `Secrets` (host-encrypted secrets), `Commands` (register commands and entry points), `Events` (session/locale/theme events), `Ui` (panels as docked documents or standalone windows), `Clipboard` and `Log`. Dangerous capabilities are granted one by one through a permission dialog.
 
 - **Packaging and management**  
-  Plugins ship as `.vpx` packages and can be installed, enabled, disabled and uninstalled from a dedicated plugin manager window; uninstalling also purges the plugin's private data (its SonnetDB namespace and data directory). The SDK ships test doubles (`VelaShell.PluginSdk.Testing`) so plugins can be tested headlessly. Full blueprint in [`docs/plugins/`](docs/plugins/) (15 design documents + a [dev guide](docs/plugins/dev-guide.md) + a [status overview](docs/plugins/STATUS.md)).
+  Plugins ship as `.vpx` packages and can be installed, enabled, disabled and uninstalled from a dedicated plugin manager window; uninstalling also purges the plugin's private data (its SonnetDB namespace and data directory). The SDK ships test doubles (`VelaShell.PluginSdk.Testing`) so plugins can be tested headlessly. Full blueprint in [`docs-en/plugins/`](docs-en/plugins/) (15 design documents + a [dev guide](docs-en/plugins/dev-guide.md) + a [status overview](docs-en/plugins/STATUS.md)).
 
 - **AI assistant plugin (first-party)**  
   Multi-provider streaming chat across three wire protocols — OpenAI Responses, OpenAI Chat Completions-compatible and Anthropic Messages — covering OpenAI, Grok, Ollama and relay endpoints, with your own base URL and API key (keys go into the host's encrypted secret store). **Agent mode** runs a Microsoft.Extensions.AI `FunctionInvokingChatClient` tool loop bridged to sessions / terminal / remoteExec / remoteFs, with per-command approval for dangerous operations, and can attach custom **MCP servers** (stdio / HTTP) for extra tools. Conversations are persisted to the plugin's private time-series store: browse history, resume a conversation, delete one or clear all; `↑`/`↓` recalls previous prompts and `@` opens a remote file picker for the selected session, attaching file contents to the message. The composer itself is an editor with **Markdown highlighting**, where `@` references render as themed short-name chips (full path on hover), and message bubbles are rendered as Markdown.
@@ -290,23 +290,23 @@ dotnet test --logger "console;verbosity=detailed"
 
 ## 📚 Documentation
 
-Most design documents are written in Chinese; file names are linked as-is.
+English translations of the design documents are linked below; the Chinese originals live under `docs/`.
 
-- [`docs/architecture.md`](docs/architecture.md) — layering, dependency direction and the SonnetDB persistence strategy
-- [`docs/架构设计.md`](docs/架构设计.md) — engineering refactor blueprint
-- [`docs/plugins/`](docs/plugins/) — 15-part plugin blueprint + [dev guide](docs/plugins/dev-guide.md) + [status overview](docs/plugins/STATUS.md)
-- [`docs/dock-replacement-plan.md`](docs/dock-replacement-plan.md) — replacing Dock.Avalonia with VelaDock
-- [`docs/design-specs.md`](docs/design-specs.md) — UI visual specs (extracted frame by frame from Pencil)
+- [`docs-en/architecture.md`](docs-en/architecture.md) — layering, dependency direction and the SonnetDB persistence strategy
+- [`docs-en/architecture-design.md`](docs-en/architecture-design.md) — engineering refactor blueprint
+- [`docs-en/plugins/`](docs-en/plugins/) — 15-part plugin blueprint + [dev guide](docs-en/plugins/dev-guide.md) + [status overview](docs-en/plugins/STATUS.md)
+- [`docs-en/dock-replacement-plan.md`](docs-en/dock-replacement-plan.md) — replacing Dock.Avalonia with VelaDock
+- [`docs-en/design-specs.md`](docs-en/design-specs.md) — UI visual specs (extracted frame by frame from Pencil)
 - [`DESIGN.md`](DESIGN.md) — design system: colour/type/spacing tokens and component rules
-- [`docs/交互与界面规格.md`](docs/交互与界面规格.md) — interaction logic and design tokens
-- [`docs/settings-audit.md`](docs/settings-audit.md) — settings audit ledger and remediation log
-- [`docs/隧道功能规划.md`](docs/隧道功能规划.md) — port-forwarding tunnel design
-- [`docs/路由追踪设计.md`](docs/路由追踪设计.md) — traceroute and geographic visualisation
-- [`docs/性能与内存优化-2026-07.md`](docs/性能与内存优化-2026-07.md) — performance and memory optimisation log
-- [`docs/终端输入乱序问题分析与架构建议.md`](docs/终端输入乱序问题分析与架构建议.md) — serialising terminal input
-- [`docs/SFTP双栏与WinSCP差距分析.md`](docs/SFTP双栏与WinSCP差距分析.md) — dual-pane SFTP vs WinSCP, item by item
-- [`docs/FTP客户端可行性调研.md`](docs/FTP客户端可行性调研.md) — trade-offs behind FTP / FTPS support
-- [`docs/Telnet与串口可行性调研.md`](docs/Telnet与串口可行性调研.md) — feasibility and work list for Telnet / serial sessions
+- [`docs-en/interaction-and-ui-specs.md`](docs-en/interaction-and-ui-specs.md) — interaction logic and design tokens
+- [`docs-en/settings-audit.md`](docs-en/settings-audit.md) — settings audit ledger and remediation log
+- [`docs-en/tunnel-feature-planning.md`](docs-en/tunnel-feature-planning.md) — port-forwarding tunnel design
+- [`docs-en/route-tracing-design.md`](docs-en/route-tracing-design.md) — traceroute and geographic visualisation
+- [`docs-en/performance-and-memory-optimization-2026-07.md`](docs-en/performance-and-memory-optimization-2026-07.md) — performance and memory optimisation log
+- [`docs-en/terminal-input-ordering-analysis.md`](docs-en/terminal-input-ordering-analysis.md) — serialising terminal input
+- [`docs-en/sftp-dual-pane-winscp-gap-analysis.md`](docs-en/sftp-dual-pane-winscp-gap-analysis.md) — dual-pane SFTP vs WinSCP, item by item
+- [`docs-en/ftp-client-feasibility-research.md`](docs-en/ftp-client-feasibility-research.md) — trade-offs behind FTP / FTPS support
+- [`docs-en/telnet-and-serial-feasibility-research.md`](docs-en/telnet-and-serial-feasibility-research.md) — feasibility and work list for Telnet / serial sessions
 - [`plan.md`](plan.md) — progress log, known issues and the backlog (the source of truth for day-to-day work)
 
 ---
@@ -337,15 +337,15 @@ The project is under active development.
 
 **Working today**: terminal engine, SSH/SFTP, FTP/FTPS, ZMODEM, local shells, jump hosts, session management and import, authentication, tunnels, persistence, settings centre, cloud sync, session recording, resource monitor / process manager / traceroute, plus the **plugin system framework** (dual hosting modes, the full capability surface, UI extensions, heartbeat self-healing and idle recycling, per-plugin storage with uninstall cleanup, `.vpx` install/uninstall, SDK test doubles and developer docs) and the first-party **AI assistant plugin**.
 
-**Not yet available**: Telnet / serial protocols and certificate authentication (feasibility and work list in [`docs/Telnet与串口可行性调研.md`](docs/Telnet与串口可行性调研.md)); the container-management plugin has not been started. Some settings are persisted but not yet wired to runtime behaviour.
+**Not yet available**: Telnet / serial protocols and certificate authentication (feasibility and work list in [`docs-en/telnet-and-serial-feasibility-research.md`](docs-en/telnet-and-serial-feasibility-research.md)); the container-management plugin has not been started. Some settings are persisted but not yet wired to runtime behaviour.
 
-The full completion matrix and backlog live in [`plan.md`](plan.md) §10–§12 and [`docs/plugins/STATUS.md`](docs/plugins/STATUS.md).
+The full completion matrix and backlog live in [`plan.md`](plan.md) §10–§12 and [`docs-en/plugins/STATUS.md`](docs-en/plugins/STATUS.md).
 
 ---
 
 ## 🤝 Contributing
 
-Issues and pull requests are welcome. Before contributing, read [`docs/architecture.md`](docs/architecture.md) for the layering conventions and dependency direction; if you are writing a plugin, start with [`docs/plugins/dev-guide.md`](docs/plugins/dev-guide.md).
+Issues and pull requests are welcome. Before contributing, read [`docs-en/architecture.md`](docs-en/architecture.md) for the layering conventions and dependency direction; if you are writing a plugin, start with [`docs-en/plugins/dev-guide.md`](docs-en/plugins/dev-guide.md).
 
 ---
 
