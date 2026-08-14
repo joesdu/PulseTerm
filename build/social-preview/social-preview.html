@@ -133,7 +133,9 @@
         display: flex;
         flex-wrap: wrap;
         gap: 10px;
-        width: 592px;
+        /* 比品牌列(604)略宽:让八枚芯片排成齐整的 4+4 而不是留一枚孤儿在第三行。
+           右侧终端从 728px 起,这里最远到 688px,仍留 40px 净空。 */
+        width: 620px;
       }
 
       .chip {
@@ -265,7 +267,7 @@
           </div>
         </div>
 
-        <h1 class="tagline">现代化跨平台<br><em>SSH / SFTP 终端客户端</em></h1>
+        <h1 class="tagline">现代化跨平台<br><em>SSH / SFTP / FTP 终端客户端</em></h1>
         <div class="stack">.NET 11 · Avalonia · Windows / Linux / macOS · x64 &amp; arm64</div>
 
         <div class="chips">
@@ -274,7 +276,8 @@
           <span class="chip">端口转发隧道</span>
           <span class="chip">SFTP 断点续传</span>
           <span class="chip">可拖拽分屏</span>
-          <span class="chip">命令面板</span>
+          <span class="chip">插件系统</span>
+          <span class="chip">AI 助手</span>
           <span class="chip">加密会话存储</span>
         </div>
       </section>
