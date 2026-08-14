@@ -1459,6 +1459,9 @@ Paste anyway?</value>
   <data name="Msg_UpdateServiceNotAvailable" xml:space="preserve">
     <value>Auto-update is not available yet; please get new releases from the project releases page.</value>
   </data>
+  <data name="SetAbout_ArchEmulated" xml:space="preserve">
+    <value>{0}, emulated on {1}</value>
+  </data>
   <data name="SetAbout_Checking" xml:space="preserve">
     <value>Checking for updates…</value>
   </data>
