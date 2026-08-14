@@ -57,6 +57,8 @@ public class TimeSeriesRoutingTests
             Secrets = new FakeSecrets(),
             Clipboard = new FakeClipboard(),
             Terminal = new FakeTerminal(),
+            // 隔离插件本就拿不到协议能力(清单校验会拒 protocols + isolated),这里用"注册即抛"的实现。
+            Protocols = new UnavailableProtocols(),
             Shutdown = CancellationToken.None
         };
         var hostConnection = new RpcConnection(serverPipe);
