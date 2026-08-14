@@ -8,6 +8,7 @@ using VelaShell.Core.Models;
 using VelaShell.Core.Processes;
 using VelaShell.Core.Recording;
 using VelaShell.Core.Resources;
+using VelaShell.Core.Protocols;
 using VelaShell.Core.Services;
 using VelaShell.Core.Sftp;
 using VelaShell.Core.Ssh;
@@ -16,9 +17,11 @@ using VelaShell.Core.Tunnels;
 using VelaShell.Infrastructure.Ftp;
 using VelaShell.Infrastructure.Import;
 using VelaShell.Infrastructure.Persistence;
+using VelaShell.Infrastructure.Plugins.Protocols;
 using VelaShell.Infrastructure.Sftp;
 using VelaShell.Infrastructure.Ssh;
 using VelaShell.Infrastructure.Tunnels;
+using VelaShell.PluginSdk.Protocols;
 using VelaConnectionInfo = VelaShell.Core.Models.ConnectionInfo;
 
 namespace VelaShell.Infrastructure.DependencyInjection;
@@ -98,12 +101,35 @@ public static class InfrastructureServiceCollectionExtensions
         // FTP / FTPS 后端:自带连接池(FTP 一条控制连接同时只能跑一条命令,不像 SFTP 能多路复用)。
         services.AddSingleton<FtpFileService>();
         services.AddSingleton<IFtpSessionService>(sp => sp.GetRequiredService<FtpFileService>());
-        // 远程文件服务对外仍是唯一的 ISftpService;路由按会话归属分派到 SFTP / FTP 两个后端,
+        // 插件协议(S3、WebDAV… 由插件提供)。注册表在发现期就登记清单声明的协议页签,
+        // 插件激活后补上实现;适配器把它翻译成宿主的 ISftpService。
+        // 宿主本身对这些协议一无所知 —— 连它们的客户端库都不在宿主进程的依赖里。
+        services.AddSingleton<PluginProtocolRegistry>(sp =>
+        {
+            ISettingsService settings = sp.GetRequiredService<ISettingsService>();
+            return new()
+            {
+                // 限速与时间戳策略是全局用户偏好,对 SFTP/FTP/插件协议一视同仁 ——
+                // 每次传输现读一次,用户中途调了限速正在跑的传输也跟着变。
+                TransferOptionsProvider = async _ =>
+                {
+                    TransferOptions transfer = (await settings.GetSettingsAsync().ConfigureAwait(false)).Transfer;
+                    long up = transfer.BandwidthLimitEnabled ? (long)Math.Max(0, transfer.UploadLimitMBps) * 1024 * 1024 : 0;
+                    long down = transfer.BandwidthLimitEnabled ? (long)Math.Max(0, transfer.DownloadLimitMBps) * 1024 * 1024 : 0;
+                    return new(up, down, transfer.PreserveTimestamps);
+                },
+            };
+        });
+        services.AddSingleton<PluginProtocolFileService>(sp => new(sp.GetRequiredService<PluginProtocolRegistry>()));
+        services.AddSingleton<IPluginProtocolSessionService>(sp => sp.GetRequiredService<PluginProtocolFileService>());
+        // 远程文件服务对外仍是唯一的 ISftpService;路由按会话归属分派到 SFTP / FTP / 插件协议,
         // 文件浏览器、传输管理器、限速、拖放因此零改动。
         services.AddSingleton<ISftpService>(sp => new RoutingRemoteFileService(
             sp.GetRequiredService<SftpService>(),
             sp.GetRequiredService<FtpFileService>(),
-            sp.GetRequiredService<FtpFileService>()));
+            sp.GetRequiredService<FtpFileService>(),
+            sp.GetRequiredService<PluginProtocolFileService>(),
+            sp.GetRequiredService<PluginProtocolFileService>()));
         services.AddSingleton<SftpService>(sp =>
         {
             ISshConnectionService connSvc = sp.GetRequiredService<ISshConnectionService>();

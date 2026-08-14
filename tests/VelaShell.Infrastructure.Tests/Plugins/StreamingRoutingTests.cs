@@ -47,6 +47,8 @@ public class StreamingRoutingTests
             Secrets = new FakeSecrets(),
             Clipboard = new FakeClipboard(),
             Terminal = new FakeTerminal(),
+            // 本用例测 RPC 流式链路,协议能力被用到即是误用 —— 用"注册即抛"的那个实现。
+            Protocols = new UnavailableProtocols(),
             Shutdown = CancellationToken.None
         };
         var hostConnection = new RpcConnection(serverPipe);

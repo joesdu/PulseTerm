@@ -148,14 +148,43 @@ public sealed class SonnetDbSessionRepository(SonnetDbEngine engine, ISecretProt
             RememberPassword = profile.RememberPassword,
             JumpHostProfileId = profile.JumpHostProfileId,
             // 深拷贝:这份副本要落盘,不能与调用方共享可变对象。
-            Ftp = profile.Ftp?.Clone()
+            Ftp = profile.Ftp?.Clone(),
+            PluginProtocolId = profile.PluginProtocolId,
+            PluginSettings = SessionProfile.CloneSettings(profile.PluginSettings),
+            PluginSecrets = MapSecrets(profile.PluginSecrets, _protector.Protect)
         };
+    }
+
+    /// <summary>
+    /// 插件协议机密字典的逐值映射(加密/解密各用一次)。
+    /// <para>
+    /// 之所以能"整本加密"而不必逐字段判断:机密与非机密在
+    /// <see cref="SessionProfile.PluginSecrets" /> / <see cref="SessionProfile.PluginSettings" />
+    /// 两个字典里就已经分开了。仓储层不认识任何协议的字段声明(那在插件里),
+    /// 靠查表决定加不加密迟早会漏掉一个。
+    /// </para>
+    /// </summary>
+    private static Dictionary<string, string>? MapSecrets(
+        Dictionary<string, string>? source,
+        Func<string?, string?> transform)
+    {
+        if (source is null)
+        {
+            return null;
+        }
+        var result = new Dictionary<string, string>(source.Count, StringComparer.Ordinal);
+        foreach (KeyValuePair<string, string> entry in source)
+        {
+            result[entry.Key] = transform(entry.Value) ?? string.Empty;
+        }
+        return result;
     }
 
     private SessionProfile Unprotect(SessionProfile profile)
     {
         profile.Password = _protector.Unprotect(profile.Password);
         profile.PrivateKeyPassphrase = _protector.Unprotect(profile.PrivateKeyPassphrase);
+        profile.PluginSecrets = MapSecrets(profile.PluginSecrets, _protector.Unprotect);
         return profile;
     }
 

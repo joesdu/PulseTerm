@@ -47,6 +47,17 @@ public interface IPluginPanel : IAsyncDisposable
 
     /// <summary>程序性关闭面板(幂等,任意线程可调)。</summary>
     Task CloseAsync();
+
+    /// <summary>
+    /// 把面板带到前台(窗口形态:还原最小化并激活;文档形态:切到该标签页)。
+    /// 幂等,任意线程可调;面板已关闭时是空操作。
+    /// <para>
+    /// 插件对"同一目标重复触发"的惯例做法是聚焦已开的那一扇而不是再开一扇 ——
+    /// 但同尺寸的 CenterOwner 窗口会像素级盖住前一扇、最小化后更是完全看不见,
+    /// 只 <c>return</c> 的话用户会以为点了没反应。
+    /// </para>
+    /// </summary>
+    Task ActivateAsync();
 }
 
 /// <summary>

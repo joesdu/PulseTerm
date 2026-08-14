@@ -154,6 +154,29 @@ internal sealed class PluginHostUi(string pluginId, IPluginLogger log, RpcConnec
             }
         }
 
+        public async Task ActivateAsync()
+        {
+            if (!IsOpen)
+            {
+                return;
+            }
+            try
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    if (_window.WindowState == WindowState.Minimized)
+                    {
+                        _window.WindowState = WindowState.Normal;
+                    }
+                    _window.Activate();
+                }).GetTask().ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // 插件进程退出:窗口随之消亡,聚焦已无意义。
+            }
+        }
+
         public ValueTask DisposeAsync() => new(CloseAsync());
 
         private void NotifyClosed()

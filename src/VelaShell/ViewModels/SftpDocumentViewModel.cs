@@ -51,8 +51,9 @@ public sealed class SftpDocumentViewModel : ReactiveObject, IAsyncDisposable
 
     /// <summary>
     /// 以「一个会话标识 + 一个断开回调」构造文档,不绑定具体协议。
-    /// FTP 会话走这条:它没有 <see cref="SshSession" />,也不经 <see cref="IConnectionWorkflowService" />
-    /// (那是 SSH 握手),但文件面板与传输栈完全共用 —— 它们只认 <see cref="ISftpService" /> + 会话标识。
+    /// FTP 与 S3 会话都走这条:它们没有 <see cref="SshSession" />,也不经
+    /// <see cref="IConnectionWorkflowService" />(那是 SSH 握手),但文件面板与传输栈完全共用
+    /// —— 它们只认 <see cref="ISftpService" /> + 会话标识。
     /// </summary>
     /// <param name="profile">用于建立连接的会话配置。</param>
     /// <param name="sessionId">已建立的会话标识。</param>
@@ -98,18 +99,19 @@ public sealed class SftpDocumentViewModel : ReactiveObject, IAsyncDisposable
 
     /// <summary>用于建立连接的会话配置。</summary>
     public SessionProfile Profile { get; }
-    /// <summary>当前活跃的 SSH 会话;FTP 文档没有 SSH 会话,为 null。</summary>
+    /// <summary>当前活跃的 SSH 会话;FTP / S3 文档没有 SSH 会话,为 null。</summary>
     public SshSession? Session { get; }
 
     /// <summary>
     /// 标签页状态灯的连接状态。必须由本视图模型给出,不能让界面直接绑 <c>Session.Status</c>:
-    /// FTP 文档的 <see cref="Session" /> 是 null,那样每开一个 FTP 标签都会刷一条
+    /// FTP / S3 文档的 <see cref="Session" /> 是 null,那样每开一个这类标签都会刷一条
     /// <c>An error occurred binding 'Fill' to 'ViewModel.Session.Status': 'Value is null.'</c>,
     /// 而且那颗灯自始至终不上色。
     /// </summary>
     /// <remarks>
-    /// FTP 没有会话级状态可读(<c>IFtpSessionService</c> 只管开/关),而文档只在登录成功后才建出来,
-    /// 因此按「已连接」呈现;掉线由文件面板的错误提示承担。等 FTP 侧补上状态跟踪再接上来。
+    /// 这两种协议都没有长驻的会话对象可读,而文档只在登录成功后才建出来,因此按「已连接」呈现;
+    /// 掉线由文件面板的错误提示承担,侧边栏树上的状态圆点则由各自的
+    /// <c>SessionStateChanged</c> 事件驱动(见 <c>MainWindowViewModel</c>)。
     /// </remarks>
     public SessionStatus Status => Session?.Status ?? SessionStatus.Connected;
     /// <summary>SSH 会话的唯一标识。</summary>

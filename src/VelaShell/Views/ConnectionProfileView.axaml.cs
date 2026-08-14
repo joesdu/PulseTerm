@@ -30,7 +30,7 @@ public partial class ConnectionProfileView : Window
     }
 
     /// <summary>
-    /// 把滑动下划线对齐到当前协议标签(SSH/SFTP/FTP):首次落位不动画,此后位置与宽度经
+    /// 把滑动下划线对齐到当前协议标签:首次落位不动画,此后位置与宽度经
     /// 180ms 过渡滑动 —— 取代旧实现里两个按钮各自下划线的瞬时跳变。
     /// </summary>
     private void UpdateProtoTabIndicator()
@@ -39,15 +39,16 @@ public partial class ConnectionProfileView : Window
         {
             return;
         }
-        // 曾是「IsSftpSelected ? SftpTab : SshTab」的二元三目 —— 加第三个协议时必须改成按枚举分派,
-        // 否则 FTP 选中后下划线会停在 SSH 上。
-        Button target = viewModel.ConnectionType switch
+        // 内建协议按枚举分派;插件协议的页签是动态生成的,没有可以 x:Name 引用的按钮,
+        // 因此按 Tag(协议 id)在可视树里找那一个 —— 这也是"新增协议不必改界面"的代价与边界。
+        Button? target = viewModel.ConnectionType switch
         {
             ConnectionType.SFTP => SftpTab,
             ConnectionType.FTP => FtpTab,
+            ConnectionType.Plugin => FindPluginTab(viewModel.PluginProtocolId),
             _ => SshTab
         };
-        if (target.Bounds.Width <= 0)
+        if (target is null || target.Bounds.Width <= 0)
         {
             return;
         }
@@ -76,6 +77,13 @@ public partial class ConnectionProfileView : Window
                 Avalonia.Threading.DispatcherPriority.Render);
         }
     }
+
+    /// <summary>按协议 id 找到对应的插件页签按钮;还没渲染出来时返回 null(下一次布局会再来)。</summary>
+    private Button? FindPluginTab(string? protocolId) =>
+        protocolId is null
+            ? null
+            : ProtoTabsPanel.GetVisualDescendants().OfType<Button>()
+                .FirstOrDefault(button => button.Tag as string == protocolId);
 
     private void ApplyProtoTabFocusAdorner()
     {
@@ -138,10 +146,12 @@ public partial class ConnectionProfileView : Window
         }
         ApplyProtoTabFocusAdorner();
         // 协议切换只改按钮前景色、不触发布局,滑动下划线必须由 VM 属性变化驱动。
+        // 直接盯 ConnectionType 本身,而不是逐个列举 IsXxxSelected —— 后者每加一个协议
+        // 都要回来补一项,漏掉就表现为「下划线停在上一个页签」。
         viewModel.PropertyChanged += (_, args) =>
         {
-            if (args.PropertyName is nameof(ConnectionProfileViewModel.IsSshSelected)
-                or nameof(ConnectionProfileViewModel.IsSftpSelected))
+            if (args.PropertyName is nameof(ConnectionProfileViewModel.ConnectionType)
+                or nameof(ConnectionProfileViewModel.PluginProtocolId))
             {
                 UpdateProtoTabIndicator();
             }
@@ -153,6 +163,13 @@ public partial class ConnectionProfileView : Window
         viewModel.ConnectCommand.Subscribe(result => this.PostClose(result));
         viewModel.CancelCommand.Subscribe(result => this.PostClose(result));
         await viewModel.LoadGroupsAsync();
+    }
+
+    /// <summary>窗口关闭时退订注册表事件,免得单例注册表上挂满已关闭对话框的视图模型。</summary>
+    protected override void OnClosed(EventArgs e)
+    {
+        (DataContext as ConnectionProfileViewModel)?.Dispose();
+        base.OnClosed(e);
     }
 
     /// <summary>Esc 等价于点击取消:经 CancelCommand 走与取消按钮完全相同的关闭路径(不保存改动)。</summary>

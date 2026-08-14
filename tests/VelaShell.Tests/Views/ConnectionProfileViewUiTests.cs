@@ -43,7 +43,8 @@ public sealed class ConnectionProfileViewUiTests
                 .OfType<Button>()
                 .Where(button => button.Classes.Contains("proto-tab"))
                 .ToList();
-            // SSH / SFTP / FTP 三个可点页签(FTP 于 2026-08 加入);Telnet 与串口仍是禁用的 Border。
+            // SSH / SFTP / FTP 三个内建可点页签;S3 之类的协议现在由插件贡献,
+            // 没装插件(单测宿主就是这种)时不出现。Telnet 与串口仍是禁用的 Border。
             Assert.HasCount(3, protocolButtons);
             Assert.IsTrue(protocolButtons.All(button => button.IsTabStop));
             AssertProtocolTabMotion(protocolButtons);
@@ -73,6 +74,9 @@ public sealed class ConnectionProfileViewUiTests
             Assert.HasCount(1, protocolButtons.Where(button => button.Classes.Contains("selected")));
             Assert.AreEqual(21, vm.Port);
             Assert.IsFalse(vm.RequiresSshAuth);
+
+            // 没有插件协议时,页签集合里不该凭空多出什么。
+            Assert.IsEmpty(vm.PluginProtocols);
             window.Close();
         }, CancellationToken.None).GetAwaiter().GetResult();
     }

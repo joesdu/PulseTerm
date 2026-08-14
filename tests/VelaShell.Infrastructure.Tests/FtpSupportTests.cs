@@ -5,6 +5,7 @@ using VelaShell.Core.Data;
 using VelaShell.Core.Ftp;
 using VelaShell.Core.Import;
 using VelaShell.Core.Models;
+using VelaShell.Core.Protocols;
 using VelaShell.Core.Sftp;
 using VelaShell.Infrastructure.Ftp;
 using VelaShell.Infrastructure.Import;
@@ -59,20 +60,18 @@ public class FtpSupportTests
         }
     }
 
-    /// <summary>WebDAV / S3 仍然不受支持 —— 这次只放开了 FTP。</summary>
+    /// <summary>WebDAV(FSProtocol=6)仍然不受支持。</summary>
     [TestMethod]
-    [DataRow(6)]
-    [DataRow(7)]
-    public async Task WinScp_WebDavAndS3_RemainUnsupported(int fsProtocol)
+    public async Task WinScp_WebDav_RemainsUnsupported()
     {
         string ini = Path.Combine(Path.GetTempPath(), $"winscp-other-{Guid.NewGuid():N}.ini");
         await File.WriteAllTextAsync(ini,
-            $"""
-             [Sessions\other]
-             HostName=example.com
-             UserName=u
-             FSProtocol={fsProtocol}
-             """);
+            """
+            [Sessions\other]
+            HostName=example.com
+            UserName=u
+            FSProtocol=6
+            """);
         try
         {
             SessionImportScan scan = await ScanWinScpAsync(ini);
@@ -80,6 +79,45 @@ public class FtpSupportTests
             Assert.HasCount(1, scan.Items);
             Assert.IsFalse(scan.Items[0].IsSupported);
             Assert.IsNull(scan.Items[0].FtpSettings);
+            Assert.IsNull(scan.Items[0].PluginProtocolId);
+        }
+        finally
+        {
+            File.Delete(ini);
+        }
+    }
+
+    /// <summary>
+    /// WinSCP 的 S3 会话(FSProtocol=7)导入成**插件协议**配置:端点取自 HostName,
+    /// 端口按 HTTPS 兜底成 443(而不是 SSH 的 22),协议 id 指向官方 S3 插件。
+    /// 插件没装也照常导入 —— 配置留着,装上插件即可用,这比拒绝导入更符合用户预期。
+    /// </summary>
+    [TestMethod]
+    public async Task WinScp_S3Session_IsSupported()
+    {
+        string ini = Path.Combine(Path.GetTempPath(), $"winscp-s3-{Guid.NewGuid():N}.ini");
+        await File.WriteAllTextAsync(ini,
+            """
+            [Sessions\s3]
+            HostName=s3.amazonaws.com
+            UserName=AKIAEXAMPLE
+            FSProtocol=7
+            """);
+        try
+        {
+            SessionImportScan scan = await ScanWinScpAsync(ini);
+
+            Assert.HasCount(1, scan.Items);
+            ImportedSession item = scan.Items[0];
+            Assert.IsTrue(item.IsSupported);
+            Assert.AreEqual(ConnectionType.Plugin, item.ConnectionType);
+            Assert.AreEqual("S3", item.Protocol);
+            Assert.AreEqual(443, item.Port);
+            Assert.AreEqual("velashell.s3", item.PluginProtocolId);
+            Assert.AreEqual("s3.amazonaws.com", item.Host);
+            // Access Key ID 走通用的用户名字段(Secret 则走口令),因此凭据还原零改动。
+            Assert.AreEqual("AKIAEXAMPLE", item.Username);
+            Assert.IsNull(item.FtpSettings);
         }
         finally
         {
@@ -123,37 +161,51 @@ public class FtpSupportTests
         }
     }
 
-    /// <summary>路由按会话归属分派:FTP 持有的会话走 FTP 后端,其余一律走 SFTP 后端。</summary>
+    /// <summary>路由按会话归属分派:FTP 与 S3 各自持有的会话走各自的后端,其余一律走 SFTP 后端。</summary>
     [TestMethod]
     public async Task Routing_DispatchesBySessionOwnership()
     {
         var ftpSession = Guid.NewGuid();
+        var s3Session = Guid.NewGuid();
         var sshSession = Guid.NewGuid();
         ISftpService sftp = Substitute.For<ISftpService>();
         ISftpService ftp = Substitute.For<ISftpService>();
-        IFtpSessionService sessions = Substitute.For<IFtpSessionService>();
-        sessions.OwnsSession(ftpSession).Returns(true);
-        sessions.OwnsSession(sshSession).Returns(false);
-        var router = new RoutingRemoteFileService(sftp, ftp, sessions);
+        ISftpService plugin = Substitute.For<ISftpService>();
+        IFtpSessionService ftpSessions = Substitute.For<IFtpSessionService>();
+        IPluginProtocolSessionService pluginSessions = Substitute.For<IPluginProtocolSessionService>();
+        ftpSessions.OwnsSession(ftpSession).Returns(true);
+        pluginSessions.OwnsSession(s3Session).Returns(true);
+        var router = new RoutingRemoteFileService(sftp, ftp, ftpSessions, plugin, pluginSessions);
 
         await router.ListDirectoryAsync(ftpSession, "/pub");
+        await router.ListDirectoryAsync(s3Session, "/my-bucket");
         await router.ListDirectoryAsync(sshSession, "/home");
 
         await ftp.Received(1).ListDirectoryAsync(ftpSession, "/pub", Arg.Any<CancellationToken>());
-        await ftp.DidNotReceive().ListDirectoryAsync(sshSession, Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await plugin.Received(1).ListDirectoryAsync(s3Session, "/my-bucket", Arg.Any<CancellationToken>());
         await sftp.Received(1).ListDirectoryAsync(sshSession, "/home", Arg.Any<CancellationToken>());
+
+        // 每个后端都只该看见属于自己的那条会话。
+        await ftp.DidNotReceive().ListDirectoryAsync(s3Session, Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await ftp.DidNotReceive().ListDirectoryAsync(sshSession, Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await plugin.DidNotReceive().ListDirectoryAsync(ftpSession, Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await plugin.DidNotReceive().ListDirectoryAsync(sshSession, Arg.Any<string>(), Arg.Any<CancellationToken>());
         await sftp.DidNotReceive().ListDirectoryAsync(ftpSession, Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await sftp.DidNotReceive().ListDirectoryAsync(s3Session, Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
-    /// <summary>未知会话仍走 SFTP 后端 —— 报错行为与加入 FTP 之前保持一致。</summary>
+    /// <summary>未知会话仍走 SFTP 后端 —— 报错行为与加入 FTP / S3 之前保持一致。</summary>
     [TestMethod]
     public async Task Routing_UnknownSession_FallsBackToSftp()
     {
         ISftpService sftp = Substitute.For<ISftpService>();
         ISftpService ftp = Substitute.For<ISftpService>();
-        IFtpSessionService sessions = Substitute.For<IFtpSessionService>();
-        sessions.OwnsSession(Arg.Any<Guid>()).Returns(false);
-        var router = new RoutingRemoteFileService(sftp, ftp, sessions);
+        ISftpService plugin = Substitute.For<ISftpService>();
+        IFtpSessionService ftpSessions = Substitute.For<IFtpSessionService>();
+        IPluginProtocolSessionService pluginSessions = Substitute.For<IPluginProtocolSessionService>();
+        ftpSessions.OwnsSession(Arg.Any<Guid>()).Returns(false);
+        pluginSessions.OwnsSession(Arg.Any<Guid>()).Returns(false);
+        var router = new RoutingRemoteFileService(sftp, ftp, ftpSessions, plugin, pluginSessions);
 
         var unknown = Guid.NewGuid();
         await router.GetWorkingDirectoryAsync(unknown);

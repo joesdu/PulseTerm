@@ -18,6 +18,9 @@ using VelaShell.Core.Models;
 using VelaShell.Core.Processes;
 using VelaShell.Core.Recording;
 using VelaShell.Core.Resources;
+using VelaShell.Core.Protocols;
+using VelaShell.Infrastructure.Plugins.Protocols;
+using VelaShell.PluginSdk.Protocols;
 using VelaShell.Core.Services;
 using VelaShell.Core.Sftp;
 using VelaShell.Core.Ssh;
@@ -102,9 +105,16 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
     private readonly ISettingsService? _settingsService;
     private readonly ISftpService? _sftpService;
     private readonly IFtpSessionService? _ftpSessionService;
+    private readonly IPluginProtocolSessionService? _pluginProtocols;
+
+    /// <summary>协议注册表:开插件协议文档时要按协议 id 取回它的动作与能力位。</summary>
+    private readonly PluginProtocolRegistry? _protocolRegistry;
 
     /// <summary>FTP 会话标识 → 会话配置标识:状态事件只带会话标识,树上按配置标识定位节点。</summary>
     private readonly ConcurrentDictionary<Guid, Guid> _ftpSessionProfiles = new();
+
+    /// <summary>插件协议会话标识 → 会话配置标识;用途同 <see cref="_ftpSessionProfiles" />。</summary>
+    private readonly ConcurrentDictionary<Guid, Guid> _pluginSessionProfiles = new();
     private readonly ISshConnectionService? _sshConnectionService;
     private readonly Func<ITerminalEmulator> _terminalEmulatorFactory;
     private readonly ITunnelService? _tunnelService;
@@ -187,7 +197,9 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
         IRemoteProcessService? remoteProcessService = null,
         ITraceRouteService? traceRouteService = null,
         ICommandRegistry? commandRegistry = null,
-        IFtpSessionService? ftpSessionService = null
+        IFtpSessionService? ftpSessionService = null,
+        IPluginProtocolSessionService? pluginProtocolService = null,
+        PluginProtocolRegistry? protocolRegistry = null
     )
     {
         // 注册表可注入(DI 里与插件命令桥共享同一单例);无 UI 单测传 null 时自建。
@@ -213,9 +225,12 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
         _sessionRepository = sessionRepository;
         _sftpService = sftpService;
         _ftpSessionService = ftpSessionService;
-        // FTP 没有 SSH 那种可订阅的长驻会话对象:断线只在下一次操作时暴露。
+        _pluginProtocols = pluginProtocolService;
+        _protocolRegistry = protocolRegistry;
+        // FTP 与插件协议都没有 SSH 那种可订阅的长驻会话对象:断线只在下一次操作时暴露。
         // 由服务主动上报,树上的状态圆点才能自动变灰,而不是一直停在绿点上。
         ftpSessionService?.SessionStateChanged += OnFtpSessionStateChanged;
+        pluginProtocolService?.SessionStateChanged += OnPluginSessionStateChanged;
         _tunnelService = tunnelService;
         _tunnelWorkflowService = tunnelWorkflowService;
         _metricsService = metricsService;
@@ -409,6 +424,12 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
     /// 由 View 层挂上(与 <see cref="InteractiveAuthenticator" /> 同样的手法);未挂时按拒绝处理。
     /// </summary>
     public Func<SessionProfile, VelaFtpCertificateException, Task<bool>>? FtpCertificateTrustPrompt { get; set; }
+
+    /// <summary>
+    /// 插件协议端点的证书未通过校验时的信任提示;返回 true 表示用户同意信任该指纹。
+    /// 自建 MinIO / Ceph 的自签证书是常态,没有这条路径这类端点根本连不上。
+    /// </summary>
+    public Func<SessionProfile, PluginProtocolCertificateException, Task<bool>>? PluginCertificateTrustPrompt { get; set; }
 
     /// <summary>最近一次连接的错误消息,若上次尝试成功则为 null。</summary>
     public string? LastConnectionError
@@ -1217,7 +1238,9 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
     /// </summary>
     public void OpenTunnelPanel(SessionProfile? preselect = null)
     {
-        if (preselect?.ConnectionType == ConnectionType.SFTP)
+        // 隧道要跑在 SSH 连接上:纯文件协议(FTP / 插件协议)没有可承载端口转发的通道,
+        // 拿它们预选只会开出一个永远连不上的面板。SFTP 虽走 SSH,但按既有约定同样不从这里进。
+        if (preselect?.ConnectionType is ConnectionType.SFTP or ConnectionType.FTP or ConnectionType.Plugin)
         {
             return;
         }
@@ -2374,6 +2397,11 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
             await OpenFtpDocumentForProfileAsync(profile, cancellationToken).ConfigureAwait(true);
             return null;
         }
+        if (profile.ConnectionType == ConnectionType.Plugin)
+        {
+            await OpenPluginDocumentForProfileAsync(profile, cancellationToken).ConfigureAwait(true);
+            return null;
+        }
         if (_connectionWorkflowService is null || _sshConnectionService is null)
         {
             return null;
@@ -2639,7 +2667,7 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
                     await trustPrompt(current, certificate).ConfigureAwait(true))
                 {
                     current = WithTrustedCertificate(current, certificate.Thumbprint);
-                    await PersistFtpTrustAsync(current).ConfigureAwait(true);
+                    await PersistProfileIfSavedAsync(current).ConfigureAwait(true);
                     attempt--; // 信任后的这次重连不算认证重试
                     continue;
                 }
@@ -2659,6 +2687,174 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
             }
         }
         return null;
+    }
+
+    /// <summary>
+    /// 打开一个插件协议文档标签(S3、WebDAV…):建立会话并复用与 SFTP 完全相同的双栏文件面板。
+    /// <para>
+    /// 结构与 <see cref="OpenFtpDocumentForProfileAsync" /> 一一对应(同样不走
+    /// <see cref="IConnectionWorkflowService" /> —— 那是 SSH 握手,同样在证书不可信时
+    /// 弹一次信任提示后重连)。差别只在缺少凭据的判定:声明了 AnonymousAccess 的协议
+    /// (如 S3 的公开只读桶)不填凭据也是一条正当路径,弹框会把它堵死。
+    /// </para>
+    /// <para>
+    /// 这个方法**对具体协议一无所知**:能力位、右键动作、证书字段全部从协议描述里读。
+    /// 再接入一种协议时它一行都不用改。
+    /// </para>
+    /// </summary>
+    /// <param name="profile">会话配置。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>已打开的文档;失败或取消时为 null。</returns>
+    public async Task<SftpDocument?> OpenPluginDocumentForProfileAsync(
+        SessionProfile profile,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+        if (_pluginProtocols is null || _sftpService is null)
+        {
+            return null;
+        }
+
+        ProtocolDescriptor? descriptor = null;
+        if (profile.PluginProtocolId is { Length: > 0 } protocolId && _protocolRegistry is { } registry)
+        {
+            // 可能触发插件的惰性激活(用户刚从「最近连接」点开一条 S3 会话)。
+            descriptor = (await registry.ResolveAsync(protocolId).ConfigureAwait(true))?.Descriptor;
+        }
+        bool allowsAnonymous = descriptor?.Features.HasFlag(ProtocolFeatures.AnonymousAccess) == true;
+
+        SessionProfile current = profile;
+        // 证书提示单独计数:attempt-- 会与 attempt++ 相抵,把 3 次上限彻底架空。
+        // 多节点各自签一张证书的端点(DNS 轮询的 MinIO/Ceph)每轮都是"新证书",
+        // 不设独立上限的话用户只能靠点"不信任"才退得出来。
+        int certPrompts = 0;
+        for (int attempt = 0; attempt < 3; attempt++)
+        {
+            if (attempt > 0 || RequiresPluginCredentials(current, allowsAnonymous))
+            {
+                if (InteractiveAuthenticator is not { } prompt)
+                {
+                    return null;
+                }
+                SessionProfile? prompted = await prompt(current).ConfigureAwait(true);
+                if (prompted is null)
+                {
+                    return null;
+                }
+                current = prompted;
+            }
+
+            try
+            {
+                Guid sessionId = await _pluginProtocols.OpenSessionAsync(current, cancellationToken).ConfigureAwait(true);
+                AppSettings settings = _latestSettings ?? await LoadSettingsSnapshotAsync().ConfigureAwait(true);
+                var viewModel = new SftpDocumentViewModel(
+                    current,
+                    sessionId,
+                    (id, token) => _pluginProtocols.CloseSessionAsync(id, token),
+                    _sftpService,
+                    settings.Transfer,
+                    FileTransfer,
+                    QueryDefaultEditorPathAsync);
+                // 协议专属的右键菜单项:声明式,按下右键那一帧就能画出来。
+                if (descriptor is { Actions.Count: > 0 })
+                {
+                    // 传协议声明本身:菜单在每次右键时按命中行重建(见 FileBrowserViewModel.ContextTarget)。
+                    viewModel.RemoteFiles.SetProtocolActions(descriptor.DisplayName, descriptor.Actions);
+                    viewModel.RemoteFiles.InvokeProtocolAction = (actionId, path) =>
+                        _pluginProtocols.InvokeActionAsync(sessionId, actionId, path, CancellationToken.None);
+                }
+                var document = new SftpDocument(viewModel);
+                // 用**原始** profile 的标识登记:登录弹窗可能换过 current 的字段,
+                // 但树上的节点始终是按最初那条配置的 Id 建的。
+                _pluginSessionProfiles[sessionId] = profile.Id;
+                Layout.AddDocument(document);
+                SetTreeSessionStatus(profile.Id, SessionStatus.Connected);
+                return document;
+            }
+            catch (OperationCanceledException)
+            {
+                return null;
+            }
+            catch (PluginProtocolCertificateException certificate)
+            {
+                // 用户同意信任 → 记下指纹后重来一次;拒绝(或没有提示钩子)→ 按普通连接失败上报。
+                if (PluginCertificateTrustPrompt is { } trustPrompt &&
+                    await trustPrompt(current, certificate).ConfigureAwait(true))
+                {
+                    current = WithTrustedPluginCertificate(current, certificate);
+                    await PersistProfileIfSavedAsync(current).ConfigureAwait(true);
+                    if (certificate.SettingKey is { Length: > 0 } && ++certPrompts <= 2)
+                    {
+                        // 指纹确实记下了,下次重连不会再撞同一张证书 —— 这一次不算认证重试。
+                        // 但最多宽容两次:协议没声明存放位置、或端点每次出示不同证书时,
+                        // current 根本没变化,再减下去就是无限弹框。
+                        attempt--;
+                    }
+                    continue;
+                }
+                LastConnectionError = certificate.Message;
+                StatusBar.Status = LastConnectionError;
+                return null;
+            }
+            catch (PluginProtocolAuthenticationException)
+            {
+                continue;
+            }
+            catch (Exception ex)
+            {
+                LastConnectionError = DescribeConnectionError(ex, current);
+                StatusBar.Status = LastConnectionError;
+                return null;
+            }
+        }
+        return null;
+    }
+
+    /// <summary>插件协议会话状态变化 → 资源管理器树的状态圆点(理由与线程约束同 FTP 侧)。</summary>
+    private void OnPluginSessionStateChanged(object? sender, PluginProtocolSessionStateChange change)
+    {
+        if (!_pluginSessionProfiles.TryGetValue(change.SessionId, out Guid profileId))
+        {
+            return;
+        }
+        if (change.State == PluginProtocolSessionState.Closed)
+        {
+            _pluginSessionProfiles.TryRemove(change.SessionId, out _);
+        }
+        SetTreeSessionStatus(profileId, change.State switch
+        {
+            PluginProtocolSessionState.Connected => SessionStatus.Connected,
+            PluginProtocolSessionState.Faulted => SessionStatus.Error,
+            _ => SessionStatus.Disconnected,
+        });
+    }
+
+    /// <summary>
+    /// 插件协议缺少登录凭据时才需要弹登录框。允许匿名的协议(S3 的公开只读桶)下
+    /// **两者都空 = 匿名访问**,是一条正当路径,不能弹框;
+    /// 只有「填了用户名却没有口令」才是真的缺东西。
+    /// </summary>
+    private static bool RequiresPluginCredentials(SessionProfile profile, bool allowsAnonymous) =>
+        allowsAnonymous
+            ? !string.IsNullOrWhiteSpace(profile.Username) && string.IsNullOrEmpty(profile.Password)
+            : string.IsNullOrWhiteSpace(profile.Username) || string.IsNullOrEmpty(profile.Password);
+
+    /// <summary>
+    /// 返回一份把服务器证书指纹记为已信任的配置副本。指纹写进协议自己声明的那个隐藏字段
+    /// —— 宿主不知道该协议管它叫什么,所以字段键由异常带过来。
+    /// </summary>
+    private static SessionProfile WithTrustedPluginCertificate(SessionProfile profile, PluginProtocolCertificateException certificate)
+    {
+        if (certificate.SettingKey is not { Length: > 0 } key)
+        {
+            // 协议没声明存放位置:只能本次连接内信任,不落盘。
+            return profile;
+        }
+        Dictionary<string, string> settings = SessionProfile.CloneSettings(profile.PluginSettings) ?? new(StringComparer.Ordinal);
+        settings[key] = certificate.Thumbprint;
+        profile.PluginSettings = settings;
+        return profile;
     }
 
     /// <summary>
@@ -2709,8 +2905,11 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
         return profile;
     }
 
-    /// <summary>把新信任的证书指纹写回仓储(仅对已保存的配置;临时配置只在本次连接内有效)。</summary>
-    private async Task PersistFtpTrustAsync(SessionProfile profile)
+    /// <summary>
+    /// 把配置写回仓储(仅对**已保存**的配置;「最近连接」重建的临时配置只在本次连接内有效)。
+    /// 目前的用途是记住用户刚刚信任的服务器证书指纹,FTPS 与插件协议共用。
+    /// </summary>
+    private async Task PersistProfileIfSavedAsync(SessionProfile profile)
     {
         if (_sessionRepository is null)
         {

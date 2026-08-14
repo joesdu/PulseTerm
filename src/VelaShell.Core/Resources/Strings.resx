@@ -3570,28 +3570,28 @@ Overwrite it?</value>
   <data name="Ftp_PlaintextWarn" xml:space="preserve">
     <value>Plain FTP sends your credentials and files unencrypted, and there is no server identity check. Prefer FTPS whenever the server supports it.</value>
   </data>
-  <data name="Ftp_CertTitle" xml:space="preserve">
+  <data name="Cert_Title" xml:space="preserve">
     <value>Untrusted server certificate</value>
   </data>
-  <data name="Ftp_CertUntrustedFmt" xml:space="preserve">
+  <data name="Cert_UntrustedFmt" xml:space="preserve">
     <value>The certificate presented by {0} could not be verified. Trust it only if the fingerprint below matches the server's.</value>
   </data>
-  <data name="Ftp_CertSubject" xml:space="preserve">
+  <data name="Cert_Subject" xml:space="preserve">
     <value>Subject</value>
   </data>
-  <data name="Ftp_CertIssuer" xml:space="preserve">
+  <data name="Cert_Issuer" xml:space="preserve">
     <value>Issuer</value>
   </data>
-  <data name="Ftp_CertExpires" xml:space="preserve">
+  <data name="Cert_Expires" xml:space="preserve">
     <value>Expires</value>
   </data>
-  <data name="Ftp_CertFingerprint" xml:space="preserve">
+  <data name="Cert_Fingerprint" xml:space="preserve">
     <value>SHA-256</value>
   </data>
-  <data name="Ftp_CertProblem" xml:space="preserve">
+  <data name="Cert_Problem" xml:space="preserve">
     <value>Problem</value>
   </data>
-  <data name="Ftp_CertTrust" xml:space="preserve">
+  <data name="Cert_Trust" xml:space="preserve">
     <value>Trust and connect</value>
   </data>
   <data name="XImport_MenuItemAll" xml:space="preserve">
@@ -3644,5 +3644,8 @@ Overwrite it?</value>
   </data>
   <data name="XImport_MasterPwWarnFmt" xml:space="preserve">
     <value>{0} has a master password enabled, so saved passwords can't be recovered. Those sessions are imported without passwords.</value>
+  </data>
+  <data name="Plugin_ProtocolUnavailable" xml:space="preserve">
+    <value>The plugin providing this protocol is unavailable. Install or enable it in the plugin manager.</value>
   </data>
 </root>

@@ -39,6 +39,19 @@ public sealed class FakePanel(PanelOptions options, Func<object> contentFactory)
         return Task.CompletedTask;
     }
 
+    /// <summary>被激活(带到前台)的次数;测试可据此断言「重复触发只聚焦、不重开」。</summary>
+    public int ActivateCount { get; private set; }
+
+    /// <inheritdoc />
+    public Task ActivateAsync()
+    {
+        if (IsOpen)
+        {
+            ActivateCount++;
+        }
+        return Task.CompletedTask;
+    }
+
     /// <inheritdoc />
     public ValueTask DisposeAsync() => new(CloseAsync());
 }

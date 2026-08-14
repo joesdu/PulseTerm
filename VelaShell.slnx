@@ -36,6 +36,7 @@
     <File Path="plugins/README.md" />
     <Project Path="plugins/VelaShell.Plugin.Ai/VelaShell.Plugin.Ai.csproj" />
     <Project Path="plugins/VelaShell.Plugin.HelloWorld/VelaShell.Plugin.HelloWorld.csproj" />
+    <Project Path="plugins/VelaShell.Plugin.S3/VelaShell.Plugin.S3.csproj" />
   </Folder>
   <Folder Name="/src/">
     <File Path="src/Directory.Build.props" />
@@ -55,6 +56,7 @@
     <Project Path="tests/VelaShell.Core.Tests/VelaShell.Core.Tests.csproj" />
     <Project Path="tests/VelaShell.Infrastructure.Tests/VelaShell.Infrastructure.Tests.csproj" />
     <Project Path="tests/VelaShell.Plugin.Ai.Tests/VelaShell.Plugin.Ai.Tests.csproj" />
+    <Project Path="tests/VelaShell.Plugin.S3.Tests/VelaShell.Plugin.S3.Tests.csproj" />
     <Project Path="tests/VelaShell.Presentation.Tests/VelaShell.Presentation.Tests.csproj" />
     <Project Path="tests/VelaShell.Terminal.Tests/VelaShell.Terminal.Tests.csproj" />
     <Project Path="tests/VelaShell.Tests/VelaShell.Tests.csproj" /> 

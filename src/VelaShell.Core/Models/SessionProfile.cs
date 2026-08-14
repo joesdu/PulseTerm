@@ -66,4 +66,43 @@ public class SessionProfile
     /// <see cref="ConnectionType.FTP" /> 时有意义,其余协议为 null。
     /// </summary>
     public FtpSettings? Ftp { get; set; }
+
+    /// <summary>
+    /// 插件协议 id(如 <c>velashell.s3</c>);仅在 <see cref="ConnectionType" /> 为
+    /// <see cref="ConnectionType.Plugin" /> 时有意义,其余协议为 null。
+    /// <para>
+    /// 它是这条配置与某个插件之间唯一的绑定。插件未安装/未启用时配置仍然完好保存,
+    /// 只是连不上并给出「协议不可用」的提示 —— 卸载一个插件绝不该毁掉用户的连接配置。
+    /// </para>
+    /// </summary>
+    public string? PluginProtocolId { get; set; }
+
+    /// <summary>
+    /// 插件协议的非机密设置:键为插件在 <c>ProtocolSettingField.Key</c> 里声明的字段键。
+    /// <para>
+    /// 刻意用字符串字典而不是给每个插件在 Core 里开一个强类型模型:Core 不认识任何具体协议,
+    /// 这正是把 S3 之类的协议移出宿主的前提。
+    /// </para>
+    /// </summary>
+    public Dictionary<string, string>? PluginSettings { get; set; }
+
+    /// <summary>
+    /// 插件协议的机密设置(声明为 <c>IsSecret</c> 的字段),整体加密落盘。
+    /// <para>
+    /// 与 <see cref="PluginSettings" /> 分成两个字典,而不是在一个字典里按字段标记区分:
+    /// 仓储层在落盘那一刻并不知道某个协议的字段声明(那在插件里),
+    /// 分开存才能做到「机密永远加密」这条不依赖任何查表的硬保证。
+    /// </para>
+    /// <para>
+    /// 主凭据本身仍走通用字段(<see cref="Username" /> / <see cref="Password" />),
+    /// 因此「记住密码」的加密落盘、登录弹窗、导入器的凭据还原对插件协议全部零改动。
+    /// </para>
+    /// </summary>
+    public Dictionary<string, string>? PluginSecrets { get; set; }
+
+    /// <summary>返回协议专属设置的深拷贝(两个字典各一份);源为 null 时返回 null。</summary>
+    /// <param name="source">源字典。</param>
+    /// <returns>深拷贝,或 null。</returns>
+    public static Dictionary<string, string>? CloneSettings(Dictionary<string, string>? source) =>
+        source is null ? null : new Dictionary<string, string>(source, StringComparer.Ordinal);
 }

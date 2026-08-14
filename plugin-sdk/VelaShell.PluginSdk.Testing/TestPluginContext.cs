@@ -2,6 +2,7 @@ using VelaShell.PluginSdk.Clipboard;
 using VelaShell.PluginSdk.Commands;
 using VelaShell.PluginSdk.Events;
 using VelaShell.PluginSdk.Logging;
+using VelaShell.PluginSdk.Protocols;
 using VelaShell.PluginSdk.RemoteExec;
 using VelaShell.PluginSdk.RemoteFs;
 using VelaShell.PluginSdk.Secrets;
@@ -74,11 +75,23 @@ public sealed class TestPluginContext : IPluginContext, IDisposable
     /// <summary>默认终端替身。</summary>
     public FakeTerminal FakeTerminal { get; } = new();
 
+    /// <summary>默认协议替身(按 <see cref="PluginId" /> 做 id 前缀校验)。</summary>
+    public RecordingProtocols RecordingProtocols { get; } = new();
+
     /// <summary>默认宿主信息替身。</summary>
     public TestHostInfo HostInfo { get; } = new();
 
     /// <inheritdoc />
-    public string PluginId { get; init; } = "test.plugin";
+    /// <remarks>协议替身的前缀校验跟着它走,免得测试改了 id 却在注册协议时被自己的替身拒掉。</remarks>
+    public string PluginId
+    {
+        get;
+        init
+        {
+            field = value;
+            RecordingProtocols.PluginId = value;
+        }
+    } = "test.plugin";
 
     /// <inheritdoc />
     public string PluginVersion { get; init; } = "0.0.0";
@@ -134,6 +147,9 @@ public sealed class TestPluginContext : IPluginContext, IDisposable
     /// <inheritdoc cref="IPluginContext.Terminal" />
     public Terminal.ITerminalApi Terminal { get; init; }
 
+    /// <inheritdoc cref="IPluginContext.Protocols" />
+    public IProtocolsApi Protocols { get; init; }
+
     /// <inheritdoc />
     public CancellationToken Shutdown => _shutdownSource.Token;
 
@@ -151,6 +167,7 @@ public sealed class TestPluginContext : IPluginContext, IDisposable
         Secrets = FakeSecrets;
         Clipboard = FakeClipboard;
         Terminal = FakeTerminal;
+        Protocols = RecordingProtocols;
     }
 
     /// <summary>模拟宿主停机:触发 <see cref="Shutdown" /> 令牌。</summary>

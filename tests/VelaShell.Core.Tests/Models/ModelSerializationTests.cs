@@ -139,16 +139,58 @@ public class ModelSerializationTests
         Assert.AreEqual(6, roundTrip.Ftp.MaxConnections);
     }
 
-    /// <summary>非 FTP 配置不带 Ftp 块 —— 旧版本读到的 JSON 结构不变。</summary>
+    /// <summary>插件协议(如 S3)的往返:协议 id 与两份设置字典。</summary>
     [TestMethod]
-    public void SessionProfile_NonFtp_OmitsFtpSettings()
+    public void SessionProfile_PluginProtocol_RoundTripsIdAndSettings()
     {
-        SessionProfile? roundTrip = JsonSerializer.Deserialize<SessionProfile>(
-            JsonSerializer.Serialize(new SessionProfile { ConnectionType = ConnectionType.SSH }, _options),
-            _options);
+        var profile = new SessionProfile
+        {
+            ConnectionType = ConnectionType.Plugin,
+            Name = "minio",
+            Host = "minio.example.com",
+            Port = 9000,
+            Username = "AKIA...",
+            PluginProtocolId = "velashell.s3",
+            PluginSettings = new(StringComparer.Ordinal)
+            {
+                ["region"] = "cn-north-1",
+                ["useTls"] = "false",
+                ["defaultBucket"] = "backups",
+            },
+            PluginSecrets = new(StringComparer.Ordinal)
+            {
+                ["sessionToken"] = "sts-token",
+            },
+        };
+
+        string json = JsonSerializer.Serialize(profile);
+        SessionProfile? roundTrip = JsonSerializer.Deserialize<SessionProfile>(json);
 
         Assert.IsNotNull(roundTrip);
-        Assert.IsNull(roundTrip!.Ftp);
+        Assert.AreEqual(ConnectionType.Plugin, roundTrip!.ConnectionType);
+        Assert.AreEqual("velashell.s3", roundTrip.PluginProtocolId);
+        Assert.IsNotNull(roundTrip.PluginSettings);
+        Assert.AreEqual("cn-north-1", roundTrip.PluginSettings!["region"]);
+        Assert.AreEqual("backups", roundTrip.PluginSettings["defaultBucket"]);
+        // 机密与非机密分成两个字典:仓储层据此"整本加密"而不必去查某个协议的字段声明。
+        Assert.IsNotNull(roundTrip.PluginSecrets);
+        Assert.AreEqual("sts-token", roundTrip.PluginSecrets!["sessionToken"]);
+        // Ftp 与插件协议互不干扰:一条配置只带自己那一块。
+        Assert.IsNull(roundTrip.Ftp);
+    }
+
+    /// <summary>
+    /// 退役的枚举值 3(曾短暂用于内建 S3)不得被读成任何在用协议 ——
+    /// 未知值一律降级为 SSH,这条兼容策略必须守住。
+    /// </summary>
+    [TestMethod]
+    public void SessionProfile_RetiredConnectionTypeValue_FallsBackToSsh()
+    {
+        SessionProfile? roundTrip = JsonSerializer.Deserialize<SessionProfile>(
+            """{"ConnectionType":3,"Name":"legacy","Host":"s3.amazonaws.com"}""");
+
+        Assert.IsNotNull(roundTrip);
+        Assert.AreEqual(ConnectionType.SSH, roundTrip!.ConnectionType);
     }
 
     [TestMethod]

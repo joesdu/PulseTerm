@@ -2,6 +2,7 @@ using VelaShell.PluginSdk.Clipboard;
 using VelaShell.PluginSdk.Commands;
 using VelaShell.PluginSdk.Events;
 using VelaShell.PluginSdk.Logging;
+using VelaShell.PluginSdk.Protocols;
 using VelaShell.PluginSdk.RemoteExec;
 using VelaShell.PluginSdk.RemoteFs;
 using VelaShell.PluginSdk.Secrets;
@@ -65,6 +66,12 @@ public interface IPluginContext
 
     /// <summary>终端能力:读取/搜索会话输出;回写输入需用户授权。</summary>
     Terminal.ITerminalApi Terminal { get; }
+
+    /// <summary>
+    /// 协议能力:注册插件自带的远程文件协议(与 SSH/SFTP/FTP 同为连接配置页的一等公民)。
+    /// 仅 <c>inProcess</c> 宿主模式可用,见 <see cref="IProtocolsApi" />。
+    /// </summary>
+    IProtocolsApi Protocols { get; }
 
     /// <summary>
     /// 宿主要求停机时触发的令牌。插件的后台循环必须监听它;

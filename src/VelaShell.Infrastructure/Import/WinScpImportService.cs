@@ -67,16 +67,23 @@ public sealed class WinScpImportService(ISessionRepository repository) : ISessio
             FtpSettings? ftpSettings = type == ConnectionType.FTP
                 ? new FtpSettings { EncryptionMode = MapFtps(raw.Ftps) }
                 : null;
+            // WinSCP 的 S3 会话把端点存在 Host 里(默认 s3.amazonaws.com),
+            // Access Key ID 在 UserName、Secret 在 Password —— 与 VelaShell 的字段约定一致,
+            // 因此只要指名协议即可,凭据与端点都走通用字段。
+            // 端点/区域等细节留给协议自己的默认值:导入器不该去猜某个插件的字段语义。
+            string? pluginProtocol = type == ConnectionType.Plugin ? S3ProtocolId : null;
             bool hasEncrypted = !string.IsNullOrWhiteSpace(raw.Password);
             string? password = hasEncrypted && !masterPassword
                 ? WinScpCrypto.Decrypt(raw.Host, raw.Username, raw.Password)
                 : null;
-            // 端口缺省值按协议给:FTP 是 21(隐式 FTPS 是 990),不是 SSH 的 22。
-            int defaultPort = ftpSettings is null
-                ? 22
-                : ftpSettings.EncryptionMode == FtpEncryptionMode.Implicit
-                    ? Core.Models.FtpSettings.DefaultImplicitPort
-                    : Core.Models.FtpSettings.DefaultPort;
+            // 端口缺省值按协议给:FTP 是 21(隐式 FTPS 是 990)、S3 是 443,不是 SSH 的 22。
+            int defaultPort = pluginProtocol is not null
+                ? S3DefaultPort
+                : ftpSettings is null
+                    ? 22
+                    : ftpSettings.EncryptionMode == FtpEncryptionMode.Implicit
+                        ? Core.Models.FtpSettings.DefaultImplicitPort
+                        : Core.Models.FtpSettings.DefaultPort;
             int port = raw.Port is int p and > 0 ? p : defaultPort;
 
             items.Add(new ImportedSession
@@ -92,7 +99,8 @@ public sealed class WinScpImportService(ISessionRepository repository) : ISessio
                 Password = password,
                 AlreadyExists = existingKeys.Contains(DedupKey(raw.Host, port, raw.Username)),
                 Source = sourceLabel,
-                FtpSettings = ftpSettings
+                FtpSettings = ftpSettings,
+                PluginProtocolId = pluginProtocol
             });
         }
 
@@ -185,8 +193,17 @@ public sealed class WinScpImportService(ISessionRepository repository) : ISessio
     }
 
     /// <summary>
-    /// 把 WinSCP 的 FSProtocol 数值映射为 VelaShell 连接类型:SSH 系(SCP/SFTP)与 FTP/FTPS 受支持,
-    /// WebDAV 与 S3 仍不支持。
+    /// 官方 S3 插件的协议 id。导入器认识外部工具的格式,把 WinSCP 的 S3 会话映射到它;
+    /// 插件没装时配置照常导入,只是要连的时候提示去装插件 —— 这比拒绝导入更符合用户预期。
+    /// </summary>
+    private const string S3ProtocolId = "velashell.s3";
+
+    /// <summary>S3(HTTPS)的默认端口。这一个常量不值得为它去查插件描述,直接写在这里。</summary>
+    private const int S3DefaultPort = 443;
+
+    /// <summary>
+    /// 把 WinSCP 的 FSProtocol 数值映射为 VelaShell 连接类型:SSH 系(SCP/SFTP)、FTP/FTPS
+    /// 与 S3(经插件)受支持,WebDAV 仍不支持。
     /// </summary>
     private static (ConnectionType Type, bool Supported, string Protocol) MapProtocol(int? fsProtocol) =>
         fsProtocol switch
@@ -195,7 +212,7 @@ public sealed class WinScpImportService(ISessionRepository repository) : ISessio
             1 or 2 or null => (ConnectionType.SSH, true, "SFTP"),
             5 => (ConnectionType.FTP, true, "FTP"),
             6 => (ConnectionType.SSH, false, "WebDAV"),
-            7 => (ConnectionType.SSH, false, "S3"),
+            7 => (ConnectionType.Plugin, true, "S3"),
             _ => (ConnectionType.SSH, false, "?")
         };
 

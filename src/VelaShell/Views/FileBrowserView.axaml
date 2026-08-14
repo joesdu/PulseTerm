@@ -439,7 +439,27 @@
           </ListBox.Styles>
           <ListBox.ContextMenu>
             <!-- 菜单图标分组(设计 e6klM):中性行 = 13px text-tertiary 描边。 -->
-            <ContextMenu x:DataType="vm:FileBrowserViewModel">
+            <ContextMenu x:DataType="vm:FileBrowserViewModel" ContextRequested="FileList_ContextRequested">
+              <!-- 协议专属动作(空白处):ContextTarget 为 null,因此这里只会出现
+                   声明为 Background/Any 作用域的那些(如 S3 的「桶管理」)。 -->
+              <MenuItem Header="{Binding ProtocolActionsHeader}"
+                        IsVisible="{Binding HasProtocolActions}"
+                        ItemsSource="{Binding ProtocolActions}">
+                <MenuItem.Icon>
+                  <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.hard-drive}"
+                                 Foreground="{DynamicResource VelaTextTertiary}" />
+                </MenuItem.Icon>
+                <MenuItem.ItemContainerTheme>
+                  <ControlTheme TargetType="MenuItem" x:DataType="vm:ProtocolActionViewModel"
+                                BasedOn="{StaticResource {x:Type MenuItem}}">
+                    <Setter Property="Header" Value="{Binding Title}" />
+                    <Setter Property="Command"
+                            Value="{Binding $parent[ContextMenu].((vm:FileBrowserViewModel)DataContext).InvokeProtocolActionCommand}" />
+                    <Setter Property="CommandParameter" Value="{Binding}" />
+                  </ControlTheme>
+                </MenuItem.ItemContainerTheme>
+              </MenuItem>
+              <Separator IsVisible="{Binding HasProtocolActions}" />
               <MenuItem Header="{loc:Localize Refresh}" Command="{Binding RefreshCommand}">
                 <MenuItem.Icon>
                   <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.refresh-cw}"
@@ -478,6 +498,7 @@
                         Height="28"
                         Padding="14,0"
                         PointerPressed="FileRow_PointerPressed"
+                        ContextRequested="FileRow_ContextRequested"
                         Classes="file-row"
                         Classes.parent="{Binding IsParentEntry}">
                   <Border.Styles>
@@ -588,6 +609,26 @@
                           <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.copy}"
                                          Foreground="{DynamicResource VelaTextTertiary}" />
                         </MenuItem.Icon>
+                      </MenuItem>
+                      <!-- 协议专属动作(插件贡献,如 S3 的分享链接 / 对象管理 / 桶管理)。
+                           菜单项由 ProtocolActions 数据驱动:宿主不认识任何具体协议,
+                           因此新增一种协议对这个文件零改动。 -->
+                      <Separator IsVisible="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).HasProtocolActions}" />
+                      <MenuItem Header="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).ProtocolActionsHeader}"
+                                IsVisible="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).HasProtocolActions}"
+                                ItemsSource="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).ProtocolActions}">
+                        <MenuItem.Icon>
+                          <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.hard-drive}"
+                                         Foreground="{DynamicResource VelaTextTertiary}" />
+                        </MenuItem.Icon>
+                        <MenuItem.ItemContainerTheme>
+                          <ControlTheme TargetType="MenuItem" x:DataType="vm:ProtocolActionViewModel" BasedOn="{StaticResource {x:Type MenuItem}}">
+                            <Setter Property="Header" Value="{Binding Title}" />
+                            <Setter Property="Command"
+                                    Value="{Binding $parent[ListBox].((vm:FileBrowserViewModel)DataContext).InvokeProtocolActionCommand}" />
+                            <Setter Property="CommandParameter" Value="{Binding}" />
+                          </ControlTheme>
+                        </MenuItem.ItemContainerTheme>
                       </MenuItem>
                       <Separator />
                       <MenuItem Header="{loc:Localize NewFolder}"

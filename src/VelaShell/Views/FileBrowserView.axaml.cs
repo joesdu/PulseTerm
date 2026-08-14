@@ -624,6 +624,33 @@ public partial class FileBrowserView : UserControl
         }
     }
 
+    /// <summary>
+    /// 认定协议动作作用的目标行。
+    /// <para>
+    /// 用 ContextRequested 而不是 PointerPressed 的右键分支:触摸屏/触控笔的**长按**
+    /// 由 Avalonia 的 Holding 手势翻译成 ContextRequested,根本不经过右键按下 ——
+    /// 那条路上 ContextTarget 会停在上一次鼠标右键命中的行上,
+    /// 于是「复制分享链接」会给一个早已不在当前目录的对象生成预签名 URL 并静默写进剪贴板。
+    /// </para>
+    /// </summary>
+    private void FileRow_ContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        if (DataContext is FileBrowserViewModel browser && sender is Border { DataContext: RemoteFileInfoViewModel row })
+        {
+            // 上级目录那一行按「空白处」处理:只有 Background 作用域的动作适用。
+            browser.ContextTarget = row.IsParentEntry ? null : row;
+        }
+    }
+
+    /// <summary>列表空白处右键:目标为空,只留 Background/Any 作用域的动作。</summary>
+    private void FileList_ContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        if (DataContext is FileBrowserViewModel browser)
+        {
+            browser.ContextTarget = null;
+        }
+    }
+
     private void OnRemoteDragPointerPressedTunnel(object? sender, PointerPressedEventArgs e)
     {
         _selectionAtPress.Clear();

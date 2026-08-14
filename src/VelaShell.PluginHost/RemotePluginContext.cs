@@ -2,6 +2,7 @@ using VelaShell.PluginSdk;
 using VelaShell.PluginSdk.Commands;
 using VelaShell.PluginSdk.Events;
 using VelaShell.PluginSdk.Logging;
+using VelaShell.PluginSdk.Protocols;
 using VelaShell.PluginSdk.RemoteExec;
 using VelaShell.PluginSdk.RemoteFs;
 using VelaShell.PluginSdk.Rpc;
@@ -65,7 +66,31 @@ internal sealed class RemotePluginContext : IPluginContext, IDisposable
     public VelaShell.PluginSdk.Secrets.ISecretsApi Secrets { get; }
     public VelaShell.PluginSdk.Clipboard.IClipboardApi Clipboard { get; }
     public VelaShell.PluginSdk.Terminal.ITerminalApi Terminal { get; }
+
+    /// <summary>
+    /// 协议能力在隔离进程里**不可用**:协议是宿主反向调用插件的高频通道(列目录、流式读、
+    /// 传输进度),而本进程的 RPC 只承载插件→宿主的请求方向。
+    /// <para>
+    /// 这里给一个"注册即明确报错"的实现,而不是 <c>null!</c>:清单校验只在插件声明了
+    /// <c>contributes.protocols</c> 时才拦 isolated(见 <c>PluginManifestReader.ValidateProtocols</c>),
+    /// 不声明清单、直接在 <c>ActivateAsync</c> 里 Register 的插件只能靠这里兜住 ——
+    /// 报一句能看懂的话,好过一个空引用。
+    /// </para>
+    /// </summary>
+    public IProtocolsApi Protocols { get; } = new IsolatedProtocols();
+
     public CancellationToken Shutdown { get; }
+
+    /// <summary>隔离进程的协议能力退化实现:注册即报不可用,读传输设置给"不限速"。</summary>
+    private sealed class IsolatedProtocols : IProtocolsApi
+    {
+        public IDisposable Register(ProtocolDescriptor descriptor, IProtocolFileSystem fileSystem) =>
+            throw new InvalidOperationException(
+                "contributes.protocols requires hostMode \"inProcess\": the isolated-process RPC does not carry host-to-plugin calls.");
+
+        public Task<ProtocolTransferOptions> GetTransferOptionsAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(new ProtocolTransferOptions(0, 0, PreserveTimestamps: true));
+    }
 
     /// <summary>通知路由用的具体代理(Program 分发宿主通知)。</summary>
     internal RemoteHostInfo HostInfo { get; }

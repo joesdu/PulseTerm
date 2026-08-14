@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input.Platform;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
@@ -11,7 +12,6 @@ using ReactiveUI;
 using ReactiveUI.Primitives;
 using VelaShell.Core.Data;
 using VelaShell.Core.Diagnostics;
-using VelaShell.Core.Ftp;
 using VelaShell.Core.Import;
 using VelaShell.Core.Models;
 using VelaShell.Core.Processes;
@@ -203,7 +203,14 @@ public partial class MainWindow : Window
             vm.NewConnectionRequested += (_, _) => _ = OpenProfileDialogAsync(null);
             vm.SettingsRequested += (_, _) => _ = OpenSettingsAsync();
             vm.InteractiveAuthenticator = PromptCredentialsAsync;
-            vm.FtpCertificateTrustPrompt = PromptFtpCertificateTrustAsync;
+            // FTPS 与插件协议的 TLS 端点共用同一套「先拒绝 → 提示 → 记指纹后重连」的信任流程,
+            // 因此也共用同一个对话框;两者的异常类型不同,这里各接一个薄适配。
+            vm.FtpCertificateTrustPrompt = (profile, certificate) => PromptCertificateTrustAsync(
+                profile.Host, certificate.Subject, certificate.Issuer,
+                certificate.ExpiresOn, certificate.Thumbprint, certificate.PolicyErrors);
+            vm.PluginCertificateTrustPrompt = (profile, certificate) => PromptCertificateTrustAsync(
+                profile.Host, certificate.Subject, certificate.Issuer,
+                certificate.ExpiresOn, certificate.Thumbprint, certificate.PolicyErrors);
             vm.MultilinePasteConfirmer = ConfirmMultilinePasteAsync;
             vm.ZModemDownloadFolderPicker = PromptForZModemDownloadFolderAsync;
             vm.ZModemUploadFilePicker = PromptForZModemUploadFilesAsync;
@@ -901,7 +908,10 @@ public partial class MainWindow : Window
             app.Services.GetService<IConnectionWorkflowService>(),
             app.Services.GetService<ISessionRepository>(),
             defaultPort,
-            defaultKeyPath
+            defaultKeyPath,
+            // 协议注册表:连接页据此画出插件协议页签(不装载任何插件程序集),
+            // 用户点到某个页签才触发它的惰性激活。
+            app.Services.GetService<VelaShell.Infrastructure.Plugins.Protocols.PluginProtocolRegistry>()
         );
         var dialog = new ConnectionProfileView { DataContext = connectionProfileViewModel };
         SessionProfile? profile = await dialog.ShowDialog<SessionProfile?>(this);
@@ -1096,26 +1106,33 @@ public partial class MainWindow : Window
     /// 一次只弹一扇(见 <see cref="_credentialPromptGate" />),排队的连接依次拿到弹窗。
     /// </summary>
     /// <summary>
-    /// FTPS 证书未通过校验时的信任提示。把指纹与主体摊开给用户看,确认后由 VM 记进配置并重连。
+    /// 服务器证书未通过校验时的信任提示(FTPS 与插件协议的 TLS 端点共用)。
+    /// 把指纹与主体摊开给用户看,确认后由 VM 记进配置并重连。
     /// <para>
     /// 这条链路刻意做成「连接失败 → 提示 → 重连」而不是在 TLS 回调里同步等用户点按钮:
-    /// 后者要把异步对话框阻塞成同步,极易死锁(FTP 的证书回调不保证在哪个线程上触发)。
+    /// 后者要把异步对话框阻塞成同步,极易死锁(证书回调不保证在哪个线程上触发)。
     /// </para>
     /// </summary>
-    private async Task<bool> PromptFtpCertificateTrustAsync(SessionProfile profile, VelaFtpCertificateException certificate)
+    private async Task<bool> PromptCertificateTrustAsync(
+        string host,
+        string subject,
+        string issuer,
+        DateTimeOffset expiresOn,
+        string thumbprint,
+        string policyErrors)
     {
         string message = string.Join(Environment.NewLine,
-            Strings.Format("Ftp_CertUntrustedFmt", profile.Host),
+            Strings.Format("Cert_UntrustedFmt", host),
             string.Empty,
-            $"{Strings.Get("Ftp_CertSubject")}: {certificate.Subject}",
-            $"{Strings.Get("Ftp_CertIssuer")}: {certificate.Issuer}",
-            $"{Strings.Get("Ftp_CertExpires")}: {certificate.ExpiresOn:yyyy-MM-dd}",
-            $"{Strings.Get("Ftp_CertFingerprint")}: {FormatThumbprint(certificate.Thumbprint)}",
-            $"{Strings.Get("Ftp_CertProblem")}: {certificate.PolicyErrors}");
+            $"{Strings.Get("Cert_Subject")}: {subject}",
+            $"{Strings.Get("Cert_Issuer")}: {issuer}",
+            $"{Strings.Get("Cert_Expires")}: {expiresOn:yyyy-MM-dd}",
+            $"{Strings.Get("Cert_Fingerprint")}: {FormatThumbprint(thumbprint)}",
+            $"{Strings.Get("Cert_Problem")}: {policyErrors}");
         return await MessageDialog.ConfirmAsync(this,
-            Strings.Get("Ftp_CertTitle"),
+            Strings.Get("Cert_Title"),
             message,
-            Strings.Get("Ftp_CertTrust"),
+            Strings.Get("Cert_Trust"),
             Strings.Cancel,
             MessageDialogKind.Warning,
             danger: true);

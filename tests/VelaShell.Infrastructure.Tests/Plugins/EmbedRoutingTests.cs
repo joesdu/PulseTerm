@@ -32,6 +32,8 @@ public class EmbedRoutingTests
             return Task.CompletedTask;
         }
 
+        public Task ActivateAsync() => Task.CompletedTask;
+
         public ValueTask DisposeAsync() => new(CloseAsync());
 
         public void SimulateUserClose() => _ = CloseAsync();
@@ -70,6 +72,8 @@ public class EmbedRoutingTests
         Secrets = new FakeSecrets(),
         Clipboard = new FakeClipboard(),
         Terminal = new FakeTerminal(),
+        // 本用例测的是停靠嵌入,协议能力被用到即是误用 —— 用"注册即抛"的那个实现。
+        Protocols = new UnavailableProtocols(),
         Shutdown = CancellationToken.None
     };
 

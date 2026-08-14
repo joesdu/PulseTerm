@@ -352,6 +352,9 @@ public sealed class SessionTreeViewModel : ReactiveObject
             Tags = [.. source.Tags],
             JumpHostProfileId = source.JumpHostProfileId,
             Ftp = source.Ftp?.Clone(),
+            PluginProtocolId = source.PluginProtocolId,
+            PluginSettings = SessionProfile.CloneSettings(source.PluginSettings),
+            PluginSecrets = SessionProfile.CloneSettings(source.PluginSecrets),
         };
         await _repository.SaveSessionAsync(copy);
         await LoadTreeAsync();

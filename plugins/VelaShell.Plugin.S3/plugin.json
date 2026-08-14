@@ -1,0 +1,23 @@
+{
+  "id": "velashell.s3",
+  "version": "0.1.0",
+  "displayName": "S3 Object Storage",
+  "description": "S3 兼容对象存储(Amazon S3 / MinIO / Ceph RGW / OSS / COS / R2):文件管理器、桶管理器与对象检视器。",
+  "publisher": "velashell",
+  "entry": "VelaShell.Plugin.S3.dll",
+  "apiLevel": 1,
+  "license": "MIT",
+  "homepage": "https://github.com/joesdu/VelaShell",
+  // 协议贡献:连接配置页在**不装载本程序集**的前提下就能画出 S3 页签,
+  // 用户点到它(或打开一条 S3 会话)才触发下面的惰性激活。
+  "contributes": {
+    "protocols": [
+      { "id": "velashell.s3", "displayName": "S3", "defaultPort": 443 }
+    ]
+  },
+  "activationEvents": [
+    "onProtocol:velashell.s3"
+  ]
+  // hostMode 必须是默认的 inProcess:协议是宿主反向调用插件的高频通道(列目录、
+  // 流式读、传输进度),隔离进程的 RPC 只承载插件→宿主方向。清单校验会挡住这个组合。
+}

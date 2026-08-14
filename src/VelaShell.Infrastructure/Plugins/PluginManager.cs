@@ -3,6 +3,7 @@ using System.IO.Compression;
 using System.Reflection;
 using VelaShell.Infrastructure.Plugins.Capabilities;
 using VelaShell.Infrastructure.Plugins.Isolated;
+using VelaShell.Infrastructure.Plugins.Protocols;
 using VelaShell.PluginSdk;
 using VelaShell.PluginSdk.Commands;
 using VelaShell.PluginSdk.Hosting;
@@ -112,8 +113,12 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
             }
             (runtime.CommandsApi as IDisposable)?.Dispose();
             runtime.CommandsApi = null;
+            // 先写终态再撤注册,顺序固定:反过来的话,撤注册与写状态之间的窗口里
+            // 若有激活线程完成,它会把 State 覆盖回 Active 并重新注册协议。
             runtime.Descriptor.State = PluginState.Disabled;
             runtime.Descriptor.Error = null;
+            // 连声明一起撤:禁用后连接页不该还留着一个点了就报"协议不可用"的页签。
+            options.ProtocolRegistry?.RemovePlugin(pluginId);
             Log($"Disabled plugin '{pluginId}'.");
         }
         finally
@@ -144,6 +149,7 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
             TryWriteDisabledMarker(runtime.Descriptor.Directory, disabled: false);
             runtime.Descriptor.State = PluginState.Discovered;
             runtime.Descriptor.Error = null;
+            DeclareProtocols(runtime);
             if (runtime.Descriptor.Manifest.ActivatesOnStartup)
             {
                 await ActivateAsync(runtime, CancellationToken.None).ConfigureAwait(false);
@@ -209,6 +215,7 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
             }
             (runtime.CommandsApi as IDisposable)?.Dispose();
             runtime.CommandsApi = null;
+            options.ProtocolRegistry?.RemovePlugin(pluginId);
             TryDeleteDirectory(runtime.Descriptor.Directory);
             await PurgePluginDataAsync(pluginId).ConfigureAwait(false);
             lock (_gate)
@@ -290,9 +297,10 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
             }
             if (runtime.Descriptor.State == PluginState.Discovered)
             {
+                DeclareProtocols(runtime);
                 if (manifest.ActivatesOnStartup)
                 {
-                    await ActivateAsync(runtime, cancellationToken).ConfigureAwait(false);
+                    await EnsureActivatedAsync(runtime, cancellationToken).ConfigureAwait(false);
                 }
                 else
                 {
@@ -418,6 +426,10 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
             }
             _started = true;
         }
+        if (options.ProtocolRegistry is { } registry)
+        {
+            registry.ActivationRequested = ActivateForProtocolAsync;
+        }
         Discover();
         await PurgeUninstalledDataAsync().ConfigureAwait(false);
         List<PluginRuntime> discovered;
@@ -433,7 +445,9 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
             }
             if (runtime.Descriptor.Manifest!.ActivatesOnStartup)
             {
-                await ActivateAsync(runtime, cancellationToken).ConfigureAwait(false);
+                // 走激活闸而不是直调:启动激活跑在后台线程上、耗时可达数秒,
+                // 这期间用户完全来得及在管理页把它禁用掉。
+                await EnsureActivatedAsync(runtime, cancellationToken).ConfigureAwait(false);
             }
             else
             {
@@ -449,9 +463,17 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
     {
         PluginManifest manifest = runtime.Descriptor.Manifest!;
         CommandContribution[] contributions = manifest.Contributes?.Commands ?? [];
+        int protocols = manifest.Contributes?.Protocols.Length ?? 0;
+        if (contributions.Length == 0 && protocols == 0)
+        {
+            Log($"Plugin '{manifest.Id}' has no onStartup activation and no contributed commands or protocols; it will never activate.");
+            return;
+        }
         if (contributions.Length == 0)
         {
-            Log($"Plugin '{manifest.Id}' has no onStartup activation and no contributed commands; it will never activate.");
+            // 只贡献协议的插件(S3 就是):触发器是"用户在连接页选中这个协议页签",
+            // 由注册表经 ActivationRequested 回调驱动,这里没有占位命令要挂。
+            Log($"Plugin '{manifest.Id}' waiting lazily behind {protocols} protocol tab(s).");
             return;
         }
         ICommandsApi commands = GetOrCreateCommandsApi(runtime);
@@ -468,7 +490,9 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
                 Log($"Failed to register placeholder command '{commandId}': {ex.Message}");
             }
         }
-        Log($"Plugin '{manifest.Id}' waiting lazily behind {contributions.Length} command trigger(s).");
+        Log(protocols == 0
+            ? $"Plugin '{manifest.Id}' waiting lazily behind {contributions.Length} command trigger(s)."
+            : $"Plugin '{manifest.Id}' waiting lazily behind {contributions.Length} command trigger(s) and {protocols} protocol tab(s).");
     }
 
     /// <summary>占位命令命中:激活插件,然后把这次触发转交激活期间注册的真实处理器。</summary>
@@ -486,10 +510,19 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         }
     }
 
-    /// <summary>串行化的按需激活;返回激活后是否 Active(Failed/Disabled 等不由命令救活)。</summary>
-    private async Task<bool> EnsureActivatedAsync(PluginRuntime runtime)
+    /// <summary>
+    /// 串行化的按需激活;返回激活后是否 Active(Failed/Disabled 等不由命令救活)。
+    /// <para>
+    /// **所有激活入口都必须走这里**,而不是直接调 <see cref="ActivateAsync" />。
+    /// 闸内会复核 <c>State == Discovered</c>,于是"装载途中用户在管理页点了禁用"这类
+    /// check-then-act 被挡住 —— 否则 DisableAsync 会因为此刻 State 还不是 Active 而
+    /// 跳过 DeactivateAsync,随后激活线程再把 State 覆盖回 Active:磁盘上写着已禁用、
+    /// 进程里却仍在提供协议,注册表里还留下一份永远卸不掉的幽灵注册。
+    /// </para>
+    /// </summary>
+    private async Task<bool> EnsureActivatedAsync(PluginRuntime runtime, CancellationToken cancellationToken = default)
     {
-        await runtime.ActivationGate.WaitAsync().ConfigureAwait(false);
+        await runtime.ActivationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             if (runtime.Descriptor.State == PluginState.Active)
@@ -500,7 +533,7 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
             {
                 return false;
             }
-            await ActivateAsync(runtime, CancellationToken.None).ConfigureAwait(false);
+            await ActivateAsync(runtime, cancellationToken).ConfigureAwait(false);
             return runtime.Descriptor.State == PluginState.Active;
         }
         finally
@@ -667,6 +700,40 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         {
             _plugins.AddRange(found);
         }
+        // 协议页签在**发现期**就登记:连接配置页因此在不装载任何插件程序集的前提下
+        // 也能画出 S3 之类的页签,用户点到它才触发惰性激活(启动零开销那条不能破)。
+        foreach (PluginRuntime runtime in found)
+        {
+            DeclareProtocols(runtime);
+        }
+    }
+
+    /// <summary>把某插件清单里声明的协议页签登记进注册表(仅对可用状态的插件)。</summary>
+    private void DeclareProtocols(PluginRuntime runtime)
+    {
+        if (options.ProtocolRegistry is not { } registry
+            || runtime.Descriptor.State != PluginState.Discovered
+            || runtime.Descriptor.Manifest?.Contributes?.Protocols is not { Length: > 0 } protocols)
+        {
+            return;
+        }
+        registry.Declare(runtime.Descriptor.Id, protocols);
+    }
+
+    /// <summary>
+    /// 注册表的惰性激活回调:按协议 id 找到声明它的插件并激活。
+    /// 幂等且串行(走 <see cref="EnsureActivatedAsync" /> 的激活闸),同一协议被并发请求也只装载一次。
+    /// </summary>
+    private async Task<bool> ActivateForProtocolAsync(string protocolId)
+    {
+        PluginRuntime? runtime;
+        lock (_gate)
+        {
+            runtime = _plugins.FirstOrDefault(p =>
+                p.Descriptor.Manifest?.Contributes?.Protocols
+                    .Any(c => c.Id.Equals(protocolId, StringComparison.OrdinalIgnoreCase)) == true);
+        }
+        return runtime is not null && await EnsureActivatedAsync(runtime).ConfigureAwait(false);
     }
 
     private PluginDescriptor Describe(string dir, string manifestPath, HashSet<string> seenIds)
@@ -886,6 +953,9 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
                     : new UnavailableSecrets(),
             Clipboard = options.Clipboard ?? new UnavailableClipboard(),
             Terminal = options.TerminalFactory?.Invoke(manifest.Id, log) ?? new UnavailableTerminal(),
+            Protocols = options.ProtocolRegistry is { } protocols
+                ? new ProtocolsCapability(manifest.Id, protocols, log)
+                : new UnavailableProtocols(),
             Shutdown = _shutdown.Token
         };
     }

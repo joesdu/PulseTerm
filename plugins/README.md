@@ -10,6 +10,7 @@ SDK 契约见 [plugin-sdk/](../plugin-sdk/),开发文档见
 | --- | --- | --- | --- |
 | [VelaShell.Plugin.HelloWorld](VelaShell.Plugin.HelloWorld/) | `velashell.hello-world` | 否 | 官方示例:SDK 各能力的最小用法 |
 | [VelaShell.Plugin.Ai](VelaShell.Plugin.Ai/) | `velashell.ai` | 是 | AI 助手:多提供商流式对话 + Agent 模式(读终端/执行命令带审批) |
+| [VelaShell.Plugin.S3](VelaShell.Plugin.S3/) | `velashell.s3` | 是 | S3 兼容对象存储:协议 + 桶管理器 + 对象检视器(协议能力域的首个使用者) |
 
 "随包分发"由 csproj 的 `<VelaPluginShip>` 控制(默认 `true`)。示例插件设 `false`:
 本机构建仍镜像进 `src/VelaShell/bin/<配置>/net11.0/plugins/`,F5 能装载它验证插件系统,

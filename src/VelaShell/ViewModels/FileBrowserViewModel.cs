@@ -6,6 +6,7 @@ using ReactiveUI.Primitives;
 using VelaShell.Core.Models;
 using VelaShell.Core.Resources;
 using VelaShell.Core.Sftp;
+using VelaShell.PluginSdk.Protocols;
 using VelaShell.Core.Ssh;
 using VelaShell.Services;
 
@@ -112,6 +113,7 @@ public class FileBrowserViewModel : ReactiveObject
         CopyToCommand = ReactiveCommand.CreateFromTask<RemoteFileInfoViewModel>(CopyToAsync);
         CopyPathCommand = ReactiveCommand.CreateFromTask<RemoteFileInfoViewModel>(CopyPathAsync);
         CopyNameCommand = ReactiveCommand.CreateFromTask<RemoteFileInfoViewModel>(CopyNameAsync);
+        InvokeProtocolActionCommand = ReactiveCommand.CreateFromTask<ProtocolActionViewModel>(InvokeProtocolActionAsync);
         PropertiesCommand = ReactiveCommand.CreateFromTask<RemoteFileInfoViewModel>(
             ShowPropertiesAsync
         );
@@ -735,6 +737,12 @@ public class FileBrowserViewModel : ReactiveObject
     /// <summary>把选中条目的名称复制到剪贴板。</summary>
     public ReactiveCommand<RemoteFileInfoViewModel, RxVoid> CopyNameCommand { get; }
 
+    /// <summary>
+    /// 执行一条协议专属动作(插件协议贡献的右键菜单项,如 S3 的「复制分享链接」)。
+    /// 参数携带动作与目标条目 —— 菜单项是数据驱动的,宿主不认识任何具体协议。
+    /// </summary>
+    public ReactiveCommand<ProtocolActionViewModel, RxVoid> InvokeProtocolActionCommand { get; }
+
     /// <summary>属性弹窗(合并了 chmod 权限编辑,确定时应用变更)。</summary>
     public ReactiveCommand<RemoteFileInfoViewModel, RxVoid> PropertiesCommand { get; }
 
@@ -835,6 +843,80 @@ public class FileBrowserViewModel : ReactiveObject
 
     /// <summary>由视图设置:将文本写入系统剪贴板(复制路径 / 复制名称)。</summary>
     public Func<string, Task>? CopyToClipboard { get; set; }
+
+    /// <summary>
+    /// 当前会话可用的协议专属右键动作(来自插件协议的声明);非插件协议下为空,
+    /// 对应的菜单项随之隐藏。
+    /// </summary>
+    public ObservableCollection<ProtocolActionViewModel> ProtocolActions { get; } = [];
+
+    /// <summary>协议动作菜单的分组名(即协议显示名);无动作时菜单项不显示。</summary>
+    public string ProtocolActionsHeader
+    {
+        get => field;
+        set
+        {
+            this.RaiseAndSetIfChanged(ref field, value);
+            this.RaisePropertyChanged(nameof(HasProtocolActions));
+        }
+    } = string.Empty;
+
+    /// <summary>是否有协议专属动作可显示。</summary>
+    public bool HasProtocolActions => ProtocolActions.Count > 0;
+
+    /// <summary>
+    /// 由宿主设置:执行一条协议动作(动作 id + 目标路径)。为 null 表示当前会话不是插件协议。
+    /// </summary>
+    public Func<string, string, Task>? InvokeProtocolAction { get; set; }
+
+    /// <summary>
+    /// 挂上某个协议的动作集合。宿主在打开插件协议文档时调用一次 ——
+    /// 动作是**声明式**的(随协议描述一起给出),因此右键菜单在按下那一帧就能画出来,
+    /// 不必为了建菜单先去问一次插件。
+    /// </summary>
+    /// <param name="protocolName">协议显示名(作为菜单分组标题)。</param>
+    /// <param name="actions">动作列表。</param>
+    public void SetProtocolActions(string protocolName, IEnumerable<ProtocolAction> actions)
+    {
+        _declaredActions = [.. actions];
+        ProtocolActionsHeader = protocolName;
+        RefreshProtocolActions(target: null);
+    }
+
+    /// <summary>
+    /// 右键命中的那一行。**协议动作必须作用在它身上**:插件把「复制分享链接」「对象检视」
+    /// 声明为 <c>ProtocolActionScope.File</c>,若一律拿当前目录去调,预签名 URL 与检视器
+    /// 就永远打在错误的目标上。由视图在右键时设置。
+    /// </summary>
+    public RemoteFileInfoViewModel? ContextTarget
+    {
+        get => field;
+        set
+        {
+            field = value;
+            // 菜单按命中行重建:不适用的动作直接不进菜单,而不是灰着 ——
+            // 灰掉的菜单项只会让人反复去点它。
+            RefreshProtocolActions(value);
+        }
+    }
+
+    /// <summary>按命中行重建协议动作菜单。</summary>
+    private void RefreshProtocolActions(RemoteFileInfoViewModel? target)
+    {
+        ProtocolActions.Clear();
+        foreach (ProtocolAction action in _declaredActions)
+        {
+            var candidate = new ProtocolActionViewModel(action, target);
+            if (candidate.AppliesTo(target))
+            {
+                ProtocolActions.Add(candidate);
+            }
+        }
+        this.RaisePropertyChanged(nameof(HasProtocolActions));
+    }
+
+    /// <summary>协议声明的动作原始列表(菜单每次右键按命中行从它重建)。</summary>
+    private IReadOnlyList<ProtocolAction> _declaredActions = [];
 
     /// <summary>
     /// 由视图设置:展示合并的属性 + 权限弹窗(参考 WinSCP:属性与权限矩阵在同一弹窗)。
@@ -2703,6 +2785,30 @@ public class FileBrowserViewModel : ReactiveObject
             return;
         }
         await CopyToClipboard(file.Name);
+    }
+
+    /// <summary>
+    /// 执行一条协议专属动作。宿主只负责把「哪个动作 + 哪个路径」转交给插件,
+    /// 具体做什么(生成预签名 URL、开一扇面板…)完全由插件决定 ——
+    /// 这正是文件浏览器能对新协议零改动的原因。
+    /// </summary>
+    private async Task InvokeProtocolActionAsync(ProtocolActionViewModel? action, CancellationToken ct = default)
+    {
+        if (action is null || InvokeProtocolAction is null)
+        {
+            return;
+        }
+        // Background 作用域的动作(如「桶管理」)针对当前目录,其余针对右键命中的那一行。
+        string path = action.Target is { IsParentEntry: false } entry ? entry.FullPath : CurrentPath;
+        try
+        {
+            ErrorMessage = null;
+            await InvokeProtocolAction(action.Id, path).ConfigureAwait(true);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            ErrorMessage = ex.Message;
+        }
     }
 
     private async Task ShowPropertiesAsync(

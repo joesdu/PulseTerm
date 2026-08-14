@@ -3569,28 +3569,28 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   <data name="Ftp_PlaintextWarn" xml:space="preserve">
     <value>平文 FTP は認証情報もファイルも暗号化されず、サーバーの身元確認もありません。サーバーが対応しているなら FTPS を使ってください。</value>
   </data>
-  <data name="Ftp_CertTitle" xml:space="preserve">
+  <data name="Cert_Title" xml:space="preserve">
     <value>サーバー証明書が信頼されていません</value>
   </data>
-  <data name="Ftp_CertUntrustedFmt" xml:space="preserve">
+  <data name="Cert_UntrustedFmt" xml:space="preserve">
     <value>{0} が提示した証明書を検証できませんでした。下のフィンガープリントがサーバーのものと一致する場合のみ信頼してください。</value>
   </data>
-  <data name="Ftp_CertSubject" xml:space="preserve">
+  <data name="Cert_Subject" xml:space="preserve">
     <value>サブジェクト</value>
   </data>
-  <data name="Ftp_CertIssuer" xml:space="preserve">
+  <data name="Cert_Issuer" xml:space="preserve">
     <value>発行者</value>
   </data>
-  <data name="Ftp_CertExpires" xml:space="preserve">
+  <data name="Cert_Expires" xml:space="preserve">
     <value>有効期限</value>
   </data>
-  <data name="Ftp_CertFingerprint" xml:space="preserve">
+  <data name="Cert_Fingerprint" xml:space="preserve">
     <value>SHA-256</value>
   </data>
-  <data name="Ftp_CertProblem" xml:space="preserve">
+  <data name="Cert_Problem" xml:space="preserve">
     <value>問題</value>
   </data>
-  <data name="Ftp_CertTrust" xml:space="preserve">
+  <data name="Cert_Trust" xml:space="preserve">
     <value>信頼して接続</value>
   </data>
   <data name="XImport_MenuItemAll" xml:space="preserve">
@@ -3643,5 +3643,8 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   </data>
   <data name="XImport_MasterPwWarnFmt" xml:space="preserve">
     <value>{0} はマスターパスワードが有効なため、保存されたパスワードを復元できません。これらのセッションはパスワードなしでインポートされます。</value>
+  </data>
+  <data name="Plugin_ProtocolUnavailable" xml:space="preserve">
+    <value>このプロトコルを提供するプラグインが利用できません。プラグイン管理画面でインストールまたは有効化してください。</value>
   </data>
 </root>

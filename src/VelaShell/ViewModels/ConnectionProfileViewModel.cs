@@ -1,11 +1,14 @@
 using System.Collections.ObjectModel;
 using System.Security;
+using Avalonia.Threading;
 using ReactiveUI;
 using ReactiveUI.Primitives;
 using VelaShell.Core.Data;
 using VelaShell.Core.Models;
 using VelaShell.Core.Resources;
+using VelaShell.Infrastructure.Plugins.Protocols;
 using VelaShell.Presentation.Services;
+using VelaShell.PluginSdk.Protocols;
 using VelaShell.Security;
 
 namespace VelaShell.ViewModels;
@@ -18,7 +21,7 @@ public sealed record GroupOption(Guid? Id, string Name)
 }
 
 /// <summary>新建/编辑连接配置对话框的视图模型:承载表单字段、认证方式切换、分组与跳板主机选择,并提供保存、连接、测试等命令。</summary>
-public class ConnectionProfileViewModel : ReactiveObject
+public class ConnectionProfileViewModel : ReactiveObject, IDisposable
 {
     /// <summary>
     /// “未分组”选项/输入的显示名;输入等于该名或留空即保存为未分组。
@@ -54,14 +57,31 @@ public class ConnectionProfileViewModel : ReactiveObject
     private string _tagsText = string.Empty;
     private string _username = string.Empty;
 
+    // ---- 插件协议 ----
+    private readonly PluginProtocolRegistry? _protocolRegistry;
+    private string? _pluginProtocolId;
+    private ProtocolDescriptor? _pluginDescriptor;
+
+    /// <summary>编辑既有配置时读入的插件设置;表单还没渲染出来就保存的话原样带回。</summary>
+    private Dictionary<string, string>? _pluginStored;
+    private Dictionary<string, string>? _pluginStoredSecrets;
+
+    /// <summary>
+    /// 最近一次**真正渲染过表单**的协议 id。「换没换协议」必须以它为准而不是
+    /// <see cref="PluginProtocolId" /> —— 后者会被切回内建协议时置 null。
+    /// </summary>
+    private string? _loadedProtocolId;
+
     /// <summary>创建视图模型;传入 <paramref name="existing" /> 时进入编辑模式回显字段,否则新建并应用默认端口/默认密钥路径。</summary>
     public ConnectionProfileViewModel(
         SessionProfile? existing = null,
         IConnectionWorkflowService? connectionWorkflowService = null,
         ISessionRepository? sessionRepository = null,
         int defaultPort = 22,
-        string? defaultPrivateKeyPath = null)
+        string? defaultPrivateKeyPath = null,
+        PluginProtocolRegistry? protocolRegistry = null)
     {
+        _protocolRegistry = protocolRegistry;
         _connectionWorkflowService = connectionWorkflowService;
         _sessionRepository = sessionRepository;
         Groups = [new(null, UngroupedName)];
@@ -107,6 +127,9 @@ public class ConnectionProfileViewModel : ReactiveObject
                 _ftpTrustedThumbprint = ftp.TrustedCertificateThumbprint;
                 _ftpMaxConnections = ftp.MaxConnections;
             }
+            _pluginProtocolId = existing.PluginProtocolId;
+            _pluginStored = existing.PluginSettings;
+            _pluginStoredSecrets = existing.PluginSecrets;
         }
         else
         {
@@ -135,23 +158,44 @@ public class ConnectionProfileViewModel : ReactiveObject
         this.WhenAnyValue(x => x.SelectedJumpHost)
             .Skip(1)
             .Subscribe(option => _jumpHostProfileId = option?.Id);
-        // FTP 匿名登录不需要用户名 —— 保存/连接按钮不能因为这个永远灰着(串口调研里踩过同一个坑)。
+        // 「必须填用户名」这条并非对所有协议成立:FTP 匿名登录,以及声明了
+        // AnonymousAccess 的插件协议(如 S3 的公开只读桶)都不需要。
+        // 保存/连接按钮不能因为这个永远灰着(串口调研里踩过同一个坑)。
         IObservable<bool> canExecute = this.WhenAnyValue(x => x.Host,
             x => x.Username,
             x => x.Port,
             x => x.IsBusy,
             x => x.FtpAnonymous,
             x => x.ConnectionType,
-            (host, username, port, isBusy, anonymous, type) =>
+            x => x.AllowsAnonymous,
+            x => x.PluginUnavailable,
+            (host, username, port, isBusy, anonymous, type, pluginAnonymous, pluginUnavailable) =>
                 !isBusy &&
                 !string.IsNullOrWhiteSpace(host) &&
-                (!string.IsNullOrWhiteSpace(username) || (type == ConnectionType.FTP && anonymous)) &&
+                (!string.IsNullOrWhiteSpace(username) ||
+                 (type == ConnectionType.FTP && anonymous) ||
+                 // 插件不可用时也放行:否则一条「用户名为空的 S3 配置」在禁用插件后
+                 // 保存/连接/测试三个按钮同时灰死,连改个名字都存不下去。
+                 (type == ConnectionType.Plugin && (pluginAnonymous || pluginUnavailable))) &&
                 port is >= 1 and <= 65535);
         SaveCommand = ReactiveCommand.CreateFromTask(SaveAsync, canExecute);
         ConnectCommand = ReactiveCommand.CreateFromTask(ConnectAsync, canExecute);
         CancelCommand = ReactiveCommand.Create(() => (SessionProfile?)null);
         TestConnectionCommand = ReactiveCommand.CreateFromTask(TestConnectionAsync, canExecute);
         SelectConnectionTypeCommand = ReactiveCommand.Create<ConnectionType>(SelectConnectionType);
+        SelectPluginProtocolCommand = ReactiveCommand.CreateFromTask<string>(SelectPluginProtocolAsync);
+        LoadPluginProtocols();
+        // 页签不是一次性快照:插件发现跑在后台线程,对话框可能先于它打开;
+        // 插件管理器又是非模态的,开着对话框也能启用/禁用插件。
+        if (_protocolRegistry is not null)
+        {
+            _protocolRegistry.Changed += OnProtocolsChanged;
+        }
+        if (_connectionType == ConnectionType.Plugin && _pluginProtocolId is { Length: > 0 } existingProtocol)
+        {
+            // 编辑既有插件协议配置:进对话框就把表单渲染出来(会触发该插件的惰性激活)。
+            _ = SelectPluginProtocolAsync(existingProtocol);
+        }
         BrowseKeyFileCommand = ReactiveCommand.Create(() => { });
         ToggleAdvancedCommand = ReactiveCommand.Create(() => { IsAdvancedVisible = !IsAdvancedVisible; });
         TogglePasswordVisibilityCommand = ReactiveCommand.Create(() => { ShowPassword = !ShowPassword; });
@@ -182,9 +226,15 @@ public class ConnectionProfileViewModel : ReactiveObject
             this.RaisePropertyChanged(nameof(IsSshSelected));
             this.RaisePropertyChanged(nameof(IsSftpSelected));
             this.RaisePropertyChanged(nameof(IsFtpSelected));
+            this.RaisePropertyChanged(nameof(IsPluginSelected));
             this.RaisePropertyChanged(nameof(RequiresSshAuth));
             this.RaisePropertyChanged(nameof(ShowFtpPlaintextWarning));
+
             this.RaisePropertyChanged(nameof(ShowPasswordField));
+            this.RaisePropertyChanged(nameof(HostLabel));
+            this.RaisePropertyChanged(nameof(HostPlaceholder));
+            this.RaisePropertyChanged(nameof(UsernameLabel));
+            this.RaisePropertyChanged(nameof(PasswordLabel));
         }
     }
 
@@ -197,11 +247,43 @@ public class ConnectionProfileViewModel : ReactiveObject
     /// <summary>协议标签是否选中 FTP / FTPS。</summary>
     public bool IsFtpSelected => ConnectionType == ConnectionType.FTP;
 
+    /// <summary>协议标签是否选中某个插件协议。</summary>
+    public bool IsPluginSelected => ConnectionType == ConnectionType.Plugin;
+
     /// <summary>
     /// 是否需要 SSH 认证表单(私钥、口令、跳板)。FTP 只有用户名/口令与匿名登录,
-    /// 把这些 SSH 专属项隐掉,避免用户以为 FTP 也能用私钥。
+    /// 插件协议(S3 之类)一般也只有一对密钥,把这些 SSH 专属项隐掉,
+    /// 避免用户以为它们也能用私钥。
     /// </summary>
-    public bool RequiresSshAuth => ConnectionType != ConnectionType.FTP;
+    public bool RequiresSshAuth => ConnectionType is not (ConnectionType.FTP or ConnectionType.Plugin);
+
+    /// <summary>
+    /// 「主机」输入框的标签。协议可以改写它:S3 填的是服务端点而不是一台主机,
+    /// 沿用「主机名/IP」会让人以为要填某台服务器的地址 —— 同一个输入框,换个说法即可,
+    /// 不必再开一个字段。文案由插件给(它才知道自己的领域词汇)。
+    /// </summary>
+    public string HostLabel => _pluginDescriptor?.HostLabel ?? Strings.Get("Profile_HostIp");
+
+    /// <summary>「主机」输入框的占位提示。</summary>
+    public string HostPlaceholder => _pluginDescriptor?.HostPlaceholder ?? "192.168.1.100";
+
+    /// <summary>「用户名」输入框的标签(插件协议可改写,如 Access Key ID)。</summary>
+    public string UsernameLabel => _pluginDescriptor?.UsernameLabel ?? Strings.Get("Username");
+
+    /// <summary>「密码」输入框的标签(插件协议可改写,如 Secret Access Key)。</summary>
+    public string PasswordLabel => _pluginDescriptor?.PasswordLabel ?? Strings.Get("Password");
+
+    /// <summary>
+    /// 当前协议是否允许不填凭据直接连(匿名访问)。
+    /// **必须是可观察的存储属性**:它参与保存/连接按钮的可用性判定,而那个判定是
+    /// <c>WhenAnyValue</c> 组合器 —— 纯计算属性发的 PropertyChanged 驱动不了它,
+    /// 结果就是"编辑一条已存的匿名 S3 配置,按钮灰着,得先随便改个字段才亮"。
+    /// </summary>
+    public bool AllowsAnonymous
+    {
+        get;
+        private set => this.RaiseAndSetIfChanged(ref field, value);
+    }
 
     /// <summary>加密方式下拉的下标:0 自动、1 显式 FTPS、2 隐式 FTPS、3 不加密。</summary>
     public int FtpEncryptionIndex
@@ -265,6 +347,29 @@ public class ConnectionProfileViewModel : ReactiveObject
             this.RaiseAndSetIfChanged(ref _ftpAnonymous, value);
             this.RaisePropertyChanged(nameof(ShowPasswordField));
         }
+    }
+
+    /// <summary>可选的插件协议页签(来自已安装插件的清单声明;插件未激活时也在)。</summary>
+    public ObservableCollection<PluginProtocolTabViewModel> PluginProtocols { get; } = [];
+
+    /// <summary>当前插件协议的设置表单字段(选中协议并完成激活后才有内容)。</summary>
+    public ObservableCollection<PluginProtocolFieldViewModel> PluginFields { get; } = [];
+
+    /// <summary>当前选中的插件协议 id;非插件协议时为 null。</summary>
+    public string? PluginProtocolId
+    {
+        get => _pluginProtocolId;
+        private set => this.RaiseAndSetIfChanged(ref _pluginProtocolId, value);
+    }
+
+    /// <summary>
+    /// 表单是否还在等插件激活。协议页签在发现期就画出来了(不装载程序集),
+    /// 用户点到它才触发惰性激活 —— 这中间有一小段"页签在、字段还没到"的状态。
+    /// </summary>
+    public bool IsPluginLoading
+    {
+        get;
+        private set => this.RaiseAndSetIfChanged(ref field, value);
     }
 
     /// <summary>目标主机地址(主机名或 IP)。</summary>
@@ -461,6 +566,9 @@ public class ConnectionProfileViewModel : ReactiveObject
     /// <summary>选择 SSH 或 SFTP;Telnet/串口没有对应命令,因此仍保持禁用。</summary>
     public ReactiveCommand<ConnectionType, RxVoid> SelectConnectionTypeCommand { get; }
 
+    /// <summary>切到某个插件协议页签(按需触发该插件的惰性激活并渲染它的设置表单)。</summary>
+    public ReactiveCommand<string, RxVoid> SelectPluginProtocolCommand { get; }
+
     /// <summary>
     /// 从仓储加载分组下拉(“未分组” + 全部分组),并选中当前配置的分组;
     /// 同时装填跳板主机下拉(“直连” + 其余已保存配置)。
@@ -523,7 +631,7 @@ public class ConnectionProfileViewModel : ReactiveObject
     {
         try
         {
-            IsBusy = true;
+            BeginBusy();
             ErrorMessage = null;
             await ResolveGroupFromTextAsync();
             SessionProfile profile = BuildProfile();
@@ -540,7 +648,7 @@ public class ConnectionProfileViewModel : ReactiveObject
         }
         finally
         {
-            IsBusy = false;
+            EndBusy();
         }
     }
 
@@ -564,7 +672,7 @@ public class ConnectionProfileViewModel : ReactiveObject
         }
         try
         {
-            IsBusy = true;
+            BeginBusy();
             ErrorMessage = null;
             ConnectionTestResult result = await _connectionWorkflowService.TestConnectionAsync(BuildProfile());
             LastTestSucceeded = result.Success;
@@ -572,7 +680,7 @@ public class ConnectionProfileViewModel : ReactiveObject
         }
         finally
         {
-            IsBusy = false;
+            EndBusy();
         }
     }
 
@@ -641,8 +749,229 @@ public class ConnectionProfileViewModel : ReactiveObject
                     TrustedCertificateThumbprint = _ftpTrustedThumbprint,
                     MaxConnections = _ftpMaxConnections,
                 }
-                : null
+                : null,
+            // 插件协议:只存协议 id 与它自己声明的那些字段。宿主对这些键一无所知,
+            // 这正是把 S3 之类的协议移出宿主的前提。
+            PluginProtocolId = ConnectionType == ConnectionType.Plugin ? PluginProtocolId : null,
+            PluginSettings = ConnectionType == ConnectionType.Plugin ? CollectPluginValues(secrets: false) : null,
+            // 机密与非机密分成两个字典:仓储层在落盘那一刻并不知道某个协议哪些字段是机密
+            // (那在插件里),分开存才能做到「机密永远加密」这条不依赖任何查表的硬保证。
+            PluginSecrets = ConnectionType == ConnectionType.Plugin ? CollectPluginValues(secrets: true) : null
         };
+    }
+
+    /// <summary>把表单字段收集成落盘字典;<paramref name="secrets" /> 决定收机密还是非机密那一半。</summary>
+    private Dictionary<string, string>? CollectPluginValues(bool secrets)
+    {
+        // **以已存的那份为底**,再让表单里可见的字段覆盖上去。
+        // 直接从空字典攒是不行的:隐藏字段(如用户确认信任后写回的证书指纹)压根不进表单,
+        // 从空字典攒等于每保存一次就把它抹掉一次,下次连接又弹「证书不可信」。
+        Dictionary<string, string>? stored = secrets ? _pluginStoredSecrets : _pluginStored;
+        Dictionary<string, string> values = SessionProfile.CloneSettings(stored) ?? new(StringComparer.Ordinal);
+        foreach (PluginProtocolFieldViewModel field in PluginFields.Where(f => f.IsSecret == secrets))
+        {
+            values[field.Key] = field.Text;
+        }
+        return values.Count == 0 ? stored : values;
+    }
+
+    /// <summary>
+    /// 选中一个插件协议页签:切到 Plugin 类型、按需触发插件惰性激活、渲染它声明的表单。
+    /// <para>
+    /// 这个方法里挤着四件容易互相咬的事,注释逐条说明为什么这么写:
+    /// 「换没换协议」的判定基准、旧值的保管、陈旧续体的作废、以及忙态的归属。
+    /// </para>
+    /// </summary>
+    /// <param name="protocolId">协议 id。</param>
+    public async Task SelectPluginProtocolAsync(string protocolId)
+    {
+        // 判定基准是 _loadedProtocolId(最近一次真正渲染过表单的协议),**不是** PluginProtocolId ——
+        // 后者会被 SelectConnectionType 在切回内建协议时置 null,于是「点 SSH 再点回 S3」
+        // 会被误判成换了协议,把 _pluginStored 一起清掉:隐藏字段(证书指纹)与机密
+        // (sessionToken)就此静默永久丢失。
+        bool switchedProtocol = _loadedProtocolId is { } loaded
+                                && !string.Equals(loaded, protocolId, StringComparison.Ordinal);
+        PluginProtocolId = protocolId;
+        ConnectionType = ConnectionType.Plugin;
+        foreach (PluginProtocolTabViewModel tabViewModel in PluginProtocols)
+        {
+            tabViewModel.IsSelected = tabViewModel.Id == protocolId;
+        }
+        // 插件协议同样没有私钥认证:与 SelectConnectionType 走同一套善后,
+        // 否则从「私钥认证的 SSH」切过来后,认证方式下拉被隐藏、口令框也不显示,
+        // 界面上再没有任何途径把它切回口令。
+        NormalizeAuthMethodForProtocol();
+        // 端口跟随用与内建协议**同一套**判定(它已把插件协议的默认端口一并算进「用户没手填过」)。
+        PluginProtocolTabViewModel? tab = PluginProtocols.FirstOrDefault(p => p.Id == protocolId);
+        if (tab is not null && IsProtocolDefaultPort(Port))
+        {
+            Port = tab.DefaultPort;
+        }
+        if (switchedProtocol)
+        {
+            // 真的换了协议:上一个协议的字段与已存值都不能留,否则等激活的这段时间里
+            // 表单还是旧协议的样子,此时保存会把 A 的键值写进 B 的配置。
+            PluginFields.Clear();
+            _pluginDescriptor = null;
+            _pluginStored = null;
+            _pluginStoredSecrets = null;
+        }
+        else if (_pluginDescriptor is not null
+                 && string.Equals(_loadedProtocolId, protocolId, StringComparison.Ordinal))
+        {
+            // 重复点当前页签:表单已经渲染好了,直接返回。
+            // 走下去会 PluginFields.Clear() 把用户填了一半的内容复位。
+            RaisePluginLabelsChanged();
+            return;
+        }
+        if (_protocolRegistry is not { } registry)
+        {
+            return;
+        }
+
+        IsPluginLoading = true;
+        // 忙态用引用计数:SaveAsync / TestConnectionAsync / 本方法共用同一个 IsBusy,
+        // 裸布尔会让先结束的那个提前解除忙态 —— 于是用户能在 PluginFields 还空着时按保存,
+        // 落盘一条 PluginSettings/PluginSecrets 全为 null 的配置。
+        BeginBusy();
+        bool applied = false;
+        try
+        {
+            // 这一步可能真的去装载插件程序集(onProtocol 惰性激活),因此是异步的。
+            PluginProtocolRegistration? registration = await registry.ResolveAsync(protocolId).ConfigureAwait(true);
+            // **陈旧续体作废**:装载期间用户可能已经点去了 SSH 或另一个协议(协议页签不受
+            // canExecute 约束)。不校验就会把 S3 的描述符盖到 SSH 表单上,
+            // 主机那格显示「服务端点」、用户名显示「Access Key ID」。
+            if (ConnectionType != ConnectionType.Plugin
+                || !string.Equals(PluginProtocolId, protocolId, StringComparison.Ordinal))
+            {
+                return;
+            }
+            applied = true;
+            _pluginDescriptor = registration?.Descriptor;
+            _loadedProtocolId = protocolId;
+            // 插件被禁用/装载失败:表单是空的,而 AllowsAnonymous 随之为 false,
+            // 匿名配置的保存/连接会同时灰死。给一条能看懂的话,别让用户对着灰按钮猜。
+            PluginUnavailable = registration is null;
+            PluginFields.Clear();
+            foreach (ProtocolSettingField field in _pluginDescriptor?.Fields ?? [])
+            {
+                if (field.IsHidden)
+                {
+                    // 隐藏字段(证书指纹之类)不进表单,但要原样带回落盘 —— 见 CollectPluginValues。
+                    continue;
+                }
+                string? stored = (field.IsSecret ? _pluginStoredSecrets : _pluginStored) is { } bag
+                                 && bag.TryGetValue(field.Key, out string? value)
+                    ? value
+                    : null;
+                PluginFields.Add(new(field, stored));
+            }
+        }
+        finally
+        {
+            IsPluginLoading = false;
+            EndBusy();
+            // return 也会走 finally,所以必须用 applied 兜住:陈旧续体不能去刷新标签。
+            if (applied)
+            {
+                RaisePluginLabelsChanged();
+                if (PluginUnavailable)
+                {
+                    ErrorMessage = Strings.Get("Plugin_ProtocolUnavailable");
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// 当前插件协议不可用(插件未安装/被禁用/激活失败)。
+    /// 界面据此放行保存(让用户至少能改名保存),并给出说明而不是三个一起灰死的按钮。
+    /// </summary>
+    public bool PluginUnavailable
+    {
+        get;
+        private set => this.RaiseAndSetIfChanged(ref field, value);
+    }
+
+    /// <summary>
+    /// 忙态引用计数。三条流程(保存 / 测试连接 / 切插件协议)共用一个 <see cref="IsBusy" />,
+    /// 裸布尔会让先结束的那条提前把忙态解除,另一条还在跑却已经允许用户操作。
+    /// 全在 UI 线程,普通 int 足够。
+    /// </summary>
+    private int _busyDepth;
+
+    private void BeginBusy()
+    {
+        if (++_busyDepth == 1)
+        {
+            IsBusy = true;
+        }
+    }
+
+    private void EndBusy()
+    {
+        if (--_busyDepth <= 0)
+        {
+            _busyDepth = 0;
+            IsBusy = false;
+        }
+    }
+
+    /// <summary>
+    /// 把当前表单里的值回存进 <c>_pluginStored*</c>。切走时调用,使「绕一圈回来」能复现已填内容;
+    /// <c>_loadedProtocolId</c> 不动 —— 它标记的是「这份 stored 属于哪个协议」。
+    /// </summary>
+    private void StashPluginFieldValues()
+    {
+        if (PluginFields.Count == 0)
+        {
+            return;
+        }
+        Dictionary<string, string> plain = SessionProfile.CloneSettings(_pluginStored) ?? new(StringComparer.Ordinal);
+        Dictionary<string, string> secrets = SessionProfile.CloneSettings(_pluginStoredSecrets) ?? new(StringComparer.Ordinal);
+        foreach (PluginProtocolFieldViewModel field in PluginFields)
+        {
+            (field.IsSecret ? secrets : plain)[field.Key] = field.Text;
+        }
+        _pluginStored = plain;
+        _pluginStoredSecrets = secrets;
+    }
+
+    /// <summary>
+    /// 协议集合变化 → 重建页签。**必须封送回 UI 线程**:注册表的 Changed 可能在
+    /// 发现期的后台线程或惰性激活的线程池线程上触发,直接改 ObservableCollection 会崩。
+    /// </summary>
+    private void OnProtocolsChanged() => Dispatcher.UIThread.Post(() =>
+    {
+        string? selected = PluginProtocolId;
+        LoadPluginProtocols();
+        foreach (PluginProtocolTabViewModel tab in PluginProtocols)
+        {
+            tab.IsSelected = tab.Id == selected;
+        }
+    });
+
+    /// <summary>
+    /// 退订注册表事件。注册表是宿主单例,不退订的话每开一次连接对话框就在它上面
+    /// 挂一个永不释放的视图模型。由 <c>ConnectionProfileView</c> 在窗口关闭时调用。
+    /// </summary>
+    public void Dispose()
+    {
+        if (_protocolRegistry is not null)
+        {
+            _protocolRegistry.Changed -= OnProtocolsChanged;
+        }
+    }
+
+    /// <summary>把注册表里的协议页签同步到界面(打开对话框时调用)。</summary>
+    public void LoadPluginProtocols()
+    {
+        PluginProtocols.Clear();
+        foreach (PluginProtocolTab tab in _protocolRegistry?.Tabs ?? [])
+        {
+            PluginProtocols.Add(new(tab.Id, tab.DisplayName, tab.DefaultPort));
+        }
     }
 
     /// <summary>
@@ -653,25 +982,79 @@ public class ConnectionProfileViewModel : ReactiveObject
     {
         ConnectionType previous = ConnectionType;
         ConnectionType = connectionType;
+        if (connectionType != ConnectionType.Plugin)
+        {
+            // 切回内建协议:插件页签的高亮要跟着灭,否则会同时亮两个。
+            PluginProtocolId = null;
+            foreach (PluginProtocolTabViewModel tabViewModel in PluginProtocols)
+            {
+                tabViewModel.IsSelected = false;
+            }
+            // 先把表单里已填的值回存,再清空 —— 否则「点 SSH 再点回 S3」时用户填了一半的内容没了。
+            StashPluginFieldValues();
+            // 描述符也必须清:三格标签只看它、不看 ConnectionType,不清的话
+            // 「S3 → SSH」之后主机那格会一直写着「服务端点」、用户名写着「Access Key ID」。
+            _pluginDescriptor = null;
+            PluginFields.Clear();
+            PluginUnavailable = false;
+            RaisePluginLabelsChanged();
+        }
         if (previous == ConnectionType)
         {
             return;
         }
-        // FTP 没有私钥认证:切过去时把认证方式落回口令,免得表单停在一个用不上的私钥页。
-        if (ConnectionType == ConnectionType.FTP && IsKeyAuth)
+        NormalizeAuthMethodForProtocol();
+        // 端口跟随:仅当当前端口仍是**某个协议的默认值**时才改 —— 用户手填过的端口一律不动。
+        if (IsProtocolDefaultPort(Port))
+        {
+            Port = DefaultPortFor(ConnectionType);
+        }
+    }
+
+    /// <summary>
+    /// FTP 与插件协议都没有私钥认证:切过去时把认证方式落回口令。
+    /// 不做这一步,表单会停在一个用不上的私钥页,而那时认证方式下拉恰好是隐藏的 ——
+    /// 界面上再没有任何途径把它切回来,保存下去的却仍是 PrivateKey。
+    /// </summary>
+    private void NormalizeAuthMethodForProtocol()
+    {
+        if (!RequiresSshAuth && IsKeyAuth)
         {
             AuthMethodIndex = 0;
         }
-        if (ConnectionType == ConnectionType.FTP && Port == 22)
-        {
-            Port = FtpEncryption == FtpEncryptionMode.Implicit
-                ? FtpSettings.DefaultImplicitPort
-                : FtpSettings.DefaultPort;
-        }
-        else if (ConnectionType != ConnectionType.FTP &&
-                 Port is FtpSettings.DefaultPort or FtpSettings.DefaultImplicitPort)
-        {
-            Port = 22;
-        }
     }
+
+    /// <summary>
+    /// 三格标签与匿名能力都只看协议描述符,描述符一换就得整组补发通知。
+    /// 抽出来是因为它有两个调用点(选中插件协议、切回内建协议),漏一处就会出现
+    /// 「已经切回 SSH,主机那格还写着"服务端点"」。
+    /// </summary>
+    private void RaisePluginLabelsChanged()
+    {
+        this.RaisePropertyChanged(nameof(HostLabel));
+        this.RaisePropertyChanged(nameof(HostPlaceholder));
+        this.RaisePropertyChanged(nameof(UsernameLabel));
+        this.RaisePropertyChanged(nameof(PasswordLabel));
+        // 走属性 setter 而不是只发通知:它要驱动 canExecute 的组合器重算。
+        AllowsAnonymous = _pluginDescriptor?.Features.HasFlag(ProtocolFeatures.AnonymousAccess) == true;
+    }
+
+    /// <summary>
+    /// 该端口是否还是某个协议的默认值(即「用户没自己填过」)。
+    /// 插件协议的默认端口来自它们各自的清单声明,因此这里要连它们一起看 ——
+    /// 写死一张内建协议的表,会让"从 S3 切回 SSH"时端口停在 443 上。
+    /// </summary>
+    private bool IsProtocolDefaultPort(int port) =>
+        port is 22 or FtpSettings.DefaultPort or FtpSettings.DefaultImplicitPort
+        || PluginProtocols.Any(protocol => protocol.DefaultPort == port);
+
+    private int DefaultPortFor(ConnectionType type) =>
+        type switch
+        {
+            ConnectionType.FTP => FtpEncryption == FtpEncryptionMode.Implicit
+                ? FtpSettings.DefaultImplicitPort
+                : FtpSettings.DefaultPort,
+            ConnectionType.Plugin => PluginProtocols.FirstOrDefault(p => p.Id == PluginProtocolId)?.DefaultPort ?? 443,
+            _ => 22
+        };
 }

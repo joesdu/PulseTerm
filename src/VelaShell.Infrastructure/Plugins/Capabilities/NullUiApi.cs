@@ -21,6 +21,8 @@ internal sealed class NullUiApi(IPluginLogger log) : IUiApi
         public bool IsOpen => false;
         public event Action? Closed { add { } remove { } }
         public Task CloseAsync() => Task.CompletedTask;
+
+        public Task ActivateAsync() => Task.CompletedTask;
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 }
