@@ -2776,6 +2776,12 @@ Overwrite it?</value>
   <data name="Shell_Cmd" xml:space="preserve">
     <value>Command Prompt (CMD)</value>
   </data>
+  <data name="Sidebar_ClearRecent" xml:space="preserve">
+    <value>Clear Recent Connections</value>
+  </data>
+  <data name="Sidebar_ClearRecentConfirm" xml:space="preserve">
+    <value>This will clear all recent connection records. This action cannot be undone. Continue?</value>
+  </data>
   <data name="Sidebar_Explorer" xml:space="preserve">
     <value>Explorer</value>
   </data>

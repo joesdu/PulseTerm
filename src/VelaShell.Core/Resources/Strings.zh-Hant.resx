@@ -2688,6 +2688,12 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   <data name="ShowHiddenFiles" xml:space="preserve">
     <value>顯示隱藏檔案</value>
   </data>
+  <data name="Sidebar_ClearRecent" xml:space="preserve">
+    <value>清除最近連線</value>
+  </data>
+  <data name="Sidebar_ClearRecentConfirm" xml:space="preserve">
+    <value>將清除全部最近連線記錄,此操作無法復原。確定要繼續嗎?</value>
+  </data>
   <data name="Sidebar_Explorer" xml:space="preserve">
     <value>資源總管</value>
   </data>

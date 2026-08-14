@@ -2688,6 +2688,12 @@ Windows는 exe 전체 경로 또는 명령 이름(예: notepad), Linux는 명령
   <data name="ShowHiddenFiles" xml:space="preserve">
     <value>숨김 파일 표시</value>
   </data>
+  <data name="Sidebar_ClearRecent" xml:space="preserve">
+    <value>최근 연결 지우기</value>
+  </data>
+  <data name="Sidebar_ClearRecentConfirm" xml:space="preserve">
+    <value>최근 연결 기록을 모두 지웁니다. 이 작업은 취소할 수 없습니다. 계속할까요?</value>
+  </data>
   <data name="Sidebar_Explorer" xml:space="preserve">
     <value>탐색기</value>
   </data>

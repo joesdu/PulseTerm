@@ -2688,6 +2688,12 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   <data name="ShowHiddenFiles" xml:space="preserve">
     <value>隠しファイルを表示</value>
   </data>
+  <data name="Sidebar_ClearRecent" xml:space="preserve">
+    <value>最近の接続を消去</value>
+  </data>
+  <data name="Sidebar_ClearRecentConfirm" xml:space="preserve">
+    <value>最近の接続履歴をすべて消去します。この操作は取り消せません。続行しますか?</value>
+  </data>
   <data name="Sidebar_Explorer" xml:space="preserve">
     <value>エクスプローラー</value>
   </data>
