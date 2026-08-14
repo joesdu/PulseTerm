@@ -107,8 +107,20 @@
     (ALC 要按 deps.json 解析装载),万一哪天有人重新打开单文件,这行能挡住它们被卷进 bundle。
 
     哪些插件进包由各插件的 <VelaPluginShip> 决定(示例插件 velashell.hello-world 设了 false)。
+
+    **必须 AfterTargets 而非 BeforeTargets**(#181,1.2.2 全平台发行包踩过):
+    ComputeResolvedFilesToPublishList 的正文里会跑 ResolveOverlappingItemGroupConflicts,
+    在 _ResolvedCopyLocalPublishAssets(应用自己的 NuGet 产物)与此刻已有的 ResolvedFileToPublish
+    之间消重 —— 而它只按**文件名**判冲突,完全不看 RelativePath。插件目录里凡有与应用根目录
+    同名的程序集(AI 插件经 LiveMarkdown.Avalonia 传递引入了 MicroCom.Runtime.dll /
+    Avalonia.Remote.Protocol.dll),版本又一样,应用根目录那份就会被判为输家删掉,
+    发行包里只剩 plugins/velashell-ai/ 下的那份。后果是 Windows 上 Avalonia.Win32 启动即
+    FileNotFoundException: MicroCom.Runtime —— 且只有解压全新包的用户会遇到,应用内更新
+    只覆盖清单里的文件、不删多余文件,老版本留下的那份反而把问题掩盖了。
+    放到冲突消重之后再登记,两份各就各位、互不相干。下面的
+    VerifyVelaAppPublishAssetsIntact 是这条顺序约束的看门狗。
   -->
-  <Target Name="AddVelaPluginsToPublish" BeforeTargets="ComputeResolvedFilesToPublishList">
+  <Target Name="AddVelaPluginsToPublish" AfterTargets="ComputeResolvedFilesToPublishList">
     <ItemGroup>
       <_VelaPluginProject Include="$(MSBuildThisFileDirectory)..\..\plugins\*\*.csproj" />
     </ItemGroup>
@@ -130,5 +142,33 @@
         <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
       </ResolvedFileToPublish>
     </ItemGroup>
+  </Target>
+
+  <!--
+    看门狗:确保应用自身的 copy-local 产物一个都没在发布期被消重掉(#181)。
+
+    ComputeResolvedFilesToPublishList 正文里的 ResolveOverlappingItemGroupConflicts 按文件名
+    在"应用产物"与"此刻已登记的 ResolvedFileToPublish"之间挑输赢,凡是在它跑之前往
+    ResolvedFileToPublish 里塞过东西的自定义 target(本项目的 AddVelaPluginsToPublish 就是,
+    见上),都可能让应用根目录悄悄少掉一个 dll —— 构建全绿、包也照出,只在最终用户
+    双击时炸(1.2.2 的 MicroCom.Runtime 即如此,启动直接 FileNotFoundException)。
+    这里前后各取一次快照,差集非空就断掉发布,把"顺序约束"从注释变成硬约束。
+
+    Before 的 target 在 DependsOnTargets(_ComputeResolvedCopyLocalPublishAssets)之后、
+    正文之前执行,因此拿到的正是消重前的完整集合。
+  -->
+  <Target Name="_SnapshotVelaAppPublishAssets" BeforeTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup>
+      <_VelaAppPublishAssetBefore Include="@(_ResolvedCopyLocalPublishAssets)" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="VerifyVelaAppPublishAssetsIntact" AfterTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup>
+      <_VelaAppPublishAssetDropped Include="@(_VelaAppPublishAssetBefore)"
+                                   Exclude="@(_ResolvedCopyLocalPublishAssets)" />
+    </ItemGroup>
+    <Error Condition="'@(_VelaAppPublishAssetDropped)' != ''"
+           Text="发布产物缺少应用自身的依赖(被发布期文件名冲突消重删掉了):@(_VelaAppPublishAssetDropped->'%(Filename)%(Extension)', ', ')。多半是又有 target 在 ComputeResolvedFilesToPublishList **之前**往 ResolvedFileToPublish 里登记了同名文件(见 AddVelaPluginsToPublish 的注释,#181)。" />
   </Target>
 </Project>
