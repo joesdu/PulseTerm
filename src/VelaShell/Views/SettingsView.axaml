@@ -242,10 +242,11 @@
             <pages:ShortcutsPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=4}" />
             <pages:TransferSettingsPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=5}" />
             <pages:SecurityAuditPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=6}" />
-            <pages:SnippetsPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=7}" />
-            <pages:SyncPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=8}" />
-            <pages:AboutPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=9}" />
-            <pages:DonatePage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=10}" />
+            <pages:ProxySettingsPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=7}" />
+            <pages:SnippetsPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=8}" />
+            <pages:SyncPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=9}" />
+            <pages:AboutPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=10}" />
+            <pages:DonatePage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=11}" />
           </Panel>
         </ScrollViewer>
 

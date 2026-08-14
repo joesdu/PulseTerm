@@ -3662,4 +3662,61 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   <data name="XImport_MasterPwWarnFmt" xml:space="preserve">
     <value>{0} はマスターパスワードが有効なため、保存されたパスワードを復元できません。これらのセッションはパスワードなしでインポートされます。</value>
   </data>
+  <data name="SetVm_SectionProxy" xml:space="preserve">
+    <value>プロキシ</value>
+  </data>
+  <data name="SetProxy_Title" xml:space="preserve">
+    <value>プロキシ</value>
+  </data>
+  <data name="SetProxy_Subtitle" xml:space="preserve">
+    <value>// すべての送信接続(SSH / FTP / HTTP)にプロキシを設定</value>
+  </data>
+  <data name="SetProxy_Type" xml:space="preserve">
+    <value>プロキシの種類</value>
+  </data>
+  <data name="SetProxy_TypeDesc" xml:space="preserve">
+    <value>// ホスト・ポート・資格情報は HTTP と SOCKS5 のみ</value>
+  </data>
+  <data name="SetProxy_TypeNone" xml:space="preserve">
+    <value>プロキシなし</value>
+  </data>
+  <data name="SetProxy_TypeSystem" xml:space="preserve">
+    <value>システムプロキシ</value>
+  </data>
+  <data name="SetProxy_TypeHttp" xml:space="preserve">
+    <value>HTTP プロキシ</value>
+  </data>
+  <data name="SetProxy_TypeSocks5" xml:space="preserve">
+    <value>SOCKS5 プロキシ</value>
+  </data>
+  <data name="SetProxy_SettingsSection" xml:space="preserve">
+    <value>プロキシ設定</value>
+  </data>
+  <data name="SetProxy_Host" xml:space="preserve">
+    <value>ホスト</value>
+  </data>
+  <data name="SetProxy_Port" xml:space="preserve">
+    <value>ポート</value>
+  </data>
+  <data name="SetProxy_Username" xml:space="preserve">
+    <value>ユーザー名</value>
+  </data>
+  <data name="SetProxy_Password" xml:space="preserve">
+    <value>パスワード</value>
+  </data>
+  <data name="SetProxy_ProxyDns" xml:space="preserve">
+    <value>DNS 解決にプロキシを使用</value>
+  </data>
+  <data name="SetProxy_ProxyDnsDesc" xml:space="preserve">
+    <value>// オン = ホスト名をプロキシ側で解決、オフ = ローカルで解決してから接続</value>
+  </data>
+  <data name="Msg_ProxyMisconfigured" xml:space="preserve">
+    <value>プロキシが有効ですが、ホストまたはポートが未設定です。「設定 → プロキシ」を確認してください。</value>
+  </data>
+  <data name="Msg_ProxyConnectFailed" xml:space="preserve">
+    <value>プロキシ接続に失敗しました: {0}</value>
+  </data>
+  <data name="Msg_ProxyAuthFailed" xml:space="preserve">
+    <value>プロキシ認証に失敗しました。ユーザー名とパスワードを確認してください。</value>
+  </data>
 </root>

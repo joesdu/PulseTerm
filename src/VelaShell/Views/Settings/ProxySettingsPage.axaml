@@ -1,0 +1,67 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VelaShell.ViewModels"
+             xmlns:loc="using:VelaShell.Localization"
+             xmlns:behaviors="using:VelaShell.Behaviors"
+             x:Class="VelaShell.Views.Settings.ProxySettingsPage"
+             x:DataType="vm:SettingsViewModel">
+
+  <StackPanel Spacing="14">
+    <StackPanel Spacing="2">
+      <TextBlock Classes="page-title" Text="{loc:Localize SetProxy_Title}" />
+      <TextBlock Classes="page-subtitle" Text="{loc:Localize SetProxy_Subtitle}" />
+    </StackPanel>
+
+    <!-- 代理类型 -->
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetProxy_Type}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetProxy_TypeDesc}" />
+      </StackPanel>
+      <ComboBox Grid.Column="1" Width="160" x:Name="ProxyTypeCombo"
+                SelectedIndex="{Binding ProxyTypeIndex}" VerticalAlignment="Center">
+        <ComboBoxItem Content="{loc:Localize SetProxy_TypeNone}" />
+        <ComboBoxItem Content="{loc:Localize SetProxy_TypeSystem}" />
+        <ComboBoxItem Content="{loc:Localize SetProxy_TypeHttp}" />
+        <ComboBoxItem Content="{loc:Localize SetProxy_TypeSocks5}" />
+      </ComboBox>
+    </Grid>
+
+    <Border Classes="sep" />
+
+    <!-- 代理设置:仅 http / socks5 可编辑,其余类型整组禁用 -->
+    <TextBlock Classes="section-title" Text="{loc:Localize SetProxy_SettingsSection}" />
+    <StackPanel Spacing="14" IsEnabled="{Binding IsProxyEditable}">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetProxy_Host}" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" Width="220" x:Name="ProxyHostBox"
+                 Text="{Binding Proxy.Host}" VerticalAlignment="Center" />
+      </Grid>
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetProxy_Port}" VerticalAlignment="Center" />
+        <NumericUpDown Grid.Column="1" Width="110" x:Name="ProxyPortBox"
+                       Value="{Binding Proxy.Port}" Minimum="0" Maximum="65535"
+                       Increment="1" FormatString="0" VerticalAlignment="Center" />
+      </Grid>
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetProxy_Username}" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" Width="220" x:Name="ProxyUsernameBox"
+                 Text="{Binding Proxy.Username}" VerticalAlignment="Center" />
+      </Grid>
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetProxy_Password}" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" Width="220" x:Name="ProxyPasswordBox" PasswordChar="●"
+                 behaviors:EnglishInputLocale.Enabled="True"
+                 Text="{Binding Proxy.Password}" VerticalAlignment="Center" />
+      </Grid>
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Spacing="2">
+          <TextBlock Classes="row-label" Text="{loc:Localize SetProxy_ProxyDns}" />
+          <TextBlock Classes="row-desc" Text="{loc:Localize SetProxy_ProxyDnsDesc}" />
+        </StackPanel>
+        <ToggleSwitch Grid.Column="1" x:Name="ProxyDnsToggle"
+                      IsChecked="{Binding Proxy.ProxyDns}" VerticalAlignment="Center" />
+      </Grid>
+    </StackPanel>
+  </StackPanel>
+</UserControl>

@@ -1,16 +1,46 @@
 using Tmds.Ssh;
+using VelaShell.Core.Net;
 using VelaShell.Core.Ssh;
+using VelaShell.Infrastructure.Net;
 
 namespace VelaShell.Infrastructure.Ssh;
 
 /// <summary>
 /// <see cref="ISshClientWrapper" /> 的 Tmds.Ssh 实现。
 /// </summary>
-public sealed class TmdsSshClientWrapper(SshClientSettings settings) : ISshClientWrapper
+public sealed class TmdsSshClientWrapper : ISshClientWrapper
 {
-    private readonly SshClientSettings _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+    private readonly SshClientSettings _settings;
+    private readonly SshClientSettings _firstHopSettings;
+    private readonly string _firstHopHost;
+    private readonly int _firstHopPort;
+    private readonly IProxyResolver? _proxyResolver;
+    private LoopbackProxyRelay? _relay;
     private SshClient? _client;
     private bool _disposed;
+
+    /// <summary>不带网络代理支持的构造(测试与无代理场景)。</summary>
+    public TmdsSshClientWrapper(SshClientSettings settings)
+        : this(settings, settings, settings?.HostName ?? "", settings?.Port ?? 22, null)
+    {
+    }
+
+    /// <summary>
+    /// 带网络代理支持的构造。<paramref name="firstHopSettings" /> 是发起真实 TCP 出站的
+    /// 那份设置(有跳板链时为最内层跳板,否则即主设置),连接时若代理生效,
+    /// 其 HostName/Port 会被改写到环回中继;<paramref name="firstHopHost" />/<paramref name="firstHopPort" />
+    /// 保存原始目标,供代理解析与无代理时还原。
+    /// </summary>
+    public TmdsSshClientWrapper(SshClientSettings settings, SshClientSettings firstHopSettings,
+        string firstHopHost, int firstHopPort, IProxyResolver? proxyResolver)
+    {
+        _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        _firstHopSettings = firstHopSettings ?? settings;
+        _firstHopHost = firstHopHost;
+        _firstHopPort = firstHopPort;
+        _proxyResolver = proxyResolver;
+        ConnectionTimeout = settings.ConnectTimeout;
+    }
 
     internal SshClient? InnerClient => _client;
 
@@ -43,7 +73,7 @@ public sealed class TmdsSshClientWrapper(SshClientSettings settings) : ISshClien
             field = value;
             _settings.ConnectTimeout = value;
         }
-    } = settings.ConnectTimeout;
+    }
 
     /// <summary>
     /// Tmds.Ssh 的 SshClient.Disconnected 令牌,底层连接丢失时取消。
@@ -61,6 +91,7 @@ public sealed class TmdsSshClientWrapper(SshClientSettings settings) : ISshClien
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (_client is not null) return;
+        PrepareProxyRelay();
         SshClient? client;
         try
         {
@@ -68,6 +99,7 @@ public sealed class TmdsSshClientWrapper(SshClientSettings settings) : ISshClien
         }
         catch (ArgumentException argEx)
         {
+            DisposeRelay();
             throw new VelaSshConnectionException(
                 $"SSH client configuration is invalid: {argEx.Message}", argEx);
         }
@@ -78,16 +110,56 @@ public sealed class TmdsSshClientWrapper(SshClientSettings settings) : ISshClien
         catch (ArgumentException argEx)
         {
             SafeDisposeClient(client);
+            DisposeRelay();
             throw new VelaSshConnectionException(
                 $"SSH connection rejected by Tmds.Ssh with invalid argument: {argEx.Message}", argEx);
         }
         catch (Exception ex)
         {
             SafeDisposeClient(client);
+            // 代理拨号/握手失败时,Tmds 只看到连接被断;用中继记录的真实原因报错。
+            Exception? proxyError = _relay?.Error;
+            DisposeRelay();
+            if (proxyError is not null)
+                throw new VelaSshConnectionException(proxyError.Message, proxyError);
             if (TmdsSshInterop.Translate(ex, cancellationToken) is { } translated) throw translated;
             throw;
         }
         _client = client;
+    }
+
+    /// <summary>
+    /// 连接前按当前设置决定代理路由:走代理时开一个环回中继并把首跳设置改写过去,
+    /// 不走代理时把首跳设置还原为原始目标(代理设置可能在两次连接之间被改动)。
+    /// </summary>
+    private void PrepareProxyRelay()
+    {
+        DisposeRelay();
+        if (_proxyResolver is null) return;
+        ProxyRoute route;
+        try
+        {
+            route = _proxyResolver.Resolve(_firstHopHost, _firstHopPort);
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new VelaSshConnectionException(ex.Message, ex);
+        }
+        if (route.Kind == ProxyKind.None)
+        {
+            _firstHopSettings.HostName = _firstHopHost;
+            _firstHopSettings.Port = _firstHopPort;
+            return;
+        }
+        _relay = LoopbackProxyRelay.Start(route, _firstHopHost, _firstHopPort);
+        _firstHopSettings.HostName = "127.0.0.1";
+        _firstHopSettings.Port = _relay.Port;
+    }
+
+    private void DisposeRelay()
+    {
+        _relay?.Dispose();
+        _relay = null;
     }
 
     /// <summary>
@@ -97,6 +169,7 @@ public sealed class TmdsSshClientWrapper(SshClientSettings settings) : ISshClien
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         SafeDisposeClient(ref _client);
+        DisposeRelay();
     }
 
     /// <summary>
@@ -198,6 +271,7 @@ public sealed class TmdsSshClientWrapper(SshClientSettings settings) : ISshClien
         if (_disposed) return;
         _disposed = true;
         SafeDisposeClient(ref _client);
+        DisposeRelay();
     }
 
     /// <summary>
