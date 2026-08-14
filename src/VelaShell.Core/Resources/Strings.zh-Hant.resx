@@ -1268,6 +1268,9 @@
   <data name="Msg_UpdateServiceNotAvailable" xml:space="preserve">
     <value>自動更新服務尚未接入,請前往專案發佈頁取得新版本。</value>
   </data>
+  <data name="SetAbout_ArchEmulated" xml:space="preserve">
+    <value>{0},在 {1} 上模擬執行</value>
+  </data>
   <data name="SetAbout_Checking" xml:space="preserve">
     <value>正在檢查更新…</value>
   </data>

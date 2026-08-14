@@ -1268,6 +1268,9 @@
   <data name="Msg_UpdateServiceNotAvailable" xml:space="preserve">
     <value>自動更新サービスは未対応です。プロジェクトのリリースページから新しいバージョンを入手してください。</value>
   </data>
+  <data name="SetAbout_ArchEmulated" xml:space="preserve">
+    <value>{0}、{1} 上でエミュレーション実行</value>
+  </data>
   <data name="SetAbout_Checking" xml:space="preserve">
     <value>更新を確認しています…</value>
   </data>

@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using ReactiveUI;
 using ReactiveUI.Primitives;
@@ -477,9 +478,28 @@ public class SettingsViewModel : ReactiveObject
     private static string Describe(string displayName, string packageId) =>
         PackageVersions.Of(packageId) is { } version ? $"{displayName} {version}" : displayName;
 
-    /// <summary>关于页显示的操作系统版本与位数。</summary>
+    /// <summary>关于页显示的操作系统版本与架构。</summary>
     public static string AboutOs =>
-        $"{Environment.OSVersion.VersionString} ({(Environment.Is64BitOperatingSystem ? "x64" : "x86")})";
+        $"{Environment.OSVersion.VersionString} ({DescribeArchitecture(RuntimeInformation.ProcessArchitecture, RuntimeInformation.OSArchitecture)})";
+
+    /// <summary>
+    /// 架构显示文本。取真实架构名而非「是不是 64 位」——
+    /// 原先的 <c>Is64BitOperatingSystem ? "x64" : "x86"</c> 会把 arm64 报成 x64、arm 报成 x86。
+    /// </summary>
+    /// <remarks>
+    /// 进程架构与系统架构不一致时两者都显示(如 x64 版跑在 arm64 Windows / Apple Silicon 的仿真层上)。
+    /// 这不是冗余信息:自更新按**进程**架构选产物(见 <see cref="Services.Update.UpdateManifest.CurrentRid" />),
+    /// 装错架构的人会一直留在仿真轨上拿不到原生版本,关于页是最容易看出来的地方。
+    /// 架构名直接取枚举名小写,与 RID 写法一致(X64→x64、Arm64→arm64),
+    /// 于是将来出现的新架构(loongarch64、riscv64…)无需改这里也能正确显示。
+    /// </remarks>
+    internal static string DescribeArchitecture(Architecture process, Architecture os) =>
+        process == os
+            ? Name(os)
+            : Strings.Format("SetAbout_ArchEmulated", Name(process), Name(os));
+
+    private static string Name(Architecture architecture) =>
+        architecture.ToString().ToLowerInvariant();
 
     /// <summary>关于页显示的配置文件所在目录。</summary>
     public static string AboutConfigPath =>
@@ -523,6 +543,18 @@ public class SettingsViewModel : ReactiveObject
             "MIT",
             "https://github.com/IoTSharp/SonnetDB",
             "https://github.com/IoTSharp/SonnetDB/blob/main/LICENSE"
+        ),
+        new(
+            "FluentFTP",
+            "MIT",
+            "https://github.com/robinrodricks/FluentFTP",
+            "https://github.com/robinrodricks/FluentFTP/blob/master/LICENSE.TXT"
+        ),
+        new(
+            "MaxMind.Db",
+            "Apache-2.0",
+            "https://github.com/maxmind/MaxMind-DB-Reader-dotnet",
+            "https://github.com/maxmind/MaxMind-DB-Reader-dotnet/blob/main/LICENSE"
         ),
     ];
 

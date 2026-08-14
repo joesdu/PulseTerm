@@ -1550,6 +1550,9 @@
   <data name="Msg_UpdateServiceNotAvailable" xml:space="preserve">
     <value>自动更新服务尚未接入,请前往项目发布页获取新版本。</value>
   </data>
+  <data name="SetAbout_ArchEmulated" xml:space="preserve">
+    <value>{0},在 {1} 上仿真运行</value>
+  </data>
   <data name="SetAbout_Checking" xml:space="preserve">
     <value>正在检查更新…</value>
   </data>
