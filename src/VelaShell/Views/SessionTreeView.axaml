@@ -11,7 +11,12 @@
              x:Class="VelaShell.Views.SessionTreeView"
              x:DataType="vm:SessionTreeViewModel">
 
-  <TreeView ItemsSource="{Binding Nodes}"
+  <Panel>
+
+  <!-- 拖放整棵树接收(AllowDrop 与 DragOver/Drop 处理在代码后台接线):会话行可拖进
+       任意分组行,拖到根级会话或树的空白处 = 移出分组。 -->
+  <TreeView x:Name="SessionTreeRoot"
+            ItemsSource="{Binding Nodes}"
             SelectedItem="{Binding SelectedNode, Mode=TwoWay}"
             Background="Transparent"
             Padding="0,0,0,0">
@@ -46,12 +51,22 @@
         <Setter Property="IsVisible" Value="False" />
       </Style>
 
-      <!-- 分组行 -->
+      <!-- 分组行。描边宽度常驻 1、平时画成透明:拖放高亮只换颜色不换尺寸,
+           否则点亮/熄灭会让行内容左右各挪 1px,拖过去时肉眼就是在抖。 -->
       <Style Selector="Border.group">
         <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BorderBrush" Value="Transparent" />
       </Style>
       <Style Selector="Border.group:pointerover">
         <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+      </Style>
+
+      <!-- 拖放落点提示:拖着会话经过时,目标分组行以 accent 描边 + 活动底色点亮。
+           落点解析见 SessionTreeView.axaml.cs。 -->
+      <Style Selector="Border.group.droptarget">
+        <Setter Property="Background" Value="{DynamicResource VelaBgActive}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource VelaAccent}" />
       </Style>
 
       <!-- 分组文件夹图标配色:按分组顺序 warning/info/accent 轮换(设计 FrJPu)。 -->
@@ -126,12 +141,14 @@
       <TreeDataTemplate ItemsSource="{Binding Children}"
                         x:DataType="vm:SessionTreeNodeViewModel">
 
-        <!-- 分组行 -->
+        <!-- 分组行。Padding 11 + Border.group 样式里常驻的 1px 描边 = 视觉缩进仍是 12,
+             与会话行对齐;描边常驻是为了让拖放高亮只换颜色、不动几何。 -->
         <Panel>
           <Border IsVisible="{Binding IsGroup}"
                   Classes="group"
+                  Classes.droptarget="{Binding IsDropTarget}"
                   Height="30"
-                  Padding="12,0"
+                  Padding="11,0"
                   Cursor="Hand"
                   Tapped="Group_Tapped"
                   PointerPressed="Group_PointerPressed">
@@ -361,5 +378,43 @@
       </TreeDataTemplate>
     </TreeView.ItemTemplate>
   </TreeView>
+
+    <!--
+      拖放叠层。整层 IsHitTestVisible="False" —— 否则叠层自己会成为 DragOver 的命中目标,
+      落点解析永远算到同一个东西上。
+
+      · RootDropZone:落点是“未分组(树根)”时,把整棵树框起来。这里刻意不画插入线 ——
+        移动后的位置是按名称排的(见 SessionTreeViewModel.InsertRootSessionSorted),
+        画一条“插到这两行之间”的线会与实际落位不符,是在骗人。
+      · DragGhost:跟着光标走的半透明标签,直接写明“<会话> → <目标分组>”,
+        这样不必去分辨哪一行被点亮,也能知道松手会落到哪。
+    -->
+    <Border x:Name="RootDropZone"
+            IsVisible="False"
+            IsHitTestVisible="False"
+            Margin="1"
+            CornerRadius="3"
+            BorderThickness="1"
+            BorderBrush="{DynamicResource VelaAccent}" />
+
+    <Canvas x:Name="DragOverlay" IsHitTestVisible="False" ClipToBounds="True">
+      <Border x:Name="DragGhost"
+              IsVisible="False"
+              Padding="8,3"
+              CornerRadius="3"
+              Opacity="0.92"
+              BorderThickness="1"
+              BorderBrush="{DynamicResource VelaAccent}"
+              Background="{DynamicResource VelaBgActive}"
+              BoxShadow="0 2 8 0 #66000000">
+        <TextBlock x:Name="DragGhostText"
+                   FontFamily="{DynamicResource VelaUiMonoFont}"
+                   FontSize="{DynamicResource VelaFontSize11}"
+                   Foreground="{DynamicResource VelaTextPrimary}"
+                   VerticalAlignment="Center" />
+      </Border>
+    </Canvas>
+
+  </Panel>
 
 </UserControl>

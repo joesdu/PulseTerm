@@ -150,6 +150,16 @@ public sealed class SessionTreeNodeViewModel(
     /// <summary>分组图标是否使用 accent 配色(<see cref="GroupColorIndex" /> 为 2)。</summary>
     public bool IsFolderAccent => GroupColorIndex == 2;
 
+    /// <summary>
+    /// 拖放中该节点是否为当前落点(仅分组行渲染高亮)。拖会话经过时由视图置位,
+    /// 离开/放下即清除 —— 没有这个反馈,用户无从知道松手会落进哪个分组。
+    /// </summary>
+    public bool IsDropTarget
+    {
+        get;
+        set => this.RaiseAndSetIfChanged(ref field, value);
+    }
+
     /// <summary>该分组节点下的子节点集合(会话或子分组)。</summary>
     public ObservableCollection<SessionTreeNodeViewModel> Children { get; } = [];
 }
