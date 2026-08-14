@@ -38,6 +38,60 @@ public sealed class FileReferenceTests
         Assert.IsFalse(FileReference.TryFindToken("他说\"好\" 之后", 8, out _, out _, out _));
     }
 
+    /// <summary>
+    /// 补全落定后的引用是一整块:退格要整块删。判据 = 闭合引号,或一个收尾空格
+    /// (正是 <c>AcceptCandidate</c> 落笔的两种形态)。
+    /// </summary>
+    [TestMethod]
+    public void TryFindCompletedReferenceBefore_TakesTheWholeAcceptedBlock()
+    {
+        const string plain = "看看 @/var/log/syslog ";
+        Assert.IsTrue(FileReference.TryFindCompletedReferenceBefore(plain, plain.Length, out int start));
+        Assert.AreEqual(3, start, "整块从 @ 起算,尾空格也归这块");
+
+        const string quoted = "读一下 @\"/opt/my app/a.conf\" ";
+        Assert.IsTrue(FileReference.TryFindCompletedReferenceBefore(quoted, quoted.Length, out start));
+        Assert.AreEqual(4, start);
+
+        // 闭引号本身就算落定,尾空格可有可无
+        Assert.IsTrue(FileReference.TryFindCompletedReferenceBefore(quoted.TrimEnd(), quoted.TrimEnd().Length, out _));
+    }
+
+    [TestMethod]
+    public void TryFindCompletedReferenceBefore_LeavesUnfinishedTokensAlone()
+    {
+        // 还在敲(既没闭引号也没尾空格):此时退格该照常一个字符,让用户改自己打错的那几位
+        Assert.IsFalse(FileReference.TryFindCompletedReferenceBefore("@/var/log/sys", 13, out _));
+        Assert.IsFalse(FileReference.TryFindCompletedReferenceBefore("@\"/opt/my app", 12, out _));
+        // 不是文件引用的 @
+        Assert.IsFalse(FileReference.TryFindCompletedReferenceBefore("@someone ", 9, out _));
+        Assert.IsFalse(FileReference.TryFindCompletedReferenceBefore("mail@example.com ", 17, out _));
+        // 光标不在块的右边界上
+        Assert.IsFalse(FileReference.TryFindCompletedReferenceBefore("@/etc/hosts 然后", 14, out _));
+        // 空白路径
+        Assert.IsFalse(FileReference.TryFindCompletedReferenceBefore("@ ", 2, out _));
+    }
+
+    /// <summary>
+    /// 短名与"正文收短":输入框里的芯片、消息气泡里的引用都用它 —— 两处看到的必须是同一个名字。
+    /// </summary>
+    [TestMethod]
+    public void DisplayName_AndShorten_KeepTheUiConsistentWithTheInputBox()
+    {
+        Assert.AreEqual("abc.txt", FileReference.DisplayName("/root/abc.txt"));
+        Assert.AreEqual(".bashrc", FileReference.DisplayName("/root/.bashrc"));
+        Assert.AreEqual("logs/", FileReference.DisplayName("/var/logs/"), "目录保留结尾的斜杠");
+        Assert.AreEqual("/", FileReference.DisplayName("/"));
+
+        Assert.AreEqual("看看 @abc.txt 这个", FileReference.Shorten("看看 @/root/abc.txt 这个"));
+        Assert.AreEqual("对比 @a.conf 和 @b.conf ",
+            FileReference.Shorten("对比 @/etc/a.conf 和 @\"/opt/my app/b.conf\" "));
+        // 还在敲、没落定的引用不动它:那会儿用户正看着自己敲的字
+        Assert.AreEqual("看看 @/root/ab", FileReference.Shorten("看看 @/root/ab"));
+        // 不是文件引用的 @ 一律原样
+        Assert.AreEqual("@someone 你好", FileReference.Shorten("@someone 你好"));
+    }
+
     [TestMethod]
     public void Split_ResolvesDirectoryAndFilter()
     {

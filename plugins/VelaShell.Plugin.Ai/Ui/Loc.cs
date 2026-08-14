@@ -69,6 +69,7 @@ public sealed class Loc(string locale)
         ["AttachedCount"] = ["Attached {0} file(s)", "已附带 {0} 个文件", "已附帶 {0} 個檔案", "{0} 個のファイルを添付", "파일 {0}개 첨부됨"],
         ["AttachBinary"] = ["binary file — not attached; ask the agent to inspect it with a command instead", "二进制文件,未附带;可让 Agent 用命令查看", "二進位檔案,未附帶;可讓 Agent 用命令檢視", "バイナリファイルのため添付しません。コマンドで確認してください", "바이너리 파일이라 첨부하지 않았습니다. 명령으로 확인하세요"],
         ["AttachFailed"] = ["could not be read", "读取失败", "讀取失敗", "読み取りに失敗", "읽지 못했습니다"],
+        ["AttachFailedList"] = ["Could not read: {0}", "读取失败:{0}", "讀取失敗:{0}", "読み取れませんでした: {0}", "읽지 못했습니다: {0}"],
         ["AttachLimit"] = ["only the first {0} files were attached", "只附带了前 {0} 个文件", "只附帶了前 {0} 個檔案", "最初の {0} 件のみ添付しました", "처음 {0}개 파일만 첨부했습니다"],
         ["Send"] = ["Send", "发送", "傳送", "送信", "전송"],
         ["Stop"] = ["Stop", "停止", "停止", "停止", "중지"],
