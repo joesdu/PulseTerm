@@ -1,7 +1,8 @@
 # VelaShell 项目进展与参考文档
 
 > 本文件记录已完成的工作、当前架构、关键文件索引与后续待办,供后续开发参考。
-> 最近更新:**2026-07-22**(§17:SSH 传输层由 SSH.NET 迁移到 Tmds.Ssh、自研 ZMODEM(rz/sz)、独立 SFTP 标签与本地/远程双栏、SFTP 断点续传、远程文件编辑器语法高亮;§1/§2/§3/§4/§7/§10/§12 按现状勘误)。
+> 最近更新:**2026-08-14**(新增 §18:2026-07-24 ~ 08-14 批次盘点 —— 插件系统 v1 + AI 助手插件、系统资源监控、路由追踪+离线归属地、连接诊断中心、远端任务管理器、Xshell/WinSCP 会话一键迁移、FTP/FTPS、全局网络代理、MSIX 商店版等;§6/§7/§10/§12 状态全面勘误:已完成项补 ✅,确认与当前架构/产品决策冲突的项标 ❌ 不实现)。
+> 上一版:2026-07-22(§17:SSH 传输层由 SSH.NET 迁移到 Tmds.Ssh、自研 ZMODEM(rz/sz)、独立 SFTP 标签与本地/远程双栏、SFTP 断点续传、远程文件编辑器语法高亮;§1/§2/§3/§4/§7/§10/§12 按现状勘误)。
 > 上一版:2026-07-14(§16:自研 VelaDock 落地合并、主窗自绘无边框标题栏补齐 Win11 原生贴靠手感(WndProc)、终端行号/时间侧栏、本地终端 Job Object 秒杀进程树、Windows MSI 安装包与自定义安装目录、集中式包管理、Avalonia 12.1.0、全项目 XML 注释与每项目 README)。
 > 上一版:2026-07-12(§13:设置审计整改三批完成;新特性 —— 主机指纹三选项确认与已信任主机管理、GitHub Gist 云同步、会话录制与回放、支持与捐赠页、双许可 AGPL-3.0 + 商业授权、终端配色随主题联动;测试计数见 §7)。
 
@@ -64,18 +65,18 @@ tests/  6 个 MSTest 项目(见 §7)
 ## 6. UI / 视图与设置
 
 - **状态栏跟随激活 Tab**:每个 `TerminalTabViewModel` 携带 `ConnectionSummary/TerminalTypeName/EncodingName`;`UpdateStatusBarForActiveTab` 投影连接串/状态/类型/编码/尺寸/延迟;订阅 `ActiveTerminalTab` 变化 + Dock `ActiveDockableChanged`/`FocusedDockableChanged` → 切换标签/窗格实时更新左下角。
-- **窗口壳:自绘无边框标题栏(2026-07-13 定稿)**:主窗 `WindowDecorations="None"`(与全部对话框同款全自绘模式);`Views/TitleBarView` 自绘 36px 标题栏 —— 左 logo+产品名,右 全局功能图标组(搜索/复制/分屏/隧道/命令面板,经命令注册表;组同步/广播未实现,`IsEnabled=False` 半透明禁用)+ 最小化/最大化/关闭三枚窗口控制按钮(46×35,关闭 hover #E81123)。**并非回退原生 chrome** —— Avalonia 12.x 的 `ExtendClientArea`/`WindowDecorationsElementRole` 托管装饰在 Win32 上会拦截标题栏输入(按钮点不动、窗口拖不动),整套机制不可用故弃用;改以**自绘 + 原生行为补齐**:空白区 `BeginMoveDrag`(原生移动循环,Win11 边缘贴靠有效)、双击切最大化;**Win11 Snap Layouts 经 `MainWindow` 的 WndProc 钩子处理 `HTMAXBUTTON`**(提交 `ce71b32`,`nc-hover` 类由 NC 消息挂/摘);窗口四周 5px + 四角 10px 自绘缩放抓取区(`BeginResizeDrag`,最大化时关闭)。**文字菜单(会话/编辑/…)已整体移除**——与命令面板功能重复(用户决策);随之移除设置里的"显示菜单栏"开关(`ShowMenuBar` 存储字段保留兼容)。
+- **窗口壳:自绘无边框标题栏(2026-07-13 定稿)**:主窗 `WindowDecorations="None"`(与全部对话框同款全自绘模式);`Views/TitleBarView` 自绘 36px 标题栏 —— 左 logo+产品名,右 全局功能图标组(搜索/SFTP 文件管理/路由追踪/进程管理器/隧道/命令面板,经命令注册表,**已全部启用**;分屏走命令注册表 `split.horizontal`/`split.vertical`;多会话同步输入已以标签右键 A/B/C/D 频道菜单落地,见 §12-7 —— 2026-08-14 勘误,此前"组同步/广播未实现、禁用半透明"的描述已过时)+ 最小化/最大化/关闭三枚窗口控制按钮(46×35,关闭 hover #E81123)。**并非回退原生 chrome** —— Avalonia 12.x 的 `ExtendClientArea`/`WindowDecorationsElementRole` 托管装饰在 Win32 上会拦截标题栏输入(按钮点不动、窗口拖不动),整套机制不可用故弃用;改以**自绘 + 原生行为补齐**:空白区 `BeginMoveDrag`(原生移动循环,Win11 边缘贴靠有效)、双击切最大化;**Win11 Snap Layouts 经 `MainWindow` 的 WndProc 钩子处理 `HTMAXBUTTON`**(提交 `ce71b32`,`nc-hover` 类由 NC 消息挂/摘);窗口四周 5px + 四角 10px 自绘缩放抓取区(`BeginResizeDrag`,最大化时关闭)。**文字菜单(会话/编辑/…)已整体移除**——与命令面板功能重复(用户决策);随之移除设置里的"显示菜单栏"开关(`ShowMenuBar` 存储字段保留兼容)。
   - **踩坑备忘(自绘壳为何不走 extend/原生 chrome,Avalonia 12.0.5 观察)**:①`VisualRoot as Window` 恒为 null(视觉根是 TopLevelHost),取窗口必须走逻辑树 `FindLogicalAncestorOfType<Window>()`——曾令标题栏按钮/拖动看似"无输入"数小时;②`ExtendClientAreaToDecorationsHint`/`BorderOnly` 的托管装饰(`WindowDrawnDecorations`)会绘制重复标题与含"全屏"的按钮,且 `WindowDecorationsElementRole` 的输入重定向未落地(HT\*BUTTON 点击无动作、User 角色不可点),BorderOnly 还丢 WS_CAPTION(HTCAPTION 拖动与最小/最大化动画失效,issue #21160/#21212)——整套 extend 机制在 12.0.5 不可用,故弃用。
 - **命令面板(Ctrl+P / Ctrl+K)**:`ViewModels/CommandPaletteItem.cs`(+Group)、`CommandPaletteViewModel.cs`(模糊子序列搜索、分类分组、上下循环导航、执行/关闭)、`Views/CommandPaletteView.axaml(.cs)`;`MainWindow` 半透明遮罩浮层,条目=最近会话(Enter 连接)+ 全局命令。
 - **终端类型/编码设置项**:`AppSettings.TerminalType`(默认 xterm-256color)/`TerminalEncoding`(默认 UTF-8);`SettingsViewModel`/`SettingsView` 两个下拉;`Program.cs` 注册 `CodePagesEncodingProvider`(GBK/Big5);连接时 `MainWindowViewModel.ConfigureTerminal` 应用到 PTY 的 TERM 与控件。`ISettingsService`/`JsonDataStore` 已入 DI。
 - 快捷命令面板、隧道管理面板此前已有完整 View+VM。
-- **设置窗口现为 11 页**(2026-07-12,840×740):常规 / 外观 / 终端 / 密钥管理 / 快捷键参考(纯展示) / 文件传输 / 安全审计(含会话录制与已信任主机) / 代码片段 / 云同步 / 关于(含贡献者) / 支持与捐赠;新增页与整改详情见 §13 与 `docs/settings-audit.md`。
+- **设置窗口现为 12 页**(2026-08-14,840×740):常规 / 外观 / 终端 / 密钥管理 / 快捷键参考(纯展示) / 文件传输 / 安全审计(含会话录制与已信任主机) / **网络代理(2026-08-14 新增,见 §12-10)** / 代码片段 / 云同步 / 关于(含贡献者) / 支持与捐赠;整改详情见 §13 与 `docs/settings-audit.md`。
 - **终端配色跟随主题**:未自定义时 暗=Dracula / 亮=Solarized Light 实时切换;配色方案下拉的“(默认)”后缀与选中项随主题动态联动,选默认方案 = 恢复出厂跟随态。
 
 ## 7. 测试(已全量迁移到 MSTest)
 
 - 6 个测试项目。**规模(2026-07-22 静态计数):968 个 `[TestMethod]` + 164 个 `[DataRow]`**,较 2026-07-12 的 ≈606 大幅增长,主要来自 ZMODEM 协议套件、SFTP 双栏与传输续传、自更新链路与 headless 视图测试。精确通过数以 `dotnet test` 为准。
-- **已知失败(非回归)**:① `ConPty_SpawnsShell_HandshakesAndSignalsEof` 环境相关(本机无头 ConPTY 不出帧,干净工作树同样失败);② QuickCommands/命令建议相关 12 个 —— 测试期望 11 个内置命令(含 htop)而 `QuickCommandCatalog` 只有 8 个,**测试与目录不同步,待对齐**(见 §13 遗留)。
+- **已知失败(2026-08-14 复核)**:✅ QuickCommands/命令建议 12 个失败已消除 —— `QuickCommandCatalog` 现有 28 条内置命令,测试改为**从目录推导计数**(`BuiltInCount`/`SampleBuiltIn`,不写死数字,见 `QuickCommandsViewModelTests.cs:11-20`);ConPTY 无头握手用例仍环境相关按需跳过。当前 `dotnet test` 全套 **1657 通过 / 0 失败**(2026-08-14)。
 - 已移除 `xunit`/`xunit.v3`/`FluentAssertions`/`Avalonia.Headless.XUnit`;改用 `MSTest.TestFramework`+`MSTest.TestAdapter` 3.11.1,全局 `using Microsoft.VisualStudio.TestTools.UnitTesting`。
 - 转换约定(供新增测试参考):`[Fact]`→`[TestMethod]`;`[Theory]`+`[InlineData]`→`[DataTestMethod]`+`[DataRow]`;`[Trait("Category","X")]`→`[TestCategory("X")]`;每类 `[TestClass]`;`ITestOutputHelper`→`public TestContext TestContext {get;set;}`;`IAsyncLifetime`→`[TestInitialize]`/`[TestCleanup]`。
 - 断言:MSTest `Assert.AreEqual(EXPECTED, ACTUAL)`(期望在前);异常用 `Assert.ThrowsExactly`/`Assert.ThrowsExactlyAsync`;字符串用 `StringAssert`;序列用 `CollectionAssert`。
@@ -120,12 +121,12 @@ tests/  6 个 MSTest 项目(见 §7)
 
 | 项                                            | 设置位置 | 未实现原因 / 实现思路                                                                                                                                                                                                       |
 | --------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 标签栏位置(顶部/底部)                         | 外观     | 标签条由 Dock.Avalonia 的 DocumentDock 模板提供,需覆写其主题模板才能移到底部                                                                                                                                                |
-| 启动时自动检查 / 自动下载                     | 常规     | 手动"检查更新"已重写为自研便携式自更新(2026-07-17,Velopack 已移除);更新频道 stable/preview 已实际生效(`channelProvider` 读设置)。剩两项**设置页开关**待做:启动后台静默检查、自动下载;核心 `UpdateService` 已就绪,接开关即可 |
-| 主密码保护                                    | 常规     | 需主密码派生密钥替换 `AesSecretProtector` 的本机密钥文件 + 启动解锁弹窗 + 密文迁移,安全敏感需单独设计                                                                                                                       |
-| ~~断点续传~~ / 自动续传 / 传输重试 / 临时文件清理 | 文件传输 | ✅ **断点续传已实现**(2026-07 迁 Tmds.Ssh 后,`SftpService` 上传/下载双向按偏移续写,并在续传前以尾部 64KB 比对**核实起点**、带安全回退窗口,核实不通过则整份重传)。剩余的自动续传、失败重试与 `.part` 临时文件清理仍需传输队列持久化 |
+| 标签栏位置(顶部/底部)                         | 外观     | **仍未实现**(2026-08-14 复核):VelaDock 替换后 UI 已从外观页撤下,仅剩 `TabBarPosition` 持久化字段与 VM 索引映射(`TabBarPositionIndex`),Docking 层零消费。自研 `DockGroupControl` 后技术上已可做(改标签条停靠边),按需排期 |
+| 启动时自动检查 / 自动下载                     | 常规     | **仍未实现**(2026-08-14 复核):`CheckUpdatesOnStartup`/`AutoDownloadUpdates` 字段无任何运行时消费者,设置页也未展示;唯一更新入口是关于页手动按钮。核心 `UpdateService` 已就绪(频道开关已生效),接启动路径+开关即可 |
+| 主密码保护                                    | 常规     | **仍未实现**(2026-08-14 复核,UI 已撤下并留注释 R-04):需主密码派生密钥替换 `AesSecretProtector` 的本机密钥文件 + 启动解锁弹窗 + 密文迁移,安全敏感需单独设计                                                                 |
+| ~~断点续传~~ / 自动续传 / 传输重试 / ~~临时文件清理~~ | 文件传输 | ✅ **断点续传已实现**(2026-07,`SftpService` 双向按偏移续写 + 尾部 64KB 核实起点)。✅ **临时文件清理已实现**(消费点 `FileBrowserViewModel.CleanupPartialTargetAsync`:仅 `ResumeEnabled` 关闭时生效,失败/取消删半截目标文件)。`AutoResume` 已降级为遗留兼容字段(运行时不消费,实际开关是 `ResumeEnabled`);**失败重试**(`TransferMaxRetries`)仍未实现,需传输队列持久化 |
 | ~~会话录制 / 输入脱敏~~                       | 安全审计 | ✅ 2026-07-12 录制与回放已实现(SonnetDB 时序 + 回放中心,见 §13);输入脱敏确认不做(仅录输出流,密码无回显)                                                                                                                     |
-| 自动加载密钥到 Agent                          | 密钥管理 | 需集成 Windows OpenSSH ssh-agent(named pipe 协议)或 Pageant                                                                                                                                                                 |
+| 自动加载密钥到 Agent                          | 密钥管理 | **仍未实现**(2026-08-14 复核,字段无消费者,R-06):需集成 Windows OpenSSH ssh-agent(named pipe 协议)或 Pageant。注意 §17-A 的凭据装配已**刻意整体替换**默认凭据列表以排除 SshAgentCredentials(Windows 上 SSH_AUTH_SOCK 非命名管道会刷异常),实现本项时须同步调整该处 |
 
 ❌ **确认当前架构不实现,已从设置界面与 `AppSettings` 移除**(2026-07-10,见 docs/架构设计.md §11):连字 Ligatures(自绘渲染器按单元格排版,无法跨字符连字)、自适应标题栏颜色(系统原生标题栏由 OS 托管)、系统通知 Toast(需 AppUserModelID/通知框架;常规页用「声音提示」、安全审计页告警通道改为「提示音」`Security.AlertSound` 替代)。
 ✅ **上传方向冲突策略已实现**(2026-07-10):上传前 `ISftpService.ExistsAsync` stat 远端同名文件,按策略询问(弹窗:覆盖 or 跳过)/覆盖/跳过/重命名(`file (1).txt` 取首个可用名);「覆盖」策略下不额外 stat,沿用 SFTP 覆盖语义;编辑器保存回传属有意覆盖,不走冲突检查。
@@ -134,12 +135,12 @@ tests/  6 个 MSTest 项目(见 §7)
 
 - 非 SSH 协议:**SFTP 已开放**(`ConnectionType.SFTP`,独立 SFTP 标签,见 §12-14);**FTP / FTPS 已开放**(2026-08-13,`ConnectionType.FTP` + `SessionProfile.Ftp`,FluentFTP 后端 + 连接池 + 按会话分派的 `RoutingRemoteFileService`,见 docs/FTP客户端可行性调研.md);连接弹窗 Telnet/串口 标签仍禁用——可行性与改造清单见 [`docs/Telnet与串口可行性调研.md`](docs/Telnet与串口可行性调研.md)(结论:终端栈已为此预留,`IByteDuplex` 与本地化键均已就位)。第 2 步"证书"认证仍禁用。
 - ✅ 快捷键展示表已与真实绑定逐条核对重建(2026-07-11,删除虚构项、补 Ctrl+N 绑定);**自定义键位确认不做**(产品决定,页面定位为"快捷键参考")。
-- 密钥生成仅 RSA(PEM+OpenSSH 公钥);ed25519 生成缺失(.NET 无内置 OpenSSH ed25519 私钥导出,需自行实现 OpenSSH 私钥封装或引入 BouncyCastle);导入不校验私钥有效性;删除无二次确认。
-- 审计日志已在写(connect/connect-failed),但**无查看界面**;`audit_log`/`conn_history` 无保留策略(retention),长期运行会累积。
-- ✅ 配置导出文案已修正为"仅应用设置"(2026-07-11,settings-audit C-08);全量选择性导出待做——注:**Gist 云同步(§13)已覆盖设置/连接/隧道/片段的跨设备迁移场景**。
-- 命令面板"会话"类目仅最近连接,不含全部已保存会话。
+- 密钥生成仅 RSA(PEM+OpenSSH 公钥);ed25519 生成缺失(2026-08-14 复核仍缺:`ISshKeyService` 只有 `GenerateRsaKeyAsync`,ed25519/ecdsa 仅用于识别已有密钥类型;.NET 无内置 OpenSSH ed25519 私钥导出,需自行实现 OpenSSH 私钥封装或引入 BouncyCastle);导入不校验私钥有效性;删除无二次确认。
+- 审计日志已在写(connect/connect-failed),但**无查看界面**(2026-08-14 复核:`SonnetDbAuditLogService.QueryAsync` 在 UI 层零调用);`audit_log`/`conn_history` 无保留策略(retention),长期运行会累积。
+- ✅ 配置导出文案已修正为"仅应用设置"(2026-07-11,settings-audit C-08);导出/导入为**全量 `AppSettings` 序列化 + 整体覆盖**(2026-08-14 复核),选择性(分类勾选)导出待做——注:**Gist 云同步(§13)已覆盖设置/连接/隧道/片段的跨设备迁移场景**。⚠️ 全量导出含 Security/Proxy 等敏感块(代理密码明文)。
+- ✅ 命令面板"会话"类目已含**全部已保存会话**(2026-08-14 复核:`MainWindowViewModel:1756-1825`,"最近连接"快速通道 + "会话"全量类目带分组徽章,按 ProfileId 去重,§12-3)。
 - ✅ 关于页"检查更新"已重写为**自研便携式自更新**(2026-07-17,Velopack 已移除):`UpdateService` → GitHub Releases `latest.json` 清单(stable 走 `releases/latest/download` 固定地址不占 API 配额,preview 走 API 列表),按 RID 选包 → 下载(进度)→ SHA-256 校验 → `UpdateApplier` 原地换版(`.new` 暂存 + 两段重命名,只动包内文件)→ `--after-update` 重启(等待单实例锁),下次启动清理 `*.old` / 崩溃回滚(`App/Services/Update/`)。便携版任意目录可更新;目录不可写(如 Program Files MSI)提示手动下载;更新通道跟随设置页 stable/preview 开关。"更新日志"仍禁用。
-- ✅ 会话录制与回放已组件化(2026-07-12,§13);✅ 主机信任中心以"安全审计 → 已信任主机"落地(查看/删除/地址脱敏)。系统资源监控面板、连接诊断中心、运维编排中心、文件传输 toast 等设计稿面板状态不变。
+- ✅ 会话录制与回放已组件化(2026-07-12,§13);✅ 主机信任中心以"安全审计 → 已信任主机"落地(查看/删除/地址脱敏)。设计稿面板 2026-08-14 复核:✅ **系统资源监控面板已实现**(§18-B)、✅ **连接诊断中心已实现**(§18-C)、✅ **文件传输 toast 已实现**(`FileTransferView`,浮动活动/历史项);仅**运维编排中心**(设计帧 bR5c4)仍未实现。
 
 **C. 技术债 / 小瑕疵(2026-07-09 处理完毕,余项见末尾)**
 
@@ -178,20 +179,22 @@ tests/  6 个 MSTest 项目(见 §7)
 **P2 —— 进阶运维能力**
 7. ✅**多会话同步输入**(send to all / 命令多发):对选中的多个标签广播键入,集群运维刚需;在 `UserInput` 分发处加广播开关即可。
 8. ✅**ZMODEM(rz/sz)**:终端内直接收发文件,Xshell/SecureCRT 标配。**自研协议引擎**(未走 trzsz):`Core/ZModem/`(帧读写、ZDLE 转义、CRC-16/32、`ZModemSender`/`ZModemReceiver`,只依赖 `IByteDuplex`,传输无关)+ `Terminal/ZModem/`(`ZModemDetector` 在输出流嗅探 ZRQINIT/ZRINIT 引导,`ZModemTerminalRouter` 在会话期间把字节从终端改路由到引擎,结束自动复位)+ `App/Services/ZModem/`(文件源/落盘目录/进度上报)。排障置 `VELASHELL_ZMODEM_TRACE=1` 打印协议帧。**测试教训**:互操作期望值必须按 lrzsz `zm.c`/`zmodem.h` 手工构造(见 `LrzszInteropTests`)——用自家编码器生成期望值时,编解码同时错也照样全绿,CRC 双重增广的 bug 当初正是这么溜进来的。
-9. **SSH config 导入**:解析 `~/.ssh/config`(Host/HostName/Port/User/IdentityFile/ProxyJump)批量导入会话,降低迁移成本。
+9. ⏳**SSH config 导入**(2026-08-14 复核仍缺):解析 `~/.ssh/config`(Host/HostName/Port/User/IdentityFile/ProxyJump)批量导入会话。导入框架已就绪 —— `ISessionImportService` 多来源自动扫描架构 + Xshell/WinSCP 两个导入器已落地(§18-H),再加一个来源只需在 DI 追加一行,是低成本待办。
 10. ✅**连接代理**(2026-08-14 落地,应用级全局代理而非按会话):设置 → 网络代理(无代理 / 系统代理 / HTTP / SOCKS5,主机/端口/用户名/密码 + 「使用代理执行 DNS 查找」)。统一抽象:`Core/Net/IProxyResolver`(唯一代理出口,新功能接网络一律消费它)+ `Infrastructure/Net/`(`ProxyStreamConnector` 自研 HTTP CONNECT/SOCKS5(RFC 1928/1929)握手、`LoopbackProxyRelay` 环回中继、`VelaWebProxy` 进程级 `HttpClient.DefaultProxy`)。三条通道:SSH 走环回中继(Tmds.Ssh 0.23.0 的 `Proxy` 抽象成员是 internal,外部无法派生,故在 `TmdsSshClientWrapper.ConnectAsync` 把首个真实 TCP 出站跳(有跳板链时为最内层跳板)改写到 127.0.0.1 中继;主机指纹按原始 `ci.Host` 键控不受影响);FTP 走 FluentFTP 代理子类(代理下强制被动模式);全部 HttpClient(更新/Gist/Webhook/头像/插件)由 `VelaWebProxy.Install` 进程级接管,保存即生效。代理配置不完整时抛错拒连,绝不静默直连。注意别与**动态 SOCKS 转发**(`-D`)混淆——那是隧道功能,方向相反。ICMP(ping/traceroute)与连接诊断的裸 TCP 不走代理(协议不支持/诊断语义即直连)。
-11. **防空闲断开(Anti-idle)**:按间隔发送自定义串(如 `\0` 或空格),与已实现的 SSH keepalive 互补(keepalive 防 NAT 超时,anti-idle 防服务端 shell 超时踢出)。
+11. ⏳**防空闲断开(Anti-idle)**(2026-08-14 复核仍缺):按间隔发送自定义串(如 `\0` 或空格),与已实现的 SSH keepalive 互补(keepalive 防 NAT 超时,协议层已接 `KeepAliveSeconds`→`SshClientSettings.KeepAliveInterval`;anti-idle 防服务端 shell 超时踢出,需向 PTY 输入流发字节,当前无实现)。
 12. ✅**known_hosts 管理界面**:已落地为 设置 → 安全审计 → 已信任主机(2026-07-12,列出/删除/截图防泄露地址脱敏);导出未做。
 13. ✅**会话标签自定义颜色/图标**:多环境(生产红/测试绿)一眼区分;SessionProfile 加 color 字段 + 标签条着色。
 
 **P3 —— 锦上添花**
 14. ✅**SFTP 本地/远程双栏**:已落地为独立 SFTP 标签(`ConnectionType.SFTP` + `Docking/SftpDocument`),`SftpDocumentView` 左 `LocalFilePaneView` / 右 `FileBrowserView`,支持双栏互拖与 OS→远端拖放。**剩余差距逐项列在 [`docs/SFTP双栏与WinSCP差距分析.md`](docs/SFTP双栏与WinSCP差距分析.md)**(该文把差距分为「接线债 / 能力缺失 / 架构级缺失」三类,不要混在一起排期)。
-15. **用户自定义关键字高亮规则**:语义高亮已内置(URL/IP/错误词),开放用户正则+颜色规则表(WindTerm 卖点)。
+15. ⏳**用户自定义关键字高亮规则**(2026-08-14 复核仍缺):语义高亮已内置且为编译期硬编码 7 条规则(`SemanticMatcher` 的 `[GeneratedRegex]`:Url/Ip/Error/Warning/Success/Option/Number);开放用户正则+颜色规则表(WindTerm 卖点)需把规则集改为运行时可配 + 设置 UI,当前无任何用户规则机制。
 16. ✅**命令自动补全/历史建议**:输入时基于本地命令历史悬浮建议(WindTerm 式);已有 quick_commands 可作为数据源之一。
-17. **OSC 52 剪贴板**:远端 vim/tmux 写系统剪贴板(§8 遗留,一并归档到此)。
-18. **触发器/自动应答**:输出匹配正则时自动发送响应(expect 式),如自动 yes/密码带外输入。
-19. **多窗口**:新开独立主窗口(目前只有单窗口+分屏/浮动 Dock)。
-20. **Mosh / SSH 证书(certificate)认证**:弱网漫游与企业 CA 场景,按需求评估。
+17. ✅**OSC 52 剪贴板**:已实现(见 §10.C —— 只支持写方向,查询"?"一律不应答防剪贴板泄露,1MB 上限,含单测;此条为重复归档,2026-08-14 补标)。
+18. ⏳**触发器/自动应答**(2026-08-14 复核仍缺):输出匹配正则时自动发送响应(expect 式),如自动 yes/密码带外输入;全仓无输出匹配→自动发送机制。
+19. ❌**多窗口 —— 确认不实现(与当前架构/产品决策冲突,2026-08-14)**:新开独立主窗口与现架构三处硬冲突 —— ①应用为**单实例**(`Program.cs` 命名 Mutex,自更新重启依赖等锁交接);②主窗口为唯一组合根(单 `MainWindowViewModel` 持有会话/布局/状态栏全部状态,无多窗口状态分片);③自研 VelaDock **产品决策不做浮动窗口**(§5),多主窗意味着跨窗口拖拽/布局持久化整套推翻重做。多屏需求由分屏(五区拖放)承担。
+20. **Mosh / SSH 证书(certificate)认证**(2026-08-14 拆分定性):
+    - ❌ **Mosh —— 确认不实现(与当前传输架构冲突)**:全部远程通道抽象建立在 SSH 流式通道之上(`ISshClientWrapper`/`IShellStreamWrapper`,Tmds.Ssh);Mosh 是独立的 UDP + 状态同步(SSP)协议栈,.NET 无可用实现,接入等于并行维护第二套传输/终端预测引擎,收益不成比例。弱网场景由自动重连 + keepalive 缓解。
+    - ⏳ **SSH 证书认证**:代码零踪迹(`src/` 下的 Certificate 命中全部是 FTPS/TLS 证书);连接对话框第 2 步"证书"项仍禁用。能否实现取决于 Tmds.Ssh 对 OpenSSH user certificate 的支持程度,按需求评估。
 
 ## 13. 2026-07-11 ~ 07-12 批次(设置审计整改 + 四个新特性)
 
@@ -278,3 +281,40 @@ Core 的中立抽象证明有效——**迁移一行 Core 代码都没改**,改�
 3. **“覆盖”策略下不列举目录**,导致开启断点续传时第 2 点退化回逐文件探测。现改为「覆盖 **且** 不续传」才跳过列举。
 
 **G. 文档**:新增 `docs/SFTP双栏与WinSCP差距分析.md` 与 `docs/Telnet与串口可行性调研.md`(均为 2026-07-22 的决策清单,标注了每项的实现代价与"未核实"项)。
+
+## 18. 2026-07-24 ~ 08-14 批次盘点(2026-08-14 补记;此前均已落地但未入本文件)
+
+**A. 插件系统 v1 + AI 助手插件(08-10 ~ 08-13,本批最大特性)**
+- **双宿主模式**:manifest `hostMode` 选进程内(可收集 ALC + dock 标签页)或**隔离进程**(`src/VelaShell.PluginHost/`,命名管道自研轻量 RPC、令牌握手、心跳自愈、空闲回收、独立卡片窗口);插件源码两模式零改动。关键路径 `Infrastructure/Plugins/`(`PluginManager`/`PluginContext`/`Capabilities/`/`Isolated/`/`PluginPermissionGate`)。
+- **SDK**:`plugin-sdk/VelaShell.PluginSdk`(能力域 sessions/remoteFs/remoteExec/commands/events/storage/secrets/clipboard/terminal/timeSeries)+ `PluginSdk.Testing` 测试替身;管理页 `PluginManagerWindow` + 权限对话框。
+- **分发**:目录即插件 + `.vpx` 包(zip,含 zip-slip 防护)一键装卸;**无商店/签名 —— 用户决策不做/推迟**(见 `docs/plugins/STATUS.md`,权威进度页);发布形态因此改**摊开发布**(隔离插件需磁盘上真实 PluginHost 可执行,§15 已记)。
+- **AI 助手插件**(`plugins/VelaShell.Plugin.Ai`):多提供商流式对话(OpenAI Responses / Chat Completions 兼容 / Anthropic Messages,自填 Base URL+Key 走 Secrets 加密);**Agent 模式**(M.E.AI 工具循环,桥接 sessions/terminal/remoteExec/remoteFs,危险操作面板内逐条审批);**自定义 MCP 服务器**(`McpManager` 把用户自配 MCP 工具并入工具箱,非只读工具走同一审批闸);会话持久化到插件私有时序库(历史列表/切换/删除、↑↓ 调取、`@` 远端文件引用)。示例插件 HelloWorld。
+- 文档:`docs/plugins/` 16 篇蓝图 + `STATUS.md` + `dev-guide.md`;英文镜像 `docs-en/`(08-14,31 个文件)。
+
+**B. 系统资源监控窗口(08-01)**:`ResourceMonitorWindow`(+状态栏内嵌弹层 `ResourceMonitorView`),六页 总览/CPU/GPU/内存/磁盘/网络;CPU 页热力图/迷你折线/列表三态,GPU 无卡自动隐藏;自研图表控件 `TimeSeriesChart`/`UsageHeatGrid`/`MeterBar`(`VelaShell.Controls`)。采集为**单条复合 shell 探针**分段解析(`Core/Services/SessionMetrics.cs`,`MetricsScope` 按页按需取 Basic/Detail/Gpu/Processes):CPU 含 user/sys/iowait/steal 与逐核、内存 htop 口径、磁盘逐分区 df + diskstats IO 速率、网络逐网卡 + `ss -ti` 逐连接速率、GPU nvidia-smi、进程 Top。入口:状态栏按钮。
+
+**C. 连接诊断中心(07-25 前后)**:`Presentation/Services/ConnectionDiagnosticsService` 四步诊断 **DNS 解析 → TCP 建链 → SSH 握手(读 banner)→ 用户认证**,输出问题标题/描述/修复建议(`DiagnosticReport`);跳板会话前三步针对第一跳、认证走完整链。UI `ConnectionDiagnosticsView` 独立窗口,入口:会话树右键"诊断"。(诊断的裸 TCP/DNS **有意不走全局代理** —— 诊断语义即测直连链路,§12-10。)
+
+**D. 路由/链路追踪 + 离线 IP 归属地(07-25)**:`PingTraceRouteService`(ICMP TTL 递增,免管理员;Linux TTL 不可用时抛可读异常而非假表)+ `MmdbIpGeolocationService`(本地 MMDB 离线库,默认 `%LocalAppData%/VelaShell/geoip/`,缺库静默降级、面板内引导下载);`TraceRouteWindow` 左侧 `TraceWorldMap` 世界地图落点 + 右侧 mtr 式跃点表(Loss/Sent/Last/Avg/Best/Worst、ECMP 额外地址)。入口:标题栏图标。设计文档 `docs/路由追踪设计.md`。
+
+**E. 远端任务管理器(07-25)**:SSH 进程管理(`IRemoteProcessService`/`RemoteProcessService`),入口:标题栏"进程管理器"图标。
+
+**F. 文件浏览器跟随终端目录(07-24)**:SFTP 上传按钮右侧 map-pin 开关(`FileBrowserViewModel.FollowTerminal`);终端 cwd 经注入 bash 提示符发 OSC 7,`TerminalEmulator` 解析(`ParseOsc7Path`)→去重→浏览器同步;仅 bash/zsh 有效。
+
+**G. SFTP 传输面板增强(07-27 ~ 07-29)**:框选、批量操作、文件+文件夹混选上传、冲突与历史交互优化;文件传输 toast 面板(`FileTransferView`,浮动活动/历史项,不跨重启持久化)。
+
+**H. Xshell / WinSCP 会话一键迁移(07-30;08-13 改默认全自动)**:`ISessionImportService` 多来源自动扫描架构(`Infrastructure/Import/`:Xshell(Rc4/XshellCrypto)+ WinSCP(WinScpCrypto)),`SessionImportView` 对话框 —— 打开即遍历全部来源扫描、**默认全自动导入 + 高级手选**、按源目录建分组、跳过已存在、密码恢复三态提示 + 主密码告警(主密码库密码不可恢复,仅导会话)。新增来源只需 DI 追加一行(SSH config 导入的现成落点,§12-9)。
+
+**I. UI 字体/字号令牌体系(07-30)**:设置 → 外观 → 界面字体/字号,经 `VelaUiFont`/`VelaUiMonoFont`/`VelaFontSize*` 令牌全局下发(派生字号按比例缩放、钳 9–24);曾清理 ~500 处 axaml 写死字体/字号(写死即令该处失效,见记忆索引)。同批:对话框按钮主题统一。
+
+**J. 终端交互增强(08-05 ~ 08-07)**:Ctrl+Backspace 删词、Alt+左键矩形块选、右侧留白带。
+
+**K. 外观增强**:应用背景图(`BackgroundImagePath` + 图层/内容双不透明度,gated on 有图,无图零回归)、Win11 圆角/投影/滚动条主题统一(08-14)、AvaloniaEdit 输入框(08-14)。
+
+**L. 打包**:MSIX 商店版打包 + 自更新三段式重构 + 隐私政策(07-26)。
+
+**M. 小项(08-14)**:会话树拖动分组(`VSESS|` 拖放载荷、空白处放下=移出分组、拖拽幽灵标签)、侧栏最近连接清除按钮(带确认)、关于页显示进程+系统架构(不一致时并列显示,自更新按进程架构选产物)。
+
+**N. FTP / FTPS(08-13,第三方 PR)**:见 §10.B —— `ConnectionType.FTP` + FluentFTP 后端 + 连接池 + `RoutingRemoteFileService` 按会话分派,上层文件浏览器/传输/限速零改动。
+
+**O. 全局网络代理(08-14)**:见 §12-10。
