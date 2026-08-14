@@ -148,14 +148,27 @@
                              VerticalAlignment="Center" />
                 </Grid>
               </Button>
-              <Button Grid.Column="3" Background="Transparent" Padding="0"
-                      Width="24" Height="24" CornerRadius="3" Cursor="Hand"
-                      Command="{Binding RecentConnections.RefreshCommand}"
-                      ToolTip.Tip="{loc:Localize Sidebar_RefreshRecent}"
-                      VerticalAlignment="Center">
-                <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.history}"
-                               Foreground="{DynamicResource VelaTextTertiary}" />
-              </Button>
+              <!-- 清除在左、刷新在右。清除是破坏性操作,不直接绑命令 ——
+                   经确认框确认后才执行 ClearCommand(见 ClearRecentConnections_Click)。 -->
+              <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="2"
+                          VerticalAlignment="Center">
+                <Button x:Name="RecentConnectionsClear" Background="Transparent" Padding="0"
+                        Width="24" Height="24" CornerRadius="3" Cursor="Hand"
+                        Click="ClearRecentConnections_Click"
+                        ToolTip.Tip="{loc:Localize Sidebar_ClearRecent}"
+                        VerticalAlignment="Center">
+                  <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.trash-2}"
+                                 Foreground="{DynamicResource VelaTextTertiary}" />
+                </Button>
+                <Button x:Name="RecentConnectionsRefresh" Background="Transparent" Padding="0"
+                        Width="24" Height="24" CornerRadius="3" Cursor="Hand"
+                        Command="{Binding RecentConnections.RefreshCommand}"
+                        ToolTip.Tip="{loc:Localize Sidebar_RefreshRecent}"
+                        VerticalAlignment="Center">
+                  <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.history}"
+                                 Foreground="{DynamicResource VelaTextTertiary}" />
+                </Button>
+              </StackPanel>
             </Grid>
           </Border>
 

@@ -273,6 +273,35 @@ public class SidebarQuickCommandsUiTests
         });
     }
 
+    /// <summary>
+    /// 最近连接标题栏的两个动作按钮:清除在左、刷新在右(二者同属一个 StackPanel,
+    /// 因此可直接比较 Bounds.X)。断言落在实际布局上,而不是 XAML 里的书写顺序。
+    /// </summary>
+    [TestMethod]
+    public void RecentConnectionsHeader_ClearButtonSitsLeftOfRefresh()
+    {
+        OnUi(() =>
+        {
+            var view = new SidebarView { DataContext = new SidebarViewModel() };
+            var window = new Window
+            {
+                Width = 260,
+                Height = 464,
+                Content = view,
+            };
+            window.Show();
+            Relayout(window);
+            Button clear = view.FindControl<Button>("RecentConnectionsClear")!;
+            Button refresh = view.FindControl<Button>("RecentConnectionsRefresh")!;
+
+            Assert.IsTrue(clear.IsVisible);
+            Assert.IsGreaterThan(0, clear.Bounds.Width);
+            Assert.AreSame(clear.Parent, refresh.Parent);
+            Assert.IsLessThan(refresh.Bounds.X, clear.Bounds.X);
+            window.Close();
+        });
+    }
+
     private static void Relayout(Window window)
     {
         Dispatcher.UIThread.RunJobs();

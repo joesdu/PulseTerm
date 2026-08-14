@@ -2,7 +2,9 @@ using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using ReactiveUI.Primitives;
 using VelaShell.Core.Models;
+using VelaShell.Core.Resources;
 using VelaShell.Presentation.ViewModels;
 
 namespace VelaShell.Views;
@@ -239,6 +241,26 @@ public partial class SidebarView : UserControl
         if (sender is Control { DataContext: RecentConnectionItemViewModel item })
         {
             RecentConnectRequested?.Invoke(this, item.Entry);
+        }
+    }
+
+    /// <summary>
+    /// 清除最近连接是破坏性操作(整段连接历史不可恢复):先确认再执行
+    /// (设置审计 §12 破坏性操作需确认,与常规设置页的“清除历史记录”同一处置)。
+    /// </summary>
+    private async void ClearRecentConnections_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_viewModel is null || TopLevel.GetTopLevel(this) is not Window owner)
+        {
+            return;
+        }
+        bool confirmed = await MessageDialog.ConfirmAsync(owner,
+            Strings.Get("Sidebar_ClearRecent"),
+            Strings.Get("Sidebar_ClearRecentConfirm"),
+            danger: true);
+        if (confirmed)
+        {
+            _viewModel.RecentConnections.ClearCommand.Execute().Subscribe();
         }
     }
 }

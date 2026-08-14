@@ -2867,6 +2867,12 @@ Windows 填 exe 完整路径或命令名(如 notepad);Linux 填命令名(如 ged
   <data name="Shell_Cmd" xml:space="preserve">
     <value>命令提示符 (CMD)</value>
   </data>
+  <data name="Sidebar_ClearRecent" xml:space="preserve">
+    <value>清除最近连接</value>
+  </data>
+  <data name="Sidebar_ClearRecentConfirm" xml:space="preserve">
+    <value>将清除全部最近连接记录,此操作不可撤销。确定继续吗?</value>
+  </data>
   <data name="Sidebar_Explorer" xml:space="preserve">
     <value>资源管理器</value>
   </data>
