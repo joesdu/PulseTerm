@@ -86,6 +86,7 @@ public sealed class AiPlugin : IVelaPlugin
             },
             () => view = new ChatPanelView(context, _store!));
         _view = view;
+        _panel.PlacementRatioChanged += ratio => _ = RememberPanelWidthAsync(ratio);
         _panel.Closed += () =>
         {
             _view?.Detach();
@@ -96,7 +97,7 @@ public sealed class AiPlugin : IVelaPlugin
     }
 
     /// <summary>
-    /// 读用户配的侧栏宽度(设置页里的百分比)。读不到就用 <see cref="PanelOptions" /> 的默认值 ——
+    /// 读上次记住的侧栏宽度。读不到就用 <see cref="PanelOptions" /> 的默认值 ——
     /// 面板本身能不能打开,不该被一条装饰性配置卡住。
     /// </summary>
     private async Task<double> PanelWidthRatioAsync()
@@ -110,6 +111,33 @@ public sealed class AiPlugin : IVelaPlugin
         {
             _context!.Log.Warn($"Reading the panel width setting failed, using the default: {ex.Message}");
             return new PanelOptions { Title = "" }.PlacementRatio;
+        }
+    }
+
+    /// <summary>
+    /// 把用户拖出来的宽度记下来,下次打开就是这个宽度。
+    /// </summary>
+    /// <remarks>
+    /// 这一项<b>不在设置页里</b>:让人去填一个百分比,不如直接把他拖出来的结果记住。
+    /// 宿主在拖动<b>结束</b>时才通知一次(见 <c>IPluginPanel.PlacementRatioChanged</c>),
+    /// 所以这里直接落盘,不必防抖。四舍五入到整百分比,免得配置里躺着 30.000000000000004。
+    /// </remarks>
+    private async Task RememberPanelWidthAsync(double ratio)
+    {
+        int percent = Math.Clamp((int)Math.Round(ratio * 100), 15, 85);
+        try
+        {
+            AiSettings settings = await _store!.LoadAsync();
+            if (settings.PanelWidthPercent == percent)
+            {
+                return; // 没变就别写库(拖回原位、或者夹取之后落回同一个值)
+            }
+            settings.PanelWidthPercent = percent;
+            await _store.SaveAsync(settings);
+        }
+        catch (Exception ex)
+        {
+            _context!.Log.Warn($"Remembering the panel width failed: {ex.Message}");
         }
     }
 

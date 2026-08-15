@@ -56,6 +56,12 @@ public static class ContextBuilder
             start = FirstIndexThatFits(fixedCost, history, from, Math.Max(budget, 0));
         }
 
+        // 没有摘要打头时,发出去的第一条必须是 user
+        if (digest is null)
+        {
+            start = FirstUserFrom(history, start);
+        }
+
         var messages = new List<ChatMessage>(history.Count - start + 2) { system };
         if (digest is not null)
         {
@@ -63,6 +69,30 @@ public static class ContextBuilder
         }
         AppendNormalized(messages, history, start);
         return new RequestContext(messages, start - from, Estimate(messages));
+    }
+
+    /// <summary>
+    /// 从 <paramref name="start" /> 起找第一条用户消息;找不到就<b>原样返回</b>。
+    /// </summary>
+    /// <remarks>
+    /// <b>Anthropic 协议要求 messages 的第一条是 user</b>(system 单独走一个字段),
+    /// 否则整个请求 400。切点本来只落在用户消息上,但 <see cref="AlwaysKeep" /> 是硬底线,
+    /// 顶到它时会停在半轮中间 —— 那时第一条就可能是 assistant 或工具结果。
+    /// 摘要在场时不必管:摘要本身就是一条 user,由它打头。
+    ///
+    /// <para>一条 user 都没有(整段窗口全是 assistant/工具消息)时不动 —— 那时无论怎么切都不合法,
+    /// 与其把上下文清空,不如原样发出去让服务端报准确的错。</para>
+    /// </remarks>
+    private static int FirstUserFrom(IReadOnlyList<ChatMessage> history, int start)
+    {
+        for (int i = start; i < history.Count; i++)
+        {
+            if (history[i].Role == ChatRole.User)
+            {
+                return i;
+            }
+        }
+        return start;
     }
 
     /// <summary>

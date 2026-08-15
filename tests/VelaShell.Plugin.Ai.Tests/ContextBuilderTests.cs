@@ -187,6 +187,42 @@ public sealed class ContextBuilderTests
             "同一条里的正文要留着 —— 只摘掉落单的那半");
     }
 
+    /// <summary>
+    /// <b>Anthropic 要求 messages 的第一条是 user</b>,否则整个请求 400
+    /// (<c>AnthropicBadRequestException</c>)。切点本来只落在用户消息上,但
+    /// <c>AlwaysKeep</c> 是硬底线,顶到它时会停在半轮中间 —— 那时第一条就成了 assistant。
+    /// </summary>
+    [TestMethod]
+    public void Build_AlwaysStartsTheWindowOnAUserMessage()
+    {
+        // 前面塞满逼出裁剪;末尾四条(硬底线)以 assistant 打头
+        List<ChatMessage> history =
+        [
+            User(Bulk(4000)), Assistant(Bulk(4000)), User(Bulk(4000)),
+            Assistant("上一轮的收尾"), Assistant("又一句"), User("那再看看磁盘"), Assistant("好")
+        ];
+
+        RequestContext context = ContextBuilder.Build("s", history, windowTokens: 2000, reserveTokens: 200);
+
+        Assert.IsGreaterThan(0, context.DroppedMessages, "这个用例的前提就是真的裁掉了东西");
+        Assert.AreEqual(ChatRole.System, context.Messages[0].Role);
+        Assert.AreEqual(ChatRole.User, context.Messages[1].Role, "系统提示词之后第一条必须是 user");
+    }
+
+    /// <summary>摘要本身就是一条 user,由它打头 —— 后面跟 assistant 是合法的,不该再往后切。</summary>
+    [TestMethod]
+    public void Build_WithASummary_LetsTheDigestLeadAndKeepsTheAssistantAfterIt()
+    {
+        List<ChatMessage> history = [User("旧的"), Assistant("上一轮的收尾"), User("新的")];
+
+        RequestContext context = ContextBuilder.Build("s", history, windowTokens: 0, reserveTokens: 0,
+            summary: "之前聊过磁盘的事", summarizedThrough: 1);
+
+        Assert.AreEqual(ChatRole.User, context.Messages[1].Role);
+        Assert.AreEqual("之前聊过磁盘的事", context.Messages[1].Text);
+        Assert.AreEqual(ChatRole.Assistant, context.Messages[2].Role, "摘要打了头,assistant 就能跟在后面");
+    }
+
     /// <summary>配对齐全就一个字节都不动。</summary>
     [TestMethod]
     public void Build_KeepsCompleteToolRoundTripsIntact()

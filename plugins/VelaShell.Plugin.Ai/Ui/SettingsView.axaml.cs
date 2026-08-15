@@ -53,7 +53,6 @@ public partial class SettingsView : UserControl
         SystemPromptBox.Text = _settings.SystemPrompt ?? "";
         CompactContextCheck.IsChecked = _settings.CompactContext;
         SuggestFollowUpsCheck.IsChecked = _settings.SuggestFollowUps;
-        PanelWidthBox.Text = _settings.PanelWidthPercent.ToString();
         ReloadList(selectIndex: _settings.Providers.Count > 0 ? 0 : -1);
     }
 
@@ -61,6 +60,10 @@ public partial class SettingsView : UserControl
     public void ApplyLoc()
     {
         ProvidersHeader.Text = _loc["Providers"];
+        SectionEndpointTitle.Text = _loc["SecEndpoint"];
+        SectionCapacityTitle.Text = _loc["SecCapacity"];
+        SectionSamplingTitle.Text = _loc["SecSampling"];
+        SectionGlobalTitle.Text = _loc["SecGlobal"];
         AddText.Text = _loc["Add"];
         NameLabel.Text = _loc["Name"];
         ProtocolLabel.Text = _loc["Protocol"];
@@ -96,8 +99,6 @@ public partial class SettingsView : UserControl
         CompactContextHintText.Text = _loc["CompactContextHint"];
         SuggestFollowUpsCheck.Content = _loc["SuggestFollowUps"];
         SuggestFollowUpsHintText.Text = _loc["SuggestFollowUpsHint"];
-        PanelWidthLabel.Text = _loc["PanelWidth"];
-        PanelWidthHintText.Text = _loc["PanelWidthHint"];
     }
 
     private AiProviderConfig? SelectedProvider
@@ -229,12 +230,6 @@ public partial class SettingsView : UserControl
         _settings.SystemPrompt = string.IsNullOrWhiteSpace(SystemPromptBox.Text) ? null : SystemPromptBox.Text;
         _settings.CompactContext = CompactContextCheck.IsChecked == true;
         _settings.SuggestFollowUps = SuggestFollowUpsCheck.IsChecked == true;
-        if (int.TryParse(PanelWidthBox.Text?.Trim(), out int panelWidth))
-        {
-            // 与宿主同一条区间(超界那边也会夹),这里先夹一次让输入框显示的就是最终值
-            _settings.PanelWidthPercent = Math.Clamp(panelWidth, 15, 85);
-            PanelWidthBox.Text = _settings.PanelWidthPercent.ToString();
-        }
         try
         {
             await _store.SetApiKeyAsync(provider.Id, ApiKeyBox.Text);

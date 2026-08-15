@@ -137,6 +137,28 @@ internal sealed class PluginHostUi(string pluginId, IPluginLogger log, RpcConnec
 
         public event Action? Closed;
 
+        /// <summary>本进程的独立窗口没有分栏可拖,恒为 NaN、永不触发。</summary>
+        public static double PlacementRatio => double.NaN;
+
+        /// <inheritdoc cref="PlacementRatio" />
+        public event Action<double>? PlacementRatioChanged { add { } remove { } }
+
+        public async Task ActivateAsync()
+        {
+            if (!IsOpen)
+            {
+                return;
+            }
+            try
+            {
+                await Dispatcher.UIThread.InvokeAsync(_window.Activate).GetTask().ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // 进程停机:置前这种事没做成也无所谓。
+            }
+        }
+
         public async Task CloseAsync()
         {
             if (!IsOpen)

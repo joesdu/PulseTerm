@@ -22,6 +22,10 @@ public class EmbedRoutingTests
         public bool IsOpen { get; private set; } = true;
         public event Action? Closed;
 
+        public static double PlacementRatio => double.NaN;
+        public event Action<double>? PlacementRatioChanged { add { } remove { } }
+        public Task ActivateAsync() => Task.CompletedTask;
+
         public Task CloseAsync()
         {
             if (IsOpen)

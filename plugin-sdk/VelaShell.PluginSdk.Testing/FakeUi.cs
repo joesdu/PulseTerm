@@ -28,6 +28,32 @@ public sealed class FakePanel(PanelOptions options, Func<object> contentFactory)
     /// <inheritdoc />
     public event Action? Closed;
 
+    /// <summary>被要求置前的次数(面板已关闭时不计)。</summary>
+    public int ActivateCount { get; private set; }
+
+    /// <inheritdoc />
+    public double PlacementRatio { get; private set; } = double.NaN;
+
+    /// <inheritdoc />
+    public event Action<double>? PlacementRatioChanged;
+
+    /// <summary>替身:模拟"用户拖完分割条",让测试能验证插件有没有把新宽度记下来。</summary>
+    public void RaisePlacementRatioChanged(double ratio)
+    {
+        PlacementRatio = ratio;
+        PlacementRatioChanged?.Invoke(ratio);
+    }
+
+    /// <inheritdoc />
+    public Task ActivateAsync()
+    {
+        if (IsOpen)
+        {
+            ActivateCount++;
+        }
+        return Task.CompletedTask;
+    }
+
     /// <inheritdoc />
     public Task CloseAsync()
     {

@@ -958,10 +958,15 @@ public sealed partial class ChatPanelViewUiTests
     /// <summary>
     /// 设置与"配置工具"都开成独立窗口(而不是占掉面板中间那块):侧栏往往只有三成宽,
     /// 那些两列三列的表单在里头铺不开,改设置时也不该看不见对话。
-    /// 面板关闭时两个窗口要跟着走,别孤零零留在屏幕上。
     /// </summary>
+    /// <remarks>
+    /// 窗体<b>走 SDK 的 <c>PanelDisplayMode.Window</c></b>,不自己 new Window ——
+    /// 那样拿到的是宿主的自绘卡片窗口(和链路追踪、资源监视同一套规格);
+    /// 插件自开原生标题栏的窗口跟整体风格打架,而自绘那套要配 Win32 的 DWM 调用才不掉圆角,
+    /// 是宿主的事。面板关闭时这些窗口要跟着走,别孤零零留在屏幕上。
+    /// </remarks>
     [TestMethod]
-    public void SettingsAndTools_OpenAsSeparateWindows_AndCloseWithThePanel()
+    public void SettingsAndTools_OpenAsHostChromedWindows_AndCloseWithThePanel()
     {
         OnUi(async () =>
         {
@@ -973,21 +978,22 @@ public sealed partial class ChatPanelViewUiTests
                 Click(panel, "ToolsButton");
                 await PumpAsync(5);
 
-                List<PluginDialog> dialogs = [.. Dialogs(window)];
-                Assert.HasCount(2, dialogs, "设置与配置工具各开一个窗口");
-                Assert.Contains(d => d.GetVisualDescendants().OfType<SettingsView>().Any(), dialogs,
-                    "其中一个装着设置表单");
-                Assert.Contains(d => d.GetVisualDescendants().OfType<ToolPickerView>().Any(), dialogs,
-                    "另一个装着工具勾选列表");
+                List<FakePanel> panels = context.FakeUi.Panels;
+                Assert.HasCount(2, panels, "设置与配置工具各开一个窗口");
+                Assert.IsTrue(panels.TrueForAll(p => p.Options.DisplayMode == VelaShell.PluginSdk.Ui.PanelDisplayMode.Window),
+                    "要的是宿主那套自绘卡片窗口,不是插件自己 new 的原生标题栏窗口");
+                Assert.Contains(p => p.CreateContent() is SettingsView, panels, "其中一个装着设置表单");
+                Assert.Contains(p => p.CreateContent() is ToolPickerView, panels, "另一个装着工具勾选列表");
 
-                // 再点一次不该开出第二个
+                // 再点一次不该开出第二个 —— 但也不能什么都不做,那像是按钮坏了
                 Click(panel, "SettingsButton");
                 await PumpAsync(3);
-                Assert.HasCount(2, Dialogs(window).ToList(), "已经开着的窗口只带到前面,不重复开");
+                Assert.HasCount(2, context.FakeUi.Panels, "已经开着的窗口只带到前面,不重复开");
+                Assert.AreEqual(1, panels.Single(p => p.CreateContent() is SettingsView).ActivateCount);
 
                 panel.Detach();
                 await PumpAsync(3);
-                Assert.IsEmpty(Dialogs(window).ToList(), "面板关了,两个窗口要跟着关");
+                Assert.IsTrue(panels.TrueForAll(p => !p.IsOpen), "面板关了,两个窗口要跟着关");
             }
             finally
             {
@@ -997,12 +1003,14 @@ public sealed partial class ChatPanelViewUiTests
     }
 
     /// <summary>
-    /// 「配置工具」窗口里,MCP 服务器编辑排在工具勾选<b>上面</b>:配好一台服务器,
-    /// 下一步必然是挑它的哪些工具给模型用,两件事挨着做才顺;而且加完服务器,
-    /// 下面的分组要<b>当场</b>多出一块,不用关掉重开。
+    /// 这几个配置窗口要能按 Esc 关掉,和宿主其它窗口一致。
     /// </summary>
+    /// <remarks>
+    /// Esc 挂在<b>内容</b>上而不是让宿主对所有插件面板统一处理:聊天面板也能以窗口形态打开,
+    /// 那里 Esc 必须留给输入框 —— 正打着字被关掉窗口很糟。
+    /// </remarks>
     [TestMethod]
-    public void ToolsDialog_PutsMcpServersAboveTheCheckboxes_AndRebuildsOnAdd()
+    public void ConfigWindows_CloseOnEscape()
     {
         OnUi(async () =>
         {
@@ -1010,25 +1018,80 @@ public sealed partial class ChatPanelViewUiTests
             (Window window, ChatPanelView panel) = await ShowAsync(context);
             try
             {
+                Click(panel, "SettingsButton");
+                await PumpAsync(5);
+                FakePanel opened = context.FakeUi.LastPanel;
+                var content = (Control)opened.CreateContent();
+
+                content.RaiseEvent(new KeyEventArgs
+                {
+                    RoutedEvent = InputElement.KeyDownEvent,
+                    Key = Key.Escape,
+                    Source = content
+                });
+                await PumpAsync(3);
+
+                Assert.IsFalse(opened.IsOpen, "Esc 要关掉设置窗口");
+            }
+            finally
+            {
+                panel.Detach();
+                window.Close();
+            }
+        });
+    }
+
+    /// <summary>
+    /// MCP 服务器配置<b>自己占一个窗口</b>,由「配置工具」右上角的 ⚙ 打开 ——
+    /// 它是一整套左列表右表单,压在勾选列表上面会把那一页挤得没法看。
+    /// 加完服务器,勾选窗口里的分组要<b>当场</b>多出一块,不用关掉重开。
+    /// </summary>
+    [TestMethod]
+    public void McpServers_LiveInTheirOwnWindow_AndAddingOneRebuildsTheToolGroups()
+    {
+        OnUi(async () =>
+        {
+            using var context = new TestPluginContext();
+            (Window window, ChatPanelView panel) = await ShowAsync(context);
+            Window? toolsHost = null, mcpHost = null;
+            try
+            {
                 Click(panel, "ToolsButton");
                 await PumpAsync(5);
-                PluginDialog dialog = Dialogs(window).Single();
-
-                McpServersView servers = dialog.GetVisualDescendants().OfType<McpServersView>().Single();
-                List<Border> groups = ToolGroups(dialog);
+                FakePanel tools = context.FakeUi.LastPanel;
+                var picker = (ToolPickerView)tools.CreateContent();
+                toolsHost = Host(picker);
+                Assert.IsEmpty(picker.GetVisualDescendants().OfType<McpServersView>(),
+                    "服务器编辑不该再挤在勾选列表上面");
+                List<Border> groups = ToolGroups(picker);
                 Assert.IsNotEmpty(groups, "至少有内置工具那一组");
-                Assert.IsLessThan(CentreY(groups[0], dialog), CentreY(servers, dialog),
-                    "MCP 服务器编辑要排在工具勾选列表上面");
 
-                // 加一台服务器 —— 下面立刻多一组(不必关窗重开)
+                // 右上角那枚 ⚙ —— 就是它开出服务器配置窗口
+                picker.GetVisualDescendants().OfType<Button>().First()
+                      .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+                await PumpAsync(5);
+
+                FakePanel mcp = context.FakeUi.LastPanel;
+                Assert.AreNotSame(tools, mcp, "⚙ 要开出第二个窗口");
+                var servers = (McpServersView)mcp.CreateContent();
+                mcpHost = Host(servers);
+
                 servers.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "McpAddButton")
                        .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
                 await PumpAsync(5);
 
-                Assert.HasCount(groups.Count + 1, ToolGroups(dialog), "新服务器要当场出现一块自己的分组");
+                Assert.HasCount(groups.Count + 1, ToolGroups(picker),
+                    "新服务器要当场在勾选窗口里出现一块自己的分组");
+
+                // 勾选列表都没了,单剩一个服务器配置窗口飘着没有意义
+                await tools.CloseAsync();
+                await PumpAsync(3);
+                Assert.IsFalse(mcp.IsOpen);
             }
             finally
             {
+                mcpHost?.Close();
+                toolsHost?.Close();
                 panel.Detach();
                 window.Close();
             }
@@ -1038,7 +1101,7 @@ public sealed partial class ChatPanelViewUiTests
     /// <summary>
     /// 设置窗口的 保存/测试/删除 落在表单<b>最末、靠右</b>,跟着内容滚(不是钉死的常驻横栏 ——
     /// 那会一直占着高度,而这页大多数时候在读、在填)。「保存」连带把全局设置也一起存,
-    /// 所以它必须排在全部字段之后。窗口自身不再另给一条"关闭"底栏,那只会白占地方。
+    /// 所以它必须排在全部字段之后。
     /// </summary>
     [TestMethod]
     public void SettingsDialog_PutsTheActionRow_AtTheEndOfTheFormAndOnTheRight()
@@ -1047,42 +1110,94 @@ public sealed partial class ChatPanelViewUiTests
         {
             using var context = new TestPluginContext();
             (Window window, ChatPanelView panel) = await ShowAsync(context);
+            Window? host = null;
             try
             {
                 Click(panel, "SettingsButton");
                 await PumpAsync(5);
-                PluginDialog dialog = Dialogs(window).Single();
-                SettingsView settings = dialog.GetVisualDescendants().OfType<SettingsView>().Single();
+                var settings = (SettingsView)context.FakeUi.LastPanel.CreateContent();
+                host = Host(settings);
 
                 Button save = settings.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "SaveButton");
-                TextBox panelWidth = settings.GetVisualDescendants().OfType<TextBox>()
-                    .Single(t => t.Name == "PanelWidthBox");
+                CheckBox lastField = settings.GetVisualDescendants().OfType<CheckBox>()
+                    .Single(c => c.Name == "SuggestFollowUpsCheck");
                 ScrollViewer form = settings.GetVisualDescendants().OfType<ScrollViewer>()
-                    .First(s => s.GetVisualDescendants().OfType<TextBox>().Any(t => t.Name == "PanelWidthBox"));
+                    .First(s => s.GetVisualDescendants().OfType<Button>().Any(b => b.Name == "SaveButton"));
 
                 Assert.Contains(save, form.GetVisualDescendants().OfType<Button>(),
                     "操作行跟着表单滚,所以它在滚动区里");
-                Assert.IsGreaterThan(CentreY(panelWidth, settings), CentreY(save, settings),
+                Assert.IsGreaterThan(CentreY(lastField, settings), CentreY(save, settings),
                     "操作行排在最后一个配置项之后");
                 Assert.IsGreaterThan(settings.Bounds.Width / 2, CentreX(save, settings), "靠右");
 
-                Assert.IsFalse(dialog.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "CloseBar").IsVisible,
-                    "设置窗口不该再有底部那条只放「关闭」的横栏");
+                // 侧栏宽度不该出现在设置页的任何地方:它由用户拖分割条决定,拖完自动记住
+                // (见 PanelWidthMemoryTests)。让人来填一个百分比,不如直接记住他拖出来的结果。
+                Assert.IsEmpty(settings.GetVisualDescendants().OfType<TextBox>()
+                        .Where(t => t.Name == "PanelWidthBox"),
+                    "侧栏宽度不再是一个设置项");
             }
             finally
             {
+                host?.Close();
                 panel.Detach();
                 window.Close();
             }
         });
     }
 
-    /// <summary>「配置工具」里每个来源一块(内置 + 每台 MCP 服务器)。</summary>
-    private static List<Border> ToolGroups(PluginDialog dialog)
-        => [.. dialog.GetVisualDescendants().OfType<Border>().Where(b => b.Classes.Contains("toolGroup"))];
+    /// <summary>
+    /// 那枚 ⚙ 得真的<b>画出图标</b>来:几何与描边都要用 <c>DynamicResource</c> 绑。
+    /// <c>FindResource</c> 取一次是不行的 —— Vela* 颜色令牌住在 ThemeDictionaries 里,
+    /// 一次性取值经常拿到 null,结果就是"按钮框在、图标不见了"。
+    /// </summary>
+    [TestMethod]
+    public void ToolsWindow_GearButton_ResolvesItsIcon()
+    {
+        OnUi(async () =>
+        {
+            Avalonia.Media.Geometry geometry = Avalonia.Media.StreamGeometry.Parse("M0,0 L10,10");
+            Application.Current!.Resources["Icon.settings"] = geometry;
+            using var context = new TestPluginContext();
+            (Window window, ChatPanelView panel) = await ShowAsync(context);
+            Window? host = null;
+            try
+            {
+                Click(panel, "ToolsButton");
+                await PumpAsync(5);
+                var picker = (ToolPickerView)context.FakeUi.LastPanel.CreateContent();
+                host = Host(picker);
 
-    /// <summary>挂在宿主窗口下、当前开着的插件对话框。</summary>
-    private static IEnumerable<PluginDialog> Dialogs(Window owner) => owner.OwnedWindows.OfType<PluginDialog>();
+                Button gear = picker.GetVisualDescendants().OfType<Button>().First();
+                Assert.AreSame(geometry,
+                    gear.GetVisualDescendants().OfType<Avalonia.Controls.Shapes.Path>().Single().Data,
+                    "图标几何要真的解析出来,不能是空的");
+            }
+            finally
+            {
+                host?.Close();
+                panel.Detach();
+                window.Close();
+                Application.Current!.Resources.Remove("Icon.settings");
+            }
+        });
+    }
+
+    /// <summary>
+    /// 把面板内容挂进一个真窗口。断言布局和动态资源解析都需要它真的在树上 ——
+    /// <see cref="FakeUi" /> 只记账,不建窗口。
+    /// </summary>
+    private static Window Host(Control content)
+    {
+        var window = new Window { Width = 940, Height = 760, Content = content };
+        window.Show();
+        window.Measure(new Size(940, 760));
+        window.Arrange(new Rect(0, 0, 940, 760));
+        return window;
+    }
+
+    /// <summary>「配置工具」里每个来源一块(内置 + 每台 MCP 服务器)。</summary>
+    private static List<Border> ToolGroups(ToolPickerView picker)
+        => [.. picker.GetVisualDescendants().OfType<Border>().Where(b => b.Classes.Contains("toolGroup"))];
 
     private static void Click(ChatPanelView panel, string name)
         => Find<Button>(panel, name).RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));

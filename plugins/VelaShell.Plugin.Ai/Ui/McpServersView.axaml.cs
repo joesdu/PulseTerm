@@ -6,12 +6,18 @@ using VelaShell.PluginSdk;
 
 namespace VelaShell.Plugin.Ai.Ui;
 
+/// <summary>服务器列表里的一行。</summary>
+/// <param name="Name">服务器名(空的话给个占位,免得列表里出现一行空白)。</param>
+/// <param name="Detail">副标题:传输方式 · 工具库状态,停用的另标一下 —— 光一个名字看不出这些。</param>
+public sealed record McpListItem(string Name, string Detail);
+
 /// <summary>
-/// MCP 服务器的增删改查(原先长在设置页底部,现搬到「配置工具」窗口顶部)。
+/// MCP 服务器的增删改查,自己占一个窗口(入口是「配置工具」标题行右侧的 ⚙)。
 /// </summary>
 /// <remarks>
-/// 搬家的理由:配好一台服务器,下一步必然是挑它的哪些工具给模型用 —— 那份勾选列表就在本控件正下方。
-/// 留在设置页里的话,这两件本就连着做的事被隔在两个窗口,加完还得自己想起来去另一边刷新一次。
+/// 不放在设置页:配好一台服务器,下一步必然是挑它的哪些工具给模型用,而那份勾选列表就在
+/// 点开本窗口的那个页面上 —— 改完这边会回调过去当场重建它。也不压在那份列表<b>上面</b>:
+/// 这是一整套左列表右表单,叠上去会把勾选那一页挤得没法看。
 /// </remarks>
 public partial class McpServersView : UserControl
 {
@@ -55,6 +61,10 @@ public partial class McpServersView : UserControl
     {
         McpHintText.Text = _loc["McpHint"];
         McpAddText.Text = _loc["Add"];
+        McpEmptyText.Text = _loc["McpNoServers"];
+        McpNoSelectionText.Text = _loc["McpNoSelection"];
+        McpStdioHintText.Text = _loc["McpStdioHint"];
+        McpHttpHintText.Text = _loc["McpHttpHint"];
         McpEnabledCheck.Content = _loc["McpEnabled"];
         McpNameLabel.Text = _loc["Name"];
         McpTransportLabel.Text = _loc["McpTransport"];
@@ -76,14 +86,28 @@ public partial class McpServersView : UserControl
 
     private void ReloadList(int selectIndex)
     {
-        McpList.ItemsSource = _settings.McpServers
-            .Select(s => (string.IsNullOrWhiteSpace(s.Name) ? "(unnamed)" : s.Name) + (s.Enabled ? "" : " ⏸"))
-            .ToList();
+        McpList.ItemsSource = _settings.McpServers.Select(ToListItem).ToList();
+        McpEmptyText.IsVisible = _settings.McpServers.Count == 0;
         McpList.SelectedIndex = Math.Min(selectIndex, _settings.McpServers.Count - 1);
         if (McpList.SelectedIndex < 0)
         {
             LoadEditor();
         }
+    }
+
+    /// <summary>列表里的一行:名字 + "传输方式 · 工具库状态"。</summary>
+    private McpListItem ToListItem(McpServerConfig server)
+    {
+        string transport = server.Transport == McpTransportType.Http ? "HTTP" : "Stdio";
+        string tools = server.KnownTools.Count > 0
+            ? _loc.F("McpToolCount", server.KnownTools.Count)
+            : _loc["McpToolsNotLoaded"];
+        string detail = $"{transport} · {tools}";
+        if (!server.Enabled)
+        {
+            detail += $" · {_loc["McpDisabledMark"]}";
+        }
+        return new McpListItem(string.IsNullOrWhiteSpace(server.Name) ? "(unnamed)" : server.Name, detail);
     }
 
     private void LoadEditor()
@@ -101,11 +125,15 @@ public partial class McpServersView : UserControl
             McpEnvBox.Text = server?.EnvironmentVariables ?? "";
             McpUrlBox.Text = server?.Url ?? "";
             McpHeadersBox.Text = server?.Headers ?? "";
-            bool hasSelection = server is not null;
-            McpEnabledCheck.IsEnabled = hasSelection;
-            McpSaveButton.IsEnabled = hasSelection;
-            McpTestButton.IsEnabled = hasSelection;
-            McpDeleteButton.IsEnabled = hasSelection;
+            // 没选中就整张卡片收起来,不摆一堆灰着的空框
+            McpForm.IsVisible = server is not null;
+            McpNoSelectionText.IsVisible = server is null;
+            if (server is not null)
+            {
+                McpTitleText.Text = string.IsNullOrWhiteSpace(server.Name) ? "(unnamed)" : server.Name;
+                McpToolsText.Text = ToolLibraryLine(server);
+                McpStatusText.Text = "";
+            }
             UpdateTransportPanels();
         }
         finally
@@ -113,6 +141,13 @@ public partial class McpServersView : UserControl
             _loading = false;
         }
     }
+
+    /// <summary>卡片头那行:工具库拉过没有、几个、什么时候拉的。</summary>
+    private string ToolLibraryLine(McpServerConfig server)
+        => server.KnownTools.Count == 0
+            ? _loc["McpToolsUnknown"]
+            : _loc.F("McpToolsKnown", server.KnownTools.Count,
+                server.ToolsRefreshedAt is { } at ? at.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "—");
 
     private void UpdateTransportPanels()
     {
@@ -182,6 +217,10 @@ public partial class McpServersView : UserControl
             {
                 server.KnownTools = [.. tools];
                 server.ToolsRefreshedAt = DateTimeOffset.UtcNow;
+                // 只刷卡片上那一行,不整表重载:重载会走 SelectionChanged 把表单按已存的值重读一遍,
+                // 而「测试」本来就允许拿没保存的表单值去连 —— 那样会把用户刚敲的东西冲掉。
+                // 左边列表里的工具数下次保存/增删时自然跟上。
+                McpToolsText.Text = ToolLibraryLine(server);
                 SaveAndNotify();
             }
             string names = string.Join(", ", tools.Select(t => t.Name));
