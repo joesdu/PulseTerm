@@ -43,7 +43,7 @@ internal sealed class PluginHostShellWindow : Window
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
 
         _titleStrip = BuildTitleBar(title, subtitle);
-        var grid = new Grid { RowDefinitions = new RowDefinitions("40,*") };
+        var grid = new Grid { RowDefinitions = [with("40,*")] };
         grid.Children.Add(_titleStrip);
         var contentHost = new ContentControl { Content = content };
         Grid.SetRow(contentHost, 1);
@@ -114,7 +114,7 @@ internal sealed class PluginHostShellWindow : Window
         buttons.Children.Add(CaptionButton(SquareGeometry(), close: false, ToggleMaximize));
         buttons.Children.Add(CaptionButton(CrossGeometry(), close: true, Close));
 
-        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        var grid = new Grid { ColumnDefinitions = [with("*,Auto")] };
         grid.Children.Add(left);
         Grid.SetColumn(buttons, 1);
         grid.Children.Add(buttons);

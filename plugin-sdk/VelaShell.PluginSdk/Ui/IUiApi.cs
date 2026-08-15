@@ -14,6 +14,29 @@ public enum PanelDisplayMode
     Window
 }
 
+/// <summary>
+/// 停靠文档的初始落位。等价于"打开后立刻拖到某一侧" —— 用的就是拖放停靠那条路径,
+/// 因此落位后的一切(拖回去、拆分、关闭)与用户手动拖出来的分栏完全一致。
+/// 仅 <see cref="PanelDisplayMode.Document" /> 有意义;窗口模式忽略。
+/// </summary>
+public enum PanelPlacement
+{
+    /// <summary>并入当前标签组,成为一个新标签(默认)。</summary>
+    Tabs,
+
+    /// <summary>在标签区最右侧拆出一栏(VSCode 里 Copilot 聊天面板的位置)。</summary>
+    Right,
+
+    /// <summary>在标签区最左侧拆出一栏。</summary>
+    Left,
+
+    /// <summary>在标签区底部拆出一栏。</summary>
+    Bottom,
+
+    /// <summary>在标签区顶部拆出一栏。</summary>
+    Top
+}
+
 /// <summary>打开面板的选项。</summary>
 public sealed record PanelOptions
 {
@@ -22,6 +45,19 @@ public sealed record PanelOptions
 
     /// <summary>呈现方式,默认停靠文档。</summary>
     public PanelDisplayMode DisplayMode { get; init; } = PanelDisplayMode.Document;
+
+    /// <summary>停靠文档的初始落位,默认并入当前标签组;窗口模式忽略。</summary>
+    public PanelPlacement Placement { get; init; } = PanelPlacement.Tabs;
+
+    /// <summary>
+    /// 侧边落位时这一栏初始占标签区的比例(0.15–0.85,超界自动夹取),默认 0.3。
+    /// <see cref="PanelPlacement.Tabs" /> 与窗口模式忽略。
+    /// </summary>
+    /// <remarks>
+    /// 只是"打开时多宽";之后用户拖分割条随时可改,宿主也不会把这个值写回去。
+    /// 插件若想记住用户偏好,自己存一份再在下次打开时传进来。
+    /// </remarks>
+    public double PlacementRatio { get; init; } = 0.3;
 
     /// <summary>窗口模式的初始宽度(逻辑像素),文档模式忽略。</summary>
     public double WindowWidth { get; init; } = 520;

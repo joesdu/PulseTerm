@@ -82,7 +82,7 @@ public partial class ChatPanelView
 
     private Border BuildHistoryRow(ChatSessionSummary session)
     {
-        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        var grid = new Grid { ColumnDefinitions = [with("*,Auto")] };
         var text = new StackPanel { Spacing = 2 };
         text.Children.Add(new TextBlock
         {
@@ -173,8 +173,8 @@ public partial class ChatPanelView
             IReadOnlyList<ChatEntry> entries = await _historyStore.LoadAsync(session.Id);
             _history.Clear();
             MessagesPanel.Children.Clear();
-            _totalInputTokens = 0;
-            _totalOutputTokens = 0;
+            ResetUsage();
+            ClearSuggestions(); // 载入的是别的会话,上一段的建议不再相关
             _conversationId = session.Id;
             _conversationStartedAt = session.CreatedAt;
             _persistedCount = entries.Count;
@@ -191,7 +191,8 @@ public partial class ChatPanelView
                     var bubble = new AssistantBubble(this);
                     MessagesPanel.Children.Add(bubble.Root);
                     bubble.AppendText(entry.Text);
-                    bubble.FinishStreaming();
+                    // 历史里只留了时刻:模型名与耗时当时没入库,底部就只显示时间
+                    bubble.FinishStreaming(at: entry.At.ToLocalTime());
                     _history.Add(new(ChatRole.Assistant, entry.Text));
                 }
             }

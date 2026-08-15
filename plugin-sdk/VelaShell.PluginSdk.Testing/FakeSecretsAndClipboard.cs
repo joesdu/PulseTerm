@@ -7,7 +7,7 @@ namespace VelaShell.PluginSdk.Testing;
 public sealed class FakeSecrets : ISecretsApi
 {
     /// <summary>当前机密表;测试可直接预置/断言。</summary>
-    public Dictionary<string, string> Values { get; } = new(StringComparer.Ordinal);
+    public Dictionary<string, string> Values { get; } = [with(StringComparer.Ordinal)];
 
     /// <inheritdoc />
     public Task<string?> GetAsync(string name, CancellationToken cancellationToken = default)

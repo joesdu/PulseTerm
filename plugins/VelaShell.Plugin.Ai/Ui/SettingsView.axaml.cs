@@ -19,6 +19,10 @@ public partial class SettingsView : UserControl
     private static readonly string[] McpTransportLabels =
         ["Stdio (local process)", "HTTP (remote)"];
 
+    /// <summary>思考档位下拉的文案键,顺序与 <see cref="ReasoningLevel" /> 一一对应。</summary>
+    private static readonly string[] ReasoningKeys =
+        ["ReasoningDefault", "ReasoningOff", "ReasoningLow", "ReasoningMedium", "ReasoningHigh"];
+
     private readonly IPluginContext _context;
     private readonly AiSettingsStore _store;
     private readonly AiSettings _settings;
@@ -43,6 +47,7 @@ public partial class SettingsView : UserControl
         ProtocolCombo.ItemsSource = ProtocolLabels;
 
         ProvidersList.SelectionChanged += (_, _) => _ = LoadEditorAsync();
+        ProtocolCombo.SelectionChanged += (_, _) => UpdateProtocolOnlyFields();
         AddButton.Click += OnAddClick;
         SaveButton.Click += OnSaveClick;
         DeleteButton.Click += OnDeleteClick;
@@ -59,6 +64,8 @@ public partial class SettingsView : UserControl
         McpTestButton.Click += OnMcpTestClick;
 
         SystemPromptBox.Text = _settings.SystemPrompt ?? "";
+        SuggestFollowUpsCheck.IsChecked = _settings.SuggestFollowUps;
+        PanelWidthBox.Text = _settings.PanelWidthPercent.ToString();
         ReloadList(selectIndex: _settings.Providers.Count > 0 ? 0 : -1);
         ReloadMcpList(selectIndex: _settings.McpServers.Count > 0 ? 0 : -1);
     }
@@ -73,12 +80,26 @@ public partial class SettingsView : UserControl
         BaseUrlLabel.Text = _loc["BaseUrl"];
         ModelLabel.Text = _loc["Model"];
         MaxTokensLabel.Text = _loc["MaxTokens"];
+        MaxInputTokensLabel.Text = _loc["MaxInputTokens"];
+        MaxInputTokensHintText.Text = _loc["MaxInputTokensHint"];
+        ReasoningLabel.Text = _loc["Reasoning"];
+        ReasoningHintText.Text = _loc["ReasoningHint"];
+        PromptCacheCheck.Content = _loc["PromptCache"];
+        PromptCacheHintText.Text = _loc["PromptCacheHint"];
+        // 语言切换时下拉项也要跟着换,选中项按索引留住
+        int reasoning = ReasoningCombo.SelectedIndex;
+        ReasoningCombo.ItemsSource = ReasoningKeys.Select(key => _loc[key]).ToList();
+        ReasoningCombo.SelectedIndex = reasoning;
         ApiKeyLabel.Text = _loc["ApiKey"];
         ApiKeyHintText.Text = _loc["ApiKeyHint"];
         SaveText.Text = _loc["Save"];
         TestText.Text = _loc["Test"];
         DeleteText.Text = _loc["Delete"];
         SystemPromptLabel.Text = _loc["SystemPrompt"];
+        SuggestFollowUpsCheck.Content = _loc["SuggestFollowUps"];
+        SuggestFollowUpsHintText.Text = _loc["SuggestFollowUpsHint"];
+        PanelWidthLabel.Text = _loc["PanelWidth"];
+        PanelWidthHintText.Text = _loc["PanelWidthHint"];
         McpHeader.Text = _loc["McpServers"];
         McpHintText.Text = _loc["McpHint"];
         McpAddText.Text = _loc["Add"];
@@ -128,6 +149,10 @@ public partial class SettingsView : UserControl
             BaseUrlBox.Text = provider?.BaseUrl ?? "";
             ModelBox.Text = provider?.Model ?? "";
             MaxTokensBox.Text = provider?.MaxTokens.ToString() ?? "";
+            MaxInputTokensBox.Text = provider?.MaxInputTokens.ToString() ?? "";
+            ReasoningCombo.SelectedIndex = provider is null ? -1 : (int)provider.Reasoning;
+            PromptCacheCheck.IsChecked = provider?.PromptCaching ?? true;
+            UpdateProtocolOnlyFields();
             ApiKeyBox.Text = "";
             bool hasSelection = provider is not null;
             SaveButton.IsEnabled = hasSelection;
@@ -152,6 +177,10 @@ public partial class SettingsView : UserControl
             _loadingEditor = false;
         }
     }
+
+    /// <summary>只对某一种协议成立的选项跟着协议下拉显隐(现在只有 Anthropic 的提示词缓存)。</summary>
+    private void UpdateProtocolOnlyFields()
+        => PromptCachePanel.IsVisible = ProtocolCombo.SelectedIndex == (int)ChatProtocol.AnthropicMessages;
 
     private void OnAddClick(object? sender, RoutedEventArgs e)
     {
@@ -179,7 +208,23 @@ public partial class SettingsView : UserControl
         {
             provider.MaxTokens = maxTokens;
         }
+        // 输入上限允许填 0 —— 那表示"窗口未知",用量只显示累计不显示占比
+        if (int.TryParse(MaxInputTokensBox.Text?.Trim(), out int maxInputTokens) && maxInputTokens >= 0)
+        {
+            provider.MaxInputTokens = maxInputTokens;
+        }
+        provider.Reasoning = ReasoningCombo.SelectedIndex >= 0
+            ? (ReasoningLevel)ReasoningCombo.SelectedIndex
+            : provider.Reasoning;
+        provider.PromptCaching = PromptCacheCheck.IsChecked == true;
         _settings.SystemPrompt = string.IsNullOrWhiteSpace(SystemPromptBox.Text) ? null : SystemPromptBox.Text;
+        _settings.SuggestFollowUps = SuggestFollowUpsCheck.IsChecked == true;
+        if (int.TryParse(PanelWidthBox.Text?.Trim(), out int panelWidth))
+        {
+            // 与宿主同一条区间(超界那边也会夹),这里先夹一次让输入框显示的就是最终值
+            _settings.PanelWidthPercent = Math.Clamp(panelWidth, 15, 85);
+            PanelWidthBox.Text = _settings.PanelWidthPercent.ToString();
+        }
         try
         {
             await _store.SetApiKeyAsync(provider.Id, ApiKeyBox.Text);

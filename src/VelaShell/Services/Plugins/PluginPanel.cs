@@ -15,6 +15,12 @@ namespace VelaShell.Services.Plugins;
 /// </summary>
 internal sealed class PluginPanel : IPluginPanel
 {
+    /// <summary>侧栏比例的取值区间:太窄没法用,太宽就不叫侧栏了。</summary>
+    private const double MinSideRatio = 0.15, MaxSideRatio = 0.85;
+
+    /// <summary>插件给了非数(NaN/∞)时兜底用的比例。</summary>
+    private const double DefaultSideRatio = 0.3;
+
     private readonly string _pluginId;
     private readonly IPluginLogger _log;
     private readonly PluginDocument? _document;
@@ -47,6 +53,83 @@ internal sealed class PluginPanel : IPluginPanel
         };
         workspace.DocumentRemoved += _onDocumentRemoved;
         workspace.AddDocument(_document);
+        ApplyPlacement(workspace, _document, options.Placement, options.PlacementRatio);
+    }
+
+    /// <summary>
+    /// 把刚加进主组的文档挪到请求的那一侧,并按 <c>ratio</c>(占标签区的比例,
+    /// 见 <see cref="PanelOptions.PlacementRatio" />)定初始宽度。走的就是拖放停靠那条路径
+    /// (<see cref="DockWorkspace.DockTo" />),所以结果与用户手动拖过去一模一样,
+    /// 后续拖回、拆分、关闭都不需要任何特殊处理。
+    /// </summary>
+    private static void ApplyPlacement(DockWorkspace workspace, DockDocument document, PanelPlacement placement, double ratio)
+    {
+        if (placement == PanelPlacement.Tabs)
+        {
+            return;
+        }
+        DockPosition position = placement switch
+        {
+            PanelPlacement.Left => DockPosition.Left,
+            PanelPlacement.Bottom => DockPosition.Bottom,
+            PanelPlacement.Top => DockPosition.Top,
+            _ => DockPosition.Right
+        };
+        // 锚定最外侧的那个组,而不是主组:主组左右已经有分栏时,贴主组会插到夹缝里,
+        // 而"拖到右边"的语义是贴着整片标签区的外沿。
+        bool trailing = position is DockPosition.Right or DockPosition.Bottom;
+        DockGroup anchor = trailing ? workspace.AllGroups().Last() : workspace.AllGroups().First();
+        workspace.DockTo(document, anchor, position);
+
+        // 新拆出来的一栏默认与兄弟平分,对侧栏面板太宽了 —— 按请求的比例收一收
+        if (workspace.FindGroup(document) is { } placed)
+        {
+            ApplyRatio(placed, anchor, ratio);
+        }
+    }
+
+    /// <summary>
+    /// 把"占几成"落成分栏里的 star 权重。分两种情形,取决于 <c>DockTo</c> 走了哪条路:
+    /// <list type="bullet">
+    /// <item>
+    /// 新建分栏(本栏比例还是 NaN):兄弟各算多少星就加多少,解
+    /// <c>w / (w + 兄弟总星) = r</c> 得 <c>w = 兄弟总星 · r / (1 - r)</c>。
+    /// </item>
+    /// <item>
+    /// 插进已有分栏(<c>InsertNeighbor</c> 已把锚定组的份额对半匀给了两边):
+    /// 保持这一对占的总份额不变,只把它按 <paramref name="ratio" /> 重新切,
+    /// 免得动到分栏里其它兄弟的宽度。
+    /// </item>
+    /// </list>
+    /// </summary>
+    private static void ApplyRatio(DockGroup placed, DockGroup anchor, double ratio)
+    {
+        double clamped = double.IsFinite(ratio) ? Math.Clamp(ratio, MinSideRatio, MaxSideRatio) : DefaultSideRatio;
+        if (double.IsNaN(placed.Proportion))
+        {
+            double siblings = 0;
+            if (placed.Parent is { } parent)
+            {
+                foreach (DockNode child in parent.Children)
+                {
+                    if (!ReferenceEquals(child, placed))
+                    {
+                        siblings += double.IsNaN(child.Proportion) ? 1 : child.Proportion;
+                    }
+                }
+            }
+            placed.Proportion = Math.Max(siblings, 1) * clamped / (1 - clamped);
+            return;
+        }
+        // 锚定组可能已因清空被折叠出树,那就只剩下本栏可调
+        if (!ReferenceEquals(anchor.Parent, placed.Parent) || double.IsNaN(anchor.Proportion))
+        {
+            placed.Proportion = clamped / (1 - clamped);
+            return;
+        }
+        double pair = placed.Proportion + anchor.Proportion;
+        placed.Proportion = pair * clamped;
+        anchor.Proportion = pair * (1 - clamped);
     }
 
     /// <summary>独立窗口形态(宿主同款自绘卡片窗口)。调用方须在 UI 线程构造。</summary>

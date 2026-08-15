@@ -280,6 +280,20 @@ The plugin chooses the display mode:
 - `PanelDisplayMode.Document` — docked tab: enters the main window's tab area, and users can **drag it to any split position** or split it from the context menu, making it equal to terminal/SFTP tabs. **Only inProcess mode** provides true docking; isolated mode always uses a separate card window (cross-process dock embedding conflicts with tab switching and has been deprecated);
 - `PanelDisplayMode.Window` — separate window: in-process uses a host-style custom-drawn card window; an isolated process uses the plugin process's own window (automatically follows the host's light or dark theme).
 
+A docked tab can also pick its **placement** (`PanelOptions.Placement`; ignored in window mode):
+
+```csharp
+new() { Title = "AI Assistant", Placement = PanelPlacement.Right, PlacementRatio = 0.3 }
+```
+
+`Tabs` (the default) joins the current tab group; `Right`/`Left`/`Bottom`/`Top` split off a column at
+the matching outer edge of the tab area, sized by `PlacementRatio` (its share of the tab area,
+0.15–0.85, default 0.3). Placement goes through the same drag-and-drop docking path, so the result is
+identical to the user dragging it there — dragging it back, splitting again, and closing all take the
+ordinary route. `PlacementRatio` only sets the width *on open*: a width the user drags is not written
+back, so a plugin that wants to remember the preference stores it itself and passes it in next time
+(the AI plugin does exactly that — see "Side pane width (%)" on its settings page).
+
 **Theme tokens: write `{DynamicResource VelaXxx}` to follow the host theme.** All of the host's `Vela*` design tokens (semantic brushes, font-size scale, and font families) are available to plugins and follow light/dark switching immediately:
 
 ```xml

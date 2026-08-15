@@ -1,7 +1,5 @@
 using Tmds.Ssh;
-using VelaShell.Core.Net;
 using VelaShell.Core.Ssh;
-using VelaShell.Infrastructure.Net;
 
 namespace VelaShell.Infrastructure.Ssh;
 

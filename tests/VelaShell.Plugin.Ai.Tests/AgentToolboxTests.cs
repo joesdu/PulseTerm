@@ -19,7 +19,7 @@ public sealed class AgentToolboxTests
     private static async Task<string> InvokeAsync(AgentToolbox toolbox, string name, Dictionary<string, object?>? args = null)
     {
         AIFunction function = toolbox.CreateTools().OfType<AIFunction>().Single(f => f.Name == name);
-        object? result = await function.InvokeAsync(new AIFunctionArguments(args ?? []), CancellationToken.None);
+        object? result = await function.InvokeAsync([with(args ?? [])], CancellationToken.None);
         return result?.ToString() ?? "";
     }
 
@@ -29,7 +29,7 @@ public sealed class AgentToolboxTests
         using var context = new TestPluginContext();
         var toolbox = new AgentToolbox(context);
 
-        string[] names = toolbox.CreateTools().OfType<AIFunction>().Select(f => f.Name).ToArray();
+        string[] names = [.. toolbox.CreateTools().OfType<AIFunction>().Select(f => f.Name)];
 
         Assert.AreSequenceEqual(ExpectedToolNames, names, Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
     }

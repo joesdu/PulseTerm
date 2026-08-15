@@ -7,9 +7,7 @@ using FluentFTP;
 using FluentFTP.Proxy.AsyncProxy;
 using VelaShell.Core.Ftp;
 using VelaShell.Core.Models;
-using VelaShell.Core.Net;
 using VelaShell.Core.Sftp;
-using VelaShell.Infrastructure.Net;
 using CoreDataMode = VelaShell.Core.Models.FtpDataConnectionMode;
 using CoreEncryption = VelaShell.Core.Models.FtpEncryptionMode;
 

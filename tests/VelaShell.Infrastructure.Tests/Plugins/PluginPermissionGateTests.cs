@@ -10,7 +10,7 @@ public class PluginPermissionGateTests
     /// <summary>内存 IAppDataStore(单文档存取即可)。</summary>
     private sealed class MemoryStore : IAppDataStore
     {
-        private readonly Dictionary<string, object> _docs = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, object> _docs = [with(StringComparer.Ordinal)];
 
         public Task<T?> GetAsync<T>(string collection, string id, CancellationToken cancellationToken = default) where T : class
             => Task.FromResult(_docs.TryGetValue($"{collection}|{id}", out object? v) ? (T)v : null);

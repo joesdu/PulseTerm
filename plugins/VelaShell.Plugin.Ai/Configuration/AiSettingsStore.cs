@@ -1,5 +1,6 @@
 using System.ClientModel;
 using Anthropic;
+using Anthropic.Models.Messages;
 using Microsoft.Extensions.AI;
 using OpenAI;
 using VelaShell.PluginSdk;
@@ -81,6 +82,89 @@ public sealed class AiSettingsStore(IPluginContext context)
             default:
                 throw new InvalidOperationException($"Unknown protocol: {provider.Protocol}");
         }
+    }
+
+    /// <summary>Anthropic 的思考预算下限(协议要求 <c>budget_tokens ≥ 1024</c>)。</summary>
+    private const int AnthropicMinThinkingBudget = 1024;
+
+    /// <summary>
+    /// 把接入的思考档位翻译进请求选项。两条路并存,因为两家的适配器认的东西不一样:
+    /// <list type="bullet">
+    /// <item><c>ChatOptions.Reasoning</c> —— OpenAI 系适配器认(映射成 reasoning effort / summary)。</item>
+    /// <item>
+    /// <c>RawRepresentationFactory</c> 返回 <see cref="MessageCreateParams" /> —— Anthropic 适配器
+    /// 不认前者(12.40.0 的 <c>AsIChatClient</c> 里没有任何 reasoning 映射),只能把
+    /// <c>thinking</c> 直接塞进请求体。
+    /// </item>
+    /// </list>
+    /// </summary>
+    /// <remarks>
+    /// <b>实测约束(2026-08-15,Anthropic 12.40.0,本地假端点抓包核对过流式与非流式两条路)</b>:
+    /// <c>MessageCreateParams</c> 的 <c>required</c> 成员(<c>MaxTokens</c> / <c>Model</c> / <c>Messages</c>)
+    /// 在 raw 对象里必然有值,而适配器<b>只覆盖 Messages</b> —— MaxTokens 与 Model 以 raw 里的为准,
+    /// <c>ChatOptions.MaxOutputTokens</c> 和 <c>AsIChatClient(model, maxTokens)</c> 都被无视。
+    /// 所以这里必须把真实的模型与输出上限一并填进去,否则请求会带着占位值发出去。
+    /// 另:开思考时 Anthropic 要求 <c>max_tokens > budget_tokens</c>,且 temperature 只能是 1 或不填
+    /// (本插件从不设 Temperature)。
+    /// </remarks>
+    public static void ApplyReasoning(ChatOptions options, AiProviderConfig provider)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(provider);
+        if (provider.Reasoning == ReasoningLevel.Default)
+        {
+            return;
+        }
+
+        options.Reasoning = provider.Reasoning == ReasoningLevel.Off
+            ? new ReasoningOptions { Effort = ReasoningEffort.None, Output = ReasoningOutput.None }
+            : new ReasoningOptions
+            {
+                Effort = provider.Reasoning switch
+                {
+                    ReasoningLevel.Low => ReasoningEffort.Low,
+                    ReasoningLevel.High => ReasoningEffort.High,
+                    _ => ReasoningEffort.Medium
+                },
+                // 要的就是把思考过程显示出来,能给全文就别只给摘要
+                Output = ReasoningOutput.Full
+            };
+
+        if (provider.Protocol != ChatProtocol.AnthropicMessages)
+        {
+            return;
+        }
+
+        (int budget, int maxTokens) = AnthropicThinkingBudget(provider);
+        ThinkingConfigParam thinking = provider.Reasoning == ReasoningLevel.Off
+            ? new ThinkingConfigDisabled()
+            : new ThinkingConfigEnabled(budget);
+        options.RawRepresentationFactory = _ => new MessageCreateParams
+        {
+            // Messages 会被适配器覆盖成真正的对话;MaxTokens/Model 不会,必须给真值(见 remarks)
+            Messages = [],
+            MaxTokens = maxTokens,
+            Model = provider.Model,
+            Thinking = thinking
+        };
+    }
+
+    /// <summary>
+    /// 算 Anthropic 的思考预算与配套的输出上限:预算不得低于协议下限,也必须小于 max_tokens
+    /// (给正文留够 <see cref="AnthropicMinThinkingBudget" /> 的余量);
+    /// 用户把输出上限设得过小时,把上限抬到刚好放得下,而不是悄悄不思考。
+    /// </summary>
+    private static (int Budget, int MaxTokens) AnthropicThinkingBudget(AiProviderConfig provider)
+    {
+        int desired = provider.Reasoning switch
+        {
+            ReasoningLevel.Low => 2048,
+            ReasoningLevel.High => 16384,
+            _ => 4096
+        };
+        int budget = Math.Clamp(desired, AnthropicMinThinkingBudget,
+            Math.Max(AnthropicMinThinkingBudget, provider.MaxTokens - AnthropicMinThinkingBudget));
+        return (budget, Math.Max(provider.MaxTokens, budget + AnthropicMinThinkingBudget));
     }
 
     private static OpenAIClient CreateOpenAiClient(AiProviderConfig provider, string? apiKey)
