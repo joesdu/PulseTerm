@@ -505,33 +505,38 @@ public sealed partial class ChatPanelViewUiTests
         });
     }
 
-    /// <summary>
-    /// 一轮结束后回复气泡底部要挂出"复制整段"与"时间 · 模型"(不显示积分与点赞/差评)。
-    /// 这里让请求打向一个必定拒绝的端口:成功与失败走的是同一个 finally,收尾照样发生。
-    /// </summary>
+    /// <summary>一轮结束后回复气泡底部要挂出"复制整段"与"时间 · 模型"(不显示积分与点赞/差评)。</summary>
     [TestMethod]
     public void AssistantReply_EndsWithCopyButton_AndModelStamp()
     {
         OnUi(async () =>
         {
+            using var stub = new SseStub("""
+            data: {"id":"1","object":"chat.completion.chunk","created":1,"model":"m","choices":[{"index":0,"delta":{"content":"好的。"},"finish_reason":"stop"}]}
+
+            data: [DONE]
+
+
+            """);
+
             using var context = new TestPluginContext();
             var provider = new AiProviderConfig
             {
                 Name = "test",
-                BaseUrl = "http://127.0.0.1:1/v1",
+                BaseUrl = stub.BaseUrl,
                 Model = "some-model-id"
             };
             await new AiSettingsStore(context).SaveAsync(new AiSettings
             {
                 Providers = [provider],
-                ActiveProviderId = provider.Id
+                ActiveProviderId = provider.Id,
+                SuggestFollowUps = false
             });
 
             (Window window, ChatPanelView panel) = await ShowAsync(context);
             try
             {
                 panel.SendExternal("随便说点什么");
-                // 连接被拒也要走完 SDK 的重试退避才落到 finally,这里等它,而不是猜一个拍数
                 StackPanel messages = Find<StackPanel>(panel, "MessagesPanel");
                 Assert.IsTrue(await WaitForAsync(() => Footers(messages).Count > 0),
                     "一轮结束后回复气泡应当挂出底部元信息条");

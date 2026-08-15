@@ -30,7 +30,7 @@ public sealed class McpManager(IPluginContext context) : IAsyncDisposable
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     /// <summary>危险操作审批(与 AgentToolbox 共用同一交互)。未设置视为拒绝。</summary>
-    public Func<string, Task<bool>>? ApprovalHandler { get; set; }
+    public Func<ApprovalRequest, Task<bool>>? ApprovalHandler { get; set; }
 
     /// <summary>免审批开关(跟随用户的 Auto-approve 设置)。</summary>
     public bool AutoApprove { get; set; }
@@ -199,8 +199,16 @@ public sealed class McpManager(IPluginContext context) : IAsyncDisposable
     private void CollectTools(List<AITool> sink, HashSet<string> usedNames, McpServerConfig server, IList<McpClientTool> tools)
     {
         string prefix = McpConfigParser.SanitizeToolPrefix(server.Name);
+        HashSet<string> disabled = new(
+            server.DisabledTools.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+            StringComparer.OrdinalIgnoreCase);
         foreach (McpClientTool tool in tools)
         {
+            // 用户屏蔽掉的工具直接不给模型看见:工具太多既占上下文又容易被误调
+            if (disabled.Contains(tool.Name))
+            {
+                continue;
+            }
             string name = $"{prefix}_{tool.Name}";
             if (name.Length > 64)
             {
@@ -248,9 +256,11 @@ public sealed class McpManager(IPluginContext context) : IAsyncDisposable
                 {
                     return "No approval channel available; the call was not executed.";
                 }
-                string summary = $"mcp:{serverName} · {Name}: {SerializeArguments(arguments)}";
+                // 记忆键到"服务器 + 工具名"为止:同一个工具会被反复调用,但换工具仍要点头
+                var request = new ApprovalRequest($"mcp:{serverName} · {Name}", SerializeArguments(arguments),
+                    $"mcp:{serverName}:{Name}");
                 // 用户点停止时不再傻等审批
-                if (!await handler(summary).WaitAsync(cancellationToken).ConfigureAwait(false))
+                if (!await handler(request).WaitAsync(cancellationToken).ConfigureAwait(false))
                 {
                     return "The user DENIED this MCP tool call. Do not retry it; ask the user how to proceed.";
                 }

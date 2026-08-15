@@ -24,8 +24,8 @@ public sealed class AgentToolbox(IPluginContext context)
     /// <summary>当前选中的目标会话 id(由聊天面板提供;null = 未选)。</summary>
     public Func<string?>? SessionIdProvider { get; set; }
 
-    /// <summary>危险操作审批(参数为将执行的命令/输入文本,返回是否放行)。未设置视为拒绝。</summary>
-    public Func<string, Task<bool>>? ApprovalHandler { get; set; }
+    /// <summary>危险操作审批(返回是否放行)。未设置视为拒绝。</summary>
+    public Func<ApprovalRequest, Task<bool>>? ApprovalHandler { get; set; }
 
     /// <summary>免审批开关(用户显式打开才生效)。</summary>
     public bool AutoApprove { get; set; }
@@ -93,7 +93,10 @@ public sealed class AgentToolbox(IPluginContext context)
         {
             return NoSessionMessage;
         }
-        if (!await ApproveAsync($"run_command: {command}", cancellationToken).ConfigureAwait(false))
+        // 记忆键取命令名(第一个词):同一次排查里 ls/cat/systemctl 会被反复调用,
+        // 一条条点太折磨人;但键只到命令名为止,换个命令仍要重新点头。
+        if (!await ApproveAsync(new ApprovalRequest("run_command", command, $"run_command:{FirstWord(command)}"),
+                cancellationToken).ConfigureAwait(false))
         {
             return "The user DENIED execution of this command. Do not retry it; ask the user how to proceed.";
         }
@@ -199,7 +202,9 @@ public sealed class AgentToolbox(IPluginContext context)
         }
         // 审批摘要带上前几行内容:用户要看清到底写了什么,而不只是路径。
         string preview = content.Length <= 400 ? content : content[..400] + "…";
-        if (!await ApproveAsync($"write_remote_file: {path}\n{preview}", cancellationToken).ConfigureAwait(false))
+        // 不给记忆键:每次写的路径与内容都不同,"总是允许"在这里等于放弃把关
+        if (!await ApproveAsync(new ApprovalRequest("write_remote_file", $"{path}\n{preview}"), cancellationToken)
+                .ConfigureAwait(false))
         {
             return "The user DENIED writing this file. Do not retry; ask the user how to proceed.";
         }
@@ -223,7 +228,8 @@ public sealed class AgentToolbox(IPluginContext context)
         {
             return NoSessionMessage;
         }
-        if (!await ApproveAsync($"write_terminal: {text}", cancellationToken).ConfigureAwait(false))
+        // 同样不给记忆键:往用户眼前的终端里敲字,每次都该问
+        if (!await ApproveAsync(new ApprovalRequest("write_terminal", text), cancellationToken).ConfigureAwait(false))
         {
             return "The user DENIED typing into the terminal. Do not retry; ask the user how to proceed.";
         }
@@ -247,7 +253,7 @@ public sealed class AgentToolbox(IPluginContext context)
 
     private string? ResolveSessionId() => SessionIdProvider?.Invoke();
 
-    private async Task<bool> ApproveAsync(string summary, CancellationToken cancellationToken)
+    private async Task<bool> ApproveAsync(ApprovalRequest request, CancellationToken cancellationToken)
     {
         if (AutoApprove)
         {
@@ -258,6 +264,17 @@ public sealed class AgentToolbox(IPluginContext context)
             return false;
         }
         // 用户点了停止时,不再傻等审批
-        return await handler(summary).WaitAsync(cancellationToken).ConfigureAwait(false);
+        return await handler(request).WaitAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>命令的第一个词(去掉前导的 sudo,否则所有命令的记忆键都是 sudo)。</summary>
+    private static string FirstWord(string command)
+    {
+        string[] parts = command.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length == 0)
+        {
+            return "";
+        }
+        return parts[0] == "sudo" && parts.Length > 1 ? $"sudo {parts[1]}" : parts[0];
     }
 }

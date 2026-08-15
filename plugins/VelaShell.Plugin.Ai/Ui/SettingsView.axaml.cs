@@ -86,6 +86,16 @@ public partial class SettingsView : UserControl
         ReasoningHintText.Text = _loc["ReasoningHint"];
         PromptCacheCheck.Content = _loc["PromptCache"];
         PromptCacheHintText.Text = _loc["PromptCacheHint"];
+        TemperatureLabel.Text = _loc["Temperature"];
+        TopPLabel.Text = _loc["TopP"];
+        StopLabel.Text = _loc["StopSequences"];
+        SamplingHintText.Text = _loc["SamplingHint"];
+        PriceInLabel.Text = _loc["PriceIn"];
+        PriceOutLabel.Text = _loc["PriceOut"];
+        PriceCachedLabel.Text = _loc["PriceCached"];
+        PriceHintText.Text = _loc["PriceHint"];
+        ProviderPromptLabel.Text = _loc["ProviderPrompt"];
+        McpDisabledToolsLabel.Text = _loc["McpDisabledTools"];
         // 语言切换时下拉项也要跟着换,选中项按索引留住
         int reasoning = ReasoningCombo.SelectedIndex;
         ReasoningCombo.ItemsSource = ReasoningKeys.Select(key => _loc[key]).ToList();
@@ -152,6 +162,14 @@ public partial class SettingsView : UserControl
             MaxInputTokensBox.Text = provider?.MaxInputTokens.ToString() ?? "";
             ReasoningCombo.SelectedIndex = provider is null ? -1 : (int)provider.Reasoning;
             PromptCacheCheck.IsChecked = provider?.PromptCaching ?? true;
+            // 留空 = 不发这个参数,所以 null 就显示空串而不是 0
+            TemperatureBox.Text = provider?.Temperature?.ToString() ?? "";
+            TopPBox.Text = provider?.TopP?.ToString() ?? "";
+            StopBox.Text = provider?.StopSequences ?? "";
+            PriceInBox.Text = Money(provider?.InputPricePerMillion);
+            PriceOutBox.Text = Money(provider?.OutputPricePerMillion);
+            PriceCachedBox.Text = Money(provider?.CachedInputPricePerMillion);
+            ProviderPromptBox.Text = provider?.SystemPrompt ?? "";
             UpdateProtocolOnlyFields();
             ApiKeyBox.Text = "";
             bool hasSelection = provider is not null;
@@ -177,6 +195,17 @@ public partial class SettingsView : UserControl
             _loadingEditor = false;
         }
     }
+
+    /// <summary>空串表示"不发这个参数",所以解析失败与留空都返回 null。</summary>
+    private static float? ParseOptional(string? text)
+        => float.TryParse(text?.Trim(), out float value) ? value : null;
+
+    /// <summary>单价:解析不出来就当没填(0 = 不估算成本)。</summary>
+    private static double ParsePrice(string? text)
+        => double.TryParse(text?.Trim(), out double value) && value > 0 ? value : 0;
+
+    /// <summary>0 显示成空串 —— 免得每个新接入的三个单价框里都摆着个 0 招人误会。</summary>
+    private static string Money(double? value) => value is > 0 ? value.Value.ToString("0.####") : "";
 
     /// <summary>只对某一种协议成立的选项跟着协议下拉显隐(现在只有 Anthropic 的提示词缓存)。</summary>
     private void UpdateProtocolOnlyFields()
@@ -217,6 +246,13 @@ public partial class SettingsView : UserControl
             ? (ReasoningLevel)ReasoningCombo.SelectedIndex
             : provider.Reasoning;
         provider.PromptCaching = PromptCacheCheck.IsChecked == true;
+        provider.Temperature = ParseOptional(TemperatureBox.Text);
+        provider.TopP = ParseOptional(TopPBox.Text);
+        provider.StopSequences = StopBox.Text ?? "";
+        provider.InputPricePerMillion = ParsePrice(PriceInBox.Text);
+        provider.OutputPricePerMillion = ParsePrice(PriceOutBox.Text);
+        provider.CachedInputPricePerMillion = ParsePrice(PriceCachedBox.Text);
+        provider.SystemPrompt = string.IsNullOrWhiteSpace(ProviderPromptBox.Text) ? null : ProviderPromptBox.Text;
         _settings.SystemPrompt = string.IsNullOrWhiteSpace(SystemPromptBox.Text) ? null : SystemPromptBox.Text;
         _settings.SuggestFollowUps = SuggestFollowUpsCheck.IsChecked == true;
         if (int.TryParse(PanelWidthBox.Text?.Trim(), out int panelWidth))
@@ -338,6 +374,7 @@ public partial class SettingsView : UserControl
             McpEnvBox.Text = server?.EnvironmentVariables ?? "";
             McpUrlBox.Text = server?.Url ?? "";
             McpHeadersBox.Text = server?.Headers ?? "";
+            McpDisabledToolsBox.Text = server?.DisabledTools ?? "";
             bool hasSelection = server is not null;
             McpEnabledCheck.IsEnabled = hasSelection;
             McpSaveButton.IsEnabled = hasSelection;
@@ -442,6 +479,7 @@ public partial class SettingsView : UserControl
         target.EnvironmentVariables = McpEnvBox.Text ?? "";
         target.Url = McpUrlBox.Text?.Trim() ?? "";
         target.Headers = McpHeadersBox.Text ?? "";
+        target.DisabledTools = McpDisabledToolsBox.Text ?? "";
     }
 
     private async Task PersistAsync(bool notify)

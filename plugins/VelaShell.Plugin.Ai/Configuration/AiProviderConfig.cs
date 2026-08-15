@@ -79,6 +79,31 @@ public sealed class AiProviderConfig
     /// </summary>
     public bool PromptCaching { get; set; } = true;
 
+    /// <summary>采样温度;null = 不发这个参数,用服务端默认。</summary>
+    /// <remarks>开思考的 Anthropic 模型只接受 temperature=1 或不填,那种情况下这里应留空。</remarks>
+    public float? Temperature { get; set; }
+
+    /// <summary>核采样 top_p;null = 不发。与 <see cref="Temperature" /> 一般只调一个。</summary>
+    public float? TopP { get; set; }
+
+    /// <summary>停止序列(每行一条);为空则不发。</summary>
+    public string StopSequences { get; set; } = "";
+
+    /// <summary>
+    /// 这个接入专用的系统提示词。非空时盖过全局那份 ——
+    /// 不同模型吃的提示词风格不一样,一份全局的按不住。
+    /// </summary>
+    public string? SystemPrompt { get; set; }
+
+    /// <summary>每百万输入 token 的价格(货币由用户自己心里有数);0 = 不估算成本。</summary>
+    public double InputPricePerMillion { get; set; }
+
+    /// <summary>每百万输出 token 的价格;0 = 不估算。</summary>
+    public double OutputPricePerMillion { get; set; }
+
+    /// <summary>每百万<b>缓存命中</b>输入 token 的价格;0 = 按普通输入价算。</summary>
+    public double CachedInputPricePerMillion { get; set; }
+
     /// <summary>思考档位;<see cref="ReasoningLevel.Default" /> 时请求里不带该参数。</summary>
     /// <remarks>
     /// 经 <c>ChatOptions.Reasoning</c> 下发,由各家适配器翻译成自己的字段

@@ -40,6 +40,13 @@ public sealed class BorderGlowOverlay : Control
     private double _perimeter;
     private double _topRun, _sideRun, _arcRun;
 
+    // 每帧重建这些是纯浪费,而且浪费在流式渲染最忙的那条线程上:
+    // 路径只随尺寸变,画笔只随配色变(颜色由 i/steps 决定,与相位无关)。
+    private StreamGeometry? _path;
+    private Pen? _railPen;
+    private Pen[] _cometPens = [];
+    private (Color Core, Color Halo, Color Rail, int Steps) _penKey;
+
     /// <summary>流光走完一整圈的时长。</summary>
     public TimeSpan Cycle { get; set; } = TimeSpan.FromMilliseconds(3400);
 
@@ -91,6 +98,11 @@ public sealed class BorderGlowOverlay : Control
 
     private void Tick()
     {
+        // 面板被切走(标签页在后台)时别再推进重绘 —— 没人看的动画不值得占 UI 线程
+        if (!IsEffectivelyVisible)
+        {
+            return;
+        }
         Phase = (Phase + (Interval / Cycle)) % 1.0;
         InvalidateVisual();
     }
@@ -109,24 +121,43 @@ public sealed class BorderGlowOverlay : Control
             return;
         }
         Measure(bounds);
+        EnsurePens();
 
         // 整圈的暗色轨道:盖掉底下那圈(聚焦时正是强调色的)边框,流光才有的可跳,
         // 也给了两端"淡回去"的落点。
-        context.DrawGeometry(null, new Pen(new SolidColorBrush(Rail), Weight), BuildPath());
+        context.DrawGeometry(null, _railPen, _path!);
 
         double head = Phase * _perimeter;
-        int steps = Math.Max(2, (int)(CometLength / Step));
-        // 先铺一层压暗、加粗的同款渐变当光晕,再压一道细的本色 —— 两层用的是同一条连续曲线,
-        // 所以不会出台阶(之前用不同透明度的硬边线叠,就是台阶的来源)。
-        for (int i = 0; i < steps; i++)
+        double half = _perimeter / 2;
+        for (int i = 0; i < _cometPens.Length; i++)
         {
-            double u = (double)i / steps; // 0 = 光头(行进方向那一端),1 = 光尾
-            var pen = new Pen(new SolidColorBrush(Ramp(u)), Weight, lineCap: PenLineCap.Round);
             double from = head - (i * Step);
             double to = from - Step;
             // 两道流光恒隔半圈:同一段偏移半个周长再画一次
-            context.DrawLine(pen, PointAt(from), PointAt(to));
-            context.DrawLine(pen, PointAt(from + (_perimeter / 2)), PointAt(to + (_perimeter / 2)));
+            context.DrawLine(_cometPens[i], PointAt(from), PointAt(to));
+            context.DrawLine(_cometPens[i], PointAt(from + half), PointAt(to + half));
+        }
+    }
+
+    /// <summary>
+    /// 画笔按"配色 + 段数"缓存。第 i 段的颜色只由 <c>i / steps</c> 决定、与相位无关 ——
+    /// 每帧重新 new 一批 Pen/Brush 是白扔 GC,而且扔在流式渲染最忙的那条线程上。
+    /// </summary>
+    private void EnsurePens()
+    {
+        int steps = Math.Max(2, (int)(CometLength / Step));
+        (Color, Color, Color, int) key = (Core, Halo, Rail, steps);
+        if (_railPen is not null && _penKey == key)
+        {
+            return;
+        }
+        _penKey = key;
+        _railPen = new Pen(new SolidColorBrush(Rail), Weight);
+        _cometPens = new Pen[steps];
+        for (int i = 0; i < steps; i++)
+        {
+            // u:0 = 光头(行进方向那一端),1 = 光尾
+            _cometPens[i] = new Pen(new SolidColorBrush(Ramp((double)i / steps)), Weight, lineCap: PenLineCap.Round);
         }
     }
 
@@ -166,6 +197,7 @@ public sealed class BorderGlowOverlay : Control
         _sideRun = bounds.Height - (2 * _radius);
         _arcRun = Math.PI * _radius / 2;
         _perimeter = (2 * _topRun) + (2 * _sideRun) + (4 * _arcRun);
+        _path = BuildPath(); // 路径只随尺寸变,别每帧重建
     }
 
     /// <summary>

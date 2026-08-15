@@ -4,6 +4,8 @@ using System.Text;
 using NSubstitute;
 using VelaShell.Core.Data;
 using VelaShell.Core.Models;
+using VelaShell.Core.Net;
+using VelaShell.Infrastructure.Net;
 
 namespace VelaShell.Infrastructure.Tests.Net;
 

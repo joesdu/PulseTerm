@@ -1,0 +1,134 @@
+using Microsoft.Extensions.AI;
+using VelaShell.Plugin.Ai.Chat;
+
+namespace VelaShell.Plugin.Ai.Tests;
+
+/// <summary>
+/// 请求上下文的装配:窗口裁剪与相邻同角色合并。
+/// 这两件事以前埋在面板的发送方法里、只能靠起 headless 窗口间接摸,现在是纯函数。
+/// </summary>
+[TestClass]
+[TestCategory("Plugins")]
+public sealed class ContextBuilderTests
+{
+    private static ChatMessage User(string text) => new(ChatRole.User, text);
+
+    private static ChatMessage Assistant(string text) => new(ChatRole.Assistant, text);
+
+    /// <summary>约 n 个 token 的 ASCII 文本(估算是 4 字符 1 token)。</summary>
+    private static string Bulk(int tokens) => new('x', tokens * 4);
+
+    [TestMethod]
+    public void Build_AlwaysPutsTheSystemPromptFirst()
+    {
+        RequestContext context = ContextBuilder.Build("你是助手", [User("问题")], windowTokens: 0, reserveTokens: 0);
+
+        Assert.AreEqual(ChatRole.System, context.Messages[0].Role);
+        Assert.AreEqual("你是助手", context.Messages[0].Text);
+        Assert.AreEqual(0, context.DroppedMessages);
+    }
+
+    /// <summary>窗口未知(填 0)时不许擅自丢用户的上下文 —— 宁可让服务端报超长。</summary>
+    [TestMethod]
+    public void Build_WithUnknownWindow_KeepsEverything()
+    {
+        List<ChatMessage> history = [.. Enumerable.Range(0, 40).Select(i => User($"第 {i} 条 {Bulk(500)}"))];
+
+        RequestContext context = ContextBuilder.Build("s", history, windowTokens: 0, reserveTokens: 0);
+
+        Assert.AreEqual(0, context.DroppedMessages);
+    }
+
+    [TestMethod]
+    public void Build_WhenHistoryExceedsTheWindow_DropsOldestAndReportsHowMany()
+    {
+        List<ChatMessage> history = [];
+        for (int i = 0; i < 20; i++)
+        {
+            history.Add(User($"问 {i} {Bulk(200)}"));
+            history.Add(Assistant($"答 {i} {Bulk(200)}"));
+        }
+
+        RequestContext context = ContextBuilder.Build("s", history, windowTokens: 4000, reserveTokens: 1000);
+
+        Assert.IsGreaterThan(0, context.DroppedMessages, "装不下就该裁");
+        Assert.IsLessThan(4000, context.EstimatedTokens, "裁完要真的落进窗口");
+        // 最后一轮永远保得住,否则等于把用户刚问的问题也丢了
+        Assert.AreEqual(history[^1].Text, context.Messages[^1].Text);
+    }
+
+    /// <summary>
+    /// 只在用户消息处下刀:从 assistant / 工具结果中间切,会留下没有来由的半截上下文,
+    /// 更糟的是把工具调用和它的结果拆开。
+    /// </summary>
+    [TestMethod]
+    public void Build_CutsOnlyAtUserTurns()
+    {
+        List<ChatMessage> history = [];
+        for (int i = 0; i < 20; i++)
+        {
+            history.Add(User($"问 {i} {Bulk(200)}"));
+            history.Add(Assistant($"答 {i} {Bulk(200)}"));
+        }
+
+        RequestContext context = ContextBuilder.Build("s", history, windowTokens: 4000, reserveTokens: 1000);
+
+        Assert.AreEqual(ChatRole.User, context.Messages[1].Role, "系统提示词之后必须从一条用户消息开始");
+    }
+
+    /// <summary>
+    /// 取消一轮后历史里会留下没有回复的 user 消息,下一轮就是两条挨着的 user。
+    /// 实测 Anthropic 适配器不合并、原样发两条,而协议要求角色交替 —— 这里必须并起来。
+    /// </summary>
+    [TestMethod]
+    public void Build_MergesAdjacentSameRoleMessages()
+    {
+        List<ChatMessage> history =
+        [
+            User("被取消的那条"),
+            User("重新问一遍"),
+            Assistant("回答"),
+            User("追问")
+        ];
+
+        RequestContext context = ContextBuilder.Build("s", history, windowTokens: 0, reserveTokens: 0);
+
+        Assert.AreSequenceEqual(
+            [ChatRole.System, ChatRole.User, ChatRole.Assistant, ChatRole.User],
+            [.. context.Messages.Select(m => m.Role)],
+            "相邻的两条 user 要并成一条,角色必须交替");
+        StringAssert.Contains(context.Messages[1].Text, "被取消的那条");
+        StringAssert.Contains(context.Messages[1].Text, "重新问一遍");
+    }
+
+    /// <summary>合并不能就地改历史里的对象 —— 那会把用户的原始记录改花。</summary>
+    [TestMethod]
+    public void Build_DoesNotMutateTheCallersHistory()
+    {
+        ChatMessage first = User("第一条");
+        List<ChatMessage> history = [first, User("第二条")];
+
+        ContextBuilder.Build("s", history, windowTokens: 0, reserveTokens: 0);
+
+        Assert.HasCount(2, history, "历史条数不能变");
+        Assert.AreEqual("第一条", first.Text, "历史里的消息内容不能被改写");
+    }
+
+    [TestMethod]
+    public void Estimate_CountsWideCharactersHeavierThanAscii()
+    {
+        // 同样 12 个字符:ASCII 约 3 token,中文约 8 token
+        Assert.IsLessThan(ContextBuilder.Estimate("你好世界你好世界你好世界"), ContextBuilder.Estimate("abcdefghijkl"));
+    }
+
+    [TestMethod]
+    public void Estimate_IncludesToolCallsAndResults()
+    {
+        var call = new ChatMessage(ChatRole.Assistant,
+            [new FunctionCallContent("c1", "run_command", new Dictionary<string, object?> { ["command"] = Bulk(50) })]);
+        var result = new ChatMessage(ChatRole.Tool, [new FunctionResultContent("c1", Bulk(100))]);
+
+        Assert.IsGreaterThan(40, ContextBuilder.Estimate(call), "工具调用的参数要算进去");
+        Assert.IsGreaterThan(90, ContextBuilder.Estimate(result), "工具结果往往是最占地方的那部分");
+    }
+}

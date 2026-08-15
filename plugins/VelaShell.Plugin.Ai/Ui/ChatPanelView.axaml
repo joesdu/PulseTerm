@@ -51,6 +51,29 @@
       <Setter Property="Foreground" Value="{DynamicResource VelaTextTertiary}" />
     </Style>
 
+    <!-- 消息上的编辑/删除:平时隐形,鼠标移到这条消息上才浮出来 -->
+    <Style Selector="StackPanel.msgActions">
+      <Setter Property="Opacity" Value="0" />
+      <Setter Property="IsHitTestVisible" Value="False" />
+    </Style>
+    <Style Selector="Border.msg:pointerover StackPanel.msgActions">
+      <Setter Property="Opacity" Value="1" />
+      <Setter Property="IsHitTestVisible" Value="True" />
+    </Style>
+
+    <!-- "显示更早的 N 条":早期消息被移出可视树后留下的入口 -->
+    <Style Selector="Border.earlierBanner">
+      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderSecondary}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Padding" Value="10,5" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.earlierBanner:pointerover">
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaAccent}" />
+    </Style>
+
     <!-- 输入框上方的建议药丸(同 Copilot 的后续提问):整枚可点,悬停换强调描边 -->
     <Style Selector="Border.suggestChip">
       <Setter Property="Background" Value="{DynamicResource VelaBgSurface}" />
@@ -520,9 +543,16 @@
 
         <!-- 只放"发这一条要用什么":模型 / Agent / 发送。模型那列是 * —— 面板收窄时
              先挤模型名(下拉里仍看得全),而不是把发送按钮挤出边界。 -->
-        <Grid x:Name="InputToolbar" Grid.Row="1" ColumnDefinitions="*,Auto,Auto" Margin="6,0,5,5">
-          <ComboBox x:Name="ProviderCombo" MaxWidth="230" HorizontalAlignment="Left" />
-          <ToggleButton x:Name="AgentToggle" Grid.Column="1" Theme="{StaticResource AiChipToggleTheme}"
+        <Grid x:Name="InputToolbar" Grid.Row="1" ColumnDefinitions="Auto,*,Auto,Auto" Margin="6,0,5,5">
+          <Button x:Name="AttachButton" Theme="{StaticResource AiGhostIconButtonTheme}" Margin="0,0,4,0">
+            <Viewbox Width="13" Height="13">
+              <Path Width="24" Height="24" Data="{DynamicResource Icon.plus}"
+                    Stroke="{DynamicResource VelaTextMuted}" StrokeThickness="2"
+                    StrokeLineCap="Round" StrokeJoin="Round" />
+            </Viewbox>
+          </Button>
+          <ComboBox x:Name="ProviderCombo" Grid.Column="1" MaxWidth="230" HorizontalAlignment="Left" />
+          <ToggleButton x:Name="AgentToggle" Grid.Column="2" Theme="{StaticResource AiChipToggleTheme}"
                         Margin="6,0,0,0">
             <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
               <Viewbox Width="11" Height="11" VerticalAlignment="Center">
@@ -533,7 +563,7 @@
               <TextBlock x:Name="AgentText" VerticalAlignment="Center" />
             </StackPanel>
           </ToggleButton>
-          <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="8,0,0,0" VerticalAlignment="Center">
+          <StackPanel Grid.Column="3" Orientation="Horizontal" Margin="8,0,0,0" VerticalAlignment="Center">
             <Button x:Name="SendButton" Theme="{DynamicResource VelaAccentPillButtonTheme}"
                     Height="24" Width="34" Padding="0">
               <Viewbox Width="12" Height="12">
@@ -559,6 +589,8 @@
     </Panel>
     <!-- 建议药丸:紧贴输入框上沿(声明顺序 = 由下往上排,故排在 InputWrap 之后、状态行之前)。
          空会话给几条起手提示(不花钱),一轮答完再由模型给后续提问。 -->
+    <!-- 待发的本地附件(拖进来或 + 选的),点芯片可移除 -->
+    <WrapPanel x:Name="AttachmentBar" DockPanel.Dock="Bottom" IsVisible="False" Margin="2,6,2,0" />
     <WrapPanel x:Name="SuggestionBar" DockPanel.Dock="Bottom" IsVisible="False" Margin="2,6,2,0" />
     <TextBlock x:Name="StatusText" DockPanel.Dock="Bottom" Classes="dim" Margin="2,6,2,0" TextWrapping="Wrap" />
 
@@ -577,6 +609,9 @@
           <Button x:Name="ClearHistoryButton" Grid.Column="1" Theme="{DynamicResource VelaOutlineButtonTheme}"
                   Height="24" Padding="10,0" FontSize="{DynamicResource VelaFontSize11}" />
         </Grid>
+        <!-- 按标题搜索(本地筛已取回的摘要,不重复查库) -->
+        <TextBox x:Name="HistorySearchBox" DockPanel.Dock="Top" Margin="0,0,0,6"
+                 MinHeight="26" FontSize="{DynamicResource VelaFontSize12}" />
         <ScrollViewer HorizontalScrollBarVisibility="Disabled">
           <StackPanel x:Name="HistoryList" Spacing="4" />
         </ScrollViewer>
