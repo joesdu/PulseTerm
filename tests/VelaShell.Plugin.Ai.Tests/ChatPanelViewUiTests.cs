@@ -116,6 +116,56 @@ public sealed partial class ChatPanelViewUiTests
         });
     }
 
+    /// <summary>
+    /// 历史行尾那三枚按钮(重命名 / 导出 / 删除)必须真的能点。
+    /// </summary>
+    /// <remarks>
+    /// 它们曾经<b>整整三个全是死的</b>:为了"别让点击冒泡成打开这个会话",给按钮挂了一个
+    /// Tunnel 阶段的 PointerPressed 直接 <c>Handled = true</c> —— 那会在 Button 自己的
+    /// <c>OnPointerPressed</c> 之前就把事件吃掉,按钮进不了按下态,<c>Click</c> 永不触发。
+    /// 那个 handler 现在已经删了 —— 本来也不需要:Avalonia 的 Button 自己就会把
+    /// PointerPressed 标成 Handled,行上那个默认订阅的处理器根本收不到。
+    ///
+    /// <para>这个用例钉的是"三枚按钮的 Click 确实接了活"(拿删除验:唯一不弹系统对话框、
+    /// 效果又直接可观察的)。<b>钉不住"按下会不会被隧道阶段吞掉"</b> —— 那需要 headless 的
+    /// 真实命中测试,试过,坐标算得出来但 <c>InputHitTest</c> 落不到按钮上,成本不划算。</para>
+    /// </remarks>
+    [TestMethod]
+    public void HistoryRowButtons_AreClickable_AndDoNotOpenTheConversation()
+    {
+        OnUi(async () =>
+        {
+            using var context = new TestPluginContext();
+            var store = new ChatHistoryStore(context);
+            await store.InitAsync();
+            DateTimeOffset created = DateTimeOffset.UtcNow;
+            string id = ChatHistoryStore.NewConversationId();
+            await store.AppendAsync(id, created, 0, "user", "磁盘满了怎么查?");
+
+            (Window window, ChatPanelView panel) = await ShowAsync(context);
+            try
+            {
+                Find<ToggleButton>(panel, "HistoryToggle").IsChecked = true;
+                await PumpAsync();
+                StackPanel list = Find<StackPanel>(panel, "HistoryList");
+                Assert.HasCount(1, list.Children);
+
+                List<Button> tools = [.. list.Children[0].GetVisualDescendants().OfType<Button>()];
+                Assert.HasCount(3, tools, "行尾是 重命名 / 导出 / 删除 三枚");
+
+                tools[2].RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+                await PumpAsync();
+                Assert.IsEmpty(await store.ListSessionsAsync(), "删除要真的删掉那个会话");
+                Assert.IsEmpty(Find<StackPanel>(panel, "HistoryList").Children, "列表要跟着刷新");
+            }
+            finally
+            {
+                panel.Detach();
+                window.Close();
+            }
+        });
+    }
+
     [TestMethod]
     public void HistoryToggle_SwitchesCentreView_AndListsSavedConversations()
     {

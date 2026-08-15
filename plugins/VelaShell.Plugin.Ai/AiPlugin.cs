@@ -86,7 +86,7 @@ public sealed class AiPlugin : IVelaPlugin
             },
             () => view = new ChatPanelView(context, _store!));
         _view = view;
-        _panel.PlacementRatioChanged += ratio => _ = RememberPanelWidthAsync(ratio);
+        _panel.PlacementRatioChanged += RememberPanelWidth;
         _panel.Closed += () =>
         {
             _view?.Detach();
@@ -120,25 +120,19 @@ public sealed class AiPlugin : IVelaPlugin
     /// <remarks>
     /// 这一项<b>不在设置页里</b>:让人去填一个百分比,不如直接把他拖出来的结果记住。
     /// 宿主在拖动<b>结束</b>时才通知一次(见 <c>IPluginPanel.PlacementRatioChanged</c>),
-    /// 所以这里直接落盘,不必防抖。四舍五入到整百分比,免得配置里躺着 30.000000000000004。
+    /// 所以直接落盘,不必防抖。四舍五入到整百分比,免得配置里躺着 30.000000000000004。
+    ///
+    /// <para><b>交给面板去写,不要自己 Load-改-Save。</b>面板持有整份设置,它每次保存都是
+    /// 整体覆盖 —— 背着它写库的话,下一次换模式/勾工具就会拿它内存里那份旧宽度盖回来,
+    /// 表现就是"拖了不算数,重开还是老样子"。</para>
     /// </remarks>
-    private async Task RememberPanelWidthAsync(double ratio)
+    private void RememberPanelWidth(double ratio)
     {
-        int percent = Math.Clamp((int)Math.Round(ratio * 100), 15, 85);
-        try
+        if (!double.IsFinite(ratio))
         {
-            AiSettings settings = await _store!.LoadAsync();
-            if (settings.PanelWidthPercent == percent)
-            {
-                return; // 没变就别写库(拖回原位、或者夹取之后落回同一个值)
-            }
-            settings.PanelWidthPercent = percent;
-            await _store.SaveAsync(settings);
+            return;
         }
-        catch (Exception ex)
-        {
-            _context!.Log.Warn($"Remembering the panel width failed: {ex.Message}");
-        }
+        _view?.RememberPanelWidth(Math.Clamp((int)Math.Round(ratio * 100), 15, 85));
     }
 
     private async Task ExplainTerminalAsync(CancellationToken cancellationToken)

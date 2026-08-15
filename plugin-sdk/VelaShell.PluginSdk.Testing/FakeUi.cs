@@ -78,11 +78,26 @@ public sealed class FakeUi : IUiApi
     /// <summary>最近打开的面板;尚未打开过时抛出。</summary>
     public FakePanel LastPanel => Panels[^1];
 
+    /// <summary>
+    /// 打开面板时<b>立刻</b>调用内容工厂,和真实宿主一致。
+    /// </summary>
+    /// <remarks>
+    /// 默认关着(见 <see cref="FakePanel" />:测试环境未必装载 Avalonia)。
+    /// 但插件常在 <c>ShowPanelAsync</c> 返回后立刻使用工厂里造出来的那个视图实例
+    /// (工厂是它把实例交出去的唯一时机);惰性工厂会让那个引用一直是 null,
+    /// 于是测试跑的是一条现实中不存在的路径。带 Avalonia 的测试请打开它。
+    /// </remarks>
+    public bool CreateContentEagerly { get; set; }
+
     /// <inheritdoc />
     public Task<IPluginPanel> ShowPanelAsync(PanelOptions options, Func<object> contentFactory, CancellationToken cancellationToken = default)
     {
         var panel = new FakePanel(options, contentFactory);
         Panels.Add(panel);
+        if (CreateContentEagerly)
+        {
+            panel.CreateContent();
+        }
         return Task.FromResult<IPluginPanel>(panel);
     }
 }

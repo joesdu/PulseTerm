@@ -43,6 +43,7 @@ public sealed class AgentToolbox(IPluginContext context)
         ("list_remote_directory", "经 SFTP 列出远端目录", true),
         ("run_command", "在所选会话上执行一次性命令(独立通道,不进用户终端)", false),
         ("write_remote_file", "经 SFTP 覆盖写入远端文本文件", false),
+        ("upload_local_file", "把本机文件(如 MCP 工具刚生成的)经 SFTP 传到服务器", false),
         ("write_terminal", "把文本敲进用户可见的终端", false)
     ];
 
@@ -66,6 +67,10 @@ public sealed class AgentToolbox(IPluginContext context)
                 "List a directory on the selected SSH session via SFTP (name, type, size, modified time). Use it to find files before reading or editing them."), true),
             ("write_remote_file", AIFunctionFactory.Create(WriteRemoteFileAsync, "write_remote_file",
                 "Overwrite (or create) a text file on the selected SSH session via SFTP. Requires user approval. Always read the file first and send back its full new content — this replaces the file, it does not patch it."), false),
+            ("upload_local_file", AIFunctionFactory.Create(UploadLocalFileAsync, "upload_local_file",
+                "Upload a file from the USER'S OWN MACHINE to the SSH server via SFTP. Requires user approval. "
+                + "Use this after a local MCP tool produced a file (MCP servers run locally, so their output is NOT on the SSH server): "
+                + "upload it to make it available there."), false),
             ("write_terminal", AIFunctionFactory.Create(WriteTerminalAsync, "write_terminal",
                 "Type text into the user's visible terminal of the selected SSH session, as if the user typed it. A trailing newline executes the command. The host will additionally ask the user for permission. Use only when the user explicitly wants something typed into their terminal."), false)
         };
@@ -244,6 +249,59 @@ public sealed class AgentToolbox(IPluginContext context)
         catch (Exception ex)
         {
             return $"Failed to write file: {ex.Message}";
+        }
+    }
+
+    /// <summary>本机文件上传的大小上限:比文本写入宽松得多,但也别让一次调用把内存吃光。</summary>
+    private const long MaxUploadBytes = 32 * 1024 * 1024;
+
+    /// <summary>
+    /// 把<b>本机</b>的一个文件传到服务器。
+    /// </summary>
+    /// <remarks>
+    /// 这条是为 MCP 工具准备的。MCP 服务器跑在用户自己的机器上,它产出的文件落在本机
+    /// (通常是用户给那台服务器配的工作目录),既不在 SSH 服务器上,也不在终端的当前目录里 ——
+    /// 用户找不到、模型还常常当成远端路径去汇报。有了这条,模型可以把刚生成的文件显式送上去。
+    /// </remarks>
+    private async Task<string> UploadLocalFileAsync(
+        [Description("Absolute path of a file on the user's own machine (for example one an MCP tool just produced in its working directory).")] string localPath,
+        [Description("Absolute destination path on the SSH server (parent directory must exist).")] string remotePath,
+        CancellationToken cancellationToken = default)
+    {
+        if (ResolveSessionId() is not { } sessionId)
+        {
+            return NoSessionMessage;
+        }
+        localPath = (localPath ?? "").Trim();
+        if (!Path.IsPathRooted(localPath))
+        {
+            return "local_path must be an absolute path on the user's machine.";
+        }
+        if (!File.Exists(localPath))
+        {
+            return $"No such local file: {localPath}. List the MCP working directory first, or ask the tool where it wrote the file.";
+        }
+        var info = new FileInfo(localPath);
+        if (info.Length > MaxUploadBytes)
+        {
+            return $"Refusing to upload more than {MaxUploadBytes / (1024 * 1024)} MB in one call ({localPath} is {info.Length / (1024 * 1024)} MB).";
+        }
+        // 不给记忆键:每次上传的来源与去向都不同,"总是允许"在这里等于放弃把关
+        if (!await ApproveAsync(new ApprovalRequest("upload_local_file", $"{localPath}\n→ {remotePath}  ({info.Length} bytes)"),
+                cancellationToken).ConfigureAwait(false))
+        {
+            return "The user DENIED this upload. Do not retry; ask the user how to proceed.";
+        }
+        try
+        {
+            // 走 SFTP 的流式上传,别先整份读进内存 —— xmind/压缩包这类产物可以很大
+            await context.RemoteFs.UploadFileAsync(sessionId, localPath, remotePath, cancellationToken: cancellationToken)
+                         .ConfigureAwait(false);
+            return $"Uploaded {info.Length} bytes: {localPath} → {remotePath}.";
+        }
+        catch (Exception ex)
+        {
+            return $"Failed to upload: {ex.Message}";
         }
     }
 
