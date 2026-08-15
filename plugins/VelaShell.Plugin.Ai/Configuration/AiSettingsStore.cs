@@ -3,6 +3,7 @@ using Anthropic;
 using Anthropic.Models.Messages;
 using Microsoft.Extensions.AI;
 using OpenAI;
+using VelaShell.Plugin.Ai.Chat;
 using VelaShell.PluginSdk;
 
 namespace VelaShell.Plugin.Ai.Configuration;
@@ -91,16 +92,49 @@ public sealed class AiSettingsStore(IPluginContext context)
                     {
                         baseUrl = baseUrl[..^3].TrimEnd('/');
                     }
+                    // 中转站常在 Anthropic 流末尾补一行 OpenAI 习惯的 data: DONE,
+                    // 而 SDK 对每个 data: 行无条件反序列化 —— 整轮回复会在最后一刻炸掉(见 SseRepairHandler)
+                    DelegatingHandler[] handlers = [new SseRepairHandler(ReportSseDrop)];
                     // 属性为 init-only,按有无 Key 分别构造(无 Key 时留给 SDK 的环境变量回退)
                     AnthropicClient anthropic = string.IsNullOrWhiteSpace(apiKey)
-                        ? new AnthropicClient { BaseUrl = baseUrl }
-                        : new AnthropicClient { BaseUrl = baseUrl, ApiKey = apiKey };
+                        ? new AnthropicClient { BaseUrl = baseUrl, Handlers = handlers }
+                        : new AnthropicClient { BaseUrl = baseUrl, ApiKey = apiKey, Handlers = handlers };
                     return anthropic.AsIChatClient(provider.Model, provider.MaxTokens);
                 }
 
             default:
                 throw new InvalidOperationException($"Unknown protocol: {provider.Protocol}");
         }
+    }
+
+    /// <summary>已经报告过的收尾哨兵(见 <see cref="ReportSseDrop" />)。</summary>
+    private readonly HashSet<string> _reportedSentinels = [];
+
+    /// <summary>
+    /// SSE 清洗丢了一行时怎么记。
+    /// </summary>
+    /// <remarks>
+    /// 哨兵(<c>[DONE]</c> 之类)每轮对话都会来一次,报成每轮一条 Warning 就是纯噪音;
+    /// 但完全不报又会丢掉"清洗生效了"这个凭据 —— 折中成<b>每种哨兵只报头一次</b>,而且降到 Info。
+    /// 认不出来的载荷照旧每次都警告:那可能是中转站塞进来的错误信息,漏一条就变成无声的截断。
+    /// </remarks>
+    private void ReportSseDrop(string payload, bool sentinel)
+    {
+        if (!sentinel)
+        {
+            context.Log.Warn($"SSE repair: dropped an unparsable data line — {payload}");
+            return;
+        }
+        // 清洗跑在后台的搬运任务上,这个集合会被多个流并发碰到
+        lock (_reportedSentinels)
+        {
+            if (!_reportedSentinels.Add(payload))
+            {
+                return;
+            }
+        }
+        context.Log.Info(
+            $"SSE repair: this endpoint ends its stream with a non-Anthropic sentinel ({payload}); dropping it from here on.");
     }
 
     /// <summary>Anthropic 的思考预算下限(协议要求 <c>budget_tokens ≥ 1024</c>)。</summary>

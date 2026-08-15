@@ -1,4 +1,5 @@
 using System.ClientModel.Primitives;
+using System.Collections.Concurrent;
 using System.Text.Json;
 using Microsoft.Extensions.AI;
 
@@ -23,6 +24,9 @@ public static class ReasoningPeek
     /// <summary>各家用过的键,按常见度排序。</summary>
     private static readonly string[] Keys = ["reasoning", "reasoning_content", "thinking"];
 
+    /// <summary>类型能不能交给 <see cref="ModelReaderWriter" /> 回写(按类型缓存,一个类型只判一次)。</summary>
+    private static readonly ConcurrentDictionary<Type, bool> Writable = new();
+
     /// <summary>这一帧是否没有任何值得渲染的内容(那才需要去翻原始报文)。</summary>
     public static bool IsBlank(ChatResponseUpdate update)
     {
@@ -40,10 +44,19 @@ public static class ReasoningPeek
     /// 尝试从增量的原始报文里取思考文本。
     /// 取不到(不是 ClientModel 模型、报文结构不认、字段不在)一律返回 false,不抛。
     /// </summary>
+    /// <remarks>
+    /// <b>先判类型再回写,别指望 try/catch 兜住。</b>
+    /// <see cref="ModelReaderWriter.Write(object, ModelReaderWriterOptions?)" /> 对不是
+    /// <see cref="IPersistableModel{T}" /> 的对象会抛 <see cref="InvalidOperationException" />。
+    /// Anthropic 那条线的 <c>RawRepresentation</c> 正是这种(它不用 ClientModel),
+    /// 而 Anthropic 的流里 <c>ping</c> / <c>message_stop</c> 这类空帧一轮就有好几个 ——
+    /// 于是每轮对话都在调试器里刷出一串 first-chance 异常。
+    /// 异常被吃掉了不代表没代价:抛/捕获本身不便宜,刷屏还会淹掉真正该看的日志。
+    /// </remarks>
     public static bool TryRead(object? rawRepresentation, out string text)
     {
         text = "";
-        if (rawRepresentation is null)
+        if (rawRepresentation is null || !IsWritable(rawRepresentation.GetType()))
         {
             return false;
         }
@@ -73,6 +86,11 @@ public static class ReasoningPeek
             return false;
         }
     }
+
+    /// <summary>这个类型是不是 ClientModel 的可回写模型(<see cref="IPersistableModel{T}" />)。</summary>
+    internal static bool IsWritable(Type type)
+        => Writable.GetOrAdd(type, static t => Array.Exists(t.GetInterfaces(),
+            i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IPersistableModel<>)));
 
     private static void Collect(JsonElement delta, System.Text.StringBuilder builder)
     {

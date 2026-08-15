@@ -8,8 +8,8 @@ using VelaShell.PluginSdk;
 namespace VelaShell.Plugin.Ai.Ui;
 
 /// <summary>
-/// "配置工具":按来源分组(内置 / 每台 MCP 服务器)列出全部工具,逐个勾选是否暴露给模型;
-/// 每台 MCP 服务器都可以"更新工具库" —— 连上去把它现在提供的工具重新拉一遍。
+/// "配置工具":上半是 MCP 服务器的增删改查,下半按来源分组(内置 / 每台 MCP 服务器)
+/// 列出全部工具逐个勾选;每台 MCP 服务器都可以"更新工具库" —— 连上去把它现在提供的工具重新拉一遍。
 /// </summary>
 /// <remarks>
 /// 勾选状态<b>存的是"没勾的那些"</b>(<see cref="McpServerConfig.DisabledTools" /> /
@@ -36,6 +36,15 @@ public sealed class ToolPickerView : UserControl
         _loc = loc;
         _persist = persist;
 
+        // MCP 服务器在上、它们的工具勾选在下:加完一台服务器,要挑的工具就在正下方,
+        // 不必再去别的窗口,加/存/测试都会立刻重建下半页。
+        var servers = new McpServersView(context, settings, loc, persist);
+        servers.ServersChanged += Rebuild;
+
+        var content = new StackPanel { Spacing = 12 };
+        content.Children.Add(Section(loc["McpServers"], servers));
+        content.Children.Add(Section(loc["ConfigureTools"], _groups));
+
         var root = new DockPanel();
         _status.Margin = new Avalonia.Thickness(0, 8, 0, 0);
         DockPanel.SetDock(_status, Dock.Bottom);
@@ -43,10 +52,25 @@ public sealed class ToolPickerView : UserControl
         root.Children.Add(new ScrollViewer
         {
             HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
-            Content = _groups
+            // 覆盖式滚动条会压住右缘的输入框,留白放在内容上而不是 ScrollViewer.Padding
+            Content = new Border { Padding = new Avalonia.Thickness(0, 0, 14, 0), Child = content }
         });
         Content = root;
         Rebuild();
+    }
+
+    /// <summary>一节:小标题 + 内容,两节之间用它拉开层次。</summary>
+    private static Control Section(string title, Control body)
+    {
+        var stack = new StackPanel { Spacing = 8 };
+        stack.Children.Add(new TextBlock
+        {
+            Text = title,
+            FontWeight = FontWeight.SemiBold,
+            FontSize = 13
+        });
+        stack.Children.Add(body);
+        return stack;
     }
 
     /// <summary>整页重建(刷新工具库之后也走这里)。</summary>
