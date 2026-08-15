@@ -214,7 +214,7 @@ public sealed class SessionImportViewModel : ReactiveObject
     /// </summary>
     private void ApplySmartSelection()
     {
-        HashSet<string> seen = new(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> seen = [with(StringComparer.OrdinalIgnoreCase)];
         foreach (SessionImportSourceViewModel source in Sources)
         {
             foreach (SessionImportItemViewModel item in source.Items)

@@ -13,7 +13,7 @@ public sealed class PluginCommandsApi(string pluginId, ICommandRegistry registry
     : ICommandsApi, IDisposable
 {
     private readonly Lock _gate = new();
-    private readonly HashSet<string> _registered = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _registered = [with(StringComparer.Ordinal)];
     private bool _disposed;
 
     /// <inheritdoc />

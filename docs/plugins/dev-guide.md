@@ -359,6 +359,18 @@ await panel.CloseAsync();              // 程序性关闭
 - `PanelDisplayMode.Window` —— 独立窗口:进程内为宿主同款自绘卡片窗口;
   隔离进程为插件进程自己的窗口(明暗主题自动跟随宿主)。
 
+停靠标签页还可以选**落位**(`PanelOptions.Placement`,窗口模式忽略):
+
+```csharp
+new() { Title = "AI 助手", Placement = PanelPlacement.Right, PlacementRatio = 0.3 }
+```
+
+`Tabs`(默认)并入当前标签组;`Right`/`Left`/`Bottom`/`Top` 在标签区对应外沿拆出一栏,
+宽度由 `PlacementRatio`(占标签区的比例,0.15–0.85,默认 0.3)决定。落位走的就是拖放停靠
+那条路径,所以结果与用户手动拖过去完全一致 —— 之后拖回、再拆分、关闭都没有任何特殊分支。
+`PlacementRatio` 只管"打开时多宽":用户拖分割条改过的宽度不会写回来,插件想记住用户偏好
+就自己存一份、下次打开时传进来(AI 插件即如此,设置页里有"侧栏宽度(%)")。
+
 **主题令牌:写 `{DynamicResource VelaXxx}` 就能贴宿主主题。** 宿主的全部
 `Vela*` 设计令牌(语义画刷、字号阶梯、字体族)对插件可用,明暗切换即时跟随:
 

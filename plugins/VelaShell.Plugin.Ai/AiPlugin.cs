@@ -77,6 +77,10 @@ public sealed class AiPlugin : IVelaPlugin
             {
                 Title = new Loc(context.Host.Locale)["Title"],
                 DisplayMode = mode,
+                // 聊天面板的位置对齐 VSCode 的 Copilot:标签区右侧独立一栏,
+                // 终端与它并排看得见,而不是把当前终端顶掉
+                Placement = PanelPlacement.Right,
+                PlacementRatio = await PanelWidthRatioAsync(),
                 WindowWidth = 720,
                 WindowHeight = 560
             },
@@ -89,6 +93,24 @@ public sealed class AiPlugin : IVelaPlugin
             _panel = null;
         };
         return _view;
+    }
+
+    /// <summary>
+    /// 读用户配的侧栏宽度(设置页里的百分比)。读不到就用 <see cref="PanelOptions" /> 的默认值 ——
+    /// 面板本身能不能打开,不该被一条装饰性配置卡住。
+    /// </summary>
+    private async Task<double> PanelWidthRatioAsync()
+    {
+        try
+        {
+            AiSettings settings = await _store!.LoadAsync();
+            return settings.PanelWidthPercent / 100.0;
+        }
+        catch (Exception ex)
+        {
+            _context!.Log.Warn($"Reading the panel width setting failed, using the default: {ex.Message}");
+            return new PanelOptions { Title = "" }.PlacementRatio;
+        }
     }
 
     private async Task ExplainTerminalAsync(CancellationToken cancellationToken)

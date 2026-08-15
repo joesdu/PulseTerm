@@ -9,7 +9,7 @@ namespace VelaShell.PluginSdk.Testing;
 /// </summary>
 public sealed class InMemoryTimeSeries : ITimeSeriesApi
 {
-    private readonly Dictionary<string, InMemorySeries> _series = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, InMemorySeries> _series = [with(StringComparer.Ordinal)];
     private readonly Lock _gate = new();
 
     /// <inheritdoc />

@@ -202,7 +202,7 @@ public partial class ChatPanelView
 
     private Border BuildCandidateRow(RemoteFileEntry entry, int index)
     {
-        var row = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto") };
+        var row = new Grid { ColumnDefinitions = [with("Auto,*,Auto")] };
         Viewbox icon = MakeIcon(entry.IsDirectory ? "Icon.folder" : "Icon.file",
             entry.IsDirectory ? "VelaAccent" : "VelaTextMuted", 11);
         icon.Margin = new Thickness(0, 0, 6, 0);

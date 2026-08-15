@@ -4,8 +4,6 @@ using System.Text;
 using NSubstitute;
 using VelaShell.Core.Data;
 using VelaShell.Core.Models;
-using VelaShell.Core.Net;
-using VelaShell.Infrastructure.Net;
 
 namespace VelaShell.Infrastructure.Tests.Net;
 
@@ -254,8 +252,12 @@ public class ProxySupportTests
     {
         ProxyResolver resolver = CreateResolver(new ProxyOptions
         {
-            Type = "http", Host = " proxy.example ", Port = 3128,
-            Username = "u", Password = "p", ProxyDns = false,
+            Type = "http",
+            Host = " proxy.example ",
+            Port = 3128,
+            Username = "u",
+            Password = "p",
+            ProxyDns = false,
         });
         ProxyRoute route = resolver.Resolve("example.com", 22);
         Assert.AreEqual(new ProxyRoute(ProxyKind.Http, "proxy.example", 3128, "u", "p", false), route);

@@ -10,7 +10,7 @@ namespace VelaShell.PluginSdk.Testing;
 public sealed class FakeTerminal : ITerminalApi
 {
     /// <summary>每会话的输出行(测试直接预置)。</summary>
-    public Dictionary<string, List<string>> Output { get; } = new(StringComparer.Ordinal);
+    public Dictionary<string, List<string>> Output { get; } = [with(StringComparer.Ordinal)];
 
     /// <summary>已回写记录:(sessionId, input)。</summary>
     public List<(string SessionId, string Input)> Writes { get; } = [];

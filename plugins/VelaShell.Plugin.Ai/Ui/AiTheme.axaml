@@ -54,6 +54,37 @@
     </Style>
   </ControlTheme>
 
+  <!-- 无边框图标按钮(回复气泡底部的"复制整段"):静息态完全隐形,只在悬停时浮出一层底,
+       与 GitHub Copilot 回复下方那排操作按钮的分量一致 —— 它们是次要动作,不该抢正文的注意力。
+       同样不依赖宿主 ControlTheme,令牌缺席时退回默认外观仍可点。 -->
+  <ControlTheme x:Key="AiGhostIconButtonTheme" TargetType="Button">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="3" />
+    <Setter Property="Width" Value="22" />
+    <Setter Property="Height" Value="22" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="FocusAdorner" Value="{x:Null}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}"
+                CornerRadius="{TemplateBinding CornerRadius}"
+                Padding="{TemplateBinding Padding}">
+          <ContentPresenter Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                            HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+    <Style Selector="^:pointerover">
+      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+    </Style>
+  </ControlTheme>
+
   <!-- 紧凑勾选框(顶栏"自动批准"/设置页"启用"):Fluent 默认模板按 32 高设计,
        勾选图形顶对齐 + 固定边距,压到 26 高时方块与文字内部错位;
        自带模板让方块(15×15)与文字共用同一垂直中线,彻底与行高解耦。
@@ -79,10 +110,13 @@
                     StrokeLineCap="Round" StrokeJoin="Round" Opacity="0" />
             </Viewbox>
           </Border>
+          <!-- VerticalContentAlignment 也钉成 Center:默认是 Stretch,文字会按整块高度排版,
+               方块与文字的中心线就靠字体的行高摆布了。 -->
           <ContentPresenter Grid.Column="1" Content="{TemplateBinding Content}"
                             ContentTemplate="{TemplateBinding ContentTemplate}"
                             Foreground="{TemplateBinding Foreground}"
-                            Margin="6,0,0,0" VerticalAlignment="Center" />
+                            Margin="6,0,0,0" VerticalAlignment="Center"
+                            VerticalContentAlignment="Center" />
         </Grid>
       </ControlTemplate>
     </Setter>

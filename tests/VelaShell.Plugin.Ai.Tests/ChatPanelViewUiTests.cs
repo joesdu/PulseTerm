@@ -1,3 +1,5 @@
+using System.Text.Json;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
@@ -20,7 +22,7 @@ namespace VelaShell.Plugin.Ai.Tests;
 /// </summary>
 [TestClass]
 [TestCategory("Plugins")]
-public sealed class ChatPanelViewUiTests
+public sealed partial class ChatPanelViewUiTests
 {
     private static HeadlessUnitTestSession _session = null!;
 
@@ -443,19 +445,18 @@ public sealed class ChatPanelViewUiTests
                 Border bubble = Find<StackPanel>(panel, "MessagesPanel").Children
                     .OfType<Border>().First(b => b.Classes.Contains("userMsg"));
 
-                List<string> chips = bubble.GetVisualDescendants()
+                List<string> chips = [.. bubble.GetVisualDescendants()
                     .OfType<Border>()
                     .Where(b => b.Classes.Contains("refChip"))
                     .SelectMany(b => b.GetVisualDescendants().OfType<TextBlock>())
-                    .Select(t => t.Text ?? "")
-                    .ToList();
+                    .Select(t => t.Text ?? "")];
                 Assert.AreSequenceEqual([".bashrc"], chips, "引用的文件以短名芯片列出");
 
                 // 正文走 Markdown 渲染器(而不是一块纯文本),且不再出现长路径
                 Assert.IsNotEmpty(bubble.GetVisualDescendants().OfType<MarkdownRenderer>().ToList(),
                     "用户正文也该按 Markdown 渲染");
                 List<string> texts = [.. bubble.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text ?? "")];
-                Assert.IsFalse(texts.Any(t => t.Contains("/root/.bashrc", StringComparison.Ordinal)),
+                Assert.DoesNotContain(t => t.Contains("/root/.bashrc", StringComparison.Ordinal), texts,
                     "气泡里不该再出现长路径(输入框里看到的是短名,发出去也该是短名)");
             }
             finally
@@ -464,6 +465,480 @@ public sealed class ChatPanelViewUiTests
                 window.Close();
             }
         });
+    }
+
+    /// <summary>
+    /// 输入区的版式对齐 GitHub Copilot:模型选择与 Agent 开关跟输入框同处一个描边容器
+    /// (而不是散在顶栏),用量与审批模式落在容器正下方那条细行上,编辑区本身默认就有几行高。
+    /// </summary>
+    [TestMethod]
+    public void InputArea_KeepsModelPickerAndUsage_AroundTheEditor()
+    {
+        OnUi(async () =>
+        {
+            using var context = new TestPluginContext();
+            (Window window, ChatPanelView panel) = await ShowAsync(context);
+            try
+            {
+                Border wrap = Find<Border>(panel, "InputWrap");
+                foreach (string name in (string[])["ProviderCombo", "AgentToggle", "SendButton", "InputBox"])
+                {
+                    Assert.Contains(c => c.Name == name, wrap.GetVisualDescendants().OfType<Control>(),
+                        $"{name} 应当在输入容器里(决定这条消息怎么发的东西要挨着输入框)");
+                }
+
+                // 用量与审批模式在容器之外的细行上,免得跟模型下拉抢宽度
+                Grid statusBar = Find<Grid>(panel, "InputStatusBar");
+                Assert.DoesNotContain(c => c.Name == "ProviderCombo", statusBar.GetVisualDescendants().OfType<Control>());
+                Assert.IsNotNull(Find<TextBlock>(panel, "UsageText"));
+                Assert.IsNotNull(Find<CheckBox>(panel, "AutoApproveCheck"));
+
+                TextEditor input = Find<TextEditor>(panel, "InputBox");
+                Assert.IsGreaterThanOrEqualTo(66, input.Bounds.Height,
+                    "输入框默认要有多行的余量,写长提示词不必先撑开");
+            }
+            finally
+            {
+                panel.Detach();
+                window.Close();
+            }
+        });
+    }
+
+    /// <summary>
+    /// 一轮结束后回复气泡底部要挂出"复制整段"与"时间 · 模型"(不显示积分与点赞/差评)。
+    /// 这里让请求打向一个必定拒绝的端口:成功与失败走的是同一个 finally,收尾照样发生。
+    /// </summary>
+    [TestMethod]
+    public void AssistantReply_EndsWithCopyButton_AndModelStamp()
+    {
+        OnUi(async () =>
+        {
+            using var context = new TestPluginContext();
+            var provider = new AiProviderConfig
+            {
+                Name = "test",
+                BaseUrl = "http://127.0.0.1:1/v1",
+                Model = "some-model-id"
+            };
+            await new AiSettingsStore(context).SaveAsync(new AiSettings
+            {
+                Providers = [provider],
+                ActiveProviderId = provider.Id
+            });
+
+            (Window window, ChatPanelView panel) = await ShowAsync(context);
+            try
+            {
+                panel.SendExternal("随便说点什么");
+                // 连接被拒也要走完 SDK 的重试退避才落到 finally,这里等它,而不是猜一个拍数
+                StackPanel messages = Find<StackPanel>(panel, "MessagesPanel");
+                Assert.IsTrue(await WaitForAsync(() => Footers(messages).Count > 0),
+                    "一轮结束后回复气泡应当挂出底部元信息条");
+
+                Border footer = Footers(messages)[^1];
+                Assert.IsNotEmpty(footer.GetVisualDescendants().OfType<Button>().ToList(),
+                    "底部要有一个复制整段回复的按钮");
+                string meta = string.Join("|", footer.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text ?? ""));
+                Assert.Contains("some-model-id", meta, "底部要写明这一段是哪个模型答的");
+                Assert.MatchesRegex(TimeStamp(), meta, "底部要带上这条回复的时刻");
+            }
+            finally
+            {
+                panel.Detach();
+                window.Close();
+            }
+        });
+    }
+
+    /// <summary>
+    /// 处理中输入框边框走流光,答完立刻收回主题色 —— 有没有在跑,扫一眼边框就知道。
+    /// </summary>
+    [TestMethod]
+    public void InputBorder_FlowsWhileBusy_AndReturnsToTheThemeColourWhenDone()
+    {
+        OnUi(async () =>
+        {
+            using var stub = new SseStub("""
+            data: {"id":"1","object":"chat.completion.chunk","created":1,"model":"m","choices":[{"index":0,"delta":{"content":"ok"},"finish_reason":"stop"}]}
+
+            data: [DONE]
+
+
+            """, delay: TimeSpan.FromMilliseconds(900));
+
+            using var context = new TestPluginContext();
+            var provider = new AiProviderConfig { Name = "stub", BaseUrl = stub.BaseUrl, Model = "m" };
+            await new AiSettingsStore(context).SaveAsync(new AiSettings
+            {
+                Providers = [provider],
+                ActiveProviderId = provider.Id,
+                SuggestFollowUps = false // 这个用例只看边框,别再多发一次请求
+            });
+
+            (Window window, ChatPanelView panel) = await ShowAsync(context);
+            try
+            {
+                Border wrap = Find<Border>(panel, "InputWrap");
+                BorderGlowOverlay glow = panel.GetControl<BorderGlowOverlay>("InputGlow");
+                Assert.IsFalse(glow.IsRunning, "空闲时不该有光在跑");
+                object? idleBorder = wrap.BorderBrush;
+
+                panel.SendExternal("hi");
+                Assert.IsTrue(await WaitForAsync(() => glow.IsRunning, maxRounds: 40),
+                    "请求在途时应点亮边框流光");
+
+                // 相位在推进 = 真的在跑,而不是画了一枚不动的光斑
+                double first = glow.Phase;
+                Assert.IsTrue(await WaitForAsync(() => Math.Abs(glow.Phase - first) > 1e-6, maxRounds: 40),
+                    "彗尾要沿着边框跑起来");
+
+                // 光是盖在边框上画的(自带暗色轨道),但不改边框自己的画刷 ——
+                // 于是焦点态/悬停态那几条选择器照常生效,熄灭时也不用恢复什么
+                Assert.AreSame(idleBorder, wrap.BorderBrush, "流光不该改动边框自身的画刷");
+
+                Assert.IsTrue(await WaitForAsync(() => !glow.IsRunning), "一轮结束后熄灭");
+            }
+            finally
+            {
+                panel.Detach();
+                window.Close();
+            }
+        });
+    }
+
+    /// <summary>
+    /// 思考过程要<b>边到边显示</b>,而不是攒到正文一起冒出来 —— 这是各家 AI 工具的通行做法,
+    /// 也是"模型正在想什么"这件事唯一有用的呈现方式。
+    /// 这里让假端点按真实节奏逐事件下发,断言正文还没来之前思考区就已经在长。
+    /// </summary>
+    [TestMethod]
+    public void Thinking_StreamsWhileItArrives_NotAfterTheAnswer()
+    {
+        OnUi(async () =>
+        {
+            using var stub = new SseStub("""
+            data: {"id":"1","object":"chat.completion.chunk","created":1,"model":"m","choices":[{"index":0,"delta":{"role":"assistant","reasoning_content":"先看看磁盘"}}]}
+
+            data: {"id":"1","object":"chat.completion.chunk","created":1,"model":"m","choices":[{"index":0,"delta":{"reasoning_content":",再看看服务"}}]}
+
+            data: {"id":"1","object":"chat.completion.chunk","created":1,"model":"m","choices":[{"index":0,"delta":{"content":"结论是没问题。"},"finish_reason":"stop"}]}
+
+            data: [DONE]
+
+
+            """, chunkDelay: TimeSpan.FromMilliseconds(400));
+
+            using var context = new TestPluginContext();
+            var provider = new AiProviderConfig { Name = "stub", BaseUrl = stub.BaseUrl, Model = "m" };
+            await new AiSettingsStore(context).SaveAsync(new AiSettings
+            {
+                Providers = [provider],
+                ActiveProviderId = provider.Id,
+                SuggestFollowUps = false,
+                AgentMode = true
+            });
+
+            (Window window, ChatPanelView panel) = await ShowAsync(context);
+            try
+            {
+                StackPanel messages = Find<StackPanel>(panel, "MessagesPanel");
+                panel.SendExternal("这台机器还好吗");
+
+                // 思考一到就出卡片,但默认是收起的(用户决策)
+                Assert.IsTrue(await WaitForAsync(() => ThinkingHeader(messages) is not null),
+                    "第一段思考到了就该出思考卡片");
+                Assert.IsFalse(ThinkingBody(messages)?.IsVisible ?? false, "默认收起");
+                Assert.IsEmpty(AnswerRenderers(messages), "此时正文一个字都还没来");
+
+                // 展开之后就该看到边到边长出来的内容
+                ClickHeader(messages);
+                Assert.IsTrue(await WaitForAsync(() => ThinkingText(messages).Contains("先看看磁盘")),
+                    $"展开后应看到已到达的思考。当前思考区:「{ThinkingText(messages)}」");
+                Assert.IsEmpty(AnswerRenderers(messages),
+                    "正文还没开始,思考却已经在长 —— 这才叫流式");
+
+                // 第二段追加上去(仍在正文之前)
+                Assert.IsTrue(await WaitForAsync(() => ThinkingText(messages).Contains("再看看服务")),
+                    "后续思考要继续往上追加");
+
+                Assert.IsTrue(await WaitForAsync(() => AnswerRenderers(messages).Count > 0),
+                    "正文随后照常渲染");
+
+                // 用户已经手动点开了,收尾时就不能再替他折起来 —— 别在人正读的时候把内容抽走
+                Assert.IsTrue(ThinkingBody(messages)!.IsVisible, "用户展开过就一直开着");
+                Assert.Contains("先看看磁盘,再看看服务", ThinkingText(messages), "收尾时思考补齐完整");
+            }
+            finally
+            {
+                panel.Detach();
+                window.Close();
+            }
+        });
+    }
+
+    /// <summary>点一下思考折叠区的头部(开/合)。</summary>
+    private static void ClickHeader(StackPanel messages)
+    {
+        Grid header = ThinkingHeader(messages)!;
+        header.RaiseEvent(new PointerPressedEventArgs(header, new Pointer(0, PointerType.Mouse, true),
+            header, default, 0, new PointerPointProperties(), KeyModifiers.None));
+    }
+
+    /// <summary>思考折叠区的可点头部(点它开合)。</summary>
+    private static Grid? ThinkingHeader(StackPanel messages)
+        => messages.GetVisualDescendants().OfType<Border>()
+            .Where(b => b.Classes.Contains("toolCard"))
+            .SelectMany(b => b.GetVisualDescendants().OfType<Grid>())
+            .FirstOrDefault();
+
+    /// <summary>思考折叠区的正文容器(展开与否看它的 IsVisible)。</summary>
+    private static ScrollViewer? ThinkingBody(StackPanel messages)
+        => messages.GetVisualDescendants().OfType<Border>()
+            .Where(b => b.Classes.Contains("toolCard"))
+            .SelectMany(b => b.GetVisualDescendants().OfType<ScrollViewer>())
+            .FirstOrDefault();
+
+    /// <summary>思考折叠区里的正文(没有工具卡时,消息流里唯一的 toolCard 就是它)。</summary>
+    private static string ThinkingText(StackPanel messages)
+        => string.Concat(messages.GetVisualDescendants().OfType<Border>()
+            .Where(b => b.Classes.Contains("toolCard"))
+            .SelectMany(b => b.GetVisualDescendants().OfType<SelectableTextBlock>())
+            .Select(t => t.Text ?? ""));
+
+    /// <summary>助手正文的 Markdown 渲染器(有它就说明正文已经开始渲染)。</summary>
+    private static List<MarkdownRenderer> AnswerRenderers(StackPanel messages)
+        => [.. messages.Children.OfType<Border>()
+            .Where(b => b.Classes.Contains("msg") && !b.Classes.Contains("userMsg"))
+            .SelectMany(b => b.GetVisualDescendants().OfType<MarkdownRenderer>())];
+
+    /// <summary>
+    /// 空会话在输入框上方给几条起手提示(本地文案,不请求模型),点一下就发出去。
+    /// </summary>
+    [TestMethod]
+    public void Suggestions_OfferStarterPrompts_AndClickingOneSendsIt()
+    {
+        OnUi(async () =>
+        {
+            using var stub = new SseStub("""
+            data: {"id":"1","object":"chat.completion.chunk","created":1,"model":"m","choices":[{"index":0,"delta":{"content":"ok"},"finish_reason":"stop"}]}
+
+            data: [DONE]
+
+
+            """);
+
+            using var context = new TestPluginContext();
+            var provider = new AiProviderConfig { Name = "stub", BaseUrl = stub.BaseUrl, Model = "m" };
+            await new AiSettingsStore(context).SaveAsync(new AiSettings
+            {
+                Providers = [provider],
+                ActiveProviderId = provider.Id,
+                SuggestFollowUps = false
+            });
+
+            (Window window, ChatPanelView panel) = await ShowAsync(context);
+            try
+            {
+                WrapPanel bar = Find<WrapPanel>(panel, "SuggestionBar");
+                Assert.IsTrue(bar.IsVisible, "空会话该给点起手提示");
+                Assert.HasCount(3, bar.Children);
+
+                var chip = (Border)bar.Children[0];
+                string prompt = chip.GetVisualDescendants().OfType<TextBlock>().First().Text!;
+                chip.RaiseEvent(new PointerPressedEventArgs(chip, new Pointer(0, PointerType.Mouse, true),
+                    chip, default, 0, new PointerPointProperties(), KeyModifiers.None));
+                await PumpAsync(10);
+
+                Assert.IsFalse(bar.IsVisible, "发出去之后建议就该收起");
+                // 气泡正文是 Markdown 渲染的,拿不到平整的 TextBlock.Text —— 直接看发给模型的是什么
+                string body = await stub.RequestBodyAsync.WaitAsync(TimeSpan.FromSeconds(10));
+                using var request = JsonDocument.Parse(body);
+                string sent = request.RootElement.GetProperty("messages")
+                    .EnumerateArray().Last().GetProperty("content").GetString() ?? "";
+                Assert.AreEqual(prompt, sent, "点中的那条应当原样作为用户消息发出去");
+            }
+            finally
+            {
+                panel.Detach();
+                window.Close();
+            }
+        });
+    }
+
+    /// <summary>一轮答完后,模型给的后续提问显示成药丸(开关打开时)。</summary>
+    [TestMethod]
+    public void Suggestions_ShowFollowUps_AfterAReply()
+    {
+        OnUi(async () =>
+        {
+            // 聊天走流式;"给几条后续提问"那一问是非流式的,由 jsonContent 回它
+            using var stub = new SseStub("""
+            data: {"id":"1","object":"chat.completion.chunk","created":1,"model":"m","choices":[{"index":0,"delta":{"content":"磁盘看着还行。"},"finish_reason":"stop"}]}
+
+            data: [DONE]
+
+
+            """, jsonContent: "1. 磁盘还够吗\n- 有哪些服务在跑\n\"要不要看日志\"");
+
+            using var context = new TestPluginContext();
+            var provider = new AiProviderConfig { Name = "stub", BaseUrl = stub.BaseUrl, Model = "m" };
+            await new AiSettingsStore(context).SaveAsync(new AiSettings
+            {
+                Providers = [provider],
+                ActiveProviderId = provider.Id,
+                SuggestFollowUps = true
+            });
+
+            (Window window, ChatPanelView panel) = await ShowAsync(context);
+            try
+            {
+                WrapPanel bar = Find<WrapPanel>(panel, "SuggestionBar");
+                panel.SendExternal("看看这台机器");
+                Assert.IsTrue(await WaitForAsync(() => bar.IsVisible && bar.Children.Count == 3),
+                    "答完之后应当给出三条后续提问");
+
+                List<string> chips = [.. bar.Children.OfType<Border>()
+                    .SelectMany(c => c.GetVisualDescendants().OfType<TextBlock>())
+                    .Select(t => t.Text ?? "")];
+                // 序号、项目符号、引号都该被洗掉 —— 模型很少按格式要求老实输出
+                Assert.AreSequenceEqual(["磁盘还够吗", "有哪些服务在跑", "要不要看日志"], chips);
+            }
+            finally
+            {
+                panel.Detach();
+                window.Close();
+            }
+        });
+    }
+
+    /// <summary>
+    /// 一轮真实回复之后,输入框下方那块用量要给出:上下文占比、缓存命中率,
+    /// 以及悬停里的完整明细。走的是真 SDK + 真适配器 —— 用量字段的口径差异只有这样才测得出。
+    /// </summary>
+    [TestMethod]
+    public void Usage_ShowsContextRatioAndCacheHitRate_AfterARealResponse()
+    {
+        OnUi(async () =>
+        {
+            // prompt_tokens 含 cached_tokens(OpenAI 口径):1000 里命中 800
+            using var stub = new SseStub("""
+            data: {"id":"1","object":"chat.completion.chunk","created":1,"model":"m","choices":[{"index":0,"delta":{"content":"ok"},"finish_reason":"stop"}]}
+
+            data: {"id":"1","object":"chat.completion.chunk","created":1,"model":"m","choices":[],"usage":{"prompt_tokens":1000,"completion_tokens":50,"total_tokens":1050,"prompt_tokens_details":{"cached_tokens":800}}}
+
+            data: [DONE]
+
+
+            """);
+
+            using var context = new TestPluginContext();
+            var provider = new AiProviderConfig
+            {
+                Name = "stub",
+                Protocol = ChatProtocol.OpenAiChatCompletions,
+                BaseUrl = stub.BaseUrl,
+                Model = "m",
+                MaxInputTokens = 10000
+            };
+            await new AiSettingsStore(context).SaveAsync(new AiSettings
+            {
+                Providers = [provider],
+                ActiveProviderId = provider.Id
+            });
+
+            (Window window, ChatPanelView panel) = await ShowAsync(context);
+            try
+            {
+                TextBlock usage = Find<TextBlock>(panel, "UsageText");
+                Assert.IsEmpty(usage.Text ?? "", "还没发过消息时不显示用量");
+
+                panel.SendExternal("hi");
+                Assert.IsTrue(await WaitForAsync(() => !string.IsNullOrEmpty(usage.Text)),
+                    "一轮结束后应当显示用量");
+
+                // 上下文 1000/10000 = 10%,缓存命中 800/1000 = 80%
+                Assert.Contains("10%", usage.Text!, "上下文占比");
+                Assert.Contains("80%", usage.Text!, "缓存命中率就显示在占比旁边");
+
+                string tip = ToolTip.GetTip(usage) as string ?? "";
+                Assert.Contains("800", tip, "悬停给出命中的具体 token 数");
+                Assert.Contains("1,000", tip, "以及这一轮的输入总量");
+            }
+            finally
+            {
+                panel.Detach();
+                window.Close();
+            }
+        });
+    }
+
+    /// <summary>
+    /// 输入框下那条细行:高度与内容无关(自动批准随 Agent 显隐,行一变高整个输入区就会跳),
+    /// 且勾选框与文字共用同一条中心线。
+    /// </summary>
+    [TestMethod]
+    public void InputStatusBar_KeepsItsHeight_AndCentresTheCheckBoxWithItsLabel()
+    {
+        OnUi(async () =>
+        {
+            using var context = new TestPluginContext();
+            (Window window, ChatPanelView panel) = await ShowAsync(context);
+            try
+            {
+                Grid bar = Find<Grid>(panel, "InputStatusBar");
+                CheckBox check = Find<CheckBox>(panel, "AutoApproveCheck");
+
+                double withoutAgent = bar.Bounds.Height;
+                check.IsVisible = true;
+                window.Measure(window.ClientSize);
+                window.Arrange(new Rect(window.ClientSize));
+                await PumpAsync(5);
+
+                Assert.AreEqual(withoutAgent, bar.Bounds.Height, 0.01,
+                    "自动批准显隐不该改变这一行的高度,否则输入区会跳一下");
+
+                Border box = check.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Box");
+                TextBlock label = check.GetVisualDescendants().OfType<TextBlock>().First();
+                Assert.AreEqual(CentreY(box, check), CentreY(label, check), 0.75,
+                    "勾选框与文字要在同一条中心线上");
+            }
+            finally
+            {
+                panel.Detach();
+                window.Close();
+            }
+        });
+    }
+
+    /// <summary>控件在某个祖先坐标系里的垂直中心。</summary>
+    private static double CentreY(Visual visual, Visual relativeTo)
+    {
+        Matrix transform = visual.TransformToVisual(relativeTo) ?? Matrix.Identity;
+        return new Point(0, visual.Bounds.Height / 2).Transform(transform).Y;
+    }
+
+    /// <summary><c>HH:mm</c> 形式的时刻。</summary>
+    [System.Text.RegularExpressions.GeneratedRegex(@"\d{1,2}:\d{2}")]
+    private static partial System.Text.RegularExpressions.Regex TimeStamp();
+
+    /// <summary>消息流里所有已收尾的回复底部条(时间 · 模型那一行)。</summary>
+    private static List<Border> Footers(StackPanel messages)
+        => [.. messages.GetVisualDescendants().OfType<Border>().Where(b => b.Classes.Contains("replyFooter"))];
+
+    /// <summary>边跑调度器边等某个条件成立;超时返回 false(上限约 15 秒)。</summary>
+    private static async Task<bool> WaitForAsync(Func<bool> condition, int maxRounds = 600)
+    {
+        for (int i = 0; i < maxRounds; i++)
+        {
+            Dispatcher.UIThread.RunJobs();
+            if (condition())
+            {
+                return true;
+            }
+            await Task.Delay(25);
+        }
+        return false;
     }
 
     /// <summary>当前可视行里的引用芯片元素。</summary>

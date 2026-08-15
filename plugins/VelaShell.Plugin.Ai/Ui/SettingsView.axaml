@@ -13,14 +13,16 @@
   </UserControl.Resources>
 
   <UserControl.Styles>
+    <!-- 字段名与说明文字同样从 Muted 提到 Tertiary:这一页几乎全是要读的说明,
+         Muted 压在面板底色上太淡(与聊天面板的调整同因)。 -->
     <Style Selector="TextBlock.label">
-      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
-      <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextTertiary}" />
       <Setter Property="Margin" Value="0,8,0,3" />
     </Style>
     <Style Selector="TextBlock.dim">
-      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
-      <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextTertiary}" />
     </Style>
     <Style Selector="TextBox">
       <Setter Property="FontSize" Value="{DynamicResource VelaFontSize12}" />
@@ -70,8 +72,27 @@
         <TextBox x:Name="BaseUrlBox" FontFamily="{DynamicResource VelaUiMonoFont}" />
         <TextBlock x:Name="ModelLabel" Classes="label" />
         <TextBox x:Name="ModelBox" FontFamily="{DynamicResource VelaUiMonoFont}" />
-        <TextBlock x:Name="MaxTokensLabel" Classes="label" />
-        <TextBox x:Name="MaxTokensBox" MaxWidth="180" HorizontalAlignment="Left" />
+        <!-- 输出上限随请求下发;输入上限(上下文窗口)只喂给输入框下方的用量占比 -->
+        <Grid ColumnDefinitions="*,12,*">
+          <StackPanel>
+            <TextBlock x:Name="MaxTokensLabel" Classes="label" />
+            <TextBox x:Name="MaxTokensBox" />
+          </StackPanel>
+          <StackPanel Grid.Column="2">
+            <TextBlock x:Name="MaxInputTokensLabel" Classes="label" />
+            <TextBox x:Name="MaxInputTokensBox" />
+          </StackPanel>
+        </Grid>
+        <TextBlock x:Name="MaxInputTokensHintText" Classes="dim" TextWrapping="Wrap" Margin="0,3,0,0" />
+        <TextBlock x:Name="ReasoningLabel" Classes="label" />
+        <ComboBox x:Name="ReasoningCombo" HorizontalAlignment="Stretch" />
+        <TextBlock x:Name="ReasoningHintText" Classes="dim" TextWrapping="Wrap" Margin="0,3,0,0" />
+        <!-- 提示词缓存:只有 Anthropic 协议吃这个标记,选别的协议时整块隐藏 -->
+        <StackPanel x:Name="PromptCachePanel">
+          <CheckBox x:Name="PromptCacheCheck" Theme="{StaticResource AiCheckBoxTheme}"
+                    FontSize="{DynamicResource VelaFontSize12}" Margin="0,10,0,0" />
+          <TextBlock x:Name="PromptCacheHintText" Classes="dim" TextWrapping="Wrap" Margin="0,3,0,0" />
+        </StackPanel>
         <TextBlock x:Name="ApiKeyLabel" Classes="label" />
         <Grid ColumnDefinitions="*,6,Auto">
           <TextBox x:Name="ApiKeyBox" PasswordChar="●" FontFamily="{DynamicResource VelaUiMonoFont}" />
@@ -124,6 +145,18 @@
         <Separator Margin="0,14" Background="{DynamicResource VelaBorderPrimary}" />
         <TextBlock x:Name="SystemPromptLabel" Classes="label" Margin="0,0,0,3" />
         <TextBox x:Name="SystemPromptBox" AcceptsReturn="True" MinHeight="64" TextWrapping="Wrap" />
+
+        <CheckBox x:Name="SuggestFollowUpsCheck" Theme="{StaticResource AiCheckBoxTheme}"
+                  FontSize="{DynamicResource VelaFontSize12}" Margin="0,12,0,0" />
+        <TextBlock x:Name="SuggestFollowUpsHintText" Classes="dim" TextWrapping="Wrap" Margin="0,3,0,0" />
+
+        <!-- 以标签页打开时侧栏的初始宽度(纯外观,不影响请求) -->
+        <TextBlock x:Name="PanelWidthLabel" Classes="label" />
+        <Grid ColumnDefinitions="Auto,10,*">
+          <TextBox x:Name="PanelWidthBox" Width="90" />
+          <TextBlock x:Name="PanelWidthHintText" Grid.Column="2" Classes="dim"
+                     TextWrapping="Wrap" VerticalAlignment="Center" />
+        </Grid>
 
         <!-- MCP 服务器:左列表右表单,布局语言与上方接入编辑一致 -->
         <Separator Margin="0,14" Background="{DynamicResource VelaBorderPrimary}" />

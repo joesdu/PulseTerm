@@ -9,8 +9,8 @@ namespace VelaShell.PluginSdk.Testing;
 /// </summary>
 public sealed class FakeRemoteFs : IRemoteFsApi
 {
-    private readonly Dictionary<string, Dictionary<string, byte[]>> _files = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, HashSet<string>> _dirs = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Dictionary<string, byte[]>> _files = [with(StringComparer.Ordinal)];
+    private readonly Dictionary<string, HashSet<string>> _dirs = [with(StringComparer.Ordinal)];
 
     /// <summary>预置一个远端文件(自动创建父目录)。</summary>
     public void AddFile(string sessionId, string path, byte[] content)
@@ -31,10 +31,10 @@ public sealed class FakeRemoteFs : IRemoteFsApi
         => FilesOf(sessionId).GetValueOrDefault(Normalize(path));
 
     private Dictionary<string, byte[]> FilesOf(string sessionId)
-        => _files.TryGetValue(sessionId, out Dictionary<string, byte[]>? files) ? files : _files[sessionId] = new(StringComparer.Ordinal);
+        => _files.TryGetValue(sessionId, out Dictionary<string, byte[]>? files) ? files : _files[sessionId] = [with(StringComparer.Ordinal)];
 
     private HashSet<string> DirsOf(string sessionId)
-        => _dirs.TryGetValue(sessionId, out HashSet<string>? dirs) ? dirs : _dirs[sessionId] = new(StringComparer.Ordinal);
+        => _dirs.TryGetValue(sessionId, out HashSet<string>? dirs) ? dirs : _dirs[sessionId] = [with(StringComparer.Ordinal)];
 
     private static string Normalize(string path)
     {
