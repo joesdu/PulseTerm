@@ -215,6 +215,8 @@ public partial class ChatPanelView
             TrimMessageWindow();
             // 载入的这段会话已经用掉了这些序号,新消息要从它们之后续
             _sequenceHighWater = _persistedCount;
+            // 上次压过的摘要一并恢复,免得一进来就重压一次(那是一次白花的请求)
+            await RestoreSummaryAsync();
             StatusText.Text = _loc.F("HistoryLoaded", entries.Count);
             SetActiveView(PanelView.Chat);
             RequestAutoScroll(force: true);

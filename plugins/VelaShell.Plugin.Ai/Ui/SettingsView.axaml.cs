@@ -64,6 +64,7 @@ public partial class SettingsView : UserControl
         McpTestButton.Click += OnMcpTestClick;
 
         SystemPromptBox.Text = _settings.SystemPrompt ?? "";
+        CompactContextCheck.IsChecked = _settings.CompactContext;
         SuggestFollowUpsCheck.IsChecked = _settings.SuggestFollowUps;
         PanelWidthBox.Text = _settings.PanelWidthPercent.ToString();
         ReloadList(selectIndex: _settings.Providers.Count > 0 ? 0 : -1);
@@ -106,6 +107,8 @@ public partial class SettingsView : UserControl
         TestText.Text = _loc["Test"];
         DeleteText.Text = _loc["Delete"];
         SystemPromptLabel.Text = _loc["SystemPrompt"];
+        CompactContextCheck.Content = _loc["CompactContext"];
+        CompactContextHintText.Text = _loc["CompactContextHint"];
         SuggestFollowUpsCheck.Content = _loc["SuggestFollowUps"];
         SuggestFollowUpsHintText.Text = _loc["SuggestFollowUpsHint"];
         PanelWidthLabel.Text = _loc["PanelWidth"];
@@ -254,6 +257,7 @@ public partial class SettingsView : UserControl
         provider.CachedInputPricePerMillion = ParsePrice(PriceCachedBox.Text);
         provider.SystemPrompt = string.IsNullOrWhiteSpace(ProviderPromptBox.Text) ? null : ProviderPromptBox.Text;
         _settings.SystemPrompt = string.IsNullOrWhiteSpace(SystemPromptBox.Text) ? null : SystemPromptBox.Text;
+        _settings.CompactContext = CompactContextCheck.IsChecked == true;
         _settings.SuggestFollowUps = SuggestFollowUpsCheck.IsChecked == true;
         if (int.TryParse(PanelWidthBox.Text?.Trim(), out int panelWidth))
         {

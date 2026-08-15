@@ -671,9 +671,12 @@ public partial class ChatPanelView : UserControl
                     .Build();
             }
 
-            // 装配上下文:按窗口裁掉最早的几轮,并把相邻同角色的消息并起来(见 ContextBuilder)
+            // 快撑满窗口就先把早期对话折成摘要(压不动也不拦,下面的装配还会兜底丢最早几条)
+            await CompactIfNeededAsync(provider, token);
+            // 装配上下文:摘要 + 近几轮原文,按窗口裁剪并把相邻同角色的消息并起来(见 ContextBuilder)
             RequestContext request = ContextBuilder.Build(
-                BuildSystemPrompt(agentMode), _history, provider.MaxInputTokens, provider.MaxTokens);
+                BuildSystemPrompt(agentMode), _history, provider.MaxInputTokens, provider.MaxTokens,
+                _contextSummary, _summarizedThrough);
             List<ChatMessage> requestMessages = request.Messages;
             _droppedFromContext = request.DroppedMessages;
             // Anthropic 的提示词缓存断点(其它协议不认这个标记,打了也只是多一个被忽略的字段)
@@ -992,6 +995,7 @@ public partial class ChatPanelView : UserControl
         MessagesPanel.Children.Clear();
         ResetMessageWindow();
         ResetEditing();
+        ResetCompaction();
         _alwaysApproved.Clear(); // 放行记忆只在同一段对话里有效
         ResetUsage();
         _conversationId = ChatHistoryStore.NewConversationId();

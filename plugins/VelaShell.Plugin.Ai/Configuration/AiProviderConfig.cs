@@ -139,6 +139,12 @@ public sealed class AiSettings
     public bool SuggestFollowUps { get; set; } = true;
 
     /// <summary>
+    /// 上下文快撑满窗口时,把早期对话折成一段摘要继续聊(而不是直接丢掉最早的几轮)。
+    /// 关掉则退回"按窗口丢最早几条"。需要接入里填了"最大输入 tokens"才会生效。
+    /// </summary>
+    public bool CompactContext { get; set; } = true;
+
+    /// <summary>
     /// 以标签页打开时,右侧那一栏初始占标签区的百分比(15–85,越界由宿主夹取)。
     /// 只决定"打开时多宽",之后拖分割条随时可改 —— 拖出来的宽度不回写这里。
     /// </summary>

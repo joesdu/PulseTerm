@@ -61,6 +61,14 @@
       <Setter Property="IsHitTestVisible" Value="True" />
     </Style>
 
+    <!-- 上下文压缩的分隔条:从这里往上,模型看到的是摘要而不是原文,得让人看得见 -->
+    <Style Selector="Border.compactionMarker">
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaAccent}" />
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+      <Setter Property="Padding" Value="0,0,0,6" />
+      <Setter Property="Margin" Value="0,4" />
+    </Style>
+
     <!-- "显示更早的 N 条":早期消息被移出可视树后留下的入口 -->
     <Style Selector="Border.earlierBanner">
       <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />

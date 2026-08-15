@@ -97,8 +97,8 @@ public sealed class ContextBuilderTests
             [ChatRole.System, ChatRole.User, ChatRole.Assistant, ChatRole.User],
             [.. context.Messages.Select(m => m.Role)],
             "相邻的两条 user 要并成一条,角色必须交替");
-        StringAssert.Contains(context.Messages[1].Text, "被取消的那条");
-        StringAssert.Contains(context.Messages[1].Text, "重新问一遍");
+        Assert.Contains("被取消的那条", context.Messages[1].Text);
+        Assert.Contains("重新问一遍", context.Messages[1].Text);
     }
 
     /// <summary>合并不能就地改历史里的对象 —— 那会把用户的原始记录改花。</summary>
