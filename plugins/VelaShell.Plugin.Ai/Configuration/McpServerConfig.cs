@@ -56,6 +56,29 @@ public sealed class McpServerConfig
     /// </summary>
     /// <remarks>有些 MCP 服务器一口气给几十个工具,全塞进去既占上下文又容易被误调。</remarks>
     public string DisabledTools { get; set; } = "";
+
+    /// <summary>
+    /// 上次连上时这台服务器提供的工具(名称 + 一句说明)。
+    /// 缓存下来是为了让"配置工具"窗口不必每次都拉起进程/连网就能列出勾选项;
+    /// 点该窗口的"更新工具库"才会真的重连刷新。
+    /// </summary>
+    public List<McpToolInfo> KnownTools { get; set; } = [];
+
+    /// <summary>上次刷新工具库的时刻(UTC);为 null 表示从没刷过。</summary>
+    public DateTimeOffset? ToolsRefreshedAt { get; set; }
+}
+
+/// <summary>MCP 服务器提供的一个工具(缓存用)。</summary>
+public sealed class McpToolInfo
+{
+    /// <summary>服务器上的原始工具名。</summary>
+    public string Name { get; set; } = "";
+
+    /// <summary>一句话说明(取自 MCP 的 description,过长已截断)。</summary>
+    public string Description { get; set; } = "";
+
+    /// <summary>MCP 的 <c>readOnlyHint</c> 注解:只读工具不走审批。</summary>
+    public bool ReadOnly { get; set; }
 }
 
 /// <summary>把配置里的用户文本解析为连接参数。</summary>

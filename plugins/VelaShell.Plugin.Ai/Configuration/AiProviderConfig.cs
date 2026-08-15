@@ -16,6 +16,37 @@ public enum ChatProtocol
     AnthropicMessages
 }
 
+/// <summary>对话模式:决定这一轮给不给模型工具、给哪些。</summary>
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum ChatMode
+{
+    /// <summary>纯对话:不给任何工具,模型只能凭对话内容作答。</summary>
+    Chat,
+
+    /// <summary>计划:只给<b>只读</b>工具,并要求模型先给方案而不是动手。</summary>
+    Plan,
+
+    /// <summary>Agent:全部工具,可读可写,危险操作按审批模式处理。</summary>
+    Agent
+}
+
+/// <summary>危险操作的审批方式。</summary>
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum ApprovalMode
+{
+    /// <summary>默认审批:每个可能改变状态的操作都问一次。</summary>
+    Ask,
+
+    /// <summary>
+    /// 只读放行:一望即知无副作用的命令(ls / df / cat 之类)自动执行,
+    /// 写文件、往终端敲字、以及任何看不准的命令仍旧逐条问。
+    /// </summary>
+    ReadOnlyAuto,
+
+    /// <summary>绕过审批:所有工具调用一律自动批准(有风险)。</summary>
+    Bypass
+}
+
 /// <summary>模型的思考(reasoning)档位。</summary>
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum ReasoningLevel
@@ -122,11 +153,39 @@ public sealed class AiSettings
     /// <summary>当前选中的接入 id。</summary>
     public string? ActiveProviderId { get; set; }
 
-    /// <summary>Agent 模式(带工具循环)。</summary>
+    /// <summary>对话模式(纯对话 / 计划 / Agent)。</summary>
+    public ChatMode Mode { get; set; } = ChatMode.Chat;
+
+    /// <summary>危险操作的审批方式。</summary>
+    public ApprovalMode Approval { get; set; } = ApprovalMode.Ask;
+
+    /// <summary>不想暴露给模型的内置工具名,每行一条(见"配置工具"窗口)。</summary>
+    public string DisabledBuiltinTools { get; set; } = "";
+
+    /// <summary>旧版的 Agent 开关。仅用于迁移 —— 读到 true 就折算成 <see cref="ChatMode.Agent" />。</summary>
+    /// <remarks>不要在新代码里用它;<see cref="Migrate" /> 跑完之后它就没有意义了。</remarks>
     public bool AgentMode { get; set; }
 
-    /// <summary>Agent 模式下 run_command / write_terminal 免审批(有风险,默认关)。</summary>
+    /// <summary>旧版的免审批开关。仅用于迁移 —— 读到 true 就折算成 <see cref="ApprovalMode.Bypass" />。</summary>
     public bool AutoApproveCommands { get; set; }
+
+    /// <summary>
+    /// 把旧版的两个布尔开关折算成新的枚举。读设置时调用一次即可 ——
+    /// 老用户升级上来不该发现自己的 Agent 模式被悄悄关掉了。
+    /// </summary>
+    public void Migrate()
+    {
+        if (AgentMode && Mode == ChatMode.Chat)
+        {
+            Mode = ChatMode.Agent;
+        }
+        if (AutoApproveCommands && Approval == ApprovalMode.Ask)
+        {
+            Approval = ApprovalMode.Bypass;
+        }
+        AgentMode = false;
+        AutoApproveCommands = false;
+    }
 
     /// <summary>自定义系统提示词(空 = 用内置默认)。</summary>
     public string? SystemPrompt { get; set; }

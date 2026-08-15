@@ -422,17 +422,17 @@
       <Setter Property="VerticalAlignment" Value="Center" />
       <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
     </Style>
-    <!-- 这一行的高度必须与内容无关:自动批准随 Agent 开关显隐,行一变高整个输入区就会跳。
-         行高写死,勾选框也跟着写死同一高度(MinHeight 得压过主题里的 26)。 -->
+    <!-- 这一行的高度必须与内容无关:审批选择器只在带工具的模式下出现,行一变高整个输入区就会跳。
+         行高写死,里头的下拉也跟着写死同一高度(MinHeight 得压过主题里的 26)。 -->
     <Style Selector="Grid#InputStatusBar">
       <Setter Property="Height" Value="20" />
     </Style>
-    <!-- 字号取 11(同 Agent 芯片):15px 的勾选方块配 10px 的字,方块显得比字高一截,
-         视觉上就不在一条线上了 —— 那是字面高度与方块高度的差,不是没居中(居中有测试守着)。 -->
-    <Style Selector="Grid#InputStatusBar CheckBox">
-      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+    <Style Selector="Grid#InputStatusBar ComboBox">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
       <Setter Property="MinHeight" Value="0" />
       <Setter Property="Height" Value="20" />
+      <Setter Property="Padding" Value="6,0,0,0" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
     <Style Selector="Grid#InputToolbar ToggleButton">
@@ -491,20 +491,30 @@
             <TextBlock x:Name="NewChatText" VerticalAlignment="Center" />
           </StackPanel>
         </Button>
-        <ToggleButton x:Name="SettingsToggle" Theme="{StaticResource AiChipToggleTheme}" Width="30" Padding="0">
+        <!-- 配置工具:勾选哪些内置/MCP 工具暴露给模型(独立窗口) -->
+        <Button x:Name="ToolsButton" Theme="{DynamicResource VelaOutlineButtonTheme}" Height="26" Width="30" Padding="0">
           <Viewbox Width="13" Height="13">
-            <Path Width="24" Height="24" Data="{DynamicResource Icon.settings}"
-                  Stroke="{Binding $parent[ToggleButton].Foreground}" StrokeThickness="2"
+            <Path Width="24" Height="24" Data="{DynamicResource Icon.sliders-horizontal}"
+                  Stroke="{DynamicResource VelaTextSecondary}" StrokeThickness="2"
                   StrokeLineCap="Round" StrokeJoin="Round" />
           </Viewbox>
-        </ToggleButton>
+        </Button>
+        <!-- 设置:独立窗口(以前是挤在面板中间和聊天流三选一) -->
+        <Button x:Name="SettingsButton" Theme="{DynamicResource VelaOutlineButtonTheme}" Height="26" Width="30" Padding="0">
+          <Viewbox Width="13" Height="13">
+            <Path Width="24" Height="24" Data="{DynamicResource Icon.settings}"
+                  Stroke="{DynamicResource VelaTextSecondary}" StrokeThickness="2"
+                  StrokeLineCap="Round" StrokeJoin="Round" />
+          </Viewbox>
+        </Button>
       </StackPanel>
     </Grid>
 
     <!-- 最下沿的一条细行(同 Copilot 输入框下方那排):左边是 Agent 的审批模式,
          右边是 token 用量。放在容器外而不是工具条里,是为了不跟模型下拉抢那点宽度。 -->
     <Grid x:Name="InputStatusBar" DockPanel.Dock="Bottom" ColumnDefinitions="*,Auto" Margin="2,5,2,0">
-      <CheckBox x:Name="AutoApproveCheck" Theme="{StaticResource AiCheckBoxTheme}" IsVisible="False" />
+      <!-- 审批方式:默认审批 / 只读放行 / 绕过审批(只在有工具的模式下才有意义) -->
+      <ComboBox x:Name="ApprovalCombo" IsVisible="False" MinWidth="96" />
       <!-- 命中缓存时这段会长一截(多一个"缓存 80%"),留够宽度;再长由 TextTrimming 收,
            完整明细本来就在悬停提示里。 -->
       <TextBlock x:Name="UsageText" Grid.Column="1" Classes="meta" MaxWidth="320" Margin="8,0,0,0" />
@@ -560,17 +570,8 @@
             </Viewbox>
           </Button>
           <ComboBox x:Name="ProviderCombo" Grid.Column="1" MaxWidth="230" HorizontalAlignment="Left" />
-          <ToggleButton x:Name="AgentToggle" Grid.Column="2" Theme="{StaticResource AiChipToggleTheme}"
-                        Margin="6,0,0,0">
-            <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
-              <Viewbox Width="11" Height="11" VerticalAlignment="Center">
-                <Path Width="24" Height="24" Data="{DynamicResource Icon.zap}"
-                      Stroke="{Binding $parent[ToggleButton].Foreground}" StrokeThickness="2"
-                      StrokeLineCap="Round" StrokeJoin="Round" />
-              </Viewbox>
-              <TextBlock x:Name="AgentText" VerticalAlignment="Center" />
-            </StackPanel>
-          </ToggleButton>
+          <!-- 对话模式:纯对话 / 计划 / Agent(对齐 Copilot 的模式选择) -->
+          <ComboBox x:Name="ModeCombo" Grid.Column="2" Margin="6,0,0,0" MinWidth="88" />
           <StackPanel Grid.Column="3" Orientation="Horizontal" Margin="8,0,0,0" VerticalAlignment="Center">
             <Button x:Name="SendButton" Theme="{DynamicResource VelaAccentPillButtonTheme}"
                     Height="24" Width="34" Padding="0">
@@ -609,7 +610,6 @@
       <ScrollViewer x:Name="ChatScroll" HorizontalScrollBarVisibility="Disabled">
         <StackPanel x:Name="MessagesPanel" Spacing="8" Margin="5,4,19,4" />
       </ScrollViewer>
-      <ContentControl x:Name="SettingsHost" IsVisible="False" />
       <!-- 历史会话:与聊天流/设置页三选一显示 -->
       <DockPanel x:Name="HistoryHost" IsVisible="False" Margin="5,4,19,4">
         <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,6">

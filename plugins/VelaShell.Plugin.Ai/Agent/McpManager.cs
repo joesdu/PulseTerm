@@ -32,8 +32,8 @@ public sealed class McpManager(IPluginContext context) : IAsyncDisposable
     /// <summary>危险操作审批(与 AgentToolbox 共用同一交互)。未设置视为拒绝。</summary>
     public Func<ApprovalRequest, Task<bool>>? ApprovalHandler { get; set; }
 
-    /// <summary>免审批开关(跟随用户的 Auto-approve 设置)。</summary>
-    public bool AutoApprove { get; set; }
+    /// <summary>审批方式(与内置工具共用同一设置)。</summary>
+    public ApprovalMode Approval { get; set; } = ApprovalMode.Ask;
 
     /// <summary>
     /// 汇集全部启用服务器的工具。逐服务器容错:单个失败不影响其余,
@@ -110,13 +110,37 @@ public sealed class McpManager(IPluginContext context) : IAsyncDisposable
 
     /// <summary>设置页"测试":临时连接,返回工具名列表后即断开。</summary>
     public static async Task<IReadOnlyList<string>> ProbeAsync(McpServerConfig server, CancellationToken cancellationToken)
+        => [.. (await RefreshToolsAsync(server, cancellationToken).ConfigureAwait(false)).Select(t => t.Name)];
+
+    /// <summary>
+    /// "更新工具库":连上去把这台服务器现在提供的工具列回来(名称 + 说明 + 只读注解)。
+    /// 调用方负责写回 <see cref="McpServerConfig.KnownTools" /> —— 缓存下来,
+    /// "配置工具"窗口才能在不连网的情况下列出勾选项。
+    /// </summary>
+    public static async Task<IReadOnlyList<McpToolInfo>> RefreshToolsAsync(McpServerConfig server,
+        CancellationToken cancellationToken)
     {
         (McpClient client, IList<McpClientTool> tools) = await Task.Run(
             () => ConnectAsync(server, cancellationToken), cancellationToken).ConfigureAwait(false);
         await using (client.ConfigureAwait(false))
         {
-            return tools.Select(t => t.Name).ToList();
+            return
+            [
+                .. tools.Select(t => new McpToolInfo
+                {
+                    Name = t.Name,
+                    Description = Shorten(t.Description),
+                    ReadOnly = t.ProtocolTool.Annotations?.ReadOnlyHint == true
+                })
+            ];
         }
+    }
+
+    /// <summary>工具说明只用于界面上那一行,过长没有意义。</summary>
+    private static string Shorten(string? description)
+    {
+        string text = (description ?? "").ReplaceLineEndings(" ").Trim();
+        return text.Length <= 120 ? text : text[..120] + "…";
     }
 
     /// <summary>断开全部连接(面板关闭时调用)。</summary>
@@ -250,7 +274,9 @@ public sealed class McpManager(IPluginContext context) : IAsyncDisposable
     {
         protected override async ValueTask<object?> InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
         {
-            if (!owner.AutoApprove)
+            // 只读放行只认得内置的 run_command;MCP 这边不做猜测 —— 服务器自己声明的
+            // readOnlyHint 已经在 CollectTools 里筛过一遍,能走到这儿的都是可能改状态的。
+            if (owner.Approval != ApprovalMode.Bypass)
             {
                 if (owner.ApprovalHandler is not { } handler)
                 {

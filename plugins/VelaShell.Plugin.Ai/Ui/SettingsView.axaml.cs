@@ -96,7 +96,7 @@ public partial class SettingsView : UserControl
         PriceCachedLabel.Text = _loc["PriceCached"];
         PriceHintText.Text = _loc["PriceHint"];
         ProviderPromptLabel.Text = _loc["ProviderPrompt"];
-        McpDisabledToolsLabel.Text = _loc["McpDisabledTools"];
+        McpToolsHint.Text = _loc["McpToolsHint"];
         // 语言切换时下拉项也要跟着换,选中项按索引留住
         int reasoning = ReasoningCombo.SelectedIndex;
         ReasoningCombo.ItemsSource = ReasoningKeys.Select(key => _loc[key]).ToList();
@@ -378,7 +378,6 @@ public partial class SettingsView : UserControl
             McpEnvBox.Text = server?.EnvironmentVariables ?? "";
             McpUrlBox.Text = server?.Url ?? "";
             McpHeadersBox.Text = server?.Headers ?? "";
-            McpDisabledToolsBox.Text = server?.DisabledTools ?? "";
             bool hasSelection = server is not null;
             McpEnabledCheck.IsEnabled = hasSelection;
             McpSaveButton.IsEnabled = hasSelection;
@@ -483,7 +482,8 @@ public partial class SettingsView : UserControl
         target.EnvironmentVariables = McpEnvBox.Text ?? "";
         target.Url = McpUrlBox.Text?.Trim() ?? "";
         target.Headers = McpHeadersBox.Text ?? "";
-        target.DisabledTools = McpDisabledToolsBox.Text ?? "";
+        // DisabledTools 不在这儿写:那是「配置工具」窗口的勾选结果,这里保存整台服务器时
+        // 若跟着回写一遍,就会把窗口里刚勾的状态按本页面(可能是旧的)覆盖掉。
     }
 
     private async Task PersistAsync(bool notify)

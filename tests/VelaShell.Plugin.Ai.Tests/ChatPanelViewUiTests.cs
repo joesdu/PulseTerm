@@ -86,18 +86,21 @@ public sealed partial class ChatPanelViewUiTests
             {
                 // 顶栏三件套 + 输入区 + 新增的历史区都应在可视树里
                 Assert.IsNotNull(Find<ToggleButton>(panel, "HistoryToggle"));
-                Assert.IsNotNull(Find<ToggleButton>(panel, "SettingsToggle"));
+                // 设置与"配置工具"都是独立窗口了,顶栏上是两枚按钮而不是视图开关
+                Assert.IsNotNull(Find<Button>(panel, "SettingsButton"));
+                Assert.IsNotNull(Find<Button>(panel, "ToolsButton"));
                 Assert.IsNotNull(Find<DockPanel>(panel, "HistoryHost"));
                 Assert.IsNotNull(Find<Popup>(panel, "FilePopup"));
                 Assert.IsFalse(Find<Popup>(panel, "FilePopup").IsOpen, "没输入 @ 时文件选择器不该弹出");
                 Assert.IsFalse(Find<DockPanel>(panel, "HistoryHost").IsVisible);
                 Assert.IsTrue(Find<ToggleButton>(panel, "HistoryToggle").IsEnabled,
                     "时序能力可用时历史按钮应可点");
-                // 裸测试宿主里一个供应商都没配,初始化末尾会自己切到设置页(见 InitAsync 的
-                // NoProvider 分支)—— 中间区是设置而不是聊天流,这不是异常,是既定引导路径。
-                Assert.IsTrue(Find<ToggleButton>(panel, "SettingsToggle").IsChecked);
-                Assert.IsFalse(Find<ScrollViewer>(panel, "ChatScroll").IsVisible,
-                    "没有供应商时先请用户去设置页,聊天流让位");
+                // 裸测试宿主里一个供应商都没配。设置改成独立窗口之后就不再抢版面了:
+                // 聊天流照常在,只在状态行留一句"去 ⚙ 配一个"(见 InitAsync 的 NoProvider 分支)。
+                // 面板可能是随宿主启动一起开的,冷不丁弹一个窗口在用户脸上不合适。
+                Assert.IsTrue(Find<ScrollViewer>(panel, "ChatScroll").IsVisible);
+                Assert.Contains("⚙", Find<TextBlock>(panel, "StatusText").Text ?? "",
+                    "没配接入时状态行要指路(五种语言的这句文案里都有 ⚙)");
                 // 输入框是 AvaloniaEdit(要 Markdown 着色与 @ 芯片),不是 TextBox
                 Assert.IsNotNull(Find<TextEditor>(panel, "InputBox"));
                 Assert.IsNotNull(Find<TextEditor>(panel, "InputBox").SyntaxHighlighting,
@@ -468,7 +471,7 @@ public sealed partial class ChatPanelViewUiTests
     }
 
     /// <summary>
-    /// 输入区的版式对齐 GitHub Copilot:模型选择与 Agent 开关跟输入框同处一个描边容器
+    /// 输入区的版式对齐 GitHub Copilot:模型选择与对话模式跟输入框同处一个描边容器
     /// (而不是散在顶栏),用量与审批模式落在容器正下方那条细行上,编辑区本身默认就有几行高。
     /// </summary>
     [TestMethod]
@@ -481,7 +484,7 @@ public sealed partial class ChatPanelViewUiTests
             try
             {
                 Border wrap = Find<Border>(panel, "InputWrap");
-                foreach (string name in (string[])["ProviderCombo", "AgentToggle", "SendButton", "InputBox"])
+                foreach (string name in (string[])["ProviderCombo", "ModeCombo", "SendButton", "InputBox"])
                 {
                     Assert.Contains(c => c.Name == name, wrap.GetVisualDescendants().OfType<Control>(),
                         $"{name} 应当在输入容器里(决定这条消息怎么发的东西要挨着输入框)");
@@ -491,7 +494,7 @@ public sealed partial class ChatPanelViewUiTests
                 Grid statusBar = Find<Grid>(panel, "InputStatusBar");
                 Assert.DoesNotContain(c => c.Name == "ProviderCombo", statusBar.GetVisualDescendants().OfType<Control>());
                 Assert.IsNotNull(Find<TextBlock>(panel, "UsageText"));
-                Assert.IsNotNull(Find<CheckBox>(panel, "AutoApproveCheck"));
+                Assert.IsNotNull(Find<ComboBox>(panel, "ApprovalCombo"));
 
                 TextEditor input = Find<TextEditor>(panel, "InputBox");
                 Assert.IsGreaterThanOrEqualTo(66, input.Bounds.Height,
@@ -879,11 +882,11 @@ public sealed partial class ChatPanelViewUiTests
     }
 
     /// <summary>
-    /// 输入框下那条细行:高度与内容无关(自动批准随 Agent 显隐,行一变高整个输入区就会跳),
-    /// 且勾选框与文字共用同一条中心线。
+    /// 输入框下那条细行:高度与内容无关(审批选择器只在带工具的模式下出现,
+    /// 行一变高整个输入区就会跳),且它与右侧的用量文字共用同一条中心线。
     /// </summary>
     [TestMethod]
-    public void InputStatusBar_KeepsItsHeight_AndCentresTheCheckBoxWithItsLabel()
+    public void InputStatusBar_KeepsItsHeight_WhenTheApprovalPickerAppears()
     {
         OnUi(async () =>
         {
@@ -892,21 +895,19 @@ public sealed partial class ChatPanelViewUiTests
             try
             {
                 Grid bar = Find<Grid>(panel, "InputStatusBar");
-                CheckBox check = Find<CheckBox>(panel, "AutoApproveCheck");
+                ComboBox approval = Find<ComboBox>(panel, "ApprovalCombo");
+                TextBlock usage = Find<TextBlock>(panel, "UsageText");
 
-                double withoutAgent = bar.Bounds.Height;
-                check.IsVisible = true;
+                double withoutTools = bar.Bounds.Height;
+                approval.IsVisible = true;
                 window.Measure(window.ClientSize);
                 window.Arrange(new Rect(window.ClientSize));
                 await PumpAsync(5);
 
-                Assert.AreEqual(withoutAgent, bar.Bounds.Height, 0.01,
-                    "自动批准显隐不该改变这一行的高度,否则输入区会跳一下");
-
-                Border box = check.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Box");
-                TextBlock label = check.GetVisualDescendants().OfType<TextBlock>().First();
-                Assert.AreEqual(CentreY(box, check), CentreY(label, check), 0.75,
-                    "勾选框与文字要在同一条中心线上");
+                Assert.AreEqual(withoutTools, bar.Bounds.Height, 0.01,
+                    "审批选择器显隐不该改变这一行的高度,否则输入区会跳一下");
+                Assert.AreEqual(CentreY(approval, bar), CentreY(usage, bar), 0.75,
+                    "审批选择器与用量文字要在同一条中心线上");
             }
             finally
             {
@@ -915,6 +916,91 @@ public sealed partial class ChatPanelViewUiTests
             }
         });
     }
+
+    /// <summary>
+    /// 对话模式三选一(对齐 Copilot),选中项写回设置;审批方式只在<b>有工具</b>的模式下露出 ——
+    /// 纯对话里摆着它会让人以为还有什么能被自动执行。
+    /// </summary>
+    [TestMethod]
+    public void ModeCombo_DrivesTheApprovalPickerVisibility()
+    {
+        OnUi(async () =>
+        {
+            using var context = new TestPluginContext();
+            (Window window, ChatPanelView panel) = await ShowAsync(context);
+            try
+            {
+                ComboBox mode = Find<ComboBox>(panel, "ModeCombo");
+                ComboBox approval = Find<ComboBox>(panel, "ApprovalCombo");
+
+                Assert.HasCount(3, mode.ItemsSource!.Cast<object>().ToList(), "对话 / 计划 / Agent");
+
+                mode.SelectedIndex = (int)ChatMode.Chat;
+                await PumpAsync(3);
+                Assert.IsFalse(approval.IsVisible, "纯对话模式下没有工具,审批方式无意义");
+
+                mode.SelectedIndex = (int)ChatMode.Plan;
+                await PumpAsync(3);
+                Assert.IsTrue(approval.IsVisible, "计划模式仍会调只读工具");
+
+                mode.SelectedIndex = (int)ChatMode.Agent;
+                await PumpAsync(3);
+                Assert.IsTrue(approval.IsVisible);
+            }
+            finally
+            {
+                panel.Detach();
+                window.Close();
+            }
+        });
+    }
+
+    /// <summary>
+    /// 设置与"配置工具"都开成独立窗口(而不是占掉面板中间那块):侧栏往往只有三成宽,
+    /// 那些两列三列的表单在里头铺不开,改设置时也不该看不见对话。
+    /// 面板关闭时两个窗口要跟着走,别孤零零留在屏幕上。
+    /// </summary>
+    [TestMethod]
+    public void SettingsAndTools_OpenAsSeparateWindows_AndCloseWithThePanel()
+    {
+        OnUi(async () =>
+        {
+            using var context = new TestPluginContext();
+            (Window window, ChatPanelView panel) = await ShowAsync(context);
+            try
+            {
+                Click(panel, "SettingsButton");
+                Click(panel, "ToolsButton");
+                await PumpAsync(5);
+
+                List<PluginDialog> dialogs = [.. Dialogs(window)];
+                Assert.HasCount(2, dialogs, "设置与配置工具各开一个窗口");
+                Assert.Contains(d => d.GetVisualDescendants().OfType<SettingsView>().Any(), dialogs,
+                    "其中一个装着设置表单");
+                Assert.Contains(d => d.GetVisualDescendants().OfType<ToolPickerView>().Any(), dialogs,
+                    "另一个装着工具勾选列表");
+
+                // 再点一次不该开出第二个
+                Click(panel, "SettingsButton");
+                await PumpAsync(3);
+                Assert.HasCount(2, Dialogs(window).ToList(), "已经开着的窗口只带到前面,不重复开");
+
+                panel.Detach();
+                await PumpAsync(3);
+                Assert.IsEmpty(Dialogs(window).ToList(), "面板关了,两个窗口要跟着关");
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    /// <summary>挂在宿主窗口下、当前开着的插件对话框。</summary>
+    private static IEnumerable<PluginDialog> Dialogs(Window owner) => owner.OwnedWindows.OfType<PluginDialog>();
+
+    private static void Click(ChatPanelView panel, string name)
+        => Find<Button>(panel, name).RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
 
     /// <summary>控件在某个祖先坐标系里的垂直中心。</summary>
     private static double CentreY(Visual visual, Visual relativeTo)

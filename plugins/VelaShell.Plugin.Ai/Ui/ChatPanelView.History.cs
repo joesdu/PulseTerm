@@ -8,19 +8,16 @@ using VelaShell.Plugin.Ai.Chat;
 namespace VelaShell.Plugin.Ai.Ui;
 
 /// <summary>
-/// 聊天面板的历史会话部分:视图切换(聊天 / 设置 / 历史)、会话列表与加载、
+/// 聊天面板的历史会话部分:视图切换(聊天 / 历史)、会话列表与加载、
 /// 以及输入框的 ↑↓ 消息回溯。数据来自 <see cref="ChatHistoryStore" />(插件私有时序库)。
 /// </summary>
 public partial class ChatPanelView
 {
-    /// <summary>中部区域三选一。</summary>
+    /// <summary>中部区域二选一(设置已改为独立窗口)。</summary>
     private enum PanelView
     {
         /// <summary>消息流。</summary>
         Chat,
-
-        /// <summary>设置页。</summary>
-        Settings,
 
         /// <summary>历史会话列表。</summary>
         History
@@ -50,9 +47,7 @@ public partial class ChatPanelView
         try
         {
             ChatScroll.IsVisible = view == PanelView.Chat;
-            SettingsHost.IsVisible = view == PanelView.Settings;
             HistoryHost.IsVisible = view == PanelView.History;
-            SettingsToggle.IsChecked = view == PanelView.Settings;
             HistoryToggle.IsChecked = view == PanelView.History;
         }
         finally
