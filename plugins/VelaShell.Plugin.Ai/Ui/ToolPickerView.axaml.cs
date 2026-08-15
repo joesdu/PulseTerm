@@ -61,7 +61,7 @@ public sealed class ToolPickerView : UserControl
         _status.Text = _loc.F("ToolsSelected", CountEnabled());
     }
 
-    private Control BuildBuiltinGroup()
+    private Border BuildBuiltinGroup()
     {
         HashSet<string> disabled = Lines(_settings.DisabledBuiltinTools);
         var rows = new StackPanel { Spacing = 2 };
@@ -77,7 +77,7 @@ public sealed class ToolPickerView : UserControl
         return BuildGroup(_loc["ToolsBuiltin"], rows, header: null);
     }
 
-    private Control BuildMcpGroup(McpServerConfig server)
+    private Border BuildMcpGroup(McpServerConfig server)
     {
         HashSet<string> disabled = Lines(server.DisabledTools);
         var rows = new StackPanel { Spacing = 2 };
@@ -124,9 +124,9 @@ public sealed class ToolPickerView : UserControl
         return BuildGroup(title, rows, refresh);
     }
 
-    private static Control BuildGroup(string title, Control rows, Control? header)
+    private static Border BuildGroup(string title, Control rows, Control? header)
     {
-        var head = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        var head = new Grid { ColumnDefinitions = [with("*,Auto")] };
         head.Children.Add(new TextBlock
         {
             Text = title,
@@ -145,7 +145,7 @@ public sealed class ToolPickerView : UserControl
     }
 
     /// <summary>一行:勾选框 + 工具名 + 说明,只读工具额外标一下(它们不走审批)。</summary>
-    private Control BuildRow(string name, string description, bool readOnly, bool enabled, Action<bool> onChanged)
+    private CheckBox BuildRow(string name, string description, bool readOnly, bool enabled, Action<bool> onChanged)
     {
         var label = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
         label.Children.Add(new TextBlock { Classes = { "toolName" }, Text = name });

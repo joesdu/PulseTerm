@@ -16,8 +16,9 @@ namespace VelaShell.Plugin.Ai.Agent;
 public static class ReadOnlyCommand
 {
     /// <summary>公认没有副作用的命令名。没列进来的一律当作可能有副作用。</summary>
-    private static readonly HashSet<string> Safe = new(StringComparer.Ordinal)
-    {
+    private static readonly HashSet<string> Safe =
+    [
+        with(StringComparer.Ordinal),
         "ls", "ll", "dir", "cat", "bat", "head", "tail", "less", "more", "wc", "nl",
         "stat", "file", "readlink", "realpath", "basename", "dirname", "pwd",
         "df", "du", "free", "uptime", "uname", "hostname", "whoami", "id", "groups", "date",
@@ -27,7 +28,7 @@ public static class ReadOnlyCommand
         "env", "printenv", "echo", "which", "whereis", "type", "locale",
         "lscpu", "lsblk", "lsusb", "lspci", "mount", "vmstat", "iostat", "sar",
         "getent", "dig", "nslookup", "host", "ping", "traceroute", "curl", "wget"
-    };
+    ];
 
     /// <summary>
     /// 出现其中任何一个片段就直接判定"看不准"。
