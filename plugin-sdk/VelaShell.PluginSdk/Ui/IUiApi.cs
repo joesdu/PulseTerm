@@ -81,6 +81,26 @@ public interface IPluginPanel : IAsyncDisposable
     /// <summary>面板已关闭(用户关闭、插件关闭或插件停用),只触发一次。</summary>
     event Action? Closed;
 
+    /// <summary>
+    /// 用户拖分割条改完这一栏的宽度后触发,参数是新的比例(占所在分栏的 0–1)。
+    /// </summary>
+    /// <remarks>
+    /// <b>拖动结束才触发一次</b>,不是拖动过程中连续触发 —— 调用方可以直接落盘,不必自己防抖。
+    /// 仅 <see cref="PanelDisplayMode.Document" /> 有意义;窗口形态永不触发。
+    /// 插件想"记住用户拖出来的宽度"就订阅它,下次打开把值经
+    /// <see cref="PanelOptions.PlacementRatio" /> 传回来。
+    /// </remarks>
+    event Action<double>? PlacementRatioChanged;
+
+    /// <summary>
+    /// 把面板带到眼前:窗口形态激活并置前,停靠文档形态选中那个标签。
+    /// 面板已关闭时什么也不做。任意线程可调。
+    /// </summary>
+    /// <remarks>
+    /// 用于"这个面板已经开着了"的场景 —— 再开一个重复的不对,什么都不做又像是按钮坏了。
+    /// </remarks>
+    Task ActivateAsync();
+
     /// <summary>程序性关闭面板(幂等,任意线程可调)。</summary>
     Task CloseAsync();
 }

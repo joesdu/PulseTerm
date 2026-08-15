@@ -807,8 +807,11 @@ public partial class ChatPanelView : UserControl
         }
         catch (Exception ex)
         {
-            _context.Log.Error("AI request failed.", ex);
-            bubble?.AppendText($"\n\n**[{_loc["Error"]}]** {ex.Message}");
+            // 带上服务端正文:Anthropic 的异常消息只有一句 "Status Code: BadRequest",
+            // 真正说清哪儿不对的那段在 ResponseBody 里(见 ApiErrorText)。
+            string detail = ApiErrorText.Describe(ex);
+            _context.Log.Error($"AI request failed. — {detail}", ex);
+            bubble?.AppendText($"\n\n**[{_loc["Error"]}]** {detail}");
             await SettleUnfinishedTurnAsync(bubble);
         }
         finally

@@ -13,156 +13,167 @@
   </UserControl.Resources>
 
   <UserControl.Styles>
-    <!-- 字段名与说明文字同样从 Muted 提到 Tertiary:这一页几乎全是要读的说明,
-         Muted 压在面板底色上太淡(与聊天面板的调整同因)。 -->
-    <Style Selector="TextBlock.label">
-      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
-      <Setter Property="Foreground" Value="{DynamicResource VelaTextTertiary}" />
-      <Setter Property="Margin" Value="0,8,0,3" />
-    </Style>
-    <Style Selector="TextBlock.dim">
-      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
-      <Setter Property="Foreground" Value="{DynamicResource VelaTextTertiary}" />
-    </Style>
-    <Style Selector="TextBox">
-      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize12}" />
-      <Setter Property="MinHeight" Value="30" />
-    </Style>
-    <Style Selector="ComboBox">
-      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize12}" />
-      <Setter Property="MinHeight" Value="30" />
-    </Style>
-    <Style Selector="ListBox">
-      <Setter Property="Background" Value="{DynamicResource VelaBgSurface}" />
-      <Setter Property="CornerRadius" Value="4" />
-      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize12}" />
-    </Style>
+    <StyleInclude Source="avares://VelaShell.Plugin.Ai/Ui/DialogStyles.axaml" />
   </UserControl.Styles>
 
-  <Grid ColumnDefinitions="190,14,*">
+  <!-- 版式对齐宿主设置页:左边一条 bg-sidebar 导航(贴着窗口边,跟着卡片左下圆角),
+       右边留足内边距的可滚动内容区,内容按"节"分块。
+       内容区的 24/20 内边距是这次专门补的 —— 之前字段直接贴着窗口边框,难看。 -->
+  <Grid ColumnDefinitions="210,*">
     <!-- 左:接入列表 + 新增 -->
-    <DockPanel Grid.Column="0">
-      <TextBlock x:Name="ProvidersHeader" DockPanel.Dock="Top" Classes="label" Margin="0,0,0,4" />
-      <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="0,8,0,0">
-        <ComboBox x:Name="PresetCombo" HorizontalAlignment="Stretch" />
-        <Button x:Name="AddButton" Theme="{DynamicResource VelaOutlineButtonTheme}"
-                HorizontalAlignment="Stretch" Height="26">
-          <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
-            <Viewbox Width="11" Height="11" VerticalAlignment="Center">
-              <Path Width="24" Height="24" Data="{DynamicResource Icon.plus}"
-                    Stroke="{DynamicResource VelaTextSecondary}" StrokeThickness="2"
-                    StrokeLineCap="Round" StrokeJoin="Round" />
-            </Viewbox>
-            <TextBlock x:Name="AddText" VerticalAlignment="Center" />
-          </StackPanel>
-        </Button>
-      </StackPanel>
-      <ListBox x:Name="ProvidersList" />
-    </DockPanel>
+    <Border Grid.Column="0"
+            Background="{DynamicResource VelaBgSidebar}"
+            BorderBrush="{DynamicResource VelaBorderPrimary}"
+            BorderThickness="0,0,1,0"
+            CornerRadius="0,0,0,7">
+      <!-- 内圆角 7 = 外框 8 − 1px 描边:照抄 8 会让方角背景盖掉外框那段弧线,看起来像断线 -->
+      <DockPanel>
+        <Border DockPanel.Dock="Top" Height="40" Padding="14,0"
+                BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,0,0,1">
+          <TextBlock x:Name="ProvidersHeader" Classes="section-title" VerticalAlignment="Center" />
+        </Border>
+        <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="10,8,10,10">
+          <ComboBox x:Name="PresetCombo" HorizontalAlignment="Stretch" />
+          <Button x:Name="AddButton" Theme="{DynamicResource VelaOutlineButtonTheme}"
+                  HorizontalAlignment="Stretch" Height="28">
+            <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+              <Viewbox Width="11" Height="11" VerticalAlignment="Center">
+                <Path Width="24" Height="24" Data="{DynamicResource Icon.plus}"
+                      Stroke="{DynamicResource VelaTextSecondary}" StrokeThickness="2"
+                      StrokeLineCap="Round" StrokeJoin="Round" />
+              </Viewbox>
+              <TextBlock x:Name="AddText" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+        </StackPanel>
+        <ListBox x:Name="ProvidersList" Classes="nav" />
+      </DockPanel>
+    </Border>
 
     <!-- 右:编辑表单。滚动条留白放在内容 Margin 上(勿用 ScrollViewer.Padding),
-         避免悬停展开的覆盖式滚动条压住输入框右缘。 -->
-    <ScrollViewer Grid.Column="2" HorizontalScrollBarVisibility="Disabled">
-      <StackPanel Margin="0,0,19,0">
-        <TextBlock x:Name="NameLabel" Classes="label" Margin="0,0,0,3" />
-        <TextBox x:Name="NameBox" />
-        <TextBlock x:Name="ProtocolLabel" Classes="label" />
-        <ComboBox x:Name="ProtocolCombo" HorizontalAlignment="Stretch" />
-        <TextBlock x:Name="BaseUrlLabel" Classes="label" />
-        <TextBox x:Name="BaseUrlBox" FontFamily="{DynamicResource VelaUiMonoFont}" />
-        <TextBlock x:Name="ModelLabel" Classes="label" />
-        <TextBox x:Name="ModelBox" FontFamily="{DynamicResource VelaUiMonoFont}" />
-        <!-- 输出上限随请求下发;输入上限(上下文窗口)只喂给输入框下方的用量占比 -->
-        <Grid ColumnDefinitions="*,12,*">
+         避免悬停展开的覆盖式滚动条压住输入框右缘。
+         左右都是 24:滚动条是<b>浮在</b>内容上的(不占布局),所以左右留白就等于这里写的数,
+         右边不需要为它另外扣一块。它会飘在这 24 的空档里,压不到卡片。 -->
+    <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Disabled">
+      <StackPanel Margin="24,20,24,20" Spacing="8">
+
+        <!-- 一、接入:连到哪儿、用哪个模型、拿什么鉴权 -->
+        <TextBlock x:Name="SectionEndpointTitle" Classes="section-title" />
+        <Border Classes="section">
           <StackPanel>
-            <TextBlock x:Name="MaxTokensLabel" Classes="label" />
-            <TextBox x:Name="MaxTokensBox" />
+            <TextBlock x:Name="NameLabel" Classes="label" Margin="0,0,0,3" />
+            <TextBox x:Name="NameBox" />
+            <TextBlock x:Name="ProtocolLabel" Classes="label" />
+            <ComboBox x:Name="ProtocolCombo" HorizontalAlignment="Stretch" />
+            <TextBlock x:Name="BaseUrlLabel" Classes="label" />
+            <TextBox x:Name="BaseUrlBox" FontFamily="{DynamicResource VelaUiMonoFont}" />
+            <TextBlock x:Name="ModelLabel" Classes="label" />
+            <TextBox x:Name="ModelBox" FontFamily="{DynamicResource VelaUiMonoFont}" />
+            <TextBlock x:Name="ApiKeyLabel" Classes="label" />
+            <Grid ColumnDefinitions="*,6,Auto">
+              <TextBox x:Name="ApiKeyBox" PasswordChar="●" FontFamily="{DynamicResource VelaUiMonoFont}" />
+              <ToggleButton x:Name="RevealKeyToggle" Grid.Column="2" Theme="{StaticResource AiChipToggleTheme}"
+                            Width="30" Height="30" Padding="0" VerticalAlignment="Center">
+                <Viewbox Width="13" Height="13">
+                  <Path Width="24" Height="24" Data="{DynamicResource Icon.eye}"
+                        Stroke="{Binding $parent[ToggleButton].Foreground}" StrokeThickness="2"
+                        StrokeLineCap="Round" StrokeJoin="Round" />
+                </Viewbox>
+              </ToggleButton>
+            </Grid>
+            <TextBlock x:Name="ApiKeyHintText" Classes="hint" />
           </StackPanel>
-          <StackPanel Grid.Column="2">
-            <TextBlock x:Name="MaxInputTokensLabel" Classes="label" />
-            <TextBox x:Name="MaxInputTokensBox" />
-          </StackPanel>
-        </Grid>
-        <TextBlock x:Name="MaxInputTokensHintText" Classes="dim" TextWrapping="Wrap" Margin="0,3,0,0" />
-        <TextBlock x:Name="ReasoningLabel" Classes="label" />
-        <ComboBox x:Name="ReasoningCombo" HorizontalAlignment="Stretch" />
-        <TextBlock x:Name="ReasoningHintText" Classes="dim" TextWrapping="Wrap" Margin="0,3,0,0" />
-        <!-- 提示词缓存:只有 Anthropic 协议吃这个标记,选别的协议时整块隐藏 -->
-        <StackPanel x:Name="PromptCachePanel">
-          <CheckBox x:Name="PromptCacheCheck" Theme="{StaticResource AiCheckBoxTheme}"
-                    FontSize="{DynamicResource VelaFontSize12}" Margin="0,10,0,0" />
-          <TextBlock x:Name="PromptCacheHintText" Classes="dim" TextWrapping="Wrap" Margin="0,3,0,0" />
-        </StackPanel>
-        <!-- 采样参数:留空 = 不发这个参数,用服务端默认 -->
-        <Grid ColumnDefinitions="*,12,*,12,*">
+        </Border>
+
+        <!-- 二、模型能力:上下限与思考 -->
+        <TextBlock x:Name="SectionCapacityTitle" Classes="section-title" Margin="0,14,0,0" />
+        <Border Classes="section">
           <StackPanel>
-            <TextBlock x:Name="TemperatureLabel" Classes="label" />
-            <TextBox x:Name="TemperatureBox" />
+            <!-- 输出上限随请求下发;输入上限(上下文窗口)只喂给输入框下方的用量占比 -->
+            <Grid ColumnDefinitions="*,12,*">
+              <StackPanel>
+                <TextBlock x:Name="MaxTokensLabel" Classes="label" Margin="0,0,0,3" />
+                <TextBox x:Name="MaxTokensBox" />
+              </StackPanel>
+              <StackPanel Grid.Column="2">
+                <TextBlock x:Name="MaxInputTokensLabel" Classes="label" Margin="0,0,0,3" />
+                <TextBox x:Name="MaxInputTokensBox" />
+              </StackPanel>
+            </Grid>
+            <TextBlock x:Name="MaxInputTokensHintText" Classes="hint" />
+            <TextBlock x:Name="ReasoningLabel" Classes="label" />
+            <ComboBox x:Name="ReasoningCombo" HorizontalAlignment="Stretch" />
+            <TextBlock x:Name="ReasoningHintText" Classes="hint" />
+            <!-- 提示词缓存:只有 Anthropic 协议吃这个标记,选别的协议时整块隐藏 -->
+            <StackPanel x:Name="PromptCachePanel">
+              <CheckBox x:Name="PromptCacheCheck" Theme="{StaticResource AiCheckBoxTheme}"
+                        FontSize="{DynamicResource VelaFontSize12}" Margin="0,12,0,0" />
+              <TextBlock x:Name="PromptCacheHintText" Classes="hint" />
+            </StackPanel>
           </StackPanel>
-          <StackPanel Grid.Column="2">
-            <TextBlock x:Name="TopPLabel" Classes="label" />
-            <TextBox x:Name="TopPBox" />
-          </StackPanel>
-          <StackPanel Grid.Column="4">
-            <TextBlock x:Name="StopLabel" Classes="label" />
-            <TextBox x:Name="StopBox" FontFamily="{DynamicResource VelaUiMonoFont}" />
-          </StackPanel>
-        </Grid>
-        <TextBlock x:Name="SamplingHintText" Classes="dim" TextWrapping="Wrap" Margin="0,3,0,0" />
+        </Border>
 
-        <!-- 单价(用户自填,用于用量提示里的花费估算);留 0 就不估 -->
-        <Grid ColumnDefinitions="*,12,*,12,*">
+        <!-- 三、采样、计费与本接入专用提示词 -->
+        <TextBlock x:Name="SectionSamplingTitle" Classes="section-title" Margin="0,14,0,0" />
+        <Border Classes="section">
           <StackPanel>
-            <TextBlock x:Name="PriceInLabel" Classes="label" />
-            <TextBox x:Name="PriceInBox" />
+            <!-- 采样参数:留空 = 不发这个参数,用服务端默认 -->
+            <Grid ColumnDefinitions="*,12,*,12,*">
+              <StackPanel>
+                <TextBlock x:Name="TemperatureLabel" Classes="label" Margin="0,0,0,3" />
+                <TextBox x:Name="TemperatureBox" />
+              </StackPanel>
+              <StackPanel Grid.Column="2">
+                <TextBlock x:Name="TopPLabel" Classes="label" Margin="0,0,0,3" />
+                <TextBox x:Name="TopPBox" />
+              </StackPanel>
+              <StackPanel Grid.Column="4">
+                <TextBlock x:Name="StopLabel" Classes="label" Margin="0,0,0,3" />
+                <TextBox x:Name="StopBox" FontFamily="{DynamicResource VelaUiMonoFont}" />
+              </StackPanel>
+            </Grid>
+            <TextBlock x:Name="SamplingHintText" Classes="hint" />
+
+            <Border Classes="sep" Margin="0,14" />
+
+            <!-- 单价(用户自填,用于用量提示里的花费估算);留 0 就不估 -->
+            <Grid ColumnDefinitions="*,12,*,12,*">
+              <StackPanel>
+                <TextBlock x:Name="PriceInLabel" Classes="label" Margin="0,0,0,3" />
+                <TextBox x:Name="PriceInBox" />
+              </StackPanel>
+              <StackPanel Grid.Column="2">
+                <TextBlock x:Name="PriceOutLabel" Classes="label" Margin="0,0,0,3" />
+                <TextBox x:Name="PriceOutBox" />
+              </StackPanel>
+              <StackPanel Grid.Column="4">
+                <TextBlock x:Name="PriceCachedLabel" Classes="label" Margin="0,0,0,3" />
+                <TextBox x:Name="PriceCachedBox" />
+              </StackPanel>
+            </Grid>
+            <TextBlock x:Name="PriceHintText" Classes="hint" />
+
+            <TextBlock x:Name="ProviderPromptLabel" Classes="label" />
+            <TextBox x:Name="ProviderPromptBox" AcceptsReturn="True" MinHeight="60" TextWrapping="Wrap" />
           </StackPanel>
-          <StackPanel Grid.Column="2">
-            <TextBlock x:Name="PriceOutLabel" Classes="label" />
-            <TextBox x:Name="PriceOutBox" />
+        </Border>
+
+        <!-- 四、全局:不属于某一个接入的那些 -->
+        <TextBlock x:Name="SectionGlobalTitle" Classes="section-title" Margin="0,14,0,0" />
+        <Border Classes="section">
+          <StackPanel>
+            <TextBlock x:Name="SystemPromptLabel" Classes="label" Margin="0,0,0,3" />
+            <TextBox x:Name="SystemPromptBox" AcceptsReturn="True" MinHeight="64" TextWrapping="Wrap" />
+
+            <CheckBox x:Name="CompactContextCheck" Theme="{StaticResource AiCheckBoxTheme}"
+                      FontSize="{DynamicResource VelaFontSize12}" Margin="0,14,0,0" />
+            <TextBlock x:Name="CompactContextHintText" Classes="hint" />
+
+            <CheckBox x:Name="SuggestFollowUpsCheck" Theme="{StaticResource AiCheckBoxTheme}"
+                      FontSize="{DynamicResource VelaFontSize12}" Margin="0,14,0,0" />
+            <TextBlock x:Name="SuggestFollowUpsHintText" Classes="hint" />
           </StackPanel>
-          <StackPanel Grid.Column="4">
-            <TextBlock x:Name="PriceCachedLabel" Classes="label" />
-            <TextBox x:Name="PriceCachedBox" />
-          </StackPanel>
-        </Grid>
-        <TextBlock x:Name="PriceHintText" Classes="dim" TextWrapping="Wrap" Margin="0,3,0,0" />
-
-        <TextBlock x:Name="ProviderPromptLabel" Classes="label" />
-        <TextBox x:Name="ProviderPromptBox" AcceptsReturn="True" MinHeight="52" TextWrapping="Wrap" />
-
-        <TextBlock x:Name="ApiKeyLabel" Classes="label" />
-        <Grid ColumnDefinitions="*,6,Auto">
-          <TextBox x:Name="ApiKeyBox" PasswordChar="●" FontFamily="{DynamicResource VelaUiMonoFont}" />
-          <ToggleButton x:Name="RevealKeyToggle" Grid.Column="2" Theme="{StaticResource AiChipToggleTheme}"
-                        Width="30" Height="30" Padding="0" VerticalAlignment="Center">
-            <Viewbox Width="13" Height="13">
-              <Path Width="24" Height="24" Data="{DynamicResource Icon.eye}"
-                    Stroke="{Binding $parent[ToggleButton].Foreground}" StrokeThickness="2"
-                    StrokeLineCap="Round" StrokeJoin="Round" />
-            </Viewbox>
-          </ToggleButton>
-        </Grid>
-        <TextBlock x:Name="ApiKeyHintText" Classes="dim" Margin="0,3,0,0" />
-
-        <Separator Margin="0,14" Background="{DynamicResource VelaBorderPrimary}" />
-        <TextBlock x:Name="SystemPromptLabel" Classes="label" Margin="0,0,0,3" />
-        <TextBox x:Name="SystemPromptBox" AcceptsReturn="True" MinHeight="64" TextWrapping="Wrap" />
-
-        <CheckBox x:Name="CompactContextCheck" Theme="{StaticResource AiCheckBoxTheme}"
-                  FontSize="{DynamicResource VelaFontSize12}" Margin="0,12,0,0" />
-        <TextBlock x:Name="CompactContextHintText" Classes="dim" TextWrapping="Wrap" Margin="0,3,0,0" />
-
-        <CheckBox x:Name="SuggestFollowUpsCheck" Theme="{StaticResource AiCheckBoxTheme}"
-                  FontSize="{DynamicResource VelaFontSize12}" Margin="0,12,0,0" />
-        <TextBlock x:Name="SuggestFollowUpsHintText" Classes="dim" TextWrapping="Wrap" Margin="0,3,0,0" />
-
-        <!-- 以标签页打开时侧栏的初始宽度(纯外观,不影响请求) -->
-        <TextBlock x:Name="PanelWidthLabel" Classes="label" />
-        <Grid ColumnDefinitions="Auto,10,*">
-          <TextBox x:Name="PanelWidthBox" Width="90" />
-          <TextBlock x:Name="PanelWidthHintText" Grid.Column="2" Classes="dim"
-                     TextWrapping="Wrap" VerticalAlignment="Center" />
-        </Grid>
+        </Border>
 
         <!-- MCP 服务器搬去「配置工具」窗口了:配好服务器紧接着就要挑它的工具,
              那份勾选列表就在那边;隔着两个窗口来回切很别扭。 -->
@@ -171,7 +182,9 @@
              不钉死在窗口底部:一条常驻横栏会一直占着高度,而这页大多数时候在读、在填,
              真要按保存时滚到底就是了。「保存」连带把上面那几项全局设置一起存,所以它必须在全部字段之后。 -->
         <Border BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,1,0,0"
-                Padding="0,12,0,0" Margin="0,16,0,0">
+                Padding="0,14,0,0" Margin="0,4,0,0">
+          <!-- 侧栏宽度不在这儿(也不在任何一节里):它跟着用户拖分割条走,拖完就记住,
+               下次打开还是那个宽度。让人来填一个百分比,不如直接把他拖出来的结果记下来。 -->
           <Grid ColumnDefinitions="*,Auto">
             <TextBlock x:Name="StatusText" Classes="dim" TextWrapping="Wrap"
                        Margin="0,0,12,0" VerticalAlignment="Center" />

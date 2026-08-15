@@ -204,9 +204,13 @@ public sealed class AiSettings
     public bool CompactContext { get; set; } = true;
 
     /// <summary>
-    /// 以标签页打开时,右侧那一栏初始占标签区的百分比(15–85,越界由宿主夹取)。
-    /// 只决定"打开时多宽",之后拖分割条随时可改 —— 拖出来的宽度不回写这里。
+    /// 以标签页打开时,右侧那一栏占标签区的百分比(15–85,越界夹取)。
     /// </summary>
+    /// <remarks>
+    /// <b>没有对应的设置项,由用户拖分割条决定</b>:拖完宿主通知一次
+    /// (<c>IPluginPanel.PlacementRatioChanged</c>),这里记下来,下次打开还是那个宽度。
+    /// 让人去填一个百分比,不如直接把他拖出来的结果记住。
+    /// </remarks>
     public int PanelWidthPercent { get; set; } = 30;
 
     /// <summary>用户自定义的 MCP 服务器(Agent 模式下启用项的工具并入工具箱)。</summary>

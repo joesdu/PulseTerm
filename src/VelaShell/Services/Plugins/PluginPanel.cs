@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Threading;
 using VelaShell.Docking;
@@ -27,13 +28,20 @@ internal sealed class PluginPanel : IPluginPanel
     private readonly DockWorkspace? _workspace;
     private readonly PluginPanelWindow? _window;
     private readonly Action<DockDocument>? _onDocumentRemoved;
+    private DockGroup? _watchedGroup;
     private int _closed;
 
     public string PanelId { get; } = Guid.NewGuid().ToString("N");
 
     public bool IsOpen => _closed == 0;
 
+    /// <inheritdoc />
+    public double PlacementRatio { get; private set; } = double.NaN;
+
     public event Action? Closed;
+
+    /// <inheritdoc />
+    public event Action<double>? PlacementRatioChanged;
 
     /// <summary>停靠文档形态。调用方须在 UI 线程构造。</summary>
     public PluginPanel(string pluginId, IPluginLogger log, PanelOptions options, Control content, DockWorkspace workspace)
@@ -54,7 +62,51 @@ internal sealed class PluginPanel : IPluginPanel
         workspace.DocumentRemoved += _onDocumentRemoved;
         workspace.AddDocument(_document);
         ApplyPlacement(workspace, _document, options.Placement, options.PlacementRatio);
+        WatchProportion();
     }
+
+    /// <summary>
+    /// 盯着这一栏的比例:用户拖完分割条,<c>DockWorkspaceControl</c> 会把 star 值回写成
+    /// <see cref="DockNode.Proportion" />(每次拖动一次,见它的 <c>SaveProportions</c>),
+    /// 我们据此换算成"占所在分栏的比例"抛给插件。
+    /// </summary>
+    /// <remarks>
+    /// 订阅的是<b>落位时</b>那个组。用户把标签拖去别处会换一个组,那之后就不再有通知了 ——
+    /// 换个组也就意味着"这一栏"已经不是原来那一栏,继续汇报反而是错的。
+    /// </remarks>
+    private void WatchProportion()
+    {
+        if (_workspace?.FindGroup(_document!) is not { } group)
+        {
+            return;
+        }
+        _watchedGroup = group;
+        group.PropertyChanged += OnGroupPropertyChanged;
+    }
+
+    private void OnGroupPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(DockNode.Proportion) || _watchedGroup is not { Parent: { } parent })
+        {
+            return;
+        }
+        double own = Weight(_watchedGroup);
+        double total = 0;
+        foreach (DockNode child in parent.Children)
+        {
+            total += Weight(child);
+        }
+        if (total <= 0)
+        {
+            return;
+        }
+        double ratio = own / total;
+        PlacementRatio = ratio;
+        PlacementRatioChanged?.Invoke(ratio);
+    }
+
+    /// <summary>NaN(还没被分配过比例)等价于"与兄弟均分",按 1 星算 —— 与控件侧同一约定。</summary>
+    private static double Weight(DockNode node) => double.IsNaN(node.Proportion) ? 1 : Math.Max(node.Proportion, 0);
 
     /// <summary>
     /// 把刚加进主组的文档挪到请求的那一侧,并按 <c>ratio</c>(占标签区的比例,
@@ -155,6 +207,30 @@ internal sealed class PluginPanel : IPluginPanel
         }
     }
 
+    /// <inheritdoc />
+    public async Task ActivateAsync()
+    {
+        if (!IsOpen)
+        {
+            return;
+        }
+        try
+        {
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (_document is not null)
+                {
+                    _workspace?.ActivateDocument(_document);
+                }
+                _window?.Activate();
+            }).GetTask().ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // 应用退出:Dispatcher 关掉了排队作业。置前这种事没做成也无所谓。
+        }
+    }
+
     public async Task CloseAsync()
     {
         if (!IsOpen)
@@ -192,6 +268,12 @@ internal sealed class PluginPanel : IPluginPanel
         {
             _workspace.DocumentRemoved -= _onDocumentRemoved;
         }
+        if (_watchedGroup is not null)
+        {
+            _watchedGroup.PropertyChanged -= OnGroupPropertyChanged;
+            _watchedGroup = null;
+        }
+        PlacementRatioChanged = null;
         if (Closed is { } handlers)
         {
             _ = Task.Run(() =>
