@@ -3,8 +3,11 @@ using Microsoft.Extensions.AI;
 namespace VelaShell.Plugin.Ai.Chat;
 
 /// <summary>一次请求的上下文装配结果。</summary>
-/// <param name="Messages">最终发出去的消息(系统提示词 + 裁剪并规整过的历史)。</param>
-/// <param name="DroppedMessages">为放进窗口而移出上下文的早期消息条数(仅影响发送,界面与库里都还在)。</param>
+/// <param name="Messages">最终发出去的消息(系统提示词 + 摘要 + 裁剪并规整过的历史)。</param>
+/// <param name="DroppedMessages">
+/// 为放进窗口而<b>直接丢掉</b>的早期消息条数。这是压缩失败时的兜底手段 ——
+/// 正常路径上早期内容会被折成摘要而不是丢弃(见 <see cref="ContextCompactor" />)。
+/// </param>
 /// <param name="EstimatedTokens">装配后的输入 token 估算值。</param>
 public readonly record struct RequestContext(
     List<ChatMessage> Messages,
@@ -31,23 +34,35 @@ public static class ContextBuilder
     /// <param name="history">对话历史(不含系统提示词);<b>本方法不修改它</b>。</param>
     /// <param name="windowTokens">模型的上下文窗口(接入配置里的"最大输入 tokens")。</param>
     /// <param name="reserveTokens">给回复留出的余量(通常就是最大输出 tokens)。</param>
+    /// <param name="summary">早期对话的摘要(空 = 没压缩过);它替代 <paramref name="summarizedThrough" /> 之前的那些消息。</param>
+    /// <param name="summarizedThrough">摘要覆盖到 <c>history</c> 的哪个下标为止(不含)。</param>
     public static RequestContext Build(string systemPrompt, IReadOnlyList<ChatMessage> history,
-        int windowTokens, int reserveTokens)
+        int windowTokens, int reserveTokens, string summary = "", int summarizedThrough = 0)
     {
         ArgumentNullException.ThrowIfNull(history);
         var system = new ChatMessage(ChatRole.System, systemPrompt);
+        int from = Math.Clamp(summarizedThrough, 0, history.Count);
+        bool hasSummary = summary.Length > 0 && from > 0;
+        // 摘要以一条 user 消息的身份排在最前:system 每轮都重建、放不住它,
+        // 而 user 这个角色在所有协议里都能安全地打头。
+        ChatMessage? digest = hasSummary ? new ChatMessage(ChatRole.User, summary) : null;
 
-        int start = 0;
+        int start = from;
         if (windowTokens > 0)
         {
             // 留出回复的余量,再留 10% 给估算误差 —— 估出来的 token 不可能和服务端完全一致
             int budget = (int)((windowTokens - Math.Max(0, reserveTokens)) * 0.9);
-            start = FirstIndexThatFits(system, history, Math.Max(budget, 0));
+            int fixedCost = Estimate(system) + (digest is null ? 0 : Estimate(digest));
+            start = FirstIndexThatFits(fixedCost, history, from, Math.Max(budget, 0));
         }
 
-        var messages = new List<ChatMessage>(history.Count - start + 1) { system };
+        var messages = new List<ChatMessage>(history.Count - start + 2) { system };
+        if (digest is not null)
+        {
+            messages.Add(digest);
+        }
         AppendNormalized(messages, history, start);
-        return new RequestContext(messages, start, Estimate(messages));
+        return new RequestContext(messages, start - from, Estimate(messages));
     }
 
     /// <summary>
@@ -55,11 +70,11 @@ public static class ContextBuilder
     /// 从 assistant 或工具结果中间切会留下没有来由的半截上下文,
     /// 更糟的是把工具调用和它的结果拆开(有些协议直接报错)。
     /// </summary>
-    private static int FirstIndexThatFits(ChatMessage system, IReadOnlyList<ChatMessage> history, int budget)
+    private static int FirstIndexThatFits(int fixedCost, IReadOnlyList<ChatMessage> history, int from, int budget)
     {
-        int total = Estimate(system) + Estimate(history, 0);
-        int lastCuttable = Math.Max(0, history.Count - AlwaysKeep);
-        int start = 0;
+        int total = fixedCost + Estimate(history, from);
+        int lastCuttable = Math.Max(from, history.Count - AlwaysKeep);
+        int start = from;
         while (total > budget && start < lastCuttable)
         {
             total -= Estimate(history[start]);

@@ -39,10 +39,10 @@ public sealed class ChatHistoryMetaTests
         Assert.AreEqual("claude-opus-5", meta.Model);
         Assert.AreEqual(12_300, meta.ElapsedMs);
         Assert.AreEqual(4_200, meta.ThinkingMs);
-        StringAssert.Contains(meta.Thinking, "inode");
+        Assert.Contains("inode", meta.Thinking);
         Assert.HasCount(1, meta.Tools!);
         Assert.AreEqual("run_command", meta.Tools![0].Name);
-        StringAssert.Contains(meta.Tools[0].Result, "98%");
+        Assert.Contains("98%", meta.Tools[0].Result);
     }
 
     /// <summary>老会话(那时还没有 chat_meta)照样能读出来,只是没有附加信息。</summary>
@@ -83,7 +83,53 @@ public sealed class ChatHistoryMetaTests
         Assert.HasCount(2, entries);
         Assert.AreEqual("第一答", entries[1].Text);
         Assert.AreEqual("m1", entries[1].Meta?.Model, "幸存那条的附加信息不能因为重写而丢");
-        StringAssert.Contains(entries[1].Meta!.Thinking, "想了想");
+        Assert.Contains("想了想", entries[1].Meta!.Thinking);
+    }
+
+    /// <summary>
+    /// 上下文摘要与"每条消息的附加信息"共用一张表,靠序号 -1 区分。
+    /// 两件事必须互不干扰:摘要不能被当成某条消息的附加信息,反之亦然。
+    /// </summary>
+    [TestMethod]
+    public async Task Summary_RoundTrips_WithoutPollutingPerMessageMeta()
+    {
+        using var context = new TestPluginContext();
+        (ChatHistoryStore store, string id, DateTimeOffset created) = await NewStoreAsync(context);
+        await store.AppendAsync(id, created, 0, "user", "问题");
+        await store.AppendAsync(id, created, 1, "assistant", "回答");
+        await store.AppendMetaAsync(id, 1, new ChatTurnMeta("m1", 100));
+
+        await store.SaveSummaryAsync(id, "【摘要】已确认 /dev/sda1 用满", 8);
+
+        (string summary, int through) = await store.LoadSummaryAsync(id);
+        Assert.AreEqual("【摘要】已确认 /dev/sda1 用满", summary);
+        Assert.AreEqual(8, through);
+
+        IReadOnlyList<ChatEntry> entries = await store.LoadAsync(id);
+        Assert.AreEqual("m1", entries[1].Meta?.Model, "摘要那一行不该冲掉消息自己的附加信息");
+    }
+
+    /// <summary>压过多次时取最新那一版。</summary>
+    [TestMethod]
+    public async Task Summary_KeepsTheLatestVersion()
+    {
+        using var context = new TestPluginContext();
+        (ChatHistoryStore store, string id, _) = await NewStoreAsync(context);
+
+        await store.SaveSummaryAsync(id, "第一版", 4);
+        await store.SaveSummaryAsync(id, "第二版", 10);
+
+        Assert.AreEqual(("第二版", 10), await store.LoadSummaryAsync(id));
+    }
+
+    [TestMethod]
+    public async Task Summary_IsEmptyForAConversationThatWasNeverCompacted()
+    {
+        using var context = new TestPluginContext();
+        (ChatHistoryStore store, string id, DateTimeOffset created) = await NewStoreAsync(context);
+        await store.AppendAsync(id, created, 0, "user", "问题");
+
+        Assert.AreEqual(("", 0), await store.LoadSummaryAsync(id));
     }
 
     [TestMethod]

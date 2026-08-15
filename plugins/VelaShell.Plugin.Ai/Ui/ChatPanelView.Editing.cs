@@ -135,6 +135,10 @@ public partial class ChatPanelView
         _sequenceHighWater = Math.Max(_sequenceHighWater, _persistedCount);
         _persistedCount = _sequenceHighWater;
 
+        // 摘要覆盖的是被截断之前的那些消息,截断后它的范围就不可信了 —— 整个作废,
+        // 下次接近窗口时重新压一遍。宁可多花一次压缩,也不能让模型读到对不上号的摘要。
+        ResetCompaction();
+
         ClearSuggestions();
         ShowStarterSuggestions();
         UpdateUsageText();

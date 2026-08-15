@@ -183,6 +183,10 @@
         <TextBlock x:Name="SystemPromptLabel" Classes="label" Margin="0,0,0,3" />
         <TextBox x:Name="SystemPromptBox" AcceptsReturn="True" MinHeight="64" TextWrapping="Wrap" />
 
+        <CheckBox x:Name="CompactContextCheck" Theme="{StaticResource AiCheckBoxTheme}"
+                  FontSize="{DynamicResource VelaFontSize12}" Margin="0,12,0,0" />
+        <TextBlock x:Name="CompactContextHintText" Classes="dim" TextWrapping="Wrap" Margin="0,3,0,0" />
+
         <CheckBox x:Name="SuggestFollowUpsCheck" Theme="{StaticResource AiCheckBoxTheme}"
                   FontSize="{DynamicResource VelaFontSize12}" Margin="0,12,0,0" />
         <TextBlock x:Name="SuggestFollowUpsHintText" Classes="dim" TextWrapping="Wrap" Margin="0,3,0,0" />

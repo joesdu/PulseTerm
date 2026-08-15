@@ -280,6 +280,72 @@ public sealed class ChatHistoryStore(IPluginContext context)
         }
     }
 
+    /// <summary>
+    /// 上下文摘要在 <c>chat_meta</c> 里占的序号。真实消息的序号从 0 起,
+    /// 用 -1 存摘要就不会和任何一条消息撞上。
+    /// </summary>
+    private const int SummarySequence = -1;
+
+    /// <summary>存下这个会话的上下文摘要(同序号覆盖写)。</summary>
+    public async Task SaveSummaryAsync(string conversationId, string summary, int through,
+        CancellationToken cancellationToken = default)
+    {
+        if (_meta is not { } series || string.IsNullOrEmpty(conversationId))
+        {
+            return;
+        }
+        try
+        {
+            await series.WriteAsync(new(_clock.Next(),
+                new Dictionary<string, string> { [ConversationTag] = conversationId },
+                new Dictionary<string, TimeSeriesValue>
+                {
+                    ["seq"] = TimeSeriesValue.FromInteger(SummarySequence),
+                    ["payload"] = TimeSeriesValue.FromText(
+                        JsonSerializer.Serialize(new StoredSummary(Truncate(summary, MaxThinkingChars), through)))
+                }), cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            context.Log.Warn($"Persisting context summary failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>取回这个会话最近一次的上下文摘要;没有则返回空串与 0。</summary>
+    public async Task<(string Summary, int Through)> LoadSummaryAsync(string conversationId,
+        CancellationToken cancellationToken = default)
+    {
+        if (_meta is not { } series || string.IsNullOrEmpty(conversationId))
+        {
+            return ("", 0);
+        }
+        try
+        {
+            // 同一个会话可能压过多次,取最新那条(查询默认最新在前)
+            IReadOnlyList<TimeSeriesPoint> points = await series.QueryAsync(new()
+            {
+                Tags = new Dictionary<string, string> { [ConversationTag] = conversationId },
+                Limit = 2000
+            }, cancellationToken).ConfigureAwait(false);
+            foreach (TimeSeriesPoint point in points.OrderByDescending(p => p.Timestamp))
+            {
+                if (point.Integer("seq", 0) != SummarySequence)
+                {
+                    continue;
+                }
+                if (JsonSerializer.Deserialize<StoredSummary>(point.Text("payload")) is { } stored)
+                {
+                    return (stored.Summary ?? "", stored.Through);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            context.Log.Warn($"Loading context summary failed: {ex.Message}");
+        }
+        return ("", 0);
+    }
+
     /// <summary>给一个会话改名(摘要点时间戳恒为创建时刻,写进去即覆盖)。</summary>
     public async Task RenameAsync(string conversationId, string title, DateTimeOffset createdAt, int messageCount,
         CancellationToken cancellationToken = default)
@@ -393,6 +459,11 @@ public sealed class ChatHistoryStore(IPluginContext context)
             }, cancellationToken).ConfigureAwait(false);
             foreach (TimeSeriesPoint point in points)
             {
+                // 负序号是上下文摘要那一行,不是某条消息的附加信息
+                if (point.Integer("seq", 0) < 0)
+                {
+                    continue;
+                }
                 string payload = point.Text("payload");
                 if (payload.Length == 0 || JsonSerializer.Deserialize<StoredMeta>(payload) is not { } stored)
                 {
@@ -415,6 +486,8 @@ public sealed class ChatHistoryStore(IPluginContext context)
     private sealed record StoredMeta(string? Model, long ElapsedMs, string? Thinking, long ThinkingMs, StoredTool[]? Tools);
 
     private sealed record StoredTool(string? Name, string? Arguments, string? Result);
+
+    private sealed record StoredSummary(string? Summary, int Through);
 
     /// <summary>删除一个历史会话(消息与摘要一并清除)。</summary>
     public async Task DeleteAsync(string conversationId, CancellationToken cancellationToken = default)
