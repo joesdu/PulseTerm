@@ -101,7 +101,8 @@ public partial class ChatPanelView : UserControl
         SetUpInputEditor();
         SetUpAttachments();
         FilePopup.PlacementTarget = InputWrap;
-        SettingsToggle.IsCheckedChanged += (_, _) => OnViewToggled(SettingsToggle, PanelView.Settings);
+        SettingsButton.Click += (_, _) => OpenSettingsDialog();
+        ToolsButton.Click += (_, _) => OpenToolsDialog();
         HistoryToggle.IsCheckedChanged += (_, _) =>
         {
             OnViewToggled(HistoryToggle, PanelView.History);
@@ -112,15 +113,23 @@ public partial class ChatPanelView : UserControl
         };
         ClearHistoryButton.Click += (_, _) => _ = OnClearHistoryClickedAsync();
         HistorySearchBox.TextChanged += (_, _) => RenderHistoryList();
-        AgentToggle.IsCheckedChanged += (_, _) =>
+        ModeCombo.SelectionChanged += (_, _) =>
         {
-            _settings.AgentMode = AgentToggle.IsChecked == true;
-            AutoApproveCheck.IsVisible = _settings.AgentMode;
+            if (ModeCombo.SelectedIndex < 0)
+            {
+                return;
+            }
+            _settings.Mode = (ChatMode)ModeCombo.SelectedIndex;
+            SyncModeUi();
             _ = PersistSettingsAsync();
         };
-        AutoApproveCheck.IsCheckedChanged += (_, _) =>
+        ApprovalCombo.SelectionChanged += (_, _) =>
         {
-            _settings.AutoApproveCommands = AutoApproveCheck.IsChecked == true;
+            if (ApprovalCombo.SelectedIndex < 0)
+            {
+                return;
+            }
+            _settings.Approval = (ApprovalMode)ApprovalCombo.SelectedIndex;
             _ = PersistSettingsAsync();
         };
         ProviderCombo.SelectionChanged += (_, _) =>
@@ -148,6 +157,7 @@ public partial class ChatPanelView : UserControl
         _context.Events.SessionDisconnected -= OnSessionEvent;
         _context.Events.LocaleChanged -= OnLocaleChanged;
         SetBusyGlow(false); // 计时器不停,面板关了它还在跑
+        CloseDialogs();     // 设置/配置工具窗口不该在面板关掉之后还留在屏幕上
         DisposeSuggestions();
         try
         {
@@ -178,17 +188,17 @@ public partial class ChatPanelView : UserControl
         try
         {
             _settings = await _store.LoadAsync();
-            AgentToggle.IsChecked = _settings.AgentMode;
-            AutoApproveCheck.IsChecked = _settings.AutoApproveCommands;
-            AutoApproveCheck.IsVisible = _settings.AgentMode;
-            _settingsView = new SettingsView(_context, _store, _settings, _loc, OnProvidersChanged);
-            SettingsHost.Content = _settingsView;
+            _settings.Migrate(); // 旧版的两个布尔开关折算成新的模式枚举
+            ModeCombo.SelectedIndex = (int)_settings.Mode;
+            ApprovalCombo.SelectedIndex = (int)_settings.Approval;
+            SyncModeUi();
             ReloadProviderCombo();
             await RefreshSessionsAsync();
             if (_providers.Count == 0)
             {
+                // 只提示,不自动弹窗:面板可能是随宿主启动一起开的,
+                // 冷不丁弹一个设置窗口在用户脸上不合适 —— 点 ⚙ 是他自己的决定。
                 StatusText.Text = _loc["NoProvider"];
-                SettingsToggle.IsChecked = true;
             }
             // 历史能力可选:时序不可用的宿主上按钮直接禁用,聊天照常
             await _historyStore.InitAsync();
@@ -209,13 +219,17 @@ public partial class ChatPanelView : UserControl
 
     private void ApplyLoc()
     {
-        AgentText.Text = _loc["Agent"];
-        ToolTip.SetTip(AgentToggle, _loc["AgentTip"]);
-        AutoApproveCheck.Content = _loc["AutoApprove"];
-        ToolTip.SetTip(AutoApproveCheck, _loc["AutoApproveTip"]);
+        // 下拉项跟着语言换,选中项按索引留住(枚举值 = 索引,见 ChatMode / ApprovalMode)
+        int mode = ModeCombo.SelectedIndex, approval = ApprovalCombo.SelectedIndex;
+        ModeCombo.ItemsSource = (string[])[_loc["ModeChat"], _loc["ModePlan"], _loc["ModeAgent"]];
+        ApprovalCombo.ItemsSource = (string[])[_loc["ApprovalAsk"], _loc["ApprovalReadOnly"], _loc["ApprovalBypass"]];
+        ModeCombo.SelectedIndex = mode;
+        ApprovalCombo.SelectedIndex = approval;
+        SyncModeUi();
         NewChatText.Text = _loc["NewChat"];
         ToolTip.SetTip(NewChatButton, _loc["NewChatTip"]);
-        ToolTip.SetTip(SettingsToggle, _loc["Settings"]);
+        ToolTip.SetTip(SettingsButton, _loc["Settings"]);
+        ToolTip.SetTip(ToolsButton, _loc["ConfigureTools"]);
         ToolTip.SetTip(HistoryToggle, _loc["History"]);
         ClearHistoryButton.Content = _loc["ClearHistory"];
         HistoryHeader.Text = _loc["HistoryHeader"];
@@ -590,8 +604,9 @@ public partial class ChatPanelView : UserControl
         }
         if (ActiveProvider is not { } provider)
         {
+            // 这次是用户主动发消息才撞上"没配接入",直接把设置窗口开给他
             StatusText.Text = _loc["NoProvider"];
-            SettingsToggle.IsChecked = true;
+            OpenSettingsDialog();
             return;
         }
 
@@ -647,13 +662,18 @@ public partial class ChatPanelView : UserControl
             // 不同(OpenAI 认 ChatOptions.Reasoning,Anthropic 只认请求体里的 thinking),
             // 差异全收在 AiSettingsStore.ApplyReasoning 里。
             AiSettingsStore.ApplyReasoning(options, provider);
-            bool agentMode = _settings.AgentMode;
-            if (agentMode)
+            ChatMode mode = _settings.Mode;
+            // 纯对话模式不给任何工具;计划模式只给只读工具(见 AgentToolbox.CreateTools)
+            if (mode != ChatMode.Chat)
             {
-                _toolbox.AutoApprove = _settings.AutoApproveCommands;
-                _mcp.AutoApprove = _settings.AutoApproveCommands;
-                IList<AITool> tools = _toolbox.CreateTools();
-                if (_settings.McpServers.Any(s => s.Enabled))
+                _toolbox.Approval = _settings.Approval;
+                _toolbox.DisabledTools = new HashSet<string>(
+                    SplitLines(_settings.DisabledBuiltinTools) ?? [], StringComparer.OrdinalIgnoreCase);
+                _mcp.Approval = _settings.Approval;
+                IList<AITool> tools = _toolbox.CreateTools(mode);
+                // 计划模式下不接 MCP:那些工具的副作用由第三方服务器说了算,插件无从判断,
+                // 而"计划"的承诺是这一步不动任何东西。
+                if (mode == ChatMode.Agent && _settings.McpServers.Any(s => s.Enabled))
                 {
                     StatusText.Text = _loc["McpConnecting"];
                     (List<AITool> mcpTools, List<string> mcpErrors) = await _mcp.GetToolsAsync(_settings.McpServers, token);
@@ -675,7 +695,7 @@ public partial class ChatPanelView : UserControl
             await CompactIfNeededAsync(provider, token);
             // 装配上下文:摘要 + 近几轮原文,按窗口裁剪并把相邻同角色的消息并起来(见 ContextBuilder)
             RequestContext request = ContextBuilder.Build(
-                BuildSystemPrompt(agentMode), _history, provider.MaxInputTokens, provider.MaxTokens,
+                BuildSystemPrompt(mode), _history, provider.MaxInputTokens, provider.MaxTokens,
                 _contextSummary, _summarizedThrough);
             List<ChatMessage> requestMessages = request.Messages;
             _droppedFromContext = request.DroppedMessages;
@@ -844,6 +864,27 @@ public partial class ChatPanelView : UserControl
     private static string ModelLabel(AiProviderConfig provider)
         => string.IsNullOrWhiteSpace(provider.Model) ? provider.Name : provider.Model;
 
+    /// <summary>
+    /// 模式变了要跟着调整界面:审批方式只在<b>有工具</b>的模式下才有意义,
+    /// 纯对话模式里摆着它只会让人以为哪里还能被自动执行点什么。
+    /// </summary>
+    private void SyncModeUi()
+    {
+        ApprovalCombo.IsVisible = _settings.Mode != ChatMode.Chat;
+        ToolTip.SetTip(ModeCombo, _loc[_settings.Mode switch
+        {
+            ChatMode.Agent => "ModeAgentTip",
+            ChatMode.Plan => "ModePlanTip",
+            _ => "ModeChatTip"
+        }]);
+        ToolTip.SetTip(ApprovalCombo, _loc[_settings.Approval switch
+        {
+            ApprovalMode.Bypass => "ApprovalBypassTip",
+            ApprovalMode.ReadOnlyAuto => "ApprovalReadOnlyTip",
+            _ => "ApprovalAskTip"
+        }]);
+    }
+
     /// <summary>用量归零(换会话时用:计数是"这一段对话"的,不是进程级的)。</summary>
     private void ResetUsage()
     {
@@ -956,8 +997,15 @@ public partial class ChatPanelView : UserControl
         return lines.Length > 0 ? lines : null;
     }
 
-    /// <summary>系统提示词:接入专用的优先,其次全局的,最后才是内置默认。</summary>
-    private string BuildSystemPrompt(bool agentMode)
+    /// <summary>
+    /// 系统提示词:接入专用的优先,其次全局的,最后才是内置默认。
+    /// 内置那份会按对话模式追加不同的交代 —— 三种模式对模型的要求本来就不一样。
+    /// </summary>
+    /// <remarks>
+    /// 用户自定义的提示词<b>不追加模式说明</b>:他既然自己写了,就该完全由他说了算。
+    /// 模式的实际约束靠"给不给工具"来兜底(计划模式根本拿不到写工具),不依赖提示词自觉。
+    /// </remarks>
+    private string BuildSystemPrompt(ChatMode mode)
     {
         if (ActiveProvider is { SystemPrompt: { } own } && !string.IsNullOrWhiteSpace(own))
         {
@@ -971,17 +1019,24 @@ public partial class ChatPanelView : UserControl
             "You are the AI assistant embedded in VelaShell, an SSH terminal application. " +
             "Help the user with servers, shell commands, log analysis and DevOps questions. Be concise and practical. " +
             "Format responses in Markdown. " +
-            $"Respond in the user's language (UI locale: {_context.Host.Locale}).";
-        if (agentMode)
+            $"Respond in the user's language (UI locale: {_context.Host.Locale}). " +
+            "The user can attach remote files to a message with @path; their content is included verbatim after the message.";
+        return prompt + mode switch
         {
-            prompt +=
+            ChatMode.Agent =>
                 " You can call tools to inspect the user's selected SSH session (read terminal output, run one-shot commands, list directories, read files) " +
                 "and to edit remote files (write_remote_file overwrites the whole file — read it first, then send the complete new content). " +
                 "Prefer read-only commands; destructive commands and file writes require user approval and should be proposed carefully. " +
-                "The user can attach remote files to a message with @path; their content is included verbatim after the message. " +
-                "Additional tools may come from user-configured MCP servers (their names are prefixed with the server name).";
-        }
-        return prompt;
+                "Additional tools may come from user-configured MCP servers (their names are prefixed with the server name).",
+            ChatMode.Plan =>
+                " You are in PLAN mode. You have read-only tools (read terminal output, list directories, read files) and you may use them freely to investigate. " +
+                "You must NOT change anything, and no tool that could change anything is available to you. " +
+                "Produce a concrete, ordered plan: what to check, what to change, the exact commands you would run, what could go wrong, and how to roll back. " +
+                "End by telling the user to switch to Agent mode if they want you to carry it out.",
+            _ =>
+                " You have no tools in this mode: answer from the conversation itself. " +
+                "If something genuinely needs to be checked on the server, say so and suggest switching to Agent mode rather than guessing."
+        };
     }
 
     /// <summary>

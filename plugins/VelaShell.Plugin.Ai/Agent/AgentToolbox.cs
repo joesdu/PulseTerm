@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.AI;
+using VelaShell.Plugin.Ai.Configuration;
 using VelaShell.PluginSdk;
 using VelaShell.PluginSdk.RemoteExec;
 using VelaShell.PluginSdk.RemoteFs;
@@ -27,27 +28,53 @@ public sealed class AgentToolbox(IPluginContext context)
     /// <summary>危险操作审批(返回是否放行)。未设置视为拒绝。</summary>
     public Func<ApprovalRequest, Task<bool>>? ApprovalHandler { get; set; }
 
-    /// <summary>免审批开关(用户显式打开才生效)。</summary>
-    public bool AutoApprove { get; set; }
+    /// <summary>审批方式(见 <see cref="ApprovalMode" />)。</summary>
+    public ApprovalMode Approval { get; set; } = ApprovalMode.Ask;
 
-    /// <summary>构建暴露给模型的工具列表。</summary>
-    public IList<AITool> CreateTools() =>
+    /// <summary>用户在"配置工具"里取消勾选的内置工具名(不暴露给模型)。</summary>
+    public IReadOnlySet<string> DisabledTools { get; set; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>全部内置工具的名称与一句说明,供"配置工具"窗口列出勾选项。</summary>
+    public static IReadOnlyList<(string Name, string Description, bool ReadOnly)> Catalog { get; } =
     [
-        AIFunctionFactory.Create(ListSessionsAsync, "list_sessions",
-            "List the user's SSH sessions (id, host, port, username, state). Use it to discover what servers are available."),
-        AIFunctionFactory.Create(ReadTerminalAsync, "read_terminal",
-            "Read the tail of the terminal output (scrollback + screen) of the selected SSH session. Use it to see what the user sees."),
-        AIFunctionFactory.Create(RunCommandAsync, "run_command",
-            "Run a one-shot, non-interactive shell command on the selected SSH session over a separate exec channel (it does NOT type into the user's terminal). Requires user approval. Prefer read-only commands."),
-        AIFunctionFactory.Create(ReadRemoteFileAsync, "read_remote_file",
-            "Read a small text file from the selected SSH session via SFTP (up to 256 KB). Returns the file content as text."),
-        AIFunctionFactory.Create(ListRemoteDirectoryAsync, "list_remote_directory",
-            "List a directory on the selected SSH session via SFTP (name, type, size, modified time). Use it to find files before reading or editing them."),
-        AIFunctionFactory.Create(WriteRemoteFileAsync, "write_remote_file",
-            "Overwrite (or create) a text file on the selected SSH session via SFTP. Requires user approval. Always read the file first and send back its full new content — this replaces the file, it does not patch it."),
-        AIFunctionFactory.Create(WriteTerminalAsync, "write_terminal",
-            "Type text into the user's visible terminal of the selected SSH session, as if the user typed it. A trailing newline executes the command. The host will additionally ask the user for permission. Use only when the user explicitly wants something typed into their terminal.")
+        ("list_sessions", "列出用户的 SSH 会话(主机、端口、用户名、状态)", true),
+        ("read_terminal", "读取所选会话终端的尾部输出", true),
+        ("read_remote_file", "经 SFTP 读取远端小文本文件(≤256KB)", true),
+        ("list_remote_directory", "经 SFTP 列出远端目录", true),
+        ("run_command", "在所选会话上执行一次性命令(独立通道,不进用户终端)", false),
+        ("write_remote_file", "经 SFTP 覆盖写入远端文本文件", false),
+        ("write_terminal", "把文本敲进用户可见的终端", false)
     ];
+
+    /// <summary>
+    /// 构建暴露给模型的工具列表。<see cref="ChatMode.Plan" /> 下<b>只给只读工具</b> ——
+    /// 计划模式的约定就是"先说怎么做",不该在这一步动任何东西。
+    /// </summary>
+    public IList<AITool> CreateTools(ChatMode mode)
+    {
+        var all = new List<(string Name, AITool Tool, bool ReadOnly)>
+        {
+            ("list_sessions", AIFunctionFactory.Create(ListSessionsAsync, "list_sessions",
+                "List the user's SSH sessions (id, host, port, username, state). Use it to discover what servers are available."), true),
+            ("read_terminal", AIFunctionFactory.Create(ReadTerminalAsync, "read_terminal",
+                "Read the tail of the terminal output (scrollback + screen) of the selected SSH session. Use it to see what the user sees."), true),
+            ("run_command", AIFunctionFactory.Create(RunCommandAsync, "run_command",
+                "Run a one-shot, non-interactive shell command on the selected SSH session over a separate exec channel (it does NOT type into the user's terminal). Requires user approval. Prefer read-only commands."), false),
+            ("read_remote_file", AIFunctionFactory.Create(ReadRemoteFileAsync, "read_remote_file",
+                "Read a small text file from the selected SSH session via SFTP (up to 256 KB). Returns the file content as text."), true),
+            ("list_remote_directory", AIFunctionFactory.Create(ListRemoteDirectoryAsync, "list_remote_directory",
+                "List a directory on the selected SSH session via SFTP (name, type, size, modified time). Use it to find files before reading or editing them."), true),
+            ("write_remote_file", AIFunctionFactory.Create(WriteRemoteFileAsync, "write_remote_file",
+                "Overwrite (or create) a text file on the selected SSH session via SFTP. Requires user approval. Always read the file first and send back its full new content — this replaces the file, it does not patch it."), false),
+            ("write_terminal", AIFunctionFactory.Create(WriteTerminalAsync, "write_terminal",
+                "Type text into the user's visible terminal of the selected SSH session, as if the user typed it. A trailing newline executes the command. The host will additionally ask the user for permission. Use only when the user explicitly wants something typed into their terminal."), false)
+        };
+        return
+        [
+            .. all.Where(t => (mode != ChatMode.Plan || t.ReadOnly) && !DisabledTools.Contains(t.Name))
+                  .Select(t => t.Tool)
+        ];
+    }
 
     private async Task<string> ListSessionsAsync(CancellationToken cancellationToken)
     {
@@ -255,7 +282,14 @@ public sealed class AgentToolbox(IPluginContext context)
 
     private async Task<bool> ApproveAsync(ApprovalRequest request, CancellationToken cancellationToken)
     {
-        if (AutoApprove)
+        if (Approval == ApprovalMode.Bypass)
+        {
+            return true;
+        }
+        // 只读放行:仅对"确定无副作用"的命令生效,写文件/敲终端一律照问(见 ReadOnlyCommand)
+        if (Approval == ApprovalMode.ReadOnlyAuto
+            && request.Kind == "run_command"
+            && ReadOnlyCommand.IsSafe(request.Detail))
         {
             return true;
         }
