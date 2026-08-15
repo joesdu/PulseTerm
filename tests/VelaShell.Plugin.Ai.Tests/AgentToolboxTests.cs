@@ -14,7 +14,7 @@ public sealed class AgentToolboxTests
     private static readonly string[] ExpectedToolNames =
     [
         "list_sessions", "read_terminal", "run_command", "read_remote_file",
-        "list_remote_directory", "write_remote_file", "write_terminal"
+        "list_remote_directory", "write_remote_file", "upload_local_file", "write_terminal"
     ];
 
     private static async Task<string> InvokeAsync(AgentToolbox toolbox, string name, Dictionary<string, object?>? args = null)
@@ -309,6 +309,71 @@ public sealed class AgentToolboxTests
 
         Assert.Contains("Wrote", approved);
         Assert.AreEqual("new", Encoding.UTF8.GetString(context.FakeRemoteFs.GetFile(session.SessionId, "/etc/app.conf")!));
+    }
+
+    /// <summary>
+    /// 本机文件上传:MCP 服务器跑在用户自己的机器上,它产出的文件不在 SSH 服务器上 ——
+    /// 这条工具就是把那种文件送上去的正路。写操作,要过审批。
+    /// </summary>
+    [TestMethod]
+    public async Task UploadLocalFile_RequiresApproval_AndUploadsOnlyWhenApproved()
+    {
+        using var context = new TestPluginContext();
+        SessionInfo session = context.FakeSessions.AddConnected();
+        string local = Path.Combine(Path.GetTempPath(), $"vela-upload-{Guid.NewGuid():N}.xmind");
+        await File.WriteAllTextAsync(local, "pretend this is a mind map");
+        try
+        {
+            string? summary = null;
+            var toolbox = new AgentToolbox(context)
+            {
+                SessionIdProvider = () => session.SessionId,
+                ApprovalHandler = request =>
+                {
+                    summary = request.Summary;
+                    return Task.FromResult(false);
+                }
+            };
+
+            string denied = await InvokeAsync(toolbox, "upload_local_file",
+                new() { ["localPath"] = local, ["remotePath"] = "/root/mind.xmind" });
+
+            Assert.Contains("DENIED", denied);
+            Assert.Contains("/root/mind.xmind", summary ?? "", "审批摘要要看得出传到哪儿");
+            Assert.IsNull(context.FakeRemoteFs.GetFile(session.SessionId, "/root/mind.xmind"));
+
+            toolbox.ApprovalHandler = _ => Task.FromResult(true);
+            string approved = await InvokeAsync(toolbox, "upload_local_file",
+                new() { ["localPath"] = local, ["remotePath"] = "/root/mind.xmind" });
+
+            Assert.Contains("Uploaded", approved);
+            Assert.AreEqual("pretend this is a mind map",
+                Encoding.UTF8.GetString(context.FakeRemoteFs.GetFile(session.SessionId, "/root/mind.xmind")!));
+        }
+        finally
+        {
+            File.Delete(local);
+        }
+    }
+
+    /// <summary>本机没有那个文件时给一句能照着做的提示,别把不存在说成上传失败。</summary>
+    [TestMethod]
+    public async Task UploadLocalFile_WhenTheLocalFileIsMissing_SaysSoWithoutAsking()
+    {
+        using var context = new TestPluginContext();
+        SessionInfo session = context.FakeSessions.AddConnected();
+        bool asked = false;
+        var toolbox = new AgentToolbox(context)
+        {
+            SessionIdProvider = () => session.SessionId,
+            ApprovalHandler = _ => { asked = true; return Task.FromResult(true); }
+        };
+
+        string result = await InvokeAsync(toolbox, "upload_local_file",
+            new() { ["localPath"] = Path.Combine(Path.GetTempPath(), "definitely-not-here.xmind"), ["remotePath"] = "/tmp/x" });
+
+        Assert.Contains("No such local file", result);
+        Assert.IsFalse(asked, "文件都不在,不该先去打扰用户审批");
     }
 
     [TestMethod]

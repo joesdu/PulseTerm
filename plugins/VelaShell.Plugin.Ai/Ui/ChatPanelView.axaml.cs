@@ -497,6 +497,22 @@ public partial class ChatPanelView : UserControl
         }
     }
 
+    /// <summary>记住用户拖分割条拖出来的侧栏宽度(百分比,宿主在拖动结束时通知一次)。</summary>
+    /// <remarks>
+    /// <b>必须改这份在内存里的 <c>_settings</c>,不能绕过面板直接往库里写。</b>
+    /// 面板持有整份设置,任何一次改动(换模式、改审批、勾工具、存接入)都是把这份整体覆盖回去 ——
+    /// 背着它写库的话,下一次这类操作就会拿旧的宽度把刚记下的值盖掉,表现就是"拖了不算数"。
+    /// </remarks>
+    public void RememberPanelWidth(int percent)
+    {
+        if (_settings.PanelWidthPercent == percent)
+        {
+            return;
+        }
+        _settings.PanelWidthPercent = percent;
+        _ = PersistSettingsAsync();
+    }
+
     private async Task PersistSettingsAsync()
     {
         try
@@ -1030,7 +1046,7 @@ public partial class ChatPanelView : UserControl
                 " You can call tools to inspect the user's selected SSH session (read terminal output, run one-shot commands, list directories, read files) " +
                 "and to edit remote files (write_remote_file overwrites the whole file — read it first, then send the complete new content). " +
                 "Prefer read-only commands; destructive commands and file writes require user approval and should be proposed carefully. " +
-                "Additional tools may come from user-configured MCP servers (their names are prefixed with the server name).",
+                LocalVersusRemoteNote(),
             ChatMode.Plan =>
                 " You are in PLAN mode. You have read-only tools (read terminal output, list directories, read files) and you may use them freely to investigate. " +
                 "You must NOT change anything, and no tool that could change anything is available to you. " +
@@ -1040,6 +1056,41 @@ public partial class ChatPanelView : UserControl
                 " You have no tools in this mode: answer from the conversation itself. " +
                 "If something genuinely needs to be checked on the server, say so and suggest switching to Agent mode rather than guessing."
         };
+    }
+
+    /// <summary>
+    /// 告诉模型:内置工具作用于<b>远程服务器</b>,MCP 工具跑在<b>用户本机</b>。
+    /// </summary>
+    /// <remarks>
+    /// 不说清楚就会出事,而且是实际出过的事:用户让本机的 xmind MCP 生成一个文件,模型
+    /// 转头按远端路径(<c>/root/xxx.xmind</c>)汇报,结果服务器上没有、本机工作目录里也
+    /// "看不到" —— 因为那本来就是两台机器。顺带把用户为各台 MCP 服务器配的工作目录报给它,
+    /// 那是本机产物最可能落脚的地方;再指一下 <c>upload_local_file</c>,想放到服务器上就用它。
+    /// </remarks>
+    private string LocalVersusRemoteNote()
+    {
+        var note = new StringBuilder(
+            " Additional tools may come from user-configured MCP servers (their names are prefixed with the server name). " +
+            "IMPORTANT: MCP servers run on the USER'S OWN MACHINE, not on the SSH server. " +
+            "Any file an MCP tool creates is a LOCAL file — it does not exist on the SSH server, and paths like /root/... " +
+            "mean different things on the two machines. Never report a locally produced file as if it were on the server. " +
+            "To put a local file on the server, call upload_local_file.");
+        List<string> dirs =
+        [
+            .. _settings.McpServers
+                        .Where(s => s.Enabled && !string.IsNullOrWhiteSpace(s.WorkingDirectory))
+                        .Select(s => $"{DisplayName(s)}: {s.WorkingDirectory!.Trim()}")
+        ];
+        if (dirs.Count > 0)
+        {
+            note.Append(" Local MCP working directories (where their output most likely lands): ")
+                .Append(string.Join("; ", dirs))
+                .Append('.');
+        }
+        return note.ToString();
+
+        static string DisplayName(McpServerConfig server)
+            => string.IsNullOrWhiteSpace(server.Name) ? "(unnamed)" : server.Name.Trim();
     }
 
     /// <summary>
@@ -1528,6 +1579,8 @@ public partial class ChatPanelView : UserControl
             };
             // 公式控件是渲染时新建的,每次定稿后补一次颜色(见 ApplyMathColors)
             Host.RenderedTextProjectionChanged += (_, _) => owner.ApplyMathColors(Host);
+            // 回复里的链接要能点开(远端路径 = 下载下来)—— 见 OnMarkdownLinkClicked
+            Host.LinkClick += (_, e) => owner.OnMarkdownLinkClicked(e);
         }
 
         public void Append(string text) => _text.Append(text);

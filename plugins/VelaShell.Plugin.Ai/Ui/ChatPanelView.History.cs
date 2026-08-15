@@ -101,11 +101,6 @@ public partial class ChatPanelView
         tools.Children.Add(delete);
         Grid.SetColumn(tools, 1);
         grid.Children.Add(tools);
-        // 这三枚都不该把点击冒泡成"打开这个会话"
-        foreach (Button button in (Button[])[rename, export, delete])
-        {
-            button.AddHandler(PointerPressedEvent, (_, e) => e.Handled = true, RoutingStrategies.Tunnel);
-        }
 
         var row = new Border { Classes = { "historyRow" }, Child = grid };
         if (session.Id == _conversationId)
@@ -123,7 +118,20 @@ public partial class ChatPanelView
             }
             await RefreshHistoryListAsync();
         };
-        row.PointerPressed += (_, _) => _ = LoadConversationAsync(session);
+        // 点行 = 打开这个会话,但点行尾那三枚按钮不算。
+        // 以前是给按钮挂一个 Tunnel 阶段的 PointerPressed 直接 Handled=true 来"挡住冒泡" ——
+        // 那会在 Button 自己的 OnPointerPressed 之前就把事件吃掉,按钮压根进不了按下态,
+        // Click 于是永远不触发:重命名/导出/删除三个功能全是死的。
+        // 改成在行这一侧按事件来源判断,不去干涉按钮自己的输入处理。
+        row.PointerPressed += (_, e) =>
+        {
+            if (e.Source is Avalonia.Visual source
+                && Avalonia.VisualTree.VisualExtensions.GetVisualAncestors(source).Contains(tools))
+            {
+                return;
+            }
+            _ = LoadConversationAsync(session);
+        };
         return row;
     }
 
