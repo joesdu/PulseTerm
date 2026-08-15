@@ -155,6 +155,37 @@ public sealed class AgentToolboxTests
         Assert.Contains("\"type\":\"dir\"", result);
     }
 
+    /// <summary>
+    /// "本次会话总是允许"只对可重复、语义稳定的操作开放:
+    /// 同一个排查里 <c>ls</c> 会被调十几次,值得记;写文件、往终端敲字每次目标都不同,
+    /// 给了记忆键就等于放弃把关,所以那两个必须一次一问。
+    /// </summary>
+    [TestMethod]
+    public async Task Approval_OffersRepeatKey_OnlyForRepeatableOperations()
+    {
+        using var context = new TestPluginContext();
+        SessionInfo session = context.FakeSessions.AddConnected();
+        var seen = new List<ApprovalRequest>();
+        var toolbox = new AgentToolbox(context)
+        {
+            SessionIdProvider = () => session.SessionId,
+            ApprovalHandler = request =>
+            {
+                seen.Add(request);
+                return Task.FromResult(false);
+            }
+        };
+
+        await InvokeAsync(toolbox, "run_command", new() { ["command"] = "sudo ls -la /var/log" });
+        await InvokeAsync(toolbox, "write_remote_file", new() { ["path"] = "/etc/a.conf", ["content"] = "x" });
+        await InvokeAsync(toolbox, "write_terminal", new() { ["text"] = "reboot\n" });
+
+        Assert.AreEqual("run_command:sudo ls", seen[0].RepeatKey,
+            "记忆键到命令名为止(sudo 要带上后面那个词,否则所有 sudo 命令共用一个键)");
+        Assert.IsNull(seen[1].RepeatKey, "写文件每次目标都不同,不给「总是允许」");
+        Assert.IsNull(seen[2].RepeatKey, "往终端敲字每次都该问");
+    }
+
     [TestMethod]
     public async Task WriteRemoteFile_RequiresApproval_AndWritesOnlyWhenApproved()
     {
@@ -165,9 +196,9 @@ public sealed class AgentToolboxTests
         var toolbox = new AgentToolbox(context)
         {
             SessionIdProvider = () => session.SessionId,
-            ApprovalHandler = s =>
+            ApprovalHandler = request =>
             {
-                summary = s;
+                summary = request.Summary;
                 return Task.FromResult(false);
             }
         };

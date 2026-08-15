@@ -17,6 +17,12 @@ public sealed class AiSettingsStore(IPluginContext context)
 {
     private const string SettingsKey = "settings";
 
+    /// <summary>
+    /// 已解出的 API Key。取一次要走"读库 + DPAPI 解包",而每发一条消息(以及每次要后续提问)
+    /// 都会建一次客户端 —— 没必要每次都解。写入/删除时同步失效。
+    /// </summary>
+    private readonly Dictionary<string, string?> _keyCache = [];
+
     /// <summary>读取设置(不存在时返回带默认值的新实例)。</summary>
     public async Task<AiSettings> LoadAsync(CancellationToken cancellationToken = default)
         => await context.Storage.GetAsync<AiSettings>(SettingsKey, cancellationToken).ConfigureAwait(false) ?? new AiSettings();
@@ -25,9 +31,17 @@ public sealed class AiSettingsStore(IPluginContext context)
     public Task SaveAsync(AiSettings settings, CancellationToken cancellationToken = default)
         => context.Storage.SetAsync(SettingsKey, settings, cancellationToken);
 
-    /// <summary>读取某接入的 API Key(未配置返回 null)。</summary>
-    public Task<string?> GetApiKeyAsync(string providerId, CancellationToken cancellationToken = default)
-        => context.Secrets.GetAsync(SecretName(providerId), cancellationToken);
+    /// <summary>读取某接入的 API Key(未配置返回 null)。命中缓存则不碰机密存储。</summary>
+    public async Task<string?> GetApiKeyAsync(string providerId, CancellationToken cancellationToken = default)
+    {
+        if (_keyCache.TryGetValue(providerId, out string? cached))
+        {
+            return cached;
+        }
+        string? key = await context.Secrets.GetAsync(SecretName(providerId), cancellationToken).ConfigureAwait(false);
+        _keyCache[providerId] = key;
+        return key;
+    }
 
     /// <summary>写入(或清除)某接入的 API Key。</summary>
     public async Task SetApiKeyAsync(string providerId, string? apiKey, CancellationToken cancellationToken = default)
@@ -35,16 +49,21 @@ public sealed class AiSettingsStore(IPluginContext context)
         if (string.IsNullOrEmpty(apiKey))
         {
             await context.Secrets.DeleteAsync(SecretName(providerId), cancellationToken).ConfigureAwait(false);
+            _keyCache[providerId] = null;
         }
         else
         {
             await context.Secrets.SetAsync(SecretName(providerId), apiKey, cancellationToken).ConfigureAwait(false);
+            _keyCache[providerId] = apiKey;
         }
     }
 
     /// <summary>删除接入时连带清除其机密。</summary>
-    public Task DeleteApiKeyAsync(string providerId, CancellationToken cancellationToken = default)
-        => context.Secrets.DeleteAsync(SecretName(providerId), cancellationToken);
+    public async Task DeleteApiKeyAsync(string providerId, CancellationToken cancellationToken = default)
+    {
+        _keyCache.Remove(providerId);
+        await context.Secrets.DeleteAsync(SecretName(providerId), cancellationToken).ConfigureAwait(false);
+    }
 
     /// <summary>
     /// 为接入构造 <see cref="IChatClient" />(每次调用读取最新 API Key)。

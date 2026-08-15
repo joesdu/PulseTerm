@@ -49,6 +49,13 @@ public sealed class McpServerConfig
 
     /// <summary>Http:附加请求头,每行一条 Name: Value(鉴权令牌等)。</summary>
     public string Headers { get; set; } = "";
+
+    /// <summary>
+    /// 不想暴露给模型的工具名,每行一条(大小写不敏感)。写服务器上的<b>原始</b>工具名,
+    /// 不带插件加的服务器前缀 —— "测试"按钮列出来的就是这些名字。
+    /// </summary>
+    /// <remarks>有些 MCP 服务器一口气给几十个工具,全塞进去既占上下文又容易被误调。</remarks>
+    public string DisabledTools { get; set; } = "";
 }
 
 /// <summary>把配置里的用户文本解析为连接参数。</summary>
