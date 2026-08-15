@@ -68,7 +68,7 @@
       <TextBlock x:Name="TitleText" Classes="dialogTitle" />
       <StackPanel x:Name="HeaderActions" Grid.Column="1" Orientation="Horizontal" Spacing="6" />
     </Grid>
-    <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource VelaBorderPrimary}"
+    <Border x:Name="CloseBar" DockPanel.Dock="Bottom" BorderBrush="{DynamicResource VelaBorderPrimary}"
             BorderThickness="0,1,0,0" Padding="0,10,0,0" Margin="0,10,0,0">
       <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
         <Button x:Name="CloseButton" Theme="{DynamicResource VelaAccentPillButtonTheme}"

@@ -1,0 +1,127 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="VelaShell.Plugin.Ai.Ui.McpServersView">
+
+  <!-- MCP 服务器的增删改查。住在「配置工具」窗口里、勾选列表的正上方:
+       配好一台服务器紧接着就要挑它的工具用哪些,两件事隔着一个窗口来回切很别扭。 -->
+
+  <UserControl.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="avares://VelaShell.Plugin.Ai/Ui/AiTheme.axaml" />
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </UserControl.Resources>
+
+  <!-- 样式自带一份而不是靠宿主窗口下发:这控件也可能被别处复用 -->
+  <UserControl.Styles>
+    <Style Selector="TextBlock.label">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextTertiary}" />
+      <Setter Property="Margin" Value="0,8,0,3" />
+    </Style>
+    <Style Selector="TextBlock.dim">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextTertiary}" />
+    </Style>
+    <Style Selector="TextBox">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize12}" />
+      <Setter Property="MinHeight" Value="30" />
+    </Style>
+    <Style Selector="ComboBox">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize12}" />
+      <Setter Property="MinHeight" Value="30" />
+    </Style>
+    <Style Selector="ListBox">
+      <Setter Property="Background" Value="{DynamicResource VelaBgSurface}" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize12}" />
+    </Style>
+  </UserControl.Styles>
+
+  <StackPanel>
+    <TextBlock x:Name="McpHintText" Classes="dim" TextWrapping="Wrap" Margin="0,0,0,8" />
+    <Grid ColumnDefinitions="190,14,*">
+      <DockPanel Grid.Column="0">
+        <Button x:Name="McpAddButton" DockPanel.Dock="Bottom" Theme="{DynamicResource VelaOutlineButtonTheme}"
+                HorizontalAlignment="Stretch" Height="26" Margin="0,8,0,0">
+          <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+            <Viewbox Width="11" Height="11" VerticalAlignment="Center">
+              <Path Width="24" Height="24" Data="{DynamicResource Icon.plus}"
+                    Stroke="{DynamicResource VelaTextSecondary}" StrokeThickness="2"
+                    StrokeLineCap="Round" StrokeJoin="Round" />
+            </Viewbox>
+            <TextBlock x:Name="McpAddText" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+        <ListBox x:Name="McpList" MinHeight="96" />
+      </DockPanel>
+
+      <StackPanel Grid.Column="2">
+        <CheckBox x:Name="McpEnabledCheck" Theme="{StaticResource AiCheckBoxTheme}"
+                  FontSize="{DynamicResource VelaFontSize12}" Margin="0,4,0,0" />
+        <TextBlock x:Name="McpNameLabel" Classes="label" />
+        <TextBox x:Name="McpNameBox" />
+        <TextBlock x:Name="McpTransportLabel" Classes="label" />
+        <ComboBox x:Name="McpTransportCombo" HorizontalAlignment="Stretch" />
+
+        <StackPanel x:Name="McpStdioPanel">
+          <TextBlock x:Name="McpCommandLabel" Classes="label" />
+          <TextBox x:Name="McpCommandBox" FontFamily="{DynamicResource VelaUiMonoFont}" />
+          <TextBlock x:Name="McpArgumentsLabel" Classes="label" />
+          <TextBox x:Name="McpArgumentsBox" FontFamily="{DynamicResource VelaUiMonoFont}" />
+          <TextBlock x:Name="McpWorkingDirLabel" Classes="label" />
+          <TextBox x:Name="McpWorkingDirBox" FontFamily="{DynamicResource VelaUiMonoFont}" />
+          <TextBlock x:Name="McpEnvLabel" Classes="label" />
+          <TextBox x:Name="McpEnvBox" AcceptsReturn="True" MinHeight="52" TextWrapping="NoWrap"
+                   FontFamily="{DynamicResource VelaUiMonoFont}" />
+        </StackPanel>
+
+        <StackPanel x:Name="McpHttpPanel" IsVisible="False">
+          <TextBlock x:Name="McpUrlLabel" Classes="label" />
+          <TextBox x:Name="McpUrlBox" FontFamily="{DynamicResource VelaUiMonoFont}" />
+          <TextBlock x:Name="McpHeadersLabel" Classes="label" />
+          <TextBox x:Name="McpHeadersBox" AcceptsReturn="True" MinHeight="52" TextWrapping="NoWrap"
+                   FontFamily="{DynamicResource VelaUiMonoFont}" />
+        </StackPanel>
+
+        <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,14,0,0">
+          <Button x:Name="McpSaveButton" Theme="{DynamicResource VelaAccentPillButtonTheme}" Height="26" Padding="12,0">
+            <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+              <Viewbox Width="11" Height="11" VerticalAlignment="Center">
+                <Path Width="24" Height="24" Data="{DynamicResource Icon.save}"
+                      Stroke="{DynamicResource VelaAccent}" StrokeThickness="2"
+                      StrokeLineCap="Round" StrokeJoin="Round" />
+              </Viewbox>
+              <TextBlock x:Name="McpSaveText" VerticalAlignment="Center"
+                         FontSize="{DynamicResource VelaFontSize11}" FontWeight="Medium" />
+            </StackPanel>
+          </Button>
+          <!-- 「测试」顺带把工具库拉下来 —— 连都连上了,再让人去下面点一次"更新工具库"是多余的 -->
+          <Button x:Name="McpTestButton" Theme="{DynamicResource VelaOutlineButtonTheme}" Height="26" Padding="12,0">
+            <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+              <Viewbox Width="11" Height="11" VerticalAlignment="Center">
+                <Path Width="24" Height="24" Data="{DynamicResource Icon.play}"
+                      Stroke="{DynamicResource VelaTextSecondary}" StrokeThickness="2"
+                      StrokeLineCap="Round" StrokeJoin="Round" />
+              </Viewbox>
+              <TextBlock x:Name="McpTestText" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+          <Button x:Name="McpDeleteButton" Theme="{DynamicResource VelaOutlineButtonTheme}" Height="26" Padding="12,0"
+                  Foreground="{DynamicResource VelaError}" BorderBrush="{DynamicResource VelaError}">
+            <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+              <Viewbox Width="11" Height="11" VerticalAlignment="Center">
+                <Path Width="24" Height="24" Data="{DynamicResource Icon.trash-2}"
+                      Stroke="{DynamicResource VelaError}" StrokeThickness="2"
+                      StrokeLineCap="Round" StrokeJoin="Round" />
+              </Viewbox>
+              <TextBlock x:Name="McpDeleteText" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+        </StackPanel>
+        <TextBlock x:Name="McpStatusText" Classes="dim" TextWrapping="Wrap" Margin="0,8,0,0" />
+      </StackPanel>
+    </Grid>
+  </StackPanel>
+</UserControl>

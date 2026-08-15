@@ -3,7 +3,7 @@ using Avalonia.Controls;
 namespace VelaShell.Plugin.Ai.Ui;
 
 /// <summary>
-/// 插件自己的对话框外壳:标题 + 内容 + 一个关闭按钮,可选地在标题行右侧挂几个动作按钮。
+/// 插件自己的对话框外壳:标题 + 内容 + 可选的底部关闭按钮,还可在标题行右侧挂几个动作按钮。
 /// 设置页与"配置工具"共用它,免得两处各写一遍窗体骨架。
 /// </summary>
 /// <remarks>
@@ -17,12 +17,21 @@ public partial class PluginDialog : Window
 
     /// <param name="title">标题栏与窗体标题。</param>
     /// <param name="content">内容控件。</param>
-    /// <param name="closeText">关闭按钮的文案(通常是"关闭"或"确定")。</param>
-    public PluginDialog(string title, Control content, string closeText) : this()
+    /// <param name="closeText">
+    /// 关闭按钮的文案(通常是"关闭"或"确定")。
+    /// <b>留空则整条底栏都不出现</b> —— 内容自己带了操作行时(设置页的 保存/测试/删除),
+    /// 底下再压一条只有"关闭"的横栏是白占地方,关窗用系统标题栏那个 × 就够。
+    /// </param>
+    public PluginDialog(string title, Control content, string? closeText = null) : this()
     {
         Title = title;
         TitleText.Text = title;
         Body.Content = content;
+        if (string.IsNullOrEmpty(closeText))
+        {
+            CloseBar.IsVisible = false;
+            return;
+        }
         CloseButton.Content = closeText;
         CloseButton.Click += (_, _) => Close();
     }

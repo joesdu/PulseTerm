@@ -131,4 +131,71 @@ public sealed class ContextBuilderTests
         Assert.IsGreaterThan(40, ContextBuilder.Estimate(call), "工具调用的参数要算进去");
         Assert.IsGreaterThan(90, ContextBuilder.Estimate(result), "工具结果往往是最占地方的那部分");
     }
+
+    private static ChatMessage Call(string id, string bulk = "") =>
+        new(ChatRole.Assistant, [new FunctionCallContent(id, "run_command",
+            new Dictionary<string, object?> { ["command"] = "uptime" + bulk })]);
+
+    private static ChatMessage Result(string id, string bulk = "") =>
+        new(ChatRole.Tool, [new FunctionResultContent(id, "up 42 days" + bulk)]);
+
+    private static List<AIContent> AllContents(RequestContext context)
+        => [.. context.Messages.SelectMany(m => m.Contents)];
+
+    /// <summary>
+    /// 结果落单:裁剪顶到 <c>AlwaysKeep</c> 硬底线时,切点会停在半轮中间,
+    /// 把工具调用切掉却留下它的结果。发出去 OpenAI Responses 直接回
+    /// <c>400 No tool call found for tool output with call_id …</c>(用户环境实际撞到过)。
+    /// </summary>
+    [TestMethod]
+    public void Build_WhenTrimmingCutsAToolCallLoose_DropsTheOrphanedResultToo()
+    {
+        // 前面塞满,逼裁剪一直切到硬底线;末尾四条正好把 call 与 result 劈开
+        List<ChatMessage> history =
+        [
+            User(Bulk(4000)), Assistant(Bulk(4000)), User(Bulk(4000)),
+            Call("call_00_orphan", Bulk(1000)),
+            Result("call_00_orphan"), Assistant("已经查过了"), User("那再看看磁盘"), Assistant("好")
+        ];
+
+        RequestContext context = ContextBuilder.Build("s", history, windowTokens: 2000, reserveTokens: 200);
+
+        Assert.IsGreaterThan(0, context.DroppedMessages, "这个用例的前提就是真的裁掉了东西");
+        Assert.IsEmpty(AllContents(context).OfType<FunctionResultContent>(),
+            "调用被切走了,它的结果不能单独留下");
+    }
+
+    /// <summary>
+    /// 调用落单:模型发起调用后用户按了停止,工具从未执行 —— 半截回复是有意留在历史里的。
+    /// 下一轮不能把这个没有结果的 tool_use 发出去(Anthropic 会回
+    /// <c>tool_use ids must have corresponding tool_result</c>)。
+    /// </summary>
+    [TestMethod]
+    public void Build_DropsAToolCallThatNeverGotItsResult()
+    {
+        List<ChatMessage> history =
+        [
+            User("看看负载"),
+            new(ChatRole.Assistant, [new TextContent("我查一下"), new FunctionCallContent("c1", "run_command", null)]),
+            User("算了,直接说结论")
+        ];
+
+        RequestContext context = ContextBuilder.Build("s", history, windowTokens: 0, reserveTokens: 0);
+
+        Assert.IsEmpty(AllContents(context).OfType<FunctionCallContent>(), "没有结果的调用不能发出去");
+        Assert.Contains(c => c is TextContent { Text: "我查一下" }, AllContents(context),
+            "同一条里的正文要留着 —— 只摘掉落单的那半");
+    }
+
+    /// <summary>配对齐全就一个字节都不动。</summary>
+    [TestMethod]
+    public void Build_KeepsCompleteToolRoundTripsIntact()
+    {
+        List<ChatMessage> history = [User("看看负载"), Call("c1"), Result("c1"), Assistant("42 天")];
+
+        RequestContext context = ContextBuilder.Build("s", history, windowTokens: 0, reserveTokens: 0);
+
+        Assert.HasCount(1, AllContents(context).OfType<FunctionCallContent>());
+        Assert.HasCount(1, AllContents(context).OfType<FunctionResultContent>());
+    }
 }

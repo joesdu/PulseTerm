@@ -23,8 +23,10 @@ public partial class ChatPanelView
             return;
         }
         _settingsView ??= new SettingsView(_context, _store, _settings, _loc, OnProvidersChanged);
-        // SettingsView 是长表单,自己带滚动;窗口给足宽度让那些两列/三列的行铺得开
-        _settingsDialog = new PluginDialog(_loc["Settings"], _settingsView, _loc["Close"])
+        // SettingsView 是长表单,自己带滚动;窗口给足宽度让那些两列/三列的行铺得开。
+        // 不给底部关闭栏:表单末尾已经有 保存/测试/删除 那一行,底下再压一条"关闭"是白占地方,
+        // 关窗用系统标题栏的 × 即可。
+        _settingsDialog = new PluginDialog(_loc["Settings"], _settingsView)
         {
             Width = 940,
             Height = 760
@@ -45,11 +47,12 @@ public partial class ChatPanelView
         {
             return;
         }
+        // 这个窗口装两件事(MCP 服务器编辑 + 工具勾选),两列表单要铺得开,所以给得比设置窗还宽
         var picker = new ToolPickerView(_context, _settings, _loc, PersistSettingsAsync);
         _toolsDialog = new PluginDialog(_loc["ConfigureTools"], picker, _loc["Ok"])
         {
-            Width = 720,
-            Height = 620
+            Width = 960,
+            Height = 820
         };
         _toolsDialog.Closed += (_, _) => _toolsDialog = null;
         Show(_toolsDialog);

@@ -183,7 +183,6 @@ public sealed class Loc(string locale)
         ["PriceCached"] = ["Price / M cached", "缓存单价 / 百万", "快取單價 / 百萬", "キャッシュ単価 / 100万", "캐시 단가 / 100만"],
         ["PriceHint"] = ["Only used to estimate spend in the usage tooltip. Currency is whatever you type — leave 0 to skip the estimate.", "只用于用量提示里的花费估算。币种由你自己心里有数;留 0 就不估算。", "只用於用量提示裡的花費估算。幣別由你自己心裡有數;留 0 就不估算。", "使用量ツールチップでの概算にのみ使います。通貨は任意、0 なら概算しません。", "사용량 툴팁의 비용 추정에만 쓰입니다. 통화는 자유이며 0이면 추정하지 않습니다."],
         ["ProviderPrompt"] = ["System prompt for this provider (overrides the global one)", "本接入专用的系统提示词(盖过全局那份)", "本接入專用的系統提示詞(蓋過全域那份)", "このプロバイダー専用のシステムプロンプト(全体設定より優先)", "이 프로바이더 전용 시스템 프롬프트(전역 설정보다 우선)"],
-        ["McpToolsHint"] = ["Pick which of this server's tools the model may use in the toolbar's “Configure tools” window.", "这台服务器的哪些工具给模型用,在顶栏「配置工具」窗口里勾选。", "這台伺服器的哪些工具給模型用,在頂欄「設定工具」視窗裡勾選。", "このサーバーのどのツールをモデルに渡すかは、上部の「ツールを設定」ウィンドウで選びます。", "이 서버의 어떤 도구를 모델에 제공할지는 상단의 「도구 구성」 창에서 선택합니다."],
         ["ApiKey"] = ["API Key", "API Key", "API Key", "API キー", "API 키"],
         ["ApiKeyHint"] = ["Stored encrypted via the host secret store.", "经宿主机密存储加密保存。", "經宿主機密儲存加密保存。", "ホストのシークレットストアで暗号化保存されます。", "호스트 시크릿 저장소에 암호화되어 저장됩니다."],
         ["SystemPrompt"] = ["System prompt (optional)", "系统提示词(可选)", "系統提示詞(可選)", "システムプロンプト(任意)", "시스템 프롬프트(선택)"],

@@ -92,4 +92,30 @@ public sealed class ReasoningPeekTests
         Assert.IsFalse(ReasoningPeek.TryRead("not a model", out _));
         Assert.IsFalse(ReasoningPeek.TryRead(new object(), out _));
     }
+
+    /// <summary>
+    /// 不是 ClientModel 模型的原始报文,得<b>先判类型直接退出</b>,不能靠 try/catch 兜。
+    /// <c>ModelReaderWriter.Write</c> 对这种对象会抛 <c>InvalidOperationException</c>,
+    /// 而 Anthropic 那条线的 <c>RawRepresentation</c> 正是这种、且一轮就有好几个空帧
+    /// (ping / message_stop 之类)—— 每轮对话都往调试器里刷一串 first-chance 异常。
+    /// 异常被吃掉了不代表没代价:抛/捕获本身不便宜,刷屏还会淹掉真正该看的日志。
+    /// </summary>
+    [TestMethod]
+    public void TryRead_DoesNotEvenAttemptTheWrite_ForTypesThatWouldThrow()
+    {
+        Assert.IsFalse(ReasoningPeek.IsWritable(typeof(object)));
+        Assert.IsFalse(ReasoningPeek.IsWritable(typeof(string)),
+            "Anthropic 的原始报文就是普通类型,不实现 IPersistableModel<>");
+        Assert.IsTrue(ReasoningPeek.IsWritable(typeof(FakeModel)), "OpenAI SDK 的模型才走得通回写这条路");
+    }
+
+    /// <summary>冒充一个 ClientModel 可回写模型,只为验证类型判定认得出它。</summary>
+    private sealed class FakeModel : System.ClientModel.Primitives.IPersistableModel<FakeModel>
+    {
+        public FakeModel Create(BinaryData data, System.ClientModel.Primitives.ModelReaderWriterOptions options) => this;
+
+        public string GetFormatFromOptions(System.ClientModel.Primitives.ModelReaderWriterOptions options) => "J";
+
+        public BinaryData Write(System.ClientModel.Primitives.ModelReaderWriterOptions options) => new("{}"u8.ToArray());
+    }
 }

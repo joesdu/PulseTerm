@@ -996,6 +996,91 @@ public sealed partial class ChatPanelViewUiTests
         });
     }
 
+    /// <summary>
+    /// 「配置工具」窗口里,MCP 服务器编辑排在工具勾选<b>上面</b>:配好一台服务器,
+    /// 下一步必然是挑它的哪些工具给模型用,两件事挨着做才顺;而且加完服务器,
+    /// 下面的分组要<b>当场</b>多出一块,不用关掉重开。
+    /// </summary>
+    [TestMethod]
+    public void ToolsDialog_PutsMcpServersAboveTheCheckboxes_AndRebuildsOnAdd()
+    {
+        OnUi(async () =>
+        {
+            using var context = new TestPluginContext();
+            (Window window, ChatPanelView panel) = await ShowAsync(context);
+            try
+            {
+                Click(panel, "ToolsButton");
+                await PumpAsync(5);
+                PluginDialog dialog = Dialogs(window).Single();
+
+                McpServersView servers = dialog.GetVisualDescendants().OfType<McpServersView>().Single();
+                List<Border> groups = ToolGroups(dialog);
+                Assert.IsNotEmpty(groups, "至少有内置工具那一组");
+                Assert.IsLessThan(CentreY(groups[0], dialog), CentreY(servers, dialog),
+                    "MCP 服务器编辑要排在工具勾选列表上面");
+
+                // 加一台服务器 —— 下面立刻多一组(不必关窗重开)
+                servers.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "McpAddButton")
+                       .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+                await PumpAsync(5);
+
+                Assert.HasCount(groups.Count + 1, ToolGroups(dialog), "新服务器要当场出现一块自己的分组");
+            }
+            finally
+            {
+                panel.Detach();
+                window.Close();
+            }
+        });
+    }
+
+    /// <summary>
+    /// 设置窗口的 保存/测试/删除 落在表单<b>最末、靠右</b>,跟着内容滚(不是钉死的常驻横栏 ——
+    /// 那会一直占着高度,而这页大多数时候在读、在填)。「保存」连带把全局设置也一起存,
+    /// 所以它必须排在全部字段之后。窗口自身不再另给一条"关闭"底栏,那只会白占地方。
+    /// </summary>
+    [TestMethod]
+    public void SettingsDialog_PutsTheActionRow_AtTheEndOfTheFormAndOnTheRight()
+    {
+        OnUi(async () =>
+        {
+            using var context = new TestPluginContext();
+            (Window window, ChatPanelView panel) = await ShowAsync(context);
+            try
+            {
+                Click(panel, "SettingsButton");
+                await PumpAsync(5);
+                PluginDialog dialog = Dialogs(window).Single();
+                SettingsView settings = dialog.GetVisualDescendants().OfType<SettingsView>().Single();
+
+                Button save = settings.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "SaveButton");
+                TextBox panelWidth = settings.GetVisualDescendants().OfType<TextBox>()
+                    .Single(t => t.Name == "PanelWidthBox");
+                ScrollViewer form = settings.GetVisualDescendants().OfType<ScrollViewer>()
+                    .First(s => s.GetVisualDescendants().OfType<TextBox>().Any(t => t.Name == "PanelWidthBox"));
+
+                Assert.Contains(save, form.GetVisualDescendants().OfType<Button>(),
+                    "操作行跟着表单滚,所以它在滚动区里");
+                Assert.IsGreaterThan(CentreY(panelWidth, settings), CentreY(save, settings),
+                    "操作行排在最后一个配置项之后");
+                Assert.IsGreaterThan(settings.Bounds.Width / 2, CentreX(save, settings), "靠右");
+
+                Assert.IsFalse(dialog.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "CloseBar").IsVisible,
+                    "设置窗口不该再有底部那条只放「关闭」的横栏");
+            }
+            finally
+            {
+                panel.Detach();
+                window.Close();
+            }
+        });
+    }
+
+    /// <summary>「配置工具」里每个来源一块(内置 + 每台 MCP 服务器)。</summary>
+    private static List<Border> ToolGroups(PluginDialog dialog)
+        => [.. dialog.GetVisualDescendants().OfType<Border>().Where(b => b.Classes.Contains("toolGroup"))];
+
     /// <summary>挂在宿主窗口下、当前开着的插件对话框。</summary>
     private static IEnumerable<PluginDialog> Dialogs(Window owner) => owner.OwnedWindows.OfType<PluginDialog>();
 
@@ -1007,6 +1092,13 @@ public sealed partial class ChatPanelViewUiTests
     {
         Matrix transform = visual.TransformToVisual(relativeTo) ?? Matrix.Identity;
         return new Point(0, visual.Bounds.Height / 2).Transform(transform).Y;
+    }
+
+    /// <summary>控件在某个祖先坐标系里的水平中心。</summary>
+    private static double CentreX(Visual visual, Visual relativeTo)
+    {
+        Matrix transform = visual.TransformToVisual(relativeTo) ?? Matrix.Identity;
+        return new Point(visual.Bounds.Width / 2, 0).Transform(transform).X;
     }
 
     /// <summary><c>HH:mm</c> 形式的时刻。</summary>

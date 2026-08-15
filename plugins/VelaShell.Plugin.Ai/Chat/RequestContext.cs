@@ -90,29 +90,106 @@ public static class ContextBuilder
     }
 
     /// <summary>
-    /// 追加历史,并把<b>相邻同角色</b>的消息并成一条。
+    /// 追加历史,并做两件规整:丢掉<b>落单的工具调用/结果</b>,再把<b>相邻同角色</b>的消息并成一条。
     /// </summary>
     /// <remarks>
-    /// 为什么需要:用户按停止之后,那条没有得到回复的 user 消息会留在历史里,
+    /// 合并的理由:用户按停止之后,那条没有得到回复的 user 消息会留在历史里,
     /// 下一轮就是两条挨着的 user。实测 Anthropic 适配器<b>不会</b>替你合并,原样发两条,
     /// 而 Anthropic 协议要求角色交替。与其在每个可能产生该状态的地方各补一次,
-    /// 不如在唯一的出口这里兜住。
+    /// 不如在唯一的出口这里兜住 —— 配对也是同一个道理。
     /// </remarks>
     private static void AppendNormalized(List<ChatMessage> sink, IReadOnlyList<ChatMessage> history, int start)
     {
+        (HashSet<string> calls, HashSet<string> results) = CollectCallIds(history, start);
         for (int i = start; i < history.Count; i++)
         {
             ChatMessage message = history[i];
+            IReadOnlyList<AIContent> contents = Paired(message, calls, results);
+            if (contents.Count == 0)
+            {
+                continue; // 整条只剩落单的调用/结果,发出去只会被服务端拒
+            }
             if (sink.Count > 1 && sink[^1].Role == message.Role)
             {
                 // 并成新的一条,不要就地改 —— sink[^1] 可能就是 history 里那个对象
-                var merged = new ChatMessage(message.Role, [.. sink[^1].Contents, .. message.Contents]);
-                sink[^1] = merged;
+                sink[^1] = new ChatMessage(message.Role, [.. sink[^1].Contents, .. contents]);
                 continue;
             }
-            sink.Add(message);
+            sink.Add(ReferenceEquals(contents, message.Contents)
+                ? message
+                : new ChatMessage(message.Role, [.. contents]));
         }
     }
+
+    /// <summary>窗口内出现过的工具调用 id 与工具结果 id。</summary>
+    private static (HashSet<string> Calls, HashSet<string> Results) CollectCallIds(
+        IReadOnlyList<ChatMessage> history, int start)
+    {
+        HashSet<string> calls = [], results = [];
+        for (int i = start; i < history.Count; i++)
+        {
+            foreach (AIContent content in history[i].Contents)
+            {
+                switch (content)
+                {
+                    case FunctionCallContent call:
+                        calls.Add(call.CallId);
+                        break;
+                    case FunctionResultContent result:
+                        results.Add(result.CallId);
+                        break;
+                }
+            }
+        }
+        return (calls, results);
+    }
+
+    /// <summary>
+    /// 去掉这条消息里落单的工具内容:结果没有对应的调用、或调用没有对应的结果。
+    /// 没有落单的就原样返回(不分配)。
+    /// </summary>
+    /// <remarks>
+    /// <b>这不是洁癖,是两家协议都会直接报错的东西</b>:
+    /// OpenAI Responses 回 <c>400 No tool call found for tool output with call_id …</c>,
+    /// Anthropic 回 <c>tool_use ids must have corresponding tool_result</c>。
+    /// 落单在正常使用中真的会出现,两个方向都有:
+    /// <list type="bullet">
+    /// <item>
+    /// <b>结果落单</b> —— 裁剪把调用切掉了。切点本来只落在用户消息上,但
+    /// <see cref="AlwaysKeep" /> 是硬底线,顶到它时切点会停在半轮中间。
+    /// </item>
+    /// <item>
+    /// <b>调用落单</b> —— 模型发起调用后用户按了停止(或审批未答就取消),工具从未执行;
+    /// 半截回复是有意留在历史里的(用户看得见,模型也该知道自己说过什么)。
+    /// </item>
+    /// </list>
+    /// 丢掉落单的那一半,比整轮丢弃保住的上下文多,也比原样发出去强。
+    /// </remarks>
+    private static IReadOnlyList<AIContent> Paired(ChatMessage message, HashSet<string> calls, HashSet<string> results)
+    {
+        bool orphaned = false;
+        foreach (AIContent content in message.Contents)
+        {
+            if (IsOrphan(content, calls, results))
+            {
+                orphaned = true;
+                break;
+            }
+        }
+        if (!orphaned)
+        {
+            return (IReadOnlyList<AIContent>)message.Contents;
+        }
+        return [.. message.Contents.Where(c => !IsOrphan(c, calls, results))];
+    }
+
+    private static bool IsOrphan(AIContent content, HashSet<string> calls, HashSet<string> results)
+        => content switch
+        {
+            FunctionCallContent call => !results.Contains(call.CallId),
+            FunctionResultContent result => !calls.Contains(result.CallId),
+            _ => false
+        };
 
     /// <summary>整段消息的 token 估算。</summary>
     public static int Estimate(IEnumerable<ChatMessage> messages)
