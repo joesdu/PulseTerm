@@ -107,14 +107,14 @@ public sealed class McpConfigTests
     }
 
     /// <summary>
-    /// 工作目录:空 = ~/.velashell(与日志同一棵树);~ 前缀按主目录展开(Process.Start 不认 ~,
+    /// 工作目录:空 = ~/.velashell/mcp(与日志同一棵树);~ 前缀按主目录展开(Process.Start 不认 ~,
     /// 原样传下去就是 "目录名称无效");相对路径挂在默认目录下;绝对路径原样。
     /// </summary>
     [TestMethod]
-    public void McpWorkspace_Resolve_DefaultsToDotVelashell_AndExpandsTilde()
+    public void McpWorkspace_Resolve_DefaultsToDotVelashellMcp_AndExpandsTilde()
     {
         string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        string dot = Path.Combine(home, ".velashell");
+        string dot = Path.Combine(home, ".velashell", "mcp");
 
         Assert.AreEqual(dot, McpWorkspace.Resolve(null));
         Assert.AreEqual(dot, McpWorkspace.Resolve("   "));
