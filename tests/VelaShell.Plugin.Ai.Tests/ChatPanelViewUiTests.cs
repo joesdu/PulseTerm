@@ -30,6 +30,16 @@ public sealed partial class ChatPanelViewUiTests
     public static void Init(TestContext _) =>
         _session = HeadlessUnitTestSession.GetOrStartForAssembly(typeof(ChatPanelViewUiTests).Assembly);
 
+    /// <summary>一个供应商带一个模型(OpenAI Chat Completions 协议)—— 用例只需要"有个能指向假端点的模型"。</summary>
+    private static AiProvider StubProvider(string name, string baseUrl, string model, int maxInputTokens = 128000)
+        => new()
+        {
+            Name = name,
+            BaseUrl = baseUrl,
+            DefaultProtocol = ChatProtocol.OpenAiChatCompletions,
+            Models = [new AiModelConfig { Model = model, MaxInputTokens = maxInputTokens }]
+        };
+
     /// <summary>把面板挂进一个窗口(控件要拿到 TopLevel 才算真正装载),并等初始化跑完。</summary>
     private static async Task<(Window Window, ChatPanelView Panel)> ShowAsync(TestPluginContext context)
     {
@@ -482,11 +492,11 @@ public sealed partial class ChatPanelViewUiTests
             context.FakeRemoteFs.AddFile(session.SessionId, "/root/.bashrc", "export PATH=/usr/bin"u8.ToArray());
             // 没有供应商时 SendAsync 会直接引导到设置页、不发消息,所以先配一个(不会真去连它:
             // 本用例只看用户气泡长什么样,后面那半轮请求失败与否都不影响断言)。
-            var provider = new AiProviderConfig { Name = "test", BaseUrl = "http://127.0.0.1:1/v1", Model = "m" };
+            var provider = StubProvider("test", "http://127.0.0.1:1/v1", "m");
             await new AiSettingsStore(context).SaveAsync(new AiSettings
             {
                 Providers = [provider],
-                ActiveProviderId = provider.Id
+                ActiveModelId = provider.Models[0].Id
             });
 
             (Window window, ChatPanelView panel) = await ShowAsync(context);
@@ -573,16 +583,11 @@ public sealed partial class ChatPanelViewUiTests
             """);
 
             using var context = new TestPluginContext();
-            var provider = new AiProviderConfig
-            {
-                Name = "test",
-                BaseUrl = stub.BaseUrl,
-                Model = "some-model-id"
-            };
+            AiProvider provider = StubProvider("test", stub.BaseUrl, "some-model-id");
             await new AiSettingsStore(context).SaveAsync(new AiSettings
             {
                 Providers = [provider],
-                ActiveProviderId = provider.Id,
+                ActiveModelId = provider.Models[0].Id,
                 SuggestFollowUps = false
             });
 
@@ -626,11 +631,11 @@ public sealed partial class ChatPanelViewUiTests
             """, delay: TimeSpan.FromMilliseconds(900));
 
             using var context = new TestPluginContext();
-            var provider = new AiProviderConfig { Name = "stub", BaseUrl = stub.BaseUrl, Model = "m" };
+            var provider = StubProvider("stub", stub.BaseUrl, "m");
             await new AiSettingsStore(context).SaveAsync(new AiSettings
             {
                 Providers = [provider],
-                ActiveProviderId = provider.Id,
+                ActiveModelId = provider.Models[0].Id,
                 SuggestFollowUps = false // 这个用例只看边框,别再多发一次请求
             });
 
@@ -688,11 +693,11 @@ public sealed partial class ChatPanelViewUiTests
             """, chunkDelay: TimeSpan.FromMilliseconds(400));
 
             using var context = new TestPluginContext();
-            var provider = new AiProviderConfig { Name = "stub", BaseUrl = stub.BaseUrl, Model = "m" };
+            var provider = StubProvider("stub", stub.BaseUrl, "m");
             await new AiSettingsStore(context).SaveAsync(new AiSettings
             {
                 Providers = [provider],
-                ActiveProviderId = provider.Id,
+                ActiveModelId = provider.Models[0].Id,
                 SuggestFollowUps = false,
                 AgentMode = true
             });
@@ -787,11 +792,11 @@ public sealed partial class ChatPanelViewUiTests
             """);
 
             using var context = new TestPluginContext();
-            var provider = new AiProviderConfig { Name = "stub", BaseUrl = stub.BaseUrl, Model = "m" };
+            var provider = StubProvider("stub", stub.BaseUrl, "m");
             await new AiSettingsStore(context).SaveAsync(new AiSettings
             {
                 Providers = [provider],
-                ActiveProviderId = provider.Id,
+                ActiveModelId = provider.Models[0].Id,
                 SuggestFollowUps = false
             });
 
@@ -840,11 +845,11 @@ public sealed partial class ChatPanelViewUiTests
             """, jsonContent: "1. 磁盘还够吗\n- 有哪些服务在跑\n\"要不要看日志\"");
 
             using var context = new TestPluginContext();
-            var provider = new AiProviderConfig { Name = "stub", BaseUrl = stub.BaseUrl, Model = "m" };
+            var provider = StubProvider("stub", stub.BaseUrl, "m");
             await new AiSettingsStore(context).SaveAsync(new AiSettings
             {
                 Providers = [provider],
-                ActiveProviderId = provider.Id,
+                ActiveModelId = provider.Models[0].Id,
                 SuggestFollowUps = true
             });
 
@@ -891,18 +896,11 @@ public sealed partial class ChatPanelViewUiTests
             """);
 
             using var context = new TestPluginContext();
-            var provider = new AiProviderConfig
-            {
-                Name = "stub",
-                Protocol = ChatProtocol.OpenAiChatCompletions,
-                BaseUrl = stub.BaseUrl,
-                Model = "m",
-                MaxInputTokens = 10000
-            };
+            AiProvider provider = StubProvider("stub", stub.BaseUrl, "m", maxInputTokens: 10000);
             await new AiSettingsStore(context).SaveAsync(new AiSettings
             {
                 Providers = [provider],
-                ActiveProviderId = provider.Id
+                ActiveModelId = provider.Models[0].Id
             });
 
             (Window window, ChatPanelView panel) = await ShowAsync(context);
@@ -1147,11 +1145,11 @@ public sealed partial class ChatPanelViewUiTests
             }
         });
     }
-
     /// <summary>
     /// 设置窗口的 保存/测试/删除 落在表单<b>最末、靠右</b>,跟着内容滚(不是钉死的常驻横栏 ——
-    /// 那会一直占着高度,而这页大多数时候在读、在填)。「保存」连带把全局设置也一起存,
-    /// 所以它必须排在全部字段之后。
+    /// 那会一直占着高度,而这页大多数时候在读、在填)。全局设置(系统提示词/压缩/后续提问)
+    /// 不在这页:它从窗口标题栏、最小化键左侧的 ⚙(<c>PanelOptions.TitleActions</c>)进另一个窗口。
+    /// </summary>
     /// </summary>
     [TestMethod]
     public void SettingsDialog_PutsTheActionRow_AtTheEndOfTheFormAndOnTheRight()
@@ -1159,6 +1157,9 @@ public sealed partial class ChatPanelViewUiTests
         OnUi(async () =>
         {
             using var context = new TestPluginContext();
+            // 配一个模型:右侧表单只在选中了模型时才展开,空着的时候没有"最后一个字段"可比
+            AiProvider seeded = StubProvider("stub", "http://127.0.0.1:1/v1", "m");
+            await new AiSettingsStore(context).SaveAsync(new AiSettings { Providers = [seeded], ActiveModelId = seeded.Models[0].Id });
             (Window window, ChatPanelView panel) = await ShowAsync(context);
             Window? host = null;
             try
@@ -1169,8 +1170,8 @@ public sealed partial class ChatPanelViewUiTests
                 host = Host(settings);
 
                 Button save = settings.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "SaveButton");
-                CheckBox lastField = settings.GetVisualDescendants().OfType<CheckBox>()
-                    .Single(c => c.Name == "SuggestFollowUpsCheck");
+                TextBox lastField = settings.GetVisualDescendants().OfType<TextBox>()
+                    .Single(t => t.Name == "ProviderPromptBox");
                 ScrollViewer form = settings.GetVisualDescendants().OfType<ScrollViewer>()
                     .First(s => s.GetVisualDescendants().OfType<Button>().Any(b => b.Name == "SaveButton"));
 
@@ -1185,6 +1186,19 @@ public sealed partial class ChatPanelViewUiTests
                 Assert.IsEmpty(settings.GetVisualDescendants().OfType<TextBox>()
                         .Where(t => t.Name == "PanelWidthBox"),
                     "侧栏宽度不再是一个设置项");
+
+                // 全局设置搬走了:这页不再有系统提示词/压缩/后续提问,入口是窗口标题栏上的一枚 ⚙
+                Assert.IsEmpty(settings.GetVisualDescendants().OfType<TextBox>().Where(t => t.Name == "SystemPromptBox"));
+                Assert.IsEmpty(settings.GetVisualDescendants().OfType<CheckBox>().Where(c => c.Name == "SuggestFollowUpsCheck"));
+                VelaShell.PluginSdk.Ui.PanelTitleAction gear = context.FakeUi.LastPanel.Options.TitleActions.Single();
+                Assert.IsFalse(string.IsNullOrWhiteSpace(gear.IconPathData));
+                int before = context.FakeUi.Panels.Count;
+                gear.OnClick();
+                await PumpAsync(5);
+                Assert.AreEqual(before + 1, context.FakeUi.Panels.Count, "点标题栏的 ⚙ 要开出全局设置窗口");
+                var global = (GlobalSettingsView)context.FakeUi.LastPanel.CreateContent();
+                Assert.IsNotNull(global.GetControl<TextBox>("SystemPromptBox"));
+                Assert.IsEmpty(context.FakeUi.LastPanel.Options.TitleActions, "全局设置窗口自己没有再套一层动作按钮");
             }
             finally
             {

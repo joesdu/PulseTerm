@@ -54,7 +54,7 @@ internal sealed class PluginHostUi(string pluginId, IPluginLogger log, RpcConnec
             Control content = RequireControl(contentFactory());
             // 自绘卡片壳:透明圆角卡片 + 标题栏 + 三连按钮 + 缩放抓取区,配色用宿主下发的
             // Vela* 令牌 —— 与主程序资源监视/任务管理器窗口统一。
-            var window = new PluginHostShellWindow(options.Title, pluginId, content)
+            var window = new PluginHostShellWindow(options.Title, pluginId, content, options.TitleActions)
             {
                 Width = Math.Max(options.WindowWidth, 280),
                 Height = Math.Max(options.WindowHeight, 200),

@@ -27,7 +27,7 @@ public partial class ChatPanelView
     /// 发送前调用:接近窗口就先把早期对话折成摘要。
     /// 压缩失败(网络问题、模型不配合)不抛也不拦 —— 装配那一步还有"直接丢最早几条"兜底。
     /// </summary>
-    private async Task CompactIfNeededAsync(AiProviderConfig provider, CancellationToken cancellationToken)
+    private async Task CompactIfNeededAsync(ResolvedModel provider, CancellationToken cancellationToken)
     {
         if (!_settings.CompactContext
             || !ContextCompactor.ShouldCompact(_history, _summarizedThrough, _contextSummary,

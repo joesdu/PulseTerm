@@ -235,4 +235,48 @@ public sealed class PluginPanelUiTests
             Assert.IsFalse(panel.IsOpen);
         }, CancellationToken.None).GetAwaiter().GetResult();
     }
+
+    /// <summary>
+    /// 插件声明的标题栏动作按钮(<see cref="PanelOptions.TitleActions" />)要出现在最小化键<b>左侧</b>、
+    /// 按给出的顺序排列,点了要回调 —— 与主窗体标题栏那排工具按钮同一位置。
+    /// </summary>
+    [TestMethod]
+    public void WindowPanel_TitleActions_SitLeftOfMinimize_AndClickBack()
+    {
+        _session.Dispatch(async () =>
+        {
+            int clicked = 0;
+            var panel = new PluginPanel("acme.demo", new NullLog(),
+                new()
+                {
+                    Title = "Demo", DisplayMode = PluginSdk.Ui.PanelDisplayMode.Window,
+                    TitleActions =
+                    [
+                        new PanelTitleAction("M0 0 L24 24", "first", () => clicked += 1),
+                        new PanelTitleAction("M0 24 L24 0", "second", () => clicked += 10)
+                    ]
+                },
+                new Border(), owner: null);
+            Dispatcher.UIThread.RunJobs();
+            try
+            {
+                // 窗口是面板的私有字段,测试里直接掏出来(不为它开公共口子)
+                VelaShell.Views.PluginPanelWindow shell = (VelaShell.Views.PluginPanelWindow)panel.GetType()
+                    .GetField("_window", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+                    .GetValue(panel)!;
+                var strip = shell.GetControl<StackPanel>("CaptionButtons");
+                Assert.HasCount(5, strip.Children, "两枚动作 + 最小化 / 最大化 / 关闭");
+                Assert.AreEqual("first", ToolTip.GetTip(strip.Children[0]));
+                Assert.AreEqual("second", ToolTip.GetTip(strip.Children[1]));
+                Assert.IsNull(ToolTip.GetTip(strip.Children[2]), "第三枚就是原来的最小化键");
+                ((Button)strip.Children[1]).RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+                Assert.AreEqual(10, clicked);
+            }
+            finally
+            {
+                await panel.CloseAsync();
+                Dispatcher.UIThread.RunJobs();
+            }
+        }, CancellationToken.None).GetAwaiter().GetResult();
+    }
 }

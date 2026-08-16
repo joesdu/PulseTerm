@@ -79,7 +79,7 @@ public partial class ChatPanelView
     /// 一轮答完后,额外问一次模型要几条后续提问。整条链路失败都只是"不显示建议",
     /// 不打扰用户 —— 这是锦上添花的东西,不该因为它报错。
     /// </summary>
-    private async Task SuggestFollowUpsAsync(AiProviderConfig provider, string userText, string replyText)
+    private async Task SuggestFollowUpsAsync(ResolvedModel provider, string userText, string replyText)
     {
         if (!_settings.SuggestFollowUps || replyText.Trim().Length == 0)
         {

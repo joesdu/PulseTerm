@@ -64,7 +64,24 @@ public sealed record PanelOptions
 
     /// <summary>窗口模式的初始高度(逻辑像素),文档模式忽略。</summary>
     public double WindowHeight { get; init; } = 420;
+
+    /// <summary>
+    /// 窗口模式下摆在标题栏、紧挨最小化键左侧的动作按钮(按给出的顺序从左到右),文档模式忽略。
+    /// 与主窗体标题栏那排工具按钮同一套版式;用于"这个窗口的附属设置"之类不值得占内容区的入口。
+    /// </summary>
+    public IReadOnlyList<PanelTitleAction> TitleActions { get; init; } = [];
 }
+
+/// <summary>
+/// 窗口标题栏上的一个动作按钮。
+/// </summary>
+/// <param name="IconPathData">
+/// 图标的 SVG 路径数据(24×24 视框、描边风格,即 lucide 那套),宿主按标题栏字号缩放描边。
+/// 传路径而不是资源键:隔离进程里没有宿主的 <c>Icon.*</c> 资源字典。
+/// </param>
+/// <param name="ToolTip">悬停提示。</param>
+/// <param name="OnClick">点击回调(UI 线程)。</param>
+public sealed record PanelTitleAction(string IconPathData, string ToolTip, Action OnClick);
 
 /// <summary>
 /// 一个已打开的插件面板句柄:纯生命周期。内容是插件自己的 Avalonia 控件,

@@ -24,6 +24,7 @@ namespace VelaShell.Plugin.Ai.Ui;
 public partial class ChatPanelView
 {
     private IPluginPanel? _settingsPanel;
+    private IPluginPanel? _globalSettingsPanel;
     private IPluginPanel? _toolsPanel;
     private IPluginPanel? _mcpPanel;
 
@@ -34,15 +35,42 @@ public partial class ChatPanelView
         {
             return;
         }
-        // SettingsView 是长表单,自己带滚动;窗口给足宽度让那些两列/三列的行铺得开
+        // SettingsView 是长表单,自己带滚动;窗口给足宽度让那些两列/三列的行铺得开。
+        // 全局设置(系统提示词/压缩/后续提问)不占这页版面:标题栏上、最小化键左侧一枚 ⚙,
+        // 与主窗体标题栏那排工具按钮同一套版式,点开是另一个小窗口。
         _ = OpenAsync(
-            _loc["Settings"], 940, 760,
+            _loc["ModelSettings"], 940, 760,
+            [new PanelTitleAction(SettingsIconPath, _loc["GlobalSettings"], OpenGlobalSettingsDialog)],
             () => _settingsView = new SettingsView(_context, _store, _settings, _loc, OnProvidersChanged),
             panel => _settingsPanel = panel,
             () =>
             {
                 _settingsPanel = null;
                 _settingsView = null; // 语言切换时只刷还开着的那个
+                // 入口没了,附属的全局设置窗口也一起收
+                _ = _globalSettingsPanel?.CloseAsync();
+            });
+    }
+
+    /// <summary>lucide settings(齿轮)路径:标题栏动作按钮要的是路径数据而不是资源键(隔离进程没有宿主 Icon.*)。</summary>
+    private const string SettingsIconPath =
+        "M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2Z M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z";
+
+    /// <summary>打开全局设置窗口(从模型配置窗口标题栏的 ⚙ 进来;已开着就置前)。</summary>
+    private void OpenGlobalSettingsDialog()
+    {
+        if (Activate(_globalSettingsPanel))
+        {
+            return;
+        }
+        _ = OpenAsync(
+            _loc["GlobalSettings"], 620, 480, [],
+            () => _globalSettingsView = new GlobalSettingsView(_context, _settings, _loc, PersistSettingsAsync),
+            panel => _globalSettingsPanel = panel,
+            () =>
+            {
+                _globalSettingsPanel = null;
+                _globalSettingsView = null;
             });
     }
 
@@ -55,7 +83,7 @@ public partial class ChatPanelView
         }
         ToolPickerView? picker = null;
         _ = OpenAsync(
-            _loc["ConfigureTools"], 720, 680,
+            _loc["ConfigureTools"], 720, 680, [],
             () =>
             {
                 picker = new ToolPickerView(_context, _settings, _loc, PersistSettingsAsync);
@@ -81,7 +109,7 @@ public partial class ChatPanelView
             return;
         }
         _ = OpenAsync(
-            _loc["McpServers"], 900, 660,
+            _loc["McpServers"], 900, 660, [],
             () =>
             {
                 var servers = new McpServersView(_context, _settings, _loc, PersistSettingsAsync);
@@ -109,10 +137,12 @@ public partial class ChatPanelView
     /// <param name="title">窗口标题。</param>
     /// <param name="width">初始宽。</param>
     /// <param name="height">初始高。</param>
+    /// <param name="titleActions">标题栏上、最小化键左侧的动作按钮(可空)。</param>
     /// <param name="factory">内容工厂(宿主在 UI 线程调用)。</param>
     /// <param name="onOpened">拿到面板句柄(用于"已开着就置前"与随面板一并关闭)。</param>
     /// <param name="onClosed">窗口关掉后清账。</param>
     private async Task OpenAsync(string title, double width, double height,
+        IReadOnlyList<PanelTitleAction> titleActions,
         Func<Control> factory, Action<IPluginPanel> onOpened, Action onClosed)
     {
         // 视图当场就造,工厂只是把它递给宿主 —— 造在工厂里就拿不到实例,没法给它挂 Esc。
@@ -125,7 +155,8 @@ public partial class ChatPanelView
                 Title = title,
                 DisplayMode = PanelDisplayMode.Window,
                 WindowWidth = width,
-                WindowHeight = height
+                WindowHeight = height,
+                TitleActions = titleActions
             }, () => view);
             onOpened(panel);
             // Esc 关窗,与宿主其它窗口一致。挂在内容上而不是让宿主对所有插件面板统一处理:
@@ -153,6 +184,8 @@ public partial class ChatPanelView
     private void CloseDialogs()
     {
         _ = _settingsPanel?.CloseAsync();
+        _ = _globalSettingsPanel?.CloseAsync();
+        _globalSettingsPanel = null;
         _settingsPanel = null;
         _ = _mcpPanel?.CloseAsync();
         _mcpPanel = null;

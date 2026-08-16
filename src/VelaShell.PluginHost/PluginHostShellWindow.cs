@@ -4,6 +4,7 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
+using VelaShell.PluginSdk.Ui;
 
 namespace VelaShell.PluginHost;
 
@@ -34,7 +35,7 @@ internal sealed class PluginHostShellWindow : Window
     private readonly Border _titleStrip;
     private readonly Panel _resizeGrips;
 
-    public PluginHostShellWindow(string title, string subtitle, Control content)
+    public PluginHostShellWindow(string title, string subtitle, Control content, IReadOnlyList<PanelTitleAction>? titleActions = null)
     {
         WindowDecorations = WindowDecorations.None;
         TransparencyLevelHint = [WindowTransparencyLevel.Transparent];
@@ -42,7 +43,7 @@ internal sealed class PluginHostShellWindow : Window
         Title = title;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
 
-        _titleStrip = BuildTitleBar(title, subtitle);
+        _titleStrip = BuildTitleBar(title, subtitle, titleActions ?? []);
         var grid = new Grid { RowDefinitions = [with("40,*")] };
         grid.Children.Add(_titleStrip);
         var contentHost = new ContentControl { Content = content };
@@ -79,7 +80,7 @@ internal sealed class PluginHostShellWindow : Window
         }
     }
 
-    private Border BuildTitleBar(string title, string subtitle)
+    private Border BuildTitleBar(string title, string subtitle, IReadOnlyList<PanelTitleAction> titleActions)
     {
         var titleText = new TextBlock
         {
@@ -110,6 +111,11 @@ internal sealed class PluginHostShellWindow : Window
         left.Children.Add(subtitleText);
 
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Top };
+        // 插件声明的标题栏动作按钮(PanelOptions.TitleActions)插在最小化键左侧,与主程序的 PluginPanelWindow 同一位置
+        foreach (PanelTitleAction action in titleActions)
+        {
+            buttons.Children.Add(ActionButton(action));
+        }
         buttons.Children.Add(CaptionButton(MinusGeometry(), close: false, () => WindowState = WindowState.Minimized));
         buttons.Children.Add(CaptionButton(SquareGeometry(), close: false, ToggleMaximize));
         buttons.Children.Add(CaptionButton(CrossGeometry(), close: true, Close));
@@ -135,6 +141,25 @@ internal sealed class PluginHostShellWindow : Window
     {
         var icon = new Avalonia.Controls.Shapes.Path { Data = geometry, StrokeThickness = 1.4, StrokeLineCap = PenLineCap.Round };
         Bind(icon, Avalonia.Controls.Shapes.Shape.StrokeProperty, "VelaTextSecondary");
+        return CaptionButton(icon, close, onClick);
+    }
+
+    /// <summary>插件的标题栏动作:lucide 24×24 路径缩到 12px,描边 2 与主程序 LucideIcon 一致。</summary>
+    private Button ActionButton(PanelTitleAction action)
+    {
+        var icon = new Avalonia.Controls.Shapes.Path
+        {
+            Width = 24, Height = 24, Data = Geometry.Parse(action.IconPathData),
+            StrokeThickness = 2, StrokeLineCap = PenLineCap.Round, StrokeJoin = PenLineJoin.Round
+        };
+        Bind(icon, Avalonia.Controls.Shapes.Shape.StrokeProperty, "VelaTextSecondary");
+        Button button = CaptionButton(new Viewbox { Width = 12, Height = 12, Child = icon }, close: false, action.OnClick);
+        ToolTip.SetTip(button, action.ToolTip);
+        return button;
+    }
+
+    private Button CaptionButton(Control icon, bool close, Action onClick)
+    {
         var button = new Button
         {
             Width = 42,

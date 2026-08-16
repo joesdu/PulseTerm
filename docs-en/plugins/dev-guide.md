@@ -294,6 +294,23 @@ ordinary route. `PlacementRatio` only sets the width *on open*: a width the user
 back, so a plugin that wants to remember the preference stores it itself and passes it in next time
 (the AI plugin does exactly that — see "Side pane width (%)" on its settings page).
 
+Window mode can also put **action buttons on the title bar** (`PanelOptions.TitleActions`; ignored
+when docked): they sit immediately left of the minimize button, in the given order, in the same style
+as the tool buttons on the main window's title bar. Use them for entry points that belong to the window
+but do not deserve content-area space (the AI plugin's model-settings window opens its global settings this way):
+
+```csharp
+new()
+{
+    Title = "Models", DisplayMode = PanelDisplayMode.Window,
+    TitleActions = [new PanelTitleAction(GearPathData, "Global settings", OpenGlobalSettings)]
+}
+```
+
+The icon is lucide-style 24×24 **SVG path data**, not a resource key — an isolated process has no
+access to the host's `Icon.*` resource dictionary; the host scales the stroke to the title-bar size.
+The callback runs on the UI thread.
+
 **Theme tokens: write `{DynamicResource VelaXxx}` to follow the host theme.** All of the host's `Vela*` design tokens (semantic brushes, font-size scale, and font families) are available to plugins and follow light/dark switching immediately:
 
 ```xml

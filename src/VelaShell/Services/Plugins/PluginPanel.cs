@@ -195,6 +195,7 @@ internal sealed class PluginPanel : IPluginPanel
             Height = Math.Max(options.WindowHeight, 200)
         };
         _window.SetTitle(options.Title, pluginId);
+        _window.SetTitleActions(options.TitleActions);
         _window.SetContent(content);
         _window.Closed += (_, _) => NotifyClosed();
         if (owner is not null)
