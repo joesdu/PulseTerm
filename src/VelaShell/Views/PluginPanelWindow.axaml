@@ -62,7 +62,8 @@
                          FontSize="{DynamicResource VelaFontSize10}"
                          VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
             </StackPanel>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
+            <!-- 插件声明的标题栏动作按钮(PanelOptions.TitleActions)插在最小化键左侧,见 SetTitleActions -->
+            <StackPanel x:Name="CaptionButtons" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
               <Button Classes="caption" Click="Minimize_Click">
                 <pc:LucideIcon Width="12" Height="12" Data="{StaticResource Icon.minus}"
                                Foreground="{DynamicResource VelaTextSecondary}" />

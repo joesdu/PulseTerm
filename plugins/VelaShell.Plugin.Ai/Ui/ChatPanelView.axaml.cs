@@ -38,7 +38,8 @@ public partial class ChatPanelView : UserControl
 
     private AiSettings _settings = new();
     private SettingsView? _settingsView;
-    private List<AiProviderConfig> _providers = [];
+    private GlobalSettingsView? _globalSettingsView;
+    private List<ResolvedModel> _providers = [];
     private List<SessionInfo> _sessions = [];
     private CancellationTokenSource? _cts;
     private bool _busy;
@@ -136,7 +137,7 @@ public partial class ChatPanelView : UserControl
         {
             if (ProviderCombo.SelectedIndex >= 0 && ProviderCombo.SelectedIndex < _providers.Count)
             {
-                _settings.ActiveProviderId = _providers[ProviderCombo.SelectedIndex].Id;
+                _settings.ActiveModelId = _providers[ProviderCombo.SelectedIndex].Id;
                 _ = PersistSettingsAsync();
             }
             // 上下文窗口是按接入配的,换模型就得按新分母重算占比
@@ -228,7 +229,7 @@ public partial class ChatPanelView : UserControl
         SyncModeUi();
         NewChatText.Text = _loc["NewChat"];
         ToolTip.SetTip(NewChatButton, _loc["NewChatTip"]);
-        ToolTip.SetTip(SettingsButton, _loc["Settings"]);
+        ToolTip.SetTip(SettingsButton, _loc["ModelSettings"]);
         ToolTip.SetTip(ToolsButton, _loc["ConfigureTools"]);
         ToolTip.SetTip(HistoryToggle, _loc["History"]);
         ClearHistoryButton.Content = _loc["ClearHistory"];
@@ -349,6 +350,7 @@ public partial class ChatPanelView : UserControl
         _loc.Switch(locale);
         ApplyLoc();
         _settingsView?.ApplyLoc();
+        _globalSettingsView?.ApplyLoc();
         RefreshStarterSuggestions();
     });
 
@@ -364,15 +366,17 @@ public partial class ChatPanelView : UserControl
 
     private void ReloadProviderCombo()
     {
-        _providers = [.. _settings.Providers];
+        _providers = _settings.ResolveModels();
+        // 只有一家供应商时前缀是纯噪音;多家并存才需要"供应商 · 模型"来区分同名模型
+        bool prefix = _settings.Providers.Count > 1;
         ProviderCombo.ItemsSource = _providers
-            .Select(p => string.IsNullOrWhiteSpace(p.Model) ? p.Name : $"{p.Name} · {p.Model}")
+            .Select(p => prefix && !string.IsNullOrWhiteSpace(p.ProviderName) ? $"{p.ProviderName} · {p.Name}" : p.Name)
             .ToList();
-        int active = _providers.FindIndex(p => p.Id == _settings.ActiveProviderId);
+        int active = _providers.FindIndex(p => p.Id == _settings.ActiveModelId);
         ProviderCombo.SelectedIndex = active >= 0 ? active : (_providers.Count > 0 ? 0 : -1);
     }
 
-    private AiProviderConfig? ActiveProvider
+    private ResolvedModel? ActiveProvider
         => ProviderCombo.SelectedIndex >= 0 && ProviderCombo.SelectedIndex < _providers.Count
             ? _providers[ProviderCombo.SelectedIndex]
             : null;
@@ -447,7 +451,7 @@ public partial class ChatPanelView : UserControl
     /// 按接入里填的单价估这段会话花了多少。三个单价都为 0(没填)就返回 null,不显示这一行。
     /// 命中缓存的那部分单独按缓存价算 —— 那正是缓存值不值得开的关键数字。
     /// </summary>
-    private double? EstimateCost(AiProviderConfig provider)
+    private double? EstimateCost(ResolvedModel provider)
     {
         if (provider.InputPricePerMillion <= 0 && provider.OutputPricePerMillion <= 0)
         {
@@ -880,7 +884,7 @@ public partial class ChatPanelView : UserControl
     }
 
     /// <summary>回复底部显示的模型名:优先模型 id,没填就退回接入名称。</summary>
-    private static string ModelLabel(AiProviderConfig provider)
+    private static string ModelLabel(ResolvedModel provider)
         => string.IsNullOrWhiteSpace(provider.Model) ? provider.Name : provider.Model;
 
     /// <summary>
@@ -1077,9 +1081,10 @@ public partial class ChatPanelView : UserControl
             "To put a local file on the server, call upload_local_file.");
         List<string> dirs =
         [
+            // 本地进程型的每台都有工作目录(没填就是 ~/.velashell),都告诉模型;HTTP 型的没有"本机目录"可言
             .. _settings.McpServers
-                        .Where(s => s.Enabled && !string.IsNullOrWhiteSpace(s.WorkingDirectory))
-                        .Select(s => $"{DisplayName(s)}: {s.WorkingDirectory!.Trim()}")
+                        .Where(s => s.Enabled && s.Transport == McpTransportType.Stdio)
+                        .Select(s => $"{DisplayName(s)}: {McpWorkspace.Resolve(s.WorkingDirectory)}")
         ];
         if (dirs.Count > 0)
         {
@@ -1124,7 +1129,7 @@ public partial class ChatPanelView : UserControl
     /// 本次会话里已被"总是允许"的操作键。只活在内存里 —— 换会话、关面板即失效,
     /// 不写进配置:一次排查里放行 <c>ls</c>,不代表下次打开还想默认放行。
     /// </summary>
-    private readonly HashSet<string> _alwaysApproved = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _alwaysApproved = [with(StringComparer.Ordinal)];
 
     private async Task<bool> RequestApprovalAsync(ApprovalRequest request)
     {
@@ -1211,7 +1216,7 @@ public partial class ChatPanelView : UserControl
     {
         var stack = new StackPanel();
         // 头部一行:角色 + 悬停才显形的编辑/删除(平时不该有两个按钮杵在每条消息上)
-        var header = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        var header = new Grid { ColumnDefinitions = [with("*,Auto")] };
         header.Children.Add(new TextBlock { Classes = { "roleHeader" }, Text = _loc["You"] });
         var actions = new StackPanel
         {

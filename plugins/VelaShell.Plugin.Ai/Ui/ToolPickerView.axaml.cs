@@ -20,7 +20,7 @@ namespace VelaShell.Plugin.Ai.Ui;
 /// <see cref="AiSettings.DisabledBuiltinTools" />):服务器以后新增了工具,默认就是可用的,
 /// 而不是因为"不在已保存的白名单里"被静默屏蔽掉。
 ///
-/// <para>服务器本身怎么配在<see cref="McpServersView" />(标题行右侧的 ⚙ 另开一个窗口)——
+/// <para>服务器本身怎么配在<see cref="McpServersView" />(窗口标题栏的 ⚙ 另开一个窗口,见 <c>ChatPanelView.OpenToolsDialog</c>)——
 /// 那是一整套左列表右表单,压在勾选列表上面会把这一页挤得没法看;
 /// 改完它会回调 <see cref="Rebuild" />,这边的分组当场跟着变。</para>
 /// </remarks>
@@ -33,8 +33,13 @@ public sealed class ToolPickerView : UserControl
     private readonly StackPanel _groups = new() { Spacing = 14 };
     private readonly TextBlock _status = new() { Classes = { "dim" }, TextWrapping = TextWrapping.Wrap };
 
-    /// <summary>用户点了右上角的 ⚙,要去配 MCP 服务器。</summary>
-    public event Action? ConfigureServersRequested;
+    /// <summary>
+    /// 各组的折叠状态,键 = 组 id(内置 = 空串,MCP = 服务器 id)。只活在这个视图里,不落盘:
+    /// 重建(改服务器 / 刷新工具库)时保住用户刚才折/展的样子就够了。
+    /// MCP 组默认折起 —— 一台服务器动辄二三十个工具,全展开这页长得没法看;
+    /// 内置那组就几个,默认展开。
+    /// </summary>
+    private readonly Dictionary<string, bool> _collapsed = [with(StringComparer.Ordinal)];
 
     /// <param name="context">插件上下文(只用来记日志)。</param>
     /// <param name="settings">面板共享的设置实例;勾选直接改它。</param>
@@ -66,7 +71,16 @@ public sealed class ToolPickerView : UserControl
         var root = new DockPanel { Margin = new Avalonia.Thickness(20, 16, 20 - Gutter, 16) };
         _status.Margin = new Avalonia.Thickness(0, 10, Gutter, 0);
         DockPanel.SetDock(_status, Dock.Bottom);
-        root.Children.Add(BuildHeader(Gutter));
+        // 顶上一句说明。MCP 服务器配置的入口在窗口标题栏(⚙,PanelOptions.TitleActions),不再占内容区
+        var hint = new TextBlock
+        {
+            Classes = { "dim" },
+            Text = _loc["McpHint"],
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Avalonia.Thickness(0, 0, Gutter, 10)
+        };
+        DockPanel.SetDock(hint, Dock.Top);
+        root.Children.Add(hint);
         root.Children.Add(_status);
         root.Children.Add(new ScrollViewer
         {
@@ -76,47 +90,6 @@ public sealed class ToolPickerView : UserControl
         });
         Content = root;
         Rebuild();
-    }
-
-    /// <summary>
-    /// 顶上一行:左边一句说明,右边那枚 ⚙ 通向 MCP 服务器配置。
-    /// </summary>
-    /// <remarks>
-    /// 放在内容区右上而不是窗口标题栏里:标题栏由宿主自绘(和链路追踪那些窗口同一套规格),
-    /// 插件插不进去,也不该插。
-    /// </remarks>
-    /// <param name="gutter">右侧让给滚动条的那条沟槽,标题行要自己补回来才和卡片右缘对齐。</param>
-    private Grid BuildHeader(double gutter)
-    {
-        var gear = new Button
-        {
-            Height = 26,
-            Width = 30,
-            Padding = default,
-            VerticalAlignment = VerticalAlignment.Top,
-            Content = new Viewbox { Width = 13, Height = 13, Child = Glyph("Icon.settings") }
-        };
-        gear[!TemplatedControl.ThemeProperty] = new DynamicResourceExtension("VelaOutlineButtonTheme");
-        ToolTip.SetTip(gear, _loc["McpServers"]);
-        gear.Click += (_, _) => ConfigureServersRequested?.Invoke();
-
-        var row = new Grid
-        {
-            ColumnDefinitions = [with("*,Auto")],
-            Margin = new Avalonia.Thickness(0, 0, gutter, 10)
-        };
-        row.Children.Add(new TextBlock
-        {
-            Classes = { "dim" },
-            Text = _loc["McpHint"],
-            TextWrapping = TextWrapping.Wrap,
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Avalonia.Thickness(0, 0, 10, 0)
-        });
-        Grid.SetColumn(gear, 1);
-        row.Children.Add(gear);
-        DockPanel.SetDock(row, Dock.Top);
-        return row;
     }
 
     /// <summary>
@@ -154,7 +127,7 @@ public sealed class ToolPickerView : UserControl
     private Border BuildBuiltinGroup()
     {
         HashSet<string> disabled = Lines(_settings.DisabledBuiltinTools);
-        var rows = new StackPanel { Spacing = 8 };
+        var rows = new StackPanel { Spacing = 8, Classes = { "toolRows" } }; // toolRows 只是语义标记,供测试认出勾选行容器
         foreach ((string name, string description, bool readOnly) in AgentToolbox.Catalog)
         {
             rows.Children.Add(BuildRow(name, description, readOnly, !disabled.Contains(name), enabled =>
@@ -164,13 +137,14 @@ public sealed class ToolPickerView : UserControl
                 AfterChange();
             }));
         }
-        return BuildGroup(_loc["ToolsBuiltin"], subtitle: "", rows, header: null);
+        int total = AgentToolbox.Catalog.Count;
+        return BuildGroup("", _loc["ToolsBuiltin"], _loc.F("ToolsChecked", AgentToolbox.Catalog.Count(t => !disabled.Contains(t.Name)), total), rows, header: null, defaultCollapsed: false);
     }
 
     private Border BuildMcpGroup(McpServerConfig server)
     {
         HashSet<string> disabled = Lines(server.DisabledTools);
-        var rows = new StackPanel { Spacing = 8 };
+        var rows = new StackPanel { Spacing = 8, Classes = { "toolRows" } }; // toolRows 只是语义标记,供测试认出勾选行容器
         if (server.KnownTools.Count == 0)
         {
             rows.Children.Add(new TextBlock
@@ -210,14 +184,33 @@ public sealed class ToolPickerView : UserControl
         {
             subtitle = subtitle.Length > 0 ? $"{subtitle} · {_loc["McpDisabledMark"]}" : _loc["McpDisabledMark"];
         }
-        return BuildGroup(
-            string.IsNullOrWhiteSpace(server.Name) ? "(unnamed MCP)" : server.Name, subtitle, rows, refresh);
+        // 折起来时也得看得出这台勾了多少:数字放进副标题
+        int total = server.KnownTools.Count;
+        string counts = _loc.F("ToolsChecked", server.KnownTools.Count(t => !disabled.Contains(t.Name)), total);
+        subtitle = subtitle.Length > 0 ? $"{counts} · {subtitle}" : counts;
+        return BuildGroup(server.Id,
+            string.IsNullOrWhiteSpace(server.Name) ? "(unnamed MCP)" : server.Name, subtitle, rows, refresh, defaultCollapsed: true);
     }
 
-    /// <summary>一组:标题(+ 小字副标题)+ 可选的右侧按钮 + 若干勾选行。</summary>
-    private static Border BuildGroup(string title, string subtitle, Control rows, Control? header)
+    /// <summary>
+    /// 一组:可点的标题行(折叠箭头 + 标题 + 小字副标题)+ 可选的右侧按钮 + 若干勾选行。
+    /// 点标题行折/展;折叠状态按 <paramref name="key" /> 记在 <see cref="_collapsed" /> 里,重建后仍保持。
+    /// </summary>
+    private Border BuildGroup(string key, string title, string subtitle, Control rows, Control? header, bool defaultCollapsed)
     {
+        bool collapsed = _collapsed.TryGetValue(key, out bool saved) ? saved : defaultCollapsed;
+
+        Avalonia.Controls.Shapes.Path chevron = Glyph("Icon.chevron-down");
+        var chevronBox = new Viewbox
+        {
+            Width = 12,
+            Height = 12,
+            Child = chevron,
+            VerticalAlignment = VerticalAlignment.Center,
+            RenderTransformOrigin = Avalonia.RelativePoint.Center
+        };
         var caption = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center };
+        caption.Children.Add(chevronBox);
         caption.Children.Add(new TextBlock
         {
             Classes = { "section-title" },
@@ -233,9 +226,35 @@ public sealed class ToolPickerView : UserControl
                 VerticalAlignment = VerticalAlignment.Center
             });
         }
+        // 整个标题区(不含右侧按钮)都是折叠热区,而不是只有那枚小箭头
+        var toggle = new Border
+        {
+            Child = caption,
+            Padding = new Avalonia.Thickness(0, 2),
+            Background = Brushes.Transparent, // 透明也要有:不然空白处不命中,点标题字之间的缝隙没反应
+            Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand),
+            Classes = { "toolGroupToggle" }
+        };
+
+        var sep = new Border { Classes = { "sep" } };
+        void Apply()
+        {
+            rows.IsVisible = !collapsed;
+            sep.IsVisible = !collapsed;
+            // 折起来箭头朝右、展开朝下 —— 与树形控件的习惯一致
+            chevronBox.RenderTransform = collapsed ? new RotateTransform(-90) : null;
+        }
+        Apply();
+        toggle.PointerPressed += (_, e) =>
+        {
+            collapsed = !collapsed;
+            _collapsed[key] = collapsed;
+            Apply();
+            e.Handled = true;
+        };
 
         var head = new Grid { ColumnDefinitions = [with("*,Auto")] };
-        head.Children.Add(caption);
+        head.Children.Add(toggle);
         if (header is not null)
         {
             Grid.SetColumn(header, 1);
@@ -243,7 +262,7 @@ public sealed class ToolPickerView : UserControl
         }
         var stack = new StackPanel { Spacing = 8 };
         stack.Children.Add(head);
-        stack.Children.Add(new Border { Classes = { "sep" } });
+        stack.Children.Add(sep);
         stack.Children.Add(rows);
         // section = 外观(与设置页那些分节同一张卡片);toolGroup 只是个语义标记,没有样式,
         // 供测试精确认出"一个来源一组"这件事。

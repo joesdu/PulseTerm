@@ -371,6 +371,21 @@ new() { Title = "AI 助手", Placement = PanelPlacement.Right, PlacementRatio = 
 `PlacementRatio` 只管"打开时多宽":用户拖分割条改过的宽度不会写回来,插件想记住用户偏好
 就自己存一份、下次打开时传进来(AI 插件即如此,设置页里有"侧栏宽度(%)")。
 
+窗口模式还可以在**标题栏上放动作按钮**(`PanelOptions.TitleActions`,停靠模式忽略):
+紧挨最小化键左侧、按给出的顺序排列,与主窗体标题栏那排工具按钮同一套版式。
+适合"这个窗口的附属设置"这类不值得占内容区的入口(AI 插件的模型配置窗口就用它开全局设置):
+
+```csharp
+new()
+{
+    Title = "模型配置", DisplayMode = PanelDisplayMode.Window,
+    TitleActions = [new PanelTitleAction(GearPathData, "全局设置", OpenGlobalSettings)]
+}
+```
+
+图标传的是 lucide 风格的 24×24 **SVG 路径数据**而不是资源键 —— 隔离进程里没有宿主的
+`Icon.*` 资源字典;宿主按标题栏字号缩放描边。回调在 UI 线程调用。
+
 **主题令牌:写 `{DynamicResource VelaXxx}` 就能贴宿主主题。** 宿主的全部
 `Vela*` 设计令牌(语义画刷、字号阶梯、字体族)对插件可用,明暗切换即时跟随:
 

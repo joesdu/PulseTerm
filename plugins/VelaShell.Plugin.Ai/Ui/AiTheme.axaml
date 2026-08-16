@@ -1,6 +1,10 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
+  <!-- lucide brain:聊天面板顶栏"模型配置"按钮的图标(原来用宿主的 Icon.settings 齿轮,
+       与设置窗口标题栏上的"全局设置"齿轮撞了含义)。几何内联,不依赖宿主 Icon.* 资源。 -->
+  <StreamGeometry x:Key="AiIcon.brain">M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4 M17.599 6.5a3 3 0 0 0 .399-1.375 M6.003 5.125A3 3 0 0 0 6.401 6.5 M3.477 10.896a4 4 0 0 1 .585-.396 M19.938 10.5a4 4 0 0 1 .585.396 M6 18a4 4 0 0 1-1.967-.516 M19.967 17.484A4 4 0 0 1 18 18</StreamGeometry>
+
   <!-- 芯片式开关(Agent / 设置等):对齐宿主 VelaOutlineButtonTheme 的描边语言,
        选中态换 VelaAccentDim 半透明底 + 强调色描边(与宿主"强调药丸"同一配方)。
        之所以自带 ControlTheme 而不是依赖宿主资源:隔离进程宿主只下发 Vela* 令牌,

@@ -195,6 +195,7 @@ internal sealed class PluginPanel : IPluginPanel
             Height = Math.Max(options.WindowHeight, 200)
         };
         _window.SetTitle(options.Title, pluginId);
+        _window.SetTitleActions(options.TitleActions);
         _window.SetContent(content);
         _window.Closed += (_, _) => NotifyClosed();
         if (owner is not null)
@@ -268,11 +269,9 @@ internal sealed class PluginPanel : IPluginPanel
         {
             _workspace.DocumentRemoved -= _onDocumentRemoved;
         }
-        if (_watchedGroup is not null)
-        {
-            _watchedGroup.PropertyChanged -= OnGroupPropertyChanged;
-            _watchedGroup = null;
-        }
+
+        _watchedGroup?.PropertyChanged -= OnGroupPropertyChanged;
+        _watchedGroup = null;
         PlacementRatioChanged = null;
         if (Closed is { } handlers)
         {

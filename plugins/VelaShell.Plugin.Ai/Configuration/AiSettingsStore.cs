@@ -1,4 +1,5 @@
 using System.ClientModel;
+using System.Text.Json;
 using Anthropic;
 using Anthropic.Models.Messages;
 using Microsoft.Extensions.AI;
@@ -24,56 +25,80 @@ public sealed class AiSettingsStore(IPluginContext context)
     /// </summary>
     private readonly Dictionary<string, string?> _keyCache = [];
 
-    /// <summary>读取设置(不存在时返回带默认值的新实例)。</summary>
+    /// <summary>
+    /// 读取设置(不存在时返回带默认值的新实例)。旧版扁平接入列表会在这里折成两层并<b>立即回写</b>
+    /// (含机密整理),之后再读就是新格式了。
+    /// </summary>
     public async Task<AiSettings> LoadAsync(CancellationToken cancellationToken = default)
-        => await context.Storage.GetAsync<AiSettings>(SettingsKey, cancellationToken).ConfigureAwait(false) ?? new AiSettings();
+    {
+        JsonElement raw = await context.Storage.GetAsync<JsonElement>(SettingsKey, cancellationToken).ConfigureAwait(false);
+        if (raw.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null)
+        {
+            return new AiSettings();
+        }
+        AiSettings settings = raw.Deserialize<AiSettings>() ?? new AiSettings();
+        if (LegacySettingsMigration.IsLegacyShape(raw))
+        {
+            List<LegacyProviderConfig> legacy = raw.GetProperty(nameof(AiSettings.Providers))
+                .Deserialize<List<LegacyProviderConfig>>() ?? [];
+            List<(AiProvider Provider, List<LegacyProviderConfig> Members)> groups = LegacySettingsMigration.Group(legacy);
+            await LegacySettingsMigration.MigrateSecretsAsync(groups, context.Secrets, cancellationToken).ConfigureAwait(false);
+            _keyCache.Clear();
+            settings.Providers = groups.ConvertAll(g => g.Provider);
+            settings.Migrate();
+            await SaveAsync(settings, cancellationToken).ConfigureAwait(false);
+            context.Log.Info($"AI settings: migrated {legacy.Count} legacy provider entries into {settings.Providers.Count} provider(s).");
+        }
+        return settings;
+    }
 
     /// <summary>持久化设置。</summary>
     public Task SaveAsync(AiSettings settings, CancellationToken cancellationToken = default)
         => context.Storage.SetAsync(SettingsKey, settings, cancellationToken);
 
-    /// <summary>读取某接入的 API Key(未配置返回 null)。命中缓存则不碰机密存储。</summary>
-    public async Task<string?> GetApiKeyAsync(string providerId, CancellationToken cancellationToken = default)
+    /// <summary>读取某 Key 归属者(供应商 id,或带独立 Key 的模型 id)的 API Key(未配置返回 null)。命中缓存则不碰机密存储。按模型解析继承链请传 <see cref="ResolvedModel.ApiKeyOwnerId" />。</summary>
+    public async Task<string?> GetApiKeyAsync(string ownerId, CancellationToken cancellationToken = default)
     {
-        if (_keyCache.TryGetValue(providerId, out string? cached))
+        if (_keyCache.TryGetValue(ownerId, out string? cached))
         {
             return cached;
         }
-        string? key = await context.Secrets.GetAsync(SecretName(providerId), cancellationToken).ConfigureAwait(false);
-        _keyCache[providerId] = key;
+        string? key = await context.Secrets.GetAsync(SecretName(ownerId), cancellationToken).ConfigureAwait(false);
+        _keyCache[ownerId] = key;
         return key;
     }
 
-    /// <summary>写入(或清除)某接入的 API Key。</summary>
-    public async Task SetApiKeyAsync(string providerId, string? apiKey, CancellationToken cancellationToken = default)
+    /// <summary>写入(或清除)某归属者的 API Key。</summary>
+    public async Task SetApiKeyAsync(string ownerId, string? apiKey, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrEmpty(apiKey))
         {
-            await context.Secrets.DeleteAsync(SecretName(providerId), cancellationToken).ConfigureAwait(false);
-            _keyCache[providerId] = null;
+            await context.Secrets.DeleteAsync(SecretName(ownerId), cancellationToken).ConfigureAwait(false);
+            _keyCache[ownerId] = null;
         }
         else
         {
-            await context.Secrets.SetAsync(SecretName(providerId), apiKey, cancellationToken).ConfigureAwait(false);
-            _keyCache[providerId] = apiKey;
+            await context.Secrets.SetAsync(SecretName(ownerId), apiKey, cancellationToken).ConfigureAwait(false);
+            _keyCache[ownerId] = apiKey;
         }
     }
 
-    /// <summary>删除接入时连带清除其机密。</summary>
-    public async Task DeleteApiKeyAsync(string providerId, CancellationToken cancellationToken = default)
+    /// <summary>删除供应商 / 模型时连带清除其机密。</summary>
+    public async Task DeleteApiKeyAsync(string ownerId, CancellationToken cancellationToken = default)
     {
-        _keyCache.Remove(providerId);
-        await context.Secrets.DeleteAsync(SecretName(providerId), cancellationToken).ConfigureAwait(false);
+        _keyCache.Remove(ownerId);
+        await context.Secrets.DeleteAsync(SecretName(ownerId), cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
-    /// 为接入构造 <see cref="IChatClient" />(每次调用读取最新 API Key)。
+    /// 为模型构造 <see cref="IChatClient" />(每次调用按继承链读取最新 API Key)。
     /// 返回的是"裸"客户端;Agent 模式的函数调用循环由调用方经
     /// <c>AsBuilder().UseFunctionInvocation()</c> 叠加。
     /// </summary>
-    public async Task<IChatClient> CreateClientAsync(AiProviderConfig provider, string? apiKeyOverride = null, CancellationToken cancellationToken = default)
+    public async Task<IChatClient> CreateClientAsync(ResolvedModel provider, string? apiKeyOverride = null, CancellationToken cancellationToken = default)
     {
-        string? apiKey = apiKeyOverride ?? await GetApiKeyAsync(provider.Id, cancellationToken).ConfigureAwait(false);
+        ArgumentNullException.ThrowIfNull(provider);
+        string? apiKey = apiKeyOverride ?? await GetApiKeyAsync(provider.ApiKeyOwnerId, cancellationToken).ConfigureAwait(false);
         switch (provider.Protocol)
         {
             case ChatProtocol.OpenAiChatCompletions:
@@ -141,7 +166,7 @@ public sealed class AiSettingsStore(IPluginContext context)
     private const int AnthropicMinThinkingBudget = 1024;
 
     /// <summary>
-    /// 把接入的思考档位翻译进请求选项。两条路并存,因为两家的适配器认的东西不一样:
+    /// 把模型的思考档位翻译进请求选项。两条路并存,因为两家的适配器认的东西不一样:
     /// <list type="bullet">
     /// <item><c>ChatOptions.Reasoning</c> —— OpenAI 系适配器认(映射成 reasoning effort / summary)。</item>
     /// <item>
@@ -160,7 +185,7 @@ public sealed class AiSettingsStore(IPluginContext context)
     /// 另:开思考时 Anthropic 要求 <c>max_tokens > budget_tokens</c>,且 temperature 只能是 1 或不填
     /// (本插件从不设 Temperature)。
     /// </remarks>
-    public static void ApplyReasoning(ChatOptions options, AiProviderConfig provider)
+    public static void ApplyReasoning(ChatOptions options, ResolvedModel provider)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(provider);
@@ -207,7 +232,7 @@ public sealed class AiSettingsStore(IPluginContext context)
     /// (给正文留够 <see cref="AnthropicMinThinkingBudget" /> 的余量);
     /// 用户把输出上限设得过小时,把上限抬到刚好放得下,而不是悄悄不思考。
     /// </summary>
-    private static (int Budget, int MaxTokens) AnthropicThinkingBudget(AiProviderConfig provider)
+    private static (int Budget, int MaxTokens) AnthropicThinkingBudget(ResolvedModel provider)
     {
         int desired = provider.Reasoning switch
         {
@@ -220,11 +245,11 @@ public sealed class AiSettingsStore(IPluginContext context)
         return (budget, Math.Max(provider.MaxTokens, budget + AnthropicMinThinkingBudget));
     }
 
-    private static OpenAIClient CreateOpenAiClient(AiProviderConfig provider, string? apiKey)
+    private static OpenAIClient CreateOpenAiClient(ResolvedModel provider, string? apiKey)
         => new(
             // OpenAI SDK 要求凭据非空;Ollama 等本地服务无鉴权,给占位值即可
             new ApiKeyCredential(string.IsNullOrWhiteSpace(apiKey) ? "not-needed" : apiKey),
             new OpenAIClientOptions { Endpoint = new Uri(provider.BaseUrl.TrimEnd('/')) });
 
-    private static string SecretName(string providerId) => $"apikey:{providerId}";
+    private static string SecretName(string ownerId) => LegacySettingsMigration.SecretName(ownerId);
 }

@@ -1,6 +1,5 @@
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
-using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Microsoft.Extensions.AI;
 using VelaShell.Plugin.Ai.Chat;
@@ -71,7 +70,7 @@ public partial class ChatPanelView
 
     private Border BuildHistoryRow(ChatSessionSummary session)
     {
-        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        var grid = new Grid { ColumnDefinitions = [with("*,Auto")] };
         var text = new StackPanel { Spacing = 2 };
         var titleText = new TextBlock
         {

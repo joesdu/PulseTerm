@@ -502,7 +502,7 @@
         <!-- 设置:独立窗口(以前是挤在面板中间和聊天流三选一) -->
         <Button x:Name="SettingsButton" Theme="{DynamicResource VelaOutlineButtonTheme}" Height="26" Width="30" Padding="0">
           <Viewbox Width="13" Height="13">
-            <Path Width="24" Height="24" Data="{DynamicResource Icon.settings}"
+            <Path Width="24" Height="24" Data="{StaticResource AiIcon.brain}"
                   Stroke="{DynamicResource VelaTextSecondary}" StrokeThickness="2"
                   StrokeLineCap="Round" StrokeJoin="Round" />
           </Viewbox>

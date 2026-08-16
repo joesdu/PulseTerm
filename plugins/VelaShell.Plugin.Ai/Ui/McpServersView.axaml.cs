@@ -71,6 +71,7 @@ public partial class McpServersView : UserControl
         McpCommandLabel.Text = _loc["McpCommand"];
         McpArgumentsLabel.Text = _loc["McpArguments"];
         McpWorkingDirLabel.Text = _loc["McpWorkingDir"];
+        McpWorkingDirHintText.Text = _loc.F("McpWorkingDirHint", McpWorkspace.DefaultDirectory);
         McpEnvLabel.Text = _loc["McpEnv"];
         McpUrlLabel.Text = _loc["McpUrl"];
         McpHeadersLabel.Text = _loc["McpHeaders"];

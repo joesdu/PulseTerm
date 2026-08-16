@@ -38,8 +38,8 @@ public sealed class McpServerConfig
     /// <summary>Stdio:命令行参数(单行,支持双引号包裹含空格片段)。</summary>
     public string Arguments { get; set; } = "";
 
-    /// <summary>Stdio:工作目录(空 = 继承宿主)。</summary>
-    public string WorkingDirectory { get; set; } = "";
+    /// <summary>Stdio:工作目录(空 = <c>~/.velashell</c>;支持 <c>~</c> 前缀;见 <see cref="McpWorkspace" />)。</summary>
+    public string WorkingDirectory { get; set; } = "~/.velashell";
 
     /// <summary>Stdio:附加环境变量,每行一条 KEY=VALUE。</summary>
     public string EnvironmentVariables { get; set; } = "";
@@ -199,5 +199,53 @@ public static class McpConfigParser
             return "mcp";
         }
         return result.Length > 24 ? result[..24] : result;
+    }
+}
+
+/// <summary>
+/// MCP 服务器(Stdio)的工作目录解析。
+/// </summary>
+/// <remarks>
+/// 之前是"空 = 继承宿主进程的当前目录、非空原样传给 <c>Process.Start</c>"—— 两个问题:
+/// 宿主的当前目录是哪儿用户根本不知道(MCP 产出的文件就落到莫名其妙的地方);
+/// 而 <c>~</c> 是 shell 的记号,<c>Process.Start</c> 不认,填了直接 "目录名称无效" 起不来。
+/// 现在:空 = <see cref="DefaultDirectory" />(<c>~/.velashell</c>,与日志目录 <c>~/.velashell/logs</c> 同一棵树);
+/// <c>~</c> / <c>~/x</c> 按用户主目录展开;相对路径挂在默认目录下;绝对路径原样。用之前会把目录建出来。
+/// </remarks>
+public static class McpWorkspace
+{
+    /// <summary>用户主目录(跨平台)。</summary>
+    private static string Home => Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
+    /// <summary>没填工作目录时的落点:<c>~/.velashell</c>。</summary>
+    public static string DefaultDirectory => Path.Combine(Home, ".velashell");
+
+    /// <summary>把配置里的工作目录解析成绝对路径(不创建目录)。</summary>
+    public static string Resolve(string? configured)
+    {
+        string value = configured?.Trim() ?? "";
+        if (value.Length == 0)
+        {
+            return DefaultDirectory;
+        }
+        if (value == "~")
+        {
+            return Home;
+        }
+        if (value.StartsWith("~/", StringComparison.Ordinal) || value.StartsWith("~\\", StringComparison.Ordinal))
+        {
+            return Path.GetFullPath(Path.Combine(Home, value[2..].TrimStart('/', '\\')));
+        }
+        return Path.IsPathRooted(value)
+            ? Path.GetFullPath(value)
+            : Path.GetFullPath(Path.Combine(DefaultDirectory, value));
+    }
+
+    /// <summary>解析并确保目录存在(起进程前调用)。</summary>
+    public static string ResolveAndEnsure(string? configured)
+    {
+        string path = Resolve(configured);
+        Directory.CreateDirectory(path);
+        return path;
     }
 }

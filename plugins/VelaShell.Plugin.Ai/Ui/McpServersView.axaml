@@ -138,6 +138,7 @@
                 <TextBlock x:Name="McpStdioHintText" Classes="hint" />
                 <TextBlock x:Name="McpWorkingDirLabel" Classes="label" />
                 <TextBox x:Name="McpWorkingDirBox" FontFamily="{DynamicResource VelaUiMonoFont}" />
+                <TextBlock x:Name="McpWorkingDirHintText" Classes="hint" />
                 <TextBlock x:Name="McpEnvLabel" Classes="label" />
                 <TextBox x:Name="McpEnvBox" AcceptsReturn="True" MinHeight="52" TextWrapping="NoWrap"
                          FontFamily="{DynamicResource VelaUiMonoFont}" />
