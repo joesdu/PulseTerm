@@ -269,11 +269,9 @@ internal sealed class PluginPanel : IPluginPanel
         {
             _workspace.DocumentRemoved -= _onDocumentRemoved;
         }
-        if (_watchedGroup is not null)
-        {
-            _watchedGroup.PropertyChanged -= OnGroupPropertyChanged;
-            _watchedGroup = null;
-        }
+
+        _watchedGroup?.PropertyChanged -= OnGroupPropertyChanged;
+        _watchedGroup = null;
         PlacementRatioChanged = null;
         if (Closed is { } handlers)
         {

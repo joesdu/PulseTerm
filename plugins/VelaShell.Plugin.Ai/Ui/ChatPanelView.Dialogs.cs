@@ -82,16 +82,14 @@ public partial class ChatPanelView
             return;
         }
         ToolPickerView? picker = null;
+        // 标题栏的 ⚙ 通向 MCP 服务器配置。它是一整套左列表右表单,
+        // 压在勾选列表上面会把这一页挤得没法看,所以自己占一个窗口;
+        // 入口放标题栏而不是内容区右上角,和模型配置窗口的全局设置一个位置。
+        // (picker 在工厂里才造出来,回调只在用户点的时候跑,那时它早就有了。)
         _ = OpenAsync(
-            _loc["ConfigureTools"], 720, 680, [],
-            () =>
-            {
-                picker = new ToolPickerView(_context, _settings, _loc, PersistSettingsAsync);
-                // 右上角的 ⚙ 通向 MCP 服务器配置。它是一整套左列表右表单,
-                // 压在勾选列表上面会把这一页挤得没法看,所以自己占一个窗口。
-                picker.ConfigureServersRequested += () => OpenMcpDialog(picker);
-                return picker;
-            },
+            _loc["ConfigureTools"], 720, 680,
+            [new PanelTitleAction(SettingsIconPath, _loc["McpServers"], () => OpenMcpDialog(picker!))],
+            () => picker = new ToolPickerView(_context, _settings, _loc, PersistSettingsAsync),
             panel => _toolsPanel = panel,
             () =>
             {

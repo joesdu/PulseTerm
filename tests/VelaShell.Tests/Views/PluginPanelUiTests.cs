@@ -249,7 +249,8 @@ public sealed class PluginPanelUiTests
             var panel = new PluginPanel("acme.demo", new NullLog(),
                 new()
                 {
-                    Title = "Demo", DisplayMode = PluginSdk.Ui.PanelDisplayMode.Window,
+                    Title = "Demo",
+                    DisplayMode = PluginSdk.Ui.PanelDisplayMode.Window,
                     TitleActions =
                     [
                         new PanelTitleAction("M0 0 L24 24", "first", () => clicked += 1),
@@ -261,10 +262,10 @@ public sealed class PluginPanelUiTests
             try
             {
                 // 窗口是面板的私有字段,测试里直接掏出来(不为它开公共口子)
-                VelaShell.Views.PluginPanelWindow shell = (VelaShell.Views.PluginPanelWindow)panel.GetType()
+                var shell = (VelaShell.Views.PluginPanelWindow)panel.GetType()
                     .GetField("_window", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
                     .GetValue(panel)!;
-                var strip = shell.GetControl<StackPanel>("CaptionButtons");
+                StackPanel strip = shell.GetControl<StackPanel>("CaptionButtons");
                 Assert.HasCount(5, strip.Children, "两枚动作 + 最小化 / 最大化 / 关闭");
                 Assert.AreEqual("first", ToolTip.GetTip(strip.Children[0]));
                 Assert.AreEqual("second", ToolTip.GetTip(strip.Children[1]));

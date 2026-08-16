@@ -70,7 +70,10 @@ public sealed class AiSettingsStoreTests
         var inherit = new AiModelConfig { Model = "gpt-5" };
         var custom = new AiModelConfig
         {
-            Model = "claude", Protocol = ChatProtocol.AnthropicMessages, HasOwnApiKey = true, BaseUrlOverride = "https://routin.example"
+            Model = "claude",
+            Protocol = ChatProtocol.AnthropicMessages,
+            HasOwnApiKey = true,
+            BaseUrlOverride = "https://routin.example"
         };
 
         var a = new ResolvedModel(provider, inherit);

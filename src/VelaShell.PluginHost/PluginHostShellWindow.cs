@@ -149,8 +149,12 @@ internal sealed class PluginHostShellWindow : Window
     {
         var icon = new Avalonia.Controls.Shapes.Path
         {
-            Width = 24, Height = 24, Data = Geometry.Parse(action.IconPathData),
-            StrokeThickness = 2, StrokeLineCap = PenLineCap.Round, StrokeJoin = PenLineJoin.Round
+            Width = 24,
+            Height = 24,
+            Data = Geometry.Parse(action.IconPathData),
+            StrokeThickness = 2,
+            StrokeLineCap = PenLineCap.Round,
+            StrokeJoin = PenLineJoin.Round
         };
         Bind(icon, Avalonia.Controls.Shapes.Shape.StrokeProperty, "VelaTextSecondary");
         Button button = CaptionButton(new Viewbox { Width = 12, Height = 12, Child = icon }, close: false, action.OnClick);

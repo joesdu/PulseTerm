@@ -1081,9 +1081,10 @@ public partial class ChatPanelView : UserControl
             "To put a local file on the server, call upload_local_file.");
         List<string> dirs =
         [
+            // 本地进程型的每台都有工作目录(没填就是 ~/.velashell),都告诉模型;HTTP 型的没有"本机目录"可言
             .. _settings.McpServers
-                        .Where(s => s.Enabled && !string.IsNullOrWhiteSpace(s.WorkingDirectory))
-                        .Select(s => $"{DisplayName(s)}: {s.WorkingDirectory!.Trim()}")
+                        .Where(s => s.Enabled && s.Transport == McpTransportType.Stdio)
+                        .Select(s => $"{DisplayName(s)}: {McpWorkspace.Resolve(s.WorkingDirectory)}")
         ];
         if (dirs.Count > 0)
         {
@@ -1128,7 +1129,7 @@ public partial class ChatPanelView : UserControl
     /// 本次会话里已被"总是允许"的操作键。只活在内存里 —— 换会话、关面板即失效,
     /// 不写进配置:一次排查里放行 <c>ls</c>,不代表下次打开还想默认放行。
     /// </summary>
-    private readonly HashSet<string> _alwaysApproved = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _alwaysApproved = [with(StringComparer.Ordinal)];
 
     private async Task<bool> RequestApprovalAsync(ApprovalRequest request)
     {
@@ -1215,7 +1216,7 @@ public partial class ChatPanelView : UserControl
     {
         var stack = new StackPanel();
         // 头部一行:角色 + 悬停才显形的编辑/删除(平时不该有两个按钮杵在每条消息上)
-        var header = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        var header = new Grid { ColumnDefinitions = [with("*,Auto")] };
         header.Children.Add(new TextBlock { Classes = { "roleHeader" }, Text = _loc["You"] });
         var actions = new StackPanel
         {

@@ -492,7 +492,7 @@ public sealed partial class ChatPanelViewUiTests
             context.FakeRemoteFs.AddFile(session.SessionId, "/root/.bashrc", "export PATH=/usr/bin"u8.ToArray());
             // 没有供应商时 SendAsync 会直接引导到设置页、不发消息,所以先配一个(不会真去连它:
             // 本用例只看用户气泡长什么样,后面那半轮请求失败与否都不影响断言)。
-            var provider = StubProvider("test", "http://127.0.0.1:1/v1", "m");
+            AiProvider provider = StubProvider("test", "http://127.0.0.1:1/v1", "m");
             await new AiSettingsStore(context).SaveAsync(new AiSettings
             {
                 Providers = [provider],
@@ -631,7 +631,7 @@ public sealed partial class ChatPanelViewUiTests
             """, delay: TimeSpan.FromMilliseconds(900));
 
             using var context = new TestPluginContext();
-            var provider = StubProvider("stub", stub.BaseUrl, "m");
+            AiProvider provider = StubProvider("stub", stub.BaseUrl, "m");
             await new AiSettingsStore(context).SaveAsync(new AiSettings
             {
                 Providers = [provider],
@@ -693,7 +693,7 @@ public sealed partial class ChatPanelViewUiTests
             """, chunkDelay: TimeSpan.FromMilliseconds(400));
 
             using var context = new TestPluginContext();
-            var provider = StubProvider("stub", stub.BaseUrl, "m");
+            AiProvider provider = StubProvider("stub", stub.BaseUrl, "m");
             await new AiSettingsStore(context).SaveAsync(new AiSettings
             {
                 Providers = [provider],
@@ -792,7 +792,7 @@ public sealed partial class ChatPanelViewUiTests
             """);
 
             using var context = new TestPluginContext();
-            var provider = StubProvider("stub", stub.BaseUrl, "m");
+            AiProvider provider = StubProvider("stub", stub.BaseUrl, "m");
             await new AiSettingsStore(context).SaveAsync(new AiSettings
             {
                 Providers = [provider],
@@ -845,7 +845,7 @@ public sealed partial class ChatPanelViewUiTests
             """, jsonContent: "1. 磁盘还够吗\n- 有哪些服务在跑\n\"要不要看日志\"");
 
             using var context = new TestPluginContext();
-            var provider = StubProvider("stub", stub.BaseUrl, "m");
+            AiProvider provider = StubProvider("stub", stub.BaseUrl, "m");
             await new AiSettingsStore(context).SaveAsync(new AiSettings
             {
                 Providers = [provider],
@@ -1114,9 +1114,8 @@ public sealed partial class ChatPanelViewUiTests
                 List<Border> groups = ToolGroups(picker);
                 Assert.IsNotEmpty(groups, "至少有内置工具那一组");
 
-                // 右上角那枚 ⚙ —— 就是它开出服务器配置窗口
-                picker.GetVisualDescendants().OfType<Button>().First()
-                      .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+                // 标题栏那枚 ⚙(PanelOptions.TitleActions)—— 就是它开出服务器配置窗口
+                tools.Options.TitleActions.Single().OnClick();
                 await PumpAsync(5);
 
                 FakePanel mcp = context.FakeUi.LastPanel;
@@ -1149,7 +1148,6 @@ public sealed partial class ChatPanelViewUiTests
     /// 设置窗口的 保存/测试/删除 落在表单<b>最末、靠右</b>,跟着内容滚(不是钉死的常驻横栏 ——
     /// 那会一直占着高度,而这页大多数时候在读、在填)。全局设置(系统提示词/压缩/后续提问)
     /// 不在这页:它从窗口标题栏、最小化键左侧的 ⚙(<c>PanelOptions.TitleActions</c>)进另一个窗口。
-    /// </summary>
     /// </summary>
     [TestMethod]
     public void SettingsDialog_PutsTheActionRow_AtTheEndOfTheFormAndOnTheRight()
@@ -1195,7 +1193,7 @@ public sealed partial class ChatPanelViewUiTests
                 int before = context.FakeUi.Panels.Count;
                 gear.OnClick();
                 await PumpAsync(5);
-                Assert.AreEqual(before + 1, context.FakeUi.Panels.Count, "点标题栏的 ⚙ 要开出全局设置窗口");
+                Assert.HasCount(before + 1, context.FakeUi.Panels, "点标题栏的 ⚙ 要开出全局设置窗口");
                 var global = (GlobalSettingsView)context.FakeUi.LastPanel.CreateContent();
                 Assert.IsNotNull(global.GetControl<TextBox>("SystemPromptBox"));
                 Assert.IsEmpty(context.FakeUi.LastPanel.Options.TitleActions, "全局设置窗口自己没有再套一层动作按钮");
@@ -1210,18 +1208,31 @@ public sealed partial class ChatPanelViewUiTests
     }
 
     /// <summary>
-    /// 那枚 ⚙ 得真的<b>画出图标</b>来:几何与描边都要用 <c>DynamicResource</c> 绑。
+    /// 分组标题行的折叠箭头得真的<b>画出图标</b>来:几何与描边都要用 <c>DynamicResource</c> 绑。
     /// <c>FindResource</c> 取一次是不行的 —— Vela* 颜色令牌住在 ThemeDictionaries 里,
-    /// 一次性取值经常拿到 null,结果就是"按钮框在、图标不见了"。
+    /// 一次性取值经常拿到 null,结果就是"框在、图标不见了"。
+    /// 同时钉住折叠行为:内置组默认展开、MCP 组默认折起(一台服务器动辄几十个工具),点标题行切换,
+    /// 重建后状态保持。MCP 服务器配置的 ⚙ 已挪到窗口标题栏(见 McpServers_LiveInTheirOwnWindow…)。
     /// </summary>
     [TestMethod]
-    public void ToolsWindow_GearButton_ResolvesItsIcon()
+    public void ToolsWindow_GroupsCollapse_AndChevronResolvesItsIcon()
     {
         OnUi(async () =>
         {
             Avalonia.Media.Geometry geometry = Avalonia.Media.StreamGeometry.Parse("M0,0 L10,10");
-            Application.Current!.Resources["Icon.settings"] = geometry;
+            Application.Current!.Resources["Icon.chevron-down"] = geometry;
             using var context = new TestPluginContext();
+            await new AiSettingsStore(context).SaveAsync(new AiSettings
+            {
+                McpServers =
+                [
+                    new McpServerConfig
+                    {
+                        Name = "srv",
+                        KnownTools = [new McpToolInfo { Name = "a", ReadOnly = true }, new McpToolInfo { Name = "b" }]
+                    }
+                ]
+            });
             (Window window, ChatPanelView panel) = await ShowAsync(context);
             Window? host = null;
             try
@@ -1231,19 +1242,51 @@ public sealed partial class ChatPanelViewUiTests
                 var picker = (ToolPickerView)context.FakeUi.LastPanel.CreateContent();
                 host = Host(picker);
 
-                Button gear = picker.GetVisualDescendants().OfType<Button>().First();
+                List<Border> groups = ToolGroups(picker);
+                Assert.HasCount(2, groups, "内置 + 一台 MCP");
+                Border builtin = groups[0], mcp = groups[1];
                 Assert.AreSame(geometry,
-                    gear.GetVisualDescendants().OfType<Avalonia.Controls.Shapes.Path>().Single().Data,
-                    "图标几何要真的解析出来,不能是空的");
+                    Toggle(builtin).GetVisualDescendants().OfType<Avalonia.Controls.Shapes.Path>().Single().Data,
+                    "箭头几何要真的解析出来,不能是空的");
+
+                Assert.IsTrue(Rows(builtin).IsVisible, "内置组默认展开");
+                Assert.IsFalse(Rows(mcp).IsVisible, "MCP 组默认折起");
+                Assert.Contains(t => t.Text == "2/2 checked", mcp.GetVisualDescendants().OfType<TextBlock>(),
+                    "折起时标题行要带着勾选计数");
+
+                // 点 MCP 组标题行 → 展开;点内置组 → 折起
+                Press(Toggle(mcp));
+                Press(Toggle(builtin));
+                await PumpAsync(2);
+                Assert.IsTrue(Rows(mcp).IsVisible);
+                Assert.IsFalse(Rows(builtin).IsVisible);
+
+                // 重建(改服务器 / 刷新工具库后都会)不丢用户折/展的样子
+                picker.Rebuild();
+                await PumpAsync(2);
+                groups = ToolGroups(picker);
+                Assert.IsFalse(Rows(groups[0]).IsVisible);
+                Assert.IsTrue(Rows(groups[1]).IsVisible);
             }
             finally
             {
                 host?.Close();
                 panel.Detach();
                 window.Close();
-                Application.Current!.Resources.Remove("Icon.settings");
+                Application.Current!.Resources.Remove("Icon.chevron-down");
             }
         });
+
+        static Border Toggle(Border group)
+            => group.GetVisualDescendants().OfType<Border>().First(b => b.Classes.Contains("toolGroupToggle"));
+
+        // 勾选行容器(视图给它挂了 toolRows 语义标记)
+        static StackPanel Rows(Border group)
+            => group.GetVisualDescendants().OfType<StackPanel>().First(s => s.Classes.Contains("toolRows"));
+
+        static void Press(Border toggle)
+            => toggle.RaiseEvent(new PointerPressedEventArgs(toggle, new Avalonia.Input.Pointer(0, PointerType.Mouse, true),
+                toggle, new Point(1, 1), 0, new PointerPointProperties(RawInputModifiers.LeftMouseButton, PointerUpdateKind.LeftButtonPressed), KeyModifiers.None));
     }
 
     /// <summary>

@@ -210,7 +210,8 @@ public sealed class McpManager(IPluginContext context) : IAsyncDisposable
             // npx/uvx 等脚本命令的 Windows cmd 包装由 SDK 处理
             Command = server.Command.Trim(),
             Arguments = McpConfigParser.SplitArguments(server.Arguments),
-            WorkingDirectory = string.IsNullOrWhiteSpace(server.WorkingDirectory) ? null : server.WorkingDirectory.Trim(),
+            // 空 = ~/.velashell;~ 要在这儿展开,Process.Start 不认它(见 McpWorkspace)
+            WorkingDirectory = McpWorkspace.ResolveAndEnsure(server.WorkingDirectory),
             EnvironmentVariables = env.Count > 0 ? env : null,
             Name = DisplayName(server)
         });

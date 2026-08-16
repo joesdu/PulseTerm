@@ -75,7 +75,7 @@ public sealed class SettingsViewUiTests
             (Window window, SettingsView view, AiSettings settings, _) = await ShowAsync(context, TwoProviders());
             try
             {
-                var list = view.GetControl<ListBox>("ProvidersList");
+                ListBox list = view.GetControl<ListBox>("ProvidersList");
                 var rows = (List<ProviderNavItem>)list.ItemsSource!;
                 Assert.HasCount(5, rows, "2 个供应商 + 3 个模型");
                 Assert.IsTrue(rows[0].IsProvider);
@@ -83,7 +83,7 @@ public sealed class SettingsViewUiTests
                 Assert.IsFalse(rows[1].IsProvider);
                 Assert.AreEqual("gpt-5", rows[1].Text, "没填名称的模型显示模型 id");
                 Assert.AreEqual("Claude", rows[2].Text);
-                Assert.IsTrue(rows[1].Indent.Left > rows[0].Indent.Left, "模型行缩进");
+                Assert.IsGreaterThan(rows[0].Indent.Left, rows[1].Indent.Left, "模型行缩进");
                 Assert.IsTrue(rows[3].IsProvider);
                 Assert.AreEqual("Ollama", rows[3].Text);
                 // 起手选中的是当前活跃模型,右侧是模型表单
@@ -93,7 +93,7 @@ public sealed class SettingsViewUiTests
                 Assert.AreEqual("claude-opus-5", view.GetControl<TextBox>("ModelBox").Text);
                 // 协议下拉:0 = 继承,Anthropic 覆盖 = 枚举值 + 1
                 Assert.AreEqual((int)ChatProtocol.AnthropicMessages + 1, view.GetControl<ComboBox>("ProtocolCombo").SelectedIndex);
-                Assert.IsTrue(view.GetControl<CheckBox>("OwnKeyCheck").IsChecked == true);
+                Assert.IsTrue(view.GetControl<CheckBox>("OwnKeyCheck").IsChecked);
                 Assert.IsTrue(view.GetControl<StackPanel>("OwnKeyPanel").IsVisible);
                 Assert.IsTrue(view.GetControl<StackPanel>("PromptCachePanel").IsVisible, "解出的协议是 Anthropic,提示词缓存要露出来");
 
@@ -129,7 +129,7 @@ public sealed class SettingsViewUiTests
             (Window window, SettingsView view, AiSettings settings, AiSettingsStore store) = await ShowAsync(context, new AiSettings());
             try
             {
-                var list = view.GetControl<ListBox>("ProvidersList");
+                ListBox list = view.GetControl<ListBox>("ProvidersList");
                 Assert.IsFalse(view.GetControl<Button>("AddModelButton").IsEnabled, "没选中供应商时不能加模型");
 
                 // 预设第 0 项 = OpenAI:一个供应商带一个起手模型,选中供应商行
@@ -198,10 +198,10 @@ public sealed class SettingsViewUiTests
             (Window window, SettingsView view, AiSettings settings, _) = await ShowAsync(context, seed);
             try
             {
-                var list = view.GetControl<ListBox>("ProvidersList");
+                ListBox list = view.GetControl<ListBox>("ProvidersList");
                 list.SelectedIndex = 0; // Routin
                 await PumpAsync();
-                var delete = view.GetControl<Button>("DeleteButton");
+                Button delete = view.GetControl<Button>("DeleteButton");
 
                 delete.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
                 await PumpAsync();

@@ -41,7 +41,7 @@ public sealed class AiSettingsStore(IPluginContext context)
         {
             List<LegacyProviderConfig> legacy = raw.GetProperty(nameof(AiSettings.Providers))
                 .Deserialize<List<LegacyProviderConfig>>() ?? [];
-            var groups = LegacySettingsMigration.Group(legacy);
+            List<(AiProvider Provider, List<LegacyProviderConfig> Members)> groups = LegacySettingsMigration.Group(legacy);
             await LegacySettingsMigration.MigrateSecretsAsync(groups, context.Secrets, cancellationToken).ConfigureAwait(false);
             _keyCache.Clear();
             settings.Providers = groups.ConvertAll(g => g.Provider);

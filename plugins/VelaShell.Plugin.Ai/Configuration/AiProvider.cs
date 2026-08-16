@@ -67,7 +67,6 @@ public enum ReasoningLevel
     High
 }
 
-
 /// <summary>
 /// 供应商:一个 endpoint + 一把默认 API Key,下面挂若干模型。
 /// API Key 不在此结构里 —— 单独经 <c>ISecretsApi</c> 加密存储(键 <c>apikey:&lt;Id&gt;</c>)。
