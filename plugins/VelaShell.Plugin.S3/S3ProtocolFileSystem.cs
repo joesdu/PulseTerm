@@ -404,7 +404,7 @@ public sealed class S3ProtocolFileSystem(IProtocolsApi? protocols = null, IS3Act
 
             string prefix = target.Prefix;
             List<S3FileEntry> entries = [];
-            HashSet<string> seen = new(StringComparer.Ordinal);
+            HashSet<string> seen = [with(StringComparer.Ordinal)];
             string? token = null;
             do
             {
@@ -1089,7 +1089,7 @@ public sealed class S3ProtocolFileSystem(IProtocolsApi? protocols = null, IS3Act
         CancellationToken cancellationToken)
     {
         int deleted = 0;
-        List<KeyVersion> batch = new(DeleteBatchSize);
+        List<KeyVersion> batch = [with(DeleteBatchSize)];
         string lastKey = string.Empty;
         await foreach (S3Object entry in EnumerateAsync(session, bucket, prefix, cancellationToken).ConfigureAwait(false))
         {

@@ -1,0 +1,23 @@
+{
+  "id": "velashell.telnet",
+  "version": "0.1.0",
+  "displayName": "Telnet",
+  "description": "RFC 854 Telnet 终端:选项协商(ECHO / SGA / TERMINAL-TYPE / NAWS / BINARY)、窗口尺寸上报与 8 位透明传输。",
+  "publisher": "velashell",
+  "entry": "VelaShell.Plugin.Telnet.dll",
+  "apiLevel": 1,
+  "license": "MIT",
+  "homepage": "https://github.com/joesdu/VelaShell",
+  // 协议贡献:连接配置页在**不装载本程序集**的前提下就能画出 Telnet 页签,
+  // 用户点到它(或打开一条 Telnet 会话)才触发下面的惰性激活。
+  "contributes": {
+    "protocols": [
+      { "id": "velashell.telnet", "displayName": "Telnet", "defaultPort": 23 }
+    ]
+  },
+  "activationEvents": [
+    "onProtocol:velashell.telnet"
+  ]
+  // hostMode 必须是默认的 inProcess:协议是宿主反向调用插件的高频通道
+  // (终端每一次读写都要过去),隔离进程的 RPC 只承载插件→宿主方向。
+}

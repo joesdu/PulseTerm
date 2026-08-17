@@ -5,6 +5,30 @@
 > 用途：为后续实现 Telnet / 串口两种会话类型提供**事实依据与改造清单**。
 > 所有代码结论均有 `文件:行号` 依据；联网查证的部分标注了版本与许可证，未查实的一律标注"未核实"。
 
+> **2026-08-17 落地说明（Telnet 已实现，且是插件而非内建）**
+>
+> 本文第三节整套「协议泛化」改造**没有做，也不需要做**：Telnet 走的是 S3 之后新增的
+> 插件协议能力，会话类型仍是既有的 `ConnectionType.Plugin`，因此 3.1 的四处枚举钳制、
+> 3.5 的 `SessionProfile` 加字段（五处手写拷贝）全部免掉。实际落地形态：
+>
+> - SDK 新增**终端协议**能力：`IProtocolTerminal` / `IProtocolTerminalSession`
+>   （字节双工 + Resize），与既有的 `IProtocolFileSystem` 并列；新增
+>   `ProtocolFeatures.NoCredentials`（收起用户名/口令两栏）。
+> - 宿主新增适配层 `PluginTerminalShellStream`：插件会话 → `IShellStreamWrapper`，
+>   于是第二节「可直接复用」那张表**全部兑现**（桥、VT 引擎、ZMODEM、会话日志、重连状态机）。
+> - 分派点只加了一处判断（注册表里挂的是终端还是文件系统），3.2 的两个分派点各一行。
+> - 3.4 的守卫大多已被既有条件覆盖（隧道已挡 `Plugin`，任务管理器/文件面板按
+>   `SessionId == Guid.Empty` 自动灰）；真正改的只有 `RebindFileBrowser`——
+>   它此前会让 Telnet 标签继续显示上一个 SSH 会话的文件面板（正是 3.4 记录的那个 bug）。
+> - 3.6 的「本地回显」没有做进终端层:由 Telnet 插件在自己的读管道里注入回显解决,
+>   宿主终端层零改动。
+> - 实现:`plugins/VelaShell.Plugin.Telnet`(RFC 854 协商 / NAWS / TERMINAL-TYPE /
+>   8 位透明,零第三方依赖,与 §4.2 的选型结论一致)。
+>
+> **串口尚未实现**,连接页仍是禁用占位。它将复用同一套终端协议能力做成
+> `velashell.serial` 插件——第四、五节关于 `System.IO.Ports`、三平台端口枚举、
+> `Close()` 死锁与打包的结论**依然有效**,只是那些代码落在插件里而不是宿主里。
+
 ---
 
 ## 一、结论先行

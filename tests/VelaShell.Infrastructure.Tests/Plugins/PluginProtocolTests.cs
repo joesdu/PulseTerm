@@ -202,7 +202,7 @@ public sealed class PluginProtocolTests
 
         // 换成另一个实现:发一次注销,让文件服务收掉旧实现名下的会话。
         registry.Register(PluginId, Descriptor(), second);
-        CollectionAssert.AreEqual(new[] { ProtocolId }, unregistered);
+        Assert.AreSequenceEqual(new[] { ProtocolId }, unregistered);
 
         // 旧句柄此刻已不是表里那一份,释放它是空操作 —— 不能把新注册撤掉。
         handle.Dispose();

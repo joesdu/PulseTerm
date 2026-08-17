@@ -55,6 +55,20 @@ public interface IProtocolsApi
     IDisposable Register(ProtocolDescriptor descriptor, IProtocolFileSystem fileSystem);
 
     /// <summary>
+    /// 注册一种**终端**协议(Telnet、串口、裸 TCP…);释放返回值即注销。
+    /// <para>
+    /// 与文件协议共用同一份 <see cref="ProtocolDescriptor" />(页签、默认端口、设置表单),
+    /// 差别只在这条会话打开的是终端标签而不是文件面板 —— 桥、VT 引擎、回滚、搜索、
+    /// 会话日志与 ZMODEM 全部零改动复用。
+    /// </para>
+    /// </summary>
+    /// <param name="descriptor">协议描述。</param>
+    /// <param name="terminal">该协议的终端实现。</param>
+    /// <returns>注销句柄。</returns>
+    /// <exception cref="ArgumentException">协议 id 非法或未以插件 id 为前缀。</exception>
+    IDisposable Register(ProtocolDescriptor descriptor, IProtocolTerminal terminal);
+
+    /// <summary>
     /// 读取宿主当前的传输设置(限速与时间戳策略)。
     /// <para>
     /// 限速为什么由宿主给而不是插件自己开一个设置:它是**全局的**用户偏好,

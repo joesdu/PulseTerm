@@ -48,13 +48,16 @@ public sealed class PluginProtocolFileService(PluginProtocolRegistry registry) :
         ArgumentNullException.ThrowIfNull(profile);
         EnsureSubscribed();
         string? protocolId = profile.PluginProtocolId;
-        PluginProtocolRegistration? registration = await registry.ResolveAsync(protocolId).ConfigureAwait(false);
-        if (registration is null)
-        {
-            throw new PluginProtocolUnavailableException(protocolId,
+        PluginProtocolRegistration? registration = await registry.ResolveAsync(protocolId).ConfigureAwait(false) ?? throw new PluginProtocolUnavailableException(protocolId,
                 string.IsNullOrWhiteSpace(protocolId)
                     ? "This session profile does not name a plugin protocol."
                     : $"Protocol '{protocolId}' is not available. Install or enable the plugin that provides it.");
+        // 终端协议(Telnet / 串口…)没有文件系统:这条会话该由终端服务打开,
+        // 走到这里说明分派点漏判了 —— 明说,别以 NullReference 收场。
+        if (registration.FileSystem is not { } fileSystem)
+        {
+            throw new PluginProtocolUnavailableException(protocolId,
+                $"Protocol '{protocolId}' is a terminal protocol and has no file system.");
         }
 
         var sessionId = Guid.NewGuid();
@@ -70,13 +73,13 @@ public sealed class PluginProtocolFileService(PluginProtocolRegistry registry) :
         };
         try
         {
-            await registration.FileSystem.ConnectAsync(key, request, cancellationToken).ConfigureAwait(false);
+            await fileSystem.ConnectAsync(key, request, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
             throw Translate(ex, registration.Descriptor);
         }
-        _sessions[sessionId] = new(registration.Descriptor, registration.FileSystem, key);
+        _sessions[sessionId] = new(registration.Descriptor, fileSystem, key);
         return sessionId;
     }
 
@@ -141,7 +144,7 @@ public sealed class PluginProtocolFileService(PluginProtocolRegistry registry) :
         IProgress<TransferProgress>? progress = null, long resumeOffset = 0, CancellationToken cancellationToken = default)
     {
         Session session = Require(sessionId);
-        ProgressBridge? bridge = ProgressBridge.For(progress, Path.GetFileName(localPath));
+        var bridge = ProgressBridge.For(progress, Path.GetFileName(localPath));
         return Guard(session, () => session.FileSystem.UploadFileAsync(session.Key, localPath, remotePath,
             bridge, resumeOffset, cancellationToken));
     }
@@ -151,7 +154,7 @@ public sealed class PluginProtocolFileService(PluginProtocolRegistry registry) :
         IProgress<TransferProgress>? progress = null, long resumeOffset = 0, CancellationToken cancellationToken = default)
     {
         Session session = Require(sessionId);
-        ProgressBridge? bridge = ProgressBridge.For(progress, GetFileName(remotePath));
+        var bridge = ProgressBridge.For(progress, GetFileName(remotePath));
         return Guard(session, () => session.FileSystem.DownloadFileAsync(session.Key, remotePath, localPath,
             bridge, resumeOffset, cancellationToken));
     }
@@ -198,7 +201,7 @@ public sealed class PluginProtocolFileService(PluginProtocolRegistry registry) :
         IProgress<TransferProgress>? progress = null, CancellationToken cancellationToken = default)
     {
         Session session = Require(sessionId);
-        ProgressBridge? bridge = ProgressBridge.For(progress, GetFileName(sourcePath));
+        var bridge = ProgressBridge.For(progress, GetFileName(sourcePath));
         return Guard(session, () => session.FileSystem.CopyAsync(session.Key, sourcePath, destPath, bridge, cancellationToken));
     }
 
@@ -314,7 +317,12 @@ public sealed class PluginProtocolFileService(PluginProtocolRegistry registry) :
     /// 插件读到的就是调用处的兜底值而不是它自己声明的默认值。
     /// </para>
     /// </summary>
-    private static Dictionary<string, string> BuildSettings(ProtocolDescriptor descriptor, SessionProfile profile)
+    /// <summary>
+    /// 把「协议声明的默认值 → 用户填的设置 → 机密」三层合并成交给插件的设置字典。
+    /// 终端协议(<see cref="PluginProtocolTerminalConnector" />)走同一份合并规则:
+    /// 两处各写一遍必然分叉,而分叉的表现是"同一个字段在文件面板生效、在终端标签不生效"。
+    /// </summary>
+    internal static Dictionary<string, string> BuildSettings(ProtocolDescriptor descriptor, SessionProfile profile)
     {
         var settings = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (ProtocolSettingField field in descriptor.Fields)
@@ -395,7 +403,8 @@ public sealed class PluginProtocolFileService(PluginProtocolRegistry registry) :
     /// 插件 SDK 的类型不越过 Infrastructure 边界,界面只认 <c>VelaShell.Core.Protocols</c> 那几个。
     /// 认不出的异常原样放行 —— 包装成"未知错误"只会把插件给出的可读信息埋掉。
     /// </summary>
-    private static Exception Translate(Exception ex, ProtocolDescriptor descriptor) =>
+    /// <summary>SDK 异常族 → 宿主中立异常族(终端协议共用,理由同 <see cref="BuildSettings" />)。</summary>
+    internal static Exception Translate(Exception ex, ProtocolDescriptor descriptor) =>
         ex switch
         {
             OperationCanceledException => ex,

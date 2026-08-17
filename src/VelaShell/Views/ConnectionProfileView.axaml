@@ -218,10 +218,8 @@
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
-            <Border Classes="proto-tab" IsEnabled="False" ToolTip.Tip="{loc:Localize Profile_NotSupported}">
-              <TextBlock Classes="proto-label" Text="Telnet"
-                         Foreground="{DynamicResource VelaTextTertiary}" />
-            </Border>
+            <!-- Telnet 已由插件提供(plugins/VelaShell.Plugin.Telnet),页签走上面那条
+                 动态列表;这里不再留占位。串口仍是未实现的占位,等它自己的插件。 -->
             <Border Classes="proto-tab" IsEnabled="False" ToolTip.Tip="{loc:Localize Profile_NotSupported}">
               <TextBlock Classes="proto-label" Text="{loc:Localize Profile_Serial}"
                          Foreground="{DynamicResource VelaTextTertiary}" />
@@ -267,8 +265,9 @@
           </StackPanel>
         </Grid>
 
-        <!-- 用户名 + 认证方式(插件协议可改写用户名标签,如 Access Key ID) -->
-        <Grid ColumnDefinitions="*,12,*">
+        <!-- 用户名 + 认证方式(插件协议可改写用户名标签,如 Access Key ID;
+             声明了 NoCredentials 的协议(Telnet)整行收起 —— 它的登录在带内进行) -->
+        <Grid ColumnDefinitions="*,12,*" IsVisible="{Binding ShowCredentialFields}">
           <StackPanel Grid.Column="0">
             <TextBlock Classes="field-label" Text="{Binding UsernameLabel}" />
             <TextBox Text="{Binding Username}" PlaceholderText="root" />

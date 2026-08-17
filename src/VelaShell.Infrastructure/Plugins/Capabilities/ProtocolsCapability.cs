@@ -27,8 +27,35 @@ internal sealed class ProtocolsCapability(string pluginId, PluginProtocolRegistr
     /// <inheritdoc />
     public IDisposable Register(ProtocolDescriptor descriptor, IProtocolFileSystem fileSystem)
     {
-        ArgumentNullException.ThrowIfNull(descriptor);
         ArgumentNullException.ThrowIfNull(fileSystem);
+        Validate(descriptor);
+        return Track(descriptor, () => registry.Register(pluginId, descriptor, fileSystem));
+    }
+
+    /// <inheritdoc />
+    public IDisposable Register(ProtocolDescriptor descriptor, IProtocolTerminal terminal)
+    {
+        ArgumentNullException.ThrowIfNull(terminal);
+        Validate(descriptor);
+        return Track(descriptor, () => registry.Register(pluginId, descriptor, terminal));
+    }
+
+    /// <summary>登记注册句柄,使插件停用时能整体撤销(可收集 ALC 能真正回收的前提)。</summary>
+    private IDisposable Track(ProtocolDescriptor descriptor, Func<IDisposable> register)
+    {
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            IDisposable handle = register();
+            _registrations.Add(handle);
+            log.Info($"Registered protocol '{descriptor.Id}' ({descriptor.DisplayName}).");
+            return handle;
+        }
+    }
+
+    private void Validate(ProtocolDescriptor descriptor)
+    {
+        ArgumentNullException.ThrowIfNull(descriptor);
         // 与清单校验共用同一个判定(含"必须全小写")。不写清单、只在 ActivateAsync 里
         // Register 的协议也得过同一关 —— 否则大写 id 会绕过清单溜进注册表,
         // 而注册表查找与界面比对的大小写口径一旦不一致,用户的会话配置就再也认不出自己的协议。
@@ -51,15 +78,6 @@ internal sealed class ProtocolsCapability(string pluginId, PluginProtocolRegistr
             throw new ArgumentException(
                 $"Protocol '{descriptor.Id}' points TrustedThumbprintSettingKey at '{key}', which is not one of its fields.",
                 nameof(descriptor));
-        }
-
-        lock (_gate)
-        {
-            ObjectDisposedException.ThrowIf(_disposed, this);
-            IDisposable handle = registry.Register(pluginId, descriptor, fileSystem);
-            _registrations.Add(handle);
-            log.Info($"Registered protocol '{descriptor.Id}' ({descriptor.DisplayName}).");
-            return handle;
         }
     }
 
@@ -96,6 +114,10 @@ internal sealed class UnavailableProtocols : IProtocolsApi
 {
     /// <inheritdoc />
     public IDisposable Register(ProtocolDescriptor descriptor, IProtocolFileSystem fileSystem) =>
+        throw new InvalidOperationException("Protocol capability is unavailable in this host.");
+
+    /// <inheritdoc />
+    public IDisposable Register(ProtocolDescriptor descriptor, IProtocolTerminal terminal) =>
         throw new InvalidOperationException("Protocol capability is unavailable in this host.");
 
     /// <inheritdoc />

@@ -90,6 +90,10 @@ internal sealed class RemotePluginContext : IPluginContext, IDisposable
             throw new InvalidOperationException(
                 "contributes.protocols requires hostMode \"inProcess\": the isolated-process RPC does not carry host-to-plugin calls.");
 
+        public IDisposable Register(ProtocolDescriptor descriptor, IProtocolTerminal terminal) =>
+            throw new InvalidOperationException(
+                "contributes.protocols requires hostMode \"inProcess\": the isolated-process RPC does not carry host-to-plugin calls.");
+
         public Task<ProtocolTransferOptions> GetTransferOptionsAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(new ProtocolTransferOptions(0, 0, PreserveTimestamps: true));
     }

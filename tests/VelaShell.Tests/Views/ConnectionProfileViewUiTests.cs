@@ -43,8 +43,8 @@ public sealed class ConnectionProfileViewUiTests
                 .OfType<Button>()
                 .Where(button => button.Classes.Contains("proto-tab"))
                 .ToList();
-            // SSH / SFTP / FTP 三个内建可点页签;S3 之类的协议现在由插件贡献,
-            // 没装插件(单测宿主就是这种)时不出现。Telnet 与串口仍是禁用的 Border。
+            // SSH / SFTP / FTP 三个内建可点页签;S3 与 Telnet 现在都由插件贡献,
+            // 没装插件(单测宿主就是这种)时不出现。只剩串口一个禁用的 Border。
             Assert.HasCount(3, protocolButtons);
             Assert.IsTrue(protocolButtons.All(button => button.IsTabStop));
             AssertProtocolTabMotion(protocolButtons);
@@ -53,7 +53,7 @@ public sealed class ConnectionProfileViewUiTests
                 .OfType<Border>()
                 .Where(border => border.Classes.Contains("proto-tab"))
                 .ToList();
-            Assert.HasCount(2, legacyProtocols);
+            Assert.HasCount(1, legacyProtocols);
             Assert.IsTrue(legacyProtocols.All(border => !border.IsEnabled));
 
             TextBox passwordBox = window.GetVisualDescendants()
