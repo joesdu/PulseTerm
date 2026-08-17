@@ -264,12 +264,19 @@ public class App : Application
                 SyncSettings config = await syncService.GetSyncSettingsAsync();
                 if (config is { Enabled: true, AutoSync: true })
                 {
-                    await syncService.SyncNowAsync();
+                    SyncResult result = await syncService.SyncNowAsync();
+                    if (!result.Success)
+                    {
+                        // 不打扰用户(启动时弹窗很烦),但也别彻底吞掉:令牌过期、网络不通、
+                        // 代理挡住这些都会落在这儿,原先连一行记录都没有,只能在调试器里看见
+                        // 一个没头没尾的 HttpRequestException。
+                        System.Diagnostics.Trace.WriteLine($"[Sync] Startup auto-sync failed: {result.Message}");
+                    }
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // 启动同步失败静默;设置页手动同步会给出错误详情。
+                System.Diagnostics.Trace.WriteLine($"[Sync] Startup auto-sync threw: {ex.Message}");
             }
         });
         settingsService?.SettingsSaved += _ => QueueAutoSyncUnlessApplyingRemote(syncService);

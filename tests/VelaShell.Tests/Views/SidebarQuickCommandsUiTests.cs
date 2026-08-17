@@ -385,12 +385,12 @@ public class SidebarQuickCommandsUiTests
                 ghostText.Text!.Contains(Strings.Get("Svc_Ungrouped"), StringComparison.Ordinal),
                 $"幽灵标签应写明未分组,实际:{ghostText.Text}"
             );
-            Assert.IsTrue(
-                Canvas.GetLeft(ghost) + ghost.Bounds.Width <= overlay.Bounds.Width + 0.5,
+            Assert.IsLessThanOrEqualTo(
+                overlay.Bounds.Width + 0.5, Canvas.GetLeft(ghost) + ghost.Bounds.Width,
                 "幽灵标签右边缘越出了叠层"
             );
-            Assert.IsTrue(
-                Canvas.GetTop(ghost) + ghost.Bounds.Height <= overlay.Bounds.Height + 0.5,
+            Assert.IsLessThanOrEqualTo(
+                overlay.Bounds.Height + 0.5, Canvas.GetTop(ghost) + ghost.Bounds.Height,
                 $"幽灵标签下边缘越出了叠层:top={Canvas.GetTop(ghost)} h={ghost.Bounds.Height} overlay={overlay.Bounds.Height}"
             );
 

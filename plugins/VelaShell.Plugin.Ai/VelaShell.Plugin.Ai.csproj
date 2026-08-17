@@ -14,6 +14,8 @@
     <!-- 输入框的 Markdown 着色定义。EmbeddedResource 而非 AvaloniaResource:
          HighlightingLoader 要的是普通 Stream(与宿主 Syntax/*.xshd 的处置一致)。 -->
     <EmbeddedResource Include="Ui\MarkdownInput.xshd" />
+    <!-- SseRepairHandler 是纯 HTTP 层的东西,没必要为了测它变成公开 API。 -->
+    <InternalsVisibleTo Include="VelaShell.Plugin.Ai.Tests" />
   </ItemGroup>
 
   <ItemGroup>

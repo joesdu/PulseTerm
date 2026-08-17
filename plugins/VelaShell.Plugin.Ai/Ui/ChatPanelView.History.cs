@@ -1,4 +1,3 @@
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
@@ -8,19 +7,16 @@ using VelaShell.Plugin.Ai.Chat;
 namespace VelaShell.Plugin.Ai.Ui;
 
 /// <summary>
-/// 聊天面板的历史会话部分:视图切换(聊天 / 设置 / 历史)、会话列表与加载、
+/// 聊天面板的历史会话部分:视图切换(聊天 / 历史)、会话列表与加载、
 /// 以及输入框的 ↑↓ 消息回溯。数据来自 <see cref="ChatHistoryStore" />(插件私有时序库)。
 /// </summary>
 public partial class ChatPanelView
 {
-    /// <summary>中部区域三选一。</summary>
+    /// <summary>中部区域二选一(设置已改为独立窗口)。</summary>
     private enum PanelView
     {
         /// <summary>消息流。</summary>
         Chat,
-
-        /// <summary>设置页。</summary>
-        Settings,
 
         /// <summary>历史会话列表。</summary>
         History
@@ -50,9 +46,7 @@ public partial class ChatPanelView
         try
         {
             ChatScroll.IsVisible = view == PanelView.Chat;
-            SettingsHost.IsVisible = view == PanelView.Settings;
             HistoryHost.IsVisible = view == PanelView.History;
-            SettingsToggle.IsChecked = view == PanelView.Settings;
             HistoryToggle.IsChecked = view == PanelView.History;
         }
         finally
@@ -67,28 +61,23 @@ public partial class ChatPanelView
 
     // ---------- 会话列表 ----------
 
-    /// <summary>重建历史会话列表(最近更新在前;当前会话高亮)。</summary>
+    /// <summary>重建历史会话列表(最近更新在前;当前会话高亮)。搜索是本地筛,不重复查库。</summary>
     private async Task RefreshHistoryListAsync()
     {
-        HistoryList.Children.Clear();
-        IReadOnlyList<ChatSessionSummary> sessions = await _historyStore.ListSessionsAsync();
-        HistoryHeader.Text = sessions.Count == 0 ? _loc["NoHistory"] : _loc.F("HistoryCount", sessions.Count);
-        ClearHistoryButton.IsVisible = sessions.Count > 0;
-        foreach (ChatSessionSummary session in sessions)
-        {
-            HistoryList.Children.Add(BuildHistoryRow(session));
-        }
+        _historySessions = await _historyStore.ListSessionsAsync();
+        RenderHistoryList();
     }
 
     private Border BuildHistoryRow(ChatSessionSummary session)
     {
-        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        var grid = new Grid { ColumnDefinitions = [with("*,Auto")] };
         var text = new StackPanel { Spacing = 2 };
-        text.Children.Add(new TextBlock
+        var titleText = new TextBlock
         {
             Classes = { "historyTitle" },
             Text = session.Title.Length > 0 ? session.Title : _loc["Untitled"]
-        });
+        };
+        text.Children.Add(titleText);
         text.Children.Add(new TextBlock
         {
             Classes = { "dim" },
@@ -96,18 +85,21 @@ public partial class ChatPanelView
         });
         grid.Children.Add(text);
 
-        var delete = new Button
+        // 行尾三枚小按钮:重命名 / 导出 / 删除
+        var tools = new StackPanel
         {
-            Theme = FindTheme("VelaOutlineButtonTheme"),
-            Width = 24,
-            Height = 24,
-            Padding = new Thickness(0),
-            VerticalAlignment = VerticalAlignment.Center,
-            Content = MakeIcon("Icon.trash-2", "VelaTextMuted", 12)
+            Orientation = Orientation.Horizontal,
+            Spacing = 2,
+            VerticalAlignment = VerticalAlignment.Center
         };
-        ToolTip.SetTip(delete, _loc["Delete"]);
-        Grid.SetColumn(delete, 1);
-        grid.Children.Add(delete);
+        Button rename = IconAction("Icon.pencil", _loc["Rename"], () => BeginRename(session, titleText));
+        Button export = IconAction("Icon.download", _loc["Export"], () => _ = ExportAsync(session));
+        Button delete = IconAction("Icon.trash-2", _loc["Delete"], () => { });
+        tools.Children.Add(rename);
+        tools.Children.Add(export);
+        tools.Children.Add(delete);
+        Grid.SetColumn(tools, 1);
+        grid.Children.Add(tools);
 
         var row = new Border { Classes = { "historyRow" }, Child = grid };
         if (session.Id == _conversationId)
@@ -116,7 +108,7 @@ public partial class ChatPanelView
         }
         delete.Click += async (_, e) =>
         {
-            e.Handled = true; // 别把点击冒泡成"打开这个会话"
+            e.Handled = true;
             await _historyStore.DeleteAsync(session.Id);
             if (session.Id == _conversationId)
             {
@@ -125,7 +117,20 @@ public partial class ChatPanelView
             }
             await RefreshHistoryListAsync();
         };
-        row.PointerPressed += (_, _) => _ = LoadConversationAsync(session);
+        // 点行 = 打开这个会话,但点行尾那三枚按钮不算。
+        // 以前是给按钮挂一个 Tunnel 阶段的 PointerPressed 直接 Handled=true 来"挡住冒泡" ——
+        // 那会在 Button 自己的 OnPointerPressed 之前就把事件吃掉,按钮压根进不了按下态,
+        // Click 于是永远不触发:重命名/导出/删除三个功能全是死的。
+        // 改成在行这一侧按事件来源判断,不去干涉按钮自己的输入处理。
+        row.PointerPressed += (_, e) =>
+        {
+            if (e.Source is Avalonia.Visual source
+                && Avalonia.VisualTree.VisualExtensions.GetVisualAncestors(source).Contains(tools))
+            {
+                return;
+            }
+            _ = LoadConversationAsync(session);
+        };
         return row;
     }
 
@@ -173,14 +178,20 @@ public partial class ChatPanelView
             IReadOnlyList<ChatEntry> entries = await _historyStore.LoadAsync(session.Id);
             _history.Clear();
             MessagesPanel.Children.Clear();
-            _totalInputTokens = 0;
-            _totalOutputTokens = 0;
+            ResetUsage();
+            _alwaysApproved.Clear(); // 放行记忆只在同一段对话里有效
+            _userBubbleIndex.Clear();
+            ClearSuggestions(); // 载入的是别的会话,上一段的建议不再相关
             _conversationId = session.Id;
             _conversationStartedAt = session.CreatedAt;
             _persistedCount = entries.Count;
             _inputHistoryIndex = -1;
-            foreach (ChatEntry entry in entries)
+            ResetMessageWindow();
+            for (int index = 0; index < entries.Count; index++)
             {
+                // 分帧建:2000 条一口气建完会把界面按住好几秒
+                await YieldEveryBatchAsync(index);
+                ChatEntry entry = entries[index];
                 if (entry.Role == "user")
                 {
                     AddUserBubble(entry.Text);
@@ -190,11 +201,24 @@ public partial class ChatPanelView
                 {
                     var bubble = new AssistantBubble(this);
                     MessagesPanel.Children.Add(bubble.Root);
+                    // 先摆思考与工具卡(存过的话),再摆正文 —— 与直播时的先后一致
+                    if (entry.Meta is { } meta)
+                    {
+                        bubble.Restore(meta);
+                    }
                     bubble.AppendText(entry.Text);
-                    bubble.FinishStreaming();
+                    bubble.FinishStreaming(
+                        entry.Meta?.Model,
+                        entry.At.ToLocalTime(),
+                        entry.Meta is { ElapsedMs: > 0 } m ? TimeSpan.FromMilliseconds(m.ElapsedMs) : null);
                     _history.Add(new(ChatRole.Assistant, entry.Text));
                 }
             }
+            TrimMessageWindow();
+            // 载入的这段会话已经用掉了这些序号,新消息要从它们之后续
+            _sequenceHighWater = _persistedCount;
+            // 上次压过的摘要一并恢复,免得一进来就重压一次(那是一次白花的请求)
+            await RestoreSummaryAsync();
             StatusText.Text = _loc.F("HistoryLoaded", entries.Count);
             SetActiveView(PanelView.Chat);
             RequestAutoScroll(force: true);
@@ -207,6 +231,31 @@ public partial class ChatPanelView
     }
 
     // ---------- 输入框 ↑↓ 历史 ----------
+
+    /// <summary>
+    /// 后台补齐 ↑↓ 可翻的历史输入。失败只是翻不了历史,不该让面板打不开,
+    /// 也不覆盖用户在这期间已经发过的新输入(那些由 RememberInput 顶在前面)。
+    /// </summary>
+    private async Task LoadInputHistoryAsync()
+    {
+        try
+        {
+            IReadOnlyList<string> stored = await _historyStore.RecentUserInputsAsync();
+            var merged = new List<string>(_inputHistory);
+            foreach (string item in stored)
+            {
+                if (!merged.Contains(item, StringComparer.Ordinal))
+                {
+                    merged.Add(item);
+                }
+            }
+            _inputHistory = merged;
+        }
+        catch (Exception ex)
+        {
+            _context.Log.Warn($"Loading input history failed: {ex.Message}");
+        }
+    }
 
     /// <summary>记住这次发送的内容(去重后置顶,上限 100 条)。</summary>
     private void RememberInput(string text)

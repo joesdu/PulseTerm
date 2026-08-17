@@ -501,7 +501,7 @@ public sealed class ProcessManagerViewModel : ReactiveObject, IDisposable
             bucket.Add(row);
         }
 
-        List<ProcessRowViewModel> ordered = new(visible.Count);
+        List<ProcessRowViewModel> ordered = [with(visible.Count)];
         HashSet<int> walked = [];
         foreach (ProcessRowViewModel root in Sort(roots))
         {

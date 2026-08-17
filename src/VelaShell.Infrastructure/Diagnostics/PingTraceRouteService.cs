@@ -165,15 +165,26 @@ public sealed class PingTraceRouteService : ITraceRouteService
             int captured = ttl;
             tasks[ttl - 1] = ProbeAsync(captured);
         }
-        foreach (Task<TraceProbe> task in tasks)
-        {
-            results.Add(await task.ConfigureAwait(false));
-        }
+        // 全部等到底,再统一看取消。两个理由:
+        // ① 逐个 await 时第一个抛出之后,剩下的任务就没人观察了;
+        // ② 取消一轮时,门后排队的每个探测都会各自抛一个 TaskCanceledException
+        //    (15 跳 ÷ 8 个并发 = 停止时一次冒出 7 个,调试器里刷一屏)。
+        //    现在它们各自安静返回,取消只在这里抛一次。
+        results.AddRange(await Task.WhenAll(tasks).ConfigureAwait(false));
+        cancellationToken.ThrowIfCancellationRequested();
         return results;
 
         async Task<TraceProbe> ProbeAsync(int ttl)
         {
-            await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // 整轮马上就作废了,占个"没回应"的位子即可
+                return new(ttl, null, null, false, false);
+            }
             try
             {
                 using Ping ping = new();

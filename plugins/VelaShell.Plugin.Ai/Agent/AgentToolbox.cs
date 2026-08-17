@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.AI;
+using VelaShell.Plugin.Ai.Configuration;
 using VelaShell.PluginSdk;
 using VelaShell.PluginSdk.RemoteExec;
 using VelaShell.PluginSdk.RemoteFs;
@@ -24,30 +25,61 @@ public sealed class AgentToolbox(IPluginContext context)
     /// <summary>当前选中的目标会话 id(由聊天面板提供;null = 未选)。</summary>
     public Func<string?>? SessionIdProvider { get; set; }
 
-    /// <summary>危险操作审批(参数为将执行的命令/输入文本,返回是否放行)。未设置视为拒绝。</summary>
-    public Func<string, Task<bool>>? ApprovalHandler { get; set; }
+    /// <summary>危险操作审批(返回是否放行)。未设置视为拒绝。</summary>
+    public Func<ApprovalRequest, Task<bool>>? ApprovalHandler { get; set; }
 
-    /// <summary>免审批开关(用户显式打开才生效)。</summary>
-    public bool AutoApprove { get; set; }
+    /// <summary>审批方式(见 <see cref="ApprovalMode" />)。</summary>
+    public ApprovalMode Approval { get; set; } = ApprovalMode.Ask;
 
-    /// <summary>构建暴露给模型的工具列表。</summary>
-    public IList<AITool> CreateTools() =>
+    /// <summary>用户在"配置工具"里取消勾选的内置工具名(不暴露给模型)。</summary>
+    public IReadOnlySet<string> DisabledTools { get; set; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>全部内置工具的名称与一句说明,供"配置工具"窗口列出勾选项。</summary>
+    public static IReadOnlyList<(string Name, string Description, bool ReadOnly)> Catalog { get; } =
     [
-        AIFunctionFactory.Create(ListSessionsAsync, "list_sessions",
-            "List the user's SSH sessions (id, host, port, username, state). Use it to discover what servers are available."),
-        AIFunctionFactory.Create(ReadTerminalAsync, "read_terminal",
-            "Read the tail of the terminal output (scrollback + screen) of the selected SSH session. Use it to see what the user sees."),
-        AIFunctionFactory.Create(RunCommandAsync, "run_command",
-            "Run a one-shot, non-interactive shell command on the selected SSH session over a separate exec channel (it does NOT type into the user's terminal). Requires user approval. Prefer read-only commands."),
-        AIFunctionFactory.Create(ReadRemoteFileAsync, "read_remote_file",
-            "Read a small text file from the selected SSH session via SFTP (up to 256 KB). Returns the file content as text."),
-        AIFunctionFactory.Create(ListRemoteDirectoryAsync, "list_remote_directory",
-            "List a directory on the selected SSH session via SFTP (name, type, size, modified time). Use it to find files before reading or editing them."),
-        AIFunctionFactory.Create(WriteRemoteFileAsync, "write_remote_file",
-            "Overwrite (or create) a text file on the selected SSH session via SFTP. Requires user approval. Always read the file first and send back its full new content — this replaces the file, it does not patch it."),
-        AIFunctionFactory.Create(WriteTerminalAsync, "write_terminal",
-            "Type text into the user's visible terminal of the selected SSH session, as if the user typed it. A trailing newline executes the command. The host will additionally ask the user for permission. Use only when the user explicitly wants something typed into their terminal.")
+        ("list_sessions", "列出用户的 SSH 会话(主机、端口、用户名、状态)", true),
+        ("read_terminal", "读取所选会话终端的尾部输出", true),
+        ("read_remote_file", "经 SFTP 读取远端小文本文件(≤256KB)", true),
+        ("list_remote_directory", "经 SFTP 列出远端目录", true),
+        ("run_command", "在所选会话上执行一次性命令(独立通道,不进用户终端)", false),
+        ("write_remote_file", "经 SFTP 覆盖写入远端文本文件", false),
+        ("upload_local_file", "把本机文件(如 MCP 工具刚生成的)经 SFTP 传到服务器", false),
+        ("write_terminal", "把文本敲进用户可见的终端", false)
     ];
+
+    /// <summary>
+    /// 构建暴露给模型的工具列表。<see cref="ChatMode.Plan" /> 下<b>只给只读工具</b> ——
+    /// 计划模式的约定就是"先说怎么做",不该在这一步动任何东西。
+    /// </summary>
+    public IList<AITool> CreateTools(ChatMode mode)
+    {
+        var all = new List<(string Name, AITool Tool, bool ReadOnly)>
+        {
+            ("list_sessions", AIFunctionFactory.Create(ListSessionsAsync, "list_sessions",
+                "List the user's SSH sessions (id, host, port, username, state). Use it to discover what servers are available."), true),
+            ("read_terminal", AIFunctionFactory.Create(ReadTerminalAsync, "read_terminal",
+                "Read the tail of the terminal output (scrollback + screen) of the selected SSH session. Use it to see what the user sees."), true),
+            ("run_command", AIFunctionFactory.Create(RunCommandAsync, "run_command",
+                "Run a one-shot, non-interactive shell command on the selected SSH session over a separate exec channel (it does NOT type into the user's terminal). Requires user approval. Prefer read-only commands."), false),
+            ("read_remote_file", AIFunctionFactory.Create(ReadRemoteFileAsync, "read_remote_file",
+                "Read a small text file from the selected SSH session via SFTP (up to 256 KB). Returns the file content as text."), true),
+            ("list_remote_directory", AIFunctionFactory.Create(ListRemoteDirectoryAsync, "list_remote_directory",
+                "List a directory on the selected SSH session via SFTP (name, type, size, modified time). Use it to find files before reading or editing them."), true),
+            ("write_remote_file", AIFunctionFactory.Create(WriteRemoteFileAsync, "write_remote_file",
+                "Overwrite (or create) a text file on the selected SSH session via SFTP. Requires user approval. Always read the file first and send back its full new content — this replaces the file, it does not patch it."), false),
+            ("upload_local_file", AIFunctionFactory.Create(UploadLocalFileAsync, "upload_local_file",
+                "Upload a file from the USER'S OWN MACHINE to the SSH server via SFTP. Requires user approval. "
+                + "Use this after a local MCP tool produced a file (MCP servers run locally, so their output is NOT on the SSH server): "
+                + "upload it to make it available there."), false),
+            ("write_terminal", AIFunctionFactory.Create(WriteTerminalAsync, "write_terminal",
+                "Type text into the user's visible terminal of the selected SSH session, as if the user typed it. A trailing newline executes the command. The host will additionally ask the user for permission. Use only when the user explicitly wants something typed into their terminal."), false)
+        };
+        return
+        [
+            .. all.Where(t => (mode != ChatMode.Plan || t.ReadOnly) && !DisabledTools.Contains(t.Name))
+                  .Select(t => t.Tool)
+        ];
+    }
 
     private async Task<string> ListSessionsAsync(CancellationToken cancellationToken)
     {
@@ -93,7 +125,10 @@ public sealed class AgentToolbox(IPluginContext context)
         {
             return NoSessionMessage;
         }
-        if (!await ApproveAsync($"run_command: {command}", cancellationToken).ConfigureAwait(false))
+        // 记忆键取命令名(第一个词):同一次排查里 ls/cat/systemctl 会被反复调用,
+        // 一条条点太折磨人;但键只到命令名为止,换个命令仍要重新点头。
+        if (!await ApproveAsync(new ApprovalRequest("run_command", command, $"run_command:{FirstWord(command)}"),
+                cancellationToken).ConfigureAwait(false))
         {
             return "The user DENIED execution of this command. Do not retry it; ask the user how to proceed.";
         }
@@ -199,7 +234,9 @@ public sealed class AgentToolbox(IPluginContext context)
         }
         // 审批摘要带上前几行内容:用户要看清到底写了什么,而不只是路径。
         string preview = content.Length <= 400 ? content : content[..400] + "…";
-        if (!await ApproveAsync($"write_remote_file: {path}\n{preview}", cancellationToken).ConfigureAwait(false))
+        // 不给记忆键:每次写的路径与内容都不同,"总是允许"在这里等于放弃把关
+        if (!await ApproveAsync(new ApprovalRequest("write_remote_file", $"{path}\n{preview}"), cancellationToken)
+                .ConfigureAwait(false))
         {
             return "The user DENIED writing this file. Do not retry; ask the user how to proceed.";
         }
@@ -215,6 +252,59 @@ public sealed class AgentToolbox(IPluginContext context)
         }
     }
 
+    /// <summary>本机文件上传的大小上限:比文本写入宽松得多,但也别让一次调用把内存吃光。</summary>
+    private const long MaxUploadBytes = 32 * 1024 * 1024;
+
+    /// <summary>
+    /// 把<b>本机</b>的一个文件传到服务器。
+    /// </summary>
+    /// <remarks>
+    /// 这条是为 MCP 工具准备的。MCP 服务器跑在用户自己的机器上,它产出的文件落在本机
+    /// (通常是用户给那台服务器配的工作目录),既不在 SSH 服务器上,也不在终端的当前目录里 ——
+    /// 用户找不到、模型还常常当成远端路径去汇报。有了这条,模型可以把刚生成的文件显式送上去。
+    /// </remarks>
+    private async Task<string> UploadLocalFileAsync(
+        [Description("Absolute path of a file on the user's own machine (for example one an MCP tool just produced in its working directory).")] string localPath,
+        [Description("Absolute destination path on the SSH server (parent directory must exist).")] string remotePath,
+        CancellationToken cancellationToken = default)
+    {
+        if (ResolveSessionId() is not { } sessionId)
+        {
+            return NoSessionMessage;
+        }
+        localPath = (localPath ?? "").Trim();
+        if (!Path.IsPathRooted(localPath))
+        {
+            return "local_path must be an absolute path on the user's machine.";
+        }
+        if (!File.Exists(localPath))
+        {
+            return $"No such local file: {localPath}. List the MCP working directory first, or ask the tool where it wrote the file.";
+        }
+        var info = new FileInfo(localPath);
+        if (info.Length > MaxUploadBytes)
+        {
+            return $"Refusing to upload more than {MaxUploadBytes / (1024 * 1024)} MB in one call ({localPath} is {info.Length / (1024 * 1024)} MB).";
+        }
+        // 不给记忆键:每次上传的来源与去向都不同,"总是允许"在这里等于放弃把关
+        if (!await ApproveAsync(new ApprovalRequest("upload_local_file", $"{localPath}\n→ {remotePath}  ({info.Length} bytes)"),
+                cancellationToken).ConfigureAwait(false))
+        {
+            return "The user DENIED this upload. Do not retry; ask the user how to proceed.";
+        }
+        try
+        {
+            // 走 SFTP 的流式上传,别先整份读进内存 —— xmind/压缩包这类产物可以很大
+            await context.RemoteFs.UploadFileAsync(sessionId, localPath, remotePath, cancellationToken: cancellationToken)
+                         .ConfigureAwait(false);
+            return $"Uploaded {info.Length} bytes: {localPath} → {remotePath}.";
+        }
+        catch (Exception ex)
+        {
+            return $"Failed to upload: {ex.Message}";
+        }
+    }
+
     private async Task<string> WriteTerminalAsync(
         [Description("Text to type into the terminal. Include a trailing \\n to execute it as a command.")] string text,
         CancellationToken cancellationToken = default)
@@ -223,7 +313,8 @@ public sealed class AgentToolbox(IPluginContext context)
         {
             return NoSessionMessage;
         }
-        if (!await ApproveAsync($"write_terminal: {text}", cancellationToken).ConfigureAwait(false))
+        // 同样不给记忆键:往用户眼前的终端里敲字,每次都该问
+        if (!await ApproveAsync(new ApprovalRequest("write_terminal", text), cancellationToken).ConfigureAwait(false))
         {
             return "The user DENIED typing into the terminal. Do not retry; ask the user how to proceed.";
         }
@@ -247,9 +338,16 @@ public sealed class AgentToolbox(IPluginContext context)
 
     private string? ResolveSessionId() => SessionIdProvider?.Invoke();
 
-    private async Task<bool> ApproveAsync(string summary, CancellationToken cancellationToken)
+    private async Task<bool> ApproveAsync(ApprovalRequest request, CancellationToken cancellationToken)
     {
-        if (AutoApprove)
+        if (Approval == ApprovalMode.Bypass)
+        {
+            return true;
+        }
+        // 只读放行:仅对"确定无副作用"的命令生效,写文件/敲终端一律照问(见 ReadOnlyCommand)
+        if (Approval == ApprovalMode.ReadOnlyAuto
+            && request.Kind == "run_command"
+            && ReadOnlyCommand.IsSafe(request.Detail))
         {
             return true;
         }
@@ -258,6 +356,17 @@ public sealed class AgentToolbox(IPluginContext context)
             return false;
         }
         // 用户点了停止时,不再傻等审批
-        return await handler(summary).WaitAsync(cancellationToken).ConfigureAwait(false);
+        return await handler(request).WaitAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>命令的第一个词(去掉前导的 sudo,否则所有命令的记忆键都是 sudo)。</summary>
+    private static string FirstWord(string command)
+    {
+        string[] parts = command.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length == 0)
+        {
+            return "";
+        }
+        return parts[0] == "sudo" && parts.Length > 1 ? $"sudo {parts[1]}" : parts[0];
     }
 }

@@ -38,7 +38,8 @@ public partial class ChatPanelView : UserControl
 
     private AiSettings _settings = new();
     private SettingsView? _settingsView;
-    private List<AiProviderConfig> _providers = [];
+    private GlobalSettingsView? _globalSettingsView;
+    private List<ResolvedModel> _providers = [];
     private List<SessionInfo> _sessions = [];
     private CancellationTokenSource? _cts;
     private bool _busy;
@@ -53,6 +54,16 @@ public partial class ChatPanelView : UserControl
     private bool _scrollScheduled;
     private long _totalInputTokens;
     private long _totalOutputTokens;
+    private long _totalReasoningTokens;
+    // 最近一轮的输入 token ≈ 当前上下文占用(整段对话每轮都重发),用作输入框下方那个占比的分子
+    private long _lastInputTokens;
+    // 缓存命中:两家的口径实测已被适配器抹平 —— InputTokenCount 都含缓存读取,
+    // 于是 Cached/Input 在两边都是同一个意思(见 UpdateUsageText 的注释)
+    private long _lastCachedInputTokens;
+    private long _totalCachedInputTokens;
+    private long _totalCacheWriteTokens;
+    // 上一轮为了塞进上下文窗口而没有发出去的早期消息条数(界面与库里都还留着)
+    private int _droppedFromContext;
     private ThemeName _codeBlockTheme = ThemeName.DarkPlus;
     private Color _mathTextColor = Colors.Black;
     private Color _mathErrorColor = Colors.Red;
@@ -89,8 +100,10 @@ public partial class ChatPanelView : UserControl
             OnInputTextChanged();
         };
         SetUpInputEditor();
+        SetUpAttachments();
         FilePopup.PlacementTarget = InputWrap;
-        SettingsToggle.IsCheckedChanged += (_, _) => OnViewToggled(SettingsToggle, PanelView.Settings);
+        SettingsButton.Click += (_, _) => OpenSettingsDialog();
+        ToolsButton.Click += (_, _) => OpenToolsDialog();
         HistoryToggle.IsCheckedChanged += (_, _) =>
         {
             OnViewToggled(HistoryToggle, PanelView.History);
@@ -100,24 +113,35 @@ public partial class ChatPanelView : UserControl
             }
         };
         ClearHistoryButton.Click += (_, _) => _ = OnClearHistoryClickedAsync();
-        AgentToggle.IsCheckedChanged += (_, _) =>
+        HistorySearchBox.TextChanged += (_, _) => RenderHistoryList();
+        ModeCombo.SelectionChanged += (_, _) =>
         {
-            _settings.AgentMode = AgentToggle.IsChecked == true;
-            AutoApproveCheck.IsVisible = _settings.AgentMode;
+            if (ModeCombo.SelectedIndex < 0)
+            {
+                return;
+            }
+            _settings.Mode = (ChatMode)ModeCombo.SelectedIndex;
+            SyncModeUi();
             _ = PersistSettingsAsync();
         };
-        AutoApproveCheck.IsCheckedChanged += (_, _) =>
+        ApprovalCombo.SelectionChanged += (_, _) =>
         {
-            _settings.AutoApproveCommands = AutoApproveCheck.IsChecked == true;
+            if (ApprovalCombo.SelectedIndex < 0)
+            {
+                return;
+            }
+            _settings.Approval = (ApprovalMode)ApprovalCombo.SelectedIndex;
             _ = PersistSettingsAsync();
         };
         ProviderCombo.SelectionChanged += (_, _) =>
         {
             if (ProviderCombo.SelectedIndex >= 0 && ProviderCombo.SelectedIndex < _providers.Count)
             {
-                _settings.ActiveProviderId = _providers[ProviderCombo.SelectedIndex].Id;
+                _settings.ActiveModelId = _providers[ProviderCombo.SelectedIndex].Id;
                 _ = PersistSettingsAsync();
             }
+            // 上下文窗口是按接入配的,换模型就得按新分母重算占比
+            UpdateUsageText();
         };
 
         _context.Events.SessionConnected += OnSessionEvent;
@@ -133,6 +157,9 @@ public partial class ChatPanelView : UserControl
         _context.Events.SessionConnected -= OnSessionEvent;
         _context.Events.SessionDisconnected -= OnSessionEvent;
         _context.Events.LocaleChanged -= OnLocaleChanged;
+        SetBusyGlow(false); // 计时器不停,面板关了它还在跑
+        CloseDialogs();     // 设置/配置工具窗口不该在面板关掉之后还留在屏幕上
+        DisposeSuggestions();
         try
         {
             _cts?.Cancel();
@@ -162,24 +189,26 @@ public partial class ChatPanelView : UserControl
         try
         {
             _settings = await _store.LoadAsync();
-            AgentToggle.IsChecked = _settings.AgentMode;
-            AutoApproveCheck.IsChecked = _settings.AutoApproveCommands;
-            AutoApproveCheck.IsVisible = _settings.AgentMode;
-            _settingsView = new SettingsView(_context, _store, _settings, _loc, OnProvidersChanged);
-            SettingsHost.Content = _settingsView;
+            _settings.Migrate(); // 旧版的两个布尔开关折算成新的模式枚举
+            ModeCombo.SelectedIndex = (int)_settings.Mode;
+            ApprovalCombo.SelectedIndex = (int)_settings.Approval;
+            SyncModeUi();
             ReloadProviderCombo();
             await RefreshSessionsAsync();
             if (_providers.Count == 0)
             {
+                // 只提示,不自动弹窗:面板可能是随宿主启动一起开的,
+                // 冷不丁弹一个设置窗口在用户脸上不合适 —— 点 ⚙ 是他自己的决定。
                 StatusText.Text = _loc["NoProvider"];
-                SettingsToggle.IsChecked = true;
             }
             // 历史能力可选:时序不可用的宿主上按钮直接禁用,聊天照常
             await _historyStore.InitAsync();
             HistoryToggle.IsEnabled = _historyStore.IsAvailable;
+            ShowStarterSuggestions();
             if (_historyStore.IsAvailable)
             {
-                _inputHistory = [.. await _historyStore.RecentUserInputsAsync()];
+                // ↑↓ 历史不挡首屏:面板先能用,这份在后台补齐(用户不可能在几十毫秒内就按 ↑)
+                _ = LoadInputHistoryAsync();
             }
         }
         catch (Exception ex)
@@ -191,19 +220,27 @@ public partial class ChatPanelView : UserControl
 
     private void ApplyLoc()
     {
-        AgentText.Text = _loc["Agent"];
-        ToolTip.SetTip(AgentToggle, _loc["AgentTip"]);
-        AutoApproveCheck.Content = _loc["AutoApprove"];
-        ToolTip.SetTip(AutoApproveCheck, _loc["AutoApproveTip"]);
+        // 下拉项跟着语言换,选中项按索引留住(枚举值 = 索引,见 ChatMode / ApprovalMode)
+        int mode = ModeCombo.SelectedIndex, approval = ApprovalCombo.SelectedIndex;
+        ModeCombo.ItemsSource = (string[])[_loc["ModeChat"], _loc["ModePlan"], _loc["ModeAgent"]];
+        ApprovalCombo.ItemsSource = (string[])[_loc["ApprovalAsk"], _loc["ApprovalReadOnly"], _loc["ApprovalBypass"]];
+        ModeCombo.SelectedIndex = mode;
+        ApprovalCombo.SelectedIndex = approval;
+        SyncModeUi();
         NewChatText.Text = _loc["NewChat"];
         ToolTip.SetTip(NewChatButton, _loc["NewChatTip"]);
-        ToolTip.SetTip(SettingsToggle, _loc["Settings"]);
+        ToolTip.SetTip(SettingsButton, _loc["ModelSettings"]);
+        ToolTip.SetTip(ToolsButton, _loc["ConfigureTools"]);
         ToolTip.SetTip(HistoryToggle, _loc["History"]);
         ClearHistoryButton.Content = _loc["ClearHistory"];
         HistoryHeader.Text = _loc["HistoryHeader"];
+        HistorySearchBox.PlaceholderText = _loc["SearchHistory"];
         InputPlaceholder.Text = _loc["InputPlaceholder"];
-        SendText.Text = _loc["Send"];
-        StopText.Text = _loc["Stop"];
+        // 发送/停止是图标按钮(工具条宽度紧张,文字标签让给模型名):文案走提示
+        ToolTip.SetTip(SendButton, _loc["Send"]);
+        ToolTip.SetTip(StopButton, _loc["Stop"]);
+        ToolTip.SetTip(ProviderCombo, _loc["Model"]);
+        UpdateUsageText();
         // 代码块头部按钮的提示藏在 LiveMarkdown 的 ControlTemplate 里,只能经 DynamicResource 灌进去
         Resources["AiCopyTip"] = _loc["Copy"];
         Resources["AiWrapTip"] = _loc["ToggleWrap"];
@@ -313,6 +350,8 @@ public partial class ChatPanelView : UserControl
         _loc.Switch(locale);
         ApplyLoc();
         _settingsView?.ApplyLoc();
+        _globalSettingsView?.ApplyLoc();
+        RefreshStarterSuggestions();
     });
 
     private void OnProvidersChanged()
@@ -327,18 +366,114 @@ public partial class ChatPanelView : UserControl
 
     private void ReloadProviderCombo()
     {
-        _providers = _settings.Providers.ToList();
+        _providers = _settings.ResolveModels();
+        // 只有一家供应商时前缀是纯噪音;多家并存才需要"供应商 · 模型"来区分同名模型
+        bool prefix = _settings.Providers.Count > 1;
         ProviderCombo.ItemsSource = _providers
-            .Select(p => string.IsNullOrWhiteSpace(p.Model) ? p.Name : $"{p.Name} · {p.Model}")
+            .Select(p => prefix && !string.IsNullOrWhiteSpace(p.ProviderName) ? $"{p.ProviderName} · {p.Name}" : p.Name)
             .ToList();
-        int active = _providers.FindIndex(p => p.Id == _settings.ActiveProviderId);
+        int active = _providers.FindIndex(p => p.Id == _settings.ActiveModelId);
         ProviderCombo.SelectedIndex = active >= 0 ? active : (_providers.Count > 0 ? 0 : -1);
     }
 
-    private AiProviderConfig? ActiveProvider
+    private ResolvedModel? ActiveProvider
         => ProviderCombo.SelectedIndex >= 0 && ProviderCombo.SelectedIndex < _providers.Count
             ? _providers[ProviderCombo.SelectedIndex]
             : null;
+
+    /// <summary>
+    /// 刷新输入框下方那块用量:可见文字只留最要紧的一项(知道上下文窗口就给占比,
+    /// 否则给累计的进/出),完整明细压进悬停提示 —— 工具条那点宽度经不起铺开。
+    /// </summary>
+    private void UpdateUsageText()
+    {
+        int window = ActiveProvider?.MaxInputTokens ?? 0;
+        if (_totalInputTokens == 0 && _totalOutputTokens == 0)
+        {
+            UsageText.Text = "";
+            ToolTip.SetTip(UsageText, _loc["UsageIdle"]);
+            return;
+        }
+
+        var detail = new StringBuilder();
+        var label = new StringBuilder();
+        if (window > 0 && _lastInputTokens > 0)
+        {
+            int percent = (int)Math.Min(100, Math.Round(_lastInputTokens * 100.0 / window));
+            label.Append($"{Compact(_lastInputTokens)}/{Compact(window)} · {percent}%");
+            detail.AppendLine(_loc.F("UsageContextLine", $"{_lastInputTokens:N0}", $"{window:N0}", percent));
+        }
+        else
+        {
+            label.Append($"↑{Compact(_totalInputTokens)} ↓{Compact(_totalOutputTokens)}");
+        }
+
+        // 命中率 = 缓存读取 / 输入。两家口径实测已被适配器抹平:OpenAI 的 prompt_tokens 本就含
+        // cached_tokens;Anthropic 的 input_tokens 原本不含缓存,但适配器把 cache_read 与
+        // cache_creation 都并进了 InputTokenCount(200+800+120=1120)。所以同一个式子两边都成立。
+        if (_lastCachedInputTokens > 0 && _lastInputTokens > 0)
+        {
+            int hit = (int)Math.Min(100, Math.Round(_lastCachedInputTokens * 100.0 / _lastInputTokens));
+            label.Append($" · {_loc["CacheShort"]} {hit}%");
+            detail.AppendLine(_loc.F("UsageCacheLine", $"{_lastCachedInputTokens:N0}", $"{_lastInputTokens:N0}", hit));
+        }
+
+        UsageText.Text = label.ToString();
+        detail.AppendLine(_loc.F("UsageTotalsLine", $"{_totalInputTokens:N0}", $"{_totalOutputTokens:N0}"));
+        if (_totalCachedInputTokens > 0 || _totalCacheWriteTokens > 0)
+        {
+            detail.AppendLine(_loc.F("UsageCacheTotalsLine", $"{_totalCachedInputTokens:N0}", $"{_totalCacheWriteTokens:N0}"));
+        }
+        if (_totalReasoningTokens > 0)
+        {
+            detail.AppendLine(_loc.F("UsageReasoningLine", $"{_totalReasoningTokens:N0}"));
+        }
+        if (_droppedFromContext > 0)
+        {
+            // 裁剪不能悄悄发生:用户得知道模型"看不到"最早那几条了
+            detail.AppendLine(_loc.F("UsageTrimmedLine", _droppedFromContext));
+        }
+        if (ActiveProvider is { } provider)
+        {
+            if (EstimateCost(provider) is { } cost)
+            {
+                // 单价是用户自己填的(各家计价单位不同,插件不猜),所以只给数字不给货币符号
+                detail.AppendLine(_loc.F("UsageCostLine", cost.ToString("0.####")));
+            }
+            detail.Append(_loc.F("UsageLimitsLine",
+                $"{provider.MaxTokens:N0}",
+                window > 0 ? $"{window:N0}" : "—"));
+        }
+        ToolTip.SetTip(UsageText, detail.ToString().TrimEnd());
+    }
+
+    /// <summary>
+    /// 按接入里填的单价估这段会话花了多少。三个单价都为 0(没填)就返回 null,不显示这一行。
+    /// 命中缓存的那部分单独按缓存价算 —— 那正是缓存值不值得开的关键数字。
+    /// </summary>
+    private double? EstimateCost(ResolvedModel provider)
+    {
+        if (provider.InputPricePerMillion <= 0 && provider.OutputPricePerMillion <= 0)
+        {
+            return null;
+        }
+        double cachedPrice = provider.CachedInputPricePerMillion > 0
+            ? provider.CachedInputPricePerMillion
+            : provider.InputPricePerMillion;
+        long freshInput = Math.Max(0, _totalInputTokens - _totalCachedInputTokens);
+        return ((freshInput * provider.InputPricePerMillion)
+                + (_totalCachedInputTokens * cachedPrice)
+                + (_totalOutputTokens * provider.OutputPricePerMillion)) / 1_000_000d;
+    }
+
+    /// <summary>把 token 计数压成 <c>12.3k</c> / <c>1.2M</c> 这种短形式(工具条按字符宽度计价)。</summary>
+    private static string Compact(long value) => value switch
+    {
+        >= 1_000_000 => $"{value / 1_000_000.0:0.#}M",
+        >= 10_000 => $"{value / 1000.0:0}k",
+        >= 1_000 => $"{value / 1000.0:0.#}k",
+        _ => value.ToString()
+    };
 
     private string? SelectedSessionId
         => _sessions.Count > 0 && SessionCombo.SelectedIndex >= 0 && SessionCombo.SelectedIndex < _sessions.Count
@@ -353,7 +488,7 @@ public partial class ChatPanelView : UserControl
         {
             IReadOnlyList<SessionInfo> all = await _context.Sessions.ListAsync();
             string? previous = SelectedSessionId;
-            _sessions = all.Where(s => s.State == SessionState.Connected).ToList();
+            _sessions = [.. all.Where(s => s.State == SessionState.Connected)];
             SessionCombo.ItemsSource = _sessions.Count == 0
                 ? [_loc["NoSession"]]
                 : _sessions.Select(s => $"{s.Username}@{s.Host}").ToList();
@@ -364,6 +499,22 @@ public partial class ChatPanelView : UserControl
         {
             _context.Log.Error("Refresh sessions failed.", ex);
         }
+    }
+
+    /// <summary>记住用户拖分割条拖出来的侧栏宽度(百分比,宿主在拖动结束时通知一次)。</summary>
+    /// <remarks>
+    /// <b>必须改这份在内存里的 <c>_settings</c>,不能绕过面板直接往库里写。</b>
+    /// 面板持有整份设置,任何一次改动(换模式、改审批、勾工具、存接入)都是把这份整体覆盖回去 ——
+    /// 背着它写库的话,下一次这类操作就会拿旧的宽度把刚记下的值盖掉,表现就是"拖了不算数"。
+    /// </remarks>
+    public void RememberPanelWidth(int percent)
+    {
+        if (_settings.PanelWidthPercent == percent)
+        {
+            return;
+        }
+        _settings.PanelWidthPercent = percent;
+        _ = PersistSettingsAsync();
     }
 
     private async Task PersistSettingsAsync()
@@ -416,6 +567,7 @@ public partial class ChatPanelView : UserControl
         _busy = busy;
         SendButton.IsVisible = !busy;
         StopButton.IsVisible = busy;
+        SetBusyGlow(busy);
     }
 
     /// <summary>
@@ -465,19 +617,24 @@ public partial class ChatPanelView : UserControl
     private async Task SendAsync(string text, bool fromUser = true)
     {
         text = text.Trim();
-        if (text.Length == 0 || _busy)
+        // 只带附件、正文为空也算一次有效发送(比如"看看这张图")
+        if ((text.Length == 0 && _attachments.Count == 0) || _busy)
         {
             return;
         }
         if (ActiveProvider is not { } provider)
         {
+            // 这次是用户主动发消息才撞上"没配接入",直接把设置窗口开给他
             StatusText.Text = _loc["NoProvider"];
-            SettingsToggle.IsChecked = true;
+            OpenSettingsDialog();
             return;
         }
 
         SetBusy(true);
         InputBox.Text = "";
+        // 状态行只说"这一刻"的事:新一轮开始,上一轮的取消/报错提示就该退场
+        StatusText.Text = "";
+        ClearSuggestions(); // 上一轮的后续提问已经过期,并掐掉可能还在途的那次求建议
         CloseFilePicker();
         if (fromUser)
         {
@@ -485,12 +642,15 @@ public partial class ChatPanelView : UserControl
         }
         SetActiveView(PanelView.Chat);
 
-        AddUserBubble(text);
+        AddUserBubble(text + AttachmentTrace());
         RequestAutoScroll(force: true);
 
         _cts = new CancellationTokenSource();
         CancellationToken token = _cts.Token;
         AssistantBubble? bubble = null;
+        long startedAt = Environment.TickCount64;
+        bool cancelled = false;
+        string replyText = "";
         try
         {
             // @ 引用的远端文件在这里展开:气泡里显示的是短名芯片,只有送给模型的那份带完整路径与文件内容。
@@ -501,21 +661,39 @@ public partial class ChatPanelView : UserControl
             {
                 AddAttachmentFailureNote(unreadable);
             }
-            _history.Add(new ChatMessage(ChatRole.User, modelText));
-            await PersistAsync("user", text);
+            // 本地附件并进这一轮:图片作为视觉输入,文本附件接在正文后面
+            _history.Add(new ChatMessage(ChatRole.User, BuildUserContents(modelText)));
+            await PersistAsync("user", text + AttachmentTrace());
+            ClearAttachments();
             bubble = new AssistantBubble(this);
             MessagesPanel.Children.Add(bubble.Root);
+            TrimMessageWindow(); // 常驻条数封顶,别让可视树越聊越长
             RequestAutoScroll(force: true);
 
             IChatClient client = await _store.CreateClientAsync(provider, cancellationToken: token);
-            var options = new ChatOptions();
-            bool agentMode = _settings.AgentMode;
-            if (agentMode)
+            var options = new ChatOptions
             {
-                _toolbox.AutoApprove = _settings.AutoApproveCommands;
-                _mcp.AutoApprove = _settings.AutoApproveCommands;
-                IList<AITool> tools = _toolbox.CreateTools();
-                if (_settings.McpServers.Any(s => s.Enabled))
+                MaxOutputTokens = provider.MaxTokens,
+                Temperature = provider.Temperature,
+                TopP = provider.TopP,
+                StopSequences = SplitLines(provider.StopSequences)
+            };
+            // 思考档位:Default 表示"不带这个参数",交给服务端的默认行为。两家协议的翻译方式
+            // 不同(OpenAI 认 ChatOptions.Reasoning,Anthropic 只认请求体里的 thinking),
+            // 差异全收在 AiSettingsStore.ApplyReasoning 里。
+            AiSettingsStore.ApplyReasoning(options, provider);
+            ChatMode mode = _settings.Mode;
+            // 纯对话模式不给任何工具;计划模式只给只读工具(见 AgentToolbox.CreateTools)
+            if (mode != ChatMode.Chat)
+            {
+                _toolbox.Approval = _settings.Approval;
+                _toolbox.DisabledTools = new HashSet<string>(
+                    SplitLines(_settings.DisabledBuiltinTools) ?? [], StringComparer.OrdinalIgnoreCase);
+                _mcp.Approval = _settings.Approval;
+                IList<AITool> tools = _toolbox.CreateTools(mode);
+                // 计划模式下不接 MCP:那些工具的副作用由第三方服务器说了算,插件无从判断,
+                // 而"计划"的承诺是这一步不动任何东西。
+                if (mode == ChatMode.Agent && _settings.McpServers.Any(s => s.Enabled))
                 {
                     StatusText.Text = _loc["McpConnecting"];
                     (List<AITool> mcpTools, List<string> mcpErrors) = await _mcp.GetToolsAsync(_settings.McpServers, token);
@@ -533,11 +711,24 @@ public partial class ChatPanelView : UserControl
                     .Build();
             }
 
-            var requestMessages = new List<ChatMessage>(_history.Count + 1)
+            // 快撑满窗口就先把早期对话折成摘要(压不动也不拦,下面的装配还会兜底丢最早几条)
+            await CompactIfNeededAsync(provider, token);
+            // 装配上下文:摘要 + 近几轮原文,按窗口裁剪并把相邻同角色的消息并起来(见 ContextBuilder)
+            RequestContext request = ContextBuilder.Build(
+                BuildSystemPrompt(mode), _history, provider.MaxInputTokens, provider.MaxTokens,
+                _contextSummary, _summarizedThrough);
+            List<ChatMessage> requestMessages = request.Messages;
+            _droppedFromContext = request.DroppedMessages;
+            // Anthropic 的提示词缓存断点(其它协议不认这个标记,打了也只是多一个被忽略的字段)
+            if (provider.Protocol == ChatProtocol.AnthropicMessages && provider.PromptCaching)
             {
-                new(ChatRole.System, BuildSystemPrompt(agentMode))
-            };
-            requestMessages.AddRange(_history);
+                PromptCache.Apply(requestMessages);
+            }
+            else
+            {
+                // 关掉之后要把历史上残留的标记抹干净,否则一直挂着(内容对象跨轮复用)
+                PromptCache.Clear(_history);
+            }
 
             var updates = new List<ChatResponseUpdate>();
             // 网络流在线程池上消费,增量封送回 UI 线程,避免 SSE 读循环占用 UI。
@@ -563,7 +754,7 @@ public partial class ChatPanelView : UserControl
                 RequestAutoScroll();
             }
 
-            await Task.Run(async () =>
+            async Task StreamOnceAsync() => await Task.Run(async () =>
             {
                 await foreach (ChatResponseUpdate update in client
                                    .GetStreamingResponseAsync(requestMessages, options, token)
@@ -583,49 +774,202 @@ public partial class ChatPanelView : UserControl
                     }
                 }
             }, token);
+
+            // 断在开口之前就重来 —— 一次网络抖动不该让整轮作废。
+            // 已经吐出内容再断就不重试了:没有断点续传,重来会把已显示的那半截重复一遍。
+            for (int attempt = 0; ; attempt++)
+            {
+                try
+                {
+                    await StreamOnceAsync();
+                    break;
+                }
+                catch (Exception ex) when (attempt < StreamRetries && updates.Count == 0
+                                           && !token.IsCancellationRequested && IsTransient(ex))
+                {
+                    _context.Log.Warn($"Stream failed before any content (attempt {attempt + 1}): {ex.Message}");
+                    StatusText.Text = _loc.F("Retrying", attempt + 1);
+                    await Task.Delay(TimeSpan.FromMilliseconds(400 * (attempt + 1)), token);
+                }
+            }
+            StatusText.Text = "";
             DrainUpdates(); // 兜底清空残留批(此处已回到 UI 线程)
 
             var response = updates.ToChatResponse();
             _history.AddMessages(response);
-            await PersistAsync("assistant", response.Text);
+            int sequence = await PersistAsync("assistant", response.Text);
+            if (sequence >= 0 && bubble is not null)
+            {
+                // 思考、工具调用、模型、耗时另存一行 —— 翻回旧会话时这些才是"Agent 做了什么"的证据
+                await _historyStore.AppendMetaAsync(_conversationId, sequence,
+                    bubble.Snapshot(ModelLabel(provider),
+                        TimeSpan.FromMilliseconds(Environment.TickCount64 - startedAt)));
+            }
             if (response.Usage is { } usage)
             {
+                _lastInputTokens = usage.InputTokenCount ?? _lastInputTokens;
                 _totalInputTokens += usage.InputTokenCount ?? 0;
                 _totalOutputTokens += usage.OutputTokenCount ?? 0;
+                _totalReasoningTokens += usage.ReasoningTokenCount ?? 0;
+                _lastCachedInputTokens = usage.CachedInputTokenCount ?? 0;
+                _totalCachedInputTokens += _lastCachedInputTokens;
+                // 缓存"写入"只有 Anthropic 报(它单独收费),OpenAI 系没有这个概念
+                _totalCacheWriteTokens += usage.AdditionalCounts?.GetValueOrDefault("CacheCreationInputTokens") ?? 0;
             }
-            StatusText.Text = _loc.F("Usage", _totalInputTokens, _totalOutputTokens);
+            UpdateUsageText();
+            replyText = response.Text;
         }
         catch (OperationCanceledException)
         {
-            StatusText.Text = _loc["Cancelled"];
+            // 取消是"这条回复"的属性,记在气泡头部;状态行不留话(留了就一直挂着,见截图反馈)
+            cancelled = true;
+            await SettleUnfinishedTurnAsync(bubble);
         }
         catch (Exception ex)
         {
-            _context.Log.Error("AI request failed.", ex);
-            bubble?.AppendText($"\n\n**[{_loc["Error"]}]** {ex.Message}");
+            // 带上服务端正文:Anthropic 的异常消息只有一句 "Status Code: BadRequest",
+            // 真正说清哪儿不对的那段在 ResponseBody 里(见 ApiErrorText)。
+            string detail = ApiErrorText.Describe(ex);
+            _context.Log.Error($"AI request failed. — {detail}", ex);
+            bubble?.AppendText($"\n\n**[{_loc["Error"]}]** {detail}");
+            await SettleUnfinishedTurnAsync(bubble);
         }
         finally
         {
             _cts?.Dispose();
             _cts = null;
             SetBusy(false);
-            bubble?.FinishStreaming();
+            // 一轮到此为止(成功/取消/出错都算):收起思考区,补上"耗时 · 步数"与"时间 · 模型"
+            bubble?.FinishStreaming(
+                ModelLabel(provider),
+                DateTimeOffset.Now,
+                TimeSpan.FromMilliseconds(Environment.TickCount64 - startedAt),
+                cancelled);
             RequestAutoScroll();
+        }
+
+        // 顺利答完才给后续提问:取消/报错时用户要的是重试,不是被塞几条建议
+        if (!cancelled && replyText.Length > 0)
+        {
+            await SuggestFollowUpsAsync(provider, text, replyText);
         }
     }
 
-    /// <summary>把一条消息写进历史(时序库);能力不可用或空文本时什么也不做。</summary>
-    private async Task PersistAsync(string role, string text)
+    /// <summary>
+    /// 流还没开口就断掉时最多重来几次。<b>只给 1 次</b>:各家 SDK 自己已经对连接级失败退避重试过
+    /// (实测连接被拒会重试三次、约 6 秒),这一层再叠太多,只会让"服务端真的挂了"这种情况
+    /// 拖到二十秒后才告诉用户。
+    /// </summary>
+    private const int StreamRetries = 1;
+
+    /// <summary>
+    /// 这个异常值不值得重来一次。只认"再试一次可能就好了"的那些:
+    /// 网络层故障、超时、以及服务端的 408/429/5xx。参数错、鉴权失败重试一万次也一样。
+    /// </summary>
+    private static bool IsTransient(Exception ex)
+    {
+        for (Exception? current = ex; current is not null; current = current.InnerException)
+        {
+            switch (current)
+            {
+                case HttpRequestException:
+                case IOException:
+                case TimeoutException:
+                    return true;
+                case System.ClientModel.ClientResultException { Status: 408 or 429 or >= 500 and < 600 }:
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>回复底部显示的模型名:优先模型 id,没填就退回接入名称。</summary>
+    private static string ModelLabel(ResolvedModel provider)
+        => string.IsNullOrWhiteSpace(provider.Model) ? provider.Name : provider.Model;
+
+    /// <summary>
+    /// 模式变了要跟着调整界面:审批方式只在<b>有工具</b>的模式下才有意义,
+    /// 纯对话模式里摆着它只会让人以为哪里还能被自动执行点什么。
+    /// </summary>
+    private void SyncModeUi()
+    {
+        ApprovalCombo.IsVisible = _settings.Mode != ChatMode.Chat;
+        ToolTip.SetTip(ModeCombo, _loc[_settings.Mode switch
+        {
+            ChatMode.Agent => "ModeAgentTip",
+            ChatMode.Plan => "ModePlanTip",
+            _ => "ModeChatTip"
+        }]);
+        ToolTip.SetTip(ApprovalCombo, _loc[_settings.Approval switch
+        {
+            ApprovalMode.Bypass => "ApprovalBypassTip",
+            ApprovalMode.ReadOnlyAuto => "ApprovalReadOnlyTip",
+            _ => "ApprovalAskTip"
+        }]);
+    }
+
+    /// <summary>用量归零(换会话时用:计数是"这一段对话"的,不是进程级的)。</summary>
+    private void ResetUsage()
+    {
+        _totalInputTokens = 0;
+        _totalOutputTokens = 0;
+        _totalReasoningTokens = 0;
+        _lastInputTokens = 0;
+        _lastCachedInputTokens = 0;
+        _totalCachedInputTokens = 0;
+        _totalCacheWriteTokens = 0;
+        UpdateUsageText();
+    }
+
+    /// <summary>
+    /// 一轮没能正常收尾(用户按停、或请求出错)时收拾历史:
+    /// 已经吐出来的半截回复照样进历史与库(用户看得见,模型下一轮也该知道自己说过什么);
+    /// 一个字都没吐就把刚加进去的那条 user 撤回来 —— 否则历史里会留下一条没有回复的提问。
+    /// </summary>
+    /// <remarks>
+    /// 发送前 <see cref="ContextBuilder" /> 还会兜一次(相邻同角色合并),两处都要:
+    /// 这里让"界面/库/上下文"三者一致,那里防的是任何来路的历史(含旧版本留下的)。
+    /// </remarks>
+    private async Task SettleUnfinishedTurnAsync(AssistantBubble? bubble)
+    {
+        string partial = bubble?.ReplyText.Trim() ?? "";
+        if (partial.Length > 0)
+        {
+            _history.Add(new ChatMessage(ChatRole.Assistant, partial));
+            await PersistAsync("assistant", partial);
+            return;
+        }
+        if (_history.Count > 0 && _history[^1].Role == ChatRole.User)
+        {
+            _history.RemoveAt(_history.Count - 1);
+        }
+    }
+
+    /// <summary>
+    /// 把一条消息写进历史(时序库),返回它拿到的会话内序号;
+    /// 能力不可用或空文本时什么也不做并返回 -1(附加信息也就无从挂靠)。
+    /// </summary>
+    private async Task<int> PersistAsync(string role, string text)
     {
         if (!_historyStore.IsAvailable || string.IsNullOrWhiteSpace(text))
         {
-            return;
+            return -1;
         }
-        await _historyStore.AppendAsync(_conversationId, _conversationStartedAt, _persistedCount++, role, text);
+        int sequence = _persistedCount++;
+        await _historyStore.AppendAsync(_conversationId, _conversationStartedAt, sequence, role, text);
+        return sequence;
     }
 
     private void RenderUpdate(AssistantBubble bubble, ChatResponseUpdate update)
     {
+        // 这一帧什么都没解析出来 → 可能是"OpenAI 兼容"线上某家自造的思考字段,
+        // 去原始报文里翻一遍(见 ReasoningPeek)。正常帧不会走到这儿。
+        if (ReasoningPeek.IsBlank(update)
+            && ReasoningPeek.TryRead(update.RawRepresentation, out string peeked))
+        {
+            bubble.AppendThinking(peeked);
+            return;
+        }
         foreach (AIContent content in update.Contents)
         {
             switch (content)
@@ -665,8 +1009,31 @@ public partial class ChatPanelView : UserControl
         }
     }
 
-    private string BuildSystemPrompt(bool agentMode)
+    /// <summary>非空行拆成数组;全空返回 null(<c>ChatOptions</c> 上 null 才表示"不发这个参数")。</summary>
+    private static IList<string>? SplitLines(string? text)
     {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return null;
+        }
+        string[] lines = text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return lines.Length > 0 ? lines : null;
+    }
+
+    /// <summary>
+    /// 系统提示词:接入专用的优先,其次全局的,最后才是内置默认。
+    /// 内置那份会按对话模式追加不同的交代 —— 三种模式对模型的要求本来就不一样。
+    /// </summary>
+    /// <remarks>
+    /// 用户自定义的提示词<b>不追加模式说明</b>:他既然自己写了,就该完全由他说了算。
+    /// 模式的实际约束靠"给不给工具"来兜底(计划模式根本拿不到写工具),不依赖提示词自觉。
+    /// </remarks>
+    private string BuildSystemPrompt(ChatMode mode)
+    {
+        if (ActiveProvider is { SystemPrompt: { } own } && !string.IsNullOrWhiteSpace(own))
+        {
+            return own;
+        }
         if (!string.IsNullOrWhiteSpace(_settings.SystemPrompt))
         {
             return _settings.SystemPrompt;
@@ -675,17 +1042,60 @@ public partial class ChatPanelView : UserControl
             "You are the AI assistant embedded in VelaShell, an SSH terminal application. " +
             "Help the user with servers, shell commands, log analysis and DevOps questions. Be concise and practical. " +
             "Format responses in Markdown. " +
-            $"Respond in the user's language (UI locale: {_context.Host.Locale}).";
-        if (agentMode)
+            $"Respond in the user's language (UI locale: {_context.Host.Locale}). " +
+            "The user can attach remote files to a message with @path; their content is included verbatim after the message.";
+        return prompt + mode switch
         {
-            prompt +=
+            ChatMode.Agent =>
                 " You can call tools to inspect the user's selected SSH session (read terminal output, run one-shot commands, list directories, read files) " +
                 "and to edit remote files (write_remote_file overwrites the whole file — read it first, then send the complete new content). " +
                 "Prefer read-only commands; destructive commands and file writes require user approval and should be proposed carefully. " +
-                "The user can attach remote files to a message with @path; their content is included verbatim after the message. " +
-                "Additional tools may come from user-configured MCP servers (their names are prefixed with the server name).";
+                LocalVersusRemoteNote(),
+            ChatMode.Plan =>
+                " You are in PLAN mode. You have read-only tools (read terminal output, list directories, read files) and you may use them freely to investigate. " +
+                "You must NOT change anything, and no tool that could change anything is available to you. " +
+                "Produce a concrete, ordered plan: what to check, what to change, the exact commands you would run, what could go wrong, and how to roll back. " +
+                "End by telling the user to switch to Agent mode if they want you to carry it out.",
+            _ =>
+                " You have no tools in this mode: answer from the conversation itself. " +
+                "If something genuinely needs to be checked on the server, say so and suggest switching to Agent mode rather than guessing."
+        };
+    }
+
+    /// <summary>
+    /// 告诉模型:内置工具作用于<b>远程服务器</b>,MCP 工具跑在<b>用户本机</b>。
+    /// </summary>
+    /// <remarks>
+    /// 不说清楚就会出事,而且是实际出过的事:用户让本机的 xmind MCP 生成一个文件,模型
+    /// 转头按远端路径(<c>/root/xxx.xmind</c>)汇报,结果服务器上没有、本机工作目录里也
+    /// "看不到" —— 因为那本来就是两台机器。顺带把用户为各台 MCP 服务器配的工作目录报给它,
+    /// 那是本机产物最可能落脚的地方;再指一下 <c>upload_local_file</c>,想放到服务器上就用它。
+    /// </remarks>
+    private string LocalVersusRemoteNote()
+    {
+        var note = new StringBuilder(
+            " Additional tools may come from user-configured MCP servers (their names are prefixed with the server name). " +
+            "IMPORTANT: MCP servers run on the USER'S OWN MACHINE, not on the SSH server. " +
+            "Any file an MCP tool creates is a LOCAL file — it does not exist on the SSH server, and paths like /root/... " +
+            "mean different things on the two machines. Never report a locally produced file as if it were on the server. " +
+            "To put a local file on the server, call upload_local_file.");
+        List<string> dirs =
+        [
+            // 本地进程型的每台都有工作目录(没填就是 ~/.velashell),都告诉模型;HTTP 型的没有"本机目录"可言
+            .. _settings.McpServers
+                        .Where(s => s.Enabled && s.Transport == McpTransportType.Stdio)
+                        .Select(s => $"{DisplayName(s)}: {McpWorkspace.Resolve(s.WorkingDirectory)}")
+        ];
+        if (dirs.Count > 0)
+        {
+            note.Append(" Local MCP working directories (where their output most likely lands): ")
+                .Append(string.Join("; ", dirs))
+                .Append('.');
         }
-        return prompt;
+        return note.ToString();
+
+        static string DisplayName(McpServerConfig server)
+            => string.IsNullOrWhiteSpace(server.Name) ? "(unnamed)" : server.Name.Trim();
     }
 
     /// <summary>
@@ -697,31 +1107,46 @@ public partial class ChatPanelView : UserControl
         _cts?.Cancel();
         _history.Clear();
         MessagesPanel.Children.Clear();
-        _totalInputTokens = 0;
-        _totalOutputTokens = 0;
+        ResetMessageWindow();
+        ResetEditing();
+        ResetCompaction();
+        _alwaysApproved.Clear(); // 放行记忆只在同一段对话里有效
+        ResetUsage();
         _conversationId = ChatHistoryStore.NewConversationId();
         _conversationStartedAt = DateTimeOffset.UtcNow;
         _persistedCount = 0;
         _inputHistoryIndex = -1;
         StatusText.Text = "";
+        ClearSuggestions();
+        ShowStarterSuggestions();
         SetActiveView(PanelView.Chat);
         InputBox.TextArea.Focus();
     }
 
     // ---------- 审批交互 ----------
 
-    private async Task<bool> RequestApprovalAsync(string summary)
+    /// <summary>
+    /// 本次会话里已被"总是允许"的操作键。只活在内存里 —— 换会话、关面板即失效,
+    /// 不写进配置:一次排查里放行 <c>ls</c>,不代表下次打开还想默认放行。
+    /// </summary>
+    private readonly HashSet<string> _alwaysApproved = [with(StringComparer.Ordinal)];
+
+    private async Task<bool> RequestApprovalAsync(ApprovalRequest request)
     {
+        if (request.RepeatKey is { } key && _alwaysApproved.Contains(key))
+        {
+            return true;
+        }
         var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        Dispatcher.UIThread.Post(() => AddApprovalCard(summary, tcs));
+        Dispatcher.UIThread.Post(() => AddApprovalCard(request, tcs));
         return await tcs.Task.ConfigureAwait(false);
     }
 
-    private void AddApprovalCard(string summary, TaskCompletionSource<bool> tcs)
+    private void AddApprovalCard(ApprovalRequest request, TaskCompletionSource<bool> tcs)
     {
         var stack = new StackPanel { Spacing = 6 };
         stack.Children.Add(new TextBlock { Classes = { "dim" }, Text = _loc["ApprovalTitle"] });
-        stack.Children.Add(new SelectableTextBlock { Classes = { "mono" }, Text = Truncate(summary, 600) });
+        stack.Children.Add(new SelectableTextBlock { Classes = { "mono" }, Text = Truncate(request.Summary, 600) });
         // 主/次操作对齐宿主按钮方案:批准 = 强调药丸,拒绝 = 描边换危险色
         var approveButton = new Button { Content = _loc["Approve"], Height = 24, Padding = new Thickness(12, 0) };
         var denyButton = new Button { Content = _loc["Deny"], Height = 24, Padding = new Thickness(12, 0) };
@@ -734,20 +1159,42 @@ public partial class ChatPanelView : UserControl
         }
         var buttons = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 6, Margin = new Thickness(0, 2, 0, 0) };
         buttons.Children.Add(approveButton);
+
+        // 只有可重复、语义稳定的操作才给"总是允许"(写文件/敲终端不给,见 ApprovalRequest.RepeatKey)
+        Button? alwaysButton = null;
+        if (request.RepeatKey is { } repeatKey)
+        {
+            alwaysButton = new Button { Content = _loc["ApproveAlways"], Height = 24, Padding = new Thickness(12, 0) };
+            ApplyThemeResource(alwaysButton, "VelaOutlineButtonTheme");
+            ToolTip.SetTip(alwaysButton, _loc.F("ApproveAlwaysTip", repeatKey));
+            buttons.Children.Add(alwaysButton);
+        }
         buttons.Children.Add(denyButton);
         stack.Children.Add(buttons);
         var card = new Border { Classes = { "toolCard" }, Child = stack };
 
-        void Finish(bool approved)
+        void Finish(bool approved, bool remember)
         {
             approveButton.IsEnabled = false;
             denyButton.IsEnabled = false;
-            stack.Children.Add(new TextBlock { Classes = { "dim" }, Text = approved ? _loc["Approve"] + " ✓" : _loc["Deny"] + " ✕" });
+            alwaysButton?.IsEnabled = false;
+            if (remember && request.RepeatKey is { } key)
+            {
+                _alwaysApproved.Add(key);
+            }
+            stack.Children.Add(new TextBlock
+            {
+                Classes = { "dim" },
+                Text = approved
+                    ? (remember ? _loc["ApproveAlways"] : _loc["Approve"]) + " ✓"
+                    : _loc["Deny"] + " ✕"
+            });
             tcs.TrySetResult(approved);
         }
 
-        approveButton.Click += (_, _) => Finish(true);
-        denyButton.Click += (_, _) => Finish(false);
+        approveButton.Click += (_, _) => Finish(true, remember: false);
+        denyButton.Click += (_, _) => Finish(false, remember: false);
+        alwaysButton?.Click += (_, _) => Finish(true, remember: true);
         MessagesPanel.Children.Add(card);
         // 审批卡阻塞整轮对话,必须让用户看见
         RequestAutoScroll(force: true);
@@ -768,7 +1215,18 @@ public partial class ChatPanelView : UserControl
     private void AddUserBubble(string text)
     {
         var stack = new StackPanel();
-        stack.Children.Add(new TextBlock { Classes = { "roleHeader" }, Text = _loc["You"] });
+        // 头部一行:角色 + 悬停才显形的编辑/删除(平时不该有两个按钮杵在每条消息上)
+        var header = new Grid { ColumnDefinitions = [with("*,Auto")] };
+        header.Children.Add(new TextBlock { Classes = { "roleHeader" }, Text = _loc["You"] });
+        var actions = new StackPanel
+        {
+            Classes = { "msgActions" },
+            Orientation = Avalonia.Layout.Orientation.Horizontal,
+            Spacing = 2
+        };
+        Grid.SetColumn(actions, 1);
+        header.Children.Add(actions);
+        stack.Children.Add(header);
 
         List<string> references = FileReference.Parse(text);
         if (references.Count > 0)
@@ -784,7 +1242,24 @@ public partial class ChatPanelView : UserControl
         var body = new MarkdownSegment(this);
         body.Append(FileReference.Shorten(text));
         stack.Children.Add(body.Host);
-        MessagesPanel.Children.Add(new Border { Classes = { "msg", "userMsg" }, Child = stack });
+
+        var bubble = new Border { Classes = { "msg", "userMsg" }, Child = stack };
+        actions.Children.Add(IconAction("Icon.pencil", _loc["EditMessage"], () => _ = EditUserMessageAsync(bubble, text)));
+        actions.Children.Add(IconAction("Icon.trash-2", _loc["DeleteFromHere"], () => _ = DeleteFromAsync(bubble)));
+        // 登记在加进 _history 之前:此刻的 Count 正是这条消息将要落到的下标
+        TrackUserBubble(bubble, _history.Count);
+        MessagesPanel.Children.Add(bubble);
+    }
+
+    /// <summary>消息上的一枚小图标按钮(编辑/删除/重新生成共用)。</summary>
+    private Button IconAction(string iconKey, string tip, Action onClick)
+    {
+        var host = new Decorator { Child = MakeIcon(iconKey, "VelaTextMuted", 12) };
+        var button = new Button { Content = host };
+        ApplyThemeResource(button, "AiGhostIconButtonTheme");
+        ToolTip.SetTip(button, tip);
+        button.Click += (_, _) => onClick();
+        return button;
     }
 
     /// <summary>一枚文件引用芯片(与输入框里那段彩色引用同色同名,悬停给全路径)。</summary>
@@ -837,24 +1312,67 @@ public partial class ChatPanelView : UserControl
         return new Viewbox { Width = size, Height = size, Child = path };
     }
 
-    /// <summary>一条 assistant 回复的可视化容器:Markdown 段落、思考折叠区与工具卡片。</summary>
+    /// <summary>
+    /// 一条 assistant 回复的可视化容器:头部(角色 · 步数 · 耗时)、思考折叠区、
+    /// Markdown 段落与工具卡片,末尾是"复制整段 | 时间 · 模型"的元信息条。
+    /// 版式对齐 GitHub Copilot 的回复块。
+    /// </summary>
     private sealed class AssistantBubble
     {
         private readonly ChatPanelView _owner;
         private readonly StackPanel _stack;
+        private readonly TextBlock _header;
         private readonly Dictionary<string, ToolCard> _toolCards = [];
+        private readonly StringBuilder _thinkingText = new();
+        // 复制整段回复用的原文:正文按到达顺序原样攒着(Markdown 源码,不是渲染后的可视树)
+        private readonly StringBuilder _replyText = new();
         private MarkdownSegment? _currentSegment;
         private Collapsible? _thinking;
-        private readonly StringBuilder _thinkingText = new();
         private bool _thinkingRenderScheduled;
+        private long _thinkingStartedAt;
+        private TimeSpan? _thinkingElapsed;
+        private int _steps;
 
         public Border Root { get; }
+
+        /// <summary>目前为止收到的正文(Markdown 源码)。复制整段与"半截回复补进历史"都用它。</summary>
+        public string ReplyText => _replyText.ToString();
+
+        /// <summary>这一轮除正文以外的东西,用于入库(见 <see cref="ChatTurnMeta" />)。</summary>
+        public ChatTurnMeta Snapshot(string model, TimeSpan elapsed) => new(
+            model,
+            (long)elapsed.TotalMilliseconds,
+            _thinkingText.ToString(),
+            (long)(_thinkingElapsed?.TotalMilliseconds ?? 0),
+            [.. _toolCards.Values.Select(c => c.Snapshot())]);
+
+        /// <summary>从历史回放:先摆思考,再摆工具卡,最后才是正文(与直播时的先后一致)。</summary>
+        public void Restore(ChatTurnMeta meta)
+        {
+            if (meta.Thinking.Length > 0)
+            {
+                _thinkingText.Append(meta.Thinking);
+                _thinking = new Collapsible(_owner, _owner._loc.F("ThinkingDone",
+                    FormatDuration(TimeSpan.FromMilliseconds(meta.ThinkingMs))));
+                _stack.Children.Insert(1, _thinking.Root);
+                _thinking.SetBody(meta.Thinking);
+                // 时长已经是存下来的,别让后面的 AppendText 再去按"现在"算一遍
+                _thinkingElapsed = TimeSpan.FromMilliseconds(meta.ThinkingMs);
+            }
+            foreach (ChatToolCall tool in meta.Tools ?? [])
+            {
+                string id = Guid.NewGuid().ToString("N");
+                AddToolCall(id, tool.Name, tool.Arguments);
+                CompleteToolCall(id, tool.Result);
+            }
+        }
 
         public AssistantBubble(ChatPanelView owner)
         {
             _owner = owner;
             _stack = new StackPanel { Spacing = 4 };
-            _stack.Children.Add(new TextBlock { Classes = { "roleHeader" }, Text = owner._loc["AssistantRole"] });
+            _header = new TextBlock { Classes = { "roleHeader" }, Text = owner._loc["AssistantRole"] };
+            _stack.Children.Add(_header);
             Root = new Border { Classes = { "msg" }, Child = _stack };
         }
 
@@ -864,6 +1382,11 @@ public partial class ChatPanelView : UserControl
             {
                 return;
             }
+            // 正文开始 = 思考结束,但<b>不在这里收起来</b>:
+            // 思考往往刚吐完正文就跟上,立刻折叠等于让人根本没机会读(用户反馈的
+            // "思考和正文一起冒出来"就是这么来的)。留到整轮结束再收。
+            MarkThinkingDone();
+            _replyText.Append(text);
             // 工具卡片之后的新一轮文本另起 Markdown 段
             if (_currentSegment is null || !ReferenceEquals(_stack.Children[^1], _currentSegment.Host))
             {
@@ -882,10 +1405,14 @@ public partial class ChatPanelView : UserControl
             _thinkingText.Append(text);
             if (_thinking is null)
             {
-                _thinking = new Collapsible(_owner, _owner._loc["Thinking"]);
+                // 默认收起(用户决策):标题一行就够说明"在想",要看内容自己点开。
+                // 展开过就一路留着,标题从"正在思考…"变成"已思考 N 秒",正文照样往里灌。
+                _thinkingStartedAt = Environment.TickCount64;
+                _thinking = new Collapsible(_owner, _owner._loc["ThinkingActive"]);
                 _stack.Children.Insert(1, _thinking.Root);
             }
-            // 逐 token 全量刷文本是 O(n²) 的字符串与排版开销,与 Markdown 段同款节流
+            // 逐 token 全量刷文本是 O(n²) 的字符串与排版开销,所以节流;但别压太狠 ——
+            // 思考经常只有一两秒,200ms 一刷会让人觉得"根本没在流"。
             if (!_thinkingRenderScheduled)
             {
                 _thinkingRenderScheduled = true;
@@ -893,7 +1420,7 @@ public partial class ChatPanelView : UserControl
                 {
                     _thinkingRenderScheduled = false;
                     _thinking?.SetBody(_thinkingText.ToString());
-                }, TimeSpan.FromMilliseconds(200));
+                }, TimeSpan.FromMilliseconds(80));
             }
         }
 
@@ -903,6 +1430,8 @@ public partial class ChatPanelView : UserControl
             {
                 return;
             }
+            MarkThinkingDone();
+            _steps++;
             var card = new ToolCard(_owner, name, argumentsJson);
             _toolCards[callId] = card;
             _stack.Children.Add(card.Root);
@@ -918,13 +1447,122 @@ public partial class ChatPanelView : UserControl
             _currentSegment = null;
         }
 
-        /// <summary>流结束(成功/取消/出错都会走到):思考区补齐尾部。</summary>
-        public void FinishStreaming()
+        /// <summary>
+        /// 流结束(成功/取消/出错都会走到):思考区补齐尾部并收起,头部补上步数与耗时,
+        /// 末尾挂出"复制整段 | 时间 · 模型"。
+        /// </summary>
+        /// <param name="modelLabel">调用的模型名;历史回放时没有,那就只显示时间。</param>
+        /// <param name="at">这条回复的时刻(本地时区)。</param>
+        /// <param name="elapsed">整轮耗时;为 null 时头部不显示耗时。</param>
+        /// <param name="cancelled">这一轮是被用户按停的 —— 在头部标出来,而不是在状态行留一句话。</param>
+        public void FinishStreaming(string? modelLabel = null, DateTimeOffset? at = null, TimeSpan? elapsed = null,
+            bool cancelled = false)
         {
             // Markdown 段不需要收口:LiveMarkdown 自己会把最后一次追加渲染完
             _thinking?.SetBody(_thinkingText.ToString());
+            MarkThinkingDone();
+            // 默认本来就是收起的;这里不再强制折叠 —— 用户中途点开了就让它开着,
+            // 别在他正读的时候把内容抽走。
+
+            var head = new StringBuilder(_owner._loc["AssistantRole"]);
+            if (_steps > 0)
+            {
+                head.Append(" · ").Append(_owner._loc.F("Steps", _steps));
+            }
+            if (elapsed is { } span)
+            {
+                head.Append(" · ").Append(FormatDuration(span));
+            }
+            if (cancelled)
+            {
+                head.Append(" · ").Append(_owner._loc["Cancelled"]);
+            }
+            _header.Text = head.ToString();
+
+            if (at is not null || modelLabel is not null)
+            {
+                _stack.Children.Add(BuildFooter(modelLabel, at));
+            }
+        }
+
+        /// <summary>
+        /// 思考停了(正文或工具调用开始):定格耗时,标题从"正在思考…"换成"已思考 N 秒"。
+        /// <b>不收起</b> —— 收起是整轮结束时的事,见 <see cref="FinishStreaming" />。
+        /// </summary>
+        private void MarkThinkingDone()
+        {
+            if (_thinking is null || _thinkingElapsed is not null)
+            {
+                return;
+            }
+            _thinkingElapsed = TimeSpan.FromMilliseconds(Environment.TickCount64 - _thinkingStartedAt);
+            _thinking.SetTitle(_owner._loc.F("ThinkingDone", FormatDuration(_thinkingElapsed.Value)));
+        }
+
+        /// <summary>底部元信息条:左边"复制整段回复",右边"时间 · 模型"(不显示积分/评价)。</summary>
+        private Border BuildFooter(string? modelLabel, DateTimeOffset? at)
+        {
+            var grid = new Grid { ColumnDefinitions = [with("Auto,*,Auto")] };
+
+            var buttons = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 2 };
+            var copyIcon = new Decorator { Child = _owner.MakeIcon("Icon.copy", "VelaTextMuted", 12) };
+            var copy = new Button { Content = copyIcon };
+            _owner.ApplyThemeResource(copy, "AiGhostIconButtonTheme");
+            ToolTip.SetTip(copy, _owner._loc["CopyReply"]);
+            copy.Click += (_, _) => _owner.CopyToClipboard(_replyText.ToString(), copy, copyIcon);
+            buttons.Children.Add(copy);
+            // 重新生成只挂在<b>最后一条</b>回复上:重跑中间那条,后面的全都作废了,
+            // 与其悄悄连坐,不如让用户走"编辑上一条"这条明确的路。
+            buttons.Children.Add(_owner.IconAction("Icon.refresh-cw", _owner._loc["Regenerate"],
+                () => _ = _owner.RegenerateIfLastAsync(Root)));
+            grid.Children.Add(buttons);
+
+            var meta = new TextBlock { Classes = { "meta" } };
+            var parts = new List<string>(2);
+            if (at is { } stamp)
+            {
+                parts.Add(stamp.ToString("HH:mm"));
+            }
+            if (!string.IsNullOrWhiteSpace(modelLabel))
+            {
+                parts.Add(modelLabel);
+            }
+            meta.Text = string.Join(" · ", parts);
+            ToolTip.SetTip(meta, meta.Text);
+            Grid.SetColumn(meta, 2);
+            grid.Children.Add(meta);
+
+            return new Border { Classes = { "replyFooter" }, Child = grid };
         }
     }
+
+    /// <summary>
+    /// 把文本送进剪贴板,并让触发按钮短暂变成对勾 —— 复制这种"看不见结果"的动作
+    /// 必须给一次确认反馈,否则用户只能再点一次试试。
+    /// </summary>
+    /// <remarks>走宿主的剪贴板能力而不是 <c>TopLevel.Clipboard</c>:隔离进程里没有窗口。</remarks>
+    private void CopyToClipboard(string text, Control button, Decorator iconHost)
+    {
+        if (text.Length == 0)
+        {
+            return;
+        }
+        _ = _context.Clipboard.SetTextAsync(text);
+        iconHost.Child = MakeIcon("Icon.circle-check", "VelaStatusConnected", 12);
+        ToolTip.SetTip(button, _loc["Copied"]);
+        DispatcherTimer.RunOnce(() =>
+        {
+            iconHost.Child = MakeIcon("Icon.copy", "VelaTextMuted", 12);
+            ToolTip.SetTip(button, _loc["CopyReply"]);
+        }, TimeSpan.FromSeconds(1.6));
+    }
+
+    /// <summary>把一段时长写成人读的短形式(<c>0.8s</c> / <c>12.3s</c> / <c>1m 5s</c>)。</summary>
+    private static string FormatDuration(TimeSpan span) => span.TotalSeconds switch
+    {
+        < 60 => $"{span.TotalSeconds:0.#}s",
+        _ => $"{(int)span.TotalMinutes}m {span.Seconds}s"
+    };
 
     /// <summary>
     /// 一段流式 Markdown。追加直接进 <see cref="ObservableStringBuilder" />,由
@@ -946,6 +1584,8 @@ public partial class ChatPanelView : UserControl
             };
             // 公式控件是渲染时新建的,每次定稿后补一次颜色(见 ApplyMathColors)
             Host.RenderedTextProjectionChanged += (_, _) => owner.ApplyMathColors(Host);
+            // 回复里的链接要能点开(远端路径 = 下载下来)—— 见 OnMarkdownLinkClicked
+            Host.LinkClick += (_, e) => owner.OnMarkdownLinkClicked(e);
         }
 
         public void Append(string text) => _text.Append(text);
@@ -955,16 +1595,22 @@ public partial class ChatPanelView : UserControl
     private sealed class Collapsible
     {
         private readonly SelectableTextBlock _body;
+        private readonly TextBlock _title;
         private readonly Avalonia.Controls.Shapes.Path _chevron;
         private readonly ScrollViewer _details;
+        private bool _userToggled;
+        private bool _scrollScheduled;
 
         public Border Root { get; }
 
-        public Collapsible(ChatPanelView owner, string title)
+        /// <param name="owner">宿主面板(取图标与令牌)。</param>
+        /// <param name="title">头部文案。</param>
+        /// <param name="expanded">初始是否展开。</param>
+        public Collapsible(ChatPanelView owner, string title, bool expanded = false)
         {
             var header = new Grid
             {
-                ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*"),
+                ColumnDefinitions = [with("Auto,Auto,*")],
                 Background = Brushes.Transparent,
                 Cursor = new Cursor(StandardCursorType.Hand)
             };
@@ -980,32 +1626,70 @@ public partial class ChatPanelView : UserControl
             };
             var chevronBox = new Viewbox { Width = 10, Height = 10, Child = _chevron, Margin = new Thickness(0, 0, 5, 0), VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center };
             header.Children.Add(chevronBox);
-            var titleText = new TextBlock { Classes = { "dim" }, Text = title, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center };
-            Grid.SetColumn(titleText, 1);
-            header.Children.Add(titleText);
+            _title = new TextBlock { Classes = { "dim" }, Text = title, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center };
+            Grid.SetColumn(_title, 1);
+            header.Children.Add(_title);
 
             _body = new SelectableTextBlock { Classes = { "mono" } };
             _details = new ScrollViewer
             {
                 MaxHeight = 200,
                 Content = _body,
-                IsVisible = false,
                 Margin = new Thickness(15, 4, 0, 0)
             };
-            header.PointerPressed += (_, _) => Toggle();
+            header.PointerPressed += (_, _) =>
+            {
+                // 用户自己动过之后就别再替他开合了(整轮结束时的自动收起也不做)
+                _userToggled = true;
+                Apply(!_details.IsVisible);
+            };
 
             var stack = new StackPanel();
             stack.Children.Add(header);
             stack.Children.Add(_details);
             Root = new Border { Classes = { "toolCard" }, Child = stack };
+            Apply(expanded);
         }
 
-        public void SetBody(string text) => _body.Text = text;
-
-        private void Toggle()
+        /// <summary>
+        /// 换正文并把可视区顶到最新一行。<b>这个滚动是必须的</b>:思考区高度封顶 200,
+        /// 一旦内容超出,不滚动的话看到的永远是最开头那几行 —— 明明在流,看上去像卡住了。
+        /// 滚动排在布局之后(Background 优先级),否则此刻 Extent 还是旧的,滚不到底。
+        /// </summary>
+        public void SetBody(string text)
         {
-            _details.IsVisible = !_details.IsVisible;
-            _chevron.RenderTransform = _details.IsVisible ? new RotateTransform(90) : null;
+            _body.Text = text;
+            if (!_details.IsVisible || _scrollScheduled)
+            {
+                return;
+            }
+            _scrollScheduled = true;
+            Dispatcher.UIThread.Post(() =>
+            {
+                _scrollScheduled = false;
+                if (_details.IsVisible)
+                {
+                    _details.ScrollToEnd();
+                }
+            }, DispatcherPriority.Background);
+        }
+
+        /// <summary>换头部文案(思考结束后从"正在思考…"变成"已思考 N 秒")。</summary>
+        public void SetTitle(string title) => _title.Text = title;
+
+        /// <summary>代码驱动的展开/收起;用户自己动过之后就不再插手他的选择。</summary>
+        public void SetExpanded(bool expanded)
+        {
+            if (!_userToggled)
+            {
+                Apply(expanded);
+            }
+        }
+
+        private void Apply(bool expanded)
+        {
+            _details.IsVisible = expanded;
+            _chevron.RenderTransform = expanded ? new RotateTransform(90) : null;
         }
     }
 
@@ -1021,6 +1705,7 @@ public partial class ChatPanelView : UserControl
         private readonly ScrollViewer _details;
         private readonly Avalonia.Controls.Shapes.Path _chevron;
         private readonly string _argumentsJson;
+        private readonly string _name;
         private string _result = "";
 
         public Border Root { get; }
@@ -1028,11 +1713,12 @@ public partial class ChatPanelView : UserControl
         public ToolCard(ChatPanelView owner, string name, string argumentsJson)
         {
             _owner = owner;
+            _name = name;
             _argumentsJson = argumentsJson;
 
             var header = new Grid
             {
-                ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*,Auto"),
+                ColumnDefinitions = [with("Auto,Auto,*,Auto")],
                 Background = Brushes.Transparent,
                 Cursor = new Cursor(StandardCursorType.Hand)
             };
@@ -1087,6 +1773,9 @@ public partial class ChatPanelView : UserControl
             stack.Children.Add(_details);
             Root = new Border { Classes = { "toolCard" }, Child = stack };
         }
+
+        /// <summary>入库用的存档。</summary>
+        public ChatToolCall Snapshot() => new(_name, _argumentsJson, _result);
 
         public void Complete(string result)
         {

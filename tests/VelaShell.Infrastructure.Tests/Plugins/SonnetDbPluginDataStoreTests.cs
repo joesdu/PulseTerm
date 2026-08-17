@@ -65,7 +65,7 @@ public class SonnetDbPluginDataStoreTests
         Snapshot? snapshot = await storage.GetAsync<Snapshot>("snapshot");
         Assert.AreEqual("s1", snapshot!.Name);
         Assert.AreSequenceEqual(SnapshotValues, snapshot.Values);
-        Assert.AreSequenceEqual(CountAndSnapshotKeys, (await storage.GetKeysAsync()).ToArray(), Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
+        Assert.AreSequenceEqual(CountAndSnapshotKeys, [.. (await storage.GetKeysAsync())], Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
         Assert.IsTrue(await storage.RemoveAsync("count"));
         Assert.IsFalse(await storage.RemoveAsync("count"));
         Assert.AreEqual(0, await storage.GetAsync<int>("count"));
@@ -111,9 +111,9 @@ public class SonnetDbPluginDataStoreTests
         await _store.CreateSecrets("acme.one").SetAsync("s", "v");
         await _store.CreateStorage("acme.two").SetAsync("k", 2);
 
-        Assert.AreSequenceEqual(BothPluginIds, (await _store.ListPluginIdsAsync()).ToArray());
+        Assert.AreSequenceEqual(BothPluginIds, [.. (await _store.ListPluginIdsAsync())]);
         await _store.PurgeAsync("acme.one");
-        Assert.AreSequenceEqual(SecondPluginIdOnly, (await _store.ListPluginIdsAsync()).ToArray());
+        Assert.AreSequenceEqual(SecondPluginIdOnly, [.. (await _store.ListPluginIdsAsync())]);
         Assert.AreEqual(0, await _store.CreateStorage("acme.one").GetAsync<int>("k"));
         Assert.IsNull(await _store.CreateSecrets("acme.one").GetAsync("s"));
         Assert.AreEqual(2, await _store.CreateStorage("acme.two").GetAsync<int>("k"));

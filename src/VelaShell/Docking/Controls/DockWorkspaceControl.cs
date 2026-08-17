@@ -24,6 +24,14 @@ public sealed class DockWorkspaceControl : Panel
     private readonly List<DockSplit> _observedSplits = [];
     private readonly List<DockGroupControl> _groupControls = [];
 
+    /// <summary>
+    /// 已渲染的分栏轨道:节点 → 它那条 Column/RowDefinition。
+    /// 用来让<b>代码改比例</b>也能立刻反映到界面上 —— 比例是构建时读一次的,
+    /// 而程序性布局(如插件面板落位)总是"先动树、再定比例",顺序注定晚一步,
+    /// 没有这层订阅就只能看到均分的结果。
+    /// </summary>
+    private readonly List<(DockNode Node, DefinitionBase Definition, bool Horizontal)> _observedTracks = [];
+
     static DockWorkspaceControl()
     {
         WorkspaceProperty.Changed.AddClassHandler<DockWorkspaceControl>((control, e) => control.OnWorkspaceChanged(e));
@@ -77,12 +85,47 @@ public sealed class DockWorkspaceControl : Panel
 
     private void OnSplitChildrenChanged(object? sender, NotifyCollectionChangedEventArgs e) => Rebuild();
 
+    /// <summary>某个分栏子节点的比例被改了(代码改的;拖分割条走的是另一条路,见 SaveProportions)。</summary>
+    private void OnNodeChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(DockNode.Proportion) || sender is not DockNode node)
+        {
+            return;
+        }
+        foreach ((DockNode tracked, DefinitionBase definition, bool horizontal) in _observedTracks)
+        {
+            if (!ReferenceEquals(tracked, node))
+            {
+                continue;
+            }
+            var length = new GridLength(WeightOf(node), GridUnitType.Star);
+            if (horizontal)
+            {
+                ((ColumnDefinition)definition).Width = length;
+            }
+            else
+            {
+                ((RowDefinition)definition).Height = length;
+            }
+            return;
+        }
+    }
+
+    /// <summary>比例 → star 权重;NaN 表示与兄弟均分,下限防止一栏被压到看不见。</summary>
+    private static double WeightOf(DockNode node)
+        => double.IsNaN(node.Proportion) ? 1 : Math.Max(node.Proportion, 0.05);
+
     private void Rebuild()
     {
         foreach (DockSplit split in _observedSplits)
         {
             split.Children.CollectionChanged -= OnSplitChildrenChanged;
         }
+        foreach ((DockNode node, _, _) in _observedTracks)
+        {
+            node.PropertyChanged -= OnNodeChanged;
+        }
+        _observedTracks.Clear();
         _observedSplits.Clear();
         _groupControls.Clear();
         // 先清空:旧的组控件在脱离可视树时释放对缓存视图的引用,新宿主才能收养。
@@ -127,19 +170,22 @@ public sealed class DockWorkspaceControl : Panel
                 trackIndex++;
             }
             DockNode child = split.Children[i];
-            double weight = double.IsNaN(child.Proportion) ? 1 : Math.Max(child.Proportion, 0.05);
+            double weight = WeightOf(child);
             if (horizontal)
             {
                 var definition = new ColumnDefinition(weight, GridUnitType.Star) { MinWidth = 100 };
                 grid.ColumnDefinitions.Add(definition);
                 tracks.Add((definition, child));
+                _observedTracks.Add((child, definition, true));
             }
             else
             {
                 var definition = new RowDefinition(weight, GridUnitType.Star) { MinHeight = 60 };
                 grid.RowDefinitions.Add(definition);
                 tracks.Add((definition, child));
+                _observedTracks.Add((child, definition, false));
             }
+            child.PropertyChanged += OnNodeChanged;
             Control view = BuildNode(workspace, child);
             if (horizontal)
             {

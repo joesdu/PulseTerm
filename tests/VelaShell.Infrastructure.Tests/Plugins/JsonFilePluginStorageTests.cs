@@ -42,7 +42,7 @@ public class JsonFilePluginStorageTests
         Assert.IsNull(await storage.GetAsync<string>("missing"));
         Assert.IsTrue(await storage.RemoveAsync("count"));
         Assert.IsFalse(await storage.RemoveAsync("count"));
-        Assert.AreSequenceEqual(NameKeyOnly, (await storage.GetKeysAsync()).ToArray(), Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
+        Assert.AreSequenceEqual(NameKeyOnly, [.. (await storage.GetKeysAsync())], Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
     }
 
     [TestMethod]

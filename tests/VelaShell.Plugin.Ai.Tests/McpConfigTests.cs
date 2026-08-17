@@ -15,20 +15,20 @@ public sealed class McpConfigTests
     public void SplitArguments_SplitsOnWhitespace()
     {
         Assert.AreSequenceEqual(
-            FilesystemServerArgs, McpConfigParser.SplitArguments("-y  @modelcontextprotocol/server-filesystem   C:\\data").ToArray());
+            FilesystemServerArgs, [.. McpConfigParser.SplitArguments("-y  @modelcontextprotocol/server-filesystem   C:\\data")]);
     }
 
     [TestMethod]
     public void SplitArguments_QuotesPreserveSpaces_AndDoubledQuoteEscapes()
     {
         Assert.AreSequenceEqual(
-            QuotedArgs, McpConfigParser.SplitArguments("--root \"C:\\My Files\\docs\" \"a\"\"b\"").ToArray());
+            QuotedArgs, [.. McpConfigParser.SplitArguments("--root \"C:\\My Files\\docs\" \"a\"\"b\"")]);
     }
 
     [TestMethod]
     public void SplitArguments_EmptyQuotes_YieldEmptyToken()
     {
-        Assert.AreSequenceEqual(SingleEmptyToken, McpConfigParser.SplitArguments("\"\"").ToArray());
+        Assert.AreSequenceEqual(SingleEmptyToken, [.. McpConfigParser.SplitArguments("\"\"")]);
         Assert.IsEmpty(McpConfigParser.SplitArguments("   "));
         Assert.IsEmpty(McpConfigParser.SplitArguments(null));
     }
@@ -104,5 +104,24 @@ public sealed class McpConfigTests
         Assert.AreEqual(McpTransportType.Http, loaded.McpServers[1].Transport);
         Assert.IsFalse(loaded.McpServers[1].Enabled);
         Assert.AreEqual("https://example.com/mcp", loaded.McpServers[1].Url);
+    }
+
+    /// <summary>
+    /// 工作目录:空 = ~/.velashell/mcp(与日志同一棵树);~ 前缀按主目录展开(Process.Start 不认 ~,
+    /// 原样传下去就是 "目录名称无效");相对路径挂在默认目录下;绝对路径原样。
+    /// </summary>
+    [TestMethod]
+    public void McpWorkspace_Resolve_DefaultsToDotVelashellMcp_AndExpandsTilde()
+    {
+        string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        string dot = Path.Combine(home, ".velashell", "mcp");
+
+        Assert.AreEqual(dot, McpWorkspace.Resolve(null));
+        Assert.AreEqual(dot, McpWorkspace.Resolve("   "));
+        Assert.AreEqual(home, McpWorkspace.Resolve("~"));
+        Assert.AreEqual(Path.GetFullPath(Path.Combine(home, "work", "mcp")), McpWorkspace.Resolve("~/work/mcp"));
+        Assert.AreEqual(Path.GetFullPath(Path.Combine(dot, "xmind")), McpWorkspace.Resolve("xmind"), "相对路径挂在默认目录下");
+        string absolute = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "mcp-abs"));
+        Assert.AreEqual(absolute, McpWorkspace.Resolve(absolute));
     }
 }

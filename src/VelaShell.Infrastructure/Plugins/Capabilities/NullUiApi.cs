@@ -20,9 +20,10 @@ internal sealed class NullUiApi(IPluginLogger log) : IUiApi
         public string PanelId { get; } = Guid.NewGuid().ToString("N");
         public bool IsOpen => false;
         public event Action? Closed { add { } remove { } }
-        public Task CloseAsync() => Task.CompletedTask;
-
+        public double PlacementRatio => double.NaN;
+        public event Action<double>? PlacementRatioChanged { add { } remove { } }
         public Task ActivateAsync() => Task.CompletedTask;
+        public Task CloseAsync() => Task.CompletedTask;
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 }

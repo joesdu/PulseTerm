@@ -4,6 +4,7 @@
              xmlns:aee="clr-namespace:AvaloniaEdit.Editing;assembly=AvaloniaEdit"
              xmlns:md="clr-namespace:LiveMarkdown.Avalonia;assembly=LiveMarkdown.Avalonia"
              xmlns:mdm="clr-namespace:LiveMarkdown.Avalonia;assembly=LiveMarkdown.Avalonia.Mermaid"
+             xmlns:ui="clr-namespace:VelaShell.Plugin.Ai.Ui"
              x:Class="VelaShell.Plugin.Ai.Ui.ChatPanelView">
 
   <!-- 视觉语言对齐宿主(DESIGN.md §5.1):主操作 = VelaAccentPillButtonTheme 强调药丸,
@@ -31,15 +32,76 @@
          装载方一定并过 —— 自己带上,面板在哪儿都能正常成型。 -->
     <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" />
 
+    <!-- 弱化文字统一用 VelaTextTertiary 而不是 VelaTextMuted:Muted(#545B76)压在
+         面板底色上对比度太低,这些是"要读的信息"(思考区标题、时刻、模型、用量),
+         不是纯装饰,不该淡到看不清。 -->
     <Style Selector="TextBlock.dim">
       <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
-      <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextTertiary}" />
     </Style>
     <Style Selector="TextBlock.roleHeader">
-      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
       <Setter Property="FontWeight" Value="SemiBold" />
-      <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextTertiary}" />
       <Setter Property="Margin" Value="0,0,0,4" />
+    </Style>
+    <!-- 输入框的占位提示:字号贴近正文(13),免得比要输入的内容小一大截 -->
+    <Style Selector="TextBlock.placeholder">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize12}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextTertiary}" />
+    </Style>
+
+    <!-- 消息上的编辑/删除:平时隐形,鼠标移到这条消息上才浮出来 -->
+    <Style Selector="StackPanel.msgActions">
+      <Setter Property="Opacity" Value="0" />
+      <Setter Property="IsHitTestVisible" Value="False" />
+    </Style>
+    <Style Selector="Border.msg:pointerover StackPanel.msgActions">
+      <Setter Property="Opacity" Value="1" />
+      <Setter Property="IsHitTestVisible" Value="True" />
+    </Style>
+
+    <!-- 上下文压缩的分隔条:从这里往上,模型看到的是摘要而不是原文,得让人看得见 -->
+    <Style Selector="Border.compactionMarker">
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaAccent}" />
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+      <Setter Property="Padding" Value="0,0,0,6" />
+      <Setter Property="Margin" Value="0,4" />
+    </Style>
+
+    <!-- "显示更早的 N 条":早期消息被移出可视树后留下的入口 -->
+    <Style Selector="Border.earlierBanner">
+      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderSecondary}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Padding" Value="10,5" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.earlierBanner:pointerover">
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaAccent}" />
+    </Style>
+
+    <!-- 输入框上方的建议药丸(同 Copilot 的后续提问):整枚可点,悬停换强调描边 -->
+    <Style Selector="Border.suggestChip">
+      <Setter Property="Background" Value="{DynamicResource VelaBgSurface}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="11" />
+      <Setter Property="Padding" Value="10,3" />
+      <Setter Property="Margin" Value="0,0,6,6" />
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Border.suggestChip:pointerover">
+      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaAccent}" />
+    </Style>
+    <Style Selector="Border.suggestChip TextBlock">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
+    </Style>
+    <Style Selector="Border.suggestChip:pointerover TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
     </Style>
     <Style Selector="SelectableTextBlock.body">
       <Setter Property="FontSize" Value="{DynamicResource VelaFontSize13}" />
@@ -121,13 +183,14 @@
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
-    <!-- 输入容器:仿宿主 Border.input-affix(悬停换次描边、聚焦换强调描边) -->
+    <!-- 输入容器:仿宿主 Border.input-affix(悬停换次描边、聚焦换强调描边)。
+         高度取自内部编辑器的 MinHeight —— 与 Copilot 一致,输入区默认就有几行的余量,
+         写多行提示词不必先撑开。 -->
     <Style Selector="Border.inputWrap">
       <Setter Property="Background" Value="{DynamicResource VelaBgInput}" />
       <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="4" />
-      <Setter Property="MinHeight" Value="34" />
     </Style>
     <Style Selector="Border.inputWrap:pointerover">
       <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderSecondary}" />
@@ -332,6 +395,51 @@
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
+    <!-- 回复气泡底部的元信息条(时间 · 模型)与复制按钮所在行:
+         一条细分隔线把它与正文隔开,文字压到最小号且用弱化色 —— 只在需要时才被看见。 -->
+    <Style Selector="Border.replyFooter">
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderSecondary}" />
+      <Setter Property="BorderThickness" Value="0,1,0,0" />
+      <Setter Property="Margin" Value="0,6,0,0" />
+      <Setter Property="Padding" Value="0,4,0,0" />
+    </Style>
+    <!-- 时刻 · 模型 / token 用量:是要看的数,给次级文字色 + 11 号,别糊在背景里 -->
+    <Style Selector="TextBlock.meta">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+      <Setter Property="TextWrapping" Value="NoWrap" />
+    </Style>
+
+    <!-- 输入框下方的工具条:模型选择 / Agent 开关 / 用量。控件统一 24 高并垂直居中
+         (同顶栏的理由:混用自然高度会错开中线,勾选随 Agent 显隐时还会撑高整行)。 -->
+    <Style Selector="Grid#InputToolbar ComboBox">
+      <Setter Property="MinHeight" Value="24" />
+      <Setter Property="Height" Value="24" />
+      <Setter Property="Padding" Value="8,0,0,0" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+    </Style>
+    <!-- 这一行的高度必须与内容无关:审批选择器只在带工具的模式下出现,行一变高整个输入区就会跳。
+         行高写死,里头的下拉也跟着写死同一高度(MinHeight 得压过主题里的 26)。 -->
+    <Style Selector="Grid#InputStatusBar">
+      <Setter Property="Height" Value="20" />
+    </Style>
+    <Style Selector="Grid#InputStatusBar ComboBox">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Height" Value="20" />
+      <Setter Property="Padding" Value="6,0,0,0" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Grid#InputToolbar ToggleButton">
+      <Setter Property="Height" Value="24" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
     <!-- 顶栏所有控件统一 26 高并显式垂直居中:混用自然高度(Fluent 下拉 30+、
          勾选 32)会导致不在同一中线,且勾选随 Agent 开关显隐时撑高整行造成跳动。 -->
     <Style Selector="Grid#TopBar ComboBox">
@@ -358,22 +466,12 @@
   </UserControl.Styles>
 
   <DockPanel Margin="10">
-    <!-- 顶栏:接入 / 会话 / Agent 开关 | 新会话 / 设置 -->
+    <!-- 顶栏:会话(SSH)| 历史 / 新会话 / 设置。
+         模型选择与 Agent 开关不在这里 —— 它们跟着输入框走(见下方 InputToolbar),
+         与 GitHub Copilot 一致:决定"这条消息怎么发"的东西,应当挨着输入框。 -->
     <Grid x:Name="TopBar" DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
       <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-        <ComboBox x:Name="ProviderCombo" MinWidth="150" MaxWidth="240" />
-        <ComboBox x:Name="SessionCombo" MinWidth="110" MaxWidth="200" />
-        <ToggleButton x:Name="AgentToggle" Theme="{StaticResource AiChipToggleTheme}">
-          <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
-            <Viewbox Width="11" Height="11" VerticalAlignment="Center">
-              <Path Width="24" Height="24" Data="{DynamicResource Icon.zap}"
-                    Stroke="{Binding $parent[ToggleButton].Foreground}" StrokeThickness="2"
-                    StrokeLineCap="Round" StrokeJoin="Round" />
-            </Viewbox>
-            <TextBlock x:Name="AgentText" VerticalAlignment="Center" />
-          </StackPanel>
-        </ToggleButton>
-        <CheckBox x:Name="AutoApproveCheck" Theme="{StaticResource AiCheckBoxTheme}" IsVisible="False" />
+        <ComboBox x:Name="SessionCombo" MinWidth="110" MaxWidth="240" />
       </StackPanel>
       <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
         <ToggleButton x:Name="HistoryToggle" Theme="{StaticResource AiChipToggleTheme}" Width="30" Padding="0">
@@ -393,21 +491,47 @@
             <TextBlock x:Name="NewChatText" VerticalAlignment="Center" />
           </StackPanel>
         </Button>
-        <ToggleButton x:Name="SettingsToggle" Theme="{StaticResource AiChipToggleTheme}" Width="30" Padding="0">
+        <!-- 配置工具:勾选哪些内置/MCP 工具暴露给模型(独立窗口) -->
+        <Button x:Name="ToolsButton" Theme="{DynamicResource VelaOutlineButtonTheme}" Height="26" Width="30" Padding="0">
           <Viewbox Width="13" Height="13">
-            <Path Width="24" Height="24" Data="{DynamicResource Icon.settings}"
-                  Stroke="{Binding $parent[ToggleButton].Foreground}" StrokeThickness="2"
+            <Path Width="24" Height="24" Data="{DynamicResource Icon.sliders-horizontal}"
+                  Stroke="{DynamicResource VelaTextSecondary}" StrokeThickness="2"
                   StrokeLineCap="Round" StrokeJoin="Round" />
           </Viewbox>
-        </ToggleButton>
+        </Button>
+        <!-- 设置:独立窗口(以前是挤在面板中间和聊天流三选一) -->
+        <Button x:Name="SettingsButton" Theme="{DynamicResource VelaOutlineButtonTheme}" Height="26" Width="30" Padding="0">
+          <Viewbox Width="13" Height="13">
+            <Path Width="24" Height="24" Data="{StaticResource AiIcon.brain}"
+                  Stroke="{DynamicResource VelaTextSecondary}" StrokeThickness="2"
+                  StrokeLineCap="Round" StrokeJoin="Round" />
+          </Viewbox>
+        </Button>
       </StackPanel>
     </Grid>
 
-    <!-- 底部:输入容器(内嵌 发送/停止),状态行悬于其上。
+    <!-- 最下沿的一条细行(同 Copilot 输入框下方那排):左边是 Agent 的审批模式,
+         右边是 token 用量。放在容器外而不是工具条里,是为了不跟模型下拉抢那点宽度。 -->
+    <Grid x:Name="InputStatusBar" DockPanel.Dock="Bottom" ColumnDefinitions="*,Auto" Margin="2,5,2,0">
+      <!-- 审批方式:默认审批 / 只读放行 / 绕过审批(只在有工具的模式下才有意义) -->
+      <ComboBox x:Name="ApprovalCombo" IsVisible="False" MinWidth="96" />
+      <!-- 命中缓存时这段会长一截(多一个"缓存 80%"),留够宽度;再长由 TextTrimming 收,
+           完整明细本来就在悬停提示里。 -->
+      <TextBlock x:Name="UsageText" Grid.Column="1" Classes="meta" MaxWidth="320" Margin="8,0,0,0" />
+    </Grid>
+
+    <!-- 输入容器 = 编辑区 + 其下的工具条(模型选择 / Agent / 发送),状态行悬于其上。
+         工具条与编辑区同处一个描边容器内,是 GitHub Copilot 的做法 —— 这些开关属于"这一条消息",
+         视觉上就该被输入框圈进去,而不是散在顶栏。
          @ 文件选择弹层挂在输入容器上沿:焦点始终留在输入框(弹层不接管键盘),
          上下键与回车由 OnInputKeyDown 在隧道阶段代为处理。 -->
-    <Border x:Name="InputWrap" DockPanel.Dock="Bottom" Classes="inputWrap" Margin="0,8,0,0">
-      <Grid ColumnDefinitions="*,Auto">
+    <!-- 输入容器外再套一层 Panel:流光是<b>盖在</b>边框上画的一层覆盖物(不吃命中测试、
+         不参与布局),底下那圈边框仍旧由样式管颜色。 -->
+    <Panel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+    <Border x:Name="InputWrap" Classes="inputWrap">
+      <!-- 两行都是 Auto:容器高度由编辑器的 MinHeight/MaxHeight 决定(内容多了自己长,
+           到 220 封顶后编辑器内部滚动),工具条永远贴在下沿。 -->
+      <Grid RowDefinitions="Auto,Auto">
         <Popup x:Name="FilePopup" Placement="TopEdgeAlignedLeft" VerticalOffset="-4"
                IsLightDismissEnabled="True" Focusable="False">
           <Border Background="{DynamicResource VelaBgSurface}"
@@ -425,43 +549,58 @@
         <Panel>
           <ae:TextEditor x:Name="InputBox"
                          WordWrap="True"
-                         MaxHeight="120"
+                         MinHeight="66"
+                         MaxHeight="220"
                          ShowLineNumbers="False"
                          HorizontalScrollBarVisibility="Disabled"
                          VerticalScrollBarVisibility="Auto" />
-          <TextBlock x:Name="InputPlaceholder" Classes="dim"
+          <TextBlock x:Name="InputPlaceholder" Classes="placeholder"
                      Margin="12,8" IsHitTestVisible="False"
-                     VerticalAlignment="Top" />
+                     VerticalAlignment="Top" TextWrapping="Wrap" />
         </Panel>
-        <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,0,5,0" VerticalAlignment="Bottom" Height="34">
-          <Button x:Name="SendButton" Theme="{DynamicResource VelaAccentPillButtonTheme}"
-                  Height="24" Padding="10,0" VerticalAlignment="Center">
-            <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
-              <Viewbox Width="11" Height="11" VerticalAlignment="Center">
+
+        <!-- 只放"发这一条要用什么":模型 / Agent / 发送。模型那列是 * —— 面板收窄时
+             先挤模型名(下拉里仍看得全),而不是把发送按钮挤出边界。 -->
+        <Grid x:Name="InputToolbar" Grid.Row="1" ColumnDefinitions="Auto,*,Auto,Auto" Margin="6,0,5,5">
+          <Button x:Name="AttachButton" Theme="{StaticResource AiGhostIconButtonTheme}" Margin="0,0,4,0">
+            <Viewbox Width="13" Height="13">
+              <Path Width="24" Height="24" Data="{DynamicResource Icon.plus}"
+                    Stroke="{DynamicResource VelaTextMuted}" StrokeThickness="2"
+                    StrokeLineCap="Round" StrokeJoin="Round" />
+            </Viewbox>
+          </Button>
+          <ComboBox x:Name="ProviderCombo" Grid.Column="1" MaxWidth="230" HorizontalAlignment="Left" />
+          <!-- 对话模式:纯对话 / 计划 / Agent(对齐 Copilot 的模式选择) -->
+          <ComboBox x:Name="ModeCombo" Grid.Column="2" Margin="6,0,0,0" MinWidth="88" />
+          <StackPanel Grid.Column="3" Orientation="Horizontal" Margin="8,0,0,0" VerticalAlignment="Center">
+            <Button x:Name="SendButton" Theme="{DynamicResource VelaAccentPillButtonTheme}"
+                    Height="24" Width="34" Padding="0">
+              <Viewbox Width="12" Height="12">
                 <Path Width="24" Height="24" Data="{DynamicResource Icon.send}"
                       Stroke="{DynamicResource VelaAccent}" StrokeThickness="2"
                       StrokeLineCap="Round" StrokeJoin="Round" />
               </Viewbox>
-              <TextBlock x:Name="SendText" VerticalAlignment="Center"
-                         FontSize="{DynamicResource VelaFontSize11}" FontWeight="Medium" />
-            </StackPanel>
-          </Button>
-          <Button x:Name="StopButton" Theme="{DynamicResource VelaOutlineButtonTheme}"
-                  Height="24" Padding="10,0" VerticalAlignment="Center" IsVisible="False"
-                  Foreground="{DynamicResource VelaError}" BorderBrush="{DynamicResource VelaError}">
-            <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
-              <Viewbox Width="10" Height="10" VerticalAlignment="Center">
+            </Button>
+            <Button x:Name="StopButton" Theme="{DynamicResource VelaOutlineButtonTheme}"
+                    Height="24" Width="34" Padding="0" IsVisible="False"
+                    Foreground="{DynamicResource VelaError}" BorderBrush="{DynamicResource VelaError}">
+              <Viewbox Width="11" Height="11">
                 <Path Width="24" Height="24" Data="{DynamicResource Icon.square}"
                       Stroke="{DynamicResource VelaError}" StrokeThickness="2"
                       StrokeLineCap="Round" StrokeJoin="Round" />
               </Viewbox>
-              <TextBlock x:Name="StopText" VerticalAlignment="Center"
-                         FontSize="{DynamicResource VelaFontSize11}" FontWeight="Medium" />
-            </StackPanel>
-          </Button>
-        </StackPanel>
+            </Button>
+          </StackPanel>
+        </Grid>
       </Grid>
     </Border>
+      <ui:BorderGlowOverlay x:Name="InputGlow" IsHitTestVisible="False" />
+    </Panel>
+    <!-- 建议药丸:紧贴输入框上沿(声明顺序 = 由下往上排,故排在 InputWrap 之后、状态行之前)。
+         空会话给几条起手提示(不花钱),一轮答完再由模型给后续提问。 -->
+    <!-- 待发的本地附件(拖进来或 + 选的),点芯片可移除 -->
+    <WrapPanel x:Name="AttachmentBar" DockPanel.Dock="Bottom" IsVisible="False" Margin="2,6,2,0" />
+    <WrapPanel x:Name="SuggestionBar" DockPanel.Dock="Bottom" IsVisible="False" Margin="2,6,2,0" />
     <TextBlock x:Name="StatusText" DockPanel.Dock="Bottom" Classes="dim" Margin="2,6,2,0" TextWrapping="Wrap" />
 
     <!-- 中部:消息流 / 设置页(二选一显示)。
@@ -471,7 +610,6 @@
       <ScrollViewer x:Name="ChatScroll" HorizontalScrollBarVisibility="Disabled">
         <StackPanel x:Name="MessagesPanel" Spacing="8" Margin="5,4,19,4" />
       </ScrollViewer>
-      <ContentControl x:Name="SettingsHost" IsVisible="False" />
       <!-- 历史会话:与聊天流/设置页三选一显示 -->
       <DockPanel x:Name="HistoryHost" IsVisible="False" Margin="5,4,19,4">
         <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,6">
@@ -479,6 +617,9 @@
           <Button x:Name="ClearHistoryButton" Grid.Column="1" Theme="{DynamicResource VelaOutlineButtonTheme}"
                   Height="24" Padding="10,0" FontSize="{DynamicResource VelaFontSize11}" />
         </Grid>
+        <!-- 按标题搜索(本地筛已取回的摘要,不重复查库) -->
+        <TextBox x:Name="HistorySearchBox" DockPanel.Dock="Top" Margin="0,0,0,6"
+                 MinHeight="26" FontSize="{DynamicResource VelaFontSize12}" />
         <ScrollViewer HorizontalScrollBarVisibility="Disabled">
           <StackPanel x:Name="HistoryList" Spacing="4" />
         </ScrollViewer>

@@ -14,6 +14,29 @@ public enum PanelDisplayMode
     Window
 }
 
+/// <summary>
+/// 停靠文档的初始落位。等价于"打开后立刻拖到某一侧" —— 用的就是拖放停靠那条路径,
+/// 因此落位后的一切(拖回去、拆分、关闭)与用户手动拖出来的分栏完全一致。
+/// 仅 <see cref="PanelDisplayMode.Document" /> 有意义;窗口模式忽略。
+/// </summary>
+public enum PanelPlacement
+{
+    /// <summary>并入当前标签组,成为一个新标签(默认)。</summary>
+    Tabs,
+
+    /// <summary>在标签区最右侧拆出一栏(VSCode 里 Copilot 聊天面板的位置)。</summary>
+    Right,
+
+    /// <summary>在标签区最左侧拆出一栏。</summary>
+    Left,
+
+    /// <summary>在标签区底部拆出一栏。</summary>
+    Bottom,
+
+    /// <summary>在标签区顶部拆出一栏。</summary>
+    Top
+}
+
 /// <summary>打开面板的选项。</summary>
 public sealed record PanelOptions
 {
@@ -23,12 +46,42 @@ public sealed record PanelOptions
     /// <summary>呈现方式,默认停靠文档。</summary>
     public PanelDisplayMode DisplayMode { get; init; } = PanelDisplayMode.Document;
 
+    /// <summary>停靠文档的初始落位,默认并入当前标签组;窗口模式忽略。</summary>
+    public PanelPlacement Placement { get; init; } = PanelPlacement.Tabs;
+
+    /// <summary>
+    /// 侧边落位时这一栏初始占标签区的比例(0.15–0.85,超界自动夹取),默认 0.3。
+    /// <see cref="PanelPlacement.Tabs" /> 与窗口模式忽略。
+    /// </summary>
+    /// <remarks>
+    /// 只是"打开时多宽";之后用户拖分割条随时可改,宿主也不会把这个值写回去。
+    /// 插件若想记住用户偏好,自己存一份再在下次打开时传进来。
+    /// </remarks>
+    public double PlacementRatio { get; init; } = 0.3;
+
     /// <summary>窗口模式的初始宽度(逻辑像素),文档模式忽略。</summary>
     public double WindowWidth { get; init; } = 520;
 
     /// <summary>窗口模式的初始高度(逻辑像素),文档模式忽略。</summary>
     public double WindowHeight { get; init; } = 420;
+
+    /// <summary>
+    /// 窗口模式下摆在标题栏、紧挨最小化键左侧的动作按钮(按给出的顺序从左到右),文档模式忽略。
+    /// 与主窗体标题栏那排工具按钮同一套版式;用于"这个窗口的附属设置"之类不值得占内容区的入口。
+    /// </summary>
+    public IReadOnlyList<PanelTitleAction> TitleActions { get; init; } = [];
 }
+
+/// <summary>
+/// 窗口标题栏上的一个动作按钮。
+/// </summary>
+/// <param name="IconPathData">
+/// 图标的 SVG 路径数据(24×24 视框、描边风格,即 lucide 那套),宿主按标题栏字号缩放描边。
+/// 传路径而不是资源键:隔离进程里没有宿主的 <c>Icon.*</c> 资源字典。
+/// </param>
+/// <param name="ToolTip">悬停提示。</param>
+/// <param name="OnClick">点击回调(UI 线程)。</param>
+public sealed record PanelTitleAction(string IconPathData, string ToolTip, Action OnClick);
 
 /// <summary>
 /// 一个已打开的插件面板句柄:纯生命周期。内容是插件自己的 Avalonia 控件,
@@ -45,19 +98,28 @@ public interface IPluginPanel : IAsyncDisposable
     /// <summary>面板已关闭(用户关闭、插件关闭或插件停用),只触发一次。</summary>
     event Action? Closed;
 
-    /// <summary>程序性关闭面板(幂等,任意线程可调)。</summary>
-    Task CloseAsync();
+    /// <summary>
+    /// 用户拖分割条改完这一栏的宽度后触发,参数是新的比例(占所在分栏的 0–1)。
+    /// </summary>
+    /// <remarks>
+    /// <b>拖动结束才触发一次</b>,不是拖动过程中连续触发 —— 调用方可以直接落盘,不必自己防抖。
+    /// 仅 <see cref="PanelDisplayMode.Document" /> 有意义;窗口形态永不触发。
+    /// 插件想"记住用户拖出来的宽度"就订阅它,下次打开把值经
+    /// <see cref="PanelOptions.PlacementRatio" /> 传回来。
+    /// </remarks>
+    event Action<double>? PlacementRatioChanged;
 
     /// <summary>
-    /// 把面板带到前台(窗口形态:还原最小化并激活;文档形态:切到该标签页)。
-    /// 幂等,任意线程可调;面板已关闭时是空操作。
-    /// <para>
-    /// 插件对"同一目标重复触发"的惯例做法是聚焦已开的那一扇而不是再开一扇 ——
-    /// 但同尺寸的 CenterOwner 窗口会像素级盖住前一扇、最小化后更是完全看不见,
-    /// 只 <c>return</c> 的话用户会以为点了没反应。
-    /// </para>
+    /// 把面板带到眼前:窗口形态激活并置前,停靠文档形态选中那个标签。
+    /// 面板已关闭时什么也不做。任意线程可调。
     /// </summary>
+    /// <remarks>
+    /// 用于"这个面板已经开着了"的场景 —— 再开一个重复的不对,什么都不做又像是按钮坏了。
+    /// </remarks>
     Task ActivateAsync();
+
+    /// <summary>程序性关闭面板(幂等,任意线程可调)。</summary>
+    Task CloseAsync();
 }
 
 /// <summary>

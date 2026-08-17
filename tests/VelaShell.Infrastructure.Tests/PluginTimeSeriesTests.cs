@@ -147,7 +147,7 @@ public sealed class PluginTimeSeriesTests : IDisposable
 
         await series.DeleteAsync();
         Assert.IsEmpty(await series.QueryAsync(new()));
-        Assert.Contains("chat_messages", (await api.ListAsync()).ToArray(), "清空数据不应删掉 measurement 本身");
+        Assert.Contains("chat_messages", [.. (await api.ListAsync())], "清空数据不应删掉 measurement 本身");
     }
 
     [TestMethod]
@@ -171,7 +171,7 @@ public sealed class PluginTimeSeriesTests : IDisposable
         var store = new SonnetDbPluginDataStore(_engine, null);
         ITimeSeries series = await store.CreateTimeSeries("velashell.ai").OpenAsync(ChatDefinition);
         await series.WriteAsync(Message(DateTimeOffset.UtcNow, "c1", 0, "user", "x"));
-        Assert.Contains("velashell.ai", (await store.ListPluginIdsAsync()).ToArray(),
+        Assert.Contains("velashell.ai", [.. (await store.ListPluginIdsAsync())],
             "只用过时序的插件也要出现在扫描里,否则卸载后清不掉");
 
         await store.PurgeAsync("velashell.ai");

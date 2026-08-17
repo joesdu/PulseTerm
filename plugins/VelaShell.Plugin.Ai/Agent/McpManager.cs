@@ -30,10 +30,10 @@ public sealed class McpManager(IPluginContext context) : IAsyncDisposable
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     /// <summary>危险操作审批(与 AgentToolbox 共用同一交互)。未设置视为拒绝。</summary>
-    public Func<string, Task<bool>>? ApprovalHandler { get; set; }
+    public Func<ApprovalRequest, Task<bool>>? ApprovalHandler { get; set; }
 
-    /// <summary>免审批开关(跟随用户的 Auto-approve 设置)。</summary>
-    public bool AutoApprove { get; set; }
+    /// <summary>审批方式(与内置工具共用同一设置)。</summary>
+    public ApprovalMode Approval { get; set; } = ApprovalMode.Ask;
 
     /// <summary>
     /// 汇集全部启用服务器的工具。逐服务器容错:单个失败不影响其余,
@@ -110,13 +110,37 @@ public sealed class McpManager(IPluginContext context) : IAsyncDisposable
 
     /// <summary>设置页"测试":临时连接,返回工具名列表后即断开。</summary>
     public static async Task<IReadOnlyList<string>> ProbeAsync(McpServerConfig server, CancellationToken cancellationToken)
+        => [.. (await RefreshToolsAsync(server, cancellationToken).ConfigureAwait(false)).Select(t => t.Name)];
+
+    /// <summary>
+    /// "更新工具库":连上去把这台服务器现在提供的工具列回来(名称 + 说明 + 只读注解)。
+    /// 调用方负责写回 <see cref="McpServerConfig.KnownTools" /> —— 缓存下来,
+    /// "配置工具"窗口才能在不连网的情况下列出勾选项。
+    /// </summary>
+    public static async Task<IReadOnlyList<McpToolInfo>> RefreshToolsAsync(McpServerConfig server,
+        CancellationToken cancellationToken)
     {
         (McpClient client, IList<McpClientTool> tools) = await Task.Run(
             () => ConnectAsync(server, cancellationToken), cancellationToken).ConfigureAwait(false);
         await using (client.ConfigureAwait(false))
         {
-            return tools.Select(t => t.Name).ToList();
+            return
+            [
+                .. tools.Select(t => new McpToolInfo
+                {
+                    Name = t.Name,
+                    Description = Shorten(t.Description),
+                    ReadOnly = t.ProtocolTool.Annotations?.ReadOnlyHint == true
+                })
+            ];
         }
+    }
+
+    /// <summary>工具说明只用于界面上那一行,过长没有意义。</summary>
+    private static string Shorten(string? description)
+    {
+        string text = (description ?? "").ReplaceLineEndings(" ").Trim();
+        return text.Length <= 120 ? text : text[..120] + "…";
     }
 
     /// <summary>断开全部连接(面板关闭时调用)。</summary>
@@ -186,7 +210,8 @@ public sealed class McpManager(IPluginContext context) : IAsyncDisposable
             // npx/uvx 等脚本命令的 Windows cmd 包装由 SDK 处理
             Command = server.Command.Trim(),
             Arguments = McpConfigParser.SplitArguments(server.Arguments),
-            WorkingDirectory = string.IsNullOrWhiteSpace(server.WorkingDirectory) ? null : server.WorkingDirectory.Trim(),
+            // 空 = ~/.velashell;~ 要在这儿展开,Process.Start 不认它(见 McpWorkspace)
+            WorkingDirectory = McpWorkspace.ResolveAndEnsure(server.WorkingDirectory),
             EnvironmentVariables = env.Count > 0 ? env : null,
             Name = DisplayName(server)
         });
@@ -199,8 +224,16 @@ public sealed class McpManager(IPluginContext context) : IAsyncDisposable
     private void CollectTools(List<AITool> sink, HashSet<string> usedNames, McpServerConfig server, IList<McpClientTool> tools)
     {
         string prefix = McpConfigParser.SanitizeToolPrefix(server.Name);
+        HashSet<string> disabled = new(
+            server.DisabledTools.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+            StringComparer.OrdinalIgnoreCase);
         foreach (McpClientTool tool in tools)
         {
+            // 用户屏蔽掉的工具直接不给模型看见:工具太多既占上下文又容易被误调
+            if (disabled.Contains(tool.Name))
+            {
+                continue;
+            }
             string name = $"{prefix}_{tool.Name}";
             if (name.Length > 64)
             {
@@ -242,15 +275,19 @@ public sealed class McpManager(IPluginContext context) : IAsyncDisposable
     {
         protected override async ValueTask<object?> InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
         {
-            if (!owner.AutoApprove)
+            // 只读放行只认得内置的 run_command;MCP 这边不做猜测 —— 服务器自己声明的
+            // readOnlyHint 已经在 CollectTools 里筛过一遍,能走到这儿的都是可能改状态的。
+            if (owner.Approval != ApprovalMode.Bypass)
             {
                 if (owner.ApprovalHandler is not { } handler)
                 {
                     return "No approval channel available; the call was not executed.";
                 }
-                string summary = $"mcp:{serverName} · {Name}: {SerializeArguments(arguments)}";
+                // 记忆键到"服务器 + 工具名"为止:同一个工具会被反复调用,但换工具仍要点头
+                var request = new ApprovalRequest($"mcp:{serverName} · {Name}", SerializeArguments(arguments),
+                    $"mcp:{serverName}:{Name}");
                 // 用户点停止时不再傻等审批
-                if (!await handler(summary).WaitAsync(cancellationToken).ConfigureAwait(false))
+                if (!await handler(request).WaitAsync(cancellationToken).ConfigureAwait(false))
                 {
                     return "The user DENIED this MCP tool call. Do not retry it; ask the user how to proceed.";
                 }

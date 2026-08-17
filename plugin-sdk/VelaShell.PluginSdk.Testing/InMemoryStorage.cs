@@ -9,7 +9,7 @@ namespace VelaShell.PluginSdk.Testing;
 /// </summary>
 public sealed class InMemoryStorage : IPluginStorage
 {
-    private readonly Dictionary<string, JsonElement> _entries = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, JsonElement> _entries = [with(StringComparer.Ordinal)];
     private readonly Lock _gate = new();
 
     /// <inheritdoc />

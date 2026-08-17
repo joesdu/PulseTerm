@@ -39,6 +39,24 @@ public partial class PluginPanelWindow : Window
         SubtitleText.Text = pluginId;
     }
 
+    /// <summary>
+    /// 把插件声明的标题栏动作按钮插到最小化键左侧(按给出的顺序)。
+    /// 与三连按钮同一套 caption 样式,只是图标换成插件给的路径、悬停带提示。
+    /// </summary>
+    public void SetTitleActions(IReadOnlyList<PluginSdk.Ui.PanelTitleAction> actions)
+    {
+        for (int i = 0; i < actions.Count; i++)
+        {
+            PluginSdk.Ui.PanelTitleAction action = actions[i];
+            var icon = new Controls.Controls.LucideIcon { Width = 12, Height = 12, Data = StreamGeometry.Parse(action.IconPathData) };
+            icon.Bind(Controls.Controls.LucideIcon.ForegroundProperty, this.GetResourceObservable("VelaTextSecondary"));
+            var button = new Button { Classes = { "caption" }, Content = icon };
+            ToolTip.SetTip(button, action.ToolTip);
+            button.Click += (_, _) => action.OnClick();
+            CaptionButtons.Children.Insert(i, button);
+        }
+    }
+
     private void Header_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)

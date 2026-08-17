@@ -7,13 +7,13 @@ namespace VelaShell.PluginSdk.Testing;
 /// </summary>
 public sealed class RecordingCommands : ICommandsApi
 {
-    private readonly Dictionary<string, PluginCommandDescriptor> _commands = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, PluginCommandDescriptor> _commands = [with(StringComparer.Ordinal)];
 
     /// <summary>当前已注册命令的快照。</summary>
     public IReadOnlyList<PluginCommandDescriptor> Registered => [.. _commands.Values];
 
     /// <summary>宿主侧命令的模拟表:<see cref="TryExecute" /> 对这些 id 返回 true。</summary>
-    public HashSet<string> HostCommands { get; } = new(StringComparer.Ordinal);
+    public HashSet<string> HostCommands { get; } = [with(StringComparer.Ordinal)];
 
     /// <summary><see cref="TryExecute" /> 的调用记录。</summary>
     public List<string> ExecutedIds { get; } = [];
