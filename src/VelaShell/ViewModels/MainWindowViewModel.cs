@@ -2805,7 +2805,7 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
             // 协议没声明存放位置:只能本次连接内信任,不落盘。
             return profile;
         }
-        Dictionary<string, string> settings = SessionProfile.CloneSettings(profile.PluginSettings) ?? new(StringComparer.Ordinal);
+        Dictionary<string, string> settings = SessionProfile.CloneSettings(profile.PluginSettings) ?? [with(StringComparer.Ordinal)];
         settings[key] = certificate.Thumbprint;
         profile.PluginSettings = settings;
         return profile;

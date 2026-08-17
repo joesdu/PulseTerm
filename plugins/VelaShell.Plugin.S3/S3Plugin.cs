@@ -91,6 +91,9 @@ public sealed class S3Plugin : IVelaPlugin
                        | ProtocolFeatures.AnonymousAccess
                        | ProtocolFeatures.CertificateTrust,
             TrustedThumbprintSettingKey = S3ProtocolFields.TrustedThumbprint,
+            // 字段顺序即表单顺序。前四项决定「连不连得上」(区域、寻址方式、TLS、默认桶),
+            // 其余是调优项 —— 标 IsAdvanced 收进宿主的「高级选项」里默认折叠:
+            // 十来个字段一列铺开会把连接对话框顶出屏幕(用户反馈)。
             Fields =
             [
                 new()
@@ -137,6 +140,8 @@ public sealed class S3Plugin : IVelaPlugin
                     Kind = ProtocolSettingKind.Password,
                     // 临时凭据同样是凭据:标成机密,宿主随口令一起加密落盘。
                     IsSecret = true,
+                    // 只有 STS 临时凭据才填,长期密钥留空 —— 折叠;真填过的配置宿主会自动展开。
+                    IsAdvanced = true,
                     Hint = loc["S3_SessionTokenHint"],
                 },
                 new()
@@ -144,6 +149,7 @@ public sealed class S3Plugin : IVelaPlugin
                     Key = S3ProtocolFields.PartSize,
                     Label = loc["S3_PartSize"],
                     Kind = ProtocolSettingKind.Integer,
+                    IsAdvanced = true,
                     DefaultValue = S3Settings.DefaultPartSizeBytes.ToString(System.Globalization.CultureInfo.InvariantCulture),
                 },
                 new()
@@ -151,18 +157,21 @@ public sealed class S3Plugin : IVelaPlugin
                     Key = S3ProtocolFields.Concurrency,
                     Label = loc["S3_Concurrency"],
                     Kind = ProtocolSettingKind.Integer,
+                    IsAdvanced = true,
                     DefaultValue = "4",
                 },
                 new()
                 {
                     Key = S3ProtocolFields.StorageClass,
                     Label = loc["S3_StorageClass"],
+                    IsAdvanced = true,
                     Placeholder = "STANDARD",
                 },
                 new()
                 {
                     Key = S3ProtocolFields.ServerSideEncryption,
                     Label = loc["S3_ServerSideEncryption"],
+                    IsAdvanced = true,
                     Placeholder = "AES256",
                 },
                 new()
@@ -170,6 +179,7 @@ public sealed class S3Plugin : IVelaPlugin
                     Key = S3ProtocolFields.ShowFolderMarkers,
                     Label = loc["S3_ShowFolderMarkers"],
                     Kind = ProtocolSettingKind.Boolean,
+                    IsAdvanced = true,
                     DefaultValue = "false",
                 },
                 // 隐藏字段:用户点了"信任该证书"之后由宿主写回,不出现在表单里。

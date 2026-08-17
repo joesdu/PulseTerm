@@ -145,10 +145,14 @@
           BorderThickness="1"
           BoxShadow="{DynamicResource VelaShadowWindow}"
           Margin="16">
-    <StackPanel>
+    <!-- 头部/页签/页脚定高,中间的表单是唯一会伸缩的一行:窗口 SizeToContent="Height"
+         仍按内容收缩,但被代码后置钉在屏幕工作区内(见 ApplyScreenBounds),
+         超出的部分由表单区自己滚动 —— 插件协议(S3 有十来个字段)不会再把
+         底部的保存/连接按钮顶到屏幕外面去。 -->
+    <Grid RowDefinitions="Auto,Auto,*,Auto">
 
       <!-- Header: plug 图标 + 标题 + 关闭 -->
-      <Border Height="48" Padding="20,0"
+      <Border Grid.Row="0" Height="48" Padding="20,0"
               PointerPressed="Header_PointerPressed"
               Background="Transparent"
               BorderThickness="0,0,0,1"
@@ -173,7 +177,7 @@
       </Border>
 
       <!-- 协议标签页:SSH/SFTP/FTP 内建 + 插件协议(动态);Telnet/串口保持禁用 -->
-      <Border Height="36" Padding="20,0"
+      <Border Grid.Row="1" Height="36" Padding="20,0"
               BorderThickness="0,0,0,1"
               BorderBrush="{DynamicResource VelaBorderPrimary}">
         <Panel x:Name="ProtoTabsPanel" VerticalAlignment="Bottom">
@@ -242,6 +246,12 @@
       </Border>
 
       <!-- 表单 -->
+      <!-- AllowAutoHide=False:滚动条常驻。表单被高度上限截断时,自动隐藏的滚动条
+           要等鼠标滚一下才现身,用户看到的就是"字段没了"。 -->
+      <ScrollViewer Grid.Row="2"
+                    VerticalScrollBarVisibility="Auto"
+                    HorizontalScrollBarVisibility="Disabled"
+                    ScrollViewer.AllowAutoHide="False">
       <StackPanel Margin="20,18" Spacing="14">
 
         <!-- 主机名/IP + 端口(插件协议可改写这一格的标签与占位,如 S3 的「服务端点」) -->
@@ -319,7 +329,9 @@
         <ItemsControl ItemsSource="{Binding PluginFields}" IsVisible="{Binding IsPluginSelected}">
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:PluginProtocolFieldViewModel">
-              <StackPanel Margin="0,0,0,12" Spacing="4">
+              <!-- 标了 IsAdvanced 的字段(分片大小、并发数之类的调优项)默认收进「高级选项」:
+                   S3 一口气声明了十来个字段,全铺出来窗口就长到屏幕外了。 -->
+              <StackPanel Margin="0,0,0,12" Spacing="4" IsVisible="{Binding IsRowVisible}">
                 <TextBlock Classes="field-label" Text="{Binding Label}" IsVisible="{Binding !IsToggle}" />
                 <TextBox Text="{Binding Text}" PlaceholderText="{Binding Placeholder}" IsVisible="{Binding IsText}" />
                 <TextBox Text="{Binding Text}" PasswordChar="•" IsVisible="{Binding IsPassword}" />
@@ -445,9 +457,10 @@
                    IsVisible="{Binding ShowTestSuccess}"
                    Foreground="{DynamicResource VelaAccent}" FontSize="{DynamicResource VelaFontSize11}" />
       </StackPanel>
+      </ScrollViewer>
 
       <!-- Footer -->
-      <Border Height="52" Padding="20,0"
+      <Border Grid.Row="3" Height="52" Padding="20,0"
               BorderThickness="0,1,0,0"
               BorderBrush="{DynamicResource VelaBorderPrimary}">
         <Grid ColumnDefinitions="Auto,*,Auto">
@@ -462,6 +475,17 @@
               <TextBlock Text="{loc:Localize Profile_AdvancedOptions}"
                          Foreground="{DynamicResource VelaTextTertiary}"
                          FontSize="{DynamicResource VelaFontSize11}" VerticalAlignment="Center" />
+              <!-- 折叠时收走了几个插件字段就报几个:没有这个数字,S3 的调优项在用户眼里
+                   就是"设置项不见了"。 -->
+              <Border IsVisible="{Binding HasAdvancedBadge}"
+                      Background="{DynamicResource VelaBgInput}"
+                      BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="1"
+                      CornerRadius="8" Padding="6,1" VerticalAlignment="Center">
+                <TextBlock Text="{Binding AdvancedBadge}"
+                           Foreground="{DynamicResource VelaTextSecondary}"
+                           FontFamily="{DynamicResource VelaUiMonoFont}"
+                           FontSize="{DynamicResource VelaFontSize10}" />
+              </Border>
             </StackPanel>
           </Button>
 
@@ -495,6 +519,6 @@
         </Grid>
       </Border>
 
-    </StackPanel>
+    </Grid>
   </Border>
 </Window>

@@ -20,6 +20,53 @@ public sealed class ConnectionProfileViewModelTests
     public void FilterAscii_StripsNonAsciiCharacters(string input, string expected) => Assert.AreEqual(expected, SecurePasswordBox.FilterAscii(input));
 
     [TestMethod]
+    public void PluginFields_MarkedAdvanced_StayCollapsedUntilAdvancedIsExpanded()
+    {
+        // S3 这类协议一口气声明十来个字段,全铺开会把连接对话框顶出屏幕。
+        // 标了 IsAdvanced 的调优项默认收进「高级选项」,页脚报出被收走的数量。
+        var vm = new ConnectionProfileViewModel();
+        vm.PluginFields.Add(new(new() { Key = "region", Label = "区域" }, null));
+        vm.PluginFields.Add(new(new() { Key = "partSize", Label = "分片大小", IsAdvanced = true }, null));
+        vm.PluginFields.Add(new(new() { Key = "concurrency", Label = "并发分片数", IsAdvanced = true }, null));
+
+        Assert.IsTrue(vm.PluginFields[0].IsRowVisible, "连得上连不上取决于它的字段必须一直可见。");
+        Assert.IsFalse(vm.PluginFields[1].IsRowVisible);
+        Assert.IsFalse(vm.PluginFields[2].IsRowVisible);
+        Assert.IsTrue(vm.HasAdvancedBadge);
+        Assert.AreEqual("+2", vm.AdvancedBadge);
+
+        vm.ToggleAdvancedCommand.Execute().Subscribe();
+        Assert.IsTrue(vm.PluginFields.All(field => field.IsRowVisible));
+        // 展开后徽标要消失:字段都在眼前了,再报"+2"就是误导。
+        Assert.IsFalse(vm.HasAdvancedBadge);
+        Assert.AreEqual(string.Empty, vm.AdvancedBadge);
+
+        vm.ToggleAdvancedCommand.Execute().Subscribe();
+        Assert.HasCount(2, vm.PluginFields.Where(field => !field.IsRowVisible));
+    }
+
+    [TestMethod]
+    public async Task PluginFields_CollapsedAdvancedValues_StillGetSaved()
+    {
+        // 折叠只是显示层面的事:落盘必须把高级字段一并带上,
+        // 否则用户填过一次分片大小、收起「高级选项」再保存,值就静默丢了。
+        var vm = new ConnectionProfileViewModel
+        {
+            Host = "s3.example.com",
+            Username = "AKIA",
+        };
+        await vm.SelectPluginProtocolCommand.Execute("velashell.s3").FirstAsync();
+        vm.PluginFields.Add(new(new() { Key = "partSize", Label = "分片大小", IsAdvanced = true }, "16777216"));
+        Assert.IsFalse(vm.PluginFields[0].IsRowVisible, "默认折叠。");
+
+        SessionProfile? profile = await vm.SaveCommand.Execute().FirstAsync();
+        Assert.IsNotNull(profile);
+        Assert.AreEqual(ConnectionType.Plugin, profile.ConnectionType);
+        Assert.IsNotNull(profile.PluginSettings);
+        Assert.AreEqual("16777216", profile.PluginSettings["partSize"]);
+    }
+
+    [TestMethod]
     public async Task SaveCommand_MaterializesSecurePasswordIntoProfile()
     {
         // 无 workflow 时 SaveCommand 直接返回 BuildProfile 的结果,便于校验 SecureString → 明文交接。

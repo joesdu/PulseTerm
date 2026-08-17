@@ -4,6 +4,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Platform;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
 using ReactiveUI.Primitives;
@@ -20,13 +21,82 @@ public partial class ConnectionProfileView : Window
     private Avalonia.Animation.Transitions? _protoIndicatorTransitions;
     private (double X, double W) _protoIndicatorGeometry = (-1, -1);
 
+    /// <summary>屏幕工作区四周留出的余量(DIP):窗口不贴边,也给投影留出位置。</summary>
+    private const double ScreenEdgeMargin = 48;
+
+    /// <summary>
+    /// 对话框自身的高度上限(DIP,含卡片外的 16 投影余量)。屏幕再高也不越过它 ——
+    /// 「能放下」不等于「该放这么高」:S3 展开高级选项后有二十来行,顺着屏幕长到 1300+ 的窗口
+    /// 既难扫读、又把主窗口整个盖住。超出的部分交给表单区滚动。
+    /// 取 768 与设置窗口(948×768)对齐,应用里的大弹窗保持同一个高度上限。
+    /// </summary>
+    private const double PreferredMaxHeight = 768;
+
     /// <summary>初始化连接配置窗口,并在打开时绑定命令与加载分组数据。</summary>
     public ConnectionProfileView()
     {
         InitializeComponent();
+        // 必须在 Show 之前钳一次:等到 Opened 再钳,窗口已经按未钳制的高度量好并定过位了,
+        // 用户会先看到一个高过屏幕的窗口闪一下,而且它的 Y 可能已经是负数。
+        ApplyScreenBounds(preferCurrentScreen: false);
         Opened += OnOpened;
+        // 展开「高级选项」会把窗口撑高(SizeToContent="Height"),贴着屏幕下沿开的对话框
+        // 会就此长到工作区外面;每次尺寸变化都把窗口拉回工作区内。
+        SizeChanged += (_, _) => ClampToWorkingArea();
         // 滑动下划线跟随布局(字体加载、DPI 变化都会改按钮宽度);几何未变时短路。
         LayoutUpdated += (_, _) => UpdateProtoTabIndicator();
+    }
+
+    /// <summary>
+    /// 把窗口的最大尺寸钉在屏幕工作区与 <see cref="PreferredMaxHeight" /> 之内。
+    /// 表单一列到底、字段数由协议决定 ——
+    /// 插件协议(S3 声明了十来个字段)会让 <c>SizeToContent="Height"</c> 一路长过屏幕,
+    /// 底部的保存/连接按钮点不到。超出的部分交给表单区的 ScrollViewer。
+    /// </summary>
+    /// <param name="preferCurrentScreen">
+    /// 是否优先取窗口当前所在的屏幕(显示之后才有意义);否则取主屏。
+    /// </param>
+    private void ApplyScreenBounds(bool preferCurrentScreen)
+    {
+        if (ResolveScreen(preferCurrentScreen) is not { Scaling: > 0 } screen)
+        {
+            return;
+        }
+        double screenLimit = Math.Max(240, (screen.WorkingArea.Height / screen.Scaling) - ScreenEdgeMargin);
+        // 小屏按屏幕钳,大屏按设计上限钳:两者取小。
+        MaxHeight = Math.Min(PreferredMaxHeight, screenLimit);
+        MaxWidth = Math.Max(320, (screen.WorkingArea.Width / screen.Scaling) - ScreenEdgeMargin);
+    }
+
+    /// <summary>把窗口位置夹回屏幕工作区(尺寸变化后仍留在原处会露到屏幕外)。</summary>
+    private void ClampToWorkingArea()
+    {
+        if (ResolveScreen(preferCurrentScreen: true) is not { Scaling: > 0 } screen)
+        {
+            return;
+        }
+        PixelRect area = screen.WorkingArea;
+        PixelSize size = PixelSize.FromSize(Bounds.Size, screen.Scaling);
+        PixelPoint current = Position;
+        int x = Math.Clamp(current.X, area.X, Math.Max(area.X, area.Right - size.Width));
+        int y = Math.Clamp(current.Y, area.Y, Math.Max(area.Y, area.Bottom - size.Height));
+        if (x != current.X || y != current.Y)
+        {
+            Position = new(x, y);
+        }
+    }
+
+    private Screen? ResolveScreen(bool preferCurrentScreen)
+    {
+        try
+        {
+            return (preferCurrentScreen ? Screens.ScreenFromWindow(this) : null) ?? Screens.Primary;
+        }
+        catch
+        {
+            // 屏幕信息不是每个后端/时机都拿得到(无头测试、远程桌面):拿不到就不钳。
+            return null;
+        }
     }
 
     /// <summary>
@@ -144,6 +214,9 @@ public partial class ConnectionProfileView : Window
         {
             return;
         }
+        // 对话框是 CenterOwner:显示之后才知道落在哪块屏上,多屏下重新钳一次。
+        ApplyScreenBounds(preferCurrentScreen: true);
+        ClampToWorkingArea();
         ApplyProtoTabFocusAdorner();
         // 协议切换只改按钮前景色、不触发布局,滑动下划线必须由 VM 属性变化驱动。
         // 直接盯 ConnectionType 本身,而不是逐个列举 IsXxxSelected —— 后者每加一个协议

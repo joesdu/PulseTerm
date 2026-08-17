@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Security;
 using Avalonia.Threading;
 using ReactiveUI;
@@ -184,6 +185,10 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
         TestConnectionCommand = ReactiveCommand.CreateFromTask(TestConnectionAsync, canExecute);
         SelectConnectionTypeCommand = ReactiveCommand.Create<ConnectionType>(SelectConnectionType);
         SelectPluginProtocolCommand = ReactiveCommand.CreateFromTask<string>(SelectPluginProtocolAsync);
+        // 表单是插件异步装载出来的,字段进集合的那一刻就得带上当前的折叠状态 ——
+        // 只在切换「高级选项」时下发是不够的(先渲染后展开,首屏会把高级字段全画出来)。
+        // 必须在下面那句可能触发装载的 SelectPluginProtocolAsync 之前接线。
+        PluginFields.CollectionChanged += (_, _) => ApplyPluginFieldVisibility();
         LoadPluginProtocols();
         // 页签不是一次性快照:插件发现跑在后台线程,对话框可能先于它打开;
         // 插件管理器又是非模态的,开着对话框也能启用/禁用插件。
@@ -505,12 +510,33 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
         set => this.RaiseAndSetIfChanged(ref field, value);
     }
 
-    /// <summary>高级选项区域是否展开。</summary>
+    /// <summary>高级选项区域是否展开。插件协议里标了 <c>IsAdvanced</c> 的字段跟着它折叠。</summary>
     public bool IsAdvancedVisible
     {
         get;
-        set => this.RaiseAndSetIfChanged(ref field, value);
+        set
+        {
+            this.RaiseAndSetIfChanged(ref field, value);
+            ApplyPluginFieldVisibility();
+        }
     }
+
+    /// <summary>
+    /// 折叠状态下被「高级选项」收走的插件字段数,形如 <c>+6</c>;没有则为空串。
+    /// <para>
+    /// 没有这个提示,S3 这类协议展开后才有的六七个字段在用户眼里就是"设置项没了" ——
+    /// 折叠本身省下的高度,不该用"找不到东西"来换。
+    /// </para>
+    /// </summary>
+    public string AdvancedBadge => HiddenAdvancedFieldCount is var count and > 0
+        ? string.Create(CultureInfo.InvariantCulture, $"+{count}")
+        : string.Empty;
+
+    /// <summary>是否要显示 <see cref="AdvancedBadge" />。</summary>
+    public bool HasAdvancedBadge => HiddenAdvancedFieldCount > 0;
+
+    private int HiddenAdvancedFieldCount =>
+        IsAdvancedVisible ? 0 : PluginFields.Count(f => f.IsAdvanced);
 
     /// <summary>标签,逗号分隔(高级选项)。</summary>
     public string TagsText
@@ -760,6 +786,23 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
         };
     }
 
+    /// <summary>
+    /// 按「高级选项」的展开状态下发插件字段的行可见性,并刷新页脚的 <see cref="AdvancedBadge" />。
+    /// <para>
+    /// 折叠的是**行**而不是整个列表:行本身早就渲染好了,只是 IsVisible 变化 ——
+    /// 若改成往一个隐藏容器里灌行,那些行会占着高度却画不出来(踩过)。
+    /// </para>
+    /// </summary>
+    private void ApplyPluginFieldVisibility()
+    {
+        foreach (PluginProtocolFieldViewModel field in PluginFields)
+        {
+            field.IsRowVisible = !field.IsAdvanced || IsAdvancedVisible;
+        }
+        this.RaisePropertyChanged(nameof(AdvancedBadge));
+        this.RaisePropertyChanged(nameof(HasAdvancedBadge));
+    }
+
     /// <summary>把表单字段收集成落盘字典;<paramref name="secrets" /> 决定收机密还是非机密那一半。</summary>
     private Dictionary<string, string>? CollectPluginValues(bool secrets)
     {
@@ -866,6 +909,14 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
                     ? value
                     : null;
                 PluginFields.Add(new(field, stored));
+            }
+            // 编辑既有配置时,高级字段里只要有一处不是默认值就自动展开:
+            // 用户填过的东西不能藏起来(否则"我明明设过分片大小"变成一次静默丢失的错觉),
+            // 而全默认的新建配置照旧保持折叠。
+            if (PluginFields.Any(f => f.IsAdvanced
+                                      && !string.Equals(f.Text, f.Field.DefaultValue ?? string.Empty, StringComparison.Ordinal)))
+            {
+                IsAdvancedVisible = true;
             }
         }
         finally
