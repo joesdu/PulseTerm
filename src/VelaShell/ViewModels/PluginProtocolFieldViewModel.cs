@@ -85,6 +85,20 @@ public sealed class PluginProtocolFieldViewModel : ReactiveObject
     /// <summary>是否为机密字段(随口令一起加密落盘)。</summary>
     public bool IsSecret => Field.IsSecret;
 
+    /// <summary>是否属于「高级选项」(折叠时不显示)。</summary>
+    public bool IsAdvanced => Field.IsAdvanced;
+
+    /// <summary>
+    /// 这一行当前显不显示。由 <see cref="ConnectionProfileViewModel" /> 按
+    /// 「高级选项」的展开状态统一下发 —— 做成字段自己的状态,是因为模板里没有
+    /// 现成的路子去比对父视图模型的属性(同 <see cref="PluginProtocolTabViewModel.IsSelected" />)。
+    /// </summary>
+    public bool IsRowVisible
+    {
+        get;
+        set => this.RaiseAndSetIfChanged(ref field, value);
+    } = true;
+
     /// <summary>是否为单行文本输入(含数字 —— 数字只是带校验的文本)。</summary>
     public bool IsText => Field.Kind is ProtocolSettingKind.Text or ProtocolSettingKind.Integer;
 

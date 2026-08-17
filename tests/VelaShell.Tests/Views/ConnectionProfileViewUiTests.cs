@@ -123,6 +123,47 @@ public sealed class ConnectionProfileViewUiTests
         }, CancellationToken.None).GetAwaiter().GetResult();
     }
 
+    [TestMethod]
+    public void Form_ScrollsAndKeepsFooterReachable_WhenWindowHeightIsCapped()
+    {
+        _session.Dispatch(() =>
+        {
+            var vm = new ConnectionProfileViewModel
+            {
+                Host = "s3.amazonaws.com",
+                Username = "AKIA",
+                Password = SecureStringConvert.FromPlaintext("secret"),
+            };
+            var window = new ConnectionProfileView { DataContext = vm };
+            // 构造时就按屏幕工作区钳过高度:等到 Opened 再钳,用户会先看见一个高过屏幕的窗口。
+            Assert.IsTrue(double.IsFinite(window.MaxHeight), "窗口高度上限应在显示前就设好。");
+            // 屏幕再高也不越过设计上限(与设置窗口 768 对齐)——「能放下」不等于「该放这么高」。
+            Assert.IsLessThanOrEqualTo(768d, window.MaxHeight, "大屏上应按设计上限钳住,而不是任其长到屏幕高度。");
+            window.Show();
+            // 模拟一块矮屏(Opened 里会按真实屏幕重新钳一次,所以只能在显示之后压):
+            // 插件协议字段一多,原来的 StackPanel 会一路长到屏幕外,底部的保存/连接按钮
+            // 点不到 —— 现在超出的部分必须由表单区自己滚。
+            window.MaxHeight = 320;
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Assert.IsLessThanOrEqualTo(320.5, window.Bounds.Height, "窗口高度不得越过上限。");
+
+            ScrollViewer form = window.GetVisualDescendants().OfType<ScrollViewer>()
+                .First(scroll => scroll.GetVisualParent() is Grid);
+            Assert.IsGreaterThan(form.Viewport.Height, form.Extent.Height, "表单放不下时必须可滚动。");
+
+            // 页脚是定高行,不参与滚动:连接按钮永远落在窗口里。
+            Button connect = window.GetVisualDescendants().OfType<Button>()
+                .Single(button => button.Classes.Contains("dlg-primary"));
+            Point origin = connect.TranslatePoint(default, window) ?? default;
+            Assert.IsLessThanOrEqualTo(window.Bounds.Height + 0.5, origin.Y + connect.Bounds.Height,
+                "「连接」按钮必须留在窗口可视区域内。");
+
+            window.Close();
+        }, CancellationToken.None).GetAwaiter().GetResult();
+    }
+
     private static void AssertIndicatorAligned(Border indicator, Button tab)
     {
         // 读基值(过渡目标)而非属性现值:现值在 180ms 滑动期间是动画中间值。

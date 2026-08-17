@@ -375,7 +375,12 @@ Tabs and file rows likewise have their own context menus (see the corresponding 
 - **Header**: “New Connection” title + `x`.
 - **Tabs (`connTabs`)**: switch protocols such as `SSH` / `SFTP` / `Telnet` / `Serial`.
 - **Form body (`connBody`)**: name, Host, Port, username, authentication method (password / key / jump host), group, color/icon marker, and so on.
-- **Footer**: left = “Test Connection”; right = `Cancel` / `Connect` (accent).
+  - The form area **scrolls** (the scrollbar stays visible instead of auto-hiding); header, tabs, and footer are fixed-height rows outside the scroll.
+    The window height is clamped to `min(768 design cap, screen working area − 48)` (`ApplyScreenBounds`; 768 matches the 948×768 settings window).
+    The field count is protocol-dependent (a plugin protocol such as S3 declares a dozen), so without the clamp the dialog grows past the screen and the footer buttons become unreachable.
+  - Plugin fields marked `IsAdvanced` are folded into “Advanced options” by default; the footer button shows a `+N` badge for the folded count,
+    and editing an existing profile auto-expands as soon as any advanced field differs from its declared default.
+- **Footer**: left = “Advanced options” (with the folded-count badge); right = `Test` / `Save` / `Connect` (accent).
 
 ### 13.2 Password Verification Dialog (Two Steps)
 
