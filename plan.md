@@ -299,7 +299,7 @@ Core 的中立抽象证明有效——**迁移一行 Core 代码都没改**,改�
 
 **E. 远端任务管理器(07-25)**:SSH 进程管理(`IRemoteProcessService`/`RemoteProcessService`),入口:标题栏"进程管理器"图标。
 
-**F. 文件浏览器跟随终端目录(07-24)**:SFTP 上传按钮右侧 map-pin 开关(`FileBrowserViewModel.FollowTerminal`);终端 cwd 经注入 bash 提示符发 OSC 7,`TerminalEmulator` 解析(`ParseOsc7Path`)→去重→浏览器同步;仅 bash/zsh 有效。
+**F. 文件浏览器跟随终端目录(07-24)**:SFTP 上传按钮右侧 map-pin 开关(`FileBrowserViewModel.FollowTerminal`);终端 cwd 由对端 shell 的提示符发 OSC 7,`TerminalEmulator` 解析(`ParseOsc7Path`)→去重→浏览器同步。注:内置注入的 bash 提示符脚本已撤除(仅 bash 生效、其余 shell 反而出噪声),需要该功能的用户自行在"连接后执行命令"或远端 rc 里上报 OSC 7。
 
 **G. SFTP 传输面板增强(07-27 ~ 07-29)**:框选、批量操作、文件+文件夹混选上传、冲突与历史交互优化;文件传输 toast 面板(`FileTransferView`,浮动活动/历史项,不跨重启持久化)。
 

@@ -42,45 +42,6 @@ namespace VelaShell.ViewModels;
 /// </summary>
 public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.ITerminalResolver
 {
-    /// <summary>
-    /// bash 提示符补行脚本(内置,静默注入):命令输出末尾无换行时,经 DSR(ESC[6n)
-    /// 查询光标列,不在行首则先补一个换行再画提示符(zsh 的默认行为)。
-    /// </summary>
-    // 函数体末尾的 printf 发 OSC 7(file://主机/当前目录),供「文件浏览器跟随终端目录」(map-pin)读取 shell cwd。
-    //
-    // 整段 bash 代码必须裹在 test -n "$BASH_VERSION" && eval '...' 里:fish 在执行前先解析整行,
-    // 只要行内出现 bash 语法就整行报错并把命令原文糊在屏幕上(用户反馈:
-    // "fish: Unsupported use of '='. In fish, please use 'set PROMPT_COMMAND prompt_nl'"),
-    // 因此"守卫失败就不执行"救不了,代码必须在 fish 眼里只是一个单引号字面量 —— eval 的参数正是如此。
-    // 实测(容器内 bash 5/zsh 5/fish 4.6/dash):非 bash 一律静默,只剩末尾的清行 printf。
-    // 例外是 csh/tcsh:它对未定义变量直接报错("BASH_VERSION: Undefined variable."),
-    // 而任何变量无关的 bash 探测(command -v shopt / readlink /proc/$$/exe)要么在 tcsh 里同样报错,
-    // 要么在 macOS 上失效 —— 登录 shell 是 tcsh 的情况按噪声一行接受。
-    //
-    // 函数体内一律用双引号 + 八进制 \033,不用 $'\e[6n':单引号要在 eval 字符串里转义成 '\'',
-    // 而 DSR 直接由 printf 发出即可,不必走 read -p,顺带省掉转义与子 shell。
-    //
-    // read 必须带 -t 1:对端终端不应答 DSR 时(stdin 被重定向、抢输被别的程序吃掉等)
-    // 无超时的 read 会一直阻塞,表现为每画一次提示符就卡死。
-    //
-    // PROMPT_COMMAND 只追加不覆盖:直接赋值会踢掉用户自己的 starship/direnv/atuin 等钩子。
-    // case 去重让重连时的再次注入不会把 prompt_nl 叠加成多份。
-    //
-    // 整行最后的 printf "\r\033[2K" 是"登录时提示符出现两次"的解药:注入这一行本身要占掉 shell
-    // 的一个提示符周期 —— 登录提示符先画出来(还带上 tty 回显里没被抑制针覆盖的那个前导空格),
-    // 命令执行完 shell 再画一个新的,于是屏幕上并排两行 [root@host ~]#。
-    // 这里在新提示符画出来之前把光标所在的整行擦掉(\r 回到行首 + CSI 2K 清整行),
-    // 旧提示符与残留空格一并消失;随后 prompt_nl 查到光标已在第 1 列,不会再补换行,
-    // 新提示符正好落在被清空的那一行 —— 净效果就是只剩一个提示符,与 WindTerm 等工具一致。
-    // 放在整行末尾(而不是 SendSilentCommand 里)是为了让用户配置的"连接后执行命令"
-    // 接在它后面:先清行,用户命令的输出才从干净的行首开始。
-    // 它在守卫之外,由对端的任意 shell 执行,所以转义只能用八进制 \033 —— \e 是 bash/zsh 扩展,
-    // dash/busybox ash 的 printf 会把它原样打成字面量 "\e[2K"(fish 的 printf 认 \033,实测通过)。
-    private const string PromptNewlineFix =
-        """
-        test -n "$BASH_VERSION" && eval 'prompt_nl() { local c; printf "\033[6n"; IFS="[;" read -t 1 -d R -rs _ _ c; ((c>1)) 2>/dev/null && echo; printf "\033]7;file://%s%s\033\\\\" "$HOSTNAME" "$PWD"; }; case ";$PROMPT_COMMAND;" in *";prompt_nl;"*) ;; *) PROMPT_COMMAND="${PROMPT_COMMAND:+$PROMPT_COMMAND;}prompt_nl";; esac'; printf "\r\033[2K"
-        """;
-
     /// <summary>RIS(ESC c)完全重置序列:重开会话前清掉旧进程的残留缓冲。</summary>
     private static readonly byte[] RisResetSequence = [0x1B, (byte)'c']; // ESC c
 
@@ -112,10 +73,7 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
     private readonly QuickCommandsViewModel? _quickCommands;
     private readonly QuickCommandRunnerViewModel? _quickCommandRunner;
     private readonly TerminalTargetSelectorViewModel _terminalTargetSelector;
-    private readonly Dictionary<
-        TerminalTabViewModel,
-        IDisposable
-    > _quickCommandTargetSubscriptions = [];
+    private readonly Dictionary<TerminalTabViewModel, IDisposable> _quickCommandTargetSubscriptions = [];
 
     /// <summary>同步输入频道的对等转发中枢(标签右键菜单 → 同步输入)。</summary>
     private readonly SyncInputCoordinator _syncInput = new();
@@ -2265,26 +2223,22 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
     }
 
     /// <summary>
-    /// 连接成功后静默注入初始化命令:内置补行脚本 + 用户配置的"连接后执行命令"
-    /// (设置 → 终端 → 会话)拼接为一行,经回显抑制不在终端显示。PTY 输入由内核缓冲,
+    /// 连接成功后静默注入用户配置的"连接后执行命令"(设置 → 终端 → 会话),
+    /// 经回显抑制不在终端显示;未配置则什么都不发。PTY 输入由内核缓冲,
     /// shell 就绪后才会读取,无需等待提示符。
     /// </summary>
+    // 这里曾额外内置一段 bash 提示符补行脚本(prompt_nl + OSC 7 上报 cwd)。
+    // 它只在 bash 下生效,其余 shell(fish/dash/tcsh 等)要么静默无效、要么把命令原文糊在屏幕上,
+    // 收益覆盖不到大多数会话,故整体撤除:需要补行或「文件浏览器跟随终端目录」的用户
+    // 自行把脚本写进"连接后执行命令"或远端 rc 文件即可。
     private static void SendStartupCommand(TerminalTabViewModel tab, AppSettings settings)
     {
-        string? user = settings.TerminalBehavior.StartupCommand.Trim();
-
-        // 旧版本曾把补行脚本作为该设置项的默认值;现已内置,跳过以免重复执行。
-        if (
-            !string.IsNullOrEmpty(user)
-            && user.Contains("PROMPT_COMMAND=prompt_nl", StringComparison.Ordinal)
-        )
+        string user = settings.TerminalBehavior.StartupCommand.Trim();
+        if (user.Length == 0)
         {
-            user = null;
+            return;
         }
-        string payload = string.IsNullOrEmpty(user)
-            ? PromptNewlineFix
-            : PromptNewlineFix + "; " + user;
-        tab.SendSilentCommand(payload);
+        tab.SendSilentCommand(user);
     }
 
     /// <summary>

@@ -2407,7 +2407,7 @@
     <value>連線後執行命令</value>
   </data>
   <data name="SetTerm_StartupCommandDesc" xml:space="preserve">
-    <value>// 連線/重連後靜默執行(不在終端機回顯),自動接在內建提示符補行指令碼之後;留空則僅執行內建指令碼</value>
+    <value>// 連線/重連後靜默執行(不在終端機回顯);留空則不執行任何指令</value>
   </data>
   <data name="SetTerm_StartupCommandPlaceholder" xml:space="preserve">
     <value>例如 cd /var/www</value>

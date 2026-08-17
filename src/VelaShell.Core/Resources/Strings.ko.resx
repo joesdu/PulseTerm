@@ -2407,7 +2407,7 @@
     <value>연결 후 명령 실행</value>
   </data>
   <data name="SetTerm_StartupCommandDesc" xml:space="preserve">
-    <value>// 연결/재연결 후 조용히 실행(터미널에 표시되지 않음)되며 내장 프롬프트 보정 스크립트 뒤에 이어서 실행됩니다. 비워 두면 내장 스크립트만 실행</value>
+    <value>// 연결/재연결 후 조용히 실행(터미널에 표시되지 않음)됩니다. 비워 두면 아무것도 실행하지 않습니다</value>
   </data>
   <data name="SetTerm_StartupCommandPlaceholder" xml:space="preserve">
     <value>예: cd /var/www</value>

@@ -2592,7 +2592,7 @@
     <value>连接后执行命令</value>
   </data>
   <data name="SetTerm_StartupCommandDesc" xml:space="preserve">
-    <value>// 连接/重连后静默执行(不在终端回显),自动拼接在内置的提示符补行脚本之后;留空则只执行内置脚本</value>
+    <value>// 连接/重连后静默执行(不在终端回显);留空则不执行任何命令</value>
   </data>
   <data name="SetTerm_StartupCommandPlaceholder" xml:space="preserve">
     <value>如 cd /var/www</value>
