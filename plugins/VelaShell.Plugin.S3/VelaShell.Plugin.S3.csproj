@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>VelaShell S3 插件:S3 兼容对象存储(Amazon S3 / MinIO / Ceph RGW / 阿里云 OSS / 腾讯云 COS / Cloudflare R2)的完整协议支持 —— 文件管理器 + 桶管理器 + 对象检视器。</Description>
+    <!-- 与 plugin.json 的 id 一致;驱动构建后复制到应用输出的 plugins/<目录名>/
+         (目录名 = id 把点换成短横,原因见 plugins/Directory.Build.targets)。 -->
+    <VelaPluginId>velashell.s3</VelaPluginId>
+    <!-- AVLN3001:面板视图刻意只有带上下文的构造(由 ShowPanelAsync 工厂创建),
+         不需要运行时 XAML 装载器的无参构造路径。 -->
+    <NoWarn>$(NoWarn);AVLN3001</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- SDK 由宿主统一提供(共享契约程序集),不随插件输出复制。 -->
+    <ProjectReference Include="..\..\plugin-sdk\VelaShell.PluginSdk\VelaShell.PluginSdk.csproj" Private="false" ExcludeAssets="runtime" />
+    <!-- 仅编译期引用 Avalonia,运行时由装载方共享同一套(版本须与宿主一致)。 -->
+    <PackageReference Include="Avalonia" Version="12.1.1" ExcludeAssets="runtime" />
+    <!-- S3 客户端(Apache-2.0,与本仓库 AGPL-3.0 + 商业双许可相容)。
+         **随插件目录分发**,由插件 ALC 按 deps.json 隔离解析 —— 这正是插件化最实在的一笔:
+         不用 S3 的用户,安装包里不必带这两个各约 1 MB 的程序集,进程里也永不装载它们。
+         选它而非自己签 SigV4 的原委见 docs/S3协议插件化设计.md §二:S3 有 116 个操作,
+         自己实现只能覆盖很小一角,且每加一个能力都要重做一遍 XML 序列化与错误码映射。 -->
+    <PackageReference Include="AWSSDK.S3" Version="4.0.102.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 单测直接驱动内部实现(异常翻译、客户端工厂、证书探针)。 -->
+    <InternalsVisibleTo Include="VelaShell.Plugin.S3.Tests" />
+  </ItemGroup>
+
+</Project>

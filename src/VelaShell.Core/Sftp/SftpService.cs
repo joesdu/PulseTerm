@@ -1,6 +1,5 @@
 using System.Buffers;
 using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using VelaShell.Core.Data;
 using VelaShell.Core.Models;
@@ -51,7 +50,7 @@ public class SftpService(
         var fileInfo = new FileInfo(localPath);
         long totalBytes = fileInfo.Length;
         string fileName = Path.GetFileName(localPath);
-        var reporter = new ProgressThrottle(progress, fileName, totalBytes);
+        var reporter = new TransferProgressThrottle(progress, fileName, totalBytes);
         Action<ulong>? onBytes = reporter.IsEnabled ? bytes => reporter.Report((long)bytes) : null;
         (long uploadBps, _, bool preserveTimestamps) = await GetTransferTuningAsync().ConfigureAwait(false);
 
@@ -121,7 +120,7 @@ public class SftpService(
         string fileName = GetUnixFileName(remotePath);
         RemoteFileInfo fileInfo = await GetFileInfoAsync(sessionId, remotePath, cancellationToken).ConfigureAwait(false);
         long totalBytes = fileInfo.Size;
-        var reporter = new ProgressThrottle(progress, fileName, totalBytes);
+        var reporter = new TransferProgressThrottle(progress, fileName, totalBytes);
         (_, long downloadBps, bool preserveTimestamps) = await GetTransferTuningAsync().ConfigureAwait(false);
 
         // 以此刻本地残留文件的实际长度重新核实续传起点(理由同上传侧)。
@@ -785,99 +784,6 @@ public class SftpService(
             Owner = identities.UserName(file.UserId),
             Group = identities.GroupName(file.GroupId)
         };
-    }
-
-    /// <summary>
-    /// 传输进度节流器。
-    /// <para>
-    /// 底层 SFTP 库按分块(约 32KB)触发进度回调,一个 7.7GB 的文件会产生二十多万次回调。
-    /// 上层的 <see cref="Progress{T}" /> 是在 UI 线程上构造的,每次 Report 都会 Post 一个
-    /// 工作项到 Avalonia 调度器,并在其中触发多个 PropertyChanged + 字符串格式化。
-    /// 网络产出速度远高于 UI 线程的消费速度,队列只增不减 —— 表现就是传到 1GB 左右界面
-    /// 长时间卡死、随后又"追上"继续。这里在源头按时间片收敛上报频率。
-    /// </para>
-    /// <para>
-    /// 分块回调可能并发到达且乱序,因此已传字节数取单调最大值,避免进度条回退。
-    /// </para>
-    /// </summary>
-    private sealed class ProgressThrottle(IProgress<TransferProgress>? sink, string fileName, long totalBytes)
-    {
-        /// <summary>两次上报之间的最小间隔:每秒最多刷新 10 次界面,足够顺滑且成本可忽略。</summary>
-        private const long MinIntervalMs = 100;
-
-        private readonly Stopwatch _stopwatch = Stopwatch.StartNew();
-        private long _lastReportMs = -MinIntervalMs;
-        private long _maxBytes;
-
-        /// <summary>是否需要上报(sink 为空时全链路短路,连对象分配都省掉)。</summary>
-        public bool IsEnabled => sink is not null;
-
-        /// <summary>按节流策略上报一次进度;间隔不足则丢弃(下一次仍会带上累计值)。</summary>
-        public void Report(long bytesTransferred)
-        {
-            if (sink is null)
-            {
-                return;
-            }
-            long observed = Monotonic(bytesTransferred);
-            long nowMs = _stopwatch.ElapsedMilliseconds;
-            long last = Volatile.Read(ref _lastReportMs);
-            if (nowMs - last < MinIntervalMs)
-            {
-                return;
-            }
-
-            // CAS 抢占本时间片的上报权:并发回调下只有一个线程真正 Report,其余直接返回。
-            if (Interlocked.CompareExchange(ref _lastReportMs, nowMs, last) != last)
-            {
-                return;
-            }
-            Emit(observed, nowMs);
-        }
-
-        /// <summary>无视节流强制上报一次,用于收尾 —— 否则进度会永远停在最后一个时间片的值上。</summary>
-        public void ReportFinal(long bytesTransferred)
-        {
-            if (sink is null)
-            {
-                return;
-            }
-            Emit(Monotonic(bytesTransferred), _stopwatch.ElapsedMilliseconds);
-        }
-
-        private long Monotonic(long bytesTransferred)
-        {
-            long current = Volatile.Read(ref _maxBytes);
-            while (bytesTransferred > current)
-            {
-                long previous = Interlocked.CompareExchange(ref _maxBytes, bytesTransferred, current);
-                if (previous == current)
-                {
-                    return bytesTransferred;
-                }
-                current = previous;
-            }
-            return current;
-        }
-
-        private void Emit(long bytesTransferred, long elapsedMs)
-        {
-            double elapsedSeconds = elapsedMs / 1000d;
-            double speed = elapsedSeconds > 0 ? bytesTransferred / elapsedSeconds : 0;
-            long remainingBytes = totalBytes - bytesTransferred;
-            TimeSpan estimatedTimeRemaining = speed > 0 && remainingBytes > 0
-                                                  ? TimeSpan.FromSeconds(remainingBytes / speed)
-                                                  : TimeSpan.Zero;
-            sink!.Report(new()
-            {
-                FileName = fileName,
-                BytesTransferred = bytesTransferred,
-                TotalBytes = totalBytes,
-                Percentage = totalBytes > 0 ? (int)((bytesTransferred * 100) / totalBytes) : 0,
-                SpeedBytesPerSecond = speed,
-                EstimatedTimeRemaining = estimatedTimeRemaining
-            });
-        }
     }
 
     private static string CombineUnixPath(string directory, string name) =>

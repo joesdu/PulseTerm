@@ -97,3 +97,16 @@ inProcess 停靠 / 隔离独立窗口)、可靠性(心跳/自愈/回收)、数�
    就地跑在解包目录里;三平台各走一遍"装第三方隔离插件 → 用 → 自更新换版 → 重启"的全流程;
 4. 随 AI 插件定 `vela.ai` 能力域接口(蓝图 11);
 5. 侧栏/状态栏挂载点(做 UI 生态前的最后一块贡献点)。
+
+## 2026-08:协议能力域落地
+
+- SDK 新增 `VelaShell.PluginSdk.Protocols`(apiLevel 仍为 1,纯增量):
+  `IProtocolFileSystem` / `IProtocolsApi` / `ProtocolDescriptor` / 协议异常族;
+  清单新增 `contributes.protocols` 与 `onProtocol:` 激活事件。
+- 宿主新增 `PluginProtocolRegistry`(声明 → 注册 → 惰性激活 → 注销)与
+  `PluginProtocolFileService`(把 `IProtocolFileSystem` 适配成宿主的远程文件契约,
+  并承担进度节流与异常翻译)。
+- 首个使用者:官方 **S3 插件**(`plugins/VelaShell.Plugin.S3`)。内建 S3 支持整体移出宿主 ——
+  AWSSDK 依赖、22 项桶配置界面、149 条文案全部随插件走;`ConnectionType` 里不再有具体协议,
+  只有一个 `Plugin`。详见 `docs/S3协议插件化设计.md`。
+- 已知边界:协议能力仅 `inProcess`(隔离进程 RPC 尚不支持宿主→插件的请求方向)。

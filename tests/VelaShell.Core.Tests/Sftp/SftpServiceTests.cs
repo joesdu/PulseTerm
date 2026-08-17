@@ -570,7 +570,7 @@ public class SftpServiceTests
         await _sftpService.UploadFileAsync(_sessionId, localPath, remotePath,
             new SynchronousProgress<TransferProgress>(p => progressReports.Add(p)));
 
-        // Assert —— 进度上报按时间片节流(见 SftpService.ProgressThrottle),因此不保证
+        // Assert —— 进度上报按时间片节流(见 Core/Sftp/TransferProgressThrottle.cs),因此不保证
         // "每个底层回调都对应一次上报"。这里断言的是真正的契约:立刻有首帧、单调不回退、
         // 收尾必达 100%。
         Assert.IsGreaterThanOrEqualTo(1, progressReports.Count);

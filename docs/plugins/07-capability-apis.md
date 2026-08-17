@@ -231,3 +231,48 @@ capability 不可用),完整落地见 [11-automation-and-ai.md](11-automation-an
 
 验收:S1 所需域(C-2/C-3)可支撑图片查看器示例端到端;C-5 完成后
 S3/S4/S5 的域全部可用。
+
+---
+
+## protocols —— 自带远程文件协议(apiLevel 1,2026-08 落地)
+
+插件注册一种协议后,它在连接配置页里与内建协议同为一等公民;宿主把该协议的会话
+路由到插件的 `IProtocolFileSystem`,而双栏浏览器、传输队列、限速、拖放、冲突策略
+全部零改动复用。
+
+| 成员 | 说明 |
+| --- | --- |
+| `IProtocolsApi.Register(descriptor, fileSystem)` | 注册一种协议;释放返回值即注销。协议 id 必须等于插件 id 或以其为前缀 |
+| `IProtocolsApi.GetTransferOptionsAsync()` | 读宿主当前的带宽上限与时间戳策略(全局用户偏好,不该每个协议各配一份) |
+| `IProtocolFileSystem` | 连接/断开 + 列举/统计/读写/删除/改名/复制/权限 + 协议动作,全部以宿主分配的不透明会话键为第一参数 |
+| `ProtocolDescriptor` | 页签名称、默认端口、三格标签改写、**声明式设置表单**、**声明式右键动作**、能力位、证书指纹回写字段 |
+| `ProtocolFeatures` | `Permissions` / `ServerSideCopy` / `ResumeUpload` / `ResumeDownload` / `AnonymousAccess` / `CertificateTrust` |
+| 异常族 | `ProtocolAuthenticationException` / `ProtocolCertificateTrustException` / `ProtocolConnectionException` / `ProtocolUnsupportedException` |
+| 清单贡献 | `contributes.protocols` + `onProtocol:<协议id>` 惰性激活 |
+| `PluginManifestReader.IsValidProtocolId` | 协议 id 的权威判定(全小写 `[a-z0-9.-]`、≤128、须以插件 id 为前缀);清单校验与运行期注册共用,避免两边口径分叉 |
+
+设计取舍:
+
+- **设置表单是声明式 schema,不是控件树。** 连接对话框是宿主的核心界面,布局、主题、
+  校验与本地化都由它统一负责;插件只描述"要哪些参数"。这与本蓝图 08 明确不做的
+  通用声明式 UI(VelaUI)是两回事 —— 那是任意界面,这只是一张形状封闭的参数表。
+- **右键动作也声明式**:菜单要在按下右键那一帧画出来,不能等一次异步往返。
+- **仅 `inProcess`**:协议是宿主反向调用插件的高频通道(含流式读),
+  隔离进程的 RPC 只承载插件→宿主方向。放开它需要双向请求,属于 05 的后续工作。
+  隔离进程里的 `IProtocolsApi` 是一个"注册即报错"的退化实现,不是 null。
+- **同 id 重注册 = 替换**:换成**另一个**实现会发一次注销(宿主据此收掉旧实现名下的会话),
+  换成同一个实例(插件为刷新本地化文案而重注册)则不发 —— 否则切一次界面语言
+  就会把用户正开着的标签页全部断掉。旧句柄在被替换后 `Dispose` 是空操作。
+- **注册表不在锁内回调插件**:事件订阅/拆订阅一律在锁外完成。那把锁 UI 线程也会持有,
+  插件若在事件访问器里做阻塞式 `Dispatcher.Invoke` 就是死锁。
+
+---
+
+## ui 补记:`IPluginPanel.ActivateAsync`(apiLevel 1,2026-08 新增)
+
+把面板带到前台:窗口形态还原最小化并 `Activate()`,文档形态切到该标签页。幂等、任意线程可调、
+面板已关闭时是空操作。
+
+补它的原因:插件对"同一目标重复触发"的惯例是聚焦已开的那一扇而不是再开一扇,
+但 SDK 此前只有 `CloseAsync`,表达不了"聚焦"——于是插件只能 `return`,
+而同尺寸的 `CenterOwner` 窗口恰好会把前一扇完全盖住,用户看到的是"点了没反应"。

@@ -208,30 +208,6 @@ internal sealed class PluginPanel : IPluginPanel
         }
     }
 
-    /// <inheritdoc />
-    public async Task ActivateAsync()
-    {
-        if (!IsOpen)
-        {
-            return;
-        }
-        try
-        {
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                if (_document is not null)
-                {
-                    _workspace?.ActivateDocument(_document);
-                }
-                _window?.Activate();
-            }).GetTask().ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            // 应用退出:Dispatcher 关掉了排队作业。置前这种事没做成也无所谓。
-        }
-    }
-
     public async Task CloseAsync()
     {
         if (!IsOpen)
@@ -256,6 +232,37 @@ internal sealed class PluginPanel : IPluginPanel
         }
     }
 
+    /// <inheritdoc />
+    public async Task ActivateAsync()
+    {
+        if (!IsOpen)
+        {
+            return;
+        }
+        try
+        {
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (_document is not null && _workspace is not null)
+                {
+                    _workspace.ActivateDocument(_document);
+                }
+                if (_window is not null)
+                {
+                    if (_window.WindowState == WindowState.Minimized)
+                    {
+                        _window.WindowState = WindowState.Normal;
+                    }
+                    _window.Activate();
+                }
+            }).GetTask().ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // 应用退出路径:面板随进程消亡,聚焦已无意义。
+        }
+    }
+
     public ValueTask DisposeAsync() => new(CloseAsync());
 
     /// <summary>面板生命终点(用户关闭/程序关闭/插件停用),幂等。</summary>
@@ -275,17 +282,18 @@ internal sealed class PluginPanel : IPluginPanel
         PlacementRatioChanged = null;
         if (Closed is { } handlers)
         {
-            _ = Task.Run(() =>
+            // **同步派发**。Interlocked 已保证只跑一次,而现有订阅方(PluginUiApi 的面板表、
+            // 插件自己的去重表)都只是短临界区的表删除。异步派发会制造出
+            // "面板已经死了、订阅方还没收到"的窗口 —— 去重表里因此留下 IsOpen 恒 false
+            // 的死条目,此后那条动作每次都"开一扇窗立刻自己关掉"。
+            try
             {
-                try
-                {
-                    handlers();
-                }
-                catch (Exception ex)
-                {
-                    _log.Error($"Panel Closed handler threw (panel of {_pluginId}).", ex);
-                }
-            });
+                handlers();
+            }
+            catch (Exception ex)
+            {
+                _log.Error($"Panel Closed handler threw (panel of {_pluginId}).", ex);
+            }
         }
         Closed = null;
     }

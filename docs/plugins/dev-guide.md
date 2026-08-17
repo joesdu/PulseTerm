@@ -157,8 +157,9 @@ zip-slip 防护、同 id 覆盖旧版、按激活策略激活)。卸载同样在
 | `publisher` | | 发布者 |
 | `apiLevel` | | 默认 1;高于宿主支持的代际 → 标记 Incompatible 拒载 |
 | `minHostVersion` | | 要求的最低宿主版本;不满足 → Incompatible |
-| `activationEvents` | | 省略或含 `"onStartup"` = 启动激活;仅含 `"onCommand:<命令id>"` = **惰性激活**(命中占位命令才装载/拉进程,须在 `contributes.commands` 声明对应占位) |
+| `activationEvents` | | 省略或含 `"onStartup"` = 启动激活;`"onCommand:<命令id>"` / `"onProtocol:<协议id>"` = **惰性激活**(命中占位命令、或用户选中该协议页签才装载;须在对应的 `contributes.*` 里声明) |
 | `contributes.commands` | | 声明式命令占位 `[{id,title,category}]`:发现期即进命令面板,id 必须以插件 id 为前缀;激活时插件应 `Register` 同 id 的真实处理器替换占位 |
+| `contributes.protocols` | | 声明式协议页签 `[{id,displayName,defaultPort}]`:发现期即进连接配置页(**不装载程序集**),id 必须等于插件 id 或以其为前缀;设置表单在激活后由 `ProtocolDescriptor` 补齐。要求 `hostMode` 为 `inProcess` |
 | `idlePolicy` | | `"keepAlive"`(默认)/ `"recyclable"`:隔离模式下连续空闲(无 RPC 且无打开面板,默认 15 分钟)即回收进程,占位命令留守待再触发 |
 | `homepage` / `license` | | 元信息 |
 
@@ -348,6 +349,7 @@ IPluginPanel panel = await context.Ui.ShowPanelAsync(
     new() { Title = "My Panel", DisplayMode = PanelDisplayMode.Document },
     () => new MyPanelView(context));   // 编译期 AXAML 的 UserControl,或任意 Control
 panel.Closed += () => ...;             // 用户关闭/插件停用时触发
+await panel.ActivateAsync();           // 带到前台(窗口:还原最小化并激活;文档:切到该标签)
 await panel.CloseAsync();              // 程序性关闭
 ```
 
@@ -413,6 +415,8 @@ new()
 - 控件的事件/更新由插件直接操作(标准 Avalonia 写法,`await` 后自动回 UI 线程);
   从后台线程改控件请走 `Dispatcher.UIThread`。
 - 同一控件实例只挂一个面板;面板是活控件,无"整树刷新"概念。
+- **重复触发同一目标时用 `ActivateAsync` 而不是直接 return**:同尺寸的居中窗口会把前一扇
+  像素级盖住,最小化之后更是完全看不见 —— 用户只会以为点了没反应。
 - 国际化自理:按 `context.Host.Locale` 取词,订阅 `LocaleChanged` 热更新。
 - 插件停用时其全部面板由宿主自动关闭。
 - 完整示例(编译期 AXAML + 双语文案 + 会话/远程执行联动):
@@ -455,6 +459,62 @@ string? current = await context.Clipboard.GetTextAsync();
 
 经宿主主窗口执行(隔离模式 RPC 路由,语义一致)。剪贴板常含用户密码:
 读取的内容**不要记日志、不要外发**。
+
+### 5.13 Protocols —— 自带远程文件协议
+
+让插件提供一种**新协议**(S3、WebDAV、…),在连接配置页里与 SSH/SFTP/FTP 平起平坐:
+
+```csharp
+context.Protocols.Register(
+    new ProtocolDescriptor
+    {
+        Id = context.PluginId,               // 或 $"{context.PluginId}.<子协议>"
+        DisplayName = "S3",
+        DefaultPort = 443,
+        HostLabel = "服务端点",              // 可改写主机/用户名/密码三格的标签
+        Features = ProtocolFeatures.ServerSideCopy | ProtocolFeatures.AnonymousAccess,
+        Fields = [ new() { Key = "region", Label = "区域", DefaultValue = "us-east-1" } ],
+        Actions = [ new("share", "复制分享链接", ProtocolActionScope.File) ],
+    },
+    new MyFileSystem(context));
+```
+
+- **只实现 `IProtocolFileSystem` 就够了**:它的方法集与宿主内部的远程文件契约一一对应,
+  因此双栏浏览器、传输队列、限速、拖放、冲突策略**全部零改动**地为你工作。
+- **连接表单是声明式的**:`Fields` 描述键、标签、形态(文本/口令/布尔/整数/下拉)与默认值,
+  宿主渲染控件并把用户填的值原样回传给 `ProtocolConnectRequest.Settings`。
+  **插件不需要写一行连接对话框的界面代码。** 标为 `IsSecret` 的字段随口令一起加密落盘。
+- **右键菜单也是声明式的**:`Actions` 在按下右键那一帧就画得出来,点击后宿主调
+  `InvokeActionAsync`,你自己决定做什么(通常是开一个 `Ui` 面板)。
+- **进度不必自己节流**:宿主已按 ≥100ms 收敛并做了并发乱序下的单调处理,放心每读一块就报一次。
+- **限速由宿主给**:`await context.Protocols.GetTransferOptionsAsync()` 拿到全局带宽上限
+  与时间戳策略(它是用户偏好,不该每个协议各配一份),在**每次传输开始时**读一次。
+- **激活跑在线程池上**:宿主用 `Task.Run` 把 `onProtocol` 的惰性激活推离 UI 线程
+  (装配集加载与 `ActivateAsync` 都是同步段),所以 `ActivateAsync` 里做点阻塞初始化不至于冻界面
+  —— 但 10 秒激活时限照旧。
+- **异常有约定**:`ProtocolAuthenticationException`(宿主重弹登录框)、
+  `ProtocolCertificateTrustException`(宿主弹信任提示、记指纹后重连)、
+  `ProtocolConnectionException`、`ProtocolUnsupportedException`(呈现为"功能不适用"而非失败)。
+- **要在装载插件之前就出现在连接页**,须在 `plugin.json` 里同时声明:
+
+```jsonc
+{
+  "contributes": { "protocols": [{ "id": "acme.storage", "displayName": "Acme", "defaultPort": 443 }] },
+  "activationEvents": [ "onProtocol:acme.storage" ]   // 用户点到这个页签才装载
+}
+```
+
+> **硬约束:协议能力仅 `inProcess`。** 协议是宿主反向调用插件的高频通道(含流式读),
+> 隔离进程的 RPC 只承载插件→宿主方向。声明了 `contributes.protocols` 又要 `isolated`
+> 的清单会在发现期被拒绝并给出原因。
+>
+> **协议 id 发布后不可更改** —— 它落在用户的会话配置里,改名等于让老配置认不出自己的协议。
+> id 必须**全小写** `[a-z0-9.-]`、≤128 字符、等于插件 id 或以 `<插件id>.` 开头;
+> 清单校验与运行期 `Register` 共用同一个判定(`PluginManifestReader.IsValidProtocolId`)。
+> 强制小写是为了消灭大小写歧义 —— 这个 id 在注册表、界面、落盘配置三处被比较,
+> 只要允许大写,`Foo.Bar` 与 `foo.bar` 就会在不同环节被判成"是"和"不是"同一个。
+
+完整示例:`plugins/VelaShell.Plugin.S3`(协议 + 两个管理面板 + 22 项桶配置)。
 
 ## 6. 隔离进程模式(isolated)
 
@@ -511,7 +571,8 @@ public async Task Refresh_ListsContainers()
 }
 ```
 
-替身清单:`CollectingLogger`、`InMemoryStorage`、`FakeSessions`、`FakeRemoteFs`
+替身清单:`CollectingLogger`、`InMemoryStorage`、`FakeSessions`、`RecordingProtocols`
+(协议注册,含与宿主一致的 id 前缀校验)、`FakeRemoteFs`
 (内存路径树,语义与真实实现对齐)、`FakeRemoteExec`(脚本化应答)、
 `RecordingCommands`(可 `RunAsync` 驱动命令体)、`TestHostEvents`(Raise 方法)、
 `TestHostInfo`、`FakeUi`(记录面板与惰性内容工厂)、`FakeSecrets`、`FakeClipboard`。
@@ -563,7 +624,8 @@ public async Task Refresh_ListsContainers()
 | 激活事件 / 惰性激活(03) | **已实现**:`onStartup` / `onCommand:<id>` + `contributes.commands` 占位;其余事件类型(onSessionConnect/onFileOpen 等)待后续 |
 | 空闲回收(04) | **已实现**(隔离模式 + `idlePolicy: "recyclable"`) |
 | secrets / clipboard 能力域(07) | **已实现**(§5.10/§5.11;无权限系统,信任即安装口径) |
-| terminal / localFs / audio / ai 等能力域(07) | 未开口;开新能力域必须回写蓝图并只增不改 |
+| protocols 能力域(07) | **已实现**(§5.13):插件可自带远程文件协议,复用宿主的浏览器/传输栈;仅 `inProcess`。首个使用者是官方 S3 插件 |
+| localFs / audio / ai 等能力域(07) | 未开口;开新能力域必须回写蓝图并只增不改 |
 
 新增能力时的纪律:先在本文件与对应蓝图文档登记,接口进 `VelaShell.PluginSdk`
 且同 apiLevel 内只增不改。

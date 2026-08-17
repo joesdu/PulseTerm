@@ -3,6 +3,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="using:VelaShell.ViewModels"
+        xmlns:protocols="using:VelaShell.PluginSdk.Protocols"
         xmlns:behaviors="using:VelaShell.Behaviors"
         xmlns:models="clr-namespace:VelaShell.Core.Models;assembly=VelaShell.Core"
         xmlns:loc="using:VelaShell.Localization"
@@ -171,7 +172,7 @@
         </Grid>
       </Border>
 
-      <!-- 协议标签页:SSH/SFTP/FTP 可选;Telnet/串口保持禁用 -->
+      <!-- 协议标签页:SSH/SFTP/FTP 内建 + 插件协议(动态);Telnet/串口保持禁用 -->
       <Border Height="36" Padding="20,0"
               BorderThickness="0,0,0,1"
               BorderBrush="{DynamicResource VelaBorderPrimary}">
@@ -192,6 +193,27 @@
                     CommandParameter="{x:Static models:ConnectionType.FTP}">
               <TextBlock Classes="proto-label" Text="FTP" FontWeight="Medium" />
             </Button>
+            <!-- 插件协议页签:内容来自已安装插件的清单声明,**不装载任何插件程序集**;
+                 用户点到某个页签才触发它的惰性激活并补齐下面的设置表单。
+                 因此新增一种协议不需要动这个文件。 -->
+            <ItemsControl ItemsSource="{Binding PluginProtocols}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <StackPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:PluginProtocolTabViewModel">
+                  <Button Classes="proto-tab plugin-proto"
+                          Tag="{Binding Id}"
+                          Classes.selected="{Binding IsSelected}"
+                          Command="{Binding $parent[ItemsControl].((vm:ConnectionProfileViewModel)DataContext).SelectPluginProtocolCommand}"
+                          CommandParameter="{Binding Id}">
+                    <TextBlock Classes="proto-label" Text="{Binding DisplayName}" FontWeight="Medium" />
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
             <Border Classes="proto-tab" IsEnabled="False" ToolTip.Tip="{loc:Localize Profile_NotSupported}">
               <TextBlock Classes="proto-label" Text="Telnet"
                          Foreground="{DynamicResource VelaTextTertiary}" />
@@ -201,7 +223,7 @@
                          Foreground="{DynamicResource VelaTextTertiary}" />
             </Border>
           </StackPanel>
-          <!-- 滑动下划线:2px 强调色,在 SSH/SFTP 间平移;位置由代码后置按按钮实际边界驱动。 -->
+          <!-- 滑动下划线:2px 强调色,在各协议页签间平移;位置由代码后置按按钮实际边界驱动。 -->
           <Border x:Name="ProtoTabIndicator"
                   Height="2"
                   Background="{DynamicResource VelaAccent}"
@@ -222,11 +244,11 @@
       <!-- 表单 -->
       <StackPanel Margin="20,18" Spacing="14">
 
-        <!-- 主机名/IP + 端口 -->
+        <!-- 主机名/IP + 端口(插件协议可改写这一格的标签与占位,如 S3 的「服务端点」) -->
         <Grid ColumnDefinitions="*,12,90">
           <StackPanel Grid.Column="0">
-            <TextBlock Classes="field-label" Text="{loc:Localize Profile_HostIp}" />
-            <TextBox Text="{Binding Host}" PlaceholderText="192.168.1.100" />
+            <TextBlock Classes="field-label" Text="{Binding HostLabel}" />
+            <TextBox Text="{Binding Host}" PlaceholderText="{Binding HostPlaceholder}" />
           </StackPanel>
           <StackPanel Grid.Column="2">
             <TextBlock Classes="field-label" Text="{loc:Localize Port}" />
@@ -235,10 +257,10 @@
           </StackPanel>
         </Grid>
 
-        <!-- 用户名 + 认证方式 -->
+        <!-- 用户名 + 认证方式(插件协议可改写用户名标签,如 Access Key ID) -->
         <Grid ColumnDefinitions="*,12,*">
           <StackPanel Grid.Column="0">
-            <TextBlock Classes="field-label" Text="{loc:Localize Username}" />
+            <TextBlock Classes="field-label" Text="{Binding UsernameLabel}" />
             <TextBox Text="{Binding Username}" PlaceholderText="root" />
           </StackPanel>
           <StackPanel Grid.Column="2" IsVisible="{Binding RequiresSshAuth}">
@@ -289,9 +311,43 @@
                      FontSize="{DynamicResource VelaFontSize11}" TextWrapping="Wrap" />
         </Border>
 
-        <!-- 密码(密码认证;匿名 FTP 不需要) -->
+        <!-- 插件协议的设置表单。字段声明来自插件的 ProtocolDescriptor,宿主按 Kind 渲染 ——
+             插件因此不需要写一行界面代码,而连接对话框的布局、主题与校验仍归宿主统一负责。 -->
+        <TextBlock Text="…" IsVisible="{Binding IsPluginLoading}"
+                   Foreground="{DynamicResource VelaTextMuted}"
+                   FontSize="{DynamicResource VelaFontSize11}" />
+        <ItemsControl ItemsSource="{Binding PluginFields}" IsVisible="{Binding IsPluginSelected}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:PluginProtocolFieldViewModel">
+              <StackPanel Margin="0,0,0,12" Spacing="4">
+                <TextBlock Classes="field-label" Text="{Binding Label}" IsVisible="{Binding !IsToggle}" />
+                <TextBox Text="{Binding Text}" PlaceholderText="{Binding Placeholder}" IsVisible="{Binding IsText}" />
+                <TextBox Text="{Binding Text}" PasswordChar="•" IsVisible="{Binding IsPassword}" />
+                <ComboBox ItemsSource="{Binding Choices}" SelectedItem="{Binding SelectedChoice}"
+                          IsVisible="{Binding IsChoice}" HorizontalAlignment="Stretch">
+                  <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="protocols:ProtocolSettingChoice">
+                      <TextBlock Text="{Binding Label}" />
+                    </DataTemplate>
+                  </ComboBox.ItemTemplate>
+                </ComboBox>
+                <CheckBox IsChecked="{Binding Toggle}" IsVisible="{Binding IsToggle}"
+                          Padding="0" MinHeight="0" VerticalAlignment="Center">
+                  <TextBlock Text="{Binding Label}" Margin="6,0,0,0"
+                             Foreground="{DynamicResource VelaTextSecondary}"
+                             FontSize="{DynamicResource VelaFontSize11}" FontWeight="Medium" />
+                </CheckBox>
+                <TextBlock Text="{Binding Hint}" IsVisible="{Binding HasHint}"
+                           Foreground="{DynamicResource VelaTextMuted}"
+                           FontSize="{DynamicResource VelaFontSize10}" TextWrapping="Wrap" />
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <!-- 密码(密码认证;匿名 FTP 不需要。插件协议下标签由协议给,如 Secret Access Key) -->
         <StackPanel IsVisible="{Binding ShowPasswordField}">
-          <TextBlock Classes="field-label" Text="{loc:Localize Password}" />
+          <TextBlock Classes="field-label" Text="{Binding PasswordLabel}" />
           <Border Classes="input-affix">
             <Grid ColumnDefinitions="*,Auto">
               <TextBox Grid.Column="0"

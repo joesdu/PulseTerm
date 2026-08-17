@@ -47,12 +47,40 @@ public sealed record CommandContribution
     public string Category { get; init; } = "";
 }
 
+/// <summary>
+/// 一条声明式协议贡献:发现期即出现在连接配置页的协议页签上,无需装载插件程序集。
+/// <para>
+/// 这里只声明"页签怎么画"三件事;设置表单、右键动作与能力位在插件激活后由
+/// <c>context.Protocols.Register</c> 给出的 <c>ProtocolDescriptor</c> 提供 ——
+/// 用户点到这个页签即触发 <c>onProtocol:&lt;id&gt;</c> 激活,表单随即补齐。
+/// 之所以不把整份 descriptor 塞进清单:那些字段要本地化,而清单是静态 JSON。
+/// </para>
+/// </summary>
+public sealed record ProtocolContribution
+{
+    /// <summary>协议 id,必须等于插件 id 或以 <c>&lt;pluginId&gt;.</c> 为前缀。</summary>
+    [JsonPropertyName("id")]
+    public required string Id { get; init; }
+
+    /// <summary>协议页签上的名称。</summary>
+    [JsonPropertyName("displayName")]
+    public required string DisplayName { get; init; }
+
+    /// <summary>新建配置时的默认端口。</summary>
+    [JsonPropertyName("defaultPort")]
+    public int DefaultPort { get; init; } = 22;
+}
+
 /// <summary>声明式贡献点(纯数据,发现期注册占位)。</summary>
 public sealed record PluginContributes
 {
     /// <summary>命令贡献。</summary>
     [JsonPropertyName("commands")]
     public CommandContribution[] Commands { get; init; } = [];
+
+    /// <summary>远程文件协议贡献。</summary>
+    [JsonPropertyName("protocols")]
+    public ProtocolContribution[] Protocols { get; init; } = [];
 }
 
 /// <summary>

@@ -51,7 +51,9 @@ public static class PluginServiceCollectionExtensions
                 SecretProtector = sp.GetService<Core.Data.ISecretProtector>(),
                 Clipboard = sp.GetService<PluginSdk.Clipboard.IClipboardApi>(),
                 EmbedHost = sp.GetService<Plugins.Isolated.IPluginEmbedHost>(),
-                TerminalFactory = sp.GetService<Func<string, IPluginLogger, PluginSdk.Terminal.ITerminalApi>>()
+                TerminalFactory = sp.GetService<Func<string, IPluginLogger, PluginSdk.Terminal.ITerminalApi>>(),
+                // 协议注册表:清单声明的协议页签在发现期登记于此,插件激活后补上实现。
+                ProtocolRegistry = sp.GetService<Plugins.Protocols.PluginProtocolRegistry>()
             };
             return new(options);
         });

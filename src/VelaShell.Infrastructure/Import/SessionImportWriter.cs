@@ -49,7 +49,9 @@ internal static class SessionImportWriter
                 RememberPassword = item.PasswordRecovered,
                 GroupId = group.Id,
                 Tags = [tag.ToLowerInvariant()],
-                Ftp = item.FtpSettings
+                Ftp = item.FtpSettings,
+                PluginProtocolId = item.PluginProtocolId,
+                PluginSettings = SessionProfile.CloneSettings(item.PluginSettings)
             };
             await repository.SaveSessionAsync(profile).ConfigureAwait(false);
             group.Sessions.Add(profile.Id);

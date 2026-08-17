@@ -1,0 +1,153 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VelaShell.Plugin.S3.Ui"
+             x:Class="VelaShell.Plugin.S3.Ui.S3ObjectInspectorView"
+             x:DataType="vm:S3ObjectInspectorViewModel">
+
+  <!-- S3 对象检视器:详情 / 标签 / 权限 / 保留与合法保留 / 存储与加密 / S3 Select。
+       覆盖 GetObjectAttributes、GetObjectMetadata、对象标签、对象 ACL、保留与合法保留、
+       归档取回、改存储类别与加密(以自复制实现)、SelectObjectContent、预签名 URL。
+
+       与桶管理器一样:窗口外壳交给宿主面板,配色一律走 Vela* 主题令牌。 -->
+
+  <UserControl.Styles>
+    <Style Selector="TextBlock.field-label">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+      <Setter Property="FontWeight" Value="Medium" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
+      <Setter Property="Margin" Value="0,0,0,4" />
+    </Style>
+    <Style Selector="StackPanel.row">
+      <Setter Property="Margin" Value="0,0,0,14" />
+      <Setter Property="Spacing" Value="4" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,*,Auto" Margin="16,14" Background="{DynamicResource VelaBgSurface}">
+
+    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+      <TextBlock Grid.Column="0" Text="{Binding Title}" TextTrimming="CharacterEllipsis"
+                 FontSize="{DynamicResource VelaFontSize14}" FontWeight="SemiBold"
+                 Foreground="{DynamicResource VelaTextPrimary}" />
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+        <Button Command="{Binding CopyPresignedCommand}" Content="Share link" />
+        <Button Command="{Binding ReloadCommand}" Content="↻" Width="32" ToolTip.Tip="Reload" />
+      </StackPanel>
+    </Grid>
+
+    <TabControl Grid.Row="1">
+
+      <TabItem Header="Details">
+        <ScrollViewer>
+          <SelectableTextBlock Text="{Binding DetailsText}"
+                               FontFamily="{DynamicResource VelaUiMonoFont}"
+                               FontSize="{DynamicResource VelaFontSize12}"
+                               Foreground="{DynamicResource VelaTextPrimary}" />
+        </ScrollViewer>
+      </TabItem>
+
+      <TabItem Header="Tags">
+        <Grid RowDefinitions="*,Auto">
+          <ItemsControl Grid.Row="0" ItemsSource="{Binding Tags}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:S3TagRowViewModel">
+                <Grid ColumnDefinitions="*,8,*,8,Auto" Margin="0,0,0,6">
+                  <TextBox Grid.Column="0" Text="{Binding Key}" PlaceholderText="key" />
+                  <TextBox Grid.Column="2" Text="{Binding Value}" PlaceholderText="value" />
+                  <Button Grid.Column="4" Content="−"
+                          Command="{Binding $parent[ItemsControl].((vm:S3ObjectInspectorViewModel)DataContext).RemoveTagCommand}"
+                          CommandParameter="{Binding}" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
+            <Button Command="{Binding AddTagCommand}" Content="Add" />
+            <Button Command="{Binding SaveTagsCommand}" Content="Save" />
+          </StackPanel>
+        </Grid>
+      </TabItem>
+
+      <TabItem Header="Permissions">
+        <StackPanel Spacing="10">
+          <StackPanel Classes="row">
+            <TextBlock Classes="field-label" Text="Canned ACL" />
+            <Grid ColumnDefinitions="*,8,Auto">
+              <ComboBox Grid.Column="0" ItemsSource="{Binding CannedAcls}"
+                        SelectedItem="{Binding SelectedCannedAcl}" HorizontalAlignment="Stretch" />
+              <Button Grid.Column="2" Command="{Binding ApplyAclCommand}" Content="Apply" />
+            </Grid>
+          </StackPanel>
+          <TextBlock Classes="field-label" Text="Current ACL" />
+          <TextBox Text="{Binding AclJson}" AcceptsReturn="True" IsReadOnly="True"
+                   Height="220" TextWrapping="NoWrap"
+                   FontFamily="{DynamicResource VelaUiMonoFont}"
+                   FontSize="{DynamicResource VelaFontSize11}" />
+        </StackPanel>
+      </TabItem>
+
+      <TabItem Header="Retention">
+        <StackPanel Spacing="10">
+          <StackPanel Classes="row">
+            <TextBlock Classes="field-label" Text="Retention mode" />
+            <TextBox Text="{Binding RetentionMode}" PlaceholderText="GOVERNANCE / COMPLIANCE" />
+          </StackPanel>
+          <StackPanel Classes="row">
+            <TextBlock Classes="field-label" Text="Retain until (UTC)" />
+            <TextBox Text="{Binding RetainUntil}" PlaceholderText="2026-12-31" />
+          </StackPanel>
+          <CheckBox IsChecked="{Binding LegalHold}" Content="Legal hold" />
+          <Button Command="{Binding ApplyRetentionCommand}" Content="Apply" HorizontalAlignment="Left" />
+        </StackPanel>
+      </TabItem>
+
+      <TabItem Header="Storage">
+        <StackPanel Spacing="10">
+          <StackPanel Classes="row">
+            <TextBlock Classes="field-label" Text="Storage class" />
+            <Grid ColumnDefinitions="*,8,Auto">
+              <ComboBox Grid.Column="0" ItemsSource="{Binding StorageClasses}"
+                        SelectedItem="{Binding SelectedStorageClass}" HorizontalAlignment="Stretch" />
+              <Button Grid.Column="2" Command="{Binding ApplyStorageClassCommand}" Content="Apply" />
+            </Grid>
+          </StackPanel>
+          <!-- 归档取回:Glacier 系的对象要先取回才能下载。 -->
+          <StackPanel Classes="row">
+            <TextBlock Classes="field-label" Text="Restore from archive" />
+            <Grid ColumnDefinitions="90,8,*,8,Auto">
+              <TextBox Grid.Column="0" Text="{Binding RestoreDays}" PlaceholderText="days" />
+              <ComboBox Grid.Column="2" ItemsSource="{Binding RestoreTiers}"
+                        SelectedItem="{Binding SelectedRestoreTier}" HorizontalAlignment="Stretch" />
+              <Button Grid.Column="4" Command="{Binding RequestRestoreCommand}" Content="Request" />
+            </Grid>
+          </StackPanel>
+        </StackPanel>
+      </TabItem>
+
+      <TabItem Header="Select">
+        <Grid RowDefinitions="Auto,Auto,*">
+          <StackPanel Grid.Row="0" Classes="row">
+            <TextBlock Classes="field-label" Text="SQL expression" />
+            <TextBox Text="{Binding SelectExpression}" AcceptsReturn="True" Height="80"
+                     FontFamily="{DynamicResource VelaUiMonoFont}" />
+          </StackPanel>
+          <Grid Grid.Row="1" ColumnDefinitions="Auto,8,Auto,*,Auto" Margin="0,0,0,10">
+            <ComboBox Grid.Column="0" ItemsSource="{Binding SelectInputFormats}"
+                      SelectedItem="{Binding SelectedSelectInput}" MinWidth="120" />
+            <CheckBox Grid.Column="2" IsChecked="{Binding CsvHasHeader}" Content="CSV header" />
+            <Button Grid.Column="4" Command="{Binding RunSelectCommand}" Content="Run" />
+          </Grid>
+          <TextBox Grid.Row="2" Text="{Binding SelectResult}" IsReadOnly="True"
+                   AcceptsReturn="True" TextWrapping="NoWrap"
+                   FontFamily="{DynamicResource VelaUiMonoFont}"
+                   FontSize="{DynamicResource VelaFontSize11}" />
+        </Grid>
+      </TabItem>
+    </TabControl>
+
+    <TextBlock Grid.Row="2" Margin="0,10,0,0"
+               Text="{Binding StatusMessage}" TextWrapping="Wrap"
+               FontSize="{DynamicResource VelaFontSize11}"
+               Foreground="{DynamicResource VelaTextMuted}" />
+  </Grid>
+</UserControl>

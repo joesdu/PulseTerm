@@ -3587,28 +3587,28 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   <data name="Ftp_PlaintextWarn" xml:space="preserve">
     <value>明文 FTP 的帳號與檔案都不加密，也沒有伺服器身分驗證。伺服器支援時請優先使用 FTPS。</value>
   </data>
-  <data name="Ftp_CertTitle" xml:space="preserve">
+  <data name="Cert_Title" xml:space="preserve">
     <value>伺服器憑證不受信任</value>
   </data>
-  <data name="Ftp_CertUntrustedFmt" xml:space="preserve">
+  <data name="Cert_UntrustedFmt" xml:space="preserve">
     <value>無法驗證 {0} 提供的憑證。請僅在下方指紋與伺服器一致時才信任它。</value>
   </data>
-  <data name="Ftp_CertSubject" xml:space="preserve">
+  <data name="Cert_Subject" xml:space="preserve">
     <value>主體</value>
   </data>
-  <data name="Ftp_CertIssuer" xml:space="preserve">
+  <data name="Cert_Issuer" xml:space="preserve">
     <value>簽發者</value>
   </data>
-  <data name="Ftp_CertExpires" xml:space="preserve">
+  <data name="Cert_Expires" xml:space="preserve">
     <value>到期</value>
   </data>
-  <data name="Ftp_CertFingerprint" xml:space="preserve">
+  <data name="Cert_Fingerprint" xml:space="preserve">
     <value>SHA-256</value>
   </data>
-  <data name="Ftp_CertProblem" xml:space="preserve">
+  <data name="Cert_Problem" xml:space="preserve">
     <value>問題</value>
   </data>
-  <data name="Ftp_CertTrust" xml:space="preserve">
+  <data name="Cert_Trust" xml:space="preserve">
     <value>信任並連線</value>
   </data>
   <data name="XImport_MenuItemAll" xml:space="preserve">
@@ -3718,5 +3718,8 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   </data>
   <data name="Msg_ProxyAuthFailed" xml:space="preserve">
     <value>代理驗證失敗,請檢查代理使用者名稱與密碼。</value>
+  </data>
+  <data name="Plugin_ProtocolUnavailable" xml:space="preserve">
+    <value>提供該協定的外掛程式目前無法使用。請在外掛程式管理頁安裝或啟用它。</value>
   </data>
 </root>

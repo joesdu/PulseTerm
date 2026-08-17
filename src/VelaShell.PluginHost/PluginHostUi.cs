@@ -143,22 +143,6 @@ internal sealed class PluginHostUi(string pluginId, IPluginLogger log, RpcConnec
         /// <inheritdoc cref="PlacementRatio" />
         public event Action<double>? PlacementRatioChanged { add { } remove { } }
 
-        public async Task ActivateAsync()
-        {
-            if (!IsOpen)
-            {
-                return;
-            }
-            try
-            {
-                await Dispatcher.UIThread.InvokeAsync(_window.Activate).GetTask().ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                // 进程停机:置前这种事没做成也无所谓。
-            }
-        }
-
         public async Task CloseAsync()
         {
             if (!IsOpen)
@@ -173,6 +157,29 @@ internal sealed class PluginHostUi(string pluginId, IPluginLogger log, RpcConnec
             {
                 // 进程停机:派发循环收摊会取消排队作业,窗口随进程消亡,无需噪声。
                 NotifyClosed();
+            }
+        }
+
+        public async Task ActivateAsync()
+        {
+            if (!IsOpen)
+            {
+                return;
+            }
+            try
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    if (_window.WindowState == WindowState.Minimized)
+                    {
+                        _window.WindowState = WindowState.Normal;
+                    }
+                    _window.Activate();
+                }).GetTask().ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // 插件进程退出:窗口随之消亡,聚焦已无意义。
             }
         }
 

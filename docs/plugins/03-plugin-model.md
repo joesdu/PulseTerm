@@ -238,3 +238,23 @@ public interface IPluginContext
 
 验收:用手写的最小 manifest(无真实进程)驱动状态机与贡献点注册表跑通
 全部迁移路径;错误 manifest 的 20+ 种坏例全部给出可读的拒绝原因。
+
+---
+
+## 贡献点补记:`contributes.protocols`(2026-08)
+
+```jsonc
+{
+  "contributes": {
+    "protocols": [{ "id": "acme.storage", "displayName": "Acme", "defaultPort": 443 }]
+  },
+  "activationEvents": ["onProtocol:acme.storage"]
+}
+```
+
+与 `contributes.commands` 同样是**发现期生效、不装载程序集**的纯数据:连接配置页据此
+画出协议页签,用户点到它才触发惰性激活,设置表单随即由插件的 `ProtocolDescriptor` 补齐。
+之所以不把整份 descriptor 塞进清单:那些字段要本地化,而清单是静态 JSON。
+
+校验:id 必须等于插件 id 或以 `<插件id>.` 为前缀;`defaultPort` 在 1–65535;
+**与 `hostMode: "isolated"` 互斥**(理由见 07 的 protocols 一节)。

@@ -1,0 +1,195 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VelaShell.Plugin.S3.Ui"
+             x:Class="VelaShell.Plugin.S3.Ui.S3ManagerView"
+             x:DataType="vm:S3ManagerViewModel">
+
+  <!-- S3 桶管理器。左侧是协议里全部可管理项(概览 / 版本 / 未完成分片上传 + 22 种桶配置),
+       右侧按项的类型呈现结构化表单、JSON 文档编辑器或专用列表。
+
+       左侧导航由 S3ConfigDescriptor.All 驱动,右侧表单由 S3ConfigForm 的字段声明驱动 ——
+       两者都是数据而不是 XAML,因此"协议里有的这里就有",新增配置不必改这个文件。
+
+       窗口外壳(标题栏、圆角、拖动)由宿主的面板承担,这里只画内容:
+       插件面板本就该长得像宿主的一部分,自绘一套 caption 只会两边不一致。
+       配色一律走 {DynamicResource VelaXxx} 主题令牌,明暗切换即时跟随。 -->
+
+  <UserControl.Styles>
+    <Style Selector="TextBlock.section">
+      <Setter Property="Padding" Value="12,7" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize12}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
+    </Style>
+    <Style Selector="ListBoxItem:selected TextBlock.section">
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
+      <Setter Property="FontWeight" Value="Medium" />
+    </Style>
+    <Style Selector="TextBlock.field-label">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+      <Setter Property="FontWeight" Value="Medium" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
+      <Setter Property="Margin" Value="0,0,0,4" />
+    </Style>
+    <Style Selector="TextBlock.hint">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+      <Setter Property="Margin" Value="0,3,0,0" />
+    </Style>
+    <Style Selector="TextBlock.col">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid ColumnDefinitions="220,1,*" Background="{DynamicResource VelaBgSurface}">
+
+    <!-- 左:导航 -->
+    <ListBox Grid.Column="0"
+             ItemsSource="{Binding Sections}"
+             SelectedItem="{Binding SelectedSection}"
+             Background="{DynamicResource VelaBgPage}"
+             BorderThickness="0">
+      <ListBox.ItemTemplate>
+        <DataTemplate x:DataType="vm:S3SectionViewModel">
+          <TextBlock Classes="section" Text="{Binding Title}" />
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+
+    <Border Grid.Column="1" Background="{DynamicResource VelaBorderPrimary}" />
+
+    <!-- 右:内容 -->
+    <Grid Grid.Column="2" RowDefinitions="Auto,*,Auto" Margin="16,14">
+
+      <!-- 标题 + 多份配置的 id 选择 + 操作按钮 -->
+      <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+        <StackPanel Grid.Column="0" Spacing="6">
+          <TextBlock Text="{Binding SelectedSection.Title}"
+                     FontSize="{DynamicResource VelaFontSize14}" FontWeight="SemiBold"
+                     Foreground="{DynamicResource VelaTextPrimary}" />
+          <ComboBox ItemsSource="{Binding ConfigIds}"
+                    SelectedItem="{Binding SelectedConfigId}"
+                    IsVisible="{Binding IsKeyed}"
+                    MinWidth="220" HorizontalAlignment="Left" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Top">
+          <Button Command="{Binding ReloadCommand}" Content="↻" ToolTip.Tip="Reload" Width="32" />
+          <Button Command="{Binding SaveCommand}" IsVisible="{Binding CanSave}" Content="Save" />
+          <Button Command="{Binding DeleteCommand}" IsVisible="{Binding CanDelete}" Content="Delete" />
+        </StackPanel>
+      </Grid>
+
+      <!-- 概览 -->
+      <ScrollViewer Grid.Row="1" IsVisible="{Binding ShowOverview}">
+        <SelectableTextBlock Text="{Binding OverviewText}"
+                             FontFamily="{DynamicResource VelaUiMonoFont}"
+                             FontSize="{DynamicResource VelaFontSize12}"
+                             Foreground="{DynamicResource VelaTextPrimary}" />
+      </ScrollViewer>
+
+      <!-- 对象版本 -->
+      <Grid Grid.Row="1" RowDefinitions="Auto,*" IsVisible="{Binding ShowVersions}">
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+          <TextBox Grid.Column="0" Text="{Binding VersionPrefix}" PlaceholderText="prefix/" />
+          <Button Grid.Column="1" Command="{Binding ReloadCommand}" Content="List" Margin="8,0,0,0" />
+        </Grid>
+        <ListBox Grid.Row="1" ItemsSource="{Binding Versions}" Background="Transparent" BorderThickness="0">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:S3VersionRowViewModel">
+              <Grid ColumnDefinitions="*,150,90,150,Auto,Auto" Height="26">
+                <TextBlock Grid.Column="0" Classes="col" Text="{Binding Key}" />
+                <TextBlock Grid.Column="1" Classes="col" Text="{Binding VersionId}" />
+                <TextBlock Grid.Column="2" Classes="col" Text="{Binding Size}" TextAlignment="Right" />
+                <TextBlock Grid.Column="3" Classes="col" Text="{Binding LastModified}" />
+                <TextBlock Grid.Column="4" Classes="col" Text="{Binding StatusText}" Margin="8,0" />
+                <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="4">
+                  <Button Content="Restore"
+                          Command="{Binding $parent[ListBox].((vm:S3ManagerViewModel)DataContext).RestoreVersionCommand}"
+                          CommandParameter="{Binding}"
+                          IsEnabled="{Binding !IsLatest}" />
+                  <Button Content="Delete"
+                          Command="{Binding $parent[ListBox].((vm:S3ManagerViewModel)DataContext).DeleteVersionCommand}"
+                          CommandParameter="{Binding}" />
+                </StackPanel>
+              </Grid>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Grid>
+
+      <!-- 未完成分片上传 -->
+      <ListBox Grid.Row="1" IsVisible="{Binding ShowUploads}"
+               ItemsSource="{Binding Uploads}" Background="Transparent" BorderThickness="0">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:S3UploadRowViewModel">
+            <Grid ColumnDefinitions="*,200,150,120,Auto" Height="26">
+              <TextBlock Grid.Column="0" Classes="col" Text="{Binding Key}" />
+              <TextBlock Grid.Column="1" Classes="col" Text="{Binding UploadId}" />
+              <TextBlock Grid.Column="2" Classes="col" Text="{Binding Initiated}" />
+              <TextBlock Grid.Column="3" Classes="col" Text="{Binding Owner}" />
+              <Button Grid.Column="4" Content="Abort"
+                      Command="{Binding $parent[ListBox].((vm:S3ManagerViewModel)DataContext).AbortUploadCommand}"
+                      CommandParameter="{Binding}" />
+            </Grid>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+
+      <!-- 结构化表单(字段声明来自 S3ConfigForm) -->
+      <ScrollViewer Grid.Row="1" IsVisible="{Binding ShowForm}">
+        <ItemsControl ItemsSource="{Binding Fields}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:S3FormFieldViewModel">
+              <StackPanel Margin="0,0,0,14">
+                <TextBlock Classes="field-label" Text="{Binding Label}" />
+                <TextBox Text="{Binding Text}" IsVisible="{Binding IsText}" />
+                <CheckBox IsChecked="{Binding Toggle}" IsVisible="{Binding IsToggle}" Content="{Binding Label}" />
+                <ComboBox ItemsSource="{Binding Choices}" SelectedItem="{Binding Selected}"
+                          IsVisible="{Binding IsChoice}" HorizontalAlignment="Stretch" />
+                <StackPanel IsVisible="{Binding IsTagList}" Spacing="6">
+                  <ItemsControl ItemsSource="{Binding Tags}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:S3TagRowViewModel">
+                        <Grid ColumnDefinitions="*,8,*" Margin="0,0,0,4">
+                          <TextBox Grid.Column="0" Text="{Binding Key}" PlaceholderText="key" />
+                          <TextBox Grid.Column="2" Text="{Binding Value}" PlaceholderText="value" />
+                        </Grid>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <Button Content="+"
+                          Command="{Binding $parent[ItemsControl].((vm:S3ManagerViewModel)DataContext).AddTagRowCommand}"
+                          CommandParameter="{Binding}" HorizontalAlignment="Left" />
+                </StackPanel>
+                <TextBlock Classes="hint" Text="{Binding Hint}" IsVisible="{Binding HasHint}" />
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+
+      <!-- JSON 文档编辑器。生命周期/策略/ACL/CORS/复制/通知这些本身就是文档,
+           硬做成表单既做不全,也会在遇到未知字段时把它们静默清空。 -->
+      <TextBox Grid.Row="1" IsVisible="{Binding ShowJson}"
+               Text="{Binding Json}"
+               AcceptsReturn="True" TextWrapping="NoWrap"
+               FontFamily="{DynamicResource VelaUiMonoFont}"
+               FontSize="{DynamicResource VelaFontSize12}"
+               VerticalAlignment="Stretch" HorizontalAlignment="Stretch" />
+
+      <!-- 状态条 -->
+      <TextBlock Grid.Row="2" Margin="0,10,0,0"
+                 Text="{Binding StatusMessage}" TextWrapping="Wrap"
+                 FontSize="{DynamicResource VelaFontSize11}">
+        <TextBlock.Styles>
+          <Style Selector="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />
+          </Style>
+        </TextBlock.Styles>
+      </TextBlock>
+    </Grid>
+  </Grid>
+</UserControl>

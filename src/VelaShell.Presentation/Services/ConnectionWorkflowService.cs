@@ -128,7 +128,10 @@ public sealed class ConnectionWorkflowService(
             // 保留配置自身的勾选:全局开关只影响是否落盘,不改写每条配置的选择。
             RememberPassword = profile.RememberPassword,
             JumpHostProfileId = profile.JumpHostProfileId,
-            Ftp = profile.Ftp?.Clone()
+            Ftp = profile.Ftp?.Clone(),
+            PluginProtocolId = profile.PluginProtocolId,
+            PluginSettings = SessionProfile.CloneSettings(profile.PluginSettings),
+            PluginSecrets = SessionProfile.CloneSettings(profile.PluginSecrets)
         };
     }
 
@@ -247,7 +250,12 @@ public sealed class ConnectionWorkflowService(
         {
             throw new ArgumentException(Strings.Get("Svc_HostRequired"), nameof(profile));
         }
-        if (string.IsNullOrWhiteSpace(profile.Username))
+        // 「必须填用户名」这条并非对所有协议成立:FTP 匿名登录与插件协议的匿名访问
+        // (S3 的公开只读桶)都不需要。连接配置页的保存按钮已按同一口径放行,
+        // 这里再无条件拦一道,结果就是按钮亮着、一保存就抛。
+        bool anonymousAllowed = profile.ConnectionType == ConnectionType.Plugin
+                                || (profile.ConnectionType == ConnectionType.FTP && profile.Ftp?.Anonymous == true);
+        if (!anonymousAllowed && string.IsNullOrWhiteSpace(profile.Username))
         {
             throw new ArgumentException(Strings.Get("Svc_UsernameRequired"), nameof(profile));
         }

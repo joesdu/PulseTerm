@@ -81,6 +81,12 @@ public sealed class PluginManagerOptions
     public Func<string, IPluginLogger, PluginSdk.Terminal.ITerminalApi>? TerminalFactory { get; init; }
 
     /// <summary>
+    /// 插件协议注册表:清单声明的协议页签在发现期登记于此,插件激活后再补上实现。
+    /// 缺席时协议能力报不可用(headless 测试路径),声明的页签也不会出现。
+    /// </summary>
+    public Protocols.PluginProtocolRegistry? ProtocolRegistry { get; init; }
+
+    /// <summary>
     /// 隔离插件崩溃后的重启退避序列(第 N 次崩溃等待第 N 项);
     /// <see cref="CrashRestartWindow" /> 内崩溃次数超过序列长度即判 Failed 不再重启。
     /// </summary>
