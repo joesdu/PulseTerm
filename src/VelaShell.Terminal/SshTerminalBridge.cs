@@ -196,7 +196,7 @@ public class SshTerminalBridge : IDisposable
     }
 
     /// <summary>
-    /// 程序化注入:直写 PTY,不经终端控件的输入事件。连接初始化命令(提示符补行脚本、
+    /// 程序化注入:直写 PTY,不经终端控件的输入事件。连接初始化命令(用户配置的
     /// 启动命令)必须走这里——若走 WriteInput,注入里的 ESC 字节会把命令补全的行跟踪器
     /// (plan.md #16)打进未知态,SSH 标签的智能建议从连接起就全灭(实测取证)。
     /// </summary>

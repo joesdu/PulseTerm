@@ -625,7 +625,8 @@ public class TerminalTabViewModel : TabViewModel, IDisposable
     /// 把初始化命令注入远端 shell 并静默执行:发送前在桥上装回显抑制器,
     /// 把 PTY 回显的这一行从输出流剥掉,不在界面显示。前导空格让
     /// HISTCONTROL=ignoreboth 不记历史;抑制针 needle 不含该空格(空格太常见,
-    /// 不适合做流匹配锚点),残留的空格与光标位置由命令本身的补行脚本消化。
+    /// 不适合做流匹配锚点)。注入本身要占掉 shell 的一个提示符周期,想让屏幕保持干净
+    /// 可在命令里自行清行(如 printf "\r\033[2K")。
     /// </summary>
     public void SendSilentCommand(string command)
     {

@@ -2501,7 +2501,7 @@ Paste anyway?</value>
     <value>Run command after connect</value>
   </data>
   <data name="SetTerm_StartupCommandDesc" xml:space="preserve">
-    <value>// Runs silently after connect/reconnect (not echoed in the terminal), appended after the built-in prompt-fix script; leave empty to run only the built-in script</value>
+    <value>// Runs silently after connect/reconnect (not echoed in the terminal); leave empty to run nothing</value>
   </data>
   <data name="SetTerm_StartupCommandPlaceholder" xml:space="preserve">
     <value>e.g. cd /var/www</value>
