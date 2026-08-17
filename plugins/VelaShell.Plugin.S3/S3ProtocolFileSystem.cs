@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Net;
+using Amazon.Runtime;
 using Amazon.S3;
 using Amazon.S3.Model;
 using Amazon.S3.Transfer;
@@ -587,7 +588,7 @@ public sealed class S3ProtocolFileSystem(IProtocolsApi? protocols = null, IS3Act
         }
         catch (Exception ex)
         {
-            throw Fault(sessionId, ex, "open");
+            throw Fault(sessionId, ex, $"open of {path}");
         }
     }
 
@@ -603,20 +604,25 @@ public sealed class S3ProtocolFileSystem(IProtocolsApi? protocols = null, IS3Act
         S3ObjectPath path = RequireObject(remotePath, "download");
         try
         {
-            GetObjectMetadataResponse metadata =
-                await TryHeadAsync(session, path.Bucket, path.Key, cancellationToken).ConfigureAwait(false)
-                ?? throw new VelaS3PathNotFoundException($"S3 object not found: {path}");
-            long totalBytes = metadata.ContentLength;
+            // HEAD 只是来取总大小与 mtime(报进度、算续传起点、对齐时间戳),**不是下载的前提**。
+            // 因此它失败也照样往下走,让 GET 去决定这次下载成不成:
+            // ① 有的授权只放行 GetObject 而不放行 HeadObject(把对象设成公共读、
+            //    或前面挂了 CDN 时尤其常见),这种情况下强制 HEAD 会把本来能下的文件挡死;
+            // ② 更要紧的是错误质量 —— HEAD 的 403 **响应体是空的**,SDK 只能报一句
+            //    「Error Code Forbidden … No further error information was returned by the service」,
+            //    用户完全无从下手;同一个对象的 GET 若同样被拒,会带回正经的
+            //    <Error><Code>AccessDenied</Code> 连同 Key/BucketName/RequestId。
+            GetObjectMetadataResponse? metadata = await TryHeadForDownloadAsync(session, path, cancellationToken).ConfigureAwait(false);
             // 以本地残留文件的实际长度重新核实续传起点(与 SftpService 同一条原则:
-            // 上层记的偏移可能已经过期,以此刻的实际状态为准)。
-            long offset = ResolveDownloadResume(localPath, totalBytes, resumeOffset);
-            var reporter = new S3ProgressReporter(progress, path.Name, totalBytes);
+            // 上层记的偏移可能已经过期,以此刻的实际状态为准)。没拿到 HEAD 就整份重下 ——
+            // 不知道总长度时发 Range 只会撞上 416。
+            long offset = metadata is null ? 0 : ResolveDownloadResume(localPath, metadata.ContentLength, resumeOffset);
             (_, long downloadBps, bool preserveTimestamps) = await GetTransferTuningAsync().ConfigureAwait(false);
 
             var request = new GetObjectRequest { BucketName = path.Bucket, Key = path.Key };
             if (offset > 0)
             {
-                request.ByteRange = new(offset, totalBytes - 1);
+                request.ByteRange = new(offset, metadata!.ContentLength - 1);
             }
             using GetObjectResponse response = await session.Client.GetObjectAsync(request, cancellationToken).ConfigureAwait(false);
             // 请求了 Range 却拿回 200(整份内容)—— 服务端不支持 Range。此时必须从头写,
@@ -625,6 +631,9 @@ public sealed class S3ProtocolFileSystem(IProtocolsApi? protocols = null, IS3Act
             {
                 offset = 0;
             }
+            // 总长度优先信 HEAD;没有就用 GET 响应的 —— 206 时它只是本次区间的长度,要加回起点。
+            long totalBytes = metadata?.ContentLength ?? Math.Max(0, offset + response.ContentLength);
+            var reporter = new S3ProgressReporter(progress, path.Name, totalBytes);
 
             await using (Stream source = response.ResponseStream)
             await using (FileStream target = OpenLocalWrite(localPath, offset))
@@ -646,7 +655,7 @@ public sealed class S3ProtocolFileSystem(IProtocolsApi? protocols = null, IS3Act
 
             // 保留时间戳(设置 → 文件传输,scp -p 语义)。S3 不允许客户端设置对象的 mtime,
             // 因此只有下载方向能对等实现。尽力而为 —— 一次时间戳设置失败不该把已完成的下载标成失败。
-            if (preserveTimestamps && metadata.LastModified is { } modified)
+            if (preserveTimestamps && (metadata?.LastModified ?? response.LastModified) is { } modified)
             {
                 try
                 {
@@ -660,7 +669,9 @@ public sealed class S3ProtocolFileSystem(IProtocolsApi? protocols = null, IS3Act
         }
         catch (Exception ex)
         {
-            throw Fault(sessionId, ex, "download");
+            // 带上对象路径:一次多选下载里失败的可能只是其中一个,
+            // 光说一句「S3 download failed」用户不知道是哪一个出的问题。
+            throw Fault(sessionId, ex, $"download of {path}");
         }
     }
 
@@ -1175,6 +1186,39 @@ public sealed class S3ProtocolFileSystem(IProtocolsApi? protocols = null, IS3Act
                 .ConfigureAwait(false);
         }
         catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 下载专用的 HEAD:**任何**失败都只当作「没问到元数据」返回 null,由随后的 GET 定成败。
+    /// <para>
+    /// 与 <see cref="TryHeadAsync" /> 只吞 404 的口径不同,是因为两者的用途不同 ——
+    /// 那个的返回值就是判定结果(存在/不存在),吞掉 403 会把「没权限看」误判成「不存在」;
+    /// 这里的返回值只是**优化用的附加信息**(总长度、mtime、能否续传),缺了它下载照样能做。
+    /// </para>
+    /// <para>
+    /// 取消要原样抛出:那是用户按了取消,不是「HEAD 没问到」。
+    /// </para>
+    /// </summary>
+    private static async Task<GetObjectMetadataResponse?> TryHeadForDownloadAsync(S3Session session, S3ObjectPath path, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await session.Client
+                .GetObjectMetadataAsync(new() { BucketName = path.Bucket, Key = path.Key }, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (AmazonServiceException)
+        {
+            return null;
+        }
+        catch (AmazonClientException)
         {
             return null;
         }

@@ -64,6 +64,15 @@ internal sealed class LoopbackS3Server : IDisposable
     /// <summary>签名校验失败的次数;正常路径下必须始终为 0。</summary>
     public int SignatureFailures;
 
+    /// <summary>
+    /// 对这些 HTTP 方法一律回 403 AccessDenied,用来复现「同一个对象 GET 放行、HEAD 被拒」
+    /// 的授权(把对象设成公共读、或端点前面挂了 CDN 时很常见)。
+    /// <para>
+    /// HEAD 的响应体会像真实服务端那样被丢掉 —— 正是「403 却没有任何错误细节」的由来。
+    /// </para>
+    /// </summary>
+    public HashSet<string> DeniedMethods { get; } = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>预置一个桶。</summary>
     public void AddBucket(string bucket) =>
         _buckets.GetOrAdd(bucket, _ => new(StringComparer.Ordinal));
@@ -137,9 +146,11 @@ internal sealed class LoopbackS3Server : IDisposable
                     return;
                 }
                 Requests.Enqueue($"{request.Method} {request.Target}");
-                HttpResponse response = VerifySignature(request)
-                    ? Route(request)
-                    : Error(HttpStatusCode.Forbidden, "SignatureDoesNotMatch", "The request signature we calculated does not match.");
+                HttpResponse response = !VerifySignature(request)
+                    ? Error(HttpStatusCode.Forbidden, "SignatureDoesNotMatch", "The request signature we calculated does not match.")
+                    : DeniedMethods.Contains(request.Method)
+                        ? Error(HttpStatusCode.Forbidden, "AccessDenied", "Access Denied.")
+                        : Route(request);
                 await WriteResponseAsync(stream, response, request.Method == "HEAD").ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is IOException or SocketException or ObjectDisposedException)

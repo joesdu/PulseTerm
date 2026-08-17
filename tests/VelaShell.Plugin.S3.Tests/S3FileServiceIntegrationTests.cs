@@ -317,6 +317,65 @@ public sealed class S3FileServiceIntegrationTests
         }
     }
 
+    /// <summary>
+    /// HEAD 被拒、GET 放行时下载照样要成功 —— HEAD 只是拿总长度与 mtime 的优化,不是下载的前提。
+    /// <para>
+    /// 真实场景:对象是公共读的,而这把访问密钥没被授予 HeadObject。强制先 HEAD 会把
+    /// 本来能下的文件全挡死,且 HEAD 的 403 没有响应体,用户只会看到一句
+    /// 「No further error information was returned by the service」。
+    /// </para>
+    /// </summary>
+    [TestMethod]
+    public async Task Download_HeadDenied_StillDownloadsViaGet()
+    {
+        byte[] content = Encoding.UTF8.GetBytes(new string('z', 3000) + "end");
+        _server.AddObject(Bucket, "public/asset.png", content);
+        _server.DeniedMethods.Add("HEAD");
+        string local = Path.Combine(Path.GetTempPath(), $"vela-s3-{Guid.NewGuid():N}");
+        try
+        {
+            List<RemoteTransferProgress> progress = [];
+            await _service.DownloadFileAsync(_session, "/test-bucket/public/asset.png", local,
+                new SynchronousProgress<RemoteTransferProgress>(progress.Add));
+
+            CollectionAssert.AreEqual(content, await File.ReadAllBytesAsync(local));
+            // 总长度只能来自 GET 响应,但进度依然要收在满格上。
+            Assert.AreEqual(content.Length, progress[^1].TotalBytes);
+            Assert.AreEqual(progress[^1].TotalBytes, progress[^1].TransferredBytes, "最后一次上报必须是满进度。");
+            AssertAllRequestsSigned();
+        }
+        finally
+        {
+            File.Delete(local);
+        }
+    }
+
+    /// <summary>
+    /// GET 也被拒时,报出来的必须是 GET 那份带正文的错误(AccessDenied),而不是 HEAD 那句空话;
+    /// 且消息里要带上是哪个对象 —— 多选下载失败时用户得知道是哪一个。
+    /// </summary>
+    [TestMethod]
+    public async Task Download_GetDenied_ReportsAccessDeniedWithObjectPath()
+    {
+        _server.AddObject(Bucket, "public/asset.png", "x");
+        _server.DeniedMethods.Add("HEAD");
+        _server.DeniedMethods.Add("GET");
+        string local = Path.Combine(Path.GetTempPath(), $"vela-s3-{Guid.NewGuid():N}");
+        try
+        {
+            VelaS3PermissionDeniedException error =
+                await Assert.ThrowsExactlyAsync<VelaS3PermissionDeniedException>(
+                    () => _service.DownloadFileAsync(_session, "/test-bucket/public/asset.png", local));
+
+            Assert.AreEqual("AccessDenied", error.ErrorCode);
+            StringAssert.Contains(error.Message, "/test-bucket/public/asset.png");
+        }
+        finally
+        {
+            File.Delete(local);
+        }
+    }
+
     /// <summary>断点续传:已有半个本地文件时用 Range 只取剩下那半,拼出来仍要与原文一致。</summary>
     [TestMethod]
     public async Task Download_ResumesWithRangeRequest()
