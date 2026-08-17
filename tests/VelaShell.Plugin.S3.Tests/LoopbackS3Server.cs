@@ -64,6 +64,28 @@ internal sealed class LoopbackS3Server : IDisposable
     /// <summary>签名校验失败的次数;正常路径下必须始终为 0。</summary>
     public int SignatureFailures;
 
+    /// <summary>
+    /// 被拒请求的原因明细。签名对不上时光有一个 403 没法排查 ——
+    /// 这里留下算出来的规范请求与两边的签名,失败的测试可以直接把它打出来。
+    /// </summary>
+    public ConcurrentQueue<string> Rejections { get; } = new();
+
+    /// <summary>
+    /// 对这些 HTTP 方法一律回 403 AccessDenied,用来复现「同一个对象 GET 放行、HEAD 被拒」
+    /// 的授权(把对象设成公共读、或端点前面挂了 CDN 时很常见)。
+    /// <para>
+    /// HEAD 的响应体会像真实服务端那样被丢掉 —— 正是「403 却没有任何错误细节」的由来。
+    /// </para>
+    /// </summary>
+    public HashSet<string> DeniedMethods { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// 只拒绝**带 Authorization 头**的读请求,预签名(凭证在查询串里)照常放行 ——
+    /// 复现"直接下载不给、预签名下载给"的桶。这类授权现实里存在:桶策略可以只放行预签名形式,
+    /// 端点前挂的 CDN / 网关也常把 Authorization 头剥掉或改写。
+    /// </summary>
+    public bool DenyDirectReads { get; set; }
+
     /// <summary>预置一个桶。</summary>
     public void AddBucket(string bucket) =>
         _buckets.GetOrAdd(bucket, _ => new(StringComparer.Ordinal));
@@ -137,9 +159,12 @@ internal sealed class LoopbackS3Server : IDisposable
                     return;
                 }
                 Requests.Enqueue($"{request.Method} {request.Target}");
-                HttpResponse response = VerifySignature(request)
-                    ? Route(request)
-                    : Error(HttpStatusCode.Forbidden, "SignatureDoesNotMatch", "The request signature we calculated does not match.");
+                HttpResponse response = !VerifySignature(request)
+                    ? Error(HttpStatusCode.Forbidden, "SignatureDoesNotMatch", "The request signature we calculated does not match.")
+                    : DeniedMethods.Contains(request.Method) ||
+                      (DenyDirectReads && !IsPresigned(request) && request.Method is "GET" or "HEAD")
+                        ? Error(HttpStatusCode.Forbidden, "AccessDenied", "Access Denied.")
+                        : Route(request);
                 await WriteResponseAsync(stream, response, request.Method == "HEAD").ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is IOException or SocketException or ObjectDisposedException)
@@ -357,8 +382,69 @@ internal sealed class LoopbackS3Server : IDisposable
     /// 按收到的**原始**请求行与头重算一遍 SigV4,并与 <c>Authorization</c> 里的签名比对。
     /// 客户端签的和发的不是同一份时,这里会当场失败。
     /// </summary>
+    /// <summary>该请求是否走的预签名(SigV4 查询串认证)而不是 Authorization 头。</summary>
+    private static bool IsPresigned(HttpRequest request) =>
+        request.RawQuery.Contains("X-Amz-Signature=", StringComparison.Ordinal);
+
+    /// <summary>
+    /// 校验预签名 URL 的签名。与头认证的差别只有三处:凭证在查询串里、
+    /// 规范查询串要**剔除 X-Amz-Signature 自身**、负载哈希固定是 UNSIGNED-PAYLOAD。
+    /// </summary>
+    private bool VerifyPresigned(HttpRequest request)
+    {
+        Dictionary<string, string> query = ParseQuery(request.RawQuery);
+        // ParseQuery 刻意保留原始(仍编码的)值 —— 头认证那条路要用它拼规范查询串。
+        // 这里要的是解码后的语义值:凭证里的 '/' 在 URL 里是 %2F,不还原就切不出五段。
+        string credential = Decode("X-Amz-Credential");
+        string signedHeaders = Decode("X-Amz-SignedHeaders");
+        string signature = Decode("X-Amz-Signature");
+        string amzDate = Decode("X-Amz-Date");
+
+        string[] credentialParts = credential.Split('/');
+        if (credentialParts.Length != 5 || !string.Equals(credentialParts[0], AccessKey, StringComparison.Ordinal))
+        {
+            Interlocked.Increment(ref SignatureFailures);
+            Rejections.Enqueue($"presigned credential unusable on {request.Method} {request.Target}: '{credential}'");
+            return false;
+        }
+
+        Dictionary<string, string> headers = new(StringComparer.Ordinal);
+        foreach (string name in signedHeaders.Split(';', StringSplitOptions.RemoveEmptyEntries))
+        {
+            headers[name] = request.Headers.TryGetValue(name, out string? value) ? value : string.Empty;
+        }
+
+        string canonicalQuery = string.Join('&', request.RawQuery
+                                                        .Split('&', StringSplitOptions.RemoveEmptyEntries)
+                                                        .Where(p => !p.StartsWith("X-Amz-Signature=", StringComparison.Ordinal))
+                                                        .Select(p => p.Contains('=', StringComparison.Ordinal) ? p : p + "=")
+                                                        .Order(StringComparer.Ordinal));
+
+        string canonicalRequest = SigV4Verifier.CreateCanonicalRequest(
+            request.Method, request.RawPath, canonicalQuery, headers, SigV4Verifier.UnsignedPayload, out _);
+        string expected = SigV4Verifier.CalculateSignature(
+            SigV4Verifier.DeriveSigningKey(SecretKey, credentialParts[1], credentialParts[2]),
+            SigV4Verifier.CreateStringToSign(amzDate, string.Join('/', credentialParts.Skip(1)), canonicalRequest));
+        if (!string.Equals(expected, signature, StringComparison.Ordinal))
+        {
+            Interlocked.Increment(ref SignatureFailures);
+            Rejections.Enqueue(
+                $"presigned signature mismatch on {request.Method} {request.Target}\n" +
+                $"  expected={expected}\n  actual  ={signature}\n  canonical=<<{canonicalRequest}>>");
+            return false;
+        }
+        return true;
+
+        string Decode(string name) =>
+            query.TryGetValue(name, out string? value) ? Uri.UnescapeDataString(value) : string.Empty;
+    }
+
     private bool VerifySignature(HttpRequest request)
     {
+        if (IsPresigned(request))
+        {
+            return VerifyPresigned(request);
+        }
         if (!request.Headers.TryGetValue("Authorization", out string? authorization) ||
             !authorization.StartsWith(SigV4Verifier.Algorithm, StringComparison.Ordinal))
         {

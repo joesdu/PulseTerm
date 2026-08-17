@@ -317,6 +317,107 @@ public sealed class S3FileServiceIntegrationTests
         }
     }
 
+    /// <summary>
+    /// HEAD 被拒、GET 放行时下载照样要成功 —— HEAD 只是拿总长度与 mtime 的优化,不是下载的前提。
+    /// <para>
+    /// 真实场景:对象是公共读的,而这把访问密钥没被授予 HeadObject。强制先 HEAD 会把
+    /// 本来能下的文件全挡死,且 HEAD 的 403 没有响应体,用户只会看到一句
+    /// 「No further error information was returned by the service」。
+    /// </para>
+    /// </summary>
+    [TestMethod]
+    public async Task Download_HeadDenied_StillDownloadsViaGet()
+    {
+        byte[] content = Encoding.UTF8.GetBytes(new string('z', 3000) + "end");
+        _server.AddObject(Bucket, "public/asset.png", content);
+        _server.DeniedMethods.Add("HEAD");
+        string local = Path.Combine(Path.GetTempPath(), $"vela-s3-{Guid.NewGuid():N}");
+        try
+        {
+            List<RemoteTransferProgress> progress = [];
+            await _service.DownloadFileAsync(_session, "/test-bucket/public/asset.png", local,
+                new SynchronousProgress<RemoteTransferProgress>(progress.Add));
+
+            CollectionAssert.AreEqual(content, await File.ReadAllBytesAsync(local));
+            // 总长度只能来自 GET 响应,但进度依然要收在满格上。
+            Assert.AreEqual(content.Length, progress[^1].TotalBytes);
+            Assert.AreEqual(progress[^1].TotalBytes, progress[^1].TransferredBytes, "最后一次上报必须是满进度。");
+            AssertAllRequestsSigned();
+        }
+        finally
+        {
+            File.Delete(local);
+        }
+    }
+
+    /// <summary>
+    /// 直取被拒、但预签名放行时,下载要自动改走预签名 URL 完成 —— 「有的桶只给了预签名下载权限」。
+    /// </summary>
+    [TestMethod]
+    public async Task Download_DirectReadDenied_FallsBackToPresignedUrl()
+    {
+        byte[] content = Encoding.UTF8.GetBytes(new string('p', 5000) + "tail");
+        _server.AddObject(Bucket, "locked/asset.bin", content);
+        _server.DenyDirectReads = true;
+        string local = Path.Combine(Path.GetTempPath(), $"vela-s3-{Guid.NewGuid():N}");
+        try
+        {
+            List<RemoteTransferProgress> progress = [];
+            await _service.DownloadFileAsync(_session, "/test-bucket/locked/asset.bin", local,
+                new SynchronousProgress<RemoteTransferProgress>(progress.Add));
+
+            CollectionAssert.AreEqual(content, await File.ReadAllBytesAsync(local));
+            Assert.AreEqual(content.Length, progress[^1].TotalBytes);
+            Assert.AreEqual(progress[^1].TotalBytes, progress[^1].TransferredBytes, "最后一次上报必须是满进度。");
+            // 预签名那次也必须是签对的:服务器重算签名,对不上会计入 SignatureFailures。
+            AssertAllRequestsSigned();
+        }
+        finally
+        {
+            File.Delete(local);
+        }
+    }
+
+    /// <summary>预览(OpenRead)走的是同一条取流路径,同样要能靠预签名兜住。</summary>
+    [TestMethod]
+    public async Task OpenRead_DirectReadDenied_FallsBackToPresignedUrl()
+    {
+        _server.AddObject(Bucket, "locked/note.txt", "hello presigned");
+        _server.DenyDirectReads = true;
+
+        await using Stream stream = await _service.OpenReadAsync(_session, "/test-bucket/locked/note.txt");
+        using var reader = new StreamReader(stream);
+
+        Assert.AreEqual("hello presigned", await reader.ReadToEndAsync());
+        AssertAllRequestsSigned();
+    }
+
+    /// <summary>
+    /// GET 也被拒时,报出来的必须是 GET 那份带正文的错误(AccessDenied),而不是 HEAD 那句空话;
+    /// 且消息里要带上是哪个对象 —— 多选下载失败时用户得知道是哪一个。
+    /// </summary>
+    [TestMethod]
+    public async Task Download_GetDenied_ReportsAccessDeniedWithObjectPath()
+    {
+        _server.AddObject(Bucket, "public/asset.png", "x");
+        _server.DeniedMethods.Add("HEAD");
+        _server.DeniedMethods.Add("GET");
+        string local = Path.Combine(Path.GetTempPath(), $"vela-s3-{Guid.NewGuid():N}");
+        try
+        {
+            VelaS3PermissionDeniedException error =
+                await Assert.ThrowsExactlyAsync<VelaS3PermissionDeniedException>(
+                    () => _service.DownloadFileAsync(_session, "/test-bucket/public/asset.png", local));
+
+            Assert.AreEqual("AccessDenied", error.ErrorCode);
+            StringAssert.Contains(error.Message, "/test-bucket/public/asset.png");
+        }
+        finally
+        {
+            File.Delete(local);
+        }
+    }
+
     /// <summary>断点续传:已有半个本地文件时用 Range 只取剩下那半,拼出来仍要与原文一致。</summary>
     [TestMethod]
     public async Task Download_ResumesWithRangeRequest()

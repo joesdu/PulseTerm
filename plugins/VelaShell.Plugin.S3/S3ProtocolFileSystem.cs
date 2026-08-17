@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Net;
+using Amazon.Runtime;
 using Amazon.S3;
 using Amazon.S3.Model;
 using Amazon.S3.Transfer;
@@ -163,6 +164,10 @@ public sealed class S3ProtocolFileSystem(IProtocolsApi? protocols = null, IS3Act
                 Key = path.Key,
                 Verb = HttpVerb.GET,
                 Expires = DateTime.UtcNow.AddSeconds(seconds),
+                // **必须显式给**:SDK 的预签名一律按 HTTPS 出 URL,不看 config.UseHttp。
+                // 明文 HTTP 的自建端点(MinIO 常态)会因此拿到一条 https:// 的链接,
+                // 粘到浏览器里连不上,而错误看起来完全像是"这个功能坏了"。
+                Protocol = session.Client.Config.UseHttp ? Amazon.S3.Protocol.HTTP : Amazon.S3.Protocol.HTTPS,
             }));
         }
         catch (Exception ex)
@@ -579,15 +584,13 @@ public sealed class S3ProtocolFileSystem(IProtocolsApi? protocols = null, IS3Act
         S3ObjectPath path = RequireObject(remotePath, "open");
         try
         {
-            GetObjectResponse response = await session.Client
-                .GetObjectAsync(new() { BucketName = path.Bucket, Key = path.Key }, cancellationToken)
-                .ConfigureAwait(false);
+            ObjectSource source = await OpenObjectAsync(session, path, offset: 0, totalBytes: null, cancellationToken).ConfigureAwait(false);
             // 响应与流同生共死:必须等调用方释放流,才能释放响应(它持有连接)。
-            return new ResponseBoundStream(response.ResponseStream, response);
+            return new ResponseBoundStream(source.Stream, source.Owner, source.Length);
         }
         catch (Exception ex)
         {
-            throw Fault(sessionId, ex, "open");
+            throw Fault(sessionId, ex, $"open of {path}");
         }
     }
 
@@ -603,36 +606,38 @@ public sealed class S3ProtocolFileSystem(IProtocolsApi? protocols = null, IS3Act
         S3ObjectPath path = RequireObject(remotePath, "download");
         try
         {
-            GetObjectMetadataResponse metadata =
-                await TryHeadAsync(session, path.Bucket, path.Key, cancellationToken).ConfigureAwait(false)
-                ?? throw new VelaS3PathNotFoundException($"S3 object not found: {path}");
-            long totalBytes = metadata.ContentLength;
+            // HEAD 只是来取总大小与 mtime(报进度、算续传起点、对齐时间戳),**不是下载的前提**。
+            // 因此它失败也照样往下走,让 GET 去决定这次下载成不成:
+            // ① 有的授权只放行 GetObject 而不放行 HeadObject(把对象设成公共读、
+            //    或前面挂了 CDN 时尤其常见),这种情况下强制 HEAD 会把本来能下的文件挡死;
+            // ② 更要紧的是错误质量 —— HEAD 的 403 **响应体是空的**,SDK 只能报一句
+            //    「Error Code Forbidden … No further error information was returned by the service」,
+            //    用户完全无从下手;同一个对象的 GET 若同样被拒,会带回正经的
+            //    <Error><Code>AccessDenied</Code> 连同 Key/BucketName/RequestId。
+            GetObjectMetadataResponse? metadata = await TryHeadForDownloadAsync(session, path, cancellationToken).ConfigureAwait(false);
             // 以本地残留文件的实际长度重新核实续传起点(与 SftpService 同一条原则:
-            // 上层记的偏移可能已经过期,以此刻的实际状态为准)。
-            long offset = ResolveDownloadResume(localPath, totalBytes, resumeOffset);
-            var reporter = new S3ProgressReporter(progress, path.Name, totalBytes);
+            // 上层记的偏移可能已经过期,以此刻的实际状态为准)。没拿到 HEAD 就整份重下 ——
+            // 不知道总长度时发 Range 只会撞上 416。
+            long offset = metadata is null ? 0 : ResolveDownloadResume(localPath, metadata.ContentLength, resumeOffset);
             (_, long downloadBps, bool preserveTimestamps) = await GetTransferTuningAsync().ConfigureAwait(false);
 
-            var request = new GetObjectRequest { BucketName = path.Bucket, Key = path.Key };
-            if (offset > 0)
-            {
-                request.ByteRange = new(offset, totalBytes - 1);
-            }
-            using GetObjectResponse response = await session.Client.GetObjectAsync(request, cancellationToken).ConfigureAwait(false);
+            using ObjectSource source = await OpenObjectAsync(session, path, offset, metadata?.ContentLength, cancellationToken).ConfigureAwait(false);
             // 请求了 Range 却拿回 200(整份内容)—— 服务端不支持 Range。此时必须从头写,
             // 否则会把整份内容追加在已有片段后面,得到一个长度翻倍的坏文件。
-            if (offset > 0 && response.HttpStatusCode != HttpStatusCode.PartialContent)
+            if (offset > 0 && !source.IsPartial)
             {
                 offset = 0;
             }
+            // 总长度优先信 HEAD;没有就用响应的 —— 206 时它只是本次区间的长度,要加回起点。
+            long totalBytes = metadata?.ContentLength ?? Math.Max(0, offset + source.Length);
+            var reporter = new S3ProgressReporter(progress, path.Name, totalBytes);
 
-            await using (Stream source = response.ResponseStream)
             await using (FileStream target = OpenLocalWrite(localPath, offset))
             {
                 Stream sink = downloadBps > 0 ? new ThrottledStream(target, downloadBps) : target;
                 try
                 {
-                    await CopyStreamAsync(source, sink, offset, reporter, cancellationToken).ConfigureAwait(false);
+                    await CopyStreamAsync(source.Stream, sink, offset, reporter, cancellationToken).ConfigureAwait(false);
                 }
                 finally
                 {
@@ -646,7 +651,7 @@ public sealed class S3ProtocolFileSystem(IProtocolsApi? protocols = null, IS3Act
 
             // 保留时间戳(设置 → 文件传输,scp -p 语义)。S3 不允许客户端设置对象的 mtime,
             // 因此只有下载方向能对等实现。尽力而为 —— 一次时间戳设置失败不该把已完成的下载标成失败。
-            if (preserveTimestamps && metadata.LastModified is { } modified)
+            if (preserveTimestamps && (metadata?.LastModified ?? source.LastModified) is { } modified)
             {
                 try
                 {
@@ -660,7 +665,9 @@ public sealed class S3ProtocolFileSystem(IProtocolsApi? protocols = null, IS3Act
         }
         catch (Exception ex)
         {
-            throw Fault(sessionId, ex, "download");
+            // 带上对象路径:一次多选下载里失败的可能只是其中一个,
+            // 光说一句「S3 download failed」用户不知道是哪一个出的问题。
+            throw Fault(sessionId, ex, $"download of {path}");
         }
     }
 
@@ -1180,6 +1187,127 @@ public sealed class S3ProtocolFileSystem(IProtocolsApi? protocols = null, IS3Act
         }
     }
 
+    /// <summary>
+    /// 取一个对象的内容流:先直取(带 Authorization 头的 GetObject),被拒就改用**预签名 URL** 再取一次。
+    /// <para>
+    /// 为什么值得多试这一次:预签名把凭证放在**查询串**里而不是 Authorization 头里,
+    /// 两者在服务端过的常常不是同一条路 —— 桶策略可以只放行预签名形式;
+    /// 端点前挂的 CDN / 网关也普遍会剥掉或改写 Authorization 头(那会连带毁掉签名),
+    /// 却对查询串照单放行。现实里"直接下载不给、预签名下载给"的桶是存在的,
+    /// 遇到这种桶就报个 403 收工,对用户来说就是"这文件下不了",而它明明下得了。
+    /// </para>
+    /// <para>
+    /// 只在 401/403 上回退:404 再试一遍还是没有,5xx 由 SDK 自己重试过了,
+    /// 网络错误换条 URL 也一样不通 —— 那些情况下多打一趟只是白等。
+    /// </para>
+    /// </summary>
+    private static async Task<ObjectSource> OpenObjectAsync(S3Session session,
+        S3ObjectPath path,
+        long offset,
+        long? totalBytes,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var request = new GetObjectRequest { BucketName = path.Bucket, Key = path.Key };
+            if (offset > 0)
+            {
+                // SDK 的 ByteRange 必须给终点。知道总长就用真实终点,别拿一个天文数字去赌
+                // 网关按 RFC 把越界的 last-byte-pos 截到 EOF —— 有的实现会直接回 416。
+                request.ByteRange = new(offset, (totalBytes ?? long.MaxValue) - 1);
+            }
+            GetObjectResponse response = await session.Client.GetObjectAsync(request, cancellationToken).ConfigureAwait(false);
+            return new(response.ResponseStream, response, response.ContentLength,
+                response.HttpStatusCode == HttpStatusCode.PartialContent, response.LastModified);
+        }
+        catch (AmazonS3Exception denied) when (denied.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized)
+        {
+            return await OpenPresignedAsync(session, path, offset, denied, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>用预签名 URL 直取对象内容(不带 Authorization 头,凭证在查询串里)。</summary>
+    private static async Task<ObjectSource> OpenPresignedAsync(S3Session session,
+        S3ObjectPath path,
+        long offset,
+        AmazonS3Exception denied,
+        CancellationToken cancellationToken)
+    {
+        HttpResponseMessage? response = null;
+        try
+        {
+            // 有效期只要覆盖到"服务端受理这次请求"那一刻:S3 在请求开始时校验过期,
+            // 之后传多久都不影响。给一小时是留给排队中的传输,不是给传输本身。
+            string url = session.Client.GetPreSignedURL(new()
+            {
+                BucketName = path.Bucket,
+                Key = path.Key,
+                Verb = HttpVerb.GET,
+                Expires = DateTime.UtcNow.AddHours(1),
+                // 见 CreatePresignedUrlAsync:不给这一条,明文端点会被签成 https:// 而连不上。
+                Protocol = session.Client.Config.UseHttp ? Amazon.S3.Protocol.HTTP : Amazon.S3.Protocol.HTTPS,
+            });
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
+            if (offset > 0)
+            {
+                // 预签名默认只签 host 头,Range 不在签名内,可以照常带上。
+                request.Headers.Range = new(offset, null);
+            }
+            response = await session.Http
+                .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+                .ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                // 两条路都不通:报**直取**那次的错。预签名是我们自作主张多试的一次,
+                // 拿它的失败去解释"为什么下不了"只会把人往错误的方向带。
+                throw denied;
+            }
+            Stream content = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+            var source = new ObjectSource(content, response, response.Content.Headers.ContentLength ?? -1,
+                response.StatusCode == HttpStatusCode.PartialContent,
+                response.Content.Headers.LastModified?.UtcDateTime);
+            response = null; // 所有权移交给 source
+            return source;
+        }
+        finally
+        {
+            response?.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// 下载专用的 HEAD:**任何**失败都只当作「没问到元数据」返回 null,由随后的 GET 定成败。
+    /// <para>
+    /// 与 <see cref="TryHeadAsync" /> 只吞 404 的口径不同,是因为两者的用途不同 ——
+    /// 那个的返回值就是判定结果(存在/不存在),吞掉 403 会把「没权限看」误判成「不存在」;
+    /// 这里的返回值只是**优化用的附加信息**(总长度、mtime、能否续传),缺了它下载照样能做。
+    /// </para>
+    /// <para>
+    /// 取消要原样抛出:那是用户按了取消,不是「HEAD 没问到」。
+    /// </para>
+    /// </summary>
+    private static async Task<GetObjectMetadataResponse?> TryHeadForDownloadAsync(S3Session session, S3ObjectPath path, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await session.Client
+                .GetObjectMetadataAsync(new() { BucketName = path.Bucket, Key = path.Key }, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (AmazonServiceException)
+        {
+            return null;
+        }
+        catch (AmazonClientException)
+        {
+            return null;
+        }
+    }
+
     private static async Task<bool> BucketExistsAsync(S3Session session, string bucket, CancellationToken cancellationToken)
     {
         try
@@ -1395,14 +1523,91 @@ public sealed class S3ProtocolFileSystem(IProtocolsApi? protocols = null, IS3Act
         /// <summary>宿主给的不透明会话键(上报会话状态时要用它,宿主认不出内部 Guid)。</summary>
         public string Key { get; } = key;
 
-        public void Dispose() => Client.Dispose();
+        /// <summary>
+        /// 取预签名 URL 用的 HTTP 客户端(**不经 SDK**,因此不会带上 Authorization 头)。
+        /// <para>
+        /// 按会话懒建一份:证书信任回调必须和 SDK 那份是同一个探针,否则用户在连接时
+        /// 点过"信任该证书"的自签端点,到了预签名这条路上又会被判为不可信。
+        /// 走到这里的会话本就是遇上过 403 的少数,不必给每条会话都预先造一个。
+        /// </para>
+        /// </summary>
+        public HttpClient Http
+        {
+            get
+            {
+                lock (_httpGate)
+                {
+                    if (_http is not null)
+                    {
+                        return _http;
+                    }
+                    var handler = new SocketsHttpHandler
+                    {
+                        // 预签名把凭证放在查询串里,跟着跳转会把它原样送去另一个主机。
+                        // 与 SDK 那份保持一致:不自动跟随。
+                        AllowAutoRedirect = false,
+                        AutomaticDecompression = DecompressionMethods.None,
+                        PooledConnectionLifetime = TimeSpan.FromMinutes(10),
+                        ConnectTimeout = TimeSpan.FromSeconds(15),
+                    };
+                    if (Info.Settings.UseTls)
+                    {
+                        handler.SslOptions.RemoteCertificateValidationCallback = Probe.Validate;
+                    }
+                    // 单次请求超时交给调用方的 CancellationToken:大文件要传几十分钟。
+                    _http = new(handler, disposeHandler: true) { Timeout = Timeout.InfiniteTimeSpan };
+                    return _http;
+                }
+            }
+        }
+
+        private readonly Lock _httpGate = new();
+        private HttpClient? _http;
+
+        public void Dispose()
+        {
+            Client.Dispose();
+            lock (_httpGate)
+            {
+                _http?.Dispose();
+                _http = null;
+            }
+        }
+    }
+
+    /// <summary>
+    /// 一次对象读取的数据源。两条来路(SDK 的 GetObject 响应、预签名 URL 的 HTTP 响应)
+    /// 在这里被抹平成同一副样子,下载与预览因此只写一遍拷贝逻辑。
+    /// </summary>
+    /// <param name="stream">内容流。</param>
+    /// <param name="owner">持有底层连接的响应对象,与流同生共死。</param>
+    /// <param name="length">**本次响应体**的长度(206 时只是区间长度,不是对象总长)。</param>
+    /// <param name="isPartial">服务端是否真的按 Range 回了 206。</param>
+    /// <param name="lastModified">对象的最后修改时间;响应没带则为 null。</param>
+    private sealed class ObjectSource(Stream stream, IDisposable owner, long length, bool isPartial, DateTime? lastModified) : IDisposable
+    {
+        public Stream Stream { get; } = stream;
+
+        public IDisposable Owner { get; } = owner;
+
+        public long Length { get; } = length;
+
+        public bool IsPartial { get; } = isPartial;
+
+        public DateTime? LastModified { get; } = lastModified;
+
+        public void Dispose()
+        {
+            Stream.Dispose();
+            Owner.Dispose();
+        }
     }
 
     /// <summary>
     /// 绑定了一次响应的只读流:调用方释放流时连同释放响应(它持有底层连接)。
     /// 与 FTP 侧的 <c>LeasedStream</c> 同样的理由 —— 网络流的生命周期就是这个流的生命周期。
     /// </summary>
-    private sealed class ResponseBoundStream(Stream inner, GetObjectResponse response) : Stream
+    private sealed class ResponseBoundStream(Stream inner, IDisposable response, long length) : Stream
     {
         public override bool CanRead => inner.CanRead;
 
@@ -1410,7 +1615,7 @@ public sealed class S3ProtocolFileSystem(IProtocolsApi? protocols = null, IS3Act
 
         public override bool CanWrite => false;
 
-        public override long Length => response.ContentLength;
+        public override long Length => length;
 
         public override long Position
         {

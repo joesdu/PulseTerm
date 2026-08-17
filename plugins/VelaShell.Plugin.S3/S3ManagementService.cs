@@ -692,6 +692,9 @@ public sealed class S3ManagementService : IS3ManagementService
                     "HEAD" => HttpVerb.HEAD,
                     _ => HttpVerb.GET,
                 },
+                // **必须显式给**:SDK 的预签名一律按 HTTPS 出 URL,不看 config.UseHttp。
+                // 明文 HTTP 的自建端点会因此拿到一条 https:// 的链接,粘出去连不上。
+                Protocol = client.Config.UseHttp ? Amazon.S3.Protocol.HTTP : Amazon.S3.Protocol.HTTPS,
             }));
         }
         catch (Exception ex)
