@@ -14,7 +14,7 @@ namespace VelaShell.Plugin.S3;
 /// <param name="context">插件上下文。</param>
 public sealed class S3ActionHandler(IPluginContext context) : IS3ActionHandler
 {
-    private readonly Dictionary<string, IPluginPanel> _panels = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, IPluginPanel> _panels = [with(StringComparer.Ordinal)];
     private readonly Lock _gate = new();
     private IS3ManagementService? _management;
 

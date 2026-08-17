@@ -14,11 +14,19 @@ namespace VelaShell.Infrastructure.Plugins.Protocols;
 /// <param name="IsReady">插件是否已激活并完成注册。</param>
 public sealed record PluginProtocolTab(string Id, string DisplayName, int DefaultPort, string PluginId, bool IsReady);
 
-/// <summary>一次已完成的协议注册。</summary>
+/// <summary>
+/// 一次已完成的协议注册。<see cref="FileSystem" /> 与 <see cref="Terminal" /> 至少有一个非空:
+/// 前者接进双栏文件浏览器,后者接进终端标签(Telnet / 串口这类没有文件系统的协议只给后者)。
+/// </summary>
 /// <param name="PluginId">提供者插件 id。</param>
 /// <param name="Descriptor">协议描述。</param>
-/// <param name="FileSystem">协议实现。</param>
-public sealed record PluginProtocolRegistration(string PluginId, ProtocolDescriptor Descriptor, IProtocolFileSystem FileSystem);
+/// <param name="FileSystem">文件系统实现;终端协议为 null。</param>
+/// <param name="Terminal">终端实现;文件协议为 null。</param>
+public sealed record PluginProtocolRegistration(
+    string PluginId,
+    ProtocolDescriptor Descriptor,
+    IProtocolFileSystem? FileSystem,
+    IProtocolTerminal? Terminal = null);
 
 /// <summary>
 /// 宿主侧的插件协议注册表:把「清单声明的页签」与「插件激活后注册的实现」合成一张表,
@@ -36,8 +44,8 @@ public sealed class PluginProtocolRegistry
 
     // 协议 id 由 PluginManifestReader.IsValidProtocolId 强制全小写,因此一律 Ordinal ——
     // 这里曾经用 IgnoreCase 而界面用 Ordinal,同一个 id 在两处会得出不同结论。
-    private readonly Dictionary<string, PluginProtocolTab> _declared = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, Entry> _registered = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, PluginProtocolTab> _declared = [with(StringComparer.Ordinal)];
+    private readonly Dictionary<string, Entry> _registered = [with(StringComparer.Ordinal)];
     private readonly Lock _gate = new();
 
     /// <summary>
@@ -174,13 +182,33 @@ public sealed class PluginProtocolRegistry
     /// <returns>注销句柄。</returns>
     public IDisposable Register(string pluginId, ProtocolDescriptor descriptor, IProtocolFileSystem fileSystem)
     {
-        ArgumentNullException.ThrowIfNull(descriptor);
         ArgumentNullException.ThrowIfNull(fileSystem);
+        return Register(pluginId, descriptor, fileSystem, terminal: null);
+    }
+
+    /// <summary>插件激活后注册一种**终端**协议的实现(Telnet / 串口…);释放返回值即注销。</summary>
+    /// <param name="pluginId">插件 id。</param>
+    /// <param name="descriptor">协议描述。</param>
+    /// <param name="terminal">终端实现。</param>
+    /// <returns>注销句柄。</returns>
+    public IDisposable Register(string pluginId, ProtocolDescriptor descriptor, IProtocolTerminal terminal)
+    {
+        ArgumentNullException.ThrowIfNull(terminal);
+        return Register(pluginId, descriptor, fileSystem: null, terminal);
+    }
+
+    private IDisposable Register(
+        string pluginId,
+        ProtocolDescriptor descriptor,
+        IProtocolFileSystem? fileSystem,
+        IProtocolTerminal? terminal)
+    {
+        ArgumentNullException.ThrowIfNull(descriptor);
         string protocolId = descriptor.Id;
         // 订阅委托按注册捕获协议 id:插件触发事件时的 sender 是什么由插件决定,不能拿它反查。
         void Handler(object? _, ProtocolSessionStateChange change) =>
             SessionStateChanged?.Invoke(this, new(protocolId, change));
-        var entry = new Entry(new(pluginId, descriptor, fileSystem), Handler);
+        var entry = new Entry(new(pluginId, descriptor, fileSystem, terminal), Handler);
         Entry? replaced;
         lock (_gate)
         {
@@ -188,14 +216,19 @@ public sealed class PluginProtocolRegistry
             _registered[protocolId] = entry;
         }
         // 订阅与拆订阅都在锁外:见 RemovePlugin 处的说明。
-        fileSystem.SessionStateChanged += Handler;
+        // 终端协议没有会话状态事件(标签的连接状态由桥的 EOF 驱动),因此只有文件协议要订阅。
+        if (fileSystem is not null)
+        {
+            fileSystem.SessionStateChanged += Handler;
+        }
         if (replaced is not null)
         {
             Detach(replaced);
             // 换成了**另一个**实现:旧实现名下的会话已无人应答,得让文件服务收尾。
             // 换成同一个实例(插件为刷新文案而重注册)则不能发 —— 那会把用户正开着的
             // 标签页全部掐掉,而它本来只是想换个字段标签。
-            if (!ReferenceEquals(replaced.Registration.FileSystem, fileSystem))
+            if (!ReferenceEquals(replaced.Registration.FileSystem, fileSystem)
+                || !ReferenceEquals(replaced.Registration.Terminal, terminal))
             {
                 RaiseUnregistered(protocolId);
             }
@@ -278,9 +311,13 @@ public sealed class PluginProtocolRegistry
 
     private void Detach(Entry entry)
     {
+        if (entry.Registration.FileSystem is not { } fileSystem)
+        {
+            return; // 终端协议没订阅过,无从拆起。
+        }
         try
         {
-            entry.Registration.FileSystem.SessionStateChanged -= entry.Handler;
+            fileSystem.SessionStateChanged -= entry.Handler;
         }
         catch (Exception ex)
         {

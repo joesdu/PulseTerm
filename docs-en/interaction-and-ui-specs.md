@@ -373,7 +373,9 @@ Tabs and file rows likewise have their own context menus (see the corresponding 
 ### 13.1 New Connection Dialog (`oAHna`, 500px)
 
 - **Header**: “New Connection” title + `x`.
-- **Tabs (`connTabs`)**: switch protocols such as `SSH` / `SFTP` / `Telnet` / `Serial`.
+- **Tabs (`connTabs`)**: built-in `SSH` / `SFTP` / `FTP` plus plugin-contributed tabs (`S3`, `Telnet`, …)
+  declared in each plugin's `contributes.protocols` (drawn without loading the plugin assembly);
+  `Serial` remains a disabled placeholder until its own plugin lands.
 - **Form body (`connBody`)**: name, Host, Port, username, authentication method (password / key / jump host), group, color/icon marker, and so on.
   - The form area **scrolls** (the scrollbar stays visible instead of auto-hiding); header, tabs, and footer are fixed-height rows outside the scroll.
     The window height is clamped to `min(768 design cap, screen working area − 48)` (`ApplyScreenBounds`; 768 matches the 948×768 settings window).

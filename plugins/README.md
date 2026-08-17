@@ -11,6 +11,7 @@ SDK 契约见 [plugin-sdk/](../plugin-sdk/),开发文档见
 | [VelaShell.Plugin.HelloWorld](VelaShell.Plugin.HelloWorld/) | `velashell.hello-world` | 否 | 隔离进程 | 官方示例:SDK 各能力的最小用法 |
 | [VelaShell.Plugin.Ai](VelaShell.Plugin.Ai/) | `velashell.ai` | 是 | 进程内 | AI 助手:多提供商流式对话 + Agent 模式(读终端/执行命令带审批)+ 自定义 MCP 服务器 |
 | [VelaShell.Plugin.S3](VelaShell.Plugin.S3/) | `velashell.s3` | 是 | 进程内 | S3 兼容对象存储:协议 + 桶管理器 + 对象检视器(协议能力域的首个使用者) |
+| [VelaShell.Plugin.Telnet](VelaShell.Plugin.Telnet/) | `velashell.telnet` | 是 | 进程内 | RFC 854 Telnet 终端:选项协商 + NAWS + 8 位透明(**终端**协议能力的首个使用者) |
 
 装载模式由 `plugin.json` 的 `hostMode` 决定(`isolated` / `inProcess`,默认进程内)。
 隔离插件跑在独立的 [`VelaShell.PluginHost`](../src/VelaShell.PluginHost) 进程里,崩溃不波及宿主;
@@ -24,6 +25,10 @@ S3 插件则是因为**协议能力只在进程内可用** —— 协议是宿�
 
 ## 规划中(尚未创建)
 
+- **串口插件**(`velashell.serial`):与 Telnet 同为终端协议能力的使用者;
+  依赖 `System.IO.Ports`,要处理三平台端口枚举与 `Close()` 死锁(见
+  [docs/Telnet与串口可行性调研.md](../docs/Telnet与串口可行性调研.md) 第五节)。
+  连接对话框里的「串口」页签在它落地前保持禁用占位。
 - **容器管理插件**:基于远程执行能力封装 docker/podman 常用操作。
 
 ## 新建插件

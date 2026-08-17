@@ -45,6 +45,43 @@ public sealed class ConnectionProfileViewModelTests
         Assert.HasCount(2, vm.PluginFields.Where(field => !field.IsRowVisible));
     }
 
+    /// <summary>没有协议级凭据的终端协议(Telnet)替身:只用来把描述符送进视图模型。</summary>
+    private sealed class NoCredentialTerminal : VelaShell.PluginSdk.Protocols.IProtocolTerminal
+    {
+        public Task<VelaShell.PluginSdk.Protocols.IProtocolTerminalSession> ConnectAsync(
+            VelaShell.PluginSdk.Protocols.ProtocolConnectRequest request,
+            VelaShell.PluginSdk.Protocols.ProtocolTerminalOptions options,
+            CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    }
+
+    [TestMethod]
+    public async Task PluginProtocol_WithoutCredentials_HidesUsernameAndPassword_AndStillSaves()
+    {
+        // Telnet 的登录发生在带内(对端打印 login:)。摆着两个填了也发不出去的框会误导用户,
+        // 而"用户名不能为空"这条更会把保存/连接按钮永久灰死 —— 无凭据协议必须两条都免掉。
+        var registry = new VelaShell.Infrastructure.Plugins.Protocols.PluginProtocolRegistry();
+        using IDisposable handle = registry.Register("test.telnet", new()
+        {
+            Id = "test.telnet",
+            DisplayName = "Telnet",
+            DefaultPort = 23,
+            Features = VelaShell.PluginSdk.Protocols.ProtocolFeatures.NoCredentials
+        }, new NoCredentialTerminal());
+
+        var vm = new ConnectionProfileViewModel(protocolRegistry: registry) { Host = "10.0.0.9" };
+        await vm.SelectPluginProtocolCommand.Execute("test.telnet").FirstAsync();
+
+        Assert.IsFalse(vm.ShowCredentialFields, "无凭据协议不该显示用户名一行。");
+        Assert.IsFalse(vm.ShowPasswordField, "同上,口令与「记住密码」也一并收起。");
+        Assert.IsTrue(vm.AllowsAnonymous, "NoCredentials 蕴含匿名,否则按钮永远灰着。");
+        Assert.AreEqual(23, vm.Port, "端口应跟随协议默认值。");
+
+        SessionProfile? profile = await vm.SaveCommand.Execute().FirstAsync();
+        Assert.IsNotNull(profile, "用户名为空也必须存得下去。");
+        Assert.AreEqual(ConnectionType.Plugin, profile.ConnectionType);
+        Assert.AreEqual("test.telnet", profile.PluginProtocolId);
+    }
+
     [TestMethod]
     public async Task PluginFields_CollapsedAdvancedValues_StillGetSaved()
     {

@@ -77,7 +77,7 @@ internal sealed class LoopbackS3Server : IDisposable
     /// HEAD 的响应体会像真实服务端那样被丢掉 —— 正是「403 却没有任何错误细节」的由来。
     /// </para>
     /// </summary>
-    public HashSet<string> DeniedMethods { get; } = new(StringComparer.OrdinalIgnoreCase);
+    public HashSet<string> DeniedMethods { get; } = [with(StringComparer.OrdinalIgnoreCase)];
 
     /// <summary>
     /// 只拒绝**带 Authorization 头**的读请求,预签名(凭证在查询串里)照常放行 ——
@@ -203,7 +203,7 @@ internal sealed class LoopbackS3Server : IDisposable
         {
             return null;
         }
-        Dictionary<string, string> headers = new(StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, string> headers = [with(StringComparer.OrdinalIgnoreCase)];
         foreach (string line in lines.Skip(1))
         {
             int colon = line.IndexOf(':');
@@ -408,7 +408,7 @@ internal sealed class LoopbackS3Server : IDisposable
             return false;
         }
 
-        Dictionary<string, string> headers = new(StringComparer.Ordinal);
+        Dictionary<string, string> headers = [with(StringComparer.Ordinal)];
         foreach (string name in signedHeaders.Split(';', StringSplitOptions.RemoveEmptyEntries))
         {
             headers[name] = request.Headers.TryGetValue(name, out string? value) ? value : string.Empty;
@@ -470,7 +470,7 @@ internal sealed class LoopbackS3Server : IDisposable
         }
         string scope = string.Join('/', credentialParts.Skip(1));
 
-        Dictionary<string, string> headers = new(StringComparer.Ordinal);
+        Dictionary<string, string> headers = [with(StringComparer.Ordinal)];
         foreach (string name in signedHeaders.Split(';'))
         {
             headers[name] = request.Headers.TryGetValue(name, out string? value) ? value : string.Empty;
@@ -621,7 +621,7 @@ internal sealed class LoopbackS3Server : IDisposable
         ];
 
         List<string> contents = [];
-        SortedSet<string> commonPrefixes = new(StringComparer.Ordinal);
+        SortedSet<string> commonPrefixes = [with(StringComparer.Ordinal)];
         string? nextToken = null;
         int emitted = 0;
         foreach (string k in matching)
@@ -855,7 +855,7 @@ internal sealed class LoopbackS3Server : IDisposable
 
     private static Dictionary<string, string> ParseQuery(string rawQuery)
     {
-        Dictionary<string, string> query = new(StringComparer.Ordinal);
+        Dictionary<string, string> query = [with(StringComparer.Ordinal)];
         if (rawQuery.Length == 0)
         {
             return query;
@@ -955,6 +955,6 @@ internal sealed class LoopbackS3Server : IDisposable
 
         public required byte[] Body { get; init; }
 
-        public Dictionary<string, string> Headers { get; } = new(StringComparer.OrdinalIgnoreCase);
+        public Dictionary<string, string> Headers { get; } = [with(StringComparer.OrdinalIgnoreCase)];
     }
 }

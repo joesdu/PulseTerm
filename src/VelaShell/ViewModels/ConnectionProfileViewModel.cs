@@ -312,8 +312,16 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
     /// <summary>是否提示「明文 FTP 不加密」。选了不加密才提示;FTPS 不提示。</summary>
     public bool ShowFtpPlaintextWarning => IsFtpSelected && FtpEncryption == FtpEncryptionMode.None;
 
-    /// <summary>是否显示口令输入框:匿名 FTP 不需要口令。</summary>
-    public bool ShowPasswordField => IsPasswordAuth && !(IsFtpSelected && FtpAnonymous);
+    /// <summary>
+    /// 是否显示用户名/口令两栏。声明了 <see cref="ProtocolFeatures.NoCredentials" /> 的
+    /// 插件协议(Telnet 这种登录发生在带内的)一律收起 —— 摆着两个填了也发不出去的框,
+    /// 只会让用户以为填上就能自动登录。
+    /// </summary>
+    public bool ShowCredentialFields =>
+        _pluginDescriptor?.Features.HasFlag(ProtocolFeatures.NoCredentials) != true;
+
+    /// <summary>是否显示口令输入框:匿名 FTP 与无凭据协议不需要口令。</summary>
+    public bool ShowPasswordField => IsPasswordAuth && ShowCredentialFields && !(IsFtpSelected && FtpAnonymous);
 
     /// <summary>FTP 加密方式;仅 <see cref="IsFtpSelected" /> 时有意义。</summary>
     public FtpEncryptionMode FtpEncryption
@@ -810,7 +818,7 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
         // 直接从空字典攒是不行的:隐藏字段(如用户确认信任后写回的证书指纹)压根不进表单,
         // 从空字典攒等于每保存一次就把它抹掉一次,下次连接又弹「证书不可信」。
         Dictionary<string, string>? stored = secrets ? _pluginStoredSecrets : _pluginStored;
-        Dictionary<string, string> values = SessionProfile.CloneSettings(stored) ?? new(StringComparer.Ordinal);
+        Dictionary<string, string> values = SessionProfile.CloneSettings(stored) ?? [with(StringComparer.Ordinal)];
         foreach (PluginProtocolFieldViewModel field in PluginFields.Where(f => f.IsSecret == secrets))
         {
             values[field.Key] = field.Text;
@@ -979,8 +987,8 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
         {
             return;
         }
-        Dictionary<string, string> plain = SessionProfile.CloneSettings(_pluginStored) ?? new(StringComparer.Ordinal);
-        Dictionary<string, string> secrets = SessionProfile.CloneSettings(_pluginStoredSecrets) ?? new(StringComparer.Ordinal);
+        Dictionary<string, string> plain = SessionProfile.CloneSettings(_pluginStored) ?? [with(StringComparer.Ordinal)];
+        Dictionary<string, string> secrets = SessionProfile.CloneSettings(_pluginStoredSecrets) ?? [with(StringComparer.Ordinal)];
         foreach (PluginProtocolFieldViewModel field in PluginFields)
         {
             (field.IsSecret ? secrets : plain)[field.Key] = field.Text;
@@ -1086,8 +1094,13 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
         this.RaisePropertyChanged(nameof(HostPlaceholder));
         this.RaisePropertyChanged(nameof(UsernameLabel));
         this.RaisePropertyChanged(nameof(PasswordLabel));
+        this.RaisePropertyChanged(nameof(ShowCredentialFields));
+        this.RaisePropertyChanged(nameof(ShowPasswordField));
         // 走属性 setter 而不是只发通知:它要驱动 canExecute 的组合器重算。
-        AllowsAnonymous = _pluginDescriptor?.Features.HasFlag(ProtocolFeatures.AnonymousAccess) == true;
+        // NoCredentials 蕴含匿名:没有凭据这回事,就不能拿"用户名没填"把连接按钮堵死。
+        ProtocolFeatures features = _pluginDescriptor?.Features ?? ProtocolFeatures.None;
+        AllowsAnonymous = features.HasFlag(ProtocolFeatures.AnonymousAccess)
+                          || features.HasFlag(ProtocolFeatures.NoCredentials);
     }
 
     /// <summary>

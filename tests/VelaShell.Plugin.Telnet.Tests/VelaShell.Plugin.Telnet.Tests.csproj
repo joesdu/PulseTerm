@@ -12,7 +12,6 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="MSTest.TestAdapter" />
     <PackageReference Include="MSTest.TestFramework" />
-    <PackageReference Include="NSubstitute" />
   </ItemGroup>
 
   <ItemGroup>
@@ -20,15 +19,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\VelaShell.Infrastructure\VelaShell.Infrastructure.csproj" />
-    <!-- 插件运行时端到端测试用真实的示例插件程序集驱动;面板逻辑测试用 Testing 替身。 -->
-    <ProjectReference Include="..\..\plugins\VelaShell.Plugin.HelloWorld\VelaShell.Plugin.HelloWorld.csproj" />
-    <!-- 终端协议 e2e:把真实的 Telnet 插件(含它自己的 plugin.json)铺进临时插件根,
-         验证"清单发现 → 惰性激活 → 注册成终端协议 → 宿主适配 → 真实套接字"整条链。 -->
     <ProjectReference Include="..\..\plugins\VelaShell.Plugin.Telnet\VelaShell.Plugin.Telnet.csproj" />
     <ProjectReference Include="..\..\plugin-sdk\VelaShell.PluginSdk.Testing\VelaShell.PluginSdk.Testing.csproj" />
-    <!-- 隔离模式 e2e:测试目录里要有真实的 PluginHost 可执行。 -->
-    <ProjectReference Include="..\..\src\VelaShell.PluginHost\VelaShell.PluginHost.csproj" />
   </ItemGroup>
 
 </Project>

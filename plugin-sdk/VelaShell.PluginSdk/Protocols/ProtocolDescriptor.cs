@@ -113,7 +113,18 @@ public enum ProtocolFeatures
     /// 端点为 TLS,可能使用自签证书:宿主据此在
     /// <see cref="ProtocolCertificateTrustException" /> 时走"提示 → 记指纹 → 重连"流程。
     /// </summary>
-    CertificateTrust = 1 << 5
+    CertificateTrust = 1 << 5,
+
+    /// <summary>
+    /// 协议没有**协议级**凭据:宿主在连接配置页里收起用户名与口令两栏。
+    /// <para>
+    /// 给 Telnet、裸 TCP、串口这类"登录发生在带内"(对端自己打印 <c>login:</c>,
+    /// 用户在终端里敲)的协议用。摆着两个填了也不起作用的框,只会让用户以为
+    /// 填上就能自动登录 —— 而它们连发都不会发出去。
+    /// </para>
+    /// <para>隐含 <see cref="AnonymousAccess" /> 的判定:没有凭据自然不能拿"没填"堵住连接按钮。</para>
+    /// </summary>
+    NoCredentials = 1 << 6
 }
 
 /// <summary>协议动作适用的条目类型。</summary>

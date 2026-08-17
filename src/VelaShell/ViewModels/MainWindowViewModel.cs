@@ -934,11 +934,12 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
             return;
         }
 
-        // 本地终端(ConPTY)没有 SFTP 会话:不得继续展示上一个 SSH 会话的文件面板
-        // 否则切到 PowerShell 等本地标签后下方仍显示上一个 SSH 会话的文件面板。换成隐藏的空占位;
-        // 上一个面板不 Detach(仍按其会话缓存),其开关状态留在缓存实例与所属标签上,
-        // 切回远程标签时恢复展示。
-        if (tab.LocalShell is not null)
+        // 本地终端(ConPTY)与插件终端协议(Telnet…)都没有 SFTP 会话:不得继续展示
+        // 上一个 SSH 会话的文件面板,否则切到 PowerShell / Telnet 标签后下方仍显示上一个
+        // SSH 会话的文件面板。换成隐藏的空占位;上一个面板不 Detach(仍按其会话缓存),
+        // 其开关状态留在缓存实例与所属标签上,切回远程标签时恢复展示。
+        // 注意不能靠下面那句 SessionId == Guid.Empty 兜底 —— 它是 return 而不是换占位。
+        if (tab.LocalShell is not null || tab.Profile?.ConnectionType == ConnectionType.Plugin)
         {
             if (FileBrowser.SessionId != Guid.Empty || FileBrowser.IsVisible)
             {
@@ -1834,7 +1835,8 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
     /// </summary>
     private (TerminalTabViewModel Tab, TerminalDocument Document) CreateConnectingTab(
         SessionProfile profile,
-        AppSettings settings
+        AppSettings settings,
+        string? protocolLabel = null
     )
     {
         TerminalType terminalType = TerminalTypeExtensions.FromTermName(settings.TerminalType);
@@ -1844,14 +1846,17 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
         // 状态栏连接指示按设计 gzmsb 显示"SSH • <显示名称>"——不暴露用户名与 IP(安全要求);
         // 未配置名称时才退回主机地址。
         string displayName = string.IsNullOrWhiteSpace(profile.Name) ? profile.Host : profile.Name;
+        // 协议名默认 SSH;插件终端协议(Telnet…)传自己的页签名进来 ——
+        // 状态栏写死 "SSH • xxx" 会让一条 Telnet 会话看起来是加密的。
+        string protocol = string.IsNullOrWhiteSpace(protocolLabel) ? "SSH" : protocolLabel;
         var terminalTab = new TerminalTabViewModel(terminalEmulator)
         {
             Title = displayName,
             ConnectionStatus = SessionStatus.Connecting,
             // 配了跳板的会话在状态栏点明经由跳板,确认链路生效。
             ConnectionSummary = profile.JumpHostProfileId is null
-                ? $"SSH • {displayName}"
-                : $"SSH • {displayName} • {Strings.Get("Msg_ViaJumpHost")}",
+                ? $"{protocol} • {displayName}"
+                : $"{protocol} • {displayName} • {Strings.Get("Msg_ViaJumpHost")}",
             TerminalTypeName = terminalType.ToTermName(),
             EncodingName = string.IsNullOrWhiteSpace(settings.TerminalEncoding)
                 ? "UTF-8"
@@ -1975,6 +1980,14 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
         if (tab.LocalShell is { } localShell)
         {
             ReopenLocalShell(tab, localShell);
+            return;
+        }
+
+        // 插件终端协议(Telnet…):它们没有 SSH 会话,落进下面的 SSH 重连路径会
+        // 拿 Telnet 的主机端口去做 SSH 握手 —— 表现为"重连一次就报认证失败"。
+        if (tab.Profile is { ConnectionType: ConnectionType.Plugin } pluginProfile)
+        {
+            await ReconnectPluginTerminalAsync(tab, pluginProfile, cancellationToken).ConfigureAwait(true);
             return;
         }
         if (
@@ -2353,6 +2366,17 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
         }
         if (profile.ConnectionType == ConnectionType.Plugin)
         {
+            // 插件协议有两种:注册了终端实现的(Telnet…)开终端标签,
+            // 注册了文件系统的(S3…)开双栏文件面板。判据只看注册表里有什么,
+            // 宿主依旧不认识任何一种具体协议。可能触发惰性激活。
+            PluginProtocolRegistration? registration = _protocolRegistry is { } protocols
+                ? await protocols.ResolveAsync(profile.PluginProtocolId).ConfigureAwait(true)
+                : null;
+            if (registration is { Terminal: not null })
+            {
+                return await OpenPluginTerminalForProfileAsync(profile, registration, cancellationToken)
+                    .ConfigureAwait(true);
+            }
             await OpenPluginDocumentForProfileAsync(profile, cancellationToken).ConfigureAwait(true);
             return null;
         }
@@ -2763,6 +2787,123 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
             }
         }
         return null;
+    }
+
+    /// <summary>
+    /// 打开一条**插件终端协议**会话(Telnet、串口…):走与 SSH / 本地终端完全相同的
+    /// 桥 → VT 引擎 → 自绘控件 管线,只是传输层由插件提供。
+    /// <para>
+    /// 与 SSH 那条路径的三点差别,都是协议决定的而非偷懒:
+    /// </para>
+    /// <list type="bullet">
+    ///   <item>不走 <see cref="IConnectionWorkflowService" /> —— 那是 SSH 握手;
+    ///     因此没有 SessionId,SFTP 面板、任务管理器、资源监视器、隧道自动灰掉。</item>
+    ///   <item>不发"连接后执行命令" —— Telnet 连上先看到的是对端的 <c>login:</c>,
+    ///     此时注入命令等于把它打进登录提示符。</item>
+    ///   <item>凭据不缺就不弹登录框:声明了 NoCredentials 的协议根本没有凭据可填。</item>
+    /// </list>
+    /// </summary>
+    /// <param name="profile">会话配置。</param>
+    /// <param name="registration">已解析的协议注册(带终端实现)。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>已打开的标签;取消时为 null(连接失败也返回标签,失败信息画在标签页内)。</returns>
+    public async Task<TerminalTabViewModel?> OpenPluginTerminalForProfileAsync(
+        SessionProfile profile,
+        PluginProtocolRegistration registration,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+        ArgumentNullException.ThrowIfNull(registration);
+        AppSettings settings = await LoadSettingsSnapshotAsync().ConfigureAwait(true);
+        (TerminalTabViewModel tab, TerminalDocument document) =
+            CreateConnectingTab(profile, settings, registration.Descriptor.DisplayName);
+        try
+        {
+            await AttachPluginTerminalAsync(tab, profile, registration, settings, cancellationToken)
+                .ConfigureAwait(true);
+            await Sidebar.RecentConnections.RefreshAsync().ConfigureAwait(true);
+            return tab;
+        }
+        catch (OperationCanceledException)
+        {
+            RemoveTerminalTab(tab, document);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            // 与 SSH 同口径:标签留着,失败原因画在标签页内的覆盖层上(设计 yxjmg),
+            // 用户按 Enter 即重连 —— 撤掉标签会连带把错误信息一起吞掉。
+            LastConnectionError = DescribeConnectionError(ex, profile);
+            StatusBar.Status = LastConnectionError;
+            tab.MarkConnectionFailed(LastConnectionError);
+            return tab;
+        }
+    }
+
+    /// <summary>在一个"连接中"标签上建立插件终端会话并挂上传输(打开与重连共用)。</summary>
+    private async Task AttachPluginTerminalAsync(
+        TerminalTabViewModel tab,
+        SessionProfile profile,
+        PluginProtocolRegistration registration,
+        AppSettings settings,
+        CancellationToken cancellationToken)
+    {
+        TerminalType terminalType = TerminalTypeExtensions.FromTermName(settings.TerminalType);
+        // 初始行列取模拟器当前值:标签刚建出来还没布局过时它是默认值,
+        // 真实尺寸随后由控件的 Resize 通知补上(Telnet 会重发一次 NAWS)。
+        var options = new ProtocolTerminalOptions(
+            terminalType.ToTermName(),
+            Math.Max(2, tab.TerminalEmulator.Columns),
+            Math.Max(2, tab.TerminalEmulator.Rows));
+        IShellStreamWrapper stream = await PluginProtocolTerminalConnector
+            .OpenAsync(registration, profile, options, cancellationToken)
+            .ConfigureAwait(true);
+        tab.AttachTransport(stream);
+        tab.Start();
+        tab.ConnectionStatus = SessionStatus.Connected;
+        tab.ResetReconnectAttempts();
+        StartSessionLogging(tab, settings);
+        StatusBar.ResetUptime();
+        UpdateStatusBarForActiveTab();
+        LastConnectionError = null;
+    }
+
+    /// <summary>重连一条插件终端会话:复用同一标签与回滚缓冲,RIS 复位后重建传输。</summary>
+    private async Task ReconnectPluginTerminalAsync(
+        TerminalTabViewModel tab,
+        SessionProfile profile,
+        CancellationToken cancellationToken)
+    {
+        tab.ConnectionStatus = SessionStatus.Connecting;
+        tab.DetachTransport();
+        UpdateStatusBarForActiveTab();
+        try
+        {
+            AppSettings settings = await LoadSettingsSnapshotAsync().ConfigureAwait(true);
+            PluginProtocolRegistration? registration = _protocolRegistry is { } protocols
+                ? await protocols.ResolveAsync(profile.PluginProtocolId).ConfigureAwait(true)
+                : null;
+            if (registration is not { Terminal: not null })
+            {
+                // 插件在这中间被禁用/卸载了:如实说,别停在"连接中"。
+                tab.MarkConnectionFailed(Strings.Get("Plugin_ProtocolUnavailable"));
+                return;
+            }
+            // 新会话的输出到达前完全复位(RIS),免得新标语附在旧缓冲后面。
+            tab.TerminalEmulator.Feed(RisResetSequence);
+            await AttachPluginTerminalAsync(tab, profile, registration, settings, cancellationToken)
+                .ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+            tab.MarkDisconnected();
+        }
+        catch (Exception ex)
+        {
+            LastConnectionError = DescribeConnectionError(ex, profile);
+            StatusBar.Status = LastConnectionError;
+            tab.MarkConnectionFailed(LastConnectionError);
+        }
     }
 
     /// <summary>插件协议会话状态变化 → 资源管理器树的状态圆点(理由与线程约束同 FTP 侧)。</summary>

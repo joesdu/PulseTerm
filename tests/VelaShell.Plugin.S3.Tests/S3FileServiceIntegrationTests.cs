@@ -77,7 +77,7 @@ public sealed class S3FileServiceIntegrationTests
 
         Assert.HasCount(2, entries);
         Assert.IsTrue(entries.All(e => e.IsDirectory));
-        CollectionAssert.AreEquivalent(new[] { "another-bucket", "test-bucket" }, entries.Select(e => e.Name).ToArray());
+        Assert.AreSequenceEqual(new[] { "another-bucket", "test-bucket" }, [.. entries.Select(e => e.Name)], Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
         Assert.AreEqual("/test-bucket", entries.Single(e => e.Name == Bucket).FullPath);
         AssertAllRequestsSigned();
     }
@@ -107,7 +107,7 @@ public sealed class S3FileServiceIntegrationTests
 
         // 进到子目录:两个文件 + 一个更深的目录。
         List<S3FileEntry> logs = await _service.ListDirectoryAsync(_session, "/test-bucket/logs");
-        CollectionAssert.AreEquivalent(new[] { "a.log", "b.log", "2026" }, logs.Select(e => e.Name).ToArray());
+        Assert.AreSequenceEqual(new[] { "a.log", "b.log", "2026" }, [.. logs.Select(e => e.Name)], Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
         Assert.AreEqual("/test-bucket/logs/2026", logs.Single(e => e.IsDirectory).FullPath);
         AssertAllRequestsSigned();
     }
@@ -142,9 +142,8 @@ public sealed class S3FileServiceIntegrationTests
         List<S3FileEntry> entries = await _service.ListDirectoryAsync(_session, "/test-bucket/page");
 
         Assert.HasCount(7, entries);
-        CollectionAssert.AreEquivalent(
-            Enumerable.Range(0, 7).Select(i => $"file-{i}.txt").ToArray(),
-            entries.Select(e => e.Name).ToArray());
+        Assert.AreSequenceEqual(
+            [.. Enumerable.Range(0, 7).Select(i => $"file-{i}.txt")], [.. entries.Select(e => e.Name)], Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
         AssertAllRequestsSigned();
     }
 
@@ -220,11 +219,11 @@ public sealed class S3FileServiceIntegrationTests
             await _service.UploadFileAsync(_session, local, "/test-bucket/greeting.txt",
                 new SynchronousProgress<RemoteTransferProgress>(progress.Add));
 
-            CollectionAssert.AreEqual("hello s3"u8.ToArray(), _server.GetObject(Bucket, "greeting.txt"));
+            Assert.AreSequenceEqual("hello s3"u8.ToArray(), _server.GetObject(Bucket, "greeting.txt"));
             Assert.IsGreaterThanOrEqualTo(1, progress.Count);
             Assert.AreEqual(progress[^1].TotalBytes, progress[^1].TransferredBytes, "最后一次上报必须是满进度。");
             // 单次 PUT 不会发起分片上传。
-            Assert.IsFalse(_server.Requests.Any(r => r.Contains("uploads", StringComparison.Ordinal)));
+            Assert.DoesNotContain(r => r.Contains("uploads", StringComparison.Ordinal), _server.Requests);
             AssertAllRequestsSigned();
         }
         finally
@@ -250,10 +249,10 @@ public sealed class S3FileServiceIntegrationTests
 
             byte[]? stored = _server.GetObject(Bucket, "big.bin");
             Assert.IsNotNull(stored);
-            CollectionAssert.AreEqual(content, stored);
-            Assert.IsTrue(_server.Requests.Any(r => r.Contains("uploads", StringComparison.Ordinal)),
+            Assert.AreSequenceEqual(content, stored);
+            Assert.Contains(r => r.Contains("uploads", StringComparison.Ordinal), _server.Requests,
                 "大文件必须走分片上传。");
-            Assert.IsTrue(_server.Requests.Any(r => r.Contains("partNumber=", StringComparison.Ordinal)));
+            Assert.Contains(r => r.Contains("partNumber=", StringComparison.Ordinal), _server.Requests);
             AssertAllRequestsSigned();
         }
         finally
@@ -307,7 +306,7 @@ public sealed class S3FileServiceIntegrationTests
             await _service.DownloadFileAsync(_session, "/test-bucket/data/blob.bin", local,
                 new SynchronousProgress<RemoteTransferProgress>(progress.Add));
 
-            CollectionAssert.AreEqual(content, await File.ReadAllBytesAsync(local));
+            Assert.AreSequenceEqual(content, await File.ReadAllBytesAsync(local));
             Assert.AreEqual(progress[^1].TotalBytes, progress[^1].TransferredBytes, "最后一次上报必须是满进度。");
             AssertAllRequestsSigned();
         }
@@ -338,7 +337,7 @@ public sealed class S3FileServiceIntegrationTests
             await _service.DownloadFileAsync(_session, "/test-bucket/public/asset.png", local,
                 new SynchronousProgress<RemoteTransferProgress>(progress.Add));
 
-            CollectionAssert.AreEqual(content, await File.ReadAllBytesAsync(local));
+            Assert.AreSequenceEqual(content, await File.ReadAllBytesAsync(local));
             // 总长度只能来自 GET 响应,但进度依然要收在满格上。
             Assert.AreEqual(content.Length, progress[^1].TotalBytes);
             Assert.AreEqual(progress[^1].TotalBytes, progress[^1].TransferredBytes, "最后一次上报必须是满进度。");
@@ -366,7 +365,7 @@ public sealed class S3FileServiceIntegrationTests
             await _service.DownloadFileAsync(_session, "/test-bucket/locked/asset.bin", local,
                 new SynchronousProgress<RemoteTransferProgress>(progress.Add));
 
-            CollectionAssert.AreEqual(content, await File.ReadAllBytesAsync(local));
+            Assert.AreSequenceEqual(content, await File.ReadAllBytesAsync(local));
             Assert.AreEqual(content.Length, progress[^1].TotalBytes);
             Assert.AreEqual(progress[^1].TotalBytes, progress[^1].TransferredBytes, "最后一次上报必须是满进度。");
             // 预签名那次也必须是签对的:服务器重算签名,对不上会计入 SignatureFailures。
@@ -431,7 +430,7 @@ public sealed class S3FileServiceIntegrationTests
 
             await _service.DownloadFileAsync(_session, "/test-bucket/resume.bin", local, resumeOffset: 1000);
 
-            CollectionAssert.AreEqual(content, await File.ReadAllBytesAsync(local));
+            Assert.AreSequenceEqual(content, await File.ReadAllBytesAsync(local));
             AssertAllRequestsSigned();
         }
         finally
@@ -486,7 +485,7 @@ public sealed class S3FileServiceIntegrationTests
 
         await _service.DeleteAsync(_session, "/test-bucket/drop.txt");
 
-        CollectionAssert.AreEquivalent(new[] { "keep.txt" }, _server.Keys(Bucket).ToArray());
+        Assert.AreSequenceEqual(new[] { "keep.txt" }, [.. _server.Keys(Bucket)], Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
         AssertAllRequestsSigned();
     }
 
@@ -504,7 +503,7 @@ public sealed class S3FileServiceIntegrationTests
             new SynchronousProgress<ProtocolDeleteProgress>(progress.Add));
 
         // "treasure.txt" 以 "tree" 开头但不在 "tree/" 前缀下 —— 前缀拼接漏了斜杠就会误删它。
-        CollectionAssert.AreEquivalent(new[] { "treasure.txt" }, _server.Keys(Bucket).ToArray());
+        Assert.AreSequenceEqual(new[] { "treasure.txt" }, [.. _server.Keys(Bucket)], Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
         Assert.IsGreaterThanOrEqualTo(1, progress.Count);
         AssertAllRequestsSigned();
     }
@@ -543,8 +542,7 @@ public sealed class S3FileServiceIntegrationTests
             () => _service.DeleteAsync(_session, "/test-bucket"));
 
         Assert.IsTrue(_server.HasBucket(Bucket), "桶不能被删掉。");
-        CollectionAssert.AreEqual("irreplaceable"u8.ToArray(), _server.GetObject(Bucket, "precious.dat"),
-            "桶内的对象一个都不能少。");
+        Assert.AreSequenceEqual("irreplaceable"u8.ToArray(), _server.GetObject(Bucket, "precious.dat"), "桶内的对象一个都不能少。");
         AssertAllRequestsSigned();
     }
 
@@ -558,8 +556,8 @@ public sealed class S3FileServiceIntegrationTests
 
         await _service.CopyAsync(_session, "/test-bucket/src.txt", "/test-bucket/dst.txt");
 
-        CollectionAssert.AreEqual("payload"u8.ToArray(), _server.GetObject(Bucket, "dst.txt"));
-        CollectionAssert.AreEqual("payload"u8.ToArray(), _server.GetObject(Bucket, "src.txt"));
+        Assert.AreSequenceEqual("payload"u8.ToArray(), _server.GetObject(Bucket, "dst.txt"));
+        Assert.AreSequenceEqual("payload"u8.ToArray(), _server.GetObject(Bucket, "src.txt"));
         AssertAllRequestsSigned();
     }
 
@@ -572,8 +570,8 @@ public sealed class S3FileServiceIntegrationTests
 
         await _service.CopyAsync(_session, "/test-bucket/from", "/test-bucket/to");
 
-        CollectionAssert.AreEqual("1"u8.ToArray(), _server.GetObject(Bucket, "to/one.txt"));
-        CollectionAssert.AreEqual("2"u8.ToArray(), _server.GetObject(Bucket, "to/nested/two.txt"));
+        Assert.AreSequenceEqual("1"u8.ToArray(), _server.GetObject(Bucket, "to/one.txt"));
+        Assert.AreSequenceEqual("2"u8.ToArray(), _server.GetObject(Bucket, "to/nested/two.txt"));
         AssertAllRequestsSigned();
     }
 
@@ -585,7 +583,7 @@ public sealed class S3FileServiceIntegrationTests
 
         await _service.RenameAsync(_session, "/test-bucket/old-name.txt", "/test-bucket/new-name.txt");
 
-        CollectionAssert.AreEqual("content"u8.ToArray(), _server.GetObject(Bucket, "new-name.txt"));
+        Assert.AreSequenceEqual("content"u8.ToArray(), _server.GetObject(Bucket, "new-name.txt"));
         Assert.IsNull(_server.GetObject(Bucket, "old-name.txt"));
         AssertAllRequestsSigned();
     }
@@ -599,7 +597,7 @@ public sealed class S3FileServiceIntegrationTests
 
         await _service.RenameAsync(_session, "/test-bucket/v1", "/test-bucket/v2");
 
-        CollectionAssert.AreEquivalent(new[] { "v2/a.txt", "v2/sub/b.txt" }, _server.Keys(Bucket).ToArray());
+        Assert.AreSequenceEqual(new[] { "v2/a.txt", "v2/sub/b.txt" }, [.. _server.Keys(Bucket)], Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
         AssertAllRequestsSigned();
     }
 

@@ -460,9 +460,17 @@ string? current = await context.Clipboard.GetTextAsync();
 经宿主主窗口执行(隔离模式 RPC 路由,语义一致)。剪贴板常含用户密码:
 读取的内容**不要记日志、不要外发**。
 
-### 5.13 Protocols —— 自带远程文件协议
+### 5.13 Protocols —— 自带协议(文件 / 终端)
 
-让插件提供一种**新协议**(S3、WebDAV、…),在连接配置页里与 SSH/SFTP/FTP 平起平坐:
+让插件提供一种**新协议**,在连接配置页里与 SSH/SFTP/FTP 平起平坐。协议有两种形态,
+共用同一份 `ProtocolDescriptor`(页签、默认端口、连接表单),差别只在注册时给的实现:
+
+| 形态 | 注册 | 会话打开的是 | 例子 |
+| --- | --- | --- | --- |
+| 文件协议 | `Register(descriptor, IProtocolFileSystem)` | 双栏文件浏览器 | S3、WebDAV |
+| 终端协议 | `Register(descriptor, IProtocolTerminal)` | 终端标签 | Telnet、串口、裸 TCP |
+
+先看文件协议:
 
 ```csharp
 context.Protocols.Register(
@@ -518,6 +526,50 @@ context.Protocols.Register(
 > 只要允许大写,`Foo.Bar` 与 `foo.bar` 就会在不同环节被判成"是"和"不是"同一个。
 
 完整示例:`plugins/VelaShell.Plugin.S3`(协议 + 两个管理面板 + 22 项桶配置)。
+
+#### 5.13.1 终端协议(`IProtocolTerminal`)
+
+Telnet、串口、裸 TCP 这类协议没有文件系统,有的是一条**字节双工通道**。注册它:
+
+```csharp
+context.Protocols.Register(
+    new ProtocolDescriptor
+    {
+        Id = context.PluginId,
+        DisplayName = "Telnet",
+        DefaultPort = 23,
+        // 登录发生在带内(对端自己打印 login:):让宿主收起用户名/口令两栏。
+        Features = ProtocolFeatures.AnonymousAccess | ProtocolFeatures.NoCredentials,
+        Fields = [ new() { Key = "enterMode", Label = "回车键发送", Kind = ProtocolSettingKind.Choice, /* … */ } ],
+    },
+    new MyTerminal(context));      // IProtocolTerminal
+```
+
+实现两个接口就够了:
+
+```csharp
+Task<IProtocolTerminalSession> ConnectAsync(ProtocolConnectRequest request, ProtocolTerminalOptions options, CancellationToken ct);
+
+// IProtocolTerminalSession
+ValueTask<int>  ReadAsync(Memory<byte> buffer, CancellationToken ct);        // 0 = 会话结束
+ValueTask       WriteAsync(ReadOnlyMemory<byte> data, CancellationToken ct);
+ValueTask       ResizeAsync(int columns, int rows, CancellationToken ct);
+```
+
+- **只搬字节**:VT 解析、回滚、搜索、会话日志、会话录制、ZMODEM 全在宿主侧,
+  插件多解释一层只会与宿主的终端引擎打架。
+- **掉线归一化成 EOF**(`ReadAsync` 返回 0),**不要抛异常** —— 返回 0 才会走到
+  "标签置为已断开、按 Enter 即重连"那条路上。宿主侧也兜了一层:插件真抛了也当 EOF。
+- **写侧要自己串行化**:用户按键、尺寸上报(Telnet 的 NAWS)、协商应答都是写,
+  交织会把一个帧撕成两半。读侧则由宿主的桥独占,不会并发。
+- **`ResizeAsync` 是即发即忘**:宿主不等它返回(窗口缩放每帧都可能来一次);
+  协议没有对应机制就实现成空操作,别抛异常。
+- **`DisposeAsync` 必须能唤醒挂着的读**:宿主关标签时先取消读令牌再后台调它,
+  但插件自己也不该在关闭路径上无限阻塞(串口 `Close()` 在硬件流控卡住时可以永久挂住)。
+- 终端协议**没有** SessionId:SFTP 面板、任务管理器、资源监视器、隧道对它自动灰掉;
+  "连接后执行命令"也不会发(Telnet 连上先看到的是 `login:`,注入命令等于打进登录提示符)。
+
+完整示例:`plugins/VelaShell.Plugin.Telnet`(RFC 854 协商 + NAWS + 8 位透明,零第三方依赖)。
 
 ## 6. 隔离进程模式(isolated)
 

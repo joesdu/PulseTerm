@@ -139,7 +139,7 @@ public sealed class PluginTimeSeriesTests : IDisposable
         ]);
 
         Assert.AreEqual(2, await series.CountAsync("seq", new() { Tags = new Dictionary<string, string> { ["conv"] = "c1" } }));
-        CollectionAssert.AreEquivalent(new[] { "c1", "c2" }, (await series.DistinctTagValuesAsync("conv")).ToArray());
+        Assert.AreSequenceEqual(new[] { "c1", "c2" }, [.. (await series.DistinctTagValuesAsync("conv"))], Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
 
         await series.DeleteAsync(new Dictionary<string, string> { ["conv"] = "c1" });
         Assert.IsEmpty(await series.QueryAsync(new() { Tags = new Dictionary<string, string> { ["conv"] = "c1" } }));

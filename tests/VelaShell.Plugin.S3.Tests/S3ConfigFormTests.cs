@@ -29,9 +29,9 @@ public sealed class S3ConfigFormTests
             Assert.IsNotEmpty(descriptor.ResourceKey, $"{kind} 缺少标题资源键。");
         }
         // 描述表不能有重复项(重复会让左侧导航出现两行同名条目)。
-        Assert.AreEqual(
+        Assert.HasCount(
             Enum.GetValues<S3ConfigKind>().Length,
-            S3ConfigDescriptor.All.Select(d => d.Kind).Distinct().Count());
+            S3ConfigDescriptor.All.Select(d => d.Kind).Distinct());
     }
 
     /// <summary>表单类配置都能构造出至少一个字段;文档类配置不构造字段。</summary>
@@ -170,9 +170,8 @@ public sealed class S3ConfigFormTests
         JsonArray written = root["TagSet"]!.AsArray();
 
         Assert.HasCount(3, written);
-        CollectionAssert.AreEquivalent(
-            new[] { "env", "team", "owner" },
-            written.Select(t => t!["Key"]!.GetValue<string>()).ToArray());
+        Assert.AreSequenceEqual(
+            new[] { "env", "team", "owner" }, [.. written.Select(t => t!["Key"]!.GetValue<string>())], Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
     }
 
     /// <summary>损坏的 JSON 不能把表单打崩,退化成空表单即可。</summary>
