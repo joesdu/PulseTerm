@@ -31,3 +31,15 @@
 - **被引用**：`VelaShell.Infrastructure`（能力实现与插件运行时）、`VelaShell.Presentation`（命令桥接）、`VelaShell.PluginHost`（隔离进程）、以及全部插件项目。
 
 > 开发文档见 [docs/plugins/dev-guide.md](../../docs/plugins/dev-guide.md)；能力清单与权限模型见 [07-capability-apis.md](../../docs/plugins/07-capability-apis.md) 与 [06-permission-system.md](../../docs/plugins/06-permission-system.md)。测试替身见 [`VelaShell.PluginSdk.Testing`](../VelaShell.PluginSdk.Testing)。
+
+## 发版
+
+发一次 SDK 的完整步骤
+
+- 改 Directory.Build.props 的 VelaSdkVersion
+- 改 templates/content/velaplugin/.template.config/template.json     的 sdkVersion.defaultValue
+  改 templates/content/velaplugin-ui/.template.config/template.json  同上（破坏性变更还要 +1 VelaPluginApi.Level）
+- 合进 main
+- git tag sdk-v<版本> && git push origin sdk-v<版本>
+
+第 2 步不是可选的 —— VELA1004 会在构建期拦下。想先验一遍不推送,用 workflow_dispatch 勾 dryRun(就是我们刚才跑的那次)。
