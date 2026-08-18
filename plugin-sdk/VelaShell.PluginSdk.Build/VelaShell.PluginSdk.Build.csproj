@@ -8,6 +8,11 @@
 
     <!-- 本包不含任何程序集,只有 MSBuild 逻辑与 tools/ 下的打包器。 -->
     <IncludeBuildOutput>false</IncludeBuildOutput>
+    <!-- 没有程序集自然也没有 .pdb,而 plugin-sdk/Directory.Build.props 给所有 SDK 包统一开了
+         IncludeSymbols —— 那会生成一个只含 nuspec 的空 .snupkg,nuget.org 收到会直接
+         400 "The package does not contain any symbol (.pdb) files."。首发时正是它把推送
+         拦腰截断(run 32114870350:前四个包已推上去,第五个再没轮到)。本包关掉符号包。 -->
+    <IncludeSymbols>false</IncludeSymbols>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <!-- NU5128:有依赖但无 lib/ 目录。对纯 MSBuild 包是正常形态。 -->
