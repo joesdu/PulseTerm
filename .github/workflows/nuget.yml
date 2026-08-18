@@ -214,10 +214,20 @@ jobs:
         shell: pwsh
         run: |
           # --skip-duplicate:同一版本重跑不算失败(手动补跑是常规操作)。
-          # .snupkg 与同名 .nupkg 在同一目录时由 nuget.org 一并接收,无需单独推送。
-          dotnet nuget push "artifacts/nuget/*.nupkg" `
-            --source https://api.nuget.org/v3/index.json `
-            --api-key $env:NUGET_TOKEN `
-            --skip-duplicate
+          # .snupkg 与同名 .nupkg 在同一目录时由 dotnet nuget push 顺带一并推送,无需单列。
+          #
+          # ⚠️ 通配符必须自己展开:dotnet nuget push **不做 glob 扩展**,把
+          #    "artifacts/nuget/*.nupkg" 整个当成文件名去找,报 "File does not exist"
+          #    —— 1.0.0-preview.1 的首发就是卡在这一步(run 32107624064:前面全绿、
+          #    Trusted Publishing 也换到密钥了,只有推送这一步空手而归)。
+          $packages = @(Get-ChildItem artifacts/nuget/*.nupkg)
+          if ($packages.Count -eq 0) { throw "No .nupkg found in artifacts/nuget." }
+          foreach ($package in $packages) {
+            dotnet nuget push $package.FullName `
+              --source https://api.nuget.org/v3/index.json `
+              --api-key $env:NUGET_TOKEN `
+              --skip-duplicate
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+          }
         env:
           NUGET_TOKEN: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
