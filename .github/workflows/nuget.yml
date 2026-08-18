@@ -18,12 +18,6 @@
 #   NuGet/login 拿本次运行的 GitHub OIDC 令牌去 nuget.org 换一把**短时效**的推送密钥,
 #   用完即弃。密钥不落仓库机密,也就没有"泄漏了要轮换"这件事。
 #
-#   ⚠️ 一次性配置:nuget.org → 账户 → Trusted Publishing 里那条策略的 **Workflow 字段
-#      必须填 `nuget.yml`**(现有那条填的是 `release.yml` —— 那是应用发布流水线,不发包)。
-#      策略校验的是"哪个仓库的哪个工作流文件在跑",文件名对不上就直接拒绝换密钥。
-#      要么把该策略的 Workflow 改成 nuget.yml,要么再建一条指向 nuget.yml 的策略。
-#      仓库变量 `NUGET_USER` 可覆盖账户名(默认 joes_du)。
-#
 # 需要的仓库机密:
 #   STRONG_NAME_KEY   与 release.yml 同一把:Release 下 SDK 程序集要强名称签名,
 #                     否则宿主(已签名)引用不了它。
