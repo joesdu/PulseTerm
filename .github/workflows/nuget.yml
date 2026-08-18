@@ -77,8 +77,16 @@ jobs:
           } elseif ('${{ github.event_name }}' -eq 'workflow_dispatch') {
             $version = '${{ inputs.version }}'.TrimStart('v')
           } else {
-            # PR:只是验证能不能打得出来,版本号无所谓,用工程里的默认值加个后缀。
-            $version = "0.0.0-ci.${{ github.run_number }}"
+            # PR:只验"打不打得出来",但版本号**不能瞎编**。模板 template.json 里写死了
+            # 生成工程要引用的 SDK 包版本,templates 工程的 VerifyTemplateSdkVersion 会在
+            # 构建期核对它与 VelaSdkVersion 一致(VELA1004);编一个 0.0.0-ci.N 出来,
+            # templates 包每次 PR 都打不出来。PR 路径不推送,复用仓库当前的默认版本即可。
+            $props = Get-Content -Raw Directory.Build.props
+            $version = [regex]::Match($props, '<VelaSdkVersion[^>]*>([^<]+)</VelaSdkVersion>').Groups[1].Value
+            if ([string]::IsNullOrWhiteSpace($version)) {
+              Write-Error "Could not read VelaSdkVersion from Directory.Build.props"
+              exit 1
+            }
           }
           "version=$version" >> $env:GITHUB_OUTPUT
           "Publishing version $version"
@@ -106,11 +114,20 @@ jobs:
 
       # 打包相关的测试。不跑全量套件:那需要构建整个应用(含 Avalonia headless),
       # 而这条流水线只对包格式、清单规则与开发挂载负责。全量回归在应用侧的流水线里。
+      #
+      # ⚠️ 必须是 Debug,别改回 Release:Release 会打开强名签名(见 src/Directory.Build.props),
+      #    而签名程序集的 InternalsVisibleTo 必须带友元公钥、友元也得用同一把钥匙签名 ——
+      #    测试程序集两条都不满足,所以 src/*.csproj 里的友元声明一律 gated on
+      #    SignAssembly != true。用 Release 跑测试就等于丢掉友元关系,白盒用例引用的宿主
+      #    internal 类型当场 CS0122(只会报第一个:声明期出错后 Roslyn 直接跳过方法体编译,
+      #    后面还有一批同类错误没露面)。这些用例只验包格式与清单规则,与优化级别无关,
+      #    Debug 等价;且 Debug 的 obj/bin 与下面 Pack 的 Release 目录彼此隔离,
+      #    不会把未签名产物混进要发布的包里。
       - name: Test (packaging + manifest + dev roots)
         shell: pwsh
         run: |
           dotnet test tests/VelaShell.Infrastructure.Tests/VelaShell.Infrastructure.Tests.csproj `
-            -c Release --nologo $env:VELA_SIGN_ARGS `
+            -c Debug --nologo `
             --filter "FullyQualifiedName~VpxContainerTests|FullyQualifiedName~PluginManifestReaderTests|FullyQualifiedName~PluginInstallUninstallTests|FullyQualifiedName~DevPluginRootTests"
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
