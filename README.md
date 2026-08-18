@@ -304,6 +304,7 @@ dotnet test --logger "console;verbosity=detailed"
 - [`docs/终端输入乱序问题分析与架构建议.md`](docs/终端输入乱序问题分析与架构建议.md) — 终端输入串行化
 - [`docs/SFTP双栏与WinSCP差距分析.md`](docs/SFTP双栏与WinSCP差距分析.md) — 双栏 SFTP 与 WinSCP 的逐项差距决策清单
 - [`docs/FTP客户端可行性调研.md`](docs/FTP客户端可行性调研.md) — FTP / FTPS 支持的取舍
+- [`docs/Redis客户端插件化调研与设计.md`](docs/Redis客户端插件化调研与设计.md) — Redis 界面客户端:工作台连接类型、引擎取舍与界面设计
 - [`docs/Telnet与串口可行性调研.md`](docs/Telnet与串口可行性调研.md) — Telnet / 串口会话类型的可行性与改造清单
 - [`plan.md`](plan.md) — 进展记录、已知问题与后续待办（开发跟进以此为准）
 

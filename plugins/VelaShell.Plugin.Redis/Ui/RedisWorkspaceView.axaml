@@ -1,0 +1,1009 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VelaShell.Plugin.Redis.Ui"
+             xmlns:redis="using:VelaShell.Plugin.Redis"
+             x:Class="VelaShell.Plugin.Redis.Ui.RedisWorkspaceView"
+             x:DataType="vm:RedisWorkspaceViewModel">
+
+  <!-- Redis 工作台面板。布局与几何按 DESIGN.md:36px 文档头 / 26px 列头 / 28px 行 / 24px 状态条,
+       配色一律走 {DynamicResource VelaXxx} 主题令牌,明暗切换即时跟随 ——
+       插件面板本就该长得像宿主的一部分。
+
+       左右分栏 + 底部抽屉,而不是互斥的顶层页签:翻键、改值、敲命令、看服务器状态这四件事
+       是**并行**的(见 docs/Redis客户端插件化调研与设计.md §6.1)。抽屉这个形状也是本应用
+       用户最熟的:内容在上,命令行在下。
+
+       确认框贴在本面板上而不是飘在屏幕中央 —— 同时开着生产与开发两个标签页时,
+       一个不说清"是哪条连接"的弹窗是危险的。 -->
+
+  <UserControl.Styles>
+    <Style Selector="TextBlock.col">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
+    </Style>
+    <Style Selector="TextBlock.cell">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+    <Style Selector="TextBlock.meta">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextTertiary}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <!-- 五分钟内就要过期:对着一个马上消失的键做操作是白做,这一列值得抢眼一点。 -->
+    <Style Selector="TextBlock.meta.soon">
+      <Setter Property="Foreground" Value="{DynamicResource VelaWarning}" />
+    </Style>
+    <!-- ── 键列表:整套几何与状态色对齐宿主的资源管理器 ────────────────────
+         容器自己不留内边距、不设最小高度 —— 行高由模板里的 Border 给
+         (分组行 30、键行 28,与资源管理器的分组行/会话行一致)。 -->
+    <Style Selector="ListBox#KeyList ListBoxItem">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="CornerRadius" Value="0" />
+    </Style>
+    <!-- 悬停 VelaBgHover、选中 VelaBgActive:与资源管理器同一对令牌。
+         Fluent 主题自带的选中色是另一套,不压掉就会和宿主两个样。 -->
+    <Style Selector="ListBox#KeyList ListBoxItem:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+    </Style>
+    <Style Selector="ListBox#KeyList ListBoxItem:selected /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource VelaBgActive}" />
+    </Style>
+    <Style Selector="ListBox#KeyList ListBoxItem:selected:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource VelaBgActive}" />
+    </Style>
+    <!-- 选中行的键名转 accent + Medium —— 资源管理器的活跃会话行就是这么标的。 -->
+    <Style Selector="ListBox#KeyList ListBoxItem:selected TextBlock.keyname">
+      <Setter Property="Foreground" Value="{DynamicResource VelaAccent}" />
+      <Setter Property="FontWeight" Value="Medium" />
+    </Style>
+    <!-- 分组行的名字与计数:对齐资源管理器分组行的 FontSize12 Medium / FontSize10。 -->
+    <Style Selector="TextBlock.groupname">
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize12}" />
+      <Setter Property="FontWeight" Value="Medium" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
+    </Style>
+    <Style Selector="TextBlock.groupcount">
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextTertiary}" />
+    </Style>
+    <Style Selector="Border.badge">
+      <Setter Property="CornerRadius" Value="2" />
+      <Setter Property="Padding" Value="6,1" />
+      <Setter Property="Background" Value="{DynamicResource VelaAccentDim}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.badge > TextBlock">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize9}" />
+      <Setter Property="FontWeight" Value="Medium" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaAccent}" />
+    </Style>
+    <!-- 键列表的类型徽章按类型分色。整列同色等于没有信息 —— 四十个 string 排下来,
+         眼睛只能逐行读文字;分色之后这一列才真正可扫,混合类型的库一眼看得出结构。
+         底色一律取 12% 透明度:要的是可区分,不是抢戏。 -->
+    <Style Selector="Border.type"><Setter Property="Background" Value="#1F6272A4" /></Style>
+    <Style Selector="Border.type > TextBlock"><Setter Property="Foreground" Value="#6272A4" /></Style>
+    <Style Selector="Border.type.t-string"><Setter Property="Background" Value="#1F8BE9FD" /></Style>
+    <Style Selector="Border.type.t-string > TextBlock"><Setter Property="Foreground" Value="#8BE9FD" /></Style>
+    <Style Selector="Border.type.t-hash"><Setter Property="Background" Value="#1F50FA7B" /></Style>
+    <Style Selector="Border.type.t-hash > TextBlock"><Setter Property="Foreground" Value="#50FA7B" /></Style>
+    <Style Selector="Border.type.t-list"><Setter Property="Background" Value="#1FFFB86C" /></Style>
+    <Style Selector="Border.type.t-list > TextBlock"><Setter Property="Foreground" Value="#FFB86C" /></Style>
+    <Style Selector="Border.type.t-set"><Setter Property="Background" Value="#1FBD93F9" /></Style>
+    <Style Selector="Border.type.t-set > TextBlock"><Setter Property="Foreground" Value="#BD93F9" /></Style>
+    <Style Selector="Border.type.t-zset"><Setter Property="Background" Value="#1FFF79C6" /></Style>
+    <Style Selector="Border.type.t-zset > TextBlock"><Setter Property="Foreground" Value="#FF79C6" /></Style>
+    <Style Selector="Border.type.t-stream"><Setter Property="Background" Value="#1FF1FA8C" /></Style>
+    <Style Selector="Border.type.t-stream > TextBlock"><Setter Property="Foreground" Value="#F1FA8C" /></Style>
+    <!-- 分段控件:选中态用强调色底,未选中只是描边 —— 与宿主的高级选项分段同规格。 -->
+    <Style Selector="Button.seg">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
+      <Setter Property="Padding" Value="8,2" />
+      <Setter Property="CornerRadius" Value="3" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />
+    </Style>
+    <Style Selector="Button.seg.on">
+      <Setter Property="Background" Value="{DynamicResource VelaAccentDim}" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaAccent}" />
+    </Style>
+    <Style Selector="Button.link">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
+      <Setter Property="Padding" Value="8,2" />
+      <Setter Property="CornerRadius" Value="3" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
+    </Style>
+    <Style Selector="Button.link:disabled">
+      <Setter Property="Opacity" Value="0.4" />
+    </Style>
+    <Style Selector="Button.danger">
+      <Setter Property="Foreground" Value="{DynamicResource VelaError}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaError}" />
+    </Style>
+    <Style Selector="Button.accent">
+      <Setter Property="Background" Value="{DynamicResource VelaAccentDim}" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaAccent}" />
+    </Style>
+    <!-- 底部抽屉的页签:选中态给一条顶部强调条,与 VelaDock 的标签同语言。 -->
+    <Style Selector="Button.tab">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
+      <Setter Property="Padding" Value="12,0" />
+      <Setter Property="Height" Value="28" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />
+    </Style>
+    <Style Selector="Button.tab.on">
+      <Setter Property="Background" Value="{DynamicResource VelaBgTerminal}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
+      <Setter Property="BorderThickness" Value="0,2,0,0" />
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaAccent}" />
+    </Style>
+    <Style Selector="TextBox.field">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
+      <Setter Property="Background" Value="{DynamicResource VelaBgInput}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
+      <Setter Property="CornerRadius" Value="3" />
+      <Setter Property="Padding" Value="6,3" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <!-- 生产标记是**唯一**允许改变主色的地方。 -->
+    <Style Selector="Border.badge.prod">
+      <Setter Property="Background" Value="{DynamicResource VelaAccentDim}" />
+    </Style>
+    <Style Selector="Border.badge.prod > TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource VelaError}" />
+    </Style>
+    <!-- 控制台输出按语义上色。用 class 绑定而不是值转换器:颜色必须来自
+         {DynamicResource Vela*} 才能跟着主题切换,而转换器解析不到动态资源。 -->
+    <Style Selector="TextBlock.reply">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaInfo}" />
+    </Style>
+    <Style Selector="TextBlock.reply.cmd">
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
+      <Setter Property="Margin" Value="0,4,0,0" />
+    </Style>
+    <Style Selector="TextBlock.reply.err">
+      <Setter Property="Foreground" Value="{DynamicResource VelaError}" />
+    </Style>
+    <Style Selector="TextBlock.reply.note">
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />
+    </Style>
+    <Style Selector="TextBlock.reply.num">
+      <Setter Property="Foreground" Value="{DynamicResource VelaWarning}" />
+    </Style>
+    <Style Selector="TextBlock.reply.nil">
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />
+    </Style>
+  </UserControl.Styles>
+
+  <Panel>
+    <!-- 形态提示条(第 1 行)只在配错时占位置。它常驻而不走状态行:配置错误不会自己好,
+         而状态行每次扫描都会被清空 —— 写在那儿等于没写。 -->
+    <Grid RowDefinitions="36,Auto,*,24,Auto" Background="{DynamicResource VelaBgTerminal}">
+
+      <!-- ══ 文档头:身份 + 数据库 + 护栏徽章 ══════════════════════════════ -->
+      <Border Grid.Row="0" Background="{DynamicResource VelaBgSidebar}"
+              BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,0,0,1">
+        <StackPanel Orientation="Horizontal" Spacing="10" Margin="12,0" VerticalAlignment="Center">
+          <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+                   Fill="{DynamicResource VelaStatusConnected}" />
+          <TextBlock Text="{Binding Title}" FontSize="{DynamicResource VelaFontSize11}"
+                     FontWeight="Medium" FontFamily="{DynamicResource VelaUiMonoFont}"
+                     Foreground="{DynamicResource VelaTextPrimary}" VerticalAlignment="Center" />
+          <TextBlock Text="{Binding Endpoint}" Classes="meta" />
+          <ComboBox ItemsSource="{Binding Databases}"
+                    IsEnabled="{Binding SupportsDatabases}"
+                    ToolTip.Tip="{Binding DatabaseHint}"
+                    MinWidth="120" VerticalAlignment="Center"
+                    FontSize="{DynamicResource VelaFontSize10}"
+                    SelectedItem="{Binding SelectedDatabase}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:RedisDatabaseOption">
+                <TextBlock Text="{Binding Display}" FontFamily="{DynamicResource VelaUiMonoFont}"
+                           FontSize="{DynamicResource VelaFontSize10}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+          <!-- 只读徽章是可点的开关:关掉它要过一次确认(生产环境要手打确认串)。 -->
+          <Button x:Name="ReadOnlyToggle" Classes="seg" Classes.on="{Binding IsReadOnlyNow}"
+                  Content="{Binding ReadOnlyLabel}"
+                  Command="{Binding ToggleReadOnlyCommand}"
+                  ToolTip.Tip="{Binding Loc[Redis_ReadOnlyHint]}" />
+          <!-- 环境标记是唯一允许改变主色的地方:生产用 VelaError,
+               "我现在在动线上"这件事必须无法被忽略。 -->
+          <Border Classes="badge" Classes.prod="{Binding IsProduction}">
+            <TextBlock Text="{Binding EnvironmentLabel}" />
+          </Border>
+        </StackPanel>
+      </Border>
+
+      <!-- ══ 形态不符提示条 ═══════════════════════════════════════════════ -->
+      <Border x:Name="DeploymentWarningBar" Grid.Row="1"
+              IsVisible="{Binding HasDeploymentWarning}"
+              Background="{DynamicResource VelaBgInput}"
+              BorderBrush="{DynamicResource VelaWarning}" BorderThickness="0,0,0,1"
+              Padding="12,6">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <PathIcon Width="12" Height="12" VerticalAlignment="Top" Margin="0,2,0,0"
+                    Data="M12 2 1 21h22L12 2zm1 16h-2v-2h2v2zm0-4h-2V9h2v5z"
+                    Foreground="{DynamicResource VelaWarning}" />
+          <TextBlock Text="{Binding DeploymentWarning}" TextWrapping="Wrap"
+                     FontSize="{DynamicResource VelaFontSize10}"
+                     Foreground="{DynamicResource VelaTextSecondary}" />
+        </StackPanel>
+      </Border>
+
+      <!-- ══ 主体:左键列表 / 右详情 ═══════════════════════════════════════
+           左栏从 280 放宽到 400 并可拖拽:一行要放下完整键名 + 类型 + TTL + 规模,
+           280px 只够二十来个字符,而真实键名(session:v2:prod:user:…:token)动辄 40 字。 -->
+      <Grid Grid.Row="2" ColumnDefinitions="400,4,*">
+
+        <!-- ── 左栏 ── -->
+        <Grid Grid.Column="0" RowDefinitions="36,Auto,Auto,Auto,Auto,26,*">
+          <Border Grid.Row="0" Margin="10,0" BorderBrush="{DynamicResource VelaBorderPrimary}"
+                  BorderThickness="0,0,0,1">
+            <TextBox x:Name="FilterBox" Classes="field" Text="{Binding Filter}"
+                     PlaceholderText="{Binding Loc[Redis_FilterPlaceholder]}" />
+          </Border>
+
+          <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="4" Margin="10,8,10,0">
+            <Button Classes="seg" Classes.on="{Binding IsPrefixMode}"
+                    Content="{Binding Loc[Redis_MatchPrefix]}"
+                    Command="{Binding UsePrefixMatchCommand}" />
+            <Button Classes="seg" Classes.on="{Binding IsContainsMode}"
+                    Content="{Binding Loc[Redis_MatchContains]}"
+                    Command="{Binding UseContainsMatchCommand}" />
+            <Button Classes="seg" Classes.on="{Binding IsGlobMode}"
+                    Content="{Binding Loc[Redis_MatchGlob]}"
+                    Command="{Binding UseGlobMatchCommand}" />
+            <ComboBox ItemsSource="{Binding TypeOptions}" SelectedItem="{Binding TypeFilter}"
+                      MinWidth="86" FontSize="{DynamicResource VelaFontSize10}" />
+          </StackPanel>
+
+          <!-- 收藏下拉:选中即跳过去(精确 MATCH 一次)—— 收藏的键可能压根不在
+               当前已扫描到的那批里,所以走过滤条而不是在树上找。 -->
+          <ComboBox x:Name="FavoritesBox" Grid.Row="2" Margin="10,8,10,0"
+                    IsVisible="{Binding HasFavorites}"
+                    ItemsSource="{Binding Favorites}" SelectedItem="{Binding SelectedFavorite}"
+                    PlaceholderText="{Binding Loc[Redis_Favorites]}"
+                    HorizontalAlignment="Stretch" FontSize="{DynamicResource VelaFontSize10}" />
+
+          <!-- 回显真正要发的命令:解决"我明明有这个键,为什么搜不到"的头号困惑。 -->
+          <Border Grid.Row="3" Margin="10,8,10,10" Padding="6,4"
+                  Background="{DynamicResource VelaBgInput}"
+                  BorderBrush="{DynamicResource VelaInfo}" BorderThickness="2,0,0,0"
+                  CornerRadius="0,3,3,0">
+            <TextBlock x:Name="MatchEcho" Text="{Binding MatchEcho}" TextWrapping="Wrap"
+                       FontSize="{DynamicResource VelaFontSize10}"
+                       FontFamily="{DynamicResource VelaUiMonoFont}"
+                       Foreground="{DynamicResource VelaInfo}" />
+          </Border>
+
+          <!-- 面包屑:已扫到的这批键共享的前缀。点某一段 = 把过滤条设成它并重扫,
+               所以"下钻"和过滤条是同一件事,而不是第二套互相打架的导航状态。 -->
+          <Border Grid.Row="4" x:Name="BreadcrumbBar" Margin="10,0,10,8"
+                  IsVisible="{Binding HasBreadcrumb}">
+            <StackPanel Orientation="Horizontal" Spacing="2">
+              <Button Classes="link" Content="{Binding Loc[Redis_BreadcrumbAll]}"
+                      Command="{Binding NavigateHomeCommand}"
+                      ToolTip.Tip="{Binding Loc[Redis_BreadcrumbTip]}" />
+              <ItemsControl ItemsSource="{Binding Breadcrumb}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal" Spacing="2" />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:RedisBreadcrumbSegment">
+                    <StackPanel Orientation="Horizontal" Spacing="2">
+                      <TextBlock Classes="meta" Text="›" VerticalAlignment="Center" />
+                      <Button Classes="link" Content="{Binding Label}"
+                              Command="{Binding $parent[ItemsControl].((vm:RedisWorkspaceViewModel)DataContext).NavigateCommand}"
+                              CommandParameter="{Binding}" />
+                    </StackPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+
+          <!-- 列头。列宽与下面的行模板**逐格对齐**(46 / * / 58 / 66):
+               对不齐的话数字列会随内容左右飘,一眼扫下去的能力就没了。 -->
+          <Border Grid.Row="5" Background="{DynamicResource VelaBgSurface}"
+                  BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,1,0,1">
+            <Grid ColumnDefinitions="46,*,58,66" Margin="12,0">
+              <TextBlock Grid.Column="0" Classes="col" Text="{Binding Loc[Redis_ColumnType]}" />
+              <TextBlock Grid.Column="1" Classes="col" Text="{Binding Loc[Redis_ColumnName]}" />
+              <TextBlock Grid.Column="2" Classes="col" Text="{Binding Loc[Redis_ColumnTtl]}"
+                         HorizontalAlignment="Right" />
+              <TextBlock Grid.Column="3" Classes="col" Text="{Binding Loc[Redis_ColumnSize]}"
+                         HorizontalAlignment="Right" />
+            </Grid>
+          </Border>
+
+          <Panel Grid.Row="6">
+            <!-- 扁平虚拟化列表。一行一个完整键名 —— 树上只有本层片段,用户看不到
+                 自己正在看哪个键,复制键名还得靠脑子拼路径。 -->
+            <!-- AutoScrollToSelectedItem=False:展开一条分组行时要把选中态弹回原来那个键
+                 (分组行不是键,不该顶着高亮),而自动滚动会顺手把视野也拽到那个键上 ——
+                 表现成"点了顶部的分组,画面却跳到底部"。真正需要滚动的只有"跳到收藏的键"
+                 那一条路,由 KeyRevealed 事件显式触发。 -->
+            <ListBox x:Name="KeyList" ItemsSource="{Binding Rows}"
+                     SelectedItem="{Binding SelectedRow}"
+                     AutoScrollToSelectedItem="False"
+                     Background="Transparent" BorderThickness="0"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+              <ListBox.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <VirtualizingStackPanel />
+                </ItemsPanelTemplate>
+              </ListBox.ItemsPanel>
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:RedisKeyRow">
+                  <!-- 两种行分开画,几何各按各的 —— 与宿主资源管理器同构(那里也是
+                       Panel 里一个分组 Border 30px、一个会话 Border 28px)。 -->
+                  <Panel>
+
+                    <!-- 分组行:箭头 + 前缀 + 计数。规格对齐资源管理器的分组行:
+                         高 30、左缩进 12、间距 6、名字 FontSize12 Medium、计数 FontSize10。 -->
+                    <Border IsVisible="{Binding IsGroup}" Height="30" Padding="12,0"
+                            Background="Transparent" Cursor="Hand">
+                      <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
+                                  Margin="{Binding Indent}">
+                        <!-- 箭头与资源管理器同一套:展开朝下、折叠朝右,两个图标切换而不是旋转一个。
+                             Viewbox 包住 24×24 的 lucide 视图框,描边随之等比缩放 ——
+                             这正是宿主 LucideIcon 的做法(2/24 的笔宽比例)。 -->
+                        <Viewbox Width="12" Height="12" VerticalAlignment="Center"
+                                 IsVisible="{Binding IsExpandedGroup}">
+                          <Path Width="24" Height="24" Data="{DynamicResource Icon.chevron-down}"
+                                Stroke="{DynamicResource VelaTextTertiary}" StrokeThickness="2"
+                                StrokeLineCap="Round" StrokeJoin="Round" />
+                        </Viewbox>
+                        <Viewbox Width="12" Height="12" VerticalAlignment="Center"
+                                 IsVisible="{Binding IsCollapsed}">
+                          <Path Width="24" Height="24" Data="{DynamicResource Icon.chevron-right}"
+                                Stroke="{DynamicResource VelaTextTertiary}" StrokeThickness="2"
+                                StrokeLineCap="Round" StrokeJoin="Round" />
+                        </Viewbox>
+                        <TextBlock Classes="groupname" Text="{Binding Display}"
+                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        <!-- 计数的提示里必须写明这是**已扫描到的**数量 —— SCAN 是增量的,
+                             把它当成 DBSIZE 那样的确定值是这一屏最容易产生的误解。 -->
+                        <TextBlock Classes="groupcount" Text="{Binding CountText}"
+                                   VerticalAlignment="Center" ToolTip.Tip="{Binding GroupTip}" />
+                      </StackPanel>
+                    </Border>
+
+                    <!-- 键行:类型徽章 + 完整键名 + TTL + 规模。高 28、左右缩进 12,
+                         与资源管理器的会话行同规格。 -->
+                    <Border IsVisible="{Binding IsKey}" Height="28" Padding="12,0"
+                            Background="Transparent" Cursor="Hand">
+                      <Grid ColumnDefinitions="46,*,58,66">
+                        <Border Grid.Column="0" Classes="badge type"
+                                Classes.t-string="{Binding IsString}"
+                                Classes.t-hash="{Binding IsHash}"
+                                Classes.t-list="{Binding IsList}"
+                                Classes.t-set="{Binding IsSet}"
+                                Classes.t-zset="{Binding IsSortedSet}"
+                                Classes.t-stream="{Binding IsStream}"
+                                HorizontalAlignment="Left" VerticalAlignment="Center">
+                          <TextBlock Text="{Binding TypeName}" />
+                        </Border>
+
+                        <!-- 缩进只加在键名上,不推整行:后面三列是**表格列**,
+                             跟着缩进一起右移就再也对不齐了(层级看得见 ≠ 数字列可以歪)。 -->
+                        <TextBlock Grid.Column="1" Classes="cell keyname" Text="{Binding Display}"
+                                   Margin="{Binding Indent}"
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTip.Tip="{Binding Display}" />
+
+                        <TextBlock Grid.Column="2" Classes="meta" Text="{Binding TtlText}"
+                                   HorizontalAlignment="Right" VerticalAlignment="Center"
+                                   Classes.soon="{Binding IsExpiringSoon}" />
+
+                        <TextBlock Grid.Column="3" Classes="meta" Text="{Binding SizeText}"
+                                   HorizontalAlignment="Right" VerticalAlignment="Center" />
+                      </Grid>
+                    </Border>
+
+                  </Panel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+
+            </ListBox>
+            <TextBlock Text="{Binding ScanStatus}" IsVisible="{Binding IsEmpty}"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                       Margin="24" TextWrapping="Wrap" TextAlignment="Center"
+                       FontSize="{DynamicResource VelaFontSize11}"
+                       Foreground="{DynamicResource VelaTextMuted}" />
+          </Panel>
+        </Grid>
+
+        <!-- 分隔条可拖:键名长短因项目而异,固定宽度总有一半用户嫌窄、一半嫌宽。
+             Background 必须是实色 —— Transparent 的 GridSplitter 拿不到指针命中,
+             表现成"拖不动"。 -->
+        <GridSplitter Grid.Column="1" ResizeDirection="Columns"
+                      ResizeBehavior="PreviousAndNext"
+                      Background="{DynamicResource VelaBorderPrimary}" />
+
+        <!-- ── 右栏:键详情 ── -->
+        <Grid Grid.Column="2" RowDefinitions="36,26,Auto,26,*,Auto,Auto">
+
+          <!-- 键头:名字 + 类型 + TTL + 删除 -->
+          <Border Grid.Row="0" Background="{DynamicResource VelaBgSidebar}"
+                  BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,0,0,1"
+                  IsVisible="{Binding HasSelection}">
+            <Grid ColumnDefinitions="*,Auto" Margin="14,0">
+              <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <TextBlock Text="{Binding Selected.Key.Display}"
+                           FontSize="{DynamicResource VelaFontSize11}" FontWeight="Medium"
+                           FontFamily="{DynamicResource VelaUiMonoFont}"
+                           Foreground="{DynamicResource VelaTextPrimary}"
+                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                <Border Classes="badge">
+                  <TextBlock Text="{Binding Selected.Type}" />
+                </Border>
+                <TextBlock Classes="meta" Text="{Binding Loc[Redis_Ttl]}" />
+                <TextBlock Classes="meta" Text="{Binding SelectedTtlText}" />
+              </StackPanel>
+              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                <!-- 收藏:运维每天就看那几个键,让他每次重新打前缀等扫描是纯摩擦。 -->
+                <Button x:Name="FavoriteButton" Classes="link"
+                        Classes.accent="{Binding IsSelectedFavorite}"
+                        Content="★" ToolTip.Tip="{Binding FavoriteLabel}"
+                        Command="{Binding ToggleFavoriteCommand}" />
+                <Button x:Name="SendToConsoleButton" Classes="link"
+                        Content="{Binding Loc[Redis_GenerateCommand]}"
+                        Command="{Binding SendToConsoleCommand}" />
+                <Button x:Name="DeleteKeyButton" Classes="link danger" Content="{Binding Loc[Redis_Delete]}"
+                        Command="{Binding DeleteKeyCommand}" />
+              </StackPanel>
+            </Grid>
+          </Border>
+
+          <Border Grid.Row="1" IsVisible="{Binding HasSelection}"
+                  BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,0,0,1">
+            <TextBlock Classes="meta" Margin="14,0" Text="{Binding SelectedMetaText}" />
+          </Border>
+
+          <!-- 键级动作条:TTL 与重命名。两个输入都带实时回显 —— 换算给用户看,
+               而不是等他按下去才发现填的是分钟还是秒。 -->
+          <Border Grid.Row="2" IsVisible="{Binding HasSelection}" Padding="14,6"
+                  Background="{DynamicResource VelaBgInput}"
+                  BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,0,0,1">
+            <StackPanel Spacing="6">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Classes="meta" Text="{Binding Loc[Redis_SetTtl]}" Width="72" />
+                <TextBox x:Name="TtlBox" Classes="field" Width="200" Text="{Binding TtlDraft}"
+                         IsEnabled="{Binding CanWrite}"
+                         PlaceholderText="{Binding Loc[Redis_TtlPlaceholder]}" />
+                <Button x:Name="ApplyTtlButton" Classes="link accent" Content="{Binding Loc[Redis_Save]}"
+                        Command="{Binding ApplyTtlCommand}" />
+                <Button Classes="link" Content="{Binding Loc[Redis_Persist]}"
+                        Command="{Binding PersistCommand}" />
+                <TextBlock x:Name="TtlPreview" Classes="meta" Text="{Binding TtlPreview}"
+                           Foreground="{DynamicResource VelaInfo}" />
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Classes="meta" Text="{Binding Loc[Redis_RenameTo]}" Width="72" />
+                <TextBox x:Name="RenameBox" Classes="field" Width="200" Text="{Binding RenameDraft}"
+                         IsEnabled="{Binding CanWrite}" />
+                <Button x:Name="RenameButton" Classes="link" Content="{Binding Loc[Redis_Rename]}"
+                        Command="{Binding RenameCommand}" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <!-- 行表列头 -->
+          <Border Grid.Row="3" Background="{DynamicResource VelaBgSurface}"
+                  BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,0,0,1"
+                  IsVisible="{Binding IsCollectionSelected}">
+            <Grid ColumnDefinitions="220,*,Auto" Margin="14,0">
+              <TextBlock Grid.Column="0" Classes="col" Text="{Binding LabelColumnHeader}" />
+              <TextBlock Grid.Column="1" Classes="col" Text="{Binding Loc[Redis_ColumnValue]}" />
+              <TextBlock Grid.Column="2" Classes="col" Text="{Binding Loc[Redis_ColumnScore]}"
+                         IsVisible="{Binding ShowsScore}" MinWidth="80" />
+            </Grid>
+          </Border>
+
+          <!-- 内容区 -->
+          <Panel Grid.Row="4">
+            <ScrollViewer IsVisible="{Binding IsStringSelected}">
+              <StackPanel Margin="14,10" Spacing="8">
+
+                <!-- 形态开关。Redis 的值是二进制安全的字节串,而"按 UTF-8 解码显示、
+                     按 UTF-8 编码写回"对非 UTF-8 的值是一次静默的数据损坏。
+                     这里让显示与回写走同一种**可逆**表示:
+                       · 文本   —— 仅当字节是合法 UTF-8 才可选(否则按钮是灰的)
+                       · 转义   —— redis-cli 口径的 \xNN,可逆,二进制值也能安全编辑
+                       · 十六进制 —— 只读转储,给人看结构用 -->
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                  <Button x:Name="ValueFormatText" Classes="seg" Classes.on="{Binding IsTextFormat}"
+                          Content="{Binding Loc[Redis_ValueFormatText]}"
+                          Command="{Binding UseTextFormatCommand}" />
+                  <Button x:Name="ValueFormatEscaped" Classes="seg" Classes.on="{Binding IsEscapedFormat}"
+                          Content="{Binding Loc[Redis_ValueFormatEscaped]}"
+                          Command="{Binding UseEscapedFormatCommand}" />
+                  <Button x:Name="ValueFormatHex" Classes="seg" Classes.on="{Binding IsHexFormat}"
+                          Content="{Binding Loc[Redis_ValueFormatHex]}"
+                          Command="{Binding UseHexFormatCommand}" />
+                </StackPanel>
+
+                <!-- 为什么是这个形态、以及能不能改,一句话说清 —— 用户不该对着一个
+                     灰掉的按钮猜原因。 -->
+                <Border x:Name="ValueFormatNotice" IsVisible="{Binding HasValueFormatNotice}"
+                        Background="{DynamicResource VelaBgInput}"
+                        BorderBrush="{DynamicResource VelaInfo}" BorderThickness="2,0,0,0"
+                        CornerRadius="0,3,3,0" Padding="8,5">
+                  <TextBlock Text="{Binding ValueFormatNotice}" TextWrapping="Wrap"
+                             FontSize="{DynamicResource VelaFontSize10}"
+                             Foreground="{DynamicResource VelaTextSecondary}" />
+                </Border>
+
+                <TextBox x:Name="StringValueBox" Text="{Binding StringDraft}"
+                         IsReadOnly="{Binding !CanEditString}"
+                         AcceptsReturn="True" TextWrapping="Wrap"
+                         MinHeight="120"
+                         FontSize="{DynamicResource VelaFontSize11}"
+                         FontFamily="{DynamicResource VelaUiMonoFont}"
+                         Background="{DynamicResource VelaBgInput}"
+                         BorderBrush="{DynamicResource VelaBorderPrimary}" CornerRadius="3" />
+              </StackPanel>
+            </ScrollViewer>
+
+            <ListBox x:Name="ElementList" ItemsSource="{Binding Elements}"
+                     SelectedItem="{Binding SelectedElement}"
+                     IsVisible="{Binding IsCollectionSelected}"
+                     Background="Transparent" BorderThickness="0">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:RedisElementRow">
+                  <Grid ColumnDefinitions="220,*,Auto" Height="28">
+                    <TextBlock Grid.Column="0" Classes="cell" Text="{Binding Label}" />
+                    <TextBlock Grid.Column="1" Classes="cell" Text="{Binding Value}"
+                               Foreground="{DynamicResource VelaTextPrimary}" />
+                    <TextBlock Grid.Column="2" Classes="cell" Text="{Binding ScoreText}" MinWidth="80" />
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+
+            <TextBlock IsVisible="{Binding !HasSelection}"
+                       Text="{Binding Loc[Redis_NoSelection]}"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                       FontSize="{DynamicResource VelaFontSize11}"
+                       Foreground="{DynamicResource VelaTextMuted}" />
+          </Panel>
+
+          <!-- 成员编辑条:选中一行即可改/删,下面一行是新增。
+               用编辑条而不是格内编辑:值可以很长,格内编辑放不下也看不清。 -->
+          <Border Grid.Row="5" IsVisible="{Binding IsCollectionSelected}" Padding="14,6"
+                  Background="{DynamicResource VelaBgInput}"
+                  BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,1,0,0">
+            <StackPanel Spacing="6">
+              <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding HasSelectedElement}">
+                <TextBox Classes="field" Width="180" Text="{Binding EditLabel}" IsEnabled="{Binding CanWrite}" />
+                <TextBox x:Name="EditValueBox" Classes="field" Width="260" Text="{Binding EditValue}"
+                         IsEnabled="{Binding CanWrite}" />
+                <TextBox Classes="field" Width="90" Text="{Binding EditScore}"
+                         IsVisible="{Binding ScoreApplies}" IsEnabled="{Binding CanWrite}" />
+                <Button x:Name="SaveElementButton" Classes="link accent" Content="{Binding Loc[Redis_Save]}"
+                        Command="{Binding SaveElementCommand}" />
+                <Button x:Name="RemoveElementButton" Classes="link danger" Content="{Binding Loc[Redis_Remove]}"
+                        Command="{Binding RemoveElementCommand}" />
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBox Classes="field" Width="180" Text="{Binding NewLabel}"
+                         IsVisible="{Binding NewLabelApplies}" IsEnabled="{Binding CanWrite}"
+                         PlaceholderText="{Binding Loc[Redis_NewFieldPlaceholder]}" />
+                <TextBox Classes="field" Width="260" Text="{Binding NewValue}" IsEnabled="{Binding CanWrite}"
+                         PlaceholderText="{Binding Loc[Redis_NewValuePlaceholder]}" />
+                <TextBox Classes="field" Width="90" Text="{Binding NewScore}"
+                         IsVisible="{Binding ScoreApplies}" IsEnabled="{Binding CanWrite}"
+                         PlaceholderText="{Binding Loc[Redis_NewScorePlaceholder]}" />
+                <Button x:Name="AddElementButton" Classes="link" Content="{Binding Loc[Redis_Add]}"
+                        Command="{Binding AddElementCommand}" />
+              </StackPanel>
+              <!-- 列表没有"按索引删除"的原语。这句话必须出现在界面上。 -->
+              <TextBlock Classes="meta" Text="{Binding ElementRemoveNote}" TextWrapping="Wrap"
+                         Foreground="{DynamicResource VelaWarning}"
+                         IsVisible="{Binding HasElementRemoveNote}" />
+            </StackPanel>
+          </Border>
+
+          <!-- 保存字符串 / 分页 / 截断提示 -->
+          <Border Grid.Row="6" Background="{DynamicResource VelaBgInput}"
+                  BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,1,0,0"
+                  Padding="14,5" IsVisible="{Binding HasSelection}">
+            <Grid ColumnDefinitions="Auto,Auto,*,Auto">
+              <Button x:Name="SaveStringButton" Grid.Column="0" Classes="link accent"
+                      Content="{Binding Loc[Redis_Save]}"
+                      Command="{Binding SaveStringCommand}"
+                      IsVisible="{Binding IsStringSelected}" />
+              <Button Grid.Column="1" Classes="link" Margin="6,0,0,0"
+                      Content="{Binding Loc[Redis_LoadMore]}"
+                      Command="{Binding LoadMoreCommand}" IsVisible="{Binding HasMoreElements}" />
+              <TextBlock Grid.Column="2" Classes="meta" Margin="10,0"
+                         Text="{Binding TruncationNotice}"
+                         Foreground="{DynamicResource VelaWarning}"
+                         TextTrimming="CharacterEllipsis" />
+              <TextBlock Grid.Column="3" Classes="meta" Text="{Binding PageStatus}" />
+            </Grid>
+          </Border>
+        </Grid>
+      </Grid>
+
+      <!-- ══ 状态条:扫描进度(诚实措辞)+ 服务器摘要 ═══════════════════════ -->
+      <Border Grid.Row="3" Background="{DynamicResource VelaBgSidebar}"
+              BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,1,0,0">
+        <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" Margin="12,0">
+          <TextBlock x:Name="ScanStatus" Grid.Column="0" Classes="meta" Text="{Binding ScanStatus}" />
+          <Button Grid.Column="1" Classes="link" Margin="10,0,4,0"
+                  Content="{Binding Loc[Redis_ScanContinue]}"
+                  Command="{Binding ContinueScanCommand}"
+                  IsVisible="{Binding !IsScanComplete}" />
+          <Button Grid.Column="2" Classes="link"
+                  Content="{Binding Loc[Redis_ScanStop]}"
+                  Command="{Binding StopScanCommand}"
+                  IsVisible="{Binding IsScanning}" />
+          <TextBlock x:Name="StatusMessage" Grid.Column="3" Classes="meta" Margin="12,0"
+                     Text="{Binding StatusMessage}"
+                     Foreground="{DynamicResource VelaError}"
+                     TextTrimming="CharacterEllipsis" />
+          <TextBlock Grid.Column="4" Classes="meta" Text="{Binding ServerSummary}" />
+        </Grid>
+      </Border>
+
+      <!-- ══ 底部抽屉:控制台 / 概览 / 慢日志 / 客户端 / 订阅 / 内存分析 ════ -->
+      <Grid Grid.Row="4" RowDefinitions="28,Auto">
+        <Border Grid.Row="0" Background="{DynamicResource VelaBgPage}"
+                BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,1,0,0">
+          <Grid ColumnDefinitions="Auto,*,Auto">
+            <StackPanel Grid.Column="0" Orientation="Horizontal">
+              <Button x:Name="ConsoleTab" Classes="tab" Classes.on="{Binding IsConsoleTab}"
+                      Content="{Binding Loc[Redis_TabConsole]}" Command="{Binding ShowConsoleCommand}" />
+              <Button Classes="tab" Classes.on="{Binding IsOverviewTab}"
+                      Content="{Binding Loc[Redis_TabOverview]}" Command="{Binding ShowOverviewCommand}" />
+              <Button Classes="tab" Classes.on="{Binding IsSlowlogTab}"
+                      Content="{Binding Loc[Redis_TabSlowlog]}" Command="{Binding ShowSlowlogCommand}" />
+              <Button Classes="tab" Classes.on="{Binding IsClientsTab}"
+                      Content="{Binding Loc[Redis_TabClients]}" Command="{Binding ShowClientsCommand}" />
+              <Button Classes="tab" Classes.on="{Binding IsPubSubTab}"
+                      Content="{Binding Loc[Redis_TabPubSub]}" Command="{Binding ShowPubSubCommand}" />
+              <Button Classes="tab" Classes.on="{Binding IsMemoryTab}"
+                      Content="{Binding Loc[Redis_TabMemory]}" Command="{Binding ShowMemoryCommand}" />
+            </StackPanel>
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" Margin="0,0,12,0"
+                        VerticalAlignment="Center">
+              <Button Classes="link" Content="{Binding Loc[Redis_Refresh]}"
+                      Command="{Binding RefreshTabCommand}" IsVisible="{Binding IsDrawerOpen}" />
+              <Button x:Name="DrawerToggle" Classes="link"
+                      Content="{Binding DrawerToggleLabel}"
+                      Command="{Binding ToggleDrawerCommand}" />
+            </StackPanel>
+          </Grid>
+        </Border>
+
+        <Border Grid.Row="1" Height="260" IsVisible="{Binding IsDrawerOpen}"
+                Background="{DynamicResource VelaBgTerminal}"
+                BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,1,0,0">
+          <Panel>
+
+            <!-- ── 控制台 ── -->
+            <Grid RowDefinitions="*,Auto,Auto" IsVisible="{Binding IsConsoleTab}">
+              <ScrollViewer Grid.Row="0" Padding="14,8">
+                <ItemsControl x:Name="ConsoleOutput" ItemsSource="{Binding Console.Lines}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:RedisConsoleLine">
+                      <TextBlock Text="{Binding Text}" TextWrapping="Wrap"
+                                 Classes="reply"
+                                 Classes.cmd="{Binding IsCommand}"
+                                 Classes.err="{Binding IsError}"
+                                 Classes.note="{Binding IsNote}"
+                                 Classes.num="{Binding IsNumeric}"
+                                 Classes.nil="{Binding IsNil}" />
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
+              <!-- 输入前就把结论给出来:档位 + 说明,或"这条命令在这条通道上跑不了"。 -->
+              <TextBlock x:Name="ConsoleHint" Grid.Row="1" Classes="meta" Margin="14,0,14,4"
+                         Text="{Binding Console.InputHint}" TextWrapping="Wrap"
+                         Foreground="{DynamicResource VelaWarning}" />
+              <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto,Auto" Margin="14,0,14,10">
+                <TextBlock Grid.Column="0" Classes="cell" Text="{Binding Console.Prompt}"
+                           Foreground="{DynamicResource VelaStatusConnected}" Margin="0,0,6,0" />
+                <TextBox x:Name="ConsoleInput" Grid.Column="1" Classes="field"
+                         Text="{Binding Console.Input}"
+                         PlaceholderText="{Binding Loc[Redis_ConsoleInputPlaceholder]}" />
+                <Button Grid.Column="2" Classes="link accent" Margin="6,0,0,0"
+                        Content="{Binding Loc[Redis_ConsoleRun]}" Command="{Binding Console.RunCommand}" />
+                <Button Grid.Column="3" Classes="link" Margin="6,0,0,0"
+                        Content="{Binding Loc[Redis_ConsoleClear]}" Command="{Binding Console.ClearCommand}" />
+              </Grid>
+            </Grid>
+
+            <!-- ── 概览 ── -->
+            <Panel IsVisible="{Binding IsOverviewTab}">
+              <ScrollViewer Padding="14,10">
+                <ItemsControl ItemsSource="{Binding Overview}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <WrapPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="redis:RedisMetricGroup">
+                      <Border Margin="0,0,18,14" MinWidth="240"
+                              Background="{DynamicResource VelaBgSurface}"
+                              BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="1"
+                              CornerRadius="6" Padding="12,8">
+                        <StackPanel Spacing="4">
+                          <TextBlock Text="{Binding Title}" Classes="col" />
+                          <ItemsControl ItemsSource="{Binding Items}">
+                            <ItemsControl.ItemTemplate>
+                              <DataTemplate x:DataType="redis:RedisMetric">
+                                <Grid ColumnDefinitions="140,*" Height="20">
+                                  <TextBlock Grid.Column="0" Classes="meta" Text="{Binding Label}" />
+                                  <TextBlock Grid.Column="1" Classes="cell" Text="{Binding Value}"
+                                             Foreground="{DynamicResource VelaTextPrimary}" />
+                                </Grid>
+                              </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                          </ItemsControl>
+                        </StackPanel>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
+              <TextBlock x:Name="OverviewNotice" Text="{Binding OverviewNotice}"
+                         IsVisible="{Binding HasOverviewNotice}"
+                         HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24"
+                         TextWrapping="Wrap" TextAlignment="Center"
+                         FontSize="{DynamicResource VelaFontSize11}"
+                         Foreground="{DynamicResource VelaTextMuted}" />
+            </Panel>
+
+            <!-- ── 慢日志 ── -->
+            <Grid RowDefinitions="26,*,Auto" IsVisible="{Binding IsSlowlogTab}">
+              <Border Grid.Row="0" Background="{DynamicResource VelaBgSurface}"
+                      BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,0,0,1">
+                <Grid ColumnDefinitions="90,140,*,160" Margin="14,0">
+                  <TextBlock Grid.Column="0" Classes="col" Text="{Binding Loc[Redis_ColumnDuration]}" />
+                  <TextBlock Grid.Column="1" Classes="col" Text="{Binding Loc[Redis_ColumnTime]}" />
+                  <TextBlock Grid.Column="2" Classes="col" Text="{Binding Loc[Redis_ColumnCommand]}" />
+                  <TextBlock Grid.Column="3" Classes="col" Text="{Binding Loc[Redis_ColumnClient]}" />
+                </Grid>
+              </Border>
+              <Panel Grid.Row="1">
+                <ListBox x:Name="SlowlogList" ItemsSource="{Binding Slowlog}"
+                         Background="Transparent" BorderThickness="0">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="redis:RedisSlowlogEntry">
+                      <Grid ColumnDefinitions="90,140,*,160" Height="28">
+                        <TextBlock Grid.Column="0" Classes="cell"
+                                   Foreground="{DynamicResource VelaWarning}"
+                                   Text="{Binding DurationText}" />
+                        <TextBlock Grid.Column="1" Classes="meta" Text="{Binding TimeText}" />
+                        <TextBlock Grid.Column="2" Classes="cell" Text="{Binding Command}"
+                                   Foreground="{DynamicResource VelaTextPrimary}" />
+                        <TextBlock Grid.Column="3" Classes="meta" Text="{Binding Client}" />
+                      </Grid>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+                <TextBlock x:Name="SlowlogNotice" Text="{Binding SlowlogNotice}"
+                           IsVisible="{Binding HasSlowlogNotice}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24"
+                           TextWrapping="Wrap" TextAlignment="Center"
+                           FontSize="{DynamicResource VelaFontSize11}"
+                           Foreground="{DynamicResource VelaTextMuted}" />
+              </Panel>
+              <Border Grid.Row="2" Padding="14,5" Background="{DynamicResource VelaBgInput}"
+                      BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,1,0,0">
+                <Button Classes="link" Content="{Binding Loc[Redis_SlowlogReset]}"
+                        Command="{Binding ResetSlowlogCommand}" HorizontalAlignment="Left" />
+              </Border>
+            </Grid>
+
+            <!-- ── 客户端 ── -->
+            <Grid RowDefinitions="26,*,Auto" IsVisible="{Binding IsClientsTab}">
+              <Border Grid.Row="0" Background="{DynamicResource VelaBgSurface}"
+                      BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,0,0,1">
+                <Grid ColumnDefinitions="170,150,70,70,50,*" Margin="14,0">
+                  <TextBlock Grid.Column="0" Classes="col" Text="{Binding Loc[Redis_ColumnAddress]}" />
+                  <TextBlock Grid.Column="1" Classes="col" Text="{Binding Loc[Redis_ColumnClientName]}" />
+                  <TextBlock Grid.Column="2" Classes="col" Text="{Binding Loc[Redis_ColumnAge]}" />
+                  <TextBlock Grid.Column="3" Classes="col" Text="{Binding Loc[Redis_ColumnIdle]}" />
+                  <TextBlock Grid.Column="4" Classes="col" Text="{Binding Loc[Redis_ColumnDb]}" />
+                  <TextBlock Grid.Column="5" Classes="col" Text="{Binding Loc[Redis_ColumnCommand]}" />
+                </Grid>
+              </Border>
+              <Panel Grid.Row="1">
+                <ListBox x:Name="ClientList" ItemsSource="{Binding Clients}"
+                         SelectedItem="{Binding SelectedClient}"
+                         Background="Transparent" BorderThickness="0">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="redis:RedisClientEntry">
+                      <Grid ColumnDefinitions="170,150,70,70,50,*" Height="28">
+                        <TextBlock Grid.Column="0" Classes="cell" Text="{Binding Address}" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                          <TextBlock Classes="cell" Text="{Binding Name}" />
+                          <!-- 自己的连接高亮标出并禁止断开:一个客户端把自己 kill 掉
+                               然后报"连接丢失",是很蠢但很常见的 bug。 -->
+                          <Border Classes="badge" IsVisible="{Binding IsSelf}">
+                            <TextBlock Text="●" />
+                          </Border>
+                        </StackPanel>
+                        <TextBlock Grid.Column="2" Classes="meta" Text="{Binding AgeText}" />
+                        <TextBlock Grid.Column="3" Classes="meta" Text="{Binding IdleText}" />
+                        <TextBlock Grid.Column="4" Classes="meta" Text="{Binding DatabaseText}" />
+                        <TextBlock Grid.Column="5" Classes="cell" Text="{Binding LastCommand}" />
+                      </Grid>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+                <TextBlock x:Name="ClientsNotice" Text="{Binding ClientsNotice}"
+                           IsVisible="{Binding HasClientsNotice}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24"
+                           TextWrapping="Wrap" TextAlignment="Center"
+                           FontSize="{DynamicResource VelaFontSize11}"
+                           Foreground="{DynamicResource VelaTextMuted}" />
+              </Panel>
+              <Border Grid.Row="2" Padding="14,5" Background="{DynamicResource VelaBgInput}"
+                      BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,1,0,0">
+                <Button x:Name="KillClientButton" Classes="link danger"
+                        Content="{Binding Loc[Redis_KillClient]}"
+                        Command="{Binding KillClientCommand}" HorizontalAlignment="Left" />
+              </Border>
+            </Grid>
+
+            <!-- ── 订阅 ── -->
+            <Grid ColumnDefinitions="220,1,*" IsVisible="{Binding IsPubSubTab}">
+              <Grid Grid.Column="0" RowDefinitions="Auto,*,Auto">
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6" Margin="10,8">
+                  <TextBox x:Name="ChannelBox" Classes="field" Width="110" Text="{Binding ChannelDraft}"
+                           PlaceholderText="{Binding Loc[Redis_ChannelPlaceholder]}" />
+                  <Button x:Name="SubscribeButton" Classes="link accent"
+                          Content="{Binding Loc[Redis_Subscribe]}" Command="{Binding SubscribeCommand}" />
+                </StackPanel>
+                <ListBox Grid.Row="1" ItemsSource="{Binding Subscriptions}"
+                         SelectedItem="{Binding SelectedSubscription}"
+                         Background="Transparent" BorderThickness="0" />
+                <Button Grid.Row="2" Classes="link" Margin="10,0,10,8"
+                        Content="{Binding Loc[Redis_Unsubscribe]}" Command="{Binding UnsubscribeCommand}"
+                        HorizontalAlignment="Left" />
+              </Grid>
+              <Border Grid.Column="1" Background="{DynamicResource VelaBorderPrimary}" />
+              <Grid Grid.Column="2" RowDefinitions="26,*,Auto">
+                <Border Grid.Row="0" Background="{DynamicResource VelaBgSurface}"
+                        BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,0,0,1">
+                  <Grid ColumnDefinitions="100,180,*" Margin="14,0">
+                    <TextBlock Grid.Column="0" Classes="col" Text="{Binding Loc[Redis_ColumnTime]}" />
+                    <TextBlock Grid.Column="1" Classes="col" Text="{Binding Loc[Redis_ColumnChannel]}" />
+                    <TextBlock Grid.Column="2" Classes="col" Text="{Binding Loc[Redis_ColumnPayload]}" />
+                  </Grid>
+                </Border>
+                <ListBox x:Name="MessageList" Grid.Row="1" ItemsSource="{Binding Messages}"
+                         Background="Transparent" BorderThickness="0">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:RedisPubSubMessage">
+                      <Grid ColumnDefinitions="100,180,*" Height="28">
+                        <TextBlock Grid.Column="0" Classes="meta" Text="{Binding TimeText}" />
+                        <TextBlock Grid.Column="1" Classes="cell" Text="{Binding Channel}" />
+                        <TextBlock Grid.Column="2" Classes="cell" Text="{Binding Payload}"
+                                   Foreground="{DynamicResource VelaTextPrimary}" />
+                      </Grid>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+                <TextBlock Grid.Row="2" Classes="meta" Margin="14,5" TextWrapping="Wrap"
+                           Text="{Binding Loc[Redis_PubSubNote]}" />
+              </Grid>
+            </Grid>
+
+            <!-- ── 内存分析 ── -->
+            <Grid RowDefinitions="Auto,26,*,Auto" IsVisible="{Binding IsMemoryTab}">
+              <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6" Margin="14,8">
+                <Button x:Name="SampleMemoryButton" Classes="link accent"
+                        Content="{Binding Loc[Redis_AnalyzeMemory]}" Command="{Binding SampleMemoryCommand}" />
+                <Button Classes="link" Content="{Binding Loc[Redis_Stop]}"
+                        Command="{Binding StopSamplingCommand}" IsVisible="{Binding IsSamplingMemory}" />
+              </StackPanel>
+              <Border Grid.Row="1" Background="{DynamicResource VelaBgSurface}"
+                      BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,1,0,1">
+                <Grid ColumnDefinitions="*,100,120" Margin="14,0">
+                  <TextBlock Grid.Column="0" Classes="col" Text="{Binding Loc[Redis_ColumnPrefix]}" />
+                  <TextBlock Grid.Column="1" Classes="col" Text="{Binding Loc[Redis_ColumnKeys]}" />
+                  <TextBlock Grid.Column="2" Classes="col" Text="{Binding Loc[Redis_ColumnBytes]}" />
+                </Grid>
+              </Border>
+              <ListBox x:Name="MemoryList" Grid.Row="2" ItemsSource="{Binding MemoryByPrefix}"
+                       Background="Transparent" BorderThickness="0">
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="redis:RedisMemoryBucket">
+                    <Grid ColumnDefinitions="*,100,120" Height="28">
+                      <TextBlock Grid.Column="0" Classes="cell" Text="{Binding Prefix}"
+                                 Foreground="{DynamicResource VelaTextPrimary}" />
+                      <TextBlock Grid.Column="1" Classes="meta" Text="{Binding KeysText}" />
+                      <TextBlock Grid.Column="2" Classes="cell" Text="{Binding BytesText}" />
+                    </Grid>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+              <!-- 抽样这件事必须写在页面上,不能藏进文档里。 -->
+              <TextBlock x:Name="MemoryNotice" Grid.Row="3" Classes="meta" Margin="14,6"
+                         Text="{Binding MemoryNotice}" TextWrapping="Wrap"
+                         Foreground="{DynamicResource VelaWarning}" />
+            </Grid>
+          </Panel>
+        </Border>
+      </Grid>
+    </Grid>
+
+    <!-- ══ 确认闸门:护栏三档的呈现出口 ═══════════════════════════════════ -->
+    <Border x:Name="ConfirmOverlay" IsVisible="{Binding Confirmation.IsOpen}"
+            Background="#B0000000">
+      <Border MaxWidth="520" VerticalAlignment="Center" HorizontalAlignment="Center"
+              Background="{DynamicResource VelaBgSurface}"
+              BorderBrush="{DynamicResource VelaBorderSecondary}" BorderThickness="1"
+              CornerRadius="8" Padding="20,16">
+        <StackPanel Spacing="10">
+          <TextBlock Text="{Binding Confirmation.Title}"
+                     FontSize="{DynamicResource VelaFontSize14}" FontWeight="SemiBold"
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource VelaTextPrimary}" />
+          <TextBlock Text="{Binding Confirmation.Message}" TextWrapping="Wrap"
+                     FontSize="{DynamicResource VelaFontSize11}"
+                     Foreground="{DynamicResource VelaTextSecondary}" />
+          <Border Background="{DynamicResource VelaBgInput}"
+                  BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="1"
+                  CornerRadius="3" Padding="8,5">
+            <TextBlock Text="{Binding Confirmation.Detail}" TextWrapping="Wrap"
+                       FontSize="{DynamicResource VelaFontSize11}"
+                       FontFamily="{DynamicResource VelaUiMonoFont}"
+                       Foreground="{DynamicResource VelaAccent}" />
+          </Border>
+          <!-- "毁"档:手打确认串。用端点而不是 YES —— 同时开着生产与开发时,
+               一句 YES 分不出你在哪台机器上按的。 -->
+          <StackPanel Spacing="4" IsVisible="{Binding Confirmation.RequiresTyping}">
+            <TextBlock Classes="meta" Text="{Binding Confirmation.ExpectedText}" />
+            <TextBox x:Name="ConfirmTypedBox" Classes="field" Text="{Binding Confirmation.TypedText}" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+            <Button x:Name="ConfirmCancelButton" Classes="link"
+                    Content="{Binding Confirmation.CancelLabel}"
+                    Command="{Binding Confirmation.CancelCommand}" />
+            <Button x:Name="ConfirmOkButton" Classes="link"
+                    Classes.danger="{Binding Confirmation.IsDestructive}"
+                    Classes.accent="{Binding !Confirmation.IsDestructive}"
+                    Content="{Binding Confirmation.ConfirmLabel}"
+                    Command="{Binding Confirmation.ConfirmCommand}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </Border>
+  </Panel>
+</UserControl>
