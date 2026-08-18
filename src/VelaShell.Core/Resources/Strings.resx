@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -3722,5 +3722,11 @@ Overwrite it?</value>
   </data>
   <data name="Plugin_ProtocolUnavailable" xml:space="preserve">
     <value>The plugin providing this protocol is unavailable. Install or enable it in the plugin manager.</value>
+  </data>
+  <data name="Plugin_JumpSessionMissing" xml:space="preserve">
+    <value>The SSH session this connection tunnels through no longer exists. Pick another one in the connection settings — connecting straight to the target instead would put private traffic on the public network.</value>
+  </data>
+  <data name="Plugin_TestUnavailable" xml:space="preserve">
+    <value>This connection type cannot be tested here. Use Connect — its plugin reports the real result on the panel.</value>
   </data>
 </root>

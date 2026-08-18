@@ -149,7 +149,8 @@
          仍按内容收缩,但被代码后置钉在屏幕工作区内(见 ApplyScreenBounds),
          超出的部分由表单区自己滚动 —— 插件协议(S3 有十来个字段)不会再把
          底部的保存/连接按钮顶到屏幕外面去。 -->
-    <Grid RowDefinitions="Auto,Auto,*,Auto">
+    <!-- 头部/页签/反馈/页脚定高,中间的表单是唯一会伸缩的一行。 -->
+    <Grid RowDefinitions="Auto,Auto,*,Auto,Auto">
 
       <!-- Header: plug 图标 + 标题 + 关闭 -->
       <Border Grid.Row="0" Height="48" Padding="20,0"
@@ -342,6 +343,16 @@
                     </DataTemplate>
                   </ComboBox.ItemTemplate>
                 </ComboBox>
+                <!-- 「已保存的 SSH 配置」选择器:选一条即让宿主代为建隧道,
+                     插件收到的主机/端口已是本地转发端点。 -->
+                <ComboBox ItemsSource="{Binding SshSessions}" SelectedItem="{Binding SelectedSshSession}"
+                          IsVisible="{Binding IsSshSession}" HorizontalAlignment="Stretch">
+                  <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:PluginSessionChoice">
+                      <TextBlock Text="{Binding Display}" />
+                    </DataTemplate>
+                  </ComboBox.ItemTemplate>
+                </ComboBox>
                 <CheckBox IsChecked="{Binding Toggle}" IsVisible="{Binding IsToggle}"
                           Padding="0" MinHeight="0" VerticalAlignment="Center">
                   <TextBlock Text="{Binding Label}" Margin="6,0,0,0"
@@ -448,18 +459,30 @@
                      Foreground="{DynamicResource VelaTextMuted}" FontSize="{DynamicResource VelaFontSize10}" TextWrapping="Wrap" />
         </StackPanel>
 
-        <!-- 测试/保存反馈 -->
-        <TextBlock Text="{Binding ErrorMessage}"
-                   IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                   Foreground="#FF6B6B" FontSize="{DynamicResource VelaFontSize11}" TextWrapping="Wrap" />
-        <TextBlock Text="{loc:Localize Profile_TestSuccess}"
-                   IsVisible="{Binding ShowTestSuccess}"
-                   Foreground="{DynamicResource VelaAccent}" FontSize="{DynamicResource VelaFontSize11}" />
       </StackPanel>
       </ScrollViewer>
 
+      <!-- 测试/保存反馈:**钉在滚动区外面**,紧贴按钮那一行。
+           放在表单里(它原来的位置)时,长表单一滚动就把结论顶出视野 ——
+           用户按下页脚的「测试」,眼睛盯着页脚,而回答落在了看不见的地方,
+           于是界面看起来像是什么都没发生。Redis 有十来个字段,一定会滚。 -->
+      <Border Grid.Row="3" Padding="20,8"
+              IsVisible="{Binding HasFeedback}"
+              Background="{DynamicResource VelaBgInput}"
+              BorderThickness="0,1,0,0"
+              BorderBrush="{DynamicResource VelaBorderPrimary}">
+        <StackPanel Spacing="4">
+          <TextBlock Text="{Binding ErrorMessage}"
+                     IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                     Foreground="#FF6B6B" FontSize="{DynamicResource VelaFontSize11}" TextWrapping="Wrap" />
+          <TextBlock Text="{loc:Localize Profile_TestSuccess}"
+                     IsVisible="{Binding ShowTestSuccess}"
+                     Foreground="{DynamicResource VelaAccent}" FontSize="{DynamicResource VelaFontSize11}" />
+        </StackPanel>
+      </Border>
+
       <!-- Footer -->
-      <Border Grid.Row="3" Height="52" Padding="20,0"
+      <Border Grid.Row="4" Height="52" Padding="20,0"
               BorderThickness="0,1,0,0"
               BorderBrush="{DynamicResource VelaBorderPrimary}">
         <Grid ColumnDefinitions="Auto,*,Auto">

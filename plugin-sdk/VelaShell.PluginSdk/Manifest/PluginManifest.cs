@@ -71,6 +71,30 @@ public sealed record ProtocolContribution
     public int DefaultPort { get; init; } = 22;
 }
 
+/// <summary>
+/// 一条声明式工作台贡献:发现期即出现在连接配置页上,无需装载插件程序集。
+/// <para>
+/// 与 <see cref="ProtocolContribution" /> 的分工:协议类型长得像文件系统(宿主打开双栏浏览器),
+/// 工作台类型不是(宿主向插件索取一个 Avalonia 控件挂成停靠文档)。两者在连接配置页上
+/// 是同一排页签,声明形状也一致 —— 表单、能力位在激活后由
+/// <c>context.Workspaces.Register</c> 的 <c>WorkspaceDescriptor</c> 补齐。
+/// </para>
+/// </summary>
+public sealed record WorkspaceContribution
+{
+    /// <summary>连接类型 id,必须等于插件 id 或以 <c>&lt;pluginId&gt;.</c> 为前缀。</summary>
+    [JsonPropertyName("id")]
+    public required string Id { get; init; }
+
+    /// <summary>页签上的名称。</summary>
+    [JsonPropertyName("displayName")]
+    public required string DisplayName { get; init; }
+
+    /// <summary>新建配置时的默认端口。</summary>
+    [JsonPropertyName("defaultPort")]
+    public int DefaultPort { get; init; } = 22;
+}
+
 /// <summary>声明式贡献点(纯数据,发现期注册占位)。</summary>
 public sealed record PluginContributes
 {
@@ -81,6 +105,10 @@ public sealed record PluginContributes
     /// <summary>远程文件协议贡献。</summary>
     [JsonPropertyName("protocols")]
     public ProtocolContribution[] Protocols { get; init; } = [];
+
+    /// <summary>工作台连接类型贡献(插件全权渲染的会话文档)。</summary>
+    [JsonPropertyName("workspaces")]
+    public WorkspaceContribution[] Workspaces { get; init; } = [];
 }
 
 /// <summary>

@@ -1,0 +1,92 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:VelaShell.Docking.Controls"
+             xmlns:docking="using:VelaShell.Docking"
+             xmlns:conv="using:VelaShell.Converters"
+             xmlns:pc="using:VelaShell.Controls.Controls"
+             xmlns:loc="using:VelaShell.Localization"
+             x:Class="VelaShell.Docking.Controls.WorkspaceDockTabItem"
+             x:DataType="docking:PluginWorkspaceDocument"
+             FontSize="{DynamicResource VelaFontSize11}"
+             VerticalAlignment="Stretch">
+
+  <!-- 由插件全权渲染的会话文档(Redis / MySQL / …)的停靠标签。
+       与 SftpDockTabItem 同规格:状态圆点 + 连接强调条 + 图标 + 标题 + 关闭键。
+
+       **必须有这份模板。** DockGroupControl 按文档类型选 DataTemplate,没有匹配项时
+       Avalonia 会回落到 ToString() —— 标签上就会出现一行 "VelaShell.Docking.PluginWorkspaceDocument"。
+       这不是样式问题,是"没注册模板"的默认行为。 -->
+
+  <UserControl.Styles>
+    <Style Selector="local|WorkspaceDockTabItem">
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextTertiary}" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
+      <Setter Property="Transitions">
+        <Transitions>
+          <BrushTransition Property="Foreground" Duration="0:0:0.12" Easing="CubicEaseOut" />
+        </Transitions>
+      </Setter>
+    </Style>
+    <Style Selector="local|WorkspaceDockTabItem Border#TabRoot">
+      <Setter Property="Background" Value="{DynamicResource VelaTabInactiveBg}" />
+      <Setter Property="Transitions">
+        <Transitions>
+          <BrushTransition Property="Background" Duration="0:0:0.12" Easing="CubicEaseOut" />
+          <BrushTransition Property="BorderBrush" Duration="0:0:0.12" Easing="CubicEaseOut" />
+        </Transitions>
+      </Setter>
+    </Style>
+    <Style Selector="local|WorkspaceDockTabItem:pointerover:not(:selected)">
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
+    </Style>
+    <Style Selector="local|WorkspaceDockTabItem:pointerover:not(:selected) Border#TabRoot">
+      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+    </Style>
+    <Style Selector="local|WorkspaceDockTabItem:selected">
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
+      <Setter Property="FontWeight" Value="Medium" />
+    </Style>
+    <!-- 激活顶线由 DockGroupControl 的滑动强调线统一呈现(与其它标签同理)。 -->
+    <Style Selector="local|WorkspaceDockTabItem:selected Border#TabRoot">
+      <Setter Property="Background" Value="{DynamicResource VelaTabActiveBg}" />
+    </Style>
+  </UserControl.Styles>
+
+  <UserControl.ContextMenu>
+    <ContextMenu>
+      <MenuItem Header="{loc:Localize Dock_Close}" Click="CloseTab_Click" />
+      <MenuItem Header="{loc:Localize Dock_CloseOthers}" Click="CloseOthers_Click" />
+      <MenuItem Header="{loc:Localize Dock_CloseAll}" Click="CloseAll_Click" />
+      <MenuItem Header="{loc:Localize Dock_CloseLeft}" Click="CloseLeft_Click" />
+      <MenuItem Header="{loc:Localize Dock_CloseRight}" Click="CloseRight_Click" />
+      <Separator />
+      <MenuItem Header="{loc:Localize Dock_SplitHorizontal}" Click="SplitHorizontal_Click" />
+      <MenuItem Header="{loc:Localize Dock_SplitVertical}" Click="SplitVertical_Click" />
+      <Separator />
+      <MenuItem Header="{loc:Localize Dock_TabsPosition}">
+        <MenuItem Header="{loc:Localize Dock_TabsTop}" Click="TabsTop_Click" />
+        <MenuItem Header="{loc:Localize Dock_TabsLeft}" Click="TabsLeft_Click" />
+        <MenuItem Header="{loc:Localize Dock_TabsRight}" Click="TabsRight_Click" />
+      </MenuItem>
+    </ContextMenu>
+  </UserControl.ContextMenu>
+
+  <Border x:Name="TabRoot" MinHeight="32" Padding="14,0" BorderThickness="0,2,0,0"
+          BorderBrush="Transparent" VerticalAlignment="Stretch">
+    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+      <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+               Fill="{Binding Status, Converter={x:Static conv:SessionStatusToBrushConverter.Instance}}" />
+      <Border Width="3" Height="12" CornerRadius="1.5" VerticalAlignment="Center"
+              Background="{Binding ConnectionAccentBrush}" />
+      <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.hard-drive}"
+                     Foreground="{Binding ConnectionAccentBrush}" />
+      <TextBlock Text="{Binding Title}" VerticalAlignment="Center" ToolTip.ShowDelay="250"
+                 ToolTip.Placement="Pointer" ToolTip.Tip="{Binding ConnectionTooltip}" />
+      <Button Background="Transparent" Padding="0" Width="14" Height="14" BorderThickness="0"
+              HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Click="CloseTab_Click">
+        <pc:LucideIcon Width="11" Height="11" Data="{DynamicResource Icon.x}"
+                       Foreground="{DynamicResource VelaTextTertiary}" />
+      </Button>
+    </StackPanel>
+  </Border>
+</UserControl>

@@ -1,18 +1,36 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using VelaShell.PluginSdk.Protocols;
+using VelaShell.PluginSdk.Workspaces;
 
 namespace VelaShell.Infrastructure.Plugins.Protocols;
 
+/// <summary>插件提供的连接类型有两种形态,决定宿主打开会话时画什么。</summary>
+public enum PluginConnectionKind
+{
+    /// <summary>远程文件协议:宿主打开既有的双栏文件浏览器(S3、WebDAV…)。</summary>
+    FileSystem = 0,
+
+    /// <summary>工作台:宿主向插件索取一个控件挂成停靠文档(Redis、MySQL…)。</summary>
+    Workspace = 1
+}
+
 /// <summary>
-/// 连接配置页上的一个协议页签。<see cref="IsReady" /> 为 false 表示它还只是清单里的声明
+/// 连接配置页上的一个插件页签。<see cref="IsReady" /> 为 false 表示它还只是清单里的声明
 /// —— 页签画得出来,但设置表单要等插件激活后才补齐。
 /// </summary>
-/// <param name="Id">协议 id。</param>
+/// <param name="Id">连接类型 id。</param>
 /// <param name="DisplayName">页签名称。</param>
 /// <param name="DefaultPort">新建配置时的默认端口。</param>
-/// <param name="PluginId">提供该协议的插件 id。</param>
+/// <param name="PluginId">提供者插件 id。</param>
 /// <param name="IsReady">插件是否已激活并完成注册。</param>
-public sealed record PluginProtocolTab(string Id, string DisplayName, int DefaultPort, string PluginId, bool IsReady);
+/// <param name="Kind">形态:文件协议还是工作台。</param>
+public sealed record PluginProtocolTab(
+    string Id,
+    string DisplayName,
+    int DefaultPort,
+    string PluginId,
+    bool IsReady,
+    PluginConnectionKind Kind = PluginConnectionKind.FileSystem);
 
 /// <summary>
 /// 一次已完成的协议注册。<see cref="FileSystem" /> 与 <see cref="Terminal" /> 至少有一个非空:
@@ -28,13 +46,26 @@ public sealed record PluginProtocolRegistration(
     IProtocolFileSystem? FileSystem,
     IProtocolTerminal? Terminal = null);
 
+/// <summary>一次已完成的工作台注册。</summary>
+/// <param name="PluginId">提供者插件 id。</param>
+/// <param name="Descriptor">连接类型描述。</param>
+/// <param name="Provider">工作台实现。</param>
+public sealed record PluginWorkspaceRegistration(string PluginId, WorkspaceDescriptor Descriptor, IWorkspaceProvider Provider);
+
 /// <summary>
-/// 宿主侧的插件协议注册表:把「清单声明的页签」与「插件激活后注册的实现」合成一张表,
-/// 供连接配置页画页签、供文件服务路由分派。
+/// 宿主侧的插件连接类型注册表:把「清单声明的页签」与「插件激活后注册的实现」合成一张表,
+/// 供连接配置页画页签、供文件服务与工作台文档路由分派。
 /// <para>
 /// 两段式(声明 → 注册)是刻意的:页签必须在**不装载任何插件程序集**的前提下就能画出来,
 /// 否则"启动零开销"这条就破了 —— 用户不开连接对话框、不选那个页签,S3 插件连同它的
 /// AWSSDK 依赖就一行代码都不会被装进内存。
+/// </para>
+/// <para>
+/// 类名留作 <c>PluginProtocolRegistry</c> 而未随内容改名:它现在同时承载
+/// <see cref="PluginConnectionKind.FileSystem" /> 与 <see cref="PluginConnectionKind.Workspace" />
+/// 两种形态。两者在连接配置页上是同一排页签、落进用户配置的是同一个
+/// <c>PluginProtocolId</c> 字段、共用同一条惰性激活链路 —— 拆成两张表只会让调用方
+/// 到处写"先问这张、再问那张"。
 /// </para>
 /// </summary>
 public sealed class PluginProtocolRegistry
@@ -46,6 +77,7 @@ public sealed class PluginProtocolRegistry
     // 这里曾经用 IgnoreCase 而界面用 Ordinal,同一个 id 在两处会得出不同结论。
     private readonly Dictionary<string, PluginProtocolTab> _declared = [with(StringComparer.Ordinal)];
     private readonly Dictionary<string, Entry> _registered = [with(StringComparer.Ordinal)];
+    private readonly Dictionary<string, PluginWorkspaceRegistration> _workspaces = [with(StringComparer.Ordinal)];
     private readonly Lock _gate = new();
 
     /// <summary>
@@ -91,6 +123,39 @@ public sealed class PluginProtocolRegistry
     /// </summary>
     public event Action? Changed;
 
+    /// <summary>
+    /// 连接提议处理器(由界面层注入):打开宿主的「新建连接」对话框并按提议预填,
+    /// 返回用户是否保存。缺席时提议一律返回 false(headless 宿主没有对话框)。
+    /// <para>
+    /// 与 <see cref="ActivationRequested" /> / <see cref="TransferOptionsProvider" /> 同一个套路:
+    /// 注册表是宿主单例,界面层能拿到的东西经可变钩子注进来 —— 让 Infrastructure 去认识
+    /// 一扇窗口是反过来的依赖方向。
+    /// </para>
+    /// </summary>
+    public Func<VelaShell.PluginSdk.Workspaces.WorkspaceConnectionProposal, Task<bool>>? ConnectionProposalHandler { get; set; }
+
+    /// <summary>把一条连接提议转交界面层;没有处理器时返回 false。</summary>
+    /// <param name="proposal">提议。</param>
+    /// <returns>用户是否保存。</returns>
+    public async Task<bool> ProposeConnectionAsync(VelaShell.PluginSdk.Workspaces.WorkspaceConnectionProposal proposal)
+    {
+        ArgumentNullException.ThrowIfNull(proposal);
+        if (ConnectionProposalHandler is not { } handler)
+        {
+            return false;
+        }
+        try
+        {
+            return await handler(proposal).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            // 对话框自爆不该把插件的探测流程也带崩:如实返回"没保存"。
+            Trace.WriteLine($"[PluginProtocols] Connection proposal for '{proposal.WorkspaceId}' failed: {ex.Message}");
+            return false;
+        }
+    }
+
     /// <summary>某个协议的会话状态变化(由插件实现上报,转发给文件服务)。</summary>
     public event EventHandler<PluginProtocolSessionEvent>? SessionStateChanged;
 
@@ -109,7 +174,13 @@ public sealed class PluginProtocolRegistry
                 {
                     ProtocolDescriptor descriptor = entry.Registration.Descriptor;
                     merged[id] = new(id, descriptor.DisplayName, descriptor.DefaultPort,
-                        entry.Registration.PluginId, IsReady: true);
+                        entry.Registration.PluginId, IsReady: true, PluginConnectionKind.FileSystem);
+                }
+                foreach ((string id, PluginWorkspaceRegistration registration) in _workspaces)
+                {
+                    WorkspaceDescriptor descriptor = registration.Descriptor;
+                    merged[id] = new(id, descriptor.DisplayName, descriptor.DefaultPort,
+                        registration.PluginId, IsReady: true, PluginConnectionKind.Workspace);
                 }
                 return [.. merged.Values.OrderBy(static tab => tab.DisplayName, StringComparer.CurrentCultureIgnoreCase)];
             }
@@ -129,7 +200,38 @@ public sealed class PluginProtocolRegistry
             {
                 // 同 id 先到先得,与插件 id 冲突处置一致:后来者不覆盖已在表里的声明。
                 changed |= _declared.TryAdd(protocol.Id,
-                    new(protocol.Id, protocol.DisplayName, protocol.DefaultPort, pluginId, IsReady: false));
+                    new(protocol.Id, protocol.DisplayName, protocol.DefaultPort, pluginId, IsReady: false,
+                        PluginConnectionKind.FileSystem));
+            }
+        }
+        if (changed)
+        {
+            RaiseChanged();
+        }
+    }
+
+    /// <summary>
+    /// 把某插件清单里声明的工作台页签登记进注册表(发现期调用,不碰程序集)。
+    /// <para>
+    /// 刻意**不**与 <see cref="Declare(string, IEnumerable{VelaShell.PluginSdk.ProtocolContribution})" />
+    /// 重载同名:两个重载只在集合元素类型上有别,而调用方普遍写
+    /// <c>Declare(id, [new() { … }])</c> —— 目标类型化的 <c>new()</c> 在两个候选之间无从推断,
+    /// 编译期就是一句二义调用。名字分开,调用点一眼看得出登记的是哪一种。
+    /// </para>
+    /// </summary>
+    /// <param name="pluginId">插件 id。</param>
+    /// <param name="workspaces">清单里的工作台贡献。</param>
+    public void DeclareWorkspaces(string pluginId, IEnumerable<VelaShell.PluginSdk.WorkspaceContribution> workspaces)
+    {
+        ArgumentNullException.ThrowIfNull(workspaces);
+        bool changed = false;
+        lock (_gate)
+        {
+            foreach (VelaShell.PluginSdk.WorkspaceContribution workspace in workspaces)
+            {
+                changed |= _declared.TryAdd(workspace.Id,
+                    new(workspace.Id, workspace.DisplayName, workspace.DefaultPort, pluginId, IsReady: false,
+                        PluginConnectionKind.Workspace));
             }
         }
         if (changed)
@@ -155,6 +257,11 @@ public sealed class PluginProtocolRegistry
             {
                 detaching.Add(_registered[id]);
                 _registered.Remove(id);
+                dropped.Add(id);
+            }
+            foreach (string id in _workspaces.Where(entry => entry.Value.PluginId == pluginId).Select(static entry => entry.Key).ToList())
+            {
+                _workspaces.Remove(id);
                 dropped.Add(id);
             }
         }
@@ -255,6 +362,81 @@ public sealed class PluginProtocolRegistry
         return false;
     }
 
+    /// <summary>插件激活后注册一种工作台连接类型;释放返回值即注销。</summary>
+    /// <param name="pluginId">插件 id。</param>
+    /// <param name="descriptor">连接类型描述。</param>
+    /// <param name="provider">工作台实现。</param>
+    /// <returns>注销句柄。</returns>
+    public IDisposable RegisterWorkspace(string pluginId, WorkspaceDescriptor descriptor, IWorkspaceProvider provider)
+    {
+        ArgumentNullException.ThrowIfNull(descriptor);
+        ArgumentNullException.ThrowIfNull(provider);
+        var registration = new PluginWorkspaceRegistration(pluginId, descriptor, provider);
+        string id = descriptor.Id;
+        bool replacedByAnother;
+        lock (_gate)
+        {
+            replacedByAnother = _workspaces.TryGetValue(id, out PluginWorkspaceRegistration? previous)
+                                && !ReferenceEquals(previous.Provider, provider);
+            _workspaces[id] = registration;
+        }
+        if (replacedByAnother)
+        {
+            // 换成了**另一个**实现:旧实现名下的文档已无人应答,得让宿主收尾关闭。
+            // 换成同一个实例(插件为刷新文案而重注册)则不发 —— 那会把用户正开着的标签页全掐掉。
+            RaiseUnregistered(id);
+        }
+        RaiseChanged();
+        return new UnregisterWorkspace(this, id, registration);
+    }
+
+    /// <summary>按 id 取回已注册的工作台;未注册时返回 <see langword="false" />。</summary>
+    /// <param name="workspaceId">连接类型 id。</param>
+    /// <param name="registration">已注册的工作台。</param>
+    /// <returns>是否已注册。</returns>
+    public bool TryGetWorkspace(string workspaceId, out PluginWorkspaceRegistration registration)
+    {
+        lock (_gate)
+        {
+            if (_workspaces.TryGetValue(workspaceId, out PluginWorkspaceRegistration? found))
+            {
+                registration = found;
+                return true;
+            }
+        }
+        registration = null!;
+        return false;
+    }
+
+    /// <summary>
+    /// 某个连接类型 id 的形态;未声明也未注册时返回 <see langword="null" />。
+    /// <para>
+    /// **同步查询,不会装载插件** —— 会话树画图标、双击决定"开文件浏览器还是开工作台"都要在
+    /// 装配集未装载的前提下答得出来。
+    /// </para>
+    /// </summary>
+    /// <param name="connectionTypeId">连接类型 id。</param>
+    /// <returns>形态,或 null。</returns>
+    public PluginConnectionKind? KindOf(string? connectionTypeId)
+    {
+        if (string.IsNullOrWhiteSpace(connectionTypeId))
+        {
+            return null;
+        }
+        lock (_gate)
+        {
+            if (_workspaces.ContainsKey(connectionTypeId))
+            {
+                return PluginConnectionKind.Workspace;
+            }
+            if (_registered.ContainsKey(connectionTypeId))
+            {
+                return PluginConnectionKind.FileSystem;
+            }
+            return _declared.TryGetValue(connectionTypeId, out PluginProtocolTab? tab) ? tab.Kind : null;
+        }
+    }
+
     /// <summary>
     /// 取回协议实现;未注册时先尝试惰性激活其提供者插件,仍拿不到则返回 <see langword="null" />。
     /// </summary>
@@ -270,32 +452,60 @@ public sealed class PluginProtocolRegistry
         {
             return registration;
         }
+        if (!await EnsureActivatedAsync(protocolId).ConfigureAwait(false))
+        {
+            return null;
+        }
+        return TryGet(protocolId, out PluginProtocolRegistration activated) ? activated : null;
+    }
+
+    /// <summary>
+    /// 取回工作台实现;未注册时先尝试惰性激活其提供者插件,仍拿不到则返回 <see langword="null" />。
+    /// </summary>
+    /// <param name="workspaceId">连接类型 id。</param>
+    /// <returns>已注册的工作台,或 null。</returns>
+    public async Task<PluginWorkspaceRegistration?> ResolveWorkspaceAsync(string? workspaceId)
+    {
+        if (string.IsNullOrWhiteSpace(workspaceId))
+        {
+            return null;
+        }
+        if (TryGetWorkspace(workspaceId, out PluginWorkspaceRegistration registration))
+        {
+            return registration;
+        }
+        if (!await EnsureActivatedAsync(workspaceId).ConfigureAwait(false))
+        {
+            return null;
+        }
+        return TryGetWorkspace(workspaceId, out PluginWorkspaceRegistration activated) ? activated : null;
+    }
+
+    /// <summary>惰性激活声明了该 id 的插件;未声明或没有激活钩子时直接返回 false。</summary>
+    private async Task<bool> EnsureActivatedAsync(string id)
+    {
         bool declared;
         lock (_gate)
         {
-            declared = _declared.ContainsKey(protocolId);
+            declared = _declared.ContainsKey(id);
         }
         if (!declared || ActivationRequested is not { } activate)
         {
-            return null;
+            return false;
         }
         try
         {
             // **必须 Task.Run**:激活链上没有任何真正的让出点 —— PluginAssemblyLoadContext 的
             // 装配集加载、Activator.CreateInstance、插件那句 `return Task.CompletedTask` 全是同步的。
-            // 两个调用点(连接页选中协议、打开一条会话)都在 UI 线程 await 这里,
+            // 两个调用点(连接页选中页签、打开一条会话)都在 UI 线程 await 这里,
             // 不推到线程池就是"点一下 S3 页签,界面连同 IsPluginLoading 的转圈一起冻住"。
-            if (!await Task.Run(() => activate(protocolId)).ConfigureAwait(false))
-            {
-                return null;
-            }
+            return await Task.Run(() => activate(id)).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            Trace.WriteLine($"[PluginProtocols] Activation for protocol '{protocolId}' failed: {ex.Message}");
-            return null;
+            Trace.WriteLine($"[PluginProtocols] Activation for connection type '{id}' failed: {ex.Message}");
+            return false;
         }
-        return TryGet(protocolId, out PluginProtocolRegistration activated) ? activated : null;
     }
 
     /// <summary>某个协议 id 是否至少被声明过(用于区分"插件没装"与"插件装了但还没激活")。</summary>
@@ -347,6 +557,30 @@ public sealed class PluginProtocolRegistry
         catch
         {
             // 通知订阅方异常不回灌运行时(与 PluginManager.RaiseChanged 同口径)。
+        }
+    }
+
+    private sealed class UnregisterWorkspace(PluginProtocolRegistry owner, string id, PluginWorkspaceRegistration registration)
+        : IDisposable
+    {
+        public void Dispose()
+        {
+            bool removed;
+            lock (owner._gate)
+            {
+                // 只有仍是自己那一份才撤:同 id 被后来者替换过时不能把别人的注册删掉。
+                removed = owner._workspaces.TryGetValue(id, out PluginWorkspaceRegistration? current)
+                          && ReferenceEquals(current, registration);
+                if (removed)
+                {
+                    owner._workspaces.Remove(id);
+                }
+            }
+            if (removed)
+            {
+                owner.RaiseUnregistered(id);
+                owner.RaiseChanged();
+            }
         }
     }
 

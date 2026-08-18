@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
@@ -21,6 +21,7 @@ using VelaShell.Core.Resources;
 using VelaShell.Core.Protocols;
 using VelaShell.Infrastructure.Plugins.Protocols;
 using VelaShell.PluginSdk.Protocols;
+using VelaShell.PluginSdk.Workspaces;
 using VelaShell.Core.Services;
 using VelaShell.Core.Sftp;
 using VelaShell.Core.Ssh;
@@ -71,11 +72,23 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
     /// <summary>协议注册表:开插件协议文档时要按协议 id 取回它的动作与能力位。</summary>
     private readonly PluginProtocolRegistry? _protocolRegistry;
 
+    /// <summary>工作台连接类型(Redis 等)的会话启动器;无插件宿主的单测里为 null。</summary>
+    private readonly PluginWorkspaceLauncher? _workspaceLauncher;
+
     /// <summary>FTP 会话标识 → 会话配置标识:状态事件只带会话标识,树上按配置标识定位节点。</summary>
     private readonly ConcurrentDictionary<Guid, Guid> _ftpSessionProfiles = new();
 
     /// <summary>插件协议会话标识 → 会话配置标识;用途同 <see cref="_ftpSessionProfiles" />。</summary>
     private readonly ConcurrentDictionary<Guid, Guid> _pluginSessionProfiles = new();
+
+    /// <summary>工作台会话 id → 连接配置 id(树上的状态圆点按它定位)。</summary>
+    private readonly ConcurrentDictionary<Guid, Guid> _workspaceProfiles = new();
+
+    /// <summary>工作台会话 id → 已打开的停靠文档(插件被停用时要按 id 找到它并关掉)。</summary>
+    private readonly ConcurrentDictionary<Guid, PluginWorkspaceDocument> _workspaceDocuments = new();
+
+    /// <summary>工作台会话 id → 为它建的隧道 id(文档关闭时要拆掉,否则本地端口一直占着)。</summary>
+    private readonly ConcurrentDictionary<Guid, Guid> _workspaceTunnels = new();
     private readonly ISshConnectionService? _sshConnectionService;
     private readonly Func<ITerminalEmulator> _terminalEmulatorFactory;
     private readonly ITunnelService? _tunnelService;
@@ -157,7 +170,8 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
         ICommandRegistry? commandRegistry = null,
         IFtpSessionService? ftpSessionService = null,
         IPluginProtocolSessionService? pluginProtocolService = null,
-        PluginProtocolRegistry? protocolRegistry = null
+        PluginProtocolRegistry? protocolRegistry = null,
+        PluginWorkspaceLauncher? workspaceLauncher = null
     )
     {
         // 注册表可注入(DI 里与插件命令桥共享同一单例);无 UI 单测传 null 时自建。
@@ -185,6 +199,19 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
         _ftpSessionService = ftpSessionService;
         _pluginProtocols = pluginProtocolService;
         _protocolRegistry = protocolRegistry;
+        _workspaceLauncher = workspaceLauncher;
+        // 插件被停用/卸载 → 它名下的工作台文档已无人应答,走正常关闭路径撤掉标签页。
+        if (workspaceLauncher is not null)
+        {
+            workspaceLauncher.SessionAbandoned += OnWorkspaceSessionAbandoned;
+        }
+        // 新建连接对话框里的「测试」对插件连接类型没法拿 SSH 去试(那只会撞出一个
+        // 与真实原因无关的超时)。探针挂在这里而不是注进工作流服务:真开一次插件会话
+        // 要用到隧道链路与凭据解密,那些都只在界面层有。
+        if (_connectionWorkflowService is not null)
+        {
+            _connectionWorkflowService.PluginProbe = ProbePluginConnectionAsync;
+        }
         // FTP 与插件协议都没有 SSH 那种可订阅的长驻会话对象:断线只在下一次操作时暴露。
         // 由服务主动上报,树上的状态圆点才能自动变灰,而不是一直停在绿点上。
         ftpSessionService?.SessionStateChanged += OnFtpSessionStateChanged;
@@ -203,6 +230,10 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
             else if (document is SftpDocument sftpDocument)
             {
                 _ = GetOrCreateSftpCloseTask(sftpDocument);
+            }
+            else if (document is PluginWorkspaceDocument workspaceDocument)
+            {
+                _ = CloseWorkspaceDocumentAsync(workspaceDocument);
             }
         };
         Layout.ActiveDocumentChanged += SetActiveFromDocument;
@@ -2366,7 +2397,14 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
         }
         if (profile.ConnectionType == ConnectionType.Plugin)
         {
-            // 插件协议有两种:注册了终端实现的(Telnet…)开终端标签,
+            // 形态由插件的**声明**决定,查它是同步的、不会装载任何程序集,所以放在最前:
+            // 工作台(Redis…)→ 向插件索取一个控件挂成停靠文档。
+            if (_protocolRegistry?.KindOf(profile.PluginProtocolId) == PluginConnectionKind.Workspace)
+            {
+                await OpenWorkspaceDocumentForProfileAsync(profile, cancellationToken).ConfigureAwait(true);
+                return null;
+            }
+            // 其余插件协议有两种:注册了终端实现的(Telnet…)开终端标签,
             // 注册了文件系统的(S3…)开双栏文件面板。判据只看注册表里有什么,
             // 宿主依旧不认识任何一种具体协议。可能触发惰性激活。
             PluginProtocolRegistration? registration = _protocolRegistry is { } protocols
@@ -2904,6 +2942,348 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
             StatusBar.Status = LastConnectionError;
             tab.MarkConnectionFailed(LastConnectionError);
         }
+    }
+
+    /// 打开一条**工作台**会话(Redis 等由插件全权渲染界面的连接类型)。
+    /// <para>
+    /// 与 <see cref="OpenPluginDocumentForProfileAsync" /> 共用同一套连接流程纪律:
+    /// 缺凭据先弹登录框、认证失败原地重试(至多三次)、证书未信任走"提示 → 记指纹 → 重连"
+    /// 且证书提示单独计数(否则 <c>attempt--</c> 会把三次上限彻底架空)。
+    /// 区别只在最后一步:那边打开宿主的双栏浏览器,这边把插件的控件挂成停靠文档。
+    /// </para>
+    /// </summary>
+    /// <param name="profile">连接配置。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>已打开的文档;失败或用户取消时为 null。</returns>
+    public async Task<PluginWorkspaceDocument?> OpenWorkspaceDocumentForProfileAsync(
+        SessionProfile profile,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+        if (_workspaceLauncher is not { } launcher)
+        {
+            return null;
+        }
+
+        bool allowsAnonymous = false;
+        if (_protocolRegistry is { } registry)
+        {
+            // 可能触发插件的惰性激活(用户刚从「最近连接」点开一条 Redis 会话)。
+            WorkspaceDescriptor? descriptor =
+                (await registry.ResolveWorkspaceAsync(profile.PluginProtocolId).ConfigureAwait(true))?.Descriptor;
+            allowsAnonymous = descriptor?.Features.HasFlag(WorkspaceFeatures.AnonymousAccess) == true;
+        }
+
+        SessionProfile current = profile;
+        int certPrompts = 0;
+        for (int attempt = 0; attempt < 3; attempt++)
+        {
+            if (attempt > 0 || RequiresPluginCredentials(current, allowsAnonymous))
+            {
+                if (InteractiveAuthenticator is not { } prompt)
+                {
+                    return null;
+                }
+                SessionProfile? prompted = await prompt(current).ConfigureAwait(true);
+                if (prompted is null)
+                {
+                    return null;
+                }
+                current = prompted;
+            }
+
+            try
+            {
+                // 声明了 SshTunnel 且用户选了跳板机 → 宿主先把 SSH 会话与本地转发建好,
+                // 插件只看到一个已经能连的本地端点(凭据永不出宿主)。
+                (WorkspaceEndpoint? endpoint, Guid tunnelId) =
+                    await EstablishWorkspaceTunnelAsync(current, cancellationToken).ConfigureAwait(true);
+                PluginWorkspaceSession session;
+                try
+                {
+                    session = await launcher.OpenAsync(current, endpoint, cancellationToken).ConfigureAwait(true);
+                }
+                catch
+                {
+                    // 连接失败就把刚建的隧道拆掉 —— 留着它等于占着一个本地端口和一条 SSH 通道。
+                    await RemoveWorkspaceTunnelAsync(tunnelId).ConfigureAwait(true);
+                    throw;
+                }
+                var document = new PluginWorkspaceDocument(current, session.SessionId, session.TypeName, session.Document);
+                if (tunnelId != Guid.Empty)
+                {
+                    _workspaceTunnels[session.SessionId] = tunnelId;
+                }
+                // 用**原始** profile 的标识登记:登录弹窗可能换过 current 的字段,
+                // 但树上的节点始终是按最初那条配置的 Id 建的。
+                _workspaceProfiles[session.SessionId] = profile.Id;
+                _workspaceDocuments[session.SessionId] = document;
+                session.Document.StatusChanged += OnWorkspaceStatusChanged;
+                Layout.AddDocument(document);
+                SetTreeSessionStatus(profile.Id, SessionStatus.Connected);
+                return document;
+            }
+            catch (OperationCanceledException)
+            {
+                return null;
+            }
+            catch (PluginProtocolCertificateException certificate)
+            {
+                if (PluginCertificateTrustPrompt is { } trustPrompt &&
+                    await trustPrompt(current, certificate).ConfigureAwait(true))
+                {
+                    current = WithTrustedPluginCertificate(current, certificate);
+                    await PersistProfileIfSavedAsync(current).ConfigureAwait(true);
+                    if (certificate.SettingKey is { Length: > 0 } && ++certPrompts <= 2)
+                    {
+                        attempt--;
+                    }
+                    continue;
+                }
+                LastConnectionError = certificate.Message;
+                StatusBar.Status = LastConnectionError;
+                return null;
+            }
+            catch (PluginProtocolAuthenticationException)
+            {
+                continue;
+            }
+            catch (Exception ex)
+            {
+                LastConnectionError = DescribeConnectionError(ex, current);
+                StatusBar.Status = LastConnectionError;
+                return null;
+            }
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// 插件连接的「测试」:真开一次会话,随即原路关掉。
+    /// <para>
+    /// 为什么必须走这条路而不是探个 TCP 端口:能连上 6379 不等于这条配置能用 ——
+    /// 口令错、ACL 用户没权限、库号越界、TLS 证书不被信任,全都是端口通着却连不上的。
+    /// 「测试」要能替用户排除的正是这些,所以它跑的必须是与「连接」同一套握手。
+    /// </para>
+    /// <para>
+    /// 隧道与文档都在 finally 里拆:测试不留任何东西 —— 既不占本地转发端口,
+    /// 也不给插件留一条没人管的连接。
+    /// </para>
+    /// </summary>
+    /// <param name="profile">要测的配置(凭据已由弹窗填好)。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    private async Task ProbePluginConnectionAsync(SessionProfile profile, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+        // 文件系统形态(S3 之类)与工作台形态(Redis 之类)是两套打开路径,按声明分流。
+        // 查形态不会装载任何插件程序集。
+        if (_protocolRegistry is { } registry
+            && registry.KindOf(profile.PluginProtocolId) == PluginConnectionKind.FileSystem)
+        {
+            if (_pluginProtocols is not { } sessions)
+            {
+                throw new InvalidOperationException(Strings.Get("Plugin_TestUnavailable"));
+            }
+            Guid fileSessionId = await sessions.OpenSessionAsync(profile, cancellationToken).ConfigureAwait(true);
+            await sessions.CloseSessionAsync(fileSessionId, CancellationToken.None).ConfigureAwait(true);
+            return;
+        }
+
+        if (_workspaceLauncher is not { } launcher)
+        {
+            throw new InvalidOperationException(Strings.Get("Plugin_TestUnavailable"));
+        }
+        (WorkspaceEndpoint? endpoint, Guid tunnelId) =
+            await EstablishWorkspaceTunnelAsync(profile, cancellationToken).ConfigureAwait(true);
+        PluginWorkspaceSession? session = null;
+        try
+        {
+            session = await launcher.OpenAsync(profile, endpoint, cancellationToken).ConfigureAwait(true);
+        }
+        finally
+        {
+            if (session is not null)
+            {
+                launcher.Forget(session.SessionId);
+                try
+                {
+                    await session.Document.DisposeAsync().ConfigureAwait(true);
+                }
+                catch (Exception)
+                {
+                    // 测试的收尾失败不该改变测试结论 —— 结论已经由 OpenAsync 给出了。
+                }
+            }
+            await RemoveWorkspaceTunnelAsync(tunnelId).ConfigureAwait(true);
+        }
+    }
+
+    /// <summary>工作台文档关闭:摘登记、退订状态、拆隧道、释放插件那边的连接。幂等。</summary>
+    private async Task CloseWorkspaceDocumentAsync(PluginWorkspaceDocument document)
+    {
+        document.Workspace.StatusChanged -= OnWorkspaceStatusChanged;
+        _workspaceDocuments.TryRemove(document.SessionId, out _);
+        _workspaceLauncher?.Forget(document.SessionId);
+        if (_workspaceProfiles.TryRemove(document.SessionId, out Guid profileId))
+        {
+            SetTreeSessionStatus(profileId, SessionStatus.Disconnected);
+        }
+        // 先关插件那边的连接,再拆隧道:反过来会让插件的关闭流程对着一条已经断掉的通道超时。
+        await document.CloseAsync().ConfigureAwait(true);
+        if (_workspaceTunnels.TryRemove(document.SessionId, out Guid tunnelId))
+        {
+            await RemoveWorkspaceTunnelAsync(tunnelId).ConfigureAwait(true);
+        }
+    }
+
+    /// <summary>
+    /// 按连接配置里选的跳板会话建立 SSH 会话与本地端口转发。
+    /// <para>
+    /// 这一步刻意留在界面层:建 SSH 会话要走宿主既有的两步认证、指纹校验与 ProxyJump 链路,
+    /// 而**凭据永不出宿主**是硬规则。插件只拿到"一个已经能连的本地端点"。
+    /// </para>
+    /// <para>
+    /// 已连着的会话优先复用 —— 用户刚在终端里连上那台跳板机,再为同一台开第二条 SSH
+    /// 只是白付一次握手与一份内存。
+    /// </para>
+    /// </summary>
+    /// <returns>端点与隧道 id;没有配跳板机时两者都为空。</returns>
+    private async Task<(WorkspaceEndpoint? Endpoint, Guid TunnelId)> EstablishWorkspaceTunnelAsync(
+        SessionProfile profile,
+        CancellationToken cancellationToken)
+    {
+        if (_protocolRegistry is not { } registry
+            || _tunnelService is null
+            || _sessionRepository is null
+            || _connectionWorkflowService is null)
+        {
+            return (null, Guid.Empty);
+        }
+        WorkspaceDescriptor? descriptor =
+            (await registry.ResolveWorkspaceAsync(profile.PluginProtocolId).ConfigureAwait(true))?.Descriptor;
+        if (descriptor is null || !descriptor.Features.HasFlag(WorkspaceFeatures.SshTunnel))
+        {
+            return (null, Guid.Empty);
+        }
+        // 找到那个 SshSession 形态的字段,读出用户选的跳板配置 id。
+        ProtocolSettingField? field = descriptor.Fields
+            .FirstOrDefault(candidate => candidate.Kind == ProtocolSettingKind.SshSession);
+        string? raw = field is null
+            ? null
+            : profile.PluginSettings?.GetValueOrDefault(field.Key);
+        if (string.IsNullOrWhiteSpace(raw) || !Guid.TryParse(raw, out Guid jumpProfileId))
+        {
+            return (null, Guid.Empty);
+        }
+
+        IReadOnlyList<SessionProfile> saved = await _sessionRepository.GetAllSessionsAsync().ConfigureAwait(true);
+        SessionProfile? jump = saved.FirstOrDefault(candidate => candidate.Id == jumpProfileId);
+        if (jump is null)
+        {
+            // 跳板配置被删了。**不静默直连** —— 那会把一条本该走内网的连接直接打到公网上去。
+            throw new PluginProtocolConnectionException(Strings.Get("Plugin_JumpSessionMissing"));
+        }
+
+        // 按"目标主机 + 端口 + 用户"匹配已连着的会话。这不是权宜:隧道要穿的是**那台主机**,
+        // 谁开的那条 SSH 无关紧要 —— 而 SshSession 上本就没有"来自哪条配置"这个信息。
+        Guid sshSessionId = _sshConnectionService?.Sessions
+            .FirstOrDefault(session => session.Status == SessionStatus.Connected
+                                       && string.Equals(session.ConnectionInfo.Host, jump.Host, StringComparison.OrdinalIgnoreCase)
+                                       && session.ConnectionInfo.Port == jump.Port
+                                       && string.Equals(session.ConnectionInfo.Username, jump.Username, StringComparison.Ordinal))
+            ?.SessionId ?? Guid.Empty;
+        if (sshSessionId == Guid.Empty)
+        {
+            SshSession connected = await _connectionWorkflowService
+                .ConnectProfileAsync(jump, cancellationToken).ConfigureAwait(true);
+            sshSessionId = connected.SessionId;
+        }
+
+        // 本地端口自己挑:隧道服务按配置里的端口监听,没有"由内核分配后回报"这条路。
+        // 先 bind 0 拿一个空闲端口再放掉,是这种情况下的标准做法(有极小的竞争窗口,
+        // 撞上了表现为"端口已被占用"的明确失败,而不是静默连错地方)。
+        int localPort = ReserveLocalPort();
+        var config = new TunnelConfig
+        {
+            Type = TunnelType.LocalForward,
+            Name = $"{profile.Name} ↝ {jump.Name}",
+            LocalHost = "127.0.0.1",
+            LocalPort = (uint)localPort,
+            RemoteHost = profile.Host,
+            RemotePort = (uint)profile.Port
+        };
+        TunnelInfo tunnel = await _tunnelService
+            .CreateLocalForwardAsync(sshSessionId, config, cancellationToken).ConfigureAwait(true);
+        return (new("127.0.0.1", localPort, profile.Host, profile.Port, jump.Name), tunnel.Id);
+    }
+
+    /// <summary>拆掉一条为工作台建的隧道(尽力而为:拆不掉不该把关闭流程也带崩)。</summary>
+    private async Task RemoveWorkspaceTunnelAsync(Guid tunnelId)
+    {
+        if (tunnelId == Guid.Empty || _tunnelService is null)
+        {
+            return;
+        }
+        try
+        {
+            await _tunnelService.RemoveTunnelAsync(tunnelId).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.WriteLine($"[Workspace] Removing tunnel {tunnelId} failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>借一个空闲的本地端口号(bind 0 → 读端口 → 放掉)。</summary>
+    private static int ReserveLocalPort()
+    {
+        var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+        listener.Start();
+        try
+        {
+            return ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
+        }
+        finally
+        {
+            listener.Stop();
+        }
+    }
+
+    /// <summary>
+    /// 提供该连接类型的插件被停用/卸载:把它名下还开着的标签页撤掉。
+    /// <para>
+    /// 走 <see cref="DockWorkspace.CloseDocument" /> 而不是直接释放 —— 只有它会触发
+    /// <c>DocumentClosed</c>,不然界面上会留下一个再也不会应答的面板。
+    /// </para>
+    /// </summary>
+    private void OnWorkspaceSessionAbandoned(Guid sessionId) =>
+        RxSchedulers.MainThreadScheduler.Schedule(() =>
+        {
+            if (_workspaceDocuments.TryGetValue(sessionId, out PluginWorkspaceDocument? document))
+            {
+                Layout.CloseDocument(document);
+            }
+        });
+
+    /// <summary>工作台会话状态变化 → 资源管理器树的状态圆点(理由与线程约束同 FTP 侧)。</summary>
+    private void OnWorkspaceStatusChanged(object? sender, WorkspaceStatus status)
+    {
+        if (sender is not IWorkspaceDocument document)
+        {
+            return;
+        }
+        Guid sessionId = _workspaceDocuments
+            .FirstOrDefault(pair => ReferenceEquals(pair.Value.Workspace, document)).Key;
+        if (sessionId == Guid.Empty || !_workspaceProfiles.TryGetValue(sessionId, out Guid profileId))
+        {
+            return;
+        }
+        SetTreeSessionStatus(profileId, status.State switch
+        {
+            ProtocolSessionState.Connected => SessionStatus.Connected,
+            ProtocolSessionState.Faulted => SessionStatus.Error,
+            _ => SessionStatus.Disconnected,
+        });
     }
 
     /// <summary>插件协议会话状态变化 → 资源管理器树的状态圆点(理由与线程约束同 FTP 侧)。</summary>
@@ -3524,7 +3904,7 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
 
     private void SetActiveFromDocument(DockDocument? dockDocument)
     {
-        if (dockDocument is SftpDocument)
+        if (dockDocument is SftpDocument or PluginWorkspaceDocument)
         {
             ActiveTerminalTab = null;
             UpdateStatusBarForActiveTab();
