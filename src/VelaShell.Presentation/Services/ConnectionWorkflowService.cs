@@ -42,10 +42,37 @@ public sealed class ConnectionWorkflowService(
         return profile;
     }
 
-    /// <summary>测试连接:建立后立即断开,返回成功与否及失败原因,不抛出连接异常。</summary>
+    /// <inheritdoc />
+    public PluginConnectionProbe? PluginProbe { get; set; }
+
+    /// <summary>
+    /// 测试连接:建立后立即断开,返回成功与否及失败原因,不抛出连接异常。
+    /// <para>
+    /// 插件连接类型走**另一条**路。它们的握手不是 SSH:拿 SSH 去连 Redis 的 6379
+    /// 或 S3 的 443,只会在 TCP 连上之后卡在版本交换里,最后报一个与真实原因毫无
+    /// 关系的"连接超时" —— 用户会以为端口不通,于是去查防火墙。没有探针可用时
+    /// 宁可明说"这种连接类型测不了",也不给一个假的失败原因。
+    /// </para>
+    /// </summary>
     public async Task<ConnectionTestResult> TestConnectionAsync(SessionProfile profile, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(profile);
+        if (profile.ConnectionType == ConnectionType.Plugin)
+        {
+            if (PluginProbe is not { } probe)
+            {
+                return new(false, Strings.Get("Plugin_TestUnavailable"));
+            }
+            try
+            {
+                await probe(profile, cancellationToken).ConfigureAwait(false);
+                return new(true);
+            }
+            catch (Exception ex)
+            {
+                return new(false, ex.Message);
+            }
+        }
         try
         {
             SshSession session = await _sshConnectionService

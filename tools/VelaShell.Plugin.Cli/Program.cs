@@ -38,7 +38,7 @@ internal static class Program
             PrintUsage();
             return args.Length == 0 ? 1 : 0;
         }
-        var rest = args[1..];
+        string[] rest = args[1..];
         return args[0] switch
         {
             "pack" => Pack(rest),
@@ -81,7 +81,7 @@ internal static class Program
             Mask = !options.Has("--no-mask"),
             SigningKey = key
         });
-        var info = VpxContainer.ReadInfo(output);
+        VpxPackageInfo info = VpxContainer.ReadInfo(output);
         Console.WriteLine($"Packed {manifest.Id} v{manifest.Version}");
         Console.WriteLine($"  -> {output}");
         Console.WriteLine($"     payload {info.PayloadLength} bytes, sha256 {info.PayloadSha256}");
@@ -116,7 +116,7 @@ internal static class Program
     private static int Info(string[] args)
     {
         string package = RequirePackagePath(args);
-        var info = VpxContainer.ReadInfo(package);
+        VpxPackageInfo info = VpxContainer.ReadInfo(package);
         Console.WriteLine($"{Path.GetFileName(package)}");
         Console.WriteLine($"  format     v{info.FormatVersion}");
         Console.WriteLine($"  flags      {info.Flags}");
@@ -162,7 +162,7 @@ internal static class Program
             throw new CliException($"'{path}' already exists. Pass --force to overwrite (the old key becomes unusable, " +
                                    "and packages signed with it can no longer be updated under the same identity).");
         }
-        using ECDsa key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         File.WriteAllText(path, key.ExportPkcs8PrivateKeyPem());
         Console.WriteLine($"Private key written to {path}  (keep it secret, keep it backed up)");
         Console.WriteLine($"Public key (base64 SPKI): {Convert.ToBase64String(key.ExportSubjectPublicKeyInfo())}");
@@ -323,11 +323,7 @@ internal static class Program
 
     private static string RequirePackagePath(string[] args)
     {
-        string? path = CliOptions.Parse(args).Positional.FirstOrDefault();
-        if (path is null)
-        {
-            throw new CliException("Missing package path. Usage: vela-plugin <command> <package.vpx>");
-        }
+        string? path = CliOptions.Parse(args).Positional.FirstOrDefault() ?? throw new CliException("Missing package path. Usage: vela-plugin <command> <package.vpx>");
         string full = Path.GetFullPath(path);
         return File.Exists(full) ? full : throw new CliException($"Package not found: {full}");
     }
@@ -401,7 +397,7 @@ internal static class Program
     /// <summary>极简参数解析:<c>--name value</c> / <c>--flag</c> / 位置参数。</summary>
     private sealed class CliOptions
     {
-        private readonly Dictionary<string, string?> _named = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, string?> _named = [with(StringComparer.Ordinal)];
 
         public List<string> Positional { get; } = [];
 

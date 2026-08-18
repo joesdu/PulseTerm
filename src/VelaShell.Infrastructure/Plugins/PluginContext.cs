@@ -37,6 +37,7 @@ internal sealed class PluginContext : IPluginContext, IDisposable
     public required IClipboardApi Clipboard { get; init; }
     public required PluginSdk.Terminal.ITerminalApi Terminal { get; init; }
     public required IProtocolsApi Protocols { get; init; }
+    public required PluginSdk.Workspaces.IWorkspacesApi Workspaces { get; init; }
     public required CancellationToken Shutdown { get; init; }
 
     public void Dispose()
@@ -44,8 +45,9 @@ internal sealed class PluginContext : IPluginContext, IDisposable
         (Commands as IDisposable)?.Dispose();
         (Events as IDisposable)?.Dispose();
         (Ui as IDisposable)?.Dispose();
-        // 协议注册要在这里撤:它握着插件实现的引用,不撤 ALC 就回收不掉,
-        // 而且用户还会在连接页看到一个再也连不上的协议页签。
+        // 协议/工作台注册要在这里撤:它们握着插件实现的引用,不撤 ALC 就回收不掉,
+        // 而且用户还会在连接页看到一个再也连不上的页签。
         (Protocols as IDisposable)?.Dispose();
+        (Workspaces as IDisposable)?.Dispose();
     }
 }

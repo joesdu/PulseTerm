@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -3722,5 +3722,11 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   </data>
   <data name="Plugin_ProtocolUnavailable" xml:space="preserve">
     <value>このプロトコルを提供するプラグインが利用できません。プラグイン管理画面でインストールまたは有効化してください。</value>
+  </data>
+  <data name="Plugin_JumpSessionMissing" xml:space="preserve">
+    <value>この接続がトンネルに使う SSH 設定が見つかりません。接続設定で別のものを選んでください（ターゲットへ直接つなぐと、内部向けの通信が公衆網に出てしまいます）。</value>
+  </data>
+  <data name="Plugin_TestUnavailable" xml:space="preserve">
+    <value>この接続タイプはここではテストできません。「接続」を押してください。プラグインがパネル上に実際の結果を表示します。</value>
   </data>
 </root>

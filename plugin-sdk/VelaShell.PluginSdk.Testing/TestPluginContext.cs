@@ -81,6 +81,9 @@ public sealed class TestPluginContext : IPluginContext, IDisposable
     /// <summary>默认协议替身(按 <see cref="PluginId" /> 做 id 前缀校验)。</summary>
     public RecordingProtocols RecordingProtocols { get; } = new();
 
+    /// <summary>默认工作台替身(按 <see cref="PluginId" /> 做 id 前缀校验)。</summary>
+    public RecordingWorkspaces RecordingWorkspaces { get; } = new();
+
     /// <summary>默认宿主信息替身。</summary>
     public TestHostInfo HostInfo { get; } = new();
 
@@ -93,6 +96,7 @@ public sealed class TestPluginContext : IPluginContext, IDisposable
         {
             field = value;
             RecordingProtocols.PluginId = value;
+            RecordingWorkspaces.PluginId = value;
         }
     } = "test.plugin";
 
@@ -156,6 +160,9 @@ public sealed class TestPluginContext : IPluginContext, IDisposable
     /// <inheritdoc cref="IPluginContext.Protocols" />
     public IProtocolsApi Protocols { get; init; }
 
+    /// <inheritdoc cref="IPluginContext.Workspaces" />
+    public Workspaces.IWorkspacesApi Workspaces { get; init; }
+
     /// <inheritdoc />
     public CancellationToken Shutdown => _shutdownSource.Token;
 
@@ -175,6 +182,7 @@ public sealed class TestPluginContext : IPluginContext, IDisposable
         Clipboard = FakeClipboard;
         Terminal = FakeTerminal;
         Protocols = RecordingProtocols;
+        Workspaces = RecordingWorkspaces;
     }
 
     /// <summary>模拟宿主停机:触发 <see cref="Shutdown" /> 令牌。</summary>

@@ -1,4 +1,4 @@
-using VelaShell.PluginSdk;
+﻿using VelaShell.PluginSdk;
 using VelaShell.PluginSdk.Commands;
 using VelaShell.PluginSdk.Events;
 using VelaShell.PluginSdk.Logging;
@@ -81,7 +81,26 @@ internal sealed class RemotePluginContext : IPluginContext, IDisposable
     /// </summary>
     public IProtocolsApi Protocols { get; } = new IsolatedProtocols();
 
+    public PluginSdk.Workspaces.IWorkspacesApi Workspaces { get; } = new IsolatedWorkspaces();
+
     public CancellationToken Shutdown { get; }
+
+    /// <summary>
+    /// 隔离进程的工作台能力退化实现:注册即报不可用。原生控件无法跨进程嵌入,
+    /// 所以这个组合在清单校验期就该被挡住 —— 这里只是最后一道兜底。
+    /// </summary>
+    private sealed class IsolatedWorkspaces : PluginSdk.Workspaces.IWorkspacesApi
+    {
+        public IDisposable Register(
+            PluginSdk.Workspaces.WorkspaceDescriptor descriptor,
+            PluginSdk.Workspaces.IWorkspaceProvider provider) =>
+            throw new InvalidOperationException(
+                "contributes.workspaces requires hostMode \"inProcess\": native controls cannot be embedded across processes.");
+
+        public Task<bool> ProposeConnectionAsync(
+            PluginSdk.Workspaces.WorkspaceConnectionProposal proposal,
+            CancellationToken cancellationToken = default) => Task.FromResult(false);
+    }
 
     /// <summary>隔离进程的协议能力退化实现:注册即报不可用,读传输设置给"不限速"。</summary>
     private sealed class IsolatedProtocols : IProtocolsApi

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -3722,5 +3722,11 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   </data>
   <data name="Plugin_ProtocolUnavailable" xml:space="preserve">
     <value>提供該協定的外掛程式目前無法使用。請在外掛程式管理頁安裝或啟用它。</value>
+  </data>
+  <data name="Plugin_JumpSessionMissing" xml:space="preserve">
+    <value>這條連線要經過的 SSH 設定已經不存在了。請在連線設定裡另選一條 —— 直連目標會把本該走內網的流量打到公網上。</value>
+  </data>
+  <data name="Plugin_TestUnavailable" xml:space="preserve">
+    <value>這種連線類型沒法在這裡測試。直接按「連線」——它的外掛會在面板上給出真實結果。</value>
   </data>
 </root>

@@ -1,7 +1,8 @@
 # 插件系统进度总览
 
-> 更新:2026-08-13。本页是实现进度的**单一权威来源**:按蓝图分项列出 已完成 / 部分完成 /
-> 未开始,并给出验收证据(测试)与建议的下一步。写插件请读 [dev-guide.md](dev-guide.md)。
+> 更新:2026-08-18(新增工作台能力域与 Redis 插件、SDK 产品化,均见文末各节)。本页是
+> 实现进度的**单一权威来源**:按蓝图分项列出 已完成 / 部分完成 / 未开始,并给出验收证据
+> (测试)与建议的下一步。写插件请读 [dev-guide.md](dev-guide.md)。
 
 ## 一、总体状态
 
@@ -20,10 +21,12 @@ inProcess 停靠 / 隔离独立窗口)、可靠性(心跳/自愈/回收)、数�
 (工具箱审批闸门/能力桥接语义/设置与机密存取/会话历史时序读写/@ 引用语法/面板 headless 交互)。
 容器管理插件未开始。
 
-质量基线(每轮全量回归):全仓构建 0 警告 0 错误;测试 1605 项全绿,其中插件专项
-114 项(Infrastructure 侧 70 项 + AI 插件 44 项;含真实双进程 e2e:跨进程激活、杀进程自愈、
-空闲回收再拉起、嵌入/流式/终端/时序 RPC 链路、.vpx 装卸;AI 面板另有 headless 装载与
-历史/↑↓/@ 交互测试)。
+质量基线(每轮全量回归):全仓构建 0 警告 0 错误;**测试 2107 项通过**(2026-08-18,
+另 79 项按环境跳过 —— 绝大多数是需要真机 Redis 的集成测试)。插件相关覆盖:
+Infrastructure 侧 `TestCategory=Plugins` 97 项 + AI 插件 159 项 + S3 插件 102 项 +
+Redis 插件 129 项;含真实双进程 e2e(跨进程激活、杀进程自愈、空闲回收再拉起、
+嵌入/流式/终端/时序 RPC 链路、.vpx 装卸)与 `.vpx` 容器格式的地面真值断言;
+AI / Redis 面板另有 headless 装载与交互测试。
 
 ## 二、分项进度
 
@@ -48,13 +51,15 @@ inProcess 停靠 / 隔离独立窗口)、可靠性(心跳/自愈/回收)、数�
 | 插件管理页 | 02/06 | 侧栏插件图标 → 自绘卡片窗口(与资源监视同规格:min/max/close+缩放):列表/状态/启停/**卸载**/**从 .vpx 安装**/撤销终端授权;Changed 自动刷新 | PluginManagerEnableDisableTests、PluginInstallUninstallTests |
 | SDK 测试替身 | 09/13 | `TestPluginContext` + 全能力内存替身,插件无宿主可单测 | 被 HelloWorld 测试 dogfood |
 | 示例与开发内环 | 09 | HelloWorld(AXAML 面板/双语/各能力演示);F5 自动重建镜像插件 | HelloWorldDemoPanelTests |
+| 能力域:protocols(自带文件协议) | 07 | 声明 → 注册 → 惰性激活 → 注销;宿主的双栏浏览器/传输栈零改动复用;仅 `inProcess`。首个使用者:S3 插件 | PluginProtocolTests |
+| 能力域:workspaces(自带非文件型连接) | 07 | 同一排页签、同一套声明式表单、同一条惰性激活链路;宿主向插件索取一个控件挂成停靠文档。含**声明式 SSH 隧道**与**连接提议**;仅 `inProcess`。首个使用者:Redis 插件 | PluginWorkspaceTests(25 项) |
 | 开发文档 | 09 | dev-guide.md(唯一权威);01–15 蓝图已加实现注记 | — |
 
 ### ⏳ 部分完成
 
 | 分项 | 已有 | 缺口 |
 | --- | --- | --- |
-| 激活事件 | onStartup / onCommand | onSessionConnect、onFileOpen、onSchedule、onUri(蓝图 03 §4) |
+| 激活事件 | onStartup / onCommand / onProtocol / onWorkspace | onSessionConnect、onFileOpen、onSchedule、onUri(蓝图 03 §4) |
 | UI 挂载点 | 命令面板、停靠文档、独立窗口、插件管理页 | 侧栏视图、状态栏、设置页、右键菜单贡献点(蓝图 08) |
 | 跨进程 dock 停靠 | RPC 协议层保留(EmbedRoutingTests),但**宿主 Win32 实现已移除**:跨进程窗口收养与 dock reparenting 根本冲突(卡顿/窗口飘出),**弃用** | 隔离插件一律独立卡片窗口;真·dock 标签用 inProcess;跨平台稳态 = 共享内存表面(蓝图 08 §4,远期) |
 | 发布形态 | 目录即插件 + **.vpx 专属容器一键装/卸**;**SDK/工具/模板五个 NuGet 包**(见下节);**发布产物携带 `plugins/<目录名>/` 与 `VelaShell.PluginHost.*`**(前者按各插件 `<VelaPluginShip>` 取舍,示例插件不进包,目录名 = id 把点换成短横以避开 macOS codesign 的嵌套 bundle 误判;为让宿主进程在磁盘上有真实可执行体,主程序 2026-08-12 起改为摊开发布) | 插件源(registry)与发布者验证(蓝图 10 §3,分期推迟) |
@@ -65,10 +70,10 @@ inProcess 停靠 / 隔离独立窗口)、可靠性(心跳/自愈/回收)、数�
 | --- | --- | --- |
 | 权限系统 + Broker | 06 | **用户决策不做**(第一方/自装插件,信任即安装);若未来开放第三方生态需回访 |
 | 插件商店 / 插件源 | 10 | 打包与签名已做(见下节);**商店与源索引分发**按用户决策仍推迟 |
-| 能力域:localFs / audio / net / ai | 07/11 | 未开口。建议 `vela.ai` 随 AI 插件动工时定接口(terminal、timeSeries 域已完成) |
+| 能力域:localFs / audio / net / ai | 07/11 | 未开口。建议 `vela.ai` 随 AI 插件动工时定接口(terminal、timeSeries、protocols、workspaces 域已完成) |
 | 插件管理页 日志查看 | 02/06 | 列表/启停/撤授权已做;查看每插件日志尾部待后续 |
 | SonnetDB 高阶模型开放 | — | 时序/全文/向量等暂不对插件开口,按真实需求再议(apiLevel 只增纪律) |
-| 第一方业务插件 | 15 | AI 插件、容器管理插件尚未动工(框架已就绪) |
+| 第一方业务插件 | 15 | 容器管理插件尚未动工(框架已就绪);AI 插件与 Redis 插件已落地 |
 
 ## 三、刻意的架构决策(勿"纠正")
 
@@ -89,8 +94,8 @@ inProcess 停靠 / 隔离独立窗口)、可靠性(心跳/自愈/回收)、数�
 
 ## 五、建议的下一步(按价值排序)
 
-1. **写第一个业务插件**(容器管理:RemoteExec + AXAML 面板即可成型)——用真实需求
-   反哺框架缺口;
+1. **容器管理插件**(RemoteExec + AXAML 面板即可成型)——AI / S3 / Redis 三个插件已把
+   命令、协议、工作台三条链路都跑过一遍,容器管理是纯 `RemoteExec` 场景,不需要新扩展点;
 2. F5 真机验收观感(授权对话框 / 管理窗口 / 隔离插件独立窗口),修视觉毛刺;
 3. 真机验收**打包版的隔离模式**:2026-08-12 已把主程序改为摊开发布(`plugins/` 与
    `VelaShell.PluginHost.*` 都随包交付),自更新的换版也从"移动"改为"复制"、更新器改为
@@ -110,52 +115,3 @@ inProcess 停靠 / 隔离独立窗口)、可靠性(心跳/自愈/回收)、数�
   AWSSDK 依赖、22 项桶配置界面、149 条文案全部随插件走;`ConnectionType` 里不再有具体协议,
   只有一个 `Plugin`。详见 `docs/S3协议插件化设计.md`。
 - 已知边界:协议能力仅 `inProcess`(隔离进程 RPC 尚不支持宿主→插件的请求方向)。
-
-## 2026-08:SDK 产品化(NuGet 包 / 模板 / 专属包格式 / 调试内环)
-
-插件 SDK 从"仓库内工程 + ProjectReference"变成真正对外分发的 SDK。
-
-**五个 NuGet 包**(版本走 `VelaSdkVersion`,与宿主版本解耦;`AssemblyVersion` = `<主版本>.0.0.0`
-只随主版本动 —— 它是插件的绑定标识,补丁版跟着变等于每次都要已编译插件重新绑定;
-`FileVersion` 与 `InformationalVersion` 照常跟着涨。纪律:**SDK 主版本 == `apiLevel`**,
-主版本一变就同步提 `VelaPluginApi.Level`,老宿主于是在发现期按 apiLevel 干净拒载,
-而不是装载时抛绑定异常):
-
-| 包 | 谁引用 | 内容 |
-| --- | --- | --- |
-| `VelaShell.PluginSdk.Build` | **插件工程(只需引这一个)** | MSBuild props/targets + 随包分发的打包器;传递引入下面两项与**精确锁死宿主版本的 Avalonia** |
-| `VelaShell.PluginSdk` | 传递引入 | 契约程序集(仅 BCL) |
-| `VelaShell.PluginSdk.Testing` | 插件测试工程 | `TestPluginContext` 与能力替身 |
-| `VelaShell.Plugin.Cli` | dotnet tool | `vela-plugin`:validate / pack / sign / verify / info / unpack / keygen / install / dev-link |
-| `VelaShell.Plugin.Templates` | dotnet new | `velaplugin`、`velaplugin-ui` |
-
-Build 包替插件工程处理掉四件事:`EnableDynamicLoading` 与 `plugin.json` 输出、
-共享程序集(`VelaShell.PluginSdk` + `Avalonia*`,口径与 `PluginAssemblyLoadContext` 一致)
-不落插件目录、Avalonia 版本一致性(NU1608 升为错误 + `VELA1001` 构建期核对)、
-清单编译期校验与 `dotnet build -t:PackVpx`。
-
-**`.vpx` 改为专属容器**(`VelaShell.PluginSdk/Packaging/VpxContainer.cs`,宿主与工具同一份实现):
-64 字节头部(魔数 `56 50 58 1A` + 格式版本 + 标志位 + 载荷长度 + SHA-256 + 掩码随机数 + 头部 CRC32)
-+ 掩码后的 zip 载荷 + 可选 ECDSA P-256 签名尾。魔数与掩码只挡"改后缀解压",
-完整性与来源靠摘要与签名;坏签名一律拒装(哪怕没开强制签名),未签名默认放行。
-安装期另加解压炸弹上限(10 000 条目 / 512 MB,按**实际写出字节**记账)。
-**不留裸 zip 兼容旁路**:容器定型前没有任何 `.vpx` 发出去过,没有存量要照顾,
-改后缀的 zip 一律拒装并在错误里给出重新打包的办法。
-
-**调试内环**:`plugins.dev.txt` / `VELA_PLUGIN_DEV_ROOT` 把插件工程输出目录直接挂进宿主
-(管理页 DEV 角标,同 id 让位于已安装的);`VELA_PLUGIN_WAIT_DEBUGGER=<id>|*` 让隔离插件
-子进程在装载程序集前等调试器,并**同步放宽激活超时、停掉心跳**(否则断点一停就被当成挂死强杀);
-inProcess 侧只要 `Debugger.IsAttached` 就自动放宽激活超时。
-
-**清单新增 `author`**(展示用,与作为信任标识的 `publisher` 分工;≤128 字符、拒控制字符),
-插件管理页展示,缺省时退回 `publisher`。
-
-**CI**:`.github/workflows/nuget.yml`,打 `sdk-v<版本>` 标签即发。发布前跑打包相关测试与
-**模板端到端冒烟**(装模板 → 生成工程 → 还原 → 构建 → 出 .vpx → 核对容器 → 确认共享程序集
-没泄漏进插件输出)。那一步不是形式:它先后发现了"SDK 带 `RequiresPreviewFeatures`,
-插件工程不开预览开关就全线 CA2252"与"NuGet 默认不传递 build 资产,Avalonia 的 AXAML 编译器
-到不了插件工程"两个只在仓库外才暴露的问题。
-
-验收:VpxContainerTests 12 项(格式/掩码/篡改/截断/签名四态)、PluginInstallUninstallTests 9 项
-(含真容器安装、裸 zip 兼容与拒收、篡改拒装、容器内 zip-slip)、DevPluginRootTests 6 项、
-清单 author 校验 4 项。

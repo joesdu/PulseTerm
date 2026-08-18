@@ -129,6 +129,18 @@ public static class InfrastructureServiceCollectionExtensions
         });
         services.AddSingleton<PluginProtocolFileService>(sp => new(sp.GetRequiredService<PluginProtocolRegistry>()));
         services.AddSingleton<IPluginProtocolSessionService>(sp => sp.GetRequiredService<PluginProtocolFileService>());
+        // 工作台连接类型(Redis、MySQL… 由插件提供):界面是插件自己的,所以这里没有数据面要翻译,
+        // 只有"解析注册表 → 组装请求 → 翻译异常 → 会话登记"这几件宿主该做的事。
+        services.AddSingleton<PluginWorkspaceLauncher>(sp =>
+        {
+            PluginProtocolRegistry registry = sp.GetRequiredService<PluginProtocolRegistry>();
+            var launcher = new PluginWorkspaceLauncher(registry);
+            // 连接类型被注销(插件停用/卸载)→ 关掉它名下还开着的文档。
+            // 订阅放在这里而不是构造函数里:注册表是宿主单例,让它反向持有 launcher 的引用
+            // 只应发生一次,而 launcher 本身也是单例。
+            registry.Unregistered += launcher.OnUnregistered;
+            return launcher;
+        });
         // 远程文件服务对外仍是唯一的 ISftpService;路由按会话归属分派到 SFTP / FTP / 插件协议,
         // 文件浏览器、传输管理器、限速、拖放因此零改动。
         services.AddSingleton<ISftpService>(sp => new RoutingRemoteFileService(

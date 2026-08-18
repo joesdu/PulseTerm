@@ -539,17 +539,17 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
     {
         PluginManifest manifest = runtime.Descriptor.Manifest!;
         CommandContribution[] contributions = manifest.Contributes?.Commands ?? [];
-        int protocols = manifest.Contributes?.Protocols.Length ?? 0;
+        int protocols = (manifest.Contributes?.Protocols.Length ?? 0) + (manifest.Contributes?.Workspaces.Length ?? 0);
         if (contributions.Length == 0 && protocols == 0)
         {
-            Log($"Plugin '{manifest.Id}' has no onStartup activation and no contributed commands or protocols; it will never activate.");
+            Log($"Plugin '{manifest.Id}' has no onStartup activation and no contributed commands, protocols or workspaces; it will never activate.");
             return;
         }
         if (contributions.Length == 0)
         {
-            // 只贡献协议的插件(S3 就是):触发器是"用户在连接页选中这个协议页签",
+            // 只贡献连接类型的插件(S3、Redis 都是):触发器是"用户在连接页选中这个页签",
             // 由注册表经 ActivationRequested 回调驱动,这里没有占位命令要挂。
-            Log($"Plugin '{manifest.Id}' waiting lazily behind {protocols} protocol tab(s).");
+            Log($"Plugin '{manifest.Id}' waiting lazily behind {protocols} connection tab(s).");
             return;
         }
         ICommandsApi commands = GetOrCreateCommandsApi(runtime);
@@ -790,16 +790,21 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         }
     }
 
-    /// <summary>把某插件清单里声明的协议页签登记进注册表(仅对可用状态的插件)。</summary>
+    /// <summary>把某插件清单里声明的协议/工作台页签登记进注册表(仅对可用状态的插件)。</summary>
     private void DeclareProtocols(PluginRuntime runtime)
     {
-        if (options.ProtocolRegistry is not { } registry
-            || runtime.Descriptor.State != PluginState.Discovered
-            || runtime.Descriptor.Manifest?.Contributes?.Protocols is not { Length: > 0 } protocols)
+        if (options.ProtocolRegistry is not { } registry || runtime.Descriptor.State != PluginState.Discovered)
         {
             return;
         }
-        registry.Declare(runtime.Descriptor.Id, protocols);
+        if (runtime.Descriptor.Manifest?.Contributes?.Protocols is { Length: > 0 } protocols)
+        {
+            registry.Declare(runtime.Descriptor.Id, protocols);
+        }
+        if (runtime.Descriptor.Manifest?.Contributes?.Workspaces is { Length: > 0 } workspaces)
+        {
+            registry.DeclareWorkspaces(runtime.Descriptor.Id, workspaces);
+        }
     }
 
     /// <summary>
@@ -811,9 +816,12 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         PluginRuntime? runtime;
         lock (_gate)
         {
+            // 协议与工作台共用这一条惰性激活链路:两者在连接配置页上是同一排页签,
+            // 用户点中哪个都只是"按 id 找到声明它的插件并激活"。
             runtime = _plugins.FirstOrDefault(p =>
-                p.Descriptor.Manifest?.Contributes?.Protocols
-                    .Any(c => c.Id.Equals(protocolId, StringComparison.OrdinalIgnoreCase)) == true);
+                p.Descriptor.Manifest?.Contributes is { } contributes
+                && (contributes.Protocols.Any(c => c.Id.Equals(protocolId, StringComparison.OrdinalIgnoreCase))
+                    || contributes.Workspaces.Any(c => c.Id.Equals(protocolId, StringComparison.OrdinalIgnoreCase))));
         }
         return runtime is not null && await EnsureActivatedAsync(runtime).ConfigureAwait(false);
     }
@@ -1060,6 +1068,9 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
             Protocols = options.ProtocolRegistry is { } protocols
                 ? new ProtocolsCapability(manifest.Id, protocols, log)
                 : new UnavailableProtocols(),
+            Workspaces = options.ProtocolRegistry is { } workspaces
+                ? new WorkspacesCapability(manifest.Id, workspaces, log)
+                : new UnavailableWorkspaces(),
             Shutdown = _shutdown.Token
         };
     }

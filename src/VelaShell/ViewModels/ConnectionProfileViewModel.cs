@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.Globalization;
 using System.Security;
 using Avalonia.Threading;
@@ -61,7 +62,7 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
     // ---- 插件协议 ----
     private readonly PluginProtocolRegistry? _protocolRegistry;
     private string? _pluginProtocolId;
-    private ProtocolDescriptor? _pluginDescriptor;
+    private PluginConnectionForm? _pluginForm;
 
     /// <summary>编辑既有配置时读入的插件设置;表单还没渲染出来就保存的话原样带回。</summary>
     private Dictionary<string, string>? _pluginStored;
@@ -72,6 +73,13 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
     /// <see cref="PluginProtocolId" /> —— 后者会被切回内建协议时置 null。
     /// </summary>
     private string? _loadedProtocolId;
+
+    /// <summary>
+    /// 「已保存的 SSH 配置」下拉的候选,随跳板机候选一起加载。
+    /// 空列表也要有第一项("不经跳板机"),否则那个下拉在没有任何 SSH 配置时是空的,
+    /// 用户分不清"没得选"与"还没加载"。
+    /// </summary>
+    private List<PluginSessionChoice> _sshSessionChoices = [];
 
     /// <summary>创建视图模型;传入 <paramref name="existing" /> 时进入编辑模式回显字段,否则新建并应用默认端口/默认密钥路径。</summary>
     public ConnectionProfileViewModel(
@@ -188,14 +196,14 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
         // 表单是插件异步装载出来的,字段进集合的那一刻就得带上当前的折叠状态 ——
         // 只在切换「高级选项」时下发是不够的(先渲染后展开,首屏会把高级字段全画出来)。
         // 必须在下面那句可能触发装载的 SelectPluginProtocolAsync 之前接线。
-        PluginFields.CollectionChanged += (_, _) => ApplyPluginFieldVisibility();
+        // 订阅也挂在这里,而不是只在 SelectPluginProtocolAsync 的建行处:字段进集合有
+        // 两条路(插件装载后成批加,以及测试/将来的代码直接 Add),漏掉任一条就会出现
+        // "改了部署形态,主节点名不出现"这种只在一条路上复现的怪毛病。
+        PluginFields.CollectionChanged += OnPluginFieldsChanged;
         LoadPluginProtocols();
         // 页签不是一次性快照:插件发现跑在后台线程,对话框可能先于它打开;
         // 插件管理器又是非模态的,开着对话框也能启用/禁用插件。
-        if (_protocolRegistry is not null)
-        {
-            _protocolRegistry.Changed += OnProtocolsChanged;
-        }
+        _protocolRegistry?.Changed += OnProtocolsChanged;
         if (_connectionType == ConnectionType.Plugin && _pluginProtocolId is { Length: > 0 } existingProtocol)
         {
             // 编辑既有插件协议配置:进对话框就把表单渲染出来(会触发该插件的惰性激活)。
@@ -267,16 +275,16 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
     /// 沿用「主机名/IP」会让人以为要填某台服务器的地址 —— 同一个输入框,换个说法即可,
     /// 不必再开一个字段。文案由插件给(它才知道自己的领域词汇)。
     /// </summary>
-    public string HostLabel => _pluginDescriptor?.HostLabel ?? Strings.Get("Profile_HostIp");
+    public string HostLabel => _pluginForm?.HostLabel ?? Strings.Get("Profile_HostIp");
 
     /// <summary>「主机」输入框的占位提示。</summary>
-    public string HostPlaceholder => _pluginDescriptor?.HostPlaceholder ?? "192.168.1.100";
+    public string HostPlaceholder => _pluginForm?.HostPlaceholder ?? "192.168.1.100";
 
     /// <summary>「用户名」输入框的标签(插件协议可改写,如 Access Key ID)。</summary>
-    public string UsernameLabel => _pluginDescriptor?.UsernameLabel ?? Strings.Get("Username");
+    public string UsernameLabel => _pluginForm?.UsernameLabel ?? Strings.Get("Username");
 
     /// <summary>「密码」输入框的标签(插件协议可改写,如 Secret Access Key)。</summary>
-    public string PasswordLabel => _pluginDescriptor?.PasswordLabel ?? Strings.Get("Password");
+    public string PasswordLabel => _pluginForm?.PasswordLabel ?? Strings.Get("Password");
 
     /// <summary>
     /// 当前协议是否允许不填凭据直接连(匿名访问)。
@@ -317,8 +325,7 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
     /// 插件协议(Telnet 这种登录发生在带内的)一律收起 —— 摆着两个填了也发不出去的框,
     /// 只会让用户以为填上就能自动登录。
     /// </summary>
-    public bool ShowCredentialFields =>
-        _pluginDescriptor?.Features.HasFlag(ProtocolFeatures.NoCredentials) != true;
+    public bool ShowCredentialFields => _pluginForm?.ShowsCredentials != false;
 
     /// <summary>是否显示口令输入框:匿名 FTP 与无凭据协议不需要口令。</summary>
     public bool ShowPasswordField => IsPasswordAuth && ShowCredentialFields && !(IsFtpSelected && FtpAnonymous);
@@ -487,7 +494,11 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
     public string? ErrorMessage
     {
         get;
-        private set => this.RaiseAndSetIfChanged(ref field, value);
+        private set
+        {
+            this.RaiseAndSetIfChanged(ref field, value);
+            this.RaisePropertyChanged(nameof(HasFeedback));
+        }
     }
 
     /// <summary>最近一次连接测试结果;null 表示尚未测试,变更时同步刷新 <see cref="ShowTestSuccess" />。</summary>
@@ -498,11 +509,17 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
         {
             this.RaiseAndSetIfChanged(ref field, value);
             this.RaisePropertyChanged(nameof(ShowTestSuccess));
+            this.RaisePropertyChanged(nameof(HasFeedback));
         }
     }
 
     /// <summary>“连接测试成功”提示可见性。</summary>
     public bool ShowTestSuccess => LastTestSucceeded == true;
+
+    /// <summary>
+    /// 反馈条(钉在按钮上方那一条)是否可见 —— 有话说才占位置,免得空着一条边框。
+    /// </summary>
+    public bool HasFeedback => ShowTestSuccess || !string.IsNullOrWhiteSpace(ErrorMessage);
 
     /// <summary>记住密码(AES-256 加密存储);未勾选时密码只用于本次连接。</summary>
     public bool RememberPassword
@@ -633,6 +650,19 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
         await LoadJumpHostOptionsAsync();
     }
 
+    /// <summary>
+    /// SSH 配置候选。表单可能在候选加载完之前就渲染(协议激活与仓储读取是两条独立的异步链),
+    /// 那时至少要给出"不经跳板机"这一项 —— 一个空下拉会让用户以为功能坏了。
+    /// </summary>
+    private IReadOnlyList<PluginSessionChoice> EnsureSshSessionChoices()
+    {
+        if (_sshSessionChoices.Count == 0)
+        {
+            _sshSessionChoices = [new(string.Empty, Strings.Get("Msg_DirectConnection"))];
+        }
+        return _sshSessionChoices;
+    }
+
     /// <summary>跳板主机候选 = 除自身外的全部已保存配置(跳板需已存凭据才能免交互连上)。</summary>
     private async Task LoadJumpHostOptionsAsync()
     {
@@ -647,10 +677,19 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
             {
                 JumpHostOptions.RemoveAt(JumpHostOptions.Count - 1);
             }
+            // 插件字段里的「已保存的 SSH 配置」选择器与跳板机候选同源,但只收 SSH/SFTP 类型
+            // —— 拿一条 S3 配置去建隧道没有意义。第一项固定是"不经跳板机"。
+            _sshSessionChoices = [new(string.Empty, Strings.Get("Msg_DirectConnection"))];
             foreach (SessionProfile profile in profiles
                                                .Where(p => p.Id != _profileId)
                                                .OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase))
             {
+                if (profile.ConnectionType is ConnectionType.SSH or ConnectionType.SFTP)
+                {
+                    _sshSessionChoices.Add(new(
+                        profile.Id.ToString("N"),
+                        $"{profile.Name} ({profile.Host}:{profile.Port})"));
+                }
                 JumpHostOptions.Add(new(profile.Id, profile.Name));
             }
             SelectedJumpHost = JumpHostOptions.FirstOrDefault(option => option.Id == _jumpHostProfileId) ?? JumpHostOptions[0];
@@ -795,20 +834,93 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
     }
 
     /// <summary>
-    /// 按「高级选项」的展开状态下发插件字段的行可见性,并刷新页脚的 <see cref="AdvancedBadge" />。
+    /// 按「高级选项」的展开状态**与字段自己声明的显示条件**下发插件字段的行可见性,
+    /// 并刷新页脚的 <see cref="AdvancedBadge" />。
     /// <para>
     /// 折叠的是**行**而不是整个列表:行本身早就渲染好了,只是 IsVisible 变化 ——
     /// 若改成往一个隐藏容器里灌行,那些行会占着高度却画不出来(踩过)。
+    /// </para>
+    /// <para>
+    /// 两个条件是**与**关系,而且顺序上"条件不成立"优先:一个当前不适用的字段
+    /// (哨兵专用的主节点名,而形态选的是独立)即便展开高级选项也不该出现。
     /// </para>
     /// </summary>
     private void ApplyPluginFieldVisibility()
     {
         foreach (PluginProtocolFieldViewModel field in PluginFields)
         {
-            field.IsRowVisible = !field.IsAdvanced || IsAdvancedVisible;
+            bool applicable = field.Field.VisibleWhen is not { } condition
+                              || condition.IsSatisfiedBy(PluginFieldValue);
+            field.IsRowVisible = applicable && (!field.IsAdvanced || IsAdvancedVisible);
         }
         this.RaisePropertyChanged(nameof(AdvancedBadge));
         this.RaisePropertyChanged(nameof(HasAdvancedBadge));
+    }
+
+    /// <summary>
+    /// 字段进出集合时接线/退订,并重算一次可见性。
+    /// <para>
+    /// 退订必须与移除同一条路径,漏掉就是每次切协议留一批活着的处理器,
+    /// 用户来回点几次页签后一次赋值会触发十几遍可见性重算。
+    /// </para>
+    /// </summary>
+    private void OnPluginFieldsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        foreach (PluginProtocolFieldViewModel row in e.OldItems?.OfType<PluginProtocolFieldViewModel>() ?? [])
+        {
+            row.PropertyChanged -= OnPluginFieldChanged;
+        }
+        foreach (PluginProtocolFieldViewModel row in e.NewItems?.OfType<PluginProtocolFieldViewModel>() ?? [])
+        {
+            // 先减后加:Replace 事件里同一个实例可能同时出现在两侧。
+            row.PropertyChanged -= OnPluginFieldChanged;
+            row.PropertyChanged += OnPluginFieldChanged;
+        }
+        ApplyPluginFieldVisibility();
+    }
+
+    /// <summary>
+    /// 清空插件字段。<c>ObservableCollection.Clear</c> 发的是 <c>Reset</c> —— 它**不带**
+    /// OldItems,所以退订不能只靠集合事件,这里显式走一遍。
+    /// </summary>
+    private void ClearPluginFields()
+    {
+        foreach (PluginProtocolFieldViewModel row in PluginFields)
+        {
+            row.PropertyChanged -= OnPluginFieldChanged;
+        }
+        PluginFields.Clear();
+    }
+
+    /// <summary>被依赖字段的值一变就重算所有行的可见性(只关心值,不关心可见性自身的变化)。</summary>
+    private void OnPluginFieldChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(PluginProtocolFieldViewModel.Text)
+                           or nameof(PluginProtocolFieldViewModel.Toggle)
+                           or nameof(PluginProtocolFieldViewModel.SelectedChoice))
+        {
+            ApplyPluginFieldVisibility();
+        }
+    }
+
+    /// <summary>
+    /// 按键取表单里某个插件字段的当前值(显示条件求值用);字段不存在时返回
+    /// <see langword="null" />,由条件自行按"取不到即不成立"处理。
+    /// <para>
+    /// 隐藏字段也在这里查得到:证书指纹之类不进表单,但拿它当显示条件是合法的。
+    /// </para>
+    /// </summary>
+    private string? PluginFieldValue(string key)
+    {
+        foreach (PluginProtocolFieldViewModel candidate in PluginFields)
+        {
+            if (string.Equals(candidate.Key, key, StringComparison.Ordinal))
+            {
+                return candidate.Text;
+            }
+        }
+        return (_pluginStored?.TryGetValue(key, out string? stored) == true ? stored : null)
+               ?? (_pluginForm?.Fields.FirstOrDefault(f => string.Equals(f.Key, key, StringComparison.Ordinal))?.DefaultValue);
     }
 
     /// <summary>把表单字段收集成落盘字典;<paramref name="secrets" /> 决定收机密还是非机密那一半。</summary>
@@ -862,12 +974,12 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
         {
             // 真的换了协议:上一个协议的字段与已存值都不能留,否则等激活的这段时间里
             // 表单还是旧协议的样子,此时保存会把 A 的键值写进 B 的配置。
-            PluginFields.Clear();
-            _pluginDescriptor = null;
+            ClearPluginFields();
+            _pluginForm = null;
             _pluginStored = null;
             _pluginStoredSecrets = null;
         }
-        else if (_pluginDescriptor is not null
+        else if (_pluginForm is not null
                  && string.Equals(_loadedProtocolId, protocolId, StringComparison.Ordinal))
         {
             // 重复点当前页签:表单已经渲染好了,直接返回。
@@ -888,8 +1000,16 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
         bool applied = false;
         try
         {
-            // 这一步可能真的去装载插件程序集(onProtocol 惰性激活),因此是异步的。
-            PluginProtocolRegistration? registration = await registry.ResolveAsync(protocolId).ConfigureAwait(true);
+            // 这一步可能真的去装载插件程序集(onProtocol / onWorkspace 惰性激活),因此是异步的。
+            // 形态由**声明**决定,查它不会装载任何程序集;两条解析路径拿到的描述随即被
+            // 归一成 PluginConnectionForm,后面的表单渲染只有一条路。
+            PluginConnectionForm? form = registry.KindOf(protocolId) == PluginConnectionKind.Workspace
+                ? await registry.ResolveWorkspaceAsync(protocolId).ConfigureAwait(true) is { } workspace
+                    ? PluginConnectionForm.From(workspace.Descriptor)
+                    : null
+                : await registry.ResolveAsync(protocolId).ConfigureAwait(true) is { } fileSystem
+                    ? PluginConnectionForm.From(fileSystem.Descriptor)
+                    : null;
             // **陈旧续体作废**:装载期间用户可能已经点去了 SSH 或另一个协议(协议页签不受
             // canExecute 约束)。不校验就会把 S3 的描述符盖到 SSH 表单上,
             // 主机那格显示「服务端点」、用户名显示「Access Key ID」。
@@ -899,13 +1019,13 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
                 return;
             }
             applied = true;
-            _pluginDescriptor = registration?.Descriptor;
+            _pluginForm = form;
             _loadedProtocolId = protocolId;
             // 插件被禁用/装载失败:表单是空的,而 AllowsAnonymous 随之为 false,
             // 匿名配置的保存/连接会同时灰死。给一条能看懂的话,别让用户对着灰按钮猜。
-            PluginUnavailable = registration is null;
-            PluginFields.Clear();
-            foreach (ProtocolSettingField field in _pluginDescriptor?.Fields ?? [])
+            PluginUnavailable = form is null;
+            ClearPluginFields();
+            foreach (ProtocolSettingField field in _pluginForm?.Fields ?? [])
             {
                 if (field.IsHidden)
                 {
@@ -916,7 +1036,8 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
                                  && bag.TryGetValue(field.Key, out string? value)
                     ? value
                     : null;
-                PluginFields.Add(new(field, stored));
+                PluginFields.Add(new(field, stored,
+                    field.Kind == ProtocolSettingKind.SshSession ? EnsureSshSessionChoices() : null));
             }
             // 编辑既有配置时,高级字段里只要有一处不是默认值就自动展开:
             // 用户填过的东西不能藏起来(否则"我明明设过分片大小"变成一次静默丢失的错觉),
@@ -926,6 +1047,10 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
             {
                 IsAdvancedVisible = true;
             }
+            // 显式下发一次:上面那个自动展开只在有非默认高级字段时才会经 setter 触发,
+            // 而显示条件对**新建**配置(全默认)也必须一开始就生效 ——
+            // 少了这句,「主节点名」会在独立形态下先露出来,直到用户碰一下别的字段才消失。
+            ApplyPluginFieldVisibility();
         }
         finally
         {
@@ -1017,10 +1142,7 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
     /// </summary>
     public void Dispose()
     {
-        if (_protocolRegistry is not null)
-        {
-            _protocolRegistry.Changed -= OnProtocolsChanged;
-        }
+        _protocolRegistry?.Changed -= OnProtocolsChanged;
     }
 
     /// <summary>把注册表里的协议页签同步到界面(打开对话框时调用)。</summary>
@@ -1053,8 +1175,8 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
             StashPluginFieldValues();
             // 描述符也必须清:三格标签只看它、不看 ConnectionType,不清的话
             // 「S3 → SSH」之后主机那格会一直写着「服务端点」、用户名写着「Access Key ID」。
-            _pluginDescriptor = null;
-            PluginFields.Clear();
+            _pluginForm = null;
+            ClearPluginFields();
             PluginUnavailable = false;
             RaisePluginLabelsChanged();
         }
@@ -1097,10 +1219,7 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
         this.RaisePropertyChanged(nameof(ShowCredentialFields));
         this.RaisePropertyChanged(nameof(ShowPasswordField));
         // 走属性 setter 而不是只发通知:它要驱动 canExecute 的组合器重算。
-        // NoCredentials 蕴含匿名:没有凭据这回事,就不能拿"用户名没填"把连接按钮堵死。
-        ProtocolFeatures features = _pluginDescriptor?.Features ?? ProtocolFeatures.None;
-        AllowsAnonymous = features.HasFlag(ProtocolFeatures.AnonymousAccess)
-                          || features.HasFlag(ProtocolFeatures.NoCredentials);
+        AllowsAnonymous = _pluginForm?.AllowsAnonymous == true;
     }
 
     /// <summary>

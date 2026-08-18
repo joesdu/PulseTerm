@@ -30,6 +30,17 @@ public sealed class PluginProtocolTabViewModel(string id, string displayName, in
 }
 
 /// <summary>
+/// "已保存的 SSH 配置"下拉里的一项。
+/// <para>
+/// 空 <see cref="Id" /> 表示"不经跳板机" —— 它必须是列表里的第一项而不是靠"没选中"表达:
+/// 一个空着的下拉在界面上无法区分"我不用隧道"与"我还没选"。
+/// </para>
+/// </summary>
+/// <param name="Id">会话配置 id;空串表示不经跳板机。</param>
+/// <param name="Display">展示文本(名称 + 主机)。</param>
+public sealed record PluginSessionChoice(string Id, string Display);
+
+/// <summary>
 /// 连接配置页上的一个插件协议设置字段。
 /// <para>
 /// 宿主按插件声明的 <see cref="ProtocolSettingField" /> 渲染出与内建协议一致的表单,
@@ -46,10 +57,18 @@ public sealed class PluginProtocolFieldViewModel : ReactiveObject
     /// <summary>创建字段视图模型。</summary>
     /// <param name="field">插件声明的字段。</param>
     /// <param name="value">当前值;为 null 时用字段声明的默认值。</param>
-    public PluginProtocolFieldViewModel(ProtocolSettingField field, string? value)
+    /// <param name="sshSessions">
+    /// 可选的 SSH 配置候选(仅 <see cref="ProtocolSettingKind.SshSession" /> 形态用到)。
+    /// 由 <see cref="ConnectionProfileViewModel" /> 传入 —— 字段视图模型不该认识会话仓储。
+    /// </param>
+    public PluginProtocolFieldViewModel(
+        ProtocolSettingField field,
+        string? value,
+        IReadOnlyList<PluginSessionChoice>? sshSessions = null)
     {
         ArgumentNullException.ThrowIfNull(field);
         Field = field;
+        SshSessions = sshSessions ?? [];
         _text = value ?? field.DefaultValue ?? string.Empty;
         // 下拉的值对不上任何选项时(插件没给默认值、或升级后换了枚举),在构造时就归一到第一项。
         // 放在 getter 里兜底是不行的:源→目标方向的推送不经过 setter,界面显示第一项、
@@ -111,6 +130,28 @@ public sealed class PluginProtocolFieldViewModel : ReactiveObject
     /// <summary>是否为下拉选择。</summary>
     public bool IsChoice => Field.Kind == ProtocolSettingKind.Choice;
 
+    /// <summary>是否为"已保存的 SSH 配置"选择器。</summary>
+    public bool IsSshSession => Field.Kind == ProtocolSettingKind.SshSession;
+
+    /// <summary>SSH 配置候选(含一条"不经跳板机"的空项)。</summary>
+    public IReadOnlyList<PluginSessionChoice> SshSessions { get; }
+
+    /// <summary>
+    /// 当前选中的 SSH 配置;值对不上任何一条(配置被删了)时取"不经跳板机" ——
+    /// **不能保留那个失效的 id**,否则打开会话时会拿一个找不到的跳板机去建隧道。
+    /// </summary>
+    public PluginSessionChoice? SelectedSshSession
+    {
+        get => SshSessions.FirstOrDefault(choice => choice.Id == _text) ?? SshSessions.FirstOrDefault();
+        set
+        {
+            if (value is not null)
+            {
+                Text = value.Id;
+            }
+        }
+    }
+
     /// <summary>文本/口令/数字/下拉的当前值(下拉存的是选项的 <c>Value</c>)。</summary>
     public string Text
     {
@@ -120,6 +161,7 @@ public sealed class PluginProtocolFieldViewModel : ReactiveObject
             this.RaiseAndSetIfChanged(ref _text, value);
             this.RaisePropertyChanged(nameof(Toggle));
             this.RaisePropertyChanged(nameof(SelectedChoice));
+            this.RaisePropertyChanged(nameof(SelectedSshSession));
         }
     }
 

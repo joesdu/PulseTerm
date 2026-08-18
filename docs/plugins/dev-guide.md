@@ -228,9 +228,10 @@ vela-plugin dev-unlink bin/Debug/net11.0   # 取消
 | `author` | | 作者,展示在插件管理页(如 `"Joe <joe@example.com>"`,≤128 字符、不许控制字符)。缺省时管理页退回显示 `publisher` |
 | `apiLevel` | | 默认 1;高于宿主支持的代际 → 标记 Incompatible 拒载 |
 | `minHostVersion` | | 要求的最低宿主版本;不满足 → Incompatible |
-| `activationEvents` | | 省略或含 `"onStartup"` = 启动激活;`"onCommand:<命令id>"` / `"onProtocol:<协议id>"` = **惰性激活**(命中占位命令、或用户选中该协议页签才装载;须在对应的 `contributes.*` 里声明) |
+| `activationEvents` | | 省略或含 `"onStartup"` = 启动激活;`"onCommand:<命令id>"` / `"onProtocol:<协议id>"` / `"onWorkspace:<连接类型id>"` = **惰性激活**(命中占位命令、或用户选中该页签才装载;须在对应的 `contributes.*` 里声明) |
 | `contributes.commands` | | 声明式命令占位 `[{id,title,category}]`:发现期即进命令面板,id 必须以插件 id 为前缀;激活时插件应 `Register` 同 id 的真实处理器替换占位 |
 | `contributes.protocols` | | 声明式协议页签 `[{id,displayName,defaultPort}]`:发现期即进连接配置页(**不装载程序集**),id 必须等于插件 id 或以其为前缀;设置表单在激活后由 `ProtocolDescriptor` 补齐。要求 `hostMode` 为 `inProcess` |
+| `contributes.workspaces` | | 声明式**非文件型**连接页签 `[{id,displayName,defaultPort}]`(Redis、MySQL…):与协议页签同一条条带、同一套 id 规则,但打开会话时宿主向插件索取一个控件挂成停靠文档而不是打开文件浏览器。见 §5.14;同样要求 `inProcess`,且 id 不得与本清单里的协议 id 相撞 |
 | `idlePolicy` | | `"keepAlive"`(默认)/ `"recyclable"`:隔离模式下连续空闲(无 RPC 且无打开面板,默认 15 分钟)即回收进程,占位命令留守待再触发 |
 | `homepage` / `license` | | 元信息 |
 
@@ -566,6 +567,20 @@ context.Protocols.Register(
   字段一多就会把对话框顶出屏幕:调优类参数(分片大小、并发数之类有合理默认值、
   绝大多数人不会改的)标 `IsAdvanced`,宿主默认收进「高级选项」里折叠,
   并在页脚报出被收走的数量;编辑既有配置时,只要有高级字段的值不等于声明的默认值就自动展开。
+- **互斥的字段用 `VisibleWhen` 声明,不要用一行小字解释**:
+
+  ```csharp
+  new() { Key = "masterName", Label = "主节点名", VisibleWhen = new("mode", "sentinel") },
+  new() { Key = "database",   Label = "默认数据库", VisibleWhen = new("mode", ["standalone", "sentinel"]) },
+  ```
+
+  条件的形状**刻意封闭**:只有"某个键 ∈ 某个值集合"这一种判据,没有表达式、没有与或非。
+  一旦引入表达式,校验、本地化与"这字段为什么不见了"的可解释性就一起失控 ——
+  那就成了通用声明式 UI,而那件事蓝图 08 明确不做;真需要多条件的插件应当拆成两种连接类型。
+  条件不成立时字段从表单上消失,但**已存的值照常保留并回传**(与 `IsHidden` 同一套存取语义):
+  用户在哨兵模式下填过主节点名,切去独立瞄一眼再切回来,不该发现自己填的东西被界面清掉了。
+  `VisibleWhen` 与 `IsAdvanced` 是**与**关系,且"条件不成立"优先 ——
+  当前不适用的字段,展开高级选项也不该出现。
 - **右键菜单也是声明式的**:`Actions` 在按下右键那一帧就画得出来,点击后宿主调
   `InvokeActionAsync`,你自己决定做什么(通常是开一个 `Ui` 面板)。
 - **进度不必自己节流**:宿主已按 ≥100ms 收敛并做了并发乱序下的单调处理,放心每读一块就报一次。
@@ -641,6 +656,86 @@ ValueTask       ResizeAsync(int columns, int rows, CancellationToken ct);
   "连接后执行命令"也不会发(Telnet 连上先看到的是 `login:`,注入命令等于打进登录提示符)。
 
 完整示例:`plugins/VelaShell.Plugin.Telnet`(RFC 854 协商 + NAWS + 8 位透明,零第三方依赖)。
+
+### 5.14 Workspaces —— 自带非文件型连接(Redis / MySQL / Kafka …)
+
+协议能力(§5.13)的前提是"这个协议长得像文件系统"。**不像**的那些 —— 键值库、消息队列、
+数据库 —— 用工作台能力:连接对话框、凭据加密落盘、登录弹窗、云同步、会话树与最近连接
+全部复用宿主既有机制,**插件只负责交出一个 Avalonia 控件**。
+
+```csharp
+context.Workspaces.Register(
+    new WorkspaceDescriptor
+    {
+        Id = context.PluginId,               // 或 $"{context.PluginId}.<子类型>"
+        DisplayName = "Redis",
+        DefaultPort = 6379,
+        HostLabel = "服务地址",              // 可改写主机/用户名/密码三格的标签
+        Fields = [ new() { Key = "mode", Label = "部署形态", Kind = ProtocolSettingKind.Choice, … } ],
+        Features = WorkspaceFeatures.AnonymousAccess | WorkspaceFeatures.CertificateTrust,
+        TrustedThumbprintSettingKey = "trustedThumbprint"   // 须是 Fields 里一个 IsHidden 字段
+    },
+    new MyWorkspaceProvider(context));
+```
+
+提供方在宿主打开会话时被调用,交出一个文档:
+
+```csharp
+internal sealed class MyWorkspaceProvider(IPluginContext context) : IWorkspaceProvider
+{
+    public async Task<IWorkspaceDocument> OpenAsync(WorkspaceConnectRequest request, CancellationToken ct)
+    {
+        // request.Host/Port/Username/Password 是**一次性**凭据;Settings 已按声明补齐默认值。
+        MyConnection connection = await MyConnection.ConnectAsync(request, ct);   // 须在返回前连上
+        return new MyDocument(connection);      // CreateView() 由宿主在 UI 线程调一次
+    }
+}
+```
+
+- **表单与协议能力共用同一套声明**(`ProtocolSettingField`):文本/口令/布尔/整数/下拉/
+  **已保存的 SSH 配置**六种形态,调优类字段标 `IsAdvanced` 收进「高级选项」,
+  只在某种形态下有意义的字段用 `VisibleWhen` 声明(见 §5.13)。
+  **插件没有一行连接对话框的界面代码。**
+- **「测试」按钮走插件自己的路**:插件连接的握手不是 SSH,宿主不会拿 SSH 去撞你的端口。
+  它按声明分流 —— 工作台形态真开一次 `OpenAsync` 再立刻 `DisposeAsync`(隧道一并建好又拆掉),
+  文件系统形态开一次会话再关掉。所以 `OpenAsync` **必须能被反复调用且不留副作用**;
+  抛出的异常消息会原样出现在对话框里,写得让用户能照着改配置。
+- **声明式 SSH 隧道**:连接类型声明 `WorkspaceFeatures.SshTunnel`、并给一个
+  `ProtocolSettingKind.SshSession` 形态的字段,宿主就会在打开会话**之前**建好 SSH 会话
+  与本地端口转发,把改写过的本地端点递给 `OpenAsync`(真实目标在
+  `WorkspaceConnectRequest.Tunnel` 里,仅供界面显示来路);文档关闭时隧道自动拆除。
+  **插件因此一行 SSH 代码都不用写、一次凭据都不用见** —— 建会话要走宿主既有的两步认证、
+  指纹校验与 ProxyJump 链路,而"凭据永不出宿主"是硬规则。
+- **提议一条连接**:`context.Workspaces.ProposeConnectionAsync(...)` 让宿主打开自己的
+  「新建连接」对话框并预填(用于"插件探测到了某个服务"的场景)。
+  **插件不能自己写宿主的会话库** —— 那是用户数据、凭据也在里面;它只能提议,
+  由用户过一眼再按保存。提议的连接类型 id 必须属于本插件。
+- **异常约定与协议能力完全一致**:`ProtocolAuthenticationException`(宿主重弹登录框)、
+  `ProtocolCertificateTrustException`(弹信任提示、记指纹后重连)、`ProtocolConnectionException`、
+  `ProtocolUnsupportedException`。**认证失败一定要单独认出来** —— 宿主看到它才会重弹登录框,
+  而"连不上"对"密码打错了"是最无用的反馈。
+- **文档生命周期**:`CreateView()` 由宿主在 UI 线程调用一次(返回 `Control`;抛异常或返回非控件
+  只会让那一个标签页显示一行说明,不会带走宿主);`StatusChanged` 驱动标签页与会话树的状态圆点;
+  `ReconnectAsync` 接标签页上的"重连";用户关闭标签页或插件停用时 `DisposeAsync`。
+- **语言切换要重注册但必须复用同一个 provider 实例**:注册表把"同 id 换成另一个实现"视为旧实现
+  失效,会通知宿主关掉该类型名下所有已打开的文档 —— 用户只是切了个语言,标签页不该全没了。
+- **要在装载插件之前就出现在连接页**,须在 `plugin.json` 里同时声明:
+
+```jsonc
+{
+  "contributes": { "workspaces": [{ "id": "acme.cache", "displayName": "Acme", "defaultPort": 6379 }] },
+  "activationEvents": [ "onWorkspace:acme.cache" ]   // 用户点到这个页签才装载
+}
+```
+
+> **硬约束:工作台能力仅 `inProcess`。** 宿主要向插件索取一个 Avalonia 控件挂进停靠区,
+> 而原生控件无法跨进程嵌入(蓝图 08 已弃用 HWND 收养)。声明了 `contributes.workspaces`
+> 又要 `isolated` 的清单会在发现期被拒绝并给出原因。
+>
+> **id 发布后不可更改**,规则与协议 id 完全相同(全小写、以插件 id 为前缀、≤128 字符),
+> 两者**共用同一个判定与同一个页签条带**,因此同一份清单里工作台 id 与协议 id 也不得相撞。
+
+完整示例:`plugins/VelaShell.Plugin.Redis`(键空间浏览器 + 类型详情 + 声明式连接表单)。
 
 ## 6. 隔离进程模式(isolated)
 
@@ -759,6 +854,7 @@ public async Task Refresh_ListsContainers()
 | 空闲回收(04) | **已实现**(隔离模式 + `idlePolicy: "recyclable"`) |
 | secrets / clipboard 能力域(07) | **已实现**(§5.10/§5.11;无权限系统,信任即安装口径) |
 | protocols 能力域(07) | **已实现**(§5.13):插件可自带远程文件协议,复用宿主的浏览器/传输栈;仅 `inProcess`。首个使用者是官方 S3 插件 |
+| workspaces 能力域(07) | **已实现**(§5.14):插件可自带**非文件型**连接类型,界面由插件全权渲染而连接配置/凭据/会话树复用宿主;仅 `inProcess`。首个使用者是官方 Redis 插件 |
 | localFs / audio / ai 等能力域(07) | 未开口;开新能力域必须回写蓝图并只增不改 |
 
 新增能力时的纪律:先在本文件与对应蓝图文档登记,接口进 `VelaShell.PluginSdk`

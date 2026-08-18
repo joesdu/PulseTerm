@@ -146,11 +146,23 @@ public static partial class PluginManifestReader
                 }
                 continue;
             }
+            if (activationEvent.StartsWith("onWorkspace:", StringComparison.OrdinalIgnoreCase))
+            {
+                string workspaceId = activationEvent["onWorkspace:".Length..];
+                if ((manifest.Contributes?.Workspaces ?? []).All(w => !w.Id.Equals(workspaceId, StringComparison.Ordinal)))
+                {
+                    throw new PluginManifestException(
+                        $"Activation event '{activationEvent}' has no matching entry in contributes.workspaces " +
+                        "(the connection tab must be declared so it exists before activation).");
+                }
+                continue;
+            }
             throw new PluginManifestException(
-                $"Unknown activation event '{activationEvent}': supported are \"onStartup\", \"onCommand:<commandId>\" " +
-                "and \"onProtocol:<protocolId>\".");
+                $"Unknown activation event '{activationEvent}': supported are \"onStartup\", \"onCommand:<commandId>\", " +
+                "\"onProtocol:<protocolId>\" and \"onWorkspace:<workspaceId>\".");
         }
         ValidateProtocols(manifest, prefix);
+        ValidateWorkspaces(manifest, prefix);
         foreach (CommandContribution command in manifest.Contributes?.Commands ?? [])
         {
             if (string.IsNullOrWhiteSpace(command.Id) || !command.Id.StartsWith(prefix, StringComparison.Ordinal))
@@ -226,6 +238,58 @@ public static partial class PluginManifestReader
             {
                 throw new PluginManifestException(
                     $"Contributed protocol '{protocol.Id}' has an out-of-range defaultPort {protocol.DefaultPort}.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// 工作台贡献校验。规则与协议贡献同源(id 前缀/字符集、名称、端口、不得与隔离进程共存),
+    /// 另加一条:**同一份清单里工作台 id 不得与协议 id 相撞** ——
+    /// 两者在连接配置页上是同一排页签,也落进同一个 <c>PluginProtocolId</c> 字段,
+    /// 撞了就会出现"同一个 id 既是文件协议又是工作台"的歧义。
+    /// <para>
+    /// 隔离进程被拒的理由与协议不同但同样根本:宿主要向插件索取一个 Avalonia 控件挂进停靠区,
+    /// 而原生控件无法跨进程嵌入(蓝图 08 已弃用 HWND 收养)。
+    /// </para>
+    /// </summary>
+    private static void ValidateWorkspaces(PluginManifest manifest, string prefix)
+    {
+        WorkspaceContribution[] workspaces = manifest.Contributes?.Workspaces ?? [];
+        if (workspaces.Length == 0)
+        {
+            return;
+        }
+        if (manifest.HostMode == PluginHostMode.Isolated)
+        {
+            throw new PluginManifestException(
+                "contributes.workspaces requires hostMode \"inProcess\": the host asks the plugin for an Avalonia " +
+                "control to host as a dock document, and native controls cannot be embedded across processes. " +
+                "Remove \"hostMode\": \"isolated\" or drop the workspace contribution.");
+        }
+        var seen = new HashSet<string>(
+            (manifest.Contributes?.Protocols ?? []).Select(static p => p.Id), StringComparer.Ordinal);
+        foreach (WorkspaceContribution workspace in workspaces)
+        {
+            if (!IsValidProtocolId(workspace.Id, manifest.Id))
+            {
+                throw new PluginManifestException(
+                    $"Invalid contributed workspace id '{workspace.Id}': must be lowercase [a-z0-9.-], at most 128 chars, " +
+                    $"and be '{manifest.Id}' or start with '{prefix}'.");
+            }
+            if (!seen.Add(workspace.Id))
+            {
+                throw new PluginManifestException(
+                    $"Duplicate contributed connection id '{workspace.Id}': workspace ids must not collide with each " +
+                    "other or with contributed protocol ids (they share one tab strip and one stored id).");
+            }
+            if (string.IsNullOrWhiteSpace(workspace.DisplayName))
+            {
+                throw new PluginManifestException($"Contributed workspace '{workspace.Id}' must have a non-empty displayName.");
+            }
+            if (workspace.DefaultPort is < 1 or > 65535)
+            {
+                throw new PluginManifestException(
+                    $"Contributed workspace '{workspace.Id}' has an out-of-range defaultPort {workspace.DefaultPort}.");
             }
         }
     }

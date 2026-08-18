@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -3722,5 +3722,11 @@ Windows는 exe 전체 경로 또는 명령 이름(예: notepad), Linux는 명령
   </data>
   <data name="Plugin_ProtocolUnavailable" xml:space="preserve">
     <value>이 프로토콜을 제공하는 플러그인을 사용할 수 없습니다. 플러그인 관리에서 설치하거나 활성화하세요.</value>
+  </data>
+  <data name="Plugin_JumpSessionMissing" xml:space="preserve">
+    <value>이 연결이 사용할 SSH 설정을 찾을 수 없습니다. 연결 설정에서 다른 항목을 선택하세요. 대상에 직접 연결하면 내부용 트래픽이 공용 네트워크로 나갑니다.</value>
+  </data>
+  <data name="Plugin_TestUnavailable" xml:space="preserve">
+    <value>이 연결 유형은 여기서 테스트할 수 없습니다. 「연결」을 누르면 플러그인이 패널에 실제 결과를 표시합니다.</value>
   </data>
 </root>
