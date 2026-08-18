@@ -84,7 +84,29 @@ public static partial class PluginManifestReader
             throw new PluginManifestException(
                 $"Invalid minHostVersion '{minHost}': expected semver-style like \"0.1.0\".");
         }
+        ValidateDisplayText(manifest.Author, "author");
+        ValidateDisplayText(manifest.Publisher, "publisher");
         ValidateActivation(manifest);
+    }
+
+    /// <summary>
+    /// 纯展示字段(author / publisher)的校验:限长并拒绝控制字符 —— 这些串会原样进插件管理页,
+    /// 换行与回车能把一行卡片撑成一屏,回退符还能伪造出别的插件名。
+    /// </summary>
+    private static void ValidateDisplayText(string? value, string field)
+    {
+        if (value is null)
+        {
+            return;
+        }
+        if (value.Length > 128)
+        {
+            throw new PluginManifestException($"Invalid {field}: must be at most 128 characters.");
+        }
+        if (value.Any(char.IsControl))
+        {
+            throw new PluginManifestException($"Invalid {field}: control characters are not allowed.");
+        }
     }
 
     /// <summary>激活事件与贡献点校验:未知事件与越界命名一律拒绝(拼写错误不许静默失效)。</summary>

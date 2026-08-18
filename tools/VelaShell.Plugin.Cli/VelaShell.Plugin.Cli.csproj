@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>VelaShell.Plugin.Cli</RootNamespace>
+    <Description>VelaShell 插件开发命令行工具(vela-plugin):校验清单、打 .vpx 包、生成签名密钥并签名/验签、把插件工程输出挂进本机 VelaShell 做开发调试。</Description>
+    <PackageId>VelaShell.Plugin.Cli</PackageId>
+    <PackageTags>velashell;plugin;cli;dotnet-tool;vpx</PackageTags>
+    <!-- 版本跟着 SDK 系列走。不写这三行的话会继承根 Directory.Build.props 的**宿主**版本,
+         于是 `vela-plugin` 报出来的版本号是宿主的,与包版本对不上。 -->
+    <Version>$(VelaSdkVersion)</Version>
+    <AssemblyVersion>$(VelaSdkMajor).0.0.0</AssemblyVersion>
+    <FileVersion>$(VelaSdkVersionCore)</FileVersion>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/joesdu/VelaShell</PackageProjectUrl>
+
+    <!-- 打成 dotnet tool:`dotnet tool install -g VelaShell.Plugin.Cli` 后即有 `vela-plugin` 命令。
+         同一份构建产物还会被 VelaShell.PluginSdk.Build 包收进 tools/,
+         让 `dotnet build -t:PackVpx` 无需安装任何工具就能出包。 -->
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>vela-plugin</ToolCommandName>
+
+    <!-- 命令行工具没有公开 API 面,不产出 XML 文档(也就不需要给内部类型逐个写文档注释)。 -->
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 容器读写与清单校验都在 SDK 里:宿主装包与工具出包必须走同一份实现,
+         否则"本机打得出、宿主装不上"这种事迟早发生。 -->
+    <ProjectReference Include="..\..\plugin-sdk\VelaShell.PluginSdk\VelaShell.PluginSdk.csproj" />
+  </ItemGroup>
+
+</Project>

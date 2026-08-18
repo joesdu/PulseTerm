@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Globalization;
 using System.Security;
@@ -203,10 +203,7 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
         LoadPluginProtocols();
         // 页签不是一次性快照:插件发现跑在后台线程,对话框可能先于它打开;
         // 插件管理器又是非模态的,开着对话框也能启用/禁用插件。
-        if (_protocolRegistry is not null)
-        {
-            _protocolRegistry.Changed += OnProtocolsChanged;
-        }
+        _protocolRegistry?.Changed += OnProtocolsChanged;
         if (_connectionType == ConnectionType.Plugin && _pluginProtocolId is { Length: > 0 } existingProtocol)
         {
             // 编辑既有插件协议配置:进对话框就把表单渲染出来(会触发该插件的惰性激活)。
@@ -1145,10 +1142,7 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
     /// </summary>
     public void Dispose()
     {
-        if (_protocolRegistry is not null)
-        {
-            _protocolRegistry.Changed -= OnProtocolsChanged;
-        }
+        _protocolRegistry?.Changed -= OnProtocolsChanged;
     }
 
     /// <summary>把注册表里的协议页签同步到界面(打开对话框时调用)。</summary>

@@ -45,6 +45,12 @@ public sealed class PluginDescriptor
     /// <summary>失败/拒绝原因(状态为 Invalid/Incompatible/Failed 时非空)。</summary>
     public string? Error { get; internal set; }
 
+    /// <summary>
+    /// 是否来自开发期插件根(<see cref="PluginManagerOptions.DevPluginRoots" />):
+    /// 直接挂载的插件工程输出目录,未经打包与安装。管理页据此显示 DEV 角标。
+    /// </summary>
+    public bool IsDevelopment { get; internal set; }
+
     /// <summary>插件 id;清单非法时退化为目录名。</summary>
     public string Id => Manifest?.Id ?? Path.GetFileName(Directory);
 }

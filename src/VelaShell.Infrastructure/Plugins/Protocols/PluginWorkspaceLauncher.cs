@@ -70,15 +70,10 @@ public sealed class PluginWorkspaceLauncher(PluginProtocolRegistry registry)
     {
         ArgumentNullException.ThrowIfNull(profile);
         string? typeId = profile.PluginProtocolId;
-        PluginWorkspaceRegistration? registration = await registry.ResolveWorkspaceAsync(typeId).ConfigureAwait(false);
-        if (registration is null)
-        {
-            throw new PluginProtocolUnavailableException(typeId,
+        PluginWorkspaceRegistration? registration = await registry.ResolveWorkspaceAsync(typeId).ConfigureAwait(false) ?? throw new PluginProtocolUnavailableException(typeId,
                 string.IsNullOrWhiteSpace(typeId)
                     ? "This session profile does not name a plugin connection type."
                     : $"Connection type '{typeId}' is not available. Install or enable the plugin that provides it.");
-        }
-
         var sessionId = Guid.NewGuid();
         var request = new WorkspaceConnectRequest
         {

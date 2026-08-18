@@ -19,6 +19,14 @@ public sealed class PluginManagerOptions
     /// <summary>插件发现根目录(按序;同 id 先到先得)。不存在的目录自动跳过。</summary>
     public required IReadOnlyList<string> PluginRoots { get; init; }
 
+    /// <summary>
+    /// 开发期插件根目录:与 <see cref="PluginRoots" /> 同样被扫描(排在其后),但发现出的插件
+    /// 会被标记为 <see cref="PluginDescriptor.IsDevelopment" />,在管理页显示 DEV 角标。
+    /// 用途是把插件工程的 <c>bin/Debug/net11.0</c> 直接挂进宿主 —— 改完 <c>dotnet build</c>
+    /// 重启即生效,不必打包、不必安装。来源见 <see cref="DevPluginRootResolver" />。
+    /// </summary>
+    public IReadOnlyList<string> DevPluginRoots { get; init; } = [];
+
     /// <summary>插件私有数据根目录:每插件一个 <c>&lt;root&gt;/&lt;pluginId&gt;/</c> 子目录。</summary>
     public required string DataRootDirectory { get; init; }
 
@@ -27,6 +35,26 @@ public sealed class PluginManagerOptions
     /// 应用自带插件(<c>&lt;应用目录&gt;/plugins</c>)只读,不可卸载。缺省时无安装/卸载能力。
     /// </summary>
     public string? UserPluginRoot { get; init; }
+
+    /// <summary>
+    /// 受信的包签名公钥(Base64 SPKI)。为空表示不做来源判定 —— 此时任何**有效**签名都算受信,
+    /// 但签名对不上的包依然被拒(那是篡改,不是来源问题)。
+    /// </summary>
+    public IReadOnlyCollection<string>? TrustedPackageKeys { get; init; }
+
+    /// <summary>
+    /// 是否只安装带受信签名的包(默认否:第一方/自装插件场景信任即安装,见蓝图 10 的分期决策)。
+    /// 打开后未签名与不受信签名的包都会被拒。
+    /// </summary>
+    public bool RequireTrustedPackageSignature { get; init; }
+
+    /// <summary>
+    /// 需要等待调试器的插件 id 集合(<c>"*"</c> 表示全部)。命中的隔离插件:
+    /// 子进程在装载插件程序集**之前**挂起等调试器附加,同时宿主放宽激活超时并停掉心跳 ——
+    /// 否则你停在断点上的那几分钟会被判成"插件挂死"而遭强杀。
+    /// 由环境变量 <c>VELA_PLUGIN_WAIT_DEBUGGER</c> 填充,默认空(生产路径分文不动)。
+    /// </summary>
+    public IReadOnlyCollection<string> DebugPluginIds { get; init; } = [];
 
     /// <summary>宿主版本(用于 minHostVersion 兼容检查与 <see cref="IHostInfo.AppVersion" />)。</summary>
     public string HostVersion { get; init; } = "0.0.0";

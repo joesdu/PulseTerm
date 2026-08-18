@@ -87,6 +87,9 @@ internal static class Program
             {
                 case PluginRpc.PluginActivate:
                     {
+                        // 调试内环:VELA_PLUGIN_WAIT_DEBUGGER=1 时先等调试器附上再装载插件程序集,
+                        // 这样插件 ActivateAsync 的第一行断点也能命中(附加得晚就只能错过它)。
+                        WaitForDebugger(pluginId);
                         // 装载与激活合并在此:失败以错误应答回宿主(那边标 Failed 并回收本进程)。
                         var loadContext = new PluginAssemblyLoadContext(pluginId, entryPath);
                         Assembly assembly = loadContext.LoadFromAssemblyPath(entryPath);
@@ -177,6 +180,33 @@ internal static class Program
         => Environment.GetEnvironmentVariable(variable)
            ?? throw new InvalidOperationException($"Missing required environment variable {variable}. " +
                                                   "VelaShell.PluginHost is an internal process launched by VelaShell.");
+
+    /// <summary>
+    /// 调试等待:置 <c>VELA_PLUGIN_WAIT_DEBUGGER=1</c> 时,在装载插件程序集之前挂起本进程,
+    /// 直到调试器附加(上限 10 分钟,与宿主放宽后的激活超时对齐)。进程 id 打到 stderr,
+    /// 宿主会把它转进 Trace,于是"附加到哪个进程"一目了然。
+    /// <para>
+    /// 之所以等在这里而不是 <c>Main</c> 开头:宿主给管道连接与握手各留 10 秒,
+    /// 在那之前干等会让整条启动直接判失败。
+    /// </para>
+    /// </summary>
+    private static void WaitForDebugger(string pluginId)
+    {
+        if (Environment.GetEnvironmentVariable("VELA_PLUGIN_WAIT_DEBUGGER") is not "1")
+        {
+            return;
+        }
+        Console.Error.WriteLine(
+            $"Waiting for a debugger to attach to process {Environment.ProcessId} (plugin '{pluginId}')...");
+        long deadline = Environment.TickCount64 + (long)TimeSpan.FromMinutes(10).TotalMilliseconds;
+        while (!Debugger.IsAttached && Environment.TickCount64 < deadline)
+        {
+            Thread.Sleep(200);
+        }
+        Console.Error.WriteLine(Debugger.IsAttached
+            ? "Debugger attached; loading the plugin assembly."
+            : "No debugger attached within 10 minutes; loading the plugin assembly anyway.");
+    }
 
     private static void WatchParent(int parentPid)
     {

@@ -22,6 +22,21 @@ public sealed class PluginRowViewModel(PluginDescriptor descriptor, bool hasTerm
     /// <summary>宿主模式标签。</summary>
     public string HostMode => descriptor.Manifest?.HostMode.ToString() ?? "";
 
+    /// <summary>
+    /// 作者展示文案(如 <c>作者:Joe</c>)。清单的 <c>author</c> 缺省时退回 <c>publisher</c> ——
+    /// 老插件只填了 publisher,不该因为新增字段就显示成"无作者"。
+    /// </summary>
+    public string AuthorText => HasAuthor
+        ? Strings.Format("PluginManager_Author", descriptor.Manifest?.Author ?? descriptor.Manifest?.Publisher ?? "")
+        : "";
+
+    /// <summary>是否有作者可展示(两个字段都缺时整块隐藏)。</summary>
+    public bool HasAuthor => !string.IsNullOrWhiteSpace(descriptor.Manifest?.Author)
+                             || !string.IsNullOrWhiteSpace(descriptor.Manifest?.Publisher);
+
+    /// <summary>是否为开发期挂载的插件(显示 DEV 角标)。</summary>
+    public bool IsDevelopment => descriptor.IsDevelopment;
+
     /// <summary>已本地化的状态文案。</summary>
     public string StatusText => Strings.Get($"PluginState_{descriptor.State}");
 

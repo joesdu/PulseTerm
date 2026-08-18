@@ -30,6 +30,14 @@
     <File Path="plugin-sdk/Directory.Build.props" />
     <Project Path="plugin-sdk/VelaShell.PluginSdk/VelaShell.PluginSdk.csproj" />
     <Project Path="plugin-sdk/VelaShell.PluginSdk.Testing/VelaShell.PluginSdk.Testing.csproj" />
+    <Project Path="plugin-sdk/VelaShell.PluginSdk.Build/VelaShell.PluginSdk.Build.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/VelaShell.Plugin.Cli/VelaShell.Plugin.Cli.csproj" />
+  </Folder>
+  <Folder Name="/templates/">
+    <File Path="templates/README.md" />
+    <Project Path="templates/VelaShell.Plugin.Templates.csproj" />
   </Folder>
   <Folder Name="/plugins/">
     <File Path="plugins/Directory.Build.props" />

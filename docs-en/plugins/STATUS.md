@@ -74,3 +74,60 @@ Quality baseline (full regression each round): full-repository build with 0 warn
 3. Validate **packaged isolated mode** on a real machine: as of 2026-08-12, the main application uses flat publishing (`plugins/` and `VelaShell.PluginHost.*` are both shipped in the package), self-updater replacement changed from "move" to "copy", and the updater now runs in place in the unpacked directory; run the complete flow on all three platforms: "install a third-party isolated plugin → use it → replace via self-update → restart";
 4. Define the `vela.ai` capability-domain interface alongside the AI plugin (blueprint 11);
 5. Add sidebar/status-bar mount points (the final contribution points before building the UI ecosystem).
+
+## 2026-08: SDK productization (NuGet packages / templates / dedicated package format / debugging loop)
+
+The plugin SDK went from "in-repository projects consumed via ProjectReference" to a real,
+externally distributed SDK.
+
+**Five NuGet packages** (versioned by `VelaSdkVersion`, decoupled from the host version;
+`AssemblyVersion` is `<major>.0.0.0` and moves only with the major — it is the identity plugins bind
+to at compile time, and moving it per patch would force every compiled plugin to rebind for nothing,
+while `FileVersion` and `InformationalVersion` track the real version. The rule is **SDK major ==
+`apiLevel`**: a major bump means the contract broke, so `VelaPluginApi.Level` goes up with it and an
+older host rejects the plugin cleanly at discovery time instead of throwing an assembly binding error
+at load time):
+
+| Package | Referenced by | Contents |
+| --- | --- | --- |
+| `VelaShell.PluginSdk.Build` | **the plugin project (this one alone)** | MSBuild props/targets plus the bundled packer; transitively brings in the two below and **Avalonia pinned to the host's exact version** |
+| `VelaShell.PluginSdk` | transitively | Contract assembly (BCL only) |
+| `VelaShell.PluginSdk.Testing` | plugin test projects | `TestPluginContext` and capability doubles |
+| `VelaShell.Plugin.Cli` | dotnet tool | `vela-plugin`: validate / pack / sign / verify / info / unpack / keygen / install / dev-link |
+| `VelaShell.Plugin.Templates` | dotnet new | `velaplugin`, `velaplugin-ui` |
+
+The Build package handles four things on the plugin project's behalf: `EnableDynamicLoading` and
+`plugin.json` output; keeping shared assemblies (`VelaShell.PluginSdk` and `Avalonia*`, matching
+`PluginAssemblyLoadContext` exactly) out of the plugin directory; Avalonia version consistency
+(NU1608 promoted to an error plus a `VELA1001` build-time check); and manifest validation with
+`dotnet build -t:PackVpx`.
+
+**`.vpx` became a dedicated container** (`VelaShell.PluginSdk/Packaging/VpxContainer.cs`, one
+implementation shared by host and tooling): a 64-byte header (magic `56 50 58 1A`, format version,
+flags, payload length, SHA-256, mask nonce, header CRC32), a masked zip payload, and an optional
+ECDSA P-256 signature block. The magic bytes and mask only stop "rename it and unzip"; integrity
+and provenance come from the digest and the signature. An invalid signature is always rejected
+even with no signing policy configured, while unsigned packages are allowed by default. Install
+time also enforces zip-bomb limits (10,000 entries / 512 MB, accounted by **bytes actually
+written**). There is **no plain-zip compatibility path**: no `.vpx` package shipped before the
+container format was defined, so there is no installed base to protect, and a renamed zip is
+rejected outright with the repack command in the error message.
+
+**Debugging loop**: `plugins.dev.txt` / `VELA_PLUGIN_DEV_ROOT` mount a plugin project's output
+directory straight into the host (badged DEV on the management page; an installed plugin with the
+same id wins). `VELA_PLUGIN_WAIT_DEBUGGER=<id>|*` makes an isolated plugin's child process wait for
+a debugger before loading the assembly, and **relaxes the activation timeout and stops the
+heartbeat** at the same time (otherwise a breakpoint reads as a hung plugin and the process is
+killed). In-process plugins get the relaxed activation timeout whenever `Debugger.IsAttached`.
+
+**The manifest gained `author`** (display-only, distinct from `publisher`, which is the trust
+identity; ≤128 characters, control characters rejected). It is shown on the plugin manager page and
+falls back to `publisher` when absent.
+
+**CI**: `.github/workflows/nuget.yml`, triggered by an `sdk-v<version>` tag. Before publishing it
+runs the packaging tests and an **end-to-end template smoke test** (install templates → generate a
+project → restore → build → produce a .vpx → re-read the container → assert no shared assemblies
+leaked into the plugin output). That step is not ceremony: it is what caught "the SDK carries
+`RequiresPreviewFeatures`, so plugin projects that do not opt into preview features fail with
+CA2252 everywhere" and "NuGet does not flow build assets transitively, so Avalonia's AXAML compiler
+never reached the plugin project" — both invisible from inside the repository.

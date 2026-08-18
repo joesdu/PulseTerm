@@ -1,0 +1,100 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "joesdu",
+  "classifications": [ "VelaShell", "Plugin" ],
+  "identity": "VelaShell.Plugin.Basic.CSharp",
+  "groupIdentity": "VelaShell.Plugin.Basic",
+  "name": "VelaShell plugin",
+  "description": "A VelaShell plugin with one command, ready to pack as .vpx.",
+  "shortName": "velaplugin",
+  "defaultName": "VelaPlugin1",
+  "sourceName": "VelaPlugin1",
+  "preferNameDirectory": true,
+  "tags": {
+    "language": "C#",
+    "type": "project"
+  },
+  "symbols": {
+    "publisher": {
+      "type": "parameter",
+      "datatype": "text",
+      "defaultValue": "acme",
+      "replaces": "PUBLISHER_ID",
+      "description": "Publisher segment of the plugin id (lowercase, [a-z0-9-])."
+    },
+    "authorName": {
+      "type": "parameter",
+      "datatype": "text",
+      "defaultValue": "",
+      "replaces": "AUTHOR_NAME",
+      "description": "Author shown on the plugin manager page."
+    },
+    "hostMode": {
+      "type": "parameter",
+      "datatype": "choice",
+      "defaultValue": "inProcess",
+      "replaces": "HOST_MODE",
+      "description": "inProcess: loaded into the host in its own collectible ALC (dockable panels, no IPC). isolated: its own process, crashes cannot take the host down.",
+      "choices": [
+        {
+          "choice": "inProcess",
+          "description": "Run inside the VelaShell process (default)."
+        },
+        {
+          "choice": "isolated",
+          "description": "Run in a separate VelaShell.PluginHost process."
+        }
+      ]
+    },
+    "sdkVersion": {
+      "type": "parameter",
+      "datatype": "text",
+      "defaultValue": "1.0.0-preview.1",
+      "replaces": "SDK_VERSION",
+      "description": "Version of the VelaShell.PluginSdk.Build package to reference."
+    },
+    "pluginId": {
+      "type": "parameter",
+      "datatype": "text",
+      "defaultValue": "",
+      "description": "Full plugin id. Defaults to <publisher>.<name lowercased>; set it explicitly when that is not what you want."
+    },
+    "nameLower": {
+      "type": "generated",
+      "generator": "casing",
+      "parameters": {
+        "source": "name",
+        "toLower": true
+      }
+    },
+    "pluginIdJoined": {
+      "type": "generated",
+      "generator": "join",
+      "parameters": {
+        "symbols": [
+          { "type": "ref", "value": "publisher" },
+          { "type": "const", "value": "." },
+          { "type": "ref", "value": "nameLower" }
+        ]
+      }
+    },
+    "pluginIdFinal": {
+      "type": "generated",
+      "generator": "coalesce",
+      "replaces": "PLUGIN_ID",
+      "parameters": {
+        "sourceVariableName": "pluginId",
+        "fallbackVariableName": "pluginIdJoined"
+      }
+    }
+  },
+  "sources": [
+    {
+      "modifiers": [
+        {
+          "exclude": [ "**/bin/**", "**/obj/**", "**/vpx/**" ]
+        }
+      ]
+    }
+  ]
+}

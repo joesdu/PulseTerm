@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
@@ -201,17 +201,11 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
         _protocolRegistry = protocolRegistry;
         _workspaceLauncher = workspaceLauncher;
         // 插件被停用/卸载 → 它名下的工作台文档已无人应答,走正常关闭路径撤掉标签页。
-        if (workspaceLauncher is not null)
-        {
-            workspaceLauncher.SessionAbandoned += OnWorkspaceSessionAbandoned;
-        }
+        workspaceLauncher?.SessionAbandoned += OnWorkspaceSessionAbandoned;
         // 新建连接对话框里的「测试」对插件连接类型没法拿 SSH 去试(那只会撞出一个
         // 与真实原因无关的超时)。探针挂在这里而不是注进工作流服务:真开一次插件会话
         // 要用到隧道链路与凭据解密,那些都只在界面层有。
-        if (_connectionWorkflowService is not null)
-        {
-            _connectionWorkflowService.PluginProbe = ProbePluginConnectionAsync;
-        }
+        _connectionWorkflowService?.PluginProbe = ProbePluginConnectionAsync;
         // FTP 与插件协议都没有 SSH 那种可订阅的长驻会话对象:断线只在下一次操作时暴露。
         // 由服务主动上报,树上的状态圆点才能自动变灰,而不是一直停在绿点上。
         ftpSessionService?.SessionStateChanged += OnFtpSessionStateChanged;
@@ -2944,6 +2938,7 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
         }
     }
 
+    /// <summary>
     /// 打开一条**工作台**会话(Redis 等由插件全权渲染界面的连接类型)。
     /// <para>
     /// 与 <see cref="OpenPluginDocumentForProfileAsync" /> 共用同一套连接流程纪律:
@@ -3177,12 +3172,8 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
         }
 
         IReadOnlyList<SessionProfile> saved = await _sessionRepository.GetAllSessionsAsync().ConfigureAwait(true);
-        SessionProfile? jump = saved.FirstOrDefault(candidate => candidate.Id == jumpProfileId);
-        if (jump is null)
-        {
-            // 跳板配置被删了。**不静默直连** —— 那会把一条本该走内网的连接直接打到公网上去。
-            throw new PluginProtocolConnectionException(Strings.Get("Plugin_JumpSessionMissing"));
-        }
+        // 跳板配置被删了。**不静默直连** —— 那会把一条本该走内网的连接直接打到公网上去。
+        SessionProfile? jump = saved.FirstOrDefault(candidate => candidate.Id == jumpProfileId) ?? throw new PluginProtocolConnectionException(Strings.Get("Plugin_JumpSessionMissing"));
 
         // 按"目标主机 + 端口 + 用户"匹配已连着的会话。这不是权宜:隧道要穿的是**那台主机**,
         // 谁开的那条 SSH 无关紧要 —— 而 SshSession 上本就没有"来自哪条配置"这个信息。

@@ -14,7 +14,7 @@ namespace VelaShell.PluginSdk.Testing;
 public sealed class RecordingWorkspaces : IWorkspacesApi
 {
     private readonly Dictionary<string, (WorkspaceDescriptor Descriptor, IWorkspaceProvider Provider)> _registered =
-        new(StringComparer.Ordinal);
+        [with(StringComparer.Ordinal)];
 
     /// <summary>默认构造(插件 id 为 <c>test.plugin</c>)。</summary>
     public RecordingWorkspaces()

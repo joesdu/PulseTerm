@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Text;
 using VelaShell.PluginSdk;
@@ -46,7 +46,7 @@ public sealed partial class RedisWorkspaceViewModel : ObservableObject, IDisposa
     private readonly Dictionary<RedisKeyName, RedisKeyMeta> _scanned = [];
 
     /// <summary>已展开的分组行 id。重排时查它,展开态因此不会被下一页扫描抹掉。</summary>
-    private readonly HashSet<string> _expandedGroups = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _expandedGroups = [with(StringComparer.Ordinal)];
     private CancellationTokenSource? _scanCts;
 
     /// <summary>
@@ -199,10 +199,7 @@ public sealed partial class RedisWorkspaceViewModel : ObservableObject, IDisposa
             }
             _connection.SelectDatabase(value.Index);
             RaisePropertyChanged(nameof(CurrentDatabase));
-            if (previous is not null)
-            {
-                previous.IsSelected = false;
-            }
+            previous?.IsSelected = false;
             value.IsSelected = true;
             // 控制台的提示符要跟上:提示符里写着库号,不刷新就会与实际操作的库不一致。
             Console.RefreshPrompt();

@@ -44,19 +44,20 @@ public readonly record struct RedisCommandVerdict(
 internal sealed class RedisCommandGuard
 {
     /// <summary>"毁"档:名字定死。它们在 <c>COMMAND INFO</c> 的 flags 上与普通写命令无异。</summary>
-    private static readonly HashSet<string> Destructive = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "FLUSHALL", "FLUSHDB", "SHUTDOWN"
-    };
+    private static readonly HashSet<string> Destructive =
+    [
+with(StringComparer.OrdinalIgnoreCase),         "FLUSHALL", "FLUSHDB", "SHUTDOWN"
+    ];
 
     /// <summary>
     /// "危"档的补充:这些命令的 flags 里不一定带 <c>admin</c>,但后果需要用户过一次脑子。
     /// </summary>
-    private static readonly HashSet<string> Dangerous = new(StringComparer.OrdinalIgnoreCase)
-    {
+    private static readonly HashSet<string> Dangerous =
+    [
+        with(StringComparer.OrdinalIgnoreCase),
         "MONITOR", "DEBUG", "CONFIG", "CLIENT", "REPLICAOF", "SLAVEOF", "ACL",
         "SCRIPT", "FUNCTION", "CLUSTER", "FAILOVER", "SWAPDB", "MIGRATE", "RESET"
-    };
+    ];
 
     /// <summary>
     /// <c>COMMAND INFO</c> 拿不到时的兜底写命令表(常见的那几十条)。
@@ -65,8 +66,9 @@ internal sealed class RedisCommandGuard
     /// 真正的权威永远是服务器的 flags。
     /// </para>
     /// </summary>
-    private static readonly HashSet<string> FallbackWrites = new(StringComparer.OrdinalIgnoreCase)
-    {
+    private static readonly HashSet<string> FallbackWrites =
+    [
+        with(StringComparer.OrdinalIgnoreCase),
         "SET", "SETNX", "SETEX", "PSETEX", "SETRANGE", "APPEND", "GETSET", "GETDEL", "GETEX",
         "INCR", "INCRBY", "INCRBYFLOAT", "DECR", "DECRBY",
         "DEL", "UNLINK", "EXPIRE", "PEXPIRE", "EXPIREAT", "PEXPIREAT", "PERSIST",
@@ -83,9 +85,9 @@ internal sealed class RedisCommandGuard
         "EVAL", "EVALSHA", "FCALL",
         "JSON.SET", "JSON.DEL", "JSON.ARRAPPEND", "JSON.NUMINCRBY", "JSON.STRAPPEND",
         "TS.ADD", "TS.CREATE", "TS.INCRBY", "TS.DECRBY", "TS.DEL"
-    };
+    ];
 
-    private readonly Dictionary<string, RedisCommandRisk> _byName = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, RedisCommandRisk> _byName = [with(StringComparer.OrdinalIgnoreCase)];
 
     /// <summary>只读模式(拦住一切写命令)。</summary>
     public bool ReadOnly { get; set; }

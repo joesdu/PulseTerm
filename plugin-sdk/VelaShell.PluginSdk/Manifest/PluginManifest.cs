@@ -137,6 +137,14 @@ public sealed record PluginManifest
     [JsonPropertyName("publisher")]
     public string? Publisher { get; init; }
 
+    /// <summary>
+    /// 作者(展示用,如 <c>"Joe &lt;joe@example.com&gt;"</c>)。与 <see cref="Publisher" /> 的分工:
+    /// publisher 是发行方标识(将来与签名公钥绑定,参与信任判定),author 是写这个插件的人,
+    /// 只在插件管理页展示。缺省时管理页退回显示 publisher。
+    /// </summary>
+    [JsonPropertyName("author")]
+    public string? Author { get; init; }
+
     /// <summary>入口程序集,相对插件目录的路径(如 <c>MyPlugin.dll</c>)。</summary>
     [JsonPropertyName("entry")]
     public required string Entry { get; init; }

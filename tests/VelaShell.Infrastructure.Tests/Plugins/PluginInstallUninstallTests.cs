@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using VelaShell.Infrastructure.Plugins;
+using VelaShell.PluginSdk.Packaging;
 using VelaShell.Plugin.HelloWorld;
 using VelaShell.PluginSdk.Testing;
 
@@ -64,16 +65,32 @@ public class PluginInstallUninstallTests
         DataStore = _dataStore
     });
 
-    /// <summary>把 HelloWorld 打成一个 .vpx(zip:plugin.json + dll)。</summary>
-    private static string BuildVpx(string id = "acme.packaged")
+    /// <summary>把 HelloWorld 摊成一个待打包目录(plugin.json + dll)。</summary>
+    private static string StagePlugin(string id)
     {
         string stage = Path.Combine(Path.GetTempPath(), "velashell-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(stage);
         File.Copy(typeof(HelloWorldPlugin).Assembly.Location, Path.Combine(stage, "VelaShell.Plugin.HelloWorld.dll"));
         File.WriteAllText(Path.Combine(stage, "plugin.json"), $$"""
-            { "id": "{{id}}", "version": "1.0.0", "displayName": "Packaged",
+            { "id": "{{id}}", "version": "1.0.0", "displayName": "Packaged", "author": "Test Author",
               "entry": "VelaShell.Plugin.HelloWorld.dll" }
             """);
+        return stage;
+    }
+
+    /// <summary>打一个真正的 .vpx(专属容器:魔数 + 摘要 + 掩码)。</summary>
+    private static string BuildVpx(string id = "acme.packaged")
+    {
+        string stage = StagePlugin(id);
+        string vpx = stage + ".vpx";
+        VpxContainer.Pack(stage, vpx);
+        return vpx;
+    }
+
+    /// <summary>打一个"把 zip 改成 .vpx 后缀"的假包。</summary>
+    private static string BuildRenamedZip(string id = "acme.renamed")
+    {
+        string stage = StagePlugin(id);
         string vpx = stage + ".vpx";
         ZipFile.CreateFromDirectory(stage, vpx);
         return vpx;
@@ -132,21 +149,60 @@ public class PluginInstallUninstallTests
     }
 
     [TestMethod]
-    public async Task InstallFromVpx_RejectsZipSlip()
+    public async Task InstallFromVpx_RenamedZip_IsRejected()
+    {
+        // "改后缀就能装"正是专属容器要消灭的东西:裸 zip 一律拒,且拒绝原因要告诉人怎么补救。
+        PluginManager manager = CreateManager();
+        await manager.StartAsync();
+
+        VpxFormatException ex = await Assert.ThrowsExactlyAsync<VpxFormatException>(
+            () => manager.InstallFromVpxAsync(BuildRenamedZip()));
+        Assert.Contains("vela-plugin pack", ex.Message);
+        Assert.IsEmpty(manager.Plugins);
+
+        await manager.DisposeAsync();
+    }
+
+    [TestMethod]
+    public async Task InstallFromVpx_TamperedPackage_IsRejected()
+    {
+        PluginManager manager = CreateManager();
+        await manager.StartAsync();
+        string vpx = BuildVpx("acme.tampered");
+
+        // 动载荷里的一个字节:头部摘要立刻对不上。
+        byte[] bytes = File.ReadAllBytes(vpx);
+        bytes[VpxContainer.HeaderSize + 64] ^= 0xFF;
+        File.WriteAllBytes(vpx, bytes);
+
+        await Assert.ThrowsExactlyAsync<VpxFormatException>(() => manager.InstallFromVpxAsync(vpx));
+        Assert.DoesNotContain(p => p.Id == "acme.tampered", manager.Plugins);
+
+        await manager.DisposeAsync();
+    }
+
+    [TestMethod]
+    public async Task InstallFromVpx_ZipSlipInsideContainer_IsRejected()
     {
         PluginManager manager = CreateManager();
         await manager.StartAsync();
 
-        // 手造一个含 ../ 逃逸条目的恶意 zip。
+        // 合法容器 + 恶意载荷:zip-slip 防护必须在容器之内继续生效。
         string vpx = Path.Combine(Path.GetTempPath(), "velashell-tests", Guid.NewGuid().ToString("N") + ".vpx");
         Directory.CreateDirectory(Path.GetDirectoryName(vpx)!);
-        using (ZipArchive zip = ZipFile.Open(vpx, ZipArchiveMode.Create))
+        using (var payload = new MemoryStream())
         {
-            zip.CreateEntry("plugin.json");
-            ZipArchiveEntry evil = zip.CreateEntry("../escaped.txt");
-            using StreamWriter w = new(evil.Open());
-            w.Write("pwned");
+            using (ZipArchive zip = new(payload, ZipArchiveMode.Create, leaveOpen: true))
+            {
+                zip.CreateEntry("plugin.json");
+                using StreamWriter writer = new(zip.CreateEntry("../escaped.txt").Open());
+                writer.Write("pwned");
+            }
+            payload.Position = 0;
+            using FileStream destination = File.Create(vpx);
+            VpxContainer.Write(destination, payload);
         }
+
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => manager.InstallFromVpxAsync(vpx));
         await manager.DisposeAsync();
     }

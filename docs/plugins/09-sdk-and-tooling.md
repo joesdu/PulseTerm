@@ -1,5 +1,20 @@
 # 09 · SDK 与开发者工具链
 
+> **实现注记(2026-08)**:S-1 / S-2 / S-3 / S-4 / S-5 已落地,与下文蓝图的出入以实现为准:
+>
+> - 交付物是**五个包**:`VelaShell.PluginSdk`(契约)、`VelaShell.PluginSdk.Testing`(替身)、
+>   `VelaShell.PluginSdk.Build`(**插件工程只需引这一个**:MSBuild props/targets、依赖锁、
+>   随包分发的打包器)、`VelaShell.Plugin.Cli`(dotnet tool `vela-plugin`)、
+>   `VelaShell.Plugin.Templates`(`dotnet new`)。没有 `VelaShell.PluginProtocol` 这个包 ——
+>   RPC 线协议就在契约程序集里(自研轻量协议,不用 StreamJsonRpc,见 05 注记)。
+> - 模板是 **`velaplugin` / `velaplugin-ui`** 两个;`velaplugin-automation` 待自动化能力域动工再说。
+> - 测试替身叫 **`TestPluginContext`** 而不是 `FakePluginContext`;VelaUI 声明式树按用户决策不做,
+>   因此没有 `VelaUiAssert`。
+> - `vela-plugin` 的子命令:`validate` / `pack` / `sign` / `verify` / `info` / `unpack` /
+>   `keygen` / `install` / `dev-link` / `dev-unlink`。`dev` 热重载子命令未做 ——
+>   开发内环走 `dev-link` 把工程输出目录挂进宿主(见 [dev-guide.md §2.3](dev-guide.md))。
+> - 发布走 `.github/workflows/nuget.yml`(标签 `sdk-v<版本>`),含模板端到端冒烟。
+
 目标(G5):从 `dotnet new` 到插件在 VelaShell 里跑起来 ≤ 5 分钟;
 F5 断点调试开箱即用。开发者体验是插件生态成败的第一因素,本分项按
 "产品"标准对待。

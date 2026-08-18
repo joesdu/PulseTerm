@@ -44,16 +44,17 @@ internal sealed partial class RedisConnection
     /// 族要求连接进入特定状态,而复用连接上没有"这条连接"的概念。
     /// </para>
     /// </summary>
-    private static readonly HashSet<string> Unsupported = new(StringComparer.OrdinalIgnoreCase)
-    {
+    private static readonly HashSet<string> Unsupported =
+    [
+        with(StringComparer.OrdinalIgnoreCase),
         "MONITOR",
         "SUBSCRIBE", "UNSUBSCRIBE", "PSUBSCRIBE", "PUNSUBSCRIBE", "SSUBSCRIBE", "SUNSUBSCRIBE",
         "BLPOP", "BRPOP", "BRPOPLPUSH", "BLMOVE", "BLMPOP", "BZPOPMIN", "BZPOPMAX", "BZMPOP",
         "WAIT", "WAITAOF",
         "MULTI", "EXEC", "DISCARD", "WATCH", "UNWATCH"
-    };
+    ];
 
-    private readonly Dictionary<string, RedisCommandHint> _hints = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, RedisCommandHint> _hints = [with(StringComparer.OrdinalIgnoreCase)];
 
     /// <summary>命令闸门(分级依据 <c>COMMAND INFO</c> 的 flags)。</summary>
     public RedisCommandGuard Guard { get; } = new();

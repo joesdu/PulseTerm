@@ -1,0 +1,30 @@
+{
+  // 插件 id:<发布者>.<名称>,小写 [a-z0-9.-]。它同时是命令 id 的前缀、
+  // 插件私有数据与机密的命名空间 —— 发布之后不要再改,改了等于让老用户的配置失联。
+  "id": "PLUGIN_ID",
+  "version": "0.1.0",
+  "displayName": "VelaPlugin1",
+  "description": "A VelaShell plugin.",
+  "author": "AUTHOR_NAME",
+  "publisher": "PUBLISHER_ID",
+  "entry": "VelaPlugin1.dll",
+  "apiLevel": 1,
+  // inProcess:宿主进程内的可收集 ALC,零 IPC,面板可停靠进主窗口标签区。
+  // isolated:独立进程,崩溃/卡死不影响宿主,面板为独立卡片窗口。
+  // 两种模式下插件源码完全一致。
+  "hostMode": "HOST_MODE",
+  // 惰性激活:只有用户触发下面这条命令时才装载本插件的程序集。
+  // 想改成启动即激活,把 activationEvents 换成 ["onStartup"] 或整条删掉。
+  "activationEvents": [ "onCommand:PLUGIN_ID.hello" ],
+  "contributes": {
+    // 声明式命令占位:发现期就进命令面板,不需要装载程序集。
+    // 激活后插件必须用同一个 id 注册真实处理器替换占位。
+    "commands": [
+      {
+        "id": "PLUGIN_ID.hello",
+        "title": "VelaPlugin1: Say hello",
+        "category": "VelaPlugin1"
+      }
+    ]
+  }
+}

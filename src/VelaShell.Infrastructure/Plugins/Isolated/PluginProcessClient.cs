@@ -93,7 +93,7 @@ internal sealed class PluginProcessClient : IAsyncDisposable
         PluginContext context, string hostVersion, string dataDirectory,
         TimeSpan activationTimeout, CancellationToken cancellationToken,
         Func<Task<IReadOnlyList<ThemeTokenDto>>>? themeTokens = null,
-        IPluginEmbedHost? embedHost = null)
+        IPluginEmbedHost? embedHost = null, bool waitForDebugger = false)
     {
         string pipeName = $"velashell-plugin-{Guid.NewGuid():N}";
         string token = Guid.NewGuid().ToString("N");
@@ -104,7 +104,7 @@ internal sealed class PluginProcessClient : IAsyncDisposable
         PluginCapabilityRouter? router = null;
         try
         {
-            process = Launch(manifest, entryPath, pipeName, token, dataDirectory);
+            process = Launch(manifest, entryPath, pipeName, token, dataDirectory, waitForDebugger);
 
             // 等连接与等进程夭折二选一:PluginHost 起不来(缺运行时/被杀软拦)时不干等 10 秒。
             using var connectCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -168,7 +168,8 @@ internal sealed class PluginProcessClient : IAsyncDisposable
             TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
             TaskScheduler.Default);
 
-    private static Process Launch(PluginManifest manifest, string entryPath, string pipeName, string token, string dataDirectory)
+    private static Process Launch(PluginManifest manifest, string entryPath, string pipeName, string token,
+        string dataDirectory, bool waitForDebugger = false)
     {
         string baseDir = AppContext.BaseDirectory;
         string exeName = OperatingSystem.IsWindows() ? "VelaShell.PluginHost.exe" : "VelaShell.PluginHost";
@@ -190,6 +191,11 @@ internal sealed class PluginProcessClient : IAsyncDisposable
         startInfo.Environment["VELA_PLUGIN_ENTRY"] = entryPath;
         startInfo.Environment["VELA_PLUGIN_DATA_DIR"] = dataDirectory;
         startInfo.Environment["VELA_PARENT_PID"] = Environment.ProcessId.ToString();
+        if (waitForDebugger)
+        {
+            // 子进程据此在装载插件程序集之前挂起等附加(见 VelaShell.PluginHost/Program.cs)。
+            startInfo.Environment["VELA_PLUGIN_WAIT_DEBUGGER"] = "1";
+        }
         var process = new Process { StartInfo = startInfo };
         if (!process.Start())
         {

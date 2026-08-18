@@ -1,0 +1,212 @@
+# 插件 SDK 系列包的发布流水线。与应用发布(release.yml)**分开**:
+# SDK 版本与宿主版本解耦 —— 宿主发 1.2.3 不代表插件契约变了,插件作者也不该为了跟版本号重新编译。
+#
+# 发布的五个包:
+#   VelaShell.PluginSdk           契约程序集(插件与宿主唯一共享的类型)
+#   VelaShell.PluginSdk.Testing   测试替身(TestPluginContext 与各能力内存实现)
+#   VelaShell.PluginSdk.Build     插件工程引用的那一个包(targets + 打包器 + 依赖锁)
+#   VelaShell.Plugin.Cli          dotnet tool `vela-plugin`
+#   VelaShell.Plugin.Templates    dotnet new 模板(velaplugin / velaplugin-ui)
+#
+# 怎么发:打一个 `sdk-v<版本>` 标签并推上去,例如
+#   git tag sdk-v1.0.0 && git push origin sdk-v1.0.0
+# 版本号从标签取(去掉 sdk-v 前缀),经 -p:VelaSdkVersion 覆盖 Directory.Build.props,
+# 五个包与模板里写死的引用版本因此始终一致(不一致会被 VELA1004 在构建期拦下)。
+# 也可以在 Actions 页面手动跑(workflow_dispatch),并可勾选 dryRun 只打包不推送。
+#
+# 推送用 **NuGet Trusted Publishing(OIDC)**,不存 API Key:
+#   NuGet/login 拿本次运行的 GitHub OIDC 令牌去 nuget.org 换一把**短时效**的推送密钥,
+#   用完即弃。密钥不落仓库机密,也就没有"泄漏了要轮换"这件事。
+#
+#   ⚠️ 一次性配置:nuget.org → 账户 → Trusted Publishing 里那条策略的 **Workflow 字段
+#      必须填 `nuget.yml`**(现有那条填的是 `release.yml` —— 那是应用发布流水线,不发包)。
+#      策略校验的是"哪个仓库的哪个工作流文件在跑",文件名对不上就直接拒绝换密钥。
+#      要么把该策略的 Workflow 改成 nuget.yml,要么再建一条指向 nuget.yml 的策略。
+#      仓库变量 `NUGET_USER` 可覆盖账户名(默认 joes_du)。
+#
+# 需要的仓库机密:
+#   STRONG_NAME_KEY   与 release.yml 同一把:Release 下 SDK 程序集要强名称签名,
+#                     否则宿主(已签名)引用不了它。
+#                     (推送本身不再需要任何机密。)
+#
+# 发布前会先跑一遍打包相关的测试与**模板端到端冒烟**(装模板 → 生成工程 → 还原 → 构建 → 出 .vpx)。
+# 那一步不是形式:插件工程是仓库外环境,仓库内的 Directory.Build.props 一条也吃不到 ——
+# 历史上正是它先发现了"SDK 带 RequiresPreviewFeatures,插件工程不开预览开关就全线 CA2252"
+# 以及"NuGet 默认不传递 build 资产,导致 Avalonia 的 AXAML 编译器到不了插件工程"这两个坑。
+name: NuGet (Plugin SDK)
+
+on:
+  push:
+    tags:
+      - 'sdk-v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '要发布的 SDK 版本(如 1.0.0 或 1.1.0-preview.2)'
+        required: true
+        type: string
+      dryRun:
+        description: '只打包与冒烟,不推送到 nuget.org'
+        required: false
+        default: false
+        type: boolean
+  # 改动 SDK/工具/模板的 PR 也跑一遍打包与冒烟,别等到发版当天才发现包装不上。
+  pull_request:
+    paths:
+      - 'plugin-sdk/**'
+      - 'tools/**'
+      - 'templates/**'
+      - 'Directory.Build.props'
+      - '.github/workflows/nuget.yml'
+
+permissions:
+  contents: read
+  # Trusted Publishing 的前提:没有它,NuGet/login 拿不到 OIDC 令牌,换密钥这一步会直接失败。
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Resolve version
+        id: version
+        shell: pwsh
+        run: |
+          $ref = '${{ github.ref }}'
+          if ('${{ github.event_name }}' -eq 'push' -and $ref.StartsWith('refs/tags/sdk-v')) {
+            $version = $ref.Substring('refs/tags/sdk-v'.Length)
+          } elseif ('${{ github.event_name }}' -eq 'workflow_dispatch') {
+            $version = '${{ inputs.version }}'.TrimStart('v')
+          } else {
+            # PR:只是验证能不能打得出来,版本号无所谓,用工程里的默认值加个后缀。
+            $version = "0.0.0-ci.${{ github.run_number }}"
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "Publishing version $version"
+
+      # 强名称密钥。来自 fork 的 PR 拿不到仓库机密(GitHub 的既定行为),此时**关掉签名**
+      # 继续跑验证 —— 那条路径要验的是"包能不能打出来、模板能不能用",与签名无关;
+      # 而不关的话 CSC 会因为找不到 .snk 直接失败,PR 作者只会看到一条与他改动无关的报错。
+      # 真发布(标签 / 手动)一定跑在本仓库上下文里,拿得到机密,签名照常。
+      - name: Restore strong-name key
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:SNK_B64)) {
+            if ('${{ github.event_name }}' -ne 'pull_request') {
+              Write-Error "STRONG_NAME_KEY secret is missing; a release build must be strong-name signed."
+              exit 1
+            }
+            Write-Host "::notice::STRONG_NAME_KEY unavailable (fork PR); building without strong-name signing."
+            "VELA_SIGN_ARGS=-p:SignAssembly=false" >> $env:GITHUB_ENV
+          } else {
+            [IO.File]::WriteAllBytes("src/VelaShell.snk",
+              [Convert]::FromBase64String($env:SNK_B64))
+          }
+        env:
+          SNK_B64: ${{ secrets.STRONG_NAME_KEY }}
+
+      # 打包相关的测试。不跑全量套件:那需要构建整个应用(含 Avalonia headless),
+      # 而这条流水线只对包格式、清单规则与开发挂载负责。全量回归在应用侧的流水线里。
+      - name: Test (packaging + manifest + dev roots)
+        shell: pwsh
+        run: |
+          dotnet test tests/VelaShell.Infrastructure.Tests/VelaShell.Infrastructure.Tests.csproj `
+            -c Release --nologo $env:VELA_SIGN_ARGS `
+            --filter "FullyQualifiedName~VpxContainerTests|FullyQualifiedName~PluginManifestReaderTests|FullyQualifiedName~PluginInstallUninstallTests|FullyQualifiedName~DevPluginRootTests"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Pack
+        shell: pwsh
+        run: |
+          $version = '${{ steps.version.outputs.version }}'
+          New-Item -ItemType Directory -Force artifacts/nuget | Out-Null
+          $projects = @(
+            'plugin-sdk/VelaShell.PluginSdk/VelaShell.PluginSdk.csproj',
+            'plugin-sdk/VelaShell.PluginSdk.Testing/VelaShell.PluginSdk.Testing.csproj',
+            'tools/VelaShell.Plugin.Cli/VelaShell.Plugin.Cli.csproj',
+            'plugin-sdk/VelaShell.PluginSdk.Build/VelaShell.PluginSdk.Build.csproj',
+            'templates/VelaShell.Plugin.Templates.csproj'
+          )
+          foreach ($project in $projects) {
+            dotnet pack $project -c Release -o artifacts/nuget -p:VelaSdkVersion=$version --nologo $env:VELA_SIGN_ARGS
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+          }
+          Get-ChildItem artifacts/nuget | Select-Object -ExpandProperty Name
+
+      # 端到端冒烟:完全站在插件作者的位置上 —— 从刚打出的包装模板、生成工程、
+      # 还原、构建、出 .vpx,最后确认包能被容器读回来。任何一步失败都不该发出去。
+      - name: Smoke test (template -> build -> .vpx)
+        shell: pwsh
+        run: |
+          $version = '${{ steps.version.outputs.version }}'
+          $feed = (Resolve-Path artifacts/nuget).Path
+          $work = Join-Path $env:RUNNER_TEMP 'sdk-smoke'
+          New-Item -ItemType Directory -Force $work | Out-Null
+          @"
+          <?xml version="1.0" encoding="utf-8"?>
+          <configuration>
+            <packageSources>
+              <clear />
+              <add key="local" value="$feed" />
+              <add key="nuget" value="https://api.nuget.org/v3/index.json" />
+            </packageSources>
+          </configuration>
+          "@ | Set-Content (Join-Path $work 'nuget.config')
+
+          dotnet new install "$feed/VelaShell.Plugin.Templates.$version.nupkg"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          try {
+            Push-Location $work
+            dotnet new velaplugin-ui -n Smoke --publisher ci --authorName "CI" --sdkVersion $version
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+            Push-Location (Join-Path $work 'Smoke')
+            dotnet build -c Release -t:PackVpx --nologo
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+            $vpx = Get-ChildItem bin/vpx/*.vpx | Select-Object -First 1
+            if (-not $vpx) { throw "PackVpx produced no package." }
+            # 用刚打出的 CLI 复核一遍容器:魔数、摘要、清单都要读得回来。
+            dotnet "$env:GITHUB_WORKSPACE/tools/VelaShell.Plugin.Cli/bin/Release/net11.0/VelaShell.Plugin.Cli.dll" info $vpx.FullName
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+            # 插件输出目录里绝不能出现共享程序集 —— 出现了就说明 exclude=Runtime 的链路断了。
+            $leaked = Get-ChildItem bin/Release/net11.0 -Filter '*.dll' |
+              Where-Object { $_.Name -like 'Avalonia*' -or $_.Name -eq 'VelaShell.PluginSdk.dll' }
+            if ($leaked) { throw "Shared assemblies leaked into the plugin output: $($leaked.Name -join ', ')" }
+            Pop-Location
+            Pop-Location
+          } finally {
+            dotnet new uninstall VelaShell.Plugin.Templates
+          }
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: nuget-packages
+          path: artifacts/nuget/*
+          if-no-files-found: error
+
+      # Trusted Publishing:用本次运行的 OIDC 身份换一把短时效推送密钥。
+      # 换不到密钥基本只有一个原因 —— nuget.org 上那条策略的 Workflow 字段不是 nuget.yml,
+      # 详见文件头的一次性配置说明。
+      - name: NuGet login (trusted publishing)
+        id: nuget-login
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.dryRun)
+        uses: NuGet/login@v1
+        with:
+          user: ${{ vars.NUGET_USER || 'joes_du' }}
+
+      - name: Push to nuget.org
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.dryRun)
+        shell: pwsh
+        run: |
+          # --skip-duplicate:同一版本重跑不算失败(手动补跑是常规操作)。
+          # .snupkg 与同名 .nupkg 在同一目录时由 nuget.org 一并接收,无需单独推送。
+          dotnet nuget push "artifacts/nuget/*.nupkg" `
+            --source https://api.nuget.org/v3/index.json `
+            --api-key $env:NUGET_TOKEN `
+            --skip-duplicate
+        env:
+          NUGET_TOKEN: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}

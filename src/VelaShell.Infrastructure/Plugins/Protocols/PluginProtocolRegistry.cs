@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using VelaShell.PluginSdk.Protocols;
 using VelaShell.PluginSdk.Workspaces;
 
@@ -324,10 +324,7 @@ public sealed class PluginProtocolRegistry
         }
         // 订阅与拆订阅都在锁外:见 RemovePlugin 处的说明。
         // 终端协议没有会话状态事件(标签的连接状态由桥的 EOF 驱动),因此只有文件协议要订阅。
-        if (fileSystem is not null)
-        {
-            fileSystem.SessionStateChanged += Handler;
-        }
+        fileSystem?.SessionStateChanged += Handler;
         if (replaced is not null)
         {
             Detach(replaced);

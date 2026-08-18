@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 插件工程只需要这一个包:契约程序集、与宿主版本一致的 Avalonia、
+         plugin.json 处理、清单校验与 `dotnet build -t:PackVpx` 都随它到位。 -->
+    <PackageReference Include="VelaShell.PluginSdk.Build" Version="SDK_VERSION" />
+  </ItemGroup>
+
+</Project>
