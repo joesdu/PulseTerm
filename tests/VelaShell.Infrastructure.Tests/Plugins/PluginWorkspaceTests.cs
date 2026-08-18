@@ -1,4 +1,4 @@
-﻿using VelaShell.Core.Models;
+using VelaShell.Core.Models;
 using VelaShell.Core.Protocols;
 using VelaShell.Infrastructure.Plugins.Capabilities;
 using VelaShell.Infrastructure.Plugins.Protocols;
@@ -314,7 +314,8 @@ public sealed class PluginWorkspaceTests
         // 字段确实存在时放行。
         capability.Register(
             Descriptor(new ProtocolSettingField { Key = "thumb", Label = "T", IsHidden = true })
-                with { TrustedThumbprintSettingKey = "thumb" },
+                with
+            { TrustedThumbprintSettingKey = "thumb" },
             new FakeWorkspaceProvider());
         Assert.IsTrue(registry.TryGetWorkspace(WorkspaceId, out _));
     }
@@ -439,7 +440,8 @@ public sealed class PluginWorkspaceTests
         };
         registry.RegisterWorkspace(PluginId, Descriptor(
             new ProtocolSettingField { Key = "thumb", Label = "T", IsHidden = true })
-            with { TrustedThumbprintSettingKey = "thumb" }, provider);
+            with
+        { TrustedThumbprintSettingKey = "thumb" }, provider);
         var launcher = new PluginWorkspaceLauncher(registry);
 
         PluginProtocolCertificateException error =

@@ -40,7 +40,7 @@ internal static class S3ConfigJson
         }
         try
         {
-            using JsonDocument document = JsonDocument.Parse(json);
+            using var document = JsonDocument.Parse(json);
             return JsonSerializer.Serialize(document.RootElement, Options);
         }
         catch (JsonException)
@@ -79,7 +79,7 @@ internal static class S3ConfigJson
         }
         try
         {
-            using JsonDocument document = JsonDocument.Parse(json);
+            using var document = JsonDocument.Parse(json);
             return document.RootElement.TryGetProperty(propertyName, out JsonElement value) && value.ValueKind == JsonValueKind.String
                 ? value.GetString()
                 : null;

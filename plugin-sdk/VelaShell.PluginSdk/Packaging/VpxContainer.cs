@@ -353,7 +353,7 @@ public static class VpxContainer
         }
         var flags = (VpxFlags)BinaryPrimitives.ReadUInt16LittleEndian(header.AsSpan(6));
         long payloadLength = BinaryPrimitives.ReadInt64LittleEndian(header.AsSpan(8));
-        if (payloadLength < 0 || payloadLength > MaxPayloadLength)
+        if (payloadLength is < 0 or > MaxPayloadLength)
         {
             throw new VpxFormatException(Describe(path, $"declared payload length {payloadLength} is out of range."));
         }

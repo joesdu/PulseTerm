@@ -1,4 +1,3 @@
-using VelaShell.Plugin.Redis;
 using VelaShell.PluginSdk.Protocols;
 using VelaShell.PluginSdk.Workspaces;
 
@@ -23,7 +22,7 @@ public sealed class RedisSettingsTests
     [TestMethod]
     public void From_NoSettings_UsesDeclaredDefaults()
     {
-        RedisSettings settings = RedisSettings.From(Request());
+        var settings = RedisSettings.From(Request());
 
         Assert.AreEqual(RedisDeployment.Standalone, settings.Deployment);
         Assert.AreEqual(RedisEnvironment.Development, settings.Environment);
@@ -40,7 +39,7 @@ public sealed class RedisSettingsTests
     {
         // 生产环境**默认只读**:护栏的第一档。缺 readOnly 键时按环境定,
         // 这正是 Declare() 刻意不给该字段默认值的原因。
-        RedisSettings settings = RedisSettings.From(Request(("environment", "production")));
+        var settings = RedisSettings.From(Request(("environment", "production")));
 
         Assert.IsTrue(settings.ReadOnly);
     }
@@ -49,7 +48,7 @@ public sealed class RedisSettingsTests
     public void From_ProductionWithExplicitReadOnlyFalse_RespectsUser()
     {
         // 用户显式关掉只读就听用户的 —— 区分"用户关掉了"与"没配过"是这段解析的全部意义。
-        RedisSettings settings = RedisSettings.From(Request(("environment", "production"), ("readOnly", "false")));
+        var settings = RedisSettings.From(Request(("environment", "production"), ("readOnly", "false")));
 
         Assert.IsFalse(settings.ReadOnly);
     }
@@ -57,7 +56,7 @@ public sealed class RedisSettingsTests
     [TestMethod]
     public void From_DevelopmentEnvironment_DefaultsToWritable()
     {
-        RedisSettings settings = RedisSettings.From(Request(("environment", "development")));
+        var settings = RedisSettings.From(Request(("environment", "development")));
 
         Assert.IsFalse(settings.ReadOnly);
     }
@@ -66,7 +65,7 @@ public sealed class RedisSettingsTests
     public void From_ClusterMode_ForcesDatabaseZeroAndHidesSelector()
     {
         // 集群只有 db0。与其等服务器回一句 SELECT 报错,不如在解析这一步就归零。
-        RedisSettings settings = RedisSettings.From(Request(("mode", "cluster"), ("database", "7")));
+        var settings = RedisSettings.From(Request(("mode", "cluster"), ("database", "7")));
 
         Assert.AreEqual(RedisDeployment.Cluster, settings.Deployment);
         Assert.AreEqual(0, settings.Database);
@@ -77,7 +76,7 @@ public sealed class RedisSettingsTests
     public void From_EmptyDelimiter_FallsBackToColon()
     {
         // 分隔符留空会让键空间塌成一层平列表(每个键都是根节点),不是用户想表达的"不分层"。
-        RedisSettings settings = RedisSettings.From(Request(("delimiter", "")));
+        var settings = RedisSettings.From(Request(("delimiter", "")));
 
         Assert.AreEqual(":", settings.Delimiter);
     }
@@ -85,7 +84,7 @@ public sealed class RedisSettingsTests
     [TestMethod]
     public void From_OutOfRangeNumbers_AreClamped()
     {
-        RedisSettings settings = RedisSettings.From(Request(
+        var settings = RedisSettings.From(Request(
             ("scanCount", "1"),
             ("scanBudget", "0"),
             ("valuePreview", "1"),
@@ -102,7 +101,7 @@ public sealed class RedisSettingsTests
     [TestMethod]
     public void From_UnparsableNumbers_FallBackToDefaults()
     {
-        RedisSettings settings = RedisSettings.From(Request(("scanCount", "abc"), ("database", "x")));
+        var settings = RedisSettings.From(Request(("scanCount", "abc"), ("database", "x")));
 
         Assert.AreEqual(500, settings.ScanCount);
         Assert.AreEqual(0, settings.Database);
@@ -111,7 +110,7 @@ public sealed class RedisSettingsTests
     [TestMethod]
     public void From_SentinelMode_KeepsMasterName()
     {
-        RedisSettings settings = RedisSettings.From(Request(("mode", "sentinel"), ("masterName", "mymaster")));
+        var settings = RedisSettings.From(Request(("mode", "sentinel"), ("masterName", "mymaster")));
 
         Assert.AreEqual(RedisDeployment.Sentinel, settings.Deployment);
         Assert.AreEqual("mymaster", settings.MasterName);
@@ -146,7 +145,7 @@ public sealed class RedisSettingsTests
     {
         // 指纹字段必须真的在字段表里,否则宿主的"信任证书"点了等于没点。
         var loc = new Loc("en");
-        var field = RedisSettings.Declare(loc).Single(f => f.Key == RedisSettings.TrustedThumbprintKey);
+        ProtocolSettingField field = RedisSettings.Declare(loc).Single(f => f.Key == RedisSettings.TrustedThumbprintKey);
 
         Assert.IsTrue(field.IsHidden);
     }
@@ -211,7 +210,7 @@ public sealed class RedisSettingsTests
 
         Assert.IsFalse(condition.IsSatisfiedBy(key => form.GetValueOrDefault(key)));
 
-        RedisSettings settings = RedisSettings.From(new WorkspaceConnectRequest
+        var settings = RedisSettings.From(new WorkspaceConnectRequest
         {
             SessionId = "x",
             Host = "h",

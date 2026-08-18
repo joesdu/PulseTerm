@@ -1,7 +1,6 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Globalization;
 using System.Net;
-using System.Text;
 using StackExchange.Redis;
 
 namespace VelaShell.Plugin.Redis;
@@ -302,7 +301,7 @@ internal sealed partial class RedisConnection : IAsyncDisposable
         var lengths = new Task<long>[keys.Count];
         for (int i = 0; i < keys.Count; i++)
         {
-            RedisKey redisKey = keys[i].ToRedisKey();
+            var redisKey = keys[i].ToRedisKey();
             ttls[i] = db.KeyTimeToLiveAsync(redisKey);
             lengths[i] = LengthAsync(db, redisKey, ParseType(i < types.Count ? types[i] : string.Empty));
         }
@@ -373,7 +372,7 @@ internal sealed partial class RedisConnection : IAsyncDisposable
             // 个别键在这一瞬过期是常态,不该让整页的类型都变成未知。
             Trace.WriteLine($"[Redis] Batch TYPE partially failed: {ex.Message}");
         }
-        var types = new string[keys.Count];
+        string[] types = new string[keys.Count];
         for (int i = 0; i < keys.Count; i++)
         {
             types[i] = pending[i].IsCompletedSuccessfully ? TypeName(pending[i].Result) : string.Empty;
@@ -394,7 +393,7 @@ internal sealed partial class RedisConnection : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(key);
         cancellationToken.ThrowIfCancellationRequested();
         IDatabase db = Db();
-        RedisKey redisKey = key.ToRedisKey();
+        var redisKey = key.ToRedisKey();
         // 一次流水线打包:类型、TTL、编码三条命令一个往返。
         Task<RedisType> typeTask = db.KeyTypeAsync(redisKey);
         Task<TimeSpan?> ttlTask = db.KeyTimeToLiveAsync(redisKey);
@@ -426,7 +425,7 @@ internal sealed partial class RedisConnection : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(key);
         cancellationToken.ThrowIfCancellationRequested();
         IDatabase db = Db();
-        RedisKey redisKey = key.ToRedisKey();
+        var redisKey = key.ToRedisKey();
         long total = await db.StringLengthAsync(redisKey).ConfigureAwait(false);
         int limit = _settings.ValuePreviewBytes;
         if (total <= limit)
@@ -460,7 +459,7 @@ internal sealed partial class RedisConnection : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(key);
         cancellationToken.ThrowIfCancellationRequested();
         IDatabase db = Db();
-        RedisKey redisKey = key.ToRedisKey();
+        var redisKey = key.ToRedisKey();
         string start = string.IsNullOrEmpty(cursor) ? "0" : cursor;
         return type switch
         {
@@ -640,7 +639,7 @@ internal sealed partial class RedisConnection : IAsyncDisposable
         {
             return ("0", keys);
         }
-        RedisResult[] parts = (RedisResult[])result!;
+        var parts = (RedisResult[])result!;
         if (parts.Length < 2)
         {
             return ("0", keys);
@@ -670,11 +669,11 @@ internal sealed partial class RedisConnection : IAsyncDisposable
         string next = "0";
         if (!result.IsNull && result.Resp2Type == ResultType.Array)
         {
-            RedisResult[] parts = (RedisResult[])result!;
+            var parts = (RedisResult[])result!;
             if (parts.Length >= 2)
             {
                 next = (string?)parts[0] ?? "0";
-                RedisValue[] flat = (RedisValue[])parts[1]!;
+                var flat = (RedisValue[])parts[1]!;
                 int step = hasValue ? 2 : 1;
                 for (int i = 0; i + step - 1 < flat.Length; i += step)
                 {
@@ -785,7 +784,7 @@ internal sealed partial class RedisConnection : IAsyncDisposable
             RedisResult config = await TryExecuteAsync(db, "CONFIG", "GET", "databases").ConfigureAwait(false);
             if (!config.IsNull && config.Resp2Type == ResultType.Array)
             {
-                RedisValue[] pairs = (RedisValue[])config!;
+                var pairs = (RedisValue[])config!;
                 // 显式转成字符串再解析:RedisValue 同时能隐式转 string 与 ReadOnlySpan<byte>,
                 // 直接传进 int.TryParse 是二义调用。
                 if (pairs.Length >= 2
@@ -826,7 +825,7 @@ internal sealed partial class RedisConnection : IAsyncDisposable
         }
         try
         {
-            RedisResult[] parts = (RedisResult[])hello!;
+            var parts = (RedisResult[])hello!;
             for (int i = 0; i + 1 < parts.Length; i += 2)
             {
                 if (string.Equals((string?)parts[i], "proto", StringComparison.Ordinal))

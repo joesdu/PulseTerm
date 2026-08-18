@@ -12,18 +12,18 @@ public sealed class S3ObjectPathTests
     [TestMethod]
     public void Parse_MapsThePathHierarchy()
     {
-        S3ObjectPath root = S3ObjectPath.Parse("/");
+        var root = S3ObjectPath.Parse("/");
         Assert.IsTrue(root.IsRoot);
         Assert.IsEmpty(root.Bucket);
         Assert.IsEmpty(root.Key);
 
-        S3ObjectPath bucket = S3ObjectPath.Parse("/my-bucket");
+        var bucket = S3ObjectPath.Parse("/my-bucket");
         Assert.IsFalse(bucket.IsRoot);
         Assert.IsTrue(bucket.IsBucketRoot);
         Assert.AreEqual("my-bucket", bucket.Bucket);
         Assert.IsEmpty(bucket.Key);
 
-        S3ObjectPath key = S3ObjectPath.Parse("/my-bucket/logs/2026/app.log");
+        var key = S3ObjectPath.Parse("/my-bucket/logs/2026/app.log");
         Assert.AreEqual("my-bucket", key.Bucket);
         Assert.AreEqual("logs/2026/app.log", key.Key);
         Assert.AreEqual("app.log", key.Name);
@@ -93,7 +93,7 @@ public sealed class S3ObjectPathTests
     [TestMethod]
     public void Parent_WalksUpAndStopsAtRoot()
     {
-        S3ObjectPath deep = S3ObjectPath.Parse("/bucket/a/b/c.txt");
+        var deep = S3ObjectPath.Parse("/bucket/a/b/c.txt");
         Assert.AreEqual("/bucket/a/b", deep.Parent().ToString());
         Assert.AreEqual("/bucket/a", deep.Parent().Parent().ToString());
         Assert.AreEqual("/bucket", deep.Parent().Parent().Parent().ToString());
@@ -149,7 +149,7 @@ public sealed class S3ObjectPathTests
     [TestMethod]
     public void FromRequest_AcceptsAFullUrlAsTheEndpoint()
     {
-        S3ConnectionInfo info = S3ConnectionInfo.FromRequest(new()
+        var info = S3ConnectionInfo.FromRequest(new()
         {
             Host = "http://10.0.0.2:9000/browser",
             Port = 0,
@@ -169,7 +169,7 @@ public sealed class S3ObjectPathTests
     [TestMethod]
     public void FromRequest_FallsBackToDefaultsWhenSettingsAreMissing()
     {
-        S3ConnectionInfo info = S3ConnectionInfo.FromRequest(new()
+        var info = S3ConnectionInfo.FromRequest(new()
         {
             Host = "s3.amazonaws.com",
             Port = 443,

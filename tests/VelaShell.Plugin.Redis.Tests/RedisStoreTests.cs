@@ -1,4 +1,3 @@
-﻿using VelaShell.Plugin.Redis;
 using VelaShell.PluginSdk.Testing;
 
 namespace VelaShell.Plugin.Redis.Tests;

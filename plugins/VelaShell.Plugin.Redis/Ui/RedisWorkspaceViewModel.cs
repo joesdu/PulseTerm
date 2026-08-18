@@ -1,7 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Text;
-using VelaShell.PluginSdk;
 
 namespace VelaShell.Plugin.Redis.Ui;
 
@@ -272,7 +271,7 @@ public sealed partial class RedisWorkspaceViewModel : ObservableObject, IDisposa
     {
         get
         {
-            var builder = new StringBuilder("SCAN 0 MATCH ")
+            StringBuilder builder = new StringBuilder("SCAN 0 MATCH ")
                 .Append(BuildPattern())
                 .Append(" COUNT ")
                 .Append(_connection.Settings.ScanCount.ToString(CultureInfo.InvariantCulture));

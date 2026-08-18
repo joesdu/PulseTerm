@@ -109,15 +109,21 @@ internal static class S3Interop
             HttpStatusCode.Unauthorized => new VelaS3AuthenticationException($"S3 authentication failed: {detail}", inner),
             HttpStatusCode.Forbidden => new VelaS3PermissionDeniedException($"{prefix}: {detail}", inner)
             {
-                ErrorCode = code, StatusCode = statusCode, RequestId = requestId,
+                ErrorCode = code,
+                StatusCode = statusCode,
+                RequestId = requestId,
             },
             HttpStatusCode.NotFound => new VelaS3PathNotFoundException($"{prefix}: {detail}", inner)
             {
-                ErrorCode = code, StatusCode = statusCode, RequestId = requestId,
+                ErrorCode = code,
+                StatusCode = statusCode,
+                RequestId = requestId,
             },
             HttpStatusCode.NotImplemented => new VelaS3UnsupportedOperationException($"{prefix}: {detail}", inner)
             {
-                ErrorCode = code, StatusCode = statusCode, RequestId = requestId,
+                ErrorCode = code,
+                StatusCode = statusCode,
+                RequestId = requestId,
             },
             // 5xx 与 429 是「服务端暂时不行」,归为连接类:上层据此把会话标记为离线并提示重试,
             // 而不是把它当成「这个对象有问题」。501 已在上面单独处理。
@@ -125,7 +131,9 @@ internal static class S3Interop
                 new VelaS3ConnectionException($"{prefix}: {detail}", inner),
             _ => new VelaS3OperationException($"{prefix}: {detail}", inner)
             {
-                ErrorCode = code, StatusCode = statusCode, RequestId = requestId,
+                ErrorCode = code,
+                StatusCode = statusCode,
+                RequestId = requestId,
             },
         };
 

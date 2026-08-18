@@ -1,5 +1,3 @@
-using VelaShell.Plugin.Telnet;
-
 namespace VelaShell.Plugin.Telnet.Tests;
 
 /// <summary>

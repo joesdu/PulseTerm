@@ -1,4 +1,4 @@
-﻿using System.Security.Authentication;
+using System.Security.Authentication;
 using StackExchange.Redis;
 using VelaShell.PluginSdk;
 using VelaShell.PluginSdk.Protocols;
@@ -27,7 +27,7 @@ internal sealed class RedisWorkspaceProvider(IPluginContext context, Loc loc) : 
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
-        RedisSettings settings = RedisSettings.From(request);
+        var settings = RedisSettings.From(request);
         RedisTlsTrust? trust = settings.UseTls ? new(settings.TrustedThumbprint) : null;
         RedisConnection connection;
         try

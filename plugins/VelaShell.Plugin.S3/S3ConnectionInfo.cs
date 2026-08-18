@@ -50,7 +50,7 @@ public sealed class S3ConnectionInfo
     public static S3ConnectionInfo FromRequest(ProtocolConnectRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
-        S3Settings settings = S3Settings.FromRequest(request);
+        var settings = S3Settings.FromRequest(request);
         string raw = request.Host?.Trim() ?? string.Empty;
         if (raw.Length == 0)
         {

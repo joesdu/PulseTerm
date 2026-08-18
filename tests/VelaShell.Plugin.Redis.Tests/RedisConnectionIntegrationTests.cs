@@ -1,5 +1,4 @@
 using StackExchange.Redis;
-using VelaShell.Plugin.Redis;
 using VelaShell.PluginSdk.Workspaces;
 
 namespace VelaShell.Plugin.Redis.Tests;

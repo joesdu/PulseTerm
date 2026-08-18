@@ -76,7 +76,7 @@ public partial class ConnectionProfileView : Window
             return;
         }
         PixelRect area = screen.WorkingArea;
-        PixelSize size = PixelSize.FromSize(Bounds.Size, screen.Scaling);
+        var size = PixelSize.FromSize(Bounds.Size, screen.Scaling);
         PixelPoint current = Position;
         int x = Math.Clamp(current.X, area.X, Math.Max(area.X, area.Right - size.Width));
         int y = Math.Clamp(current.Y, area.Y, Math.Max(area.Y, area.Bottom - size.Height));

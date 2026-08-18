@@ -1,5 +1,4 @@
 using System.Text;
-using VelaShell.Plugin.Redis;
 
 namespace VelaShell.Plugin.Redis.Tests;
 
@@ -119,7 +118,7 @@ public sealed class RedisKeyNameTests
         // 交给库的也必须是原始字节 —— 这一步一旦经过字符串,前面的努力全白费。
         byte[] raw = [0x01, 0x02, 0xFF];
 
-        StackExchange.Redis.RedisKey redisKey = new RedisKeyName(raw).ToRedisKey();
+        var redisKey = new RedisKeyName(raw).ToRedisKey();
 
         CollectionAssert.AreEqual(raw, (byte[]?)redisKey);
     }

@@ -6,8 +6,8 @@ using ReactiveUI.Primitives;
 using VelaShell.Core.Models;
 using VelaShell.Core.Resources;
 using VelaShell.Core.Sftp;
-using VelaShell.PluginSdk.Protocols;
 using VelaShell.Core.Ssh;
+using VelaShell.PluginSdk.Protocols;
 using VelaShell.Services;
 
 namespace VelaShell.ViewModels;
