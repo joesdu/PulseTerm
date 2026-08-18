@@ -1,4 +1,4 @@
-using NSubstitute;
+﻿using NSubstitute;
 using ReactiveUI.Primitives;
 using VelaShell.Behaviors;
 using VelaShell.Core.Data;
@@ -80,6 +80,107 @@ public sealed class ConnectionProfileViewModelTests
         Assert.IsNotNull(profile, "用户名为空也必须存得下去。");
         Assert.AreEqual(ConnectionType.Plugin, profile.ConnectionType);
         Assert.AreEqual("test.telnet", profile.PluginProtocolId);
+    }
+
+    /// <summary>
+    /// 声明了显示条件的字段只在条件成立时出现,并且**改一下就跟着变** ——
+    /// 这正是它要解决的问题:Redis 的「主节点名」只有哨兵模式有意义,
+    /// 原先它在独立形态下照样显示,靠字段下面一行小字"仅哨兵模式"解释。
+    /// </summary>
+    [TestMethod]
+    public void PluginFields_VisibleWhen_FollowsTheFieldItDependsOn()
+    {
+        var vm = new ConnectionProfileViewModel();
+        vm.PluginFields.Add(new(new()
+        {
+            Key = "mode",
+            Label = "部署形态",
+            Kind = PluginSdk.Protocols.ProtocolSettingKind.Choice,
+            DefaultValue = "standalone",
+            Choices = [new("standalone", "独立"), new("sentinel", "哨兵"), new("cluster", "集群")]
+        }, null));
+        vm.PluginFields.Add(new(new()
+        {
+            Key = "masterName",
+            Label = "主节点名",
+            VisibleWhen = new("mode", "sentinel")
+        }, null));
+        vm.PluginFields.Add(new(new()
+        {
+            Key = "database",
+            Label = "默认数据库",
+            VisibleWhen = new("mode", ["standalone", "sentinel"])
+        }, null));
+
+        PluginProtocolFieldViewModel master = vm.PluginFields[1];
+        PluginProtocolFieldViewModel database = vm.PluginFields[2];
+
+        Assert.IsFalse(master.IsRowVisible, "独立形态下不该出现哨兵专用的主节点名。");
+        Assert.IsTrue(database.IsRowVisible, "独立形态有多数据库。");
+
+        vm.PluginFields[0].Text = "sentinel";
+        Assert.IsTrue(master.IsRowVisible, "切到哨兵后主节点名要出现。");
+        Assert.IsTrue(database.IsRowVisible);
+
+        vm.PluginFields[0].Text = "cluster";
+        Assert.IsFalse(master.IsRowVisible);
+        Assert.IsFalse(database.IsRowVisible, "集群只有 db0,数据库那格不该出现。");
+    }
+
+    /// <summary>
+    /// 条件不成立时字段只是**看不见**,值照常保留并落盘 —— 与 IsHidden 同一套存取语义。
+    /// 反过来做的话,用户在哨兵下填了主节点名、切去独立瞄一眼再切回来,
+    /// 会发现自己填的东西被界面顺手清掉了。
+    /// </summary>
+    [TestMethod]
+    public async Task PluginFields_HiddenByCondition_KeepTheirValues()
+    {
+        var vm = new ConnectionProfileViewModel { Host = "127.0.0.1", Username = "default" };
+        await vm.SelectPluginProtocolCommand.Execute("velashell.s3").FirstAsync();
+        vm.PluginFields.Add(new(new()
+        {
+            Key = "mode",
+            Label = "部署形态",
+            DefaultValue = "sentinel"
+        }, null));
+        vm.PluginFields.Add(new(new()
+        {
+            Key = "masterName",
+            Label = "主节点名",
+            VisibleWhen = new("mode", "sentinel")
+        }, "mymaster"));
+
+        Assert.IsTrue(vm.PluginFields[^1].IsRowVisible);
+        vm.PluginFields[^2].Text = "standalone";
+        Assert.IsFalse(vm.PluginFields[^1].IsRowVisible, "条件不再成立,字段应从表单上消失。");
+
+        SessionProfile? profile = await vm.SaveCommand.Execute().FirstAsync();
+        Assert.IsNotNull(profile);
+        Assert.IsNotNull(profile.PluginSettings);
+        Assert.AreEqual("mymaster", profile.PluginSettings["masterName"],
+            "看不见 ≠ 被清掉:值必须原样带回。");
+    }
+
+    /// <summary>「高级选项」展开也不该把当前不适用的字段翻出来 —— 两个条件是与关系。</summary>
+    [TestMethod]
+    public void PluginFields_VisibleWhen_BeatsAdvancedExpansion()
+    {
+        var vm = new ConnectionProfileViewModel();
+        vm.PluginFields.Add(new(new() { Key = "mode", Label = "形态", DefaultValue = "standalone" }, null));
+        vm.PluginFields.Add(new(new()
+        {
+            Key = "sentinelTuning",
+            Label = "哨兵调优",
+            IsAdvanced = true,
+            VisibleWhen = new("mode", "sentinel")
+        }, null));
+
+        vm.ToggleAdvancedCommand.Execute().Subscribe();
+        Assert.IsTrue(vm.IsAdvancedVisible);
+        Assert.IsFalse(vm.PluginFields[1].IsRowVisible, "不适用的字段,展开高级选项也不该出现。");
+
+        vm.PluginFields[0].Text = "sentinel";
+        Assert.IsTrue(vm.PluginFields[1].IsRowVisible);
     }
 
     [TestMethod]

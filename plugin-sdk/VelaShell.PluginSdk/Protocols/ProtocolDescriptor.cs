@@ -19,13 +19,74 @@ public enum ProtocolSettingKind
     Integer,
 
     /// <summary>下拉选择;取值为 <see cref="ProtocolSettingField.Choices" /> 中某项的 <c>Value</c>。</summary>
-    Choice
+    Choice,
+
+    /// <summary>
+    /// 已保存的 SSH 配置选择器;取值为该配置的 id(不透明字符串),留空表示"不经跳板机"。
+    /// <para>
+    /// 宿主渲染成"已保存的 SSH 配置"下拉,并在打开会话**之前**代为建立
+    /// SSH 会话与本地端口转发,把改写过的本地端点递给插件 ——
+    /// 插件因此一行 SSH 代码都不用写、一次凭据都不用见。仅在连接类型声明了
+    /// <see cref="Workspaces.WorkspaceFeatures.SshTunnel" /> 时有意义。
+    /// </para>
+    /// <para>
+    /// 为什么不把隧道服务直接开给插件:选哪条配置、没连上怎么办、要不要弹两步认证、
+    /// 指纹变了怎么办 —— 这一整套是宿主的核心资产,凭据更是明令**永不出宿主**。
+    /// 让插件只接受"一个已经能连的本地端点",信任面最小、代码最少,
+    /// 而且未来每个数据库插件都不必重写一遍。
+    /// </para>
+    /// </summary>
+    SshSession
 }
 
 /// <summary>下拉选项。</summary>
 /// <param name="Value">落盘的值(稳定标识,不随语言变化)。</param>
 /// <param name="Label">展示文案(插件自行本地化)。</param>
 public sealed record ProtocolSettingChoice(string Value, string Label);
+
+/// <summary>
+/// 一个字段的显示条件:另一个字段取到指定值时才显示本字段。
+/// <para>
+/// 为什么需要它:一张平铺的参数表会把**互斥**的参数一起摆出来。Redis 就是活例子 ——
+/// 「主节点名」只有哨兵模式有意义,可它在「独立」下照样显示,用户唯一的线索是字段下面
+/// 一行小字写着"仅哨兵模式"。同理「默认数据库」在集群下无效,只好用一行小字解释
+/// "集群只有 db0"。用小字解释一个本该消失的字段,是把界面的活推给了文案。
+/// </para>
+/// <para>
+/// 形状刻意封闭:**只有**"某个键 ∈ 某个值集合"这一种判据,不做表达式、不做与或非。
+/// 声明式表单的价值在于宿主能完全预测它渲染出什么;一旦引入表达式,校验、
+/// 本地化与"这字段为什么不见了"的可解释性就一起失控 —— 那就成了通用声明式 UI,
+/// 而那件事蓝图 08 明确不做。真需要多条件的插件应当拆成两种连接类型。
+/// </para>
+/// </summary>
+/// <param name="Key">被依赖的字段键(须是同一 <c>Fields</c> 列表里的另一个字段)。</param>
+/// <param name="Values">该字段取到其中任一值时本字段可见(区分大小写,与落盘值一致)。</param>
+public sealed record ProtocolSettingVisibility(string Key, IReadOnlyList<string> Values)
+{
+    /// <summary>单值的便捷写法。</summary>
+    /// <param name="key">被依赖的字段键。</param>
+    /// <param name="value">唯一的可见取值。</param>
+    public ProtocolSettingVisibility(string key, string value) : this(key, [value])
+    {
+    }
+
+    /// <summary>按当前表单取值判断本条件是否成立。</summary>
+    /// <param name="lookup">按键取当前值;键不存在时返回 <see langword="null" />。</param>
+    /// <returns>条件成立(即字段应显示)。</returns>
+    public bool IsSatisfiedBy(Func<string, string?> lookup)
+    {
+        ArgumentNullException.ThrowIfNull(lookup);
+        string current = lookup(Key) ?? string.Empty;
+        for (int i = 0; i < Values.Count; i++)
+        {
+            if (string.Equals(Values[i], current, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+}
 
 /// <summary>
 /// 一条协议专属设置的声明。宿主的连接配置页据此渲染表单,并把用户填的值原样回传给
@@ -85,6 +146,16 @@ public sealed record ProtocolSettingField
     /// </para>
     /// </summary>
     public bool IsAdvanced { get; init; }
+
+    /// <summary>
+    /// 显示条件;<see langword="null" /> 表示始终显示。见 <see cref="ProtocolSettingVisibility" />。
+    /// <para>
+    /// 条件不成立时字段从表单上消失,但它**已存的值照常保留并回传** —— 与
+    /// <see cref="IsHidden" /> 的存取语义一致。这一点是刻意的:用户在哨兵模式下填过主节点名,
+    /// 切去独立看一眼再切回来,不该发现自己填的东西被界面顺手清掉了。
+    /// </para>
+    /// </summary>
+    public ProtocolSettingVisibility? VisibleWhen { get; init; }
 }
 
 /// <summary>协议在文件管理器里的能力位。宿主据此启用/隐藏对应操作,避免给出必然失败的菜单项。</summary>

@@ -1,4 +1,4 @@
-using System.IO.Pipes;
+﻿using System.IO.Pipes;
 using VelaShell.Infrastructure.Plugins;
 using VelaShell.Infrastructure.Plugins.Capabilities;
 using VelaShell.PluginSdk;
@@ -59,6 +59,7 @@ public class TimeSeriesRoutingTests
             Terminal = new FakeTerminal(),
             // 隔离插件本就拿不到协议能力(清单校验会拒 protocols + isolated),这里用"注册即抛"的实现。
             Protocols = new UnavailableProtocols(),
+            Workspaces = new UnavailableWorkspaces(),
             Shutdown = CancellationToken.None
         };
         var hostConnection = new RpcConnection(serverPipe);

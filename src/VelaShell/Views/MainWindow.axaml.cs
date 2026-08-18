@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input.Platform;
 using Avalonia.Media;
@@ -211,6 +211,15 @@ public partial class MainWindow : Window
             vm.PluginCertificateTrustPrompt = (profile, certificate) => PromptCertificateTrustAsync(
                 profile.Host, certificate.Subject, certificate.Issuer,
                 certificate.ExpiresOn, certificate.Thumbprint, certificate.PolicyErrors);
+            // 插件提议一条连接(如 Redis 插件从 SSH 会话里探到一个实例):
+            // 打开宿主自己的「新建连接」对话框并预填。**插件不能自己写会话库** ——
+            // 那是用户数据、凭据也在里面;它只能提议,由用户过一眼再按保存。
+            if (Application.Current is App proposalApp
+                && proposalApp.Services?.GetService<VelaShell.Infrastructure.Plugins.Protocols.PluginProtocolRegistry>()
+                    is { } proposalRegistry)
+            {
+                proposalRegistry.ConnectionProposalHandler = ProposeConnectionAsync;
+            }
             vm.MultilinePasteConfirmer = ConfirmMultilinePasteAsync;
             vm.ZModemDownloadFolderPicker = PromptForZModemDownloadFolderAsync;
             vm.ZModemUploadFilePicker = PromptForZModemUploadFilesAsync;
@@ -877,6 +886,48 @@ public partial class MainWindow : Window
         {
             await mainWindowViewModel.RefreshSessionTreeAsync();
         }
+    }
+
+    /// <summary>
+    /// 插件提议的连接:把提议变成一份**尚未落盘**的配置,交给「新建连接」对话框预填。
+    /// <para>
+    /// 走同一扇对话框而不是另造一个"确认导入"框,是因为用户接下来大概率还要改点什么
+    /// (分组、名字、环境标记),而那些控件本来就都在这扇窗里。
+    /// </para>
+    /// </summary>
+    /// <param name="proposal">插件的提议。</param>
+    /// <returns>用户是否保存了这条连接。</returns>
+    private async Task<bool> ProposeConnectionAsync(
+        VelaShell.PluginSdk.Workspaces.WorkspaceConnectionProposal proposal)
+    {
+        var profile = new SessionProfile
+        {
+            // 新 Guid = 一条新记录。对话框在"编辑"模式下预填,保存即入库。
+            Id = Guid.NewGuid(),
+            Name = proposal.Name,
+            Host = proposal.Host,
+            Port = proposal.Port,
+            Username = proposal.Username,
+            Password = proposal.Password,
+            AuthMethod = AuthMethod.Password,
+            ConnectionType = ConnectionType.Plugin,
+            PluginProtocolId = proposal.WorkspaceId,
+            PluginSettings = new Dictionary<string, string>(proposal.Settings, StringComparer.Ordinal),
+            // 分组:提议只带名字,而分组在宿主里是有 id 的实体 —— 让用户在对话框里选,
+            // 比替他新建一个可能与既有分组重名的分组更稳。
+            // 探到的口令要能留住:没有这一条,用户保存后下次连接又得重填一遍。
+            RememberPassword = proposal.Password.Length > 0
+        };
+        await OpenProfileDialogAsync(profile).ConfigureAwait(true);
+        // 对话框自己会落盘并刷新树;这里用"库里有没有这条 id"作为"用户保存了没有"的判据 ——
+        // 比让对话框多回一个布尔值更难出错(用户可能保存后又点了连接)。
+        if (Application.Current is not App app
+            || app.Services?.GetService<ISessionRepository>() is not { } repository)
+        {
+            return false;
+        }
+        IReadOnlyList<SessionProfile> saved = await repository.GetAllSessionsAsync().ConfigureAwait(true);
+        return saved.Any(candidate => candidate.Id == profile.Id);
     }
 
     /// <summary>打开“新建连接”弹窗;传入 existing 时为编辑既有配置。</summary>

@@ -1,7 +1,8 @@
-# 插件系统进度总览
+﻿# 插件系统进度总览
 
-> 更新:2026-08-13。本页是实现进度的**单一权威来源**:按蓝图分项列出 已完成 / 部分完成 /
-> 未开始,并给出验收证据(测试)与建议的下一步。写插件请读 [dev-guide.md](dev-guide.md)。
+> 更新:2026-08-17(新增工作台能力域与 Redis 插件,见文末一节)。本页是实现进度的
+> **单一权威来源**:按蓝图分项列出 已完成 / 部分完成 / 未开始,并给出验收证据(测试)
+> 与建议的下一步。写插件请读 [dev-guide.md](dev-guide.md)。
 
 ## 一、总体状态
 
@@ -20,10 +21,10 @@ inProcess 停靠 / 隔离独立窗口)、可靠性(心跳/自愈/回收)、数�
 (工具箱审批闸门/能力桥接语义/设置与机密存取/会话历史时序读写/@ 引用语法/面板 headless 交互)。
 容器管理插件未开始。
 
-质量基线(每轮全量回归):全仓构建 0 警告 0 错误;测试 1605 项全绿,其中插件专项
-114 项(Infrastructure 侧 70 项 + AI 插件 44 项;含真实双进程 e2e:跨进程激活、杀进程自愈、
-空闲回收再拉起、嵌入/流式/终端/时序 RPC 链路、.vpx 装卸;AI 面板另有 headless 装载与
-历史/↑↓/@ 交互测试)。
+质量基线(每轮全量回归):全仓构建 0 警告 0 错误;**测试 2096 项全绿**(2026-08-17),
+其中插件专项 465 项(Infrastructure 侧 95 项 + AI 插件 159 项 + S3 插件 102 项 + Redis 插件 179 项;
+含真实双进程 e2e:跨进程激活、杀进程自愈、空闲回收再拉起、嵌入/流式/终端/时序 RPC 链路、
+.vpx 装卸;AI / Redis 面板另有 headless 装载与交互测试;Redis 另有 21 项打真机 Redis 的集成测试)。
 
 ## 二、分项进度
 
@@ -48,13 +49,15 @@ inProcess 停靠 / 隔离独立窗口)、可靠性(心跳/自愈/回收)、数�
 | 插件管理页 | 02/06 | 侧栏插件图标 → 自绘卡片窗口(与资源监视同规格:min/max/close+缩放):列表/状态/启停/**卸载**/**从 .vpx 安装**/撤销终端授权;Changed 自动刷新 | PluginManagerEnableDisableTests、PluginInstallUninstallTests |
 | SDK 测试替身 | 09/13 | `TestPluginContext` + 全能力内存替身,插件无宿主可单测 | 被 HelloWorld 测试 dogfood |
 | 示例与开发内环 | 09 | HelloWorld(AXAML 面板/双语/各能力演示);F5 自动重建镜像插件 | HelloWorldDemoPanelTests |
+| 能力域:protocols(自带文件协议) | 07 | 声明 → 注册 → 惰性激活 → 注销;宿主的双栏浏览器/传输栈零改动复用;仅 `inProcess`。首个使用者:S3 插件 | PluginProtocolTests |
+| 能力域:workspaces(自带非文件型连接) | 07 | 同一排页签、同一套声明式表单、同一条惰性激活链路;宿主向插件索取一个控件挂成停靠文档。含**声明式 SSH 隧道**与**连接提议**;仅 `inProcess`。首个使用者:Redis 插件 | PluginWorkspaceTests(25 项) |
 | 开发文档 | 09 | dev-guide.md(唯一权威);01–15 蓝图已加实现注记 | — |
 
 ### ⏳ 部分完成
 
 | 分项 | 已有 | 缺口 |
 | --- | --- | --- |
-| 激活事件 | onStartup / onCommand | onSessionConnect、onFileOpen、onSchedule、onUri(蓝图 03 §4) |
+| 激活事件 | onStartup / onCommand / onProtocol / onWorkspace | onSessionConnect、onFileOpen、onSchedule、onUri(蓝图 03 §4) |
 | UI 挂载点 | 命令面板、停靠文档、独立窗口、插件管理页 | 侧栏视图、状态栏、设置页、右键菜单贡献点(蓝图 08) |
 | 跨进程 dock 停靠 | RPC 协议层保留(EmbedRoutingTests),但**宿主 Win32 实现已移除**:跨进程窗口收养与 dock reparenting 根本冲突(卡顿/窗口飘出),**弃用** | 隔离插件一律独立卡片窗口;真·dock 标签用 inProcess;跨平台稳态 = 共享内存表面(蓝图 08 §4,远期) |
 | 发布形态 | 目录即插件 + **.vpx 包一键装/卸**(zip,zip-slip 防护);SDK 以 ProjectReference 使用;**发布产物携带 `plugins/<目录名>/` 与 `VelaShell.PluginHost.*`**(前者按各插件 `<VelaPluginShip>` 取舍,示例插件不进包,目录名 = id 把点换成短横以避开 macOS codesign 的嵌套 bundle 误判;为让宿主进程在磁盘上有真实可执行体,主程序 2026-08-12 起改为摊开发布) | SDK NuGet 包发布、`dotnet new` 模板、.vpx 签名/校验(蓝图 09/10) |
@@ -65,10 +68,10 @@ inProcess 停靠 / 隔离独立窗口)、可靠性(心跳/自愈/回收)、数�
 | --- | --- | --- |
 | 权限系统 + Broker | 06 | **用户决策不做**(第一方/自装插件,信任即安装);若未来开放第三方生态需回访 |
 | .vpx 签名 / 商店 | 10 | .vpx 安装/卸载已做(见管理页);**签名校验与商店分发**按用户决策仍推迟 |
-| 能力域:localFs / audio / net / ai | 07/11 | 未开口。建议 `vela.ai` 随 AI 插件动工时定接口(terminal、timeSeries 域已完成) |
+| 能力域:localFs / audio / net / ai | 07/11 | 未开口。建议 `vela.ai` 随 AI 插件动工时定接口(terminal、timeSeries、protocols、workspaces 域已完成) |
 | 插件管理页 日志查看 | 02/06 | 列表/启停/撤授权已做;查看每插件日志尾部待后续 |
 | SonnetDB 高阶模型开放 | — | 时序/全文/向量等暂不对插件开口,按真实需求再议(apiLevel 只增纪律) |
-| 第一方业务插件 | 15 | AI 插件、容器管理插件尚未动工(框架已就绪) |
+| 第一方业务插件 | 15 | 容器管理插件尚未动工(框架已就绪);AI 插件与 Redis 插件已落地 |
 
 ## 三、刻意的架构决策(勿"纠正")
 
@@ -89,8 +92,8 @@ inProcess 停靠 / 隔离独立窗口)、可靠性(心跳/自愈/回收)、数�
 
 ## 五、建议的下一步(按价值排序)
 
-1. **写第一个业务插件**(容器管理:RemoteExec + AXAML 面板即可成型)——用真实需求
-   反哺框架缺口;
+1. **容器管理插件**(RemoteExec + AXAML 面板即可成型)——AI / S3 / Redis 三个插件已把
+   命令、协议、工作台三条链路都跑过一遍,容器管理是纯 `RemoteExec` 场景,不需要新扩展点;
 2. F5 真机验收观感(授权对话框 / 管理窗口 / 隔离插件独立窗口),修视觉毛刺;
 3. 真机验收**打包版的隔离模式**:2026-08-12 已把主程序改为摊开发布(`plugins/` 与
    `VelaShell.PluginHost.*` 都随包交付),自更新的换版也从"移动"改为"复制"、更新器改为
@@ -110,3 +113,48 @@ inProcess 停靠 / 隔离独立窗口)、可靠性(心跳/自愈/回收)、数�
   AWSSDK 依赖、22 项桶配置界面、149 条文案全部随插件走;`ConnectionType` 里不再有具体协议,
   只有一个 `Plugin`。详见 `docs/S3协议插件化设计.md`。
 - 已知边界:协议能力仅 `inProcess`(隔离进程 RPC 尚不支持宿主→插件的请求方向)。
+
+## 2026-08:工作台能力域落地(非文件型连接)
+
+- **动因**:Redis 不是文件系统。协议能力域(`IProtocolFileSystem`)的前提是"这个协议长得像
+  文件系统",而 Redis 的值是 hash/list/zset/stream 而非字节流、没有 mtime/权限而有
+  TTL/编码/内存占用、`SCAN` 是游标式且不保证完整;更要紧的是一个 Redis 客户端一半的价值在
+  服务端状态(INFO / SLOWLOG / CLIENT LIST / Pub-Sub),这些在文件浏览器里没有任何落点。
+  硬塞只会得到一个"能看不能用"的假客户端。详见 `docs/Redis客户端插件化调研与设计.md`。
+- SDK 新增 `VelaShell.PluginSdk.Workspaces`(apiLevel 仍为 1,纯增量):
+  `WorkspaceDescriptor` / `WorkspaceConnectRequest` / `IWorkspaceDocument` / `IWorkspaceProvider` /
+  `IWorkspacesApi`;**刻意复用**协议侧的 `ProtocolSettingField`(声明式表单)与 `Protocol*` 异常族
+  —— 连接对话框上两种形态的表现完全一致,没理由造第二套。
+  清单新增 `contributes.workspaces` 与 `onWorkspace:` 激活事件。
+- 宿主侧:`PluginProtocolRegistry` 泛化成**连接类型注册表**(条目带 `Kind`:文件协议 / 工作台),
+  两种形态共用同一排页签、同一个 `PluginProtocolId` 存储位、同一条惰性激活链路;
+  新增 `PluginWorkspaceLauncher`(解析 → 组装请求 → SDK 异常翻 Core 异常 → 会话登记)与
+  `PluginWorkspaceDocument`(停靠标签页外壳:标题、强调色、状态圆点、关闭)。
+  `ConnectionType` **未动** —— "是文件协议还是工作台"属于插件的声明,不该写进用户配置。
+- **声明式 SSH 隧道**(同批落地):新增 `ProtocolSettingKind.SshSession` 字段形态 +
+  `WorkspaceFeatures.SshTunnel`。宿主在打开会话前建好 SSH 会话与本地端口转发,
+  把改写过的本地端点递给插件 —— **插件一行 SSH 代码不写、一次凭据不见**;
+  已连着的同目标会话优先复用,文档关闭即拆隧道。这个口子开了,
+  后面的 MySQL/PostgreSQL/Kafka 插件全部白得。
+- **连接提议**(同批落地):`IWorkspacesApi.ProposeConnectionAsync` → 宿主打开自己的
+  「新建连接」对话框并预填。插件**不能**自己写会话库(用户数据 + 凭据),只能提议。
+- 首个使用者:官方 **Redis 插件**(`plugins/VelaShell.Plugin.Redis`,id `velashell.redis`),
+  已做到"成熟"档:键空间浏览器(游标 SCAN、扁平列表 + 同前缀分组行、服务端 MATCH 且**回显真正要发的命令**)、
+  全类型详情与写入、TTL/重命名/删除、**按 `COMMAND INFO` flags 分级的三档护栏**、
+  内置控制台(redis-cli 口径渲染 + 服务端补全 + 跨会话历史)、
+  运维面(概览/慢日志/客户端/订阅/内存抽样)、收藏、
+  以及**从 SSH 会话零打字建连**。客户端库 `StackExchange.Redis`(按用户决策;
+  调研原倾向自研 RESP,取舍与代价记在设计文档 §四.1)。详见插件自带的 README。
+- 已知边界:工作台能力仅 `inProcess`(宿主要向插件索取 Avalonia 控件,原生控件无法跨进程嵌入)。
+  Redis 侧的边界:`StackExchange.Redis` 的多路复用模型不承载 `MONITOR`、阻塞命令与
+  `MULTI`/`WATCH`(控制台在敲下回车之前就说清并如实拒绝);集群与哨兵的代码路径写了但
+  只在单机上验证过;概览的指标时序图、键空间通知开关、JSON 模块专用编辑器未做
+  (逐项见设计文档 §11.2)。
+- 验收:宿主侧 `PluginWorkspaceTests` 25 项(清单校验 / 注册表两形态互不串 / 惰性激活 /
+  重注册不掐已开文档 / 异常翻译);插件侧 **179 项**(含 21 项打真机 Redis 的集成测试、
+  20 项 headless 面板交互、以及守住"文案表重复键会在静态构造时抛"的 `LocTests`)。
+  全仓 **2096 项全绿、0 警告**。
+- 三个只有真机/测试才逮得到的 bug 值得单独记(逐条见设计文档 §11.2):
+  `SCAN TYPE` 回落后类型过滤被静默丢掉(界面会说谎)、
+  `INFO everything` 在 3.x 上不报错地回空内容(回落条件判错)、
+  以及 `Loc` 表里的重复键(编译期看不出,一炸就是整个插件不可用)。

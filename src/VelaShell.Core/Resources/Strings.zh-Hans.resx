@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -3813,5 +3813,11 @@ Windows 填 exe 完整路径或命令名(如 notepad);Linux 填命令名(如 ged
   </data>
   <data name="Plugin_ProtocolUnavailable" xml:space="preserve">
     <value>提供该协议的插件当前不可用。请在插件管理页安装或启用它。</value>
+  </data>
+  <data name="Plugin_JumpSessionMissing" xml:space="preserve">
+    <value>这条连接要经过的 SSH 配置已经不存在了。请在连接设置里另选一条 —— 直连目标会把本该走内网的流量打到公网上。</value>
+  </data>
+  <data name="Plugin_TestUnavailable" xml:space="preserve">
+    <value>这种连接类型没法在这里测试。直接按「连接」——它的插件会在面板上给出真实结果。</value>
   </data>
 </root>

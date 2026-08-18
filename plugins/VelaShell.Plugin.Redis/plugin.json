@@ -1,0 +1,33 @@
+{
+  "id": "velashell.redis",
+  "version": "0.1.0",
+  "displayName": "Redis Client",
+  "description": "Redis / Valkey 界面客户端:键空间浏览器、类型编辑器、命令控制台与服务器概览。",
+  "publisher": "velashell",
+  "entry": "VelaShell.Plugin.Redis.dll",
+  "apiLevel": 1,
+  "license": "MIT",
+  "homepage": "https://github.com/joesdu/VelaShell",
+  // 工作台贡献:连接配置页在**不装载本程序集**的前提下就能画出 Redis 页签,
+  // 用户点到它(或打开一条 Redis 会话)才触发下面的惰性激活。
+  "contributes": {
+    "workspaces": [
+      { "id": "velashell.redis", "displayName": "Redis", "defaultPort": 6379 }
+    ],
+    // 命令面板入口:从当前已连接的 SSH 会话里探测 Redis 实例并提议连接。
+    // 声明在这里,发现期就进命令面板 —— 用户按下它才装载本插件。
+    "commands": [
+      {
+        "id": "velashell.redis.discover",
+        "title": "Redis: 从 SSH 会话探测 Redis",
+        "category": "Redis"
+      }
+    ]
+  },
+  "activationEvents": [
+    "onWorkspace:velashell.redis",
+    "onCommand:velashell.redis.discover"
+  ]
+  // hostMode 必须是默认的 inProcess:宿主要向插件索取一个 Avalonia 控件挂进停靠区,
+  // 而原生控件无法跨进程嵌入。清单校验会挡住 isolated 这个组合。
+}

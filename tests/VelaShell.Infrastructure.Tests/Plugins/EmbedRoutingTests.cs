@@ -1,4 +1,4 @@
-using System.IO.Pipes;
+﻿using System.IO.Pipes;
 using System.Text.Json;
 using VelaShell.Infrastructure.Plugins;
 using VelaShell.Infrastructure.Plugins.Capabilities;
@@ -77,6 +77,7 @@ public class EmbedRoutingTests
         Terminal = new FakeTerminal(),
         // 本用例测的是停靠嵌入,协议能力被用到即是误用 —— 用"注册即抛"的那个实现。
         Protocols = new UnavailableProtocols(),
+        Workspaces = new UnavailableWorkspaces(),
         Shutdown = CancellationToken.None
     };
 

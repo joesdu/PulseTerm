@@ -1,4 +1,4 @@
-<Solution>
+﻿<Solution>
   <Folder Name="/.github/">
     <File Path=".github/dependabot.yml" />
   </Folder>
@@ -37,6 +37,7 @@
     <File Path="plugins/README.md" />
     <Project Path="plugins/VelaShell.Plugin.Ai/VelaShell.Plugin.Ai.csproj" />
     <Project Path="plugins/VelaShell.Plugin.HelloWorld/VelaShell.Plugin.HelloWorld.csproj" />
+    <Project Path="plugins/VelaShell.Plugin.Redis/VelaShell.Plugin.Redis.csproj" />
     <Project Path="plugins/VelaShell.Plugin.S3/VelaShell.Plugin.S3.csproj" />
     <Project Path="plugins/VelaShell.Plugin.Telnet/VelaShell.Plugin.Telnet.csproj" />
   </Folder>
@@ -58,6 +59,7 @@
     <Project Path="tests/VelaShell.Core.Tests/VelaShell.Core.Tests.csproj" />
     <Project Path="tests/VelaShell.Infrastructure.Tests/VelaShell.Infrastructure.Tests.csproj" />
     <Project Path="tests/VelaShell.Plugin.Ai.Tests/VelaShell.Plugin.Ai.Tests.csproj" />
+    <Project Path="tests/VelaShell.Plugin.Redis.Tests/VelaShell.Plugin.Redis.Tests.csproj" />
     <Project Path="tests/VelaShell.Plugin.S3.Tests/VelaShell.Plugin.S3.Tests.csproj" />
     <Project Path="tests/VelaShell.Plugin.Telnet.Tests/VelaShell.Plugin.Telnet.Tests.csproj" />
     <Project Path="tests/VelaShell.Presentation.Tests/VelaShell.Presentation.Tests.csproj" />

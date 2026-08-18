@@ -80,6 +80,13 @@ public interface IPluginContext
     IProtocolsApi Protocols { get; }
 
     /// <summary>
+    /// 工作台能力:注册插件自建的**非文件型**连接类型(Redis、MySQL、…),
+    /// 由插件全权渲染会话文档。仅 <c>inProcess</c> 宿主模式可用,见
+    /// <see cref="Workspaces.IWorkspacesApi" />。
+    /// </summary>
+    Workspaces.IWorkspacesApi Workspaces { get; }
+
+    /// <summary>
     /// 宿主要求停机时触发的令牌。插件的后台循环必须监听它;
     /// 触发后上下文的能力调用可能开始失败,应尽快收尾。
     /// </summary>
