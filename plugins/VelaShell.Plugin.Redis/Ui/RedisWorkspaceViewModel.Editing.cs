@@ -1,5 +1,4 @@
-﻿using System.Globalization;
-using System.Text;
+using System.Globalization;
 
 namespace VelaShell.Plugin.Redis.Ui;
 

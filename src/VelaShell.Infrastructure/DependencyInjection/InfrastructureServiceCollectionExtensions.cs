@@ -7,9 +7,9 @@ using VelaShell.Core.Import;
 using VelaShell.Core.Models;
 using VelaShell.Core.Net;
 using VelaShell.Core.Processes;
+using VelaShell.Core.Protocols;
 using VelaShell.Core.Recording;
 using VelaShell.Core.Resources;
-using VelaShell.Core.Protocols;
 using VelaShell.Core.Services;
 using VelaShell.Core.Sftp;
 using VelaShell.Core.Ssh;
@@ -23,7 +23,6 @@ using VelaShell.Infrastructure.Plugins.Protocols;
 using VelaShell.Infrastructure.Sftp;
 using VelaShell.Infrastructure.Ssh;
 using VelaShell.Infrastructure.Tunnels;
-using VelaShell.PluginSdk.Protocols;
 using VelaConnectionInfo = VelaShell.Core.Models.ConnectionInfo;
 
 namespace VelaShell.Infrastructure.DependencyInjection;

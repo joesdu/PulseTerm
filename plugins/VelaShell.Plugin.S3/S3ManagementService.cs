@@ -154,8 +154,8 @@ public sealed class S3ManagementService : IS3ManagementService
             }
 
             bool? isPublic = await TryAsync(async () =>
-                (bool?)(await client.GetBucketPolicyStatusAsync(new GetBucketPolicyStatusRequest { BucketName = bucket }, cancellationToken).ConfigureAwait(false))
-                .PolicyStatus?.IsPublic).ConfigureAwait(false);
+                ((await client.GetBucketPolicyStatusAsync(new GetBucketPolicyStatusRequest { BucketName = bucket }, cancellationToken).ConfigureAwait(false))
+                .PolicyStatus?.IsPublic)).ConfigureAwait(false);
 
             string versioning = await TryAsync(async () =>
                 (await client.GetBucketVersioningAsync(new GetBucketVersioningRequest { BucketName = bucket }, cancellationToken).ConfigureAwait(false))

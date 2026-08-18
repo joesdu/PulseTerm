@@ -385,8 +385,8 @@ internal sealed partial class RedisConnection
                 }
                 RedisKeyName key = page.Keys[i];
                 string prefix = FirstSegment(key.Text);
-                (long Keys, long Bytes) bucket = byPrefix.GetValueOrDefault(prefix);
-                byPrefix[prefix] = (bucket.Keys + 1, bucket.Bytes + bytes);
+                (long Keys, long Bytes) = byPrefix.GetValueOrDefault(prefix);
+                byPrefix[prefix] = (Keys + 1, Bytes + bytes);
                 topKeys.Add(new(key.Text, 1, bytes));
                 sampled++;
             }

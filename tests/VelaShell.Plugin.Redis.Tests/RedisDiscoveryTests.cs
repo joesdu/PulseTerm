@@ -1,5 +1,4 @@
-﻿using System.Text;
-using VelaShell.Plugin.Redis;
+using System.Text;
 using VelaShell.PluginSdk.Testing;
 using VelaShell.PluginSdk.Workspaces;
 

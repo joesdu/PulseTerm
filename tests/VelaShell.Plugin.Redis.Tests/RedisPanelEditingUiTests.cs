@@ -1,8 +1,7 @@
-﻿using Avalonia.Controls;
+using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Threading;
 using StackExchange.Redis;
-using VelaShell.Plugin.Redis;
 using VelaShell.Plugin.Redis.Ui;
 using VelaShell.PluginSdk.Testing;
 using VelaShell.PluginSdk.Workspaces;

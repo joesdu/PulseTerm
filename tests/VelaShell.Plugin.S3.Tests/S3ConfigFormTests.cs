@@ -24,7 +24,7 @@ public sealed class S3ConfigFormTests
     {
         foreach (S3ConfigKind kind in Enum.GetValues<S3ConfigKind>())
         {
-            S3ConfigDescriptor descriptor = S3ConfigDescriptor.For(kind);
+            var descriptor = S3ConfigDescriptor.For(kind);
             Assert.AreEqual(kind, descriptor.Kind);
             Assert.IsNotEmpty(descriptor.ResourceKey, $"{kind} 缺少标题资源键。");
         }

@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using VelaShell.Plugin.Redis;
 using VelaShell.Plugin.Redis.Ui;
 
 namespace VelaShell.Plugin.Redis.Tests;

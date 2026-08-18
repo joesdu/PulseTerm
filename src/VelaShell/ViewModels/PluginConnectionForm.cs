@@ -1,4 +1,4 @@
-﻿using VelaShell.Infrastructure.Plugins.Protocols;
+using VelaShell.Infrastructure.Plugins.Protocols;
 using VelaShell.PluginSdk.Protocols;
 using VelaShell.PluginSdk.Workspaces;
 

@@ -1,4 +1,3 @@
-using VelaShell.Plugin.Redis;
 using VelaShell.PluginSdk.Protocols;
 using VelaShell.PluginSdk.Testing;
 using VelaShell.PluginSdk.Workspaces;

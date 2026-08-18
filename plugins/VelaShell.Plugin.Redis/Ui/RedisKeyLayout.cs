@@ -128,7 +128,7 @@ public static class RedisKeyLayout
                 continue;
             }
             string prefix = string.Join(delimiter, partition[0].Segments(delimiter)[..common]) + delimiter;
-            RedisKeyRow group = RedisKeyRow.ForGroup(prefix, partition.Count, depth);
+            var group = RedisKeyRow.ForGroup(prefix, partition.Count, depth);
             bool open = expanded?.Contains(group.Id) == true;
             group.IsExpanded = open;
             rows.Add(group);

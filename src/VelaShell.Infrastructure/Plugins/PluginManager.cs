@@ -3,7 +3,6 @@ using System.IO.Compression;
 using System.Reflection;
 using VelaShell.Infrastructure.Plugins.Capabilities;
 using VelaShell.Infrastructure.Plugins.Isolated;
-using VelaShell.Infrastructure.Plugins.Protocols;
 using VelaShell.PluginSdk;
 using VelaShell.PluginSdk.Commands;
 using VelaShell.PluginSdk.Hosting;

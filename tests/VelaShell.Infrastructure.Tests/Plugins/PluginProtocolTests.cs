@@ -2,7 +2,6 @@ using VelaShell.Core.Models;
 using VelaShell.Core.Protocols;
 using VelaShell.Infrastructure.Plugins.Capabilities;
 using VelaShell.Infrastructure.Plugins.Protocols;
-using VelaShell.PluginSdk;
 using VelaShell.PluginSdk.Protocols;
 using VelaShell.PluginSdk.RemoteFs;
 using VelaShell.PluginSdk.Testing;
@@ -173,12 +172,14 @@ public sealed class PluginProtocolTests
 
         Assert.ThrowsExactly<ArgumentException>(() => capability.Register(
             Descriptor(new ProtocolSettingField { Key = "thumb", Label = "thumb" })
-                with { TrustedThumbprintSettingKey = "typo" },
+                with
+            { TrustedThumbprintSettingKey = "typo" },
             fileSystem));
         // 指到真实字段就放行。
         capability.Register(
             Descriptor(new ProtocolSettingField { Key = "thumb", Label = "thumb" })
-                with { TrustedThumbprintSettingKey = "thumb" },
+                with
+            { TrustedThumbprintSettingKey = "thumb" },
             fileSystem);
     }
 
@@ -259,7 +260,8 @@ public sealed class PluginProtocolTests
                 "untrusted", "CN=minio", "CN=minio", DateTimeOffset.UnixEpoch, "AABB", "RemoteCertificateNameMismatch"),
         };
         registry.Register(PluginId, Descriptor(new ProtocolSettingField { Key = "thumb", Label = "thumb", IsHidden = true })
-            with { TrustedThumbprintSettingKey = "thumb" }, fileSystem);
+            with
+        { TrustedThumbprintSettingKey = "thumb" }, fileSystem);
         var service = new PluginProtocolFileService(registry);
 
         PluginProtocolCertificateException failure =

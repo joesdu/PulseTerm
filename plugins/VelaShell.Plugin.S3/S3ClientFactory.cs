@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Net;
 using Amazon.Runtime;
 using Amazon.S3;

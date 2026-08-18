@@ -158,11 +158,11 @@ public class VpxContainerTests
     [TestMethod]
     public void Signature_RoundTrips_AndIsTrustedForItsOwnKey()
     {
-        using ECDsa key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         string package = PackFile();
         VpxContainer.Pack(CreatePluginDirectory(), package, new() { SigningKey = key });
 
-        var info = VpxContainer.ReadInfo(package);
+        VpxPackageInfo info = VpxContainer.ReadInfo(package);
         Assert.IsNotNull(info.Signature);
         Assert.AreEqual(VpxContainer.SignatureAlgorithm, info.Signature.Algorithm);
 
@@ -174,12 +174,12 @@ public class VpxContainerTests
     [TestMethod]
     public void Signature_FromAnotherKey_IsUntrustedButValid()
     {
-        using ECDsa signer = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        using ECDsa stranger = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        using var signer = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        using var stranger = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         string package = PackFile();
         VpxContainer.Pack(CreatePluginDirectory(), package, new() { SigningKey = signer });
 
-        var info = VpxContainer.ReadInfo(package);
+        VpxPackageInfo info = VpxContainer.ReadInfo(package);
         Assert.AreEqual(VpxSignatureState.Untrusted,
             VpxContainer.VerifySignature(info, [Convert.ToBase64String(stranger.ExportSubjectPublicKeyInfo())]));
     }
@@ -189,7 +189,7 @@ public class VpxContainerTests
     {
         // 攻击模型:拿一个签过名的包,把载荷换成自己的,再把头部的长度与摘要一并改对。
         // 签名覆盖的是整个头部,所以这样改完签名必然对不上。
-        using ECDsa key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         string good = PackFile("good.vpx");
         string evil = PackFile("evil.vpx");
         VpxContainer.Pack(CreatePluginDirectory("acme.good"), good, new() { SigningKey = key });
@@ -197,7 +197,7 @@ public class VpxContainerTests
 
         byte[] goodBytes = File.ReadAllBytes(good);
         byte[] evilBytes = File.ReadAllBytes(evil);
-        var goodInfo = VpxContainer.ReadInfo(good);
+        VpxPackageInfo goodInfo = VpxContainer.ReadInfo(good);
         // 恶意包的头部 + 正牌包的签名块:头部变了,签名自然失效。
         byte[] forged =
         [
@@ -210,7 +210,7 @@ public class VpxContainerTests
         string package = PackFile("forged.vpx");
         File.WriteAllBytes(package, forged);
 
-        var info = VpxContainer.ReadInfo(package);
+        VpxPackageInfo info = VpxContainer.ReadInfo(package);
         Assert.AreEqual(VpxSignatureState.Invalid, VpxContainer.VerifySignature(info));
     }
 

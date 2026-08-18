@@ -9,8 +9,8 @@ using VelaShell.Core.Data;
 using VelaShell.Core.Models;
 using VelaShell.Core.Resources;
 using VelaShell.Infrastructure.Plugins.Protocols;
-using VelaShell.Presentation.Services;
 using VelaShell.PluginSdk.Protocols;
+using VelaShell.Presentation.Services;
 using VelaShell.Security;
 
 namespace VelaShell.ViewModels;

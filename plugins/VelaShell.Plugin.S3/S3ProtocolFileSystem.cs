@@ -149,7 +149,7 @@ public sealed class S3ProtocolFileSystem(IProtocolsApi? protocols = null, IS3Act
     public Task<string> CreatePresignedUrlAsync(Guid sessionId, string remotePath, TimeSpan expiry, CancellationToken cancellationToken = default)
     {
         S3Session session = Resolve(sessionId);
-        S3ObjectPath path = S3ObjectPath.Parse(remotePath);
+        var path = S3ObjectPath.Parse(remotePath);
         if (path.IsRoot || path.Key.Length == 0)
         {
             throw new VelaS3OperationException("A presigned URL requires an object path, not a bucket or the root.");
@@ -308,7 +308,7 @@ public sealed class S3ProtocolFileSystem(IProtocolsApi? protocols = null, IS3Act
                 case S3Actions.ManageBucket:
                     // 在根(桶列表)上右键选中的那一行,或桶内任意位置 —— 两种情形下
                     // 用户的意图都是"管理我现在看到的这个桶",取路径第一段即可。
-                    S3ObjectPath bucket = S3ObjectPath.Parse(path);
+                    var bucket = S3ObjectPath.Parse(path);
                     if (!bucket.IsRoot)
                     {
                         await actions.OpenBucketManagerAsync(id, bucket.Bucket, cancellationToken).ConfigureAwait(false);
@@ -377,7 +377,7 @@ public sealed class S3ProtocolFileSystem(IProtocolsApi? protocols = null, IS3Act
     internal async Task<List<S3FileEntry>> ListDirectoryAsync(Guid sessionId, string path, CancellationToken cancellationToken = default)
     {
         S3Session session = Resolve(sessionId);
-        S3ObjectPath target = S3ObjectPath.Parse(path);
+        var target = S3ObjectPath.Parse(path);
         try
         {
             // 根 = 桶列表。每个桶显示为一个目录,双击进去就是这个桶的对象。
@@ -493,7 +493,7 @@ public sealed class S3ProtocolFileSystem(IProtocolsApi? protocols = null, IS3Act
     internal async Task<S3FileEntry> GetFileInfoAsync(Guid sessionId, string remotePath, CancellationToken cancellationToken = default)
     {
         S3Session session = Resolve(sessionId);
-        S3ObjectPath path = S3ObjectPath.Parse(remotePath);
+        var path = S3ObjectPath.Parse(remotePath);
         try
         {
             if (path.IsRoot)
@@ -534,7 +534,7 @@ public sealed class S3ProtocolFileSystem(IProtocolsApi? protocols = null, IS3Act
     public async Task<bool> ExistsAsync(Guid sessionId, string remotePath, CancellationToken cancellationToken = default)
     {
         S3Session session = Resolve(sessionId);
-        S3ObjectPath path = S3ObjectPath.Parse(remotePath);
+        var path = S3ObjectPath.Parse(remotePath);
         try
         {
             if (path.IsRoot)
@@ -789,7 +789,7 @@ public sealed class S3ProtocolFileSystem(IProtocolsApi? protocols = null, IS3Act
     public async Task CreateDirectoryAsync(Guid sessionId, string remotePath, CancellationToken cancellationToken = default)
     {
         S3Session session = Resolve(sessionId);
-        S3ObjectPath path = S3ObjectPath.Parse(remotePath);
+        var path = S3ObjectPath.Parse(remotePath);
         try
         {
             if (path.IsRoot)
@@ -821,7 +821,7 @@ public sealed class S3ProtocolFileSystem(IProtocolsApi? protocols = null, IS3Act
     public async Task EnsureDirectoryAsync(Guid sessionId, string remotePath, CancellationToken cancellationToken = default)
     {
         S3Session session = Resolve(sessionId);
-        S3ObjectPath path = S3ObjectPath.Parse(remotePath);
+        var path = S3ObjectPath.Parse(remotePath);
         if (path.IsRoot)
         {
             return;
@@ -851,7 +851,7 @@ public sealed class S3ProtocolFileSystem(IProtocolsApi? protocols = null, IS3Act
     public async Task DeleteAsync(Guid sessionId, string remotePath, IProgress<ProtocolDeleteProgress>? progress = null, CancellationToken cancellationToken = default)
     {
         S3Session session = Resolve(sessionId);
-        S3ObjectPath path = S3ObjectPath.Parse(remotePath);
+        var path = S3ObjectPath.Parse(remotePath);
         try
         {
             if (path.IsRoot)
@@ -902,8 +902,8 @@ public sealed class S3ProtocolFileSystem(IProtocolsApi? protocols = null, IS3Act
     public async Task RenameAsync(Guid sessionId, string oldPath, string newPath, CancellationToken cancellationToken = default)
     {
         S3Session session = Resolve(sessionId);
-        S3ObjectPath source = S3ObjectPath.Parse(oldPath);
-        S3ObjectPath destination = S3ObjectPath.Parse(newPath);
+        var source = S3ObjectPath.Parse(oldPath);
+        var destination = S3ObjectPath.Parse(newPath);
         try
         {
             if (source.IsRoot || destination.IsRoot)
@@ -929,8 +929,8 @@ public sealed class S3ProtocolFileSystem(IProtocolsApi? protocols = null, IS3Act
     public async Task CopyAsync(Guid sessionId, string sourcePath, string destPath, IProgress<RemoteTransferProgress>? progress = null, CancellationToken cancellationToken = default)
     {
         S3Session session = Resolve(sessionId);
-        S3ObjectPath source = S3ObjectPath.Parse(sourcePath);
-        S3ObjectPath destination = S3ObjectPath.Parse(destPath);
+        var source = S3ObjectPath.Parse(sourcePath);
+        var destination = S3ObjectPath.Parse(destPath);
         try
         {
             if (source.IsRoot || destination.IsRoot || source.Key.Length == 0 || destination.Key.Length == 0)
@@ -1432,7 +1432,7 @@ public sealed class S3ProtocolFileSystem(IProtocolsApi? protocols = null, IS3Act
 
     private static S3ObjectPath RequireObject(string remotePath, string operation)
     {
-        S3ObjectPath path = S3ObjectPath.Parse(remotePath);
+        var path = S3ObjectPath.Parse(remotePath);
         return path.IsRoot || path.Key.Length == 0
             ? throw new VelaS3OperationException($"S3 {operation} requires an object path (/bucket/key), got '{remotePath}'.")
             : path;

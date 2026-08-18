@@ -315,7 +315,7 @@ internal sealed partial class RedisConnection
         // TTL 也要跟过去:复制一个"还有十分钟就没了"的键,到了对面变成永久是另一种失真。
         TimeSpan? ttl = await Db().KeyTimeToLiveAsync(key.ToRedisKey()).ConfigureAwait(false);
         IDatabase destination = target._mux.GetDatabase(target._settings.SupportsDatabases ? targetDatabase : 0);
-        RedisKey destinationKey = (newKey ?? key).ToRedisKey();
+        var destinationKey = (newKey ?? key).ToRedisKey();
         var args = new List<object>
         {
             destinationKey,

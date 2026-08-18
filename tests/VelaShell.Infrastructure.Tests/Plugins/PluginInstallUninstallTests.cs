@@ -1,7 +1,7 @@
 using System.IO.Compression;
 using VelaShell.Infrastructure.Plugins;
-using VelaShell.PluginSdk.Packaging;
 using VelaShell.Plugin.HelloWorld;
+using VelaShell.PluginSdk.Packaging;
 using VelaShell.PluginSdk.Testing;
 
 namespace VelaShell.Infrastructure.Tests.Plugins;

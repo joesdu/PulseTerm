@@ -1,5 +1,4 @@
 using System.Text;
-using VelaShell.Plugin.Redis;
 
 namespace VelaShell.Plugin.Redis.Tests;
 
