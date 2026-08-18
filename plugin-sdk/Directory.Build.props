@@ -1,6 +1,36 @@
 <Project>
 	<Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
 
+	<!--
+	  发包设定。这几个工程是**对外发布的 NuGet 包**(宿主工程不是),因此:
+	  · 版本走 VelaSdkVersion,与宿主版本解耦(见根 Directory.Build.props);
+	  · 三个版本号各司其职,别混:
+	      AssemblyVersion       = <主版本>.0.0.0 —— **绑定标识**,只随主版本动。
+	                              插件是编译期绑到这个标识上的,1.0 → 1.1 让它跟着变
+	                              等于每发一次补丁就要所有已编译插件重新绑定,毫无收益。
+	                              主版本变了才变,而主版本变意味着契约破了 —— 那一刻
+	                              **apiLevel 必须同步 +1**(纪律:AssemblyVersion 主版本 == apiLevel),
+	                              于是老宿主在**发现期**就按 apiLevel 干净拒载,
+	                              而不是等装载时抛一个看不懂的绑定异常。
+	      FileVersion           = 完整数字版(1.2.3)—— 资源管理器属性页看到的就是它。
+	      InformationalVersion  = 完整版本含预发布后缀(由 Version 推导),vela-plugin 报的版本就是它。
+	    所以"升级了用户还以为是 1.0.0"不会发生:面向人的两个版本号都跟着涨,
+	    钉住的只有面向运行时的那个绑定标识。
+	  · 出符号包,便于插件作者单步进 SDK 看清楚参数校验在哪一步拒了他。
+	-->
+	<PropertyGroup>
+		<Version>$(VelaSdkVersion)</Version>
+		<AssemblyVersion>$(VelaSdkMajor).0.0.0</AssemblyVersion>
+		<FileVersion>$(VelaSdkVersionCore)</FileVersion>
+		<PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+		<PackageProjectUrl>https://github.com/joesdu/VelaShell</PackageProjectUrl>
+		<PackageTags>velashell;plugin;sdk;ssh;terminal</PackageTags>
+		<IncludeSymbols>true</IncludeSymbols>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+		<PublishRepositoryUrl>true</PublishRepositoryUrl>
+		<EmbedUntrackedSources>true</EmbedUntrackedSources>
+	</PropertyGroup>
+
 	<!-- Release 签名与 src 侧保持一致:宿主工程(Release 下签名)引用本目录的 SDK 程序集,
 	     已签名程序集不能引用未签名程序集,因此 SDK 必须用同一把钥匙签名。 -->
 	<PropertyGroup Condition="'$(Configuration)' == 'Release'">

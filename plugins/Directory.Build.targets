@@ -39,6 +39,25 @@
 		      SkipUnchangedFiles="true" />
 	</Target>
 
+	<!-- 仓库内插件也能出 .vpx:`dotnet build plugins/VelaShell.Plugin.X -t:PackVpx`。
+	     用的是 tools/VelaShell.Plugin.Cli(与对外 SDK 包里随包分发的是同一份代码),
+	     先把它构建出来再调 —— 第一方插件与第三方插件因此走完全一样的打包路径,
+	     格式出问题我们自己先撞上。 -->
+	<Target Name="PackVpx" DependsOnTargets="Build" Condition="'$(VelaPluginId)' != ''">
+		<PropertyGroup>
+			<_VelaCliProject>$(MSBuildThisFileDirectory)..\tools\VelaShell.Plugin.Cli\VelaShell.Plugin.Cli.csproj</_VelaCliProject>
+			<_VelaCliDll>$(MSBuildThisFileDirectory)..\tools\VelaShell.Plugin.Cli\bin\$(Configuration)\net11.0\VelaShell.Plugin.Cli.dll</_VelaCliDll>
+			<VelaVpxOutputDirectory Condition="'$(VelaVpxOutputDirectory)' == ''">$(MSBuildProjectDirectory)\bin\vpx\</VelaVpxOutputDirectory>
+		</PropertyGroup>
+		<MSBuild Projects="$(_VelaCliProject)" Targets="Build" Properties="Configuration=$(Configuration)" />
+		<MakeDir Directories="$(VelaVpxOutputDirectory)" />
+		<PropertyGroup>
+			<_VelaPackArgs>pack &quot;$(TargetDir.TrimEnd('\'))&quot; --output &quot;$(VelaVpxOutputDirectory.TrimEnd('\'))&quot;</_VelaPackArgs>
+			<_VelaPackArgs Condition="'$(VelaSigningKey)' != ''">$(_VelaPackArgs) --key &quot;$(VelaSigningKey)&quot;</_VelaPackArgs>
+		</PropertyGroup>
+		<Exec Command="dotnet exec &quot;$(_VelaCliDll)&quot; $(_VelaPackArgs)" />
+	</Target>
+
 	<!-- 发布期契约:由 src/VelaShell/VelaShell.csproj 的 AddVelaPluginsToPublish 调用,
 	     返回"该随应用分发的文件 + 它在安装包 plugins/ 下的相对路径"。
 	     VelaPluginShip=false 的插件返回空集 —— 于是它整个不进发行产物。

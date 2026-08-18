@@ -100,25 +100,48 @@ Plugins with `true` are registered in `ResolvedFileToPublish` by `AddVelaPlugins
 > (`bundle format unrecognized, invalid, or unsuitable`). The directory name **does not participate in any logic**.
 > The host enumerates subdirectories and reads the id from `plugin.json`, so this is only a packaging-side naming convention.
 
-### 2.2 Plugins Outside the Repository (Third-Party)
+### 2.2 Plugins Outside the Repository (Third-Party): from `dotnet new` to installed in five minutes
 
-Create a project with the same structure anywhere (referencing the SDK project or a future NuGet package). After building, there are two installation methods:
+The SDK ships as NuGet packages, and a plugin project needs **exactly one** of them.
 
-**Method 1: `.vpx` package (recommended, installable/uninstallable with one click from the plugin management page)**. Package the
-**entry DLL + deps.json + bundled dependencies + plugin.json** into a zip archive and rename it to `.vpx`:
+```bash
+# One-off: install the templates and the CLI
+dotnet new install VelaShell.Plugin.Templates
+dotnet tool install -g VelaShell.Plugin.Cli      # optional, see below
 
-```text
-my-plugin.vpx (zip)
-├── plugin.json          # Root directory
-├── MyPlugin.dll
-├── MyPlugin.deps.json
-└── <bundled dependency>.dll
+# Create the project (id = acme.snippets)
+dotnet new velaplugin -n Snippets --publisher acme --authorName "Your Name"
+#   velaplugin      basic: entry class + one command
+#   velaplugin-ui   adds an Avalonia panel (AXAML)
+#   --hostMode inProcess|isolated
+
+cd Snippets
+dotnet build -c Release -t:PackVpx               # → bin/vpx/acme.snippets-0.1.0.vpx
 ```
 
-Sidebar plugin icon → Plugin Management page → select the file with "Install .vpx…" to install it (extracts into the user directory, validates the manifest, protects against zip slip, replaces the old version for the same id, and activates according to the activation policy). Uninstallation is also a one-click operation on the management page
-(deletes the directory and clears database data).
+The generated `.csproj` has a single dependency:
 
-**Method 2: Place the directory directly**. Put the files above in:
+```xml
+<PackageReference Include="VelaShell.PluginSdk.Build" Version="1.0.0-preview.1" />
+```
+
+That one package brings everything a plugin project needs: the `VelaShell.PluginSdk` contract assembly, **Avalonia pinned to exactly the host's version** (including its AXAML compiler), `EnableDynamicLoading`, `plugin.json` copied to the output, shared assemblies kept out of the plugin directory, build-time manifest validation, and the `PackVpx` target. Do **not** reference `VelaShell.PluginSdk` or `Avalonia` separately: a version mismatch fails the build with `VELA1001` instead of surfacing at runtime as a cross-load-context cast failure on the user's machine.
+
+| Package | Referenced by | Purpose |
+| --- | --- | --- |
+| `VelaShell.PluginSdk.Build` | **the plugin project** | All of the above. Reference this one alone |
+| `VelaShell.PluginSdk` | (flows transitively) | Contract assembly, BCL-only |
+| `VelaShell.PluginSdk.Testing` | the plugin's **test project** | `TestPluginContext` and in-memory capability doubles |
+| `VelaShell.Plugin.Cli` (`vela-plugin`) | developer machine | dotnet tool: validate / pack / sign / dev-link |
+| `VelaShell.Plugin.Templates` | developer machine | `dotnet new` templates |
+
+> **The SDK is not a dotnet tool.** All three `VelaShell.PluginSdk*` packages are ordinary NuGet packages consumed via `PackageReference`; only `vela-plugin` (`VelaShell.Plugin.Cli`) is a dotnet tool. And **packing does not require installing it** — the packer ships inside `VelaShell.PluginSdk.Build`, so `dotnet build -t:PackVpx` works out of the box. Install the global tool to validate, sign, inspect packages, or set up a development mount (`vela-plugin dev-link`) outside a build.
+
+**Method 1: `.vpx` package (recommended)**. Sidebar plugin icon → Plugin Management page → select the file with "Install .vpx…" (validates the container and manifest, guards against zip slip and zip bombs, extracts into the user directory, replaces the old version for the same id, and activates according to the activation policy). The command-line equivalent is `vela-plugin install <package>`. Uninstallation is also a one-click operation on the management page (deletes the directory and clears database data).
+
+`.vpx` is VelaShell's **own container format**, not a renamed zip — see §12 for the layout and signing.
+
+**Method 2: Place the directory directly**. Put the build output (entry DLL + deps.json + bundled dependencies + plugin.json) in:
 
 ```text
 %LocalAppData%\VelaShell\plugins\<plugin id>\        (Windows)
@@ -130,6 +153,34 @@ Restart VelaShell to load it. Again: do not put `VelaShell.PluginSdk.dll` or `Av
 > Built-in application plugins (`<application directory>/plugins`) are read-only, so the management page does not offer uninstallation; user-installed plugins
 > (`.vpx` files or directories placed in the user directory) can be uninstalled.
 
+### 2.3 Inner Loop and Debugging
+
+Third-party plugins do not need the "pack → install → look" cycle. Mount the project's output directory into the host instead:
+
+```bash
+vela-plugin dev-link bin/Debug/net11.0     # register (writes <data root>/plugins.dev.txt)
+vela-plugin dev-unlink bin/Debug/net11.0   # remove
+```
+
+From then on, `dotnet build` plus a host restart runs the latest code, and the plugin is badged **DEV** on the management page. The equivalent ad-hoc form is the `VELA_PLUGIN_DEV_ROOT=<dir>` environment variable (multiple entries separated by the platform path separator).
+
+Two mechanics worth knowing:
+
+- What gets registered is the plugin directory's **parent**: the host scans a root's **immediate sub-directories**, and each sub-directory containing `plugin.json` is one plugin. `dev-link` moves up one level automatically, so the plugin directory ends up named `net11.0` — directory names take part in no logic (the id is read from `plugin.json`).
+- Development roots are scanned **after** the regular ones and first id wins, so a plugin you are developing never displaces an installed plugin with the same id.
+- On Windows the running host locks the plugin DLL; close VelaShell before rebuilding.
+
+Breakpoints:
+
+| Plugin shape | How to debug |
+| --- | --- |
+| `inProcess` | The plugin runs inside the VelaShell process — use "attach to process" and pick `VelaShell`. While a debugger is attached the host stretches the activation timeout from 10 seconds to 10 minutes, so stopping inside `ActivateAsync` does not trip it |
+| `isolated` | The plugin runs in a `VelaShell.PluginHost` child process. Set `VELA_PLUGIN_WAIT_DEBUGGER=<plugin id>` (or `*` for all) before starting VelaShell and the child suspends **before loading the plugin assembly**, waiting for you to attach; its process id is printed to the host log |
+
+For plugins matched by `VELA_PLUGIN_WAIT_DEBUGGER` the host also **relaxes the activation timeout and stops the heartbeat** — otherwise a breakpoint freezes every thread in the plugin process, two missed pings in a row kill it, and the symptom is "the plugin disappears the moment I hit a breakpoint".
+
+When you do not want to start the host at all, plugin logic runs in ordinary unit tests against `TestPluginContext` from `VelaShell.PluginSdk.Testing` (see §7).
+
 ## 3. Manifest (`plugin.json`) Reference
 
 | Field | Required | Description |
@@ -139,7 +190,8 @@ Restart VelaShell to load it. Again: do not put `VelaShell.PluginSdk.dll` or `Av
 | `displayName` | ✓ | Display name |
 | `entry` | ✓ | Relative path to the entry assembly, must end in `.dll`; absolute paths and `..` segments are rejected |
 | `description` | | One-sentence description |
-| `publisher` | | Publisher |
+| `publisher` | | Publisher identity (will be bound to the signing key and take part in trust decisions) |
+| `author` | | Author, shown on the plugin manager page (e.g. `"Joe <joe@example.com>"`, ≤128 characters, no control characters). When omitted the page falls back to `publisher` |
 | `apiLevel` | | Defaults to 1; a generation higher than the host supports is marked Incompatible and not loaded |
 | `minHostVersion` | | Minimum required host version; if unmet, the plugin is Incompatible |
 | `activationEvents` | | Omitted or containing `"onStartup"` = activate at startup; containing only `"onCommand:<command id>"` = **lazy activation** (load/start the process only when the placeholder command is invoked; the corresponding placeholder must be declared in `contributes.commands`) |
@@ -450,6 +502,10 @@ The host is a terminal application that is extremely sensitive to memory and lat
 
 - **apiLevel (currently = 1)**: within a generation, the SDK only adds and never changes or removes items (interface methods, DTO fields, and manifest schema). Breaking changes raise apiLevel; the host rejects plugins from a higher generation and gives a clear message.
 - **minHostVersion**: declare this when the plugin depends on newer host capabilities. An older host marks the plugin Incompatible instead of allowing a runtime failure.
+- **SDK package version vs. assembly version**: the five SDK packages are versioned **independently of the host** and released on their own cadence. On the assembly side:
+  - `AssemblyVersion` is `<major>.0.0.0` and **moves only with the major** — plugins bind to that identity at compile time, so moving it per patch would force every compiled plugin to rebind for nothing;
+  - `FileVersion` and `InformationalVersion` carry the full version (the latter including the prerelease suffix), so the Explorer property page and `vela-plugin` report the real version rather than being stuck at 1.0.0;
+  - the rule is **SDK major == apiLevel**. A major bump means the contract broke, so `apiLevel` goes up with it and an older host rejects the plugin at **discovery** time with a readable reason, instead of throwing an assembly binding error at load time.
 - **Host-mode independence**: capability interfaces are transport-independent. Switching `hostMode` between inProcess and isolated requires no plugin source changes (this is implemented); the only exception is behavior that differs in isolated mode, as shown in the capability differences table in §6.
 
 ## 11. Deliberate Gaps from the Long-Term Blueprint
@@ -466,3 +522,88 @@ The host is a terminal application that is extremely sensitive to memory and lat
 | terminal / localFs / audio / ai and other capability domains (07) | Not opened; any new capability domain must be added back to the blueprint and only add to the API without changing it |
 
 Discipline for adding capabilities: first record them in this file and the corresponding blueprint document, then add the interface to `VelaShell.PluginSdk`; within the same apiLevel, only add and never change.
+
+## 12. The `.vpx` Package Format and Signing
+
+`.vpx` is VelaShell's **own container format**, not a renamed zip: general-purpose archivers
+cannot open it, and the host refuses to install a plain zip. The implementation lives in
+`plugin-sdk/VelaShell.PluginSdk/Packaging/VpxContainer.cs`; reading (host install) and writing
+(`vela-plugin pack`) share that one file, so "the tool produced a package the host will not take"
+cannot happen.
+
+### 12.1 Layout
+
+Little-endian; the header is a fixed 64 bytes:
+
+```text
+Offset  Size  Contents
+0       4     Magic 56 50 58 1A ("VPX" + 0x1A)
+4       2     Container format version (currently 1)
+6       2     Flags (bit0 = payload masked, bit1 = signature block present)
+8       8     Payload length in bytes
+16      32    Payload SHA-256
+48      8     Mask nonce
+56      4     Header CRC32 (over the first 56 bytes)
+60      4     Reserved
+64      N     Payload: zip bytes (transformed when masking is on)
+64+N    4+M   Optional signature block: int32 length + UTF-8 JSON
+```
+
+- The trailing `0x1A` is the DOS end-of-file marker, borrowed from PNG: `type` / `cat` on the
+  package stops there instead of spraying a screenful of noise.
+- **Masking** XORs 32-byte blocks with `SHA-256(nonce ‖ block index)`. It is self-inverse and
+  randomly addressable, which is why the payload stream stays seekable (a hard requirement of
+  `ZipArchive` in read mode) while `PK\x03\x04` is nowhere to be found in the file.
+
+> To be explicit about the boundary: **the magic bytes and the mask are format identification and
+> a guard against mistakes, not a security boundary.** A plugin is native executable code, so
+> anything needed to "decrypt" it is necessarily on the client; a determined person can always
+> peel the payload out. Real integrity and provenance come from SHA-256 (corruption and truncation)
+> and the signature (tampering and impersonation).
+
+### 12.2 Signing
+
+The algorithm is **ECDSA P-256 + SHA-256** over the 64-byte header — and since the header carries
+the payload length and digest, that is equivalent to signing the whole package. Ed25519 was
+deliberately not used: it is not in the BCL, and pulling in a third-party library would break the
+"the contract assembly has no heavyweight dependencies" rule (blueprint 10 §1 originally specified
+Ed25519 and has been amended).
+
+```bash
+vela-plugin keygen -o acme.pem                    # create a key pair, print the public key (Base64 SPKI)
+vela-plugin pack bin/Release/net11.0 -k acme.pem  # pack and sign
+# or during a build: dotnet build -c Release -t:PackVpx -p:VelaSigningKey=acme.pem
+vela-plugin verify pkg.vpx -k <public key base64> # check the payload digest and the signature
+vela-plugin info   pkg.vpx                        # header, signature state and manifest
+```
+
+The four verdicts and how the host acts on them:
+
+| Verdict | Meaning | Host behaviour |
+| --- | --- | --- |
+| `Unsigned` | No signature block | Allowed by default (first-party / self-installed plugins: trust equals install) |
+| `Trusted` | Valid signature whose key is in the trusted set (with no set configured, any valid signature counts) | Allowed, with a log line |
+| `Untrusted` | Valid signature, key not in the trusted set | Allowed by default; rejected when `RequireTrustedPackageSignature` is on |
+| `Invalid` | Signature block corrupt or verification failed | **Always rejected**, regardless of policy — that is tampering, which is far worse than "unsigned" |
+
+The trusted set and the strict switch live on `PluginManagerOptions` (`TrustedPackageKeys` /
+`RequireTrustedPackageSignature`) and are both off by default. A plugin registry and publisher
+verification remain future work per blueprint 10.
+
+### 12.3 Other Install-Time Gates
+
+- **Zip slip**: any entry that would land outside the target directory is rejected.
+- **Zip bombs**: at most 10,000 entries and 512 MB unpacked, accounted by **bytes actually written** —
+  the length in the central directory is written by the package itself, so a bomb can happily
+  claim 1 KB and then emit 10 GB.
+- **Payload cap**: 512 MB per package, which also bounds a garbage length in a corrupt header.
+
+### 12.4 There Is No Plain-Zip Compatibility Mode
+
+The host accepts **containers only**: a renamed zip is always rejected, with the remedy in the
+error message itself (`this is a plain zip archive - repack it with vela-plugin pack`).
+
+No compatibility switch exists on purpose. No `.vpx` package was ever shipped before the container
+format was defined, so there is no installed base to protect — and keeping a "looks like a plugin
+package, install it" side door would give away the format's main value while forcing two extraction
+paths to be maintained forever.

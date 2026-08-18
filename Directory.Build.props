@@ -23,6 +23,21 @@
   </PropertyGroup>
 
   <PropertyGroup>
+    <!-- 插件 SDK 系列包(VelaShell.PluginSdk / .Testing / .Build、VelaShell.Plugin.Cli、
+         VelaShell.Plugin.Templates)的版本。**与宿主版本解耦**:宿主发 1.2.3 不代表插件
+         契约变了,插件作者也不该为了跟版本号而重新编译。CI 发包时用 -p:VelaSdkVersion= 覆盖。 -->
+    <VelaSdkVersion Condition="'$(VelaSdkVersion)' == ''">1.0.0-preview.1</VelaSdkVersion>
+    <!-- 去掉预发布后缀的数字版(AssemblyVersion/FileVersion 不接受后缀)与主版本号。 -->
+    <VelaSdkVersionCore>$([System.Text.RegularExpressions.Regex]::Replace($(VelaSdkVersion), '-.*$', ''))</VelaSdkVersionCore>
+    <VelaSdkMajor>$([System.Text.RegularExpressions.Regex]::Replace($(VelaSdkVersionCore), '\..*$', ''))</VelaSdkMajor>
+    <!-- 插件与宿主必须用同一版本的 Avalonia:装载器强制让 Avalonia* 回落到宿主那一套
+         (见 PluginAssemblyLoadContext),版本不一致时表现为跨 ALC 的控件类型对不上。
+         这个值是插件 SDK 包对外锁定的版本,须与 src/Directory.Packages.props 保持一致
+         (VelaShell.PluginSdk.Build 的 VerifyAvaloniaVersionPin 目标会在构建期核对)。 -->
+    <VelaAvaloniaVersion>12.1.1</VelaAvaloniaVersion>
+  </PropertyGroup>
+
+  <PropertyGroup>
   	<Authors>joesdu</Authors>
   	<PackagePrefix>VelaShell</PackagePrefix>
   	<RepositoryType>git</RepositoryType>

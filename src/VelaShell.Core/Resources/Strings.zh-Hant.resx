@@ -3560,6 +3560,7 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   <data name="PluginManager_Installed"><value>已安裝「{0}」。</value></data>
   <data name="PluginManager_InstallFailed"><value>安裝失敗：{0}</value></data>
   <data name="PluginManager_ConfirmUninstall"><value>解除安裝「{0}」？其資料將被清除。</value></data>
+  <data name="PluginManager_Author"><value>作者：{0}</value></data>
   <data name="PluginManager_VpxFilter"><value>VelaShell 外掛程式套件</value></data>  <data name="Ftp_Encryption" xml:space="preserve">
     <value>加密方式</value>
   </data>

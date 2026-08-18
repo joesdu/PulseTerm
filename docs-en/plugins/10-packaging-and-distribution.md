@@ -1,5 +1,25 @@
 # 10 · Packaging, Signing, and Distribution
 
+> **Implementation note (2026-08)**: **packaging and signing have shipped**; **distribution
+> (registry / store) is still deferred**. Three places where the implementation departs from the
+> blueprint below — the implementation wins:
+>
+> 1. **`.vpx` is a dedicated container**, not "a zip with a different extension": a 64-byte header
+>    (magic `56 50 58 1A`, format version, flags, payload length, SHA-256, mask nonce, header CRC32)
+>    followed by a masked zip payload and an optional signature block. See
+>    `VelaShell.PluginSdk/Packaging/VpxContainer.cs` and [dev-guide.md §12](dev-guide.md).
+> 2. **The signature algorithm is ECDSA P-256 + SHA-256**, not the Ed25519 named below. Ed25519 is
+>    not in the BCL, and taking a third-party dependency would break the rule that the contract
+>    assembly — the only type source shared between host and plugins — has no heavyweight
+>    dependencies. The signature covers the 64-byte header, which carries the payload length and
+>    digest, so it is equivalent to signing the whole package.
+> 3. **Signing is not mandatory**: for first-party and self-installed plugins, trust equals install
+>    (consistent with the decision recorded in 06). Unsigned packages are allowed by default and
+>    **an invalid signature is always rejected**; tighten this with
+>    `PluginManagerOptions.RequireTrustedPackageSignature` plus `TrustedPackageKeys`. The three
+>    trust tiers, TOFU, key continuity, and revocation lists below are future work for when a
+>    third-party ecosystem opens up.
+
 ## 1. Signing and Source Trust
 
 Given that v1 has no OS sandbox (see 06/12), "what the user installed and who

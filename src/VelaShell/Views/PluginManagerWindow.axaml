@@ -183,6 +183,13 @@
                             <TextBlock Text="{Binding HostMode}" Foreground="{DynamicResource VelaTextTertiary}"
                                        FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize9}" />
                           </Border>
+                          <!-- 开发期挂载(plugins.dev.txt / VELA_PLUGIN_DEV_ROOT):未经打包与安装,
+                               直接挂的是插件工程输出目录 —— 标出来免得误当成已安装的正式插件。 -->
+                          <Border Background="{DynamicResource VelaBgActive}" CornerRadius="3" Padding="5,1"
+                                  VerticalAlignment="Center" IsVisible="{Binding IsDevelopment}">
+                            <TextBlock Text="DEV" Foreground="{DynamicResource VelaWarning}"
+                                       FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize9}" />
+                          </Border>
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Spacing="6">
                           <TextBlock Text="{Binding StatusText}" Foreground="{DynamicResource VelaTextSecondary}"
@@ -190,6 +197,10 @@
                           <TextBlock Text="{Binding Id}" Foreground="{DynamicResource VelaTextMuted}"
                                      FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize9}"
                                      VerticalAlignment="Center" />
+                          <TextBlock Text="{Binding AuthorText}" IsVisible="{Binding HasAuthor}"
+                                     Foreground="{DynamicResource VelaTextMuted}"
+                                     FontSize="{DynamicResource VelaFontSize9}" VerticalAlignment="Center"
+                                     TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                         <TextBlock Text="{Binding Error}" IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNotNull}}"
                                    Foreground="{DynamicResource VelaError}" FontSize="{DynamicResource VelaFontSize10}"

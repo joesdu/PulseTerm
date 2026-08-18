@@ -28,6 +28,9 @@
 | --- | --- |
 | `plugin-sdk/VelaShell.PluginSdk/` | 契约:入口接口、能力接口、DTO、manifest 模型 |
 | `plugin-sdk/VelaShell.PluginSdk.Testing/` | 测试替身:`TestPluginContext` 与各能力内存实现 |
+| `plugin-sdk/VelaShell.PluginSdk.Build/` | 插件工程引用的那一个 NuGet 包:MSBuild props/targets + 随包分发的打包器 |
+| `tools/VelaShell.Plugin.Cli/` | `vela-plugin` 命令行工具(校验/打包/签名/开发挂载) |
+| `templates/` | `dotnet new` 模板(`velaplugin` / `velaplugin-ui`) |
 | `src/VelaShell.Infrastructure/Plugins/` | 宿主运行时:发现/装载/激活/停用、能力桥接 |
 | `src/VelaShell.Presentation/Plugins/` | 命令能力对命令注册表的桥接 |
 | `src/VelaShell.PluginHost/` | 隔离插件宿主进程:RPC 代理上下文、内建 Avalonia、停靠嵌入 |
@@ -113,26 +116,60 @@ ALC 才能按 deps.json 装载)。官方示例插件 `velashell.hello-world` 就
 > (`bundle format unrecognized, invalid, or unsuitable`)。目录名**不参与任何逻辑** ——
 > 宿主是枚举子目录后从 `plugin.json` 读 id,因此这只是打包侧的命名约定。
 
-### 2.2 仓库外插件(第三方)
+### 2.2 仓库外插件(第三方)—— 从 `dotnet new` 到装上,五分钟
 
-任意位置建同构项目(引用 SDK 项目或未来发布的 NuGet 包),构建后有两种安装方式:
+SDK 以 NuGet 包分发,**插件工程只需要引用一个包**。
 
-**方式一:.vpx 包(推荐,可在插件管理页一键装/卸)**——把
-**入口 dll + deps.json + 自带依赖 + plugin.json** 打成一个 zip、改名 `.vpx`:
+```bash
+# 一次性:装模板与命令行工具
+dotnet new install VelaShell.Plugin.Templates
+dotnet tool install -g VelaShell.Plugin.Cli      # 可选,见下
 
-```text
-my-plugin.vpx (zip)
-├── plugin.json          # 根目录
-├── MyPlugin.dll
-├── MyPlugin.deps.json
-└── <自带依赖>.dll
+# 建工程(id = acme.snippets)
+dotnet new velaplugin -n Snippets --publisher acme --authorName "Your Name"
+#   velaplugin      基础:入口类 + 一条命令
+#   velaplugin-ui   带一个 Avalonia 面板(AXAML)
+#   --hostMode inProcess|isolated
+
+cd Snippets
+dotnet build -c Release -t:PackVpx               # → bin/vpx/acme.snippets-0.1.0.vpx
 ```
 
-侧栏插件图标 → 插件管理页 → "安装 .vpx…" 选择文件即装(解包进用户目录、校验清单、
-zip-slip 防护、同 id 覆盖旧版、按激活策略激活)。卸载同样在管理页一键完成
-(删目录 + 清 DB 数据)。
+生成的 `.csproj` 只有一行依赖:
 
-**方式二:直接放目录**——把上述文件放进:
+```xml
+<PackageReference Include="VelaShell.PluginSdk.Build" Version="1.0.0-preview.1" />
+```
+
+这一个包把插件工程需要的东西一并带到:契约程序集 `VelaShell.PluginSdk`、**与宿主版本
+严格一致的 Avalonia**(含它的 AXAML 编译器)、`EnableDynamicLoading`、`plugin.json` 进
+输出目录、共享程序集不落地、清单编译期校验,以及 `PackVpx` 目标。**不要**再单独引用
+`VelaShell.PluginSdk` 或 `Avalonia` —— 版本对不上会在构建期直接报 `VELA1001`,而不是
+等到用户装上插件才在运行期表现为控件类型转换失败。
+
+| 包 | 谁引用 | 作用 |
+| --- | --- | --- |
+| `VelaShell.PluginSdk.Build` | **插件工程** | 上面这一整套。引它一个就够 |
+| `VelaShell.PluginSdk` | (随上面传递引入) | 契约程序集,仅 BCL 依赖 |
+| `VelaShell.PluginSdk.Testing` | 插件的**测试工程** | `TestPluginContext` 与各能力内存替身 |
+| `VelaShell.Plugin.Cli`(`vela-plugin`) | 开发者机器 | dotnet tool:校验/打包/签名/开发挂载 |
+| `VelaShell.Plugin.Templates` | 开发者机器 | `dotnet new` 模板 |
+
+> **SDK 不是 dotnet tool**,`VelaShell.PluginSdk*` 三个包都是普通 NuGet 包,用
+> `PackageReference` 引用;只有 `vela-plugin`(`VelaShell.Plugin.Cli`)是 dotnet tool。
+> 而且**打包不需要装这个工具** —— 打包器随 `VelaShell.PluginSdk.Build` 一起分发,
+> `dotnet build -t:PackVpx` 直接可用。装全局工具是为了在构建之外随手校验、签名、
+> 查看包内容、以及做开发期挂载(`vela-plugin dev-link`)。
+
+装上去有两种方式:
+
+**方式一:`.vpx` 包(推荐)** —— 侧栏插件图标 → 插件管理页 → "安装 .vpx…" 选择文件即装
+(校验容器与清单、zip-slip 与解压炸弹防护、解包进用户目录、同 id 覆盖旧版、按激活策略激活);
+命令行等价物是 `vela-plugin install <包>`。卸载同样在管理页一键完成(删目录 + 清 DB 数据)。
+
+`.vpx` 是 VelaShell 的**专属容器格式**,不是改了后缀的 zip —— 格式与签名见 §12。
+
+**方式二:直接放目录**——把构建输出(入口 dll + deps.json + 自带依赖 + plugin.json)放进:
 
 ```text
 %LocalAppData%\VelaShell\plugins\<插件id>\        (Windows)
@@ -145,6 +182,39 @@ zip-slip 防护、同 id 覆盖旧版、按激活策略激活)。卸载同样在
 > 应用自带插件(`<应用目录>/plugins`)是只读的,管理页不提供卸载;用户安装的
 > (`.vpx` 或放进用户目录的)才可卸载。
 
+### 2.3 开发内环与断点调试
+
+仓库外插件不必"打包 → 安装 → 再看效果"。把工程的输出目录**挂**进宿主即可:
+
+```bash
+vela-plugin dev-link bin/Debug/net11.0     # 登记(写进 <数据根>/plugins.dev.txt)
+vela-plugin dev-unlink bin/Debug/net11.0   # 取消
+```
+
+之后 `dotnet build` 完重启 VelaShell 就是最新代码,插件在管理页带 **DEV** 角标。
+等价的临时做法是设环境变量 `VELA_PLUGIN_DEV_ROOT=<目录>`(多条以系统路径分隔符分隔)。
+
+两点机制说明:
+
+- 登记的是插件目录的**父目录**:宿主扫描一个根目录下的**一级子目录**,每个含
+  `plugin.json` 的子目录算一个插件。`dev-link` 传插件目录时会自动上移一级,
+  于是插件目录名就是 `net11.0` —— 目录名不参与任何逻辑(id 从 `plugin.json` 读)。
+- 开发根排在正式根**之后**,同 id 先到先得:本机开发中的插件不会顶掉用户已安装的同名插件。
+- Windows 上宿主运行时会锁住插件 dll,重编译前先关掉 VelaShell。
+
+断点:
+
+| 插件形态 | 怎么调 |
+| --- | --- |
+| `inProcess` | 插件跑在 VelaShell 进程里 —— IDE"附加到进程"选 `VelaShell` 即可。挂着调试器时宿主自动把激活超时从 10 秒放宽到 10 分钟,不会因为你在 `ActivateAsync` 里停了两分钟就判超时 |
+| `isolated` | 插件跑在 `VelaShell.PluginHost` 子进程里。启动 VelaShell 前设 `VELA_PLUGIN_WAIT_DEBUGGER=<插件id>`(或 `*` 表示全部),子进程会在**装载插件程序集之前**挂起等你附加,进程 id 打在宿主日志里 |
+
+`VELA_PLUGIN_WAIT_DEBUGGER` 命中的插件,宿主同时会**放宽激活超时并停掉心跳** ——
+否则断点冻住插件进程的全部线程,心跳连续两次失败就把它强杀了,表现为"一下断点插件就没了"。
+
+不想启动整个宿主时,插件的业务逻辑可以用 `VelaShell.PluginSdk.Testing` 的
+`TestPluginContext` 在普通单测里跑(见 §7)。
+
 ## 3. 清单(plugin.json)参考
 
 | 字段 | 必需 | 说明 |
@@ -154,7 +224,8 @@ zip-slip 防护、同 id 覆盖旧版、按激活策略激活)。卸载同样在
 | `displayName` | ✓ | 展示名称 |
 | `entry` | ✓ | 入口程序集相对路径,必须 `.dll` 结尾;拒绝绝对路径与 `..` 段 |
 | `description` | | 一句话描述 |
-| `publisher` | | 发布者 |
+| `publisher` | | 发布者标识(将来与签名公钥绑定,参与信任判定) |
+| `author` | | 作者,展示在插件管理页(如 `"Joe <joe@example.com>"`,≤128 字符、不许控制字符)。缺省时管理页退回显示 `publisher` |
 | `apiLevel` | | 默认 1;高于宿主支持的代际 → 标记 Incompatible 拒载 |
 | `minHostVersion` | | 要求的最低宿主版本;不满足 → Incompatible |
 | `activationEvents` | | 省略或含 `"onStartup"` = 启动激活;`"onCommand:<命令id>"` / `"onProtocol:<协议id>"` = **惰性激活**(命中占位命令、或用户选中该协议页签才装载;须在对应的 `contributes.*` 里声明) |
@@ -665,6 +736,14 @@ public async Task Refresh_ListsContainers()
   明确提示。
 - **minHostVersion**:插件依赖较新宿主能力时声明,旧宿主标 Incompatible
   而非运行时爆炸。
+- **SDK 包版本与程序集版本**:包版本(`VelaShell.PluginSdk` 等五个包)与宿主版本**解耦**,
+  按 SDK 自己的节奏发。程序集这一侧:
+  - `AssemblyVersion` = `<主版本>.0.0.0`,**只随主版本动** —— 插件是编译期绑到这个标识上的,
+    补丁版跟着变等于每发一次就要所有已编译插件重新绑定;
+  - `FileVersion` / `InformationalVersion` 是完整版本(后者含预发布后缀),
+    资源管理器属性页与 `vela-plugin` 报的都是真实版本,不会停在 1.0.0。
+  - 纪律:**SDK 主版本 == apiLevel**。主版本变意味着契约破了,那一刻 `apiLevel` 同步 +1,
+    老宿主于是在**发现期**就按 apiLevel 拒载并给出可读原因,而不是等装载时抛程序集绑定异常。
 - **宿主模式无关**:能力接口传输无关 —— `hostMode` 在 inProcess/isolated 间切换
   无需改插件源码(已兑现);唯一例外是隔离模式下部分行为差异,见 §6 能力差异表。
 
@@ -675,7 +754,7 @@ public async Task Refresh_ListsContainers()
 | 每插件独立进程 + IPC(02/04/05) | **已实现**(`hostMode: "isolated"`,见 §6):命名管道 + 轻量 RPC + 心跳 + 崩溃退避自动重启 |
 | 权限系统 + Broker(06) | 未做:v1 面向第一方/自装插件,信任即安装 |
 | UI 贡献点 / VelaUI(08) | 已有:命令面板命令 + 完整 Avalonia 面板(inProcess 可停靠标签页;隔离进程一律独立卡片窗口)+ 插件管理页。VelaUI 声明式树按用户决策**不做**;跨进程 dock 嵌入弃用(见 08 注记);侧栏/状态栏挂载点待后续 |
-| `.vpx` 打包 / 签名 / 商店(03/10) | 未做:目录即插件;分发系统显式推迟 |
+| `.vpx` 打包 / 签名 / 商店(03/10) | **打包与签名已实现**(专属容器 + ECDSA 签名,见 §12);**商店/插件源仍显式推迟** |
 | 激活事件 / 惰性激活(03) | **已实现**:`onStartup` / `onCommand:<id>` + `contributes.commands` 占位;其余事件类型(onSessionConnect/onFileOpen 等)待后续 |
 | 空闲回收(04) | **已实现**(隔离模式 + `idlePolicy: "recyclable"`) |
 | secrets / clipboard 能力域(07) | **已实现**(§5.10/§5.11;无权限系统,信任即安装口径) |
@@ -684,3 +763,78 @@ public async Task Refresh_ListsContainers()
 
 新增能力时的纪律:先在本文件与对应蓝图文档登记,接口进 `VelaShell.PluginSdk`
 且同 apiLevel 内只增不改。
+
+## 12. `.vpx` 包格式与签名
+
+`.vpx` 是 VelaShell 的**专属容器格式**,不是改了后缀的 zip:通用解压工具打不开它,
+宿主也拒装裸 zip。实现见 `plugin-sdk/VelaShell.PluginSdk/Packaging/VpxContainer.cs`,
+读(宿主装包)与写(`vela-plugin pack`)是同一份代码,不存在"工具打得出、宿主装不上"的缝。
+
+### 12.1 布局
+
+小端;头部固定 64 字节:
+
+```text
+偏移  长度  内容
+0     4    魔数 56 50 58 1A("VPX" + 0x1A)
+4     2    容器格式版本(当前 1)
+6     2    标志位(bit0 = 载荷已掩码,bit1 = 带签名块)
+8     8    载荷字节数
+16    32   载荷 SHA-256
+48    8    掩码随机数
+56    4    头部 CRC32(前 56 字节)
+60    4    保留
+64    N    载荷:zip 字节流(掩码开启时经变换)
+64+N  4+M  可选签名块:int32 长度 + UTF-8 JSON
+```
+
+- 尾部 `0x1A` 是 DOS 文件结束符,沿用 PNG 的老办法:`type` / `cat` 误看包体时会在此停住。
+- **掩码**按 32 字节分块与 `SHA-256(nonce ‖ 块号)` 异或,自反且可随机定位 ——
+  于是载荷流仍然可 Seek(`ZipArchive` 读模式的硬要求),而包体里嗅不到 `PK\x03\x04`。
+
+> 说清楚边界:**魔数与掩码是格式标识与防手滑,不是安全边界**。插件是本机可执行代码,
+> 任何"解密"所需的信息都必然在客户端,认真的人照样能把载荷剥出来。真正的完整性与来源
+> 保证来自 SHA-256(挡损坏与截断)与签名(挡篡改与冒名)。
+
+### 12.2 签名
+
+算法是 **ECDSA P-256 + SHA-256**,签的是那 64 字节头部 —— 头部内含载荷长度与摘要,
+因此等同于对全包签名。刻意不用 Ed25519:BCL 里没有,引第三方库会破掉"契约程序集零重量级
+依赖"这条纪律(设计文档 10 §1 原先写的是 Ed25519,已按此改)。
+
+```bash
+vela-plugin keygen -o acme.pem                    # 生成密钥对,打印公钥(Base64 SPKI)
+vela-plugin pack bin/Release/net11.0 -k acme.pem  # 打包并签名
+# 或在构建里:dotnet build -c Release -t:PackVpx -p:VelaSigningKey=acme.pem
+vela-plugin verify pkg.vpx -k <公钥Base64>         # 校验载荷摘要与签名
+vela-plugin info   pkg.vpx                        # 看头部、签名状态与清单
+```
+
+宿主侧的四档结论与处置:
+
+| 结论 | 含义 | 宿主处置 |
+| --- | --- | --- |
+| `Unsigned` | 没有签名块 | 默认放行(第一方/自装插件场景,信任即安装) |
+| `Trusted` | 签名有效,且公钥在信任集合内(未配置信任集合时任何有效签名都算) | 放行并记一条日志 |
+| `Untrusted` | 签名有效但公钥不在信任集合内 | 默认放行;`RequireTrustedPackageSignature` 打开时拒装 |
+| `Invalid` | 签名块损坏或验签失败 | **一律拒装**,不受策略宽松与否影响 —— 那是篡改,比"未签名"严重得多 |
+
+信任集合与强制开关在 `PluginManagerOptions`(`TrustedPackageKeys` /
+`RequireTrustedPackageSignature`),默认都不启用。插件源(registry)与发布者验证仍未做,
+按蓝图 10 分期。
+
+### 12.3 安装期的其它闸门
+
+- **zip-slip**:任何解出后落在目标目录之外的条目一律拒绝。
+- **解压炸弹**:条目数上限 10 000、解压后总字节上限 512 MB,且按**实际写出的字节**记账 ——
+  中央目录里的长度是包自己写的,炸弹包大可以谎报 1 KB 再吐出 10 GB。
+- **载荷上限**:单包载荷 512 MB,挡住损坏头部里的天文数字长度。
+
+### 12.4 没有"裸 zip 兼容模式"
+
+宿主**只认容器**:改了后缀的 zip 一律拒装,错误信息直接给出补救办法
+(`this is a plain zip archive - repack it with vela-plugin pack`)。
+
+刻意不留兼容开关:容器格式定型之前没有任何 `.vpx` 包发出去过,没有要照顾的存量;
+而留一条"看起来像插件包就装"的旁路,等于把这个格式最主要的价值(拒绝来路不明的包体)
+自己开个口子,还得一直维护两条解包路径。

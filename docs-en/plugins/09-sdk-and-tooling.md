@@ -1,5 +1,26 @@
 # 09 · SDK and Developer Tooling
 
+> **Implementation note (2026-08)**: S-1 / S-2 / S-3 / S-4 / S-5 have shipped. Where the
+> blueprint below differs, the implementation wins:
+>
+> - The deliverables are **five packages**: `VelaShell.PluginSdk` (contract),
+>   `VelaShell.PluginSdk.Testing` (doubles), `VelaShell.PluginSdk.Build`
+>   (**the only package a plugin project references**: MSBuild props/targets, dependency pinning,
+>   and the packer that ships inside it), `VelaShell.Plugin.Cli` (dotnet tool `vela-plugin`),
+>   and `VelaShell.Plugin.Templates` (`dotnet new`). There is no `VelaShell.PluginProtocol`
+>   package — the RPC wire protocol lives in the contract assembly (a hand-rolled lightweight
+>   protocol rather than StreamJsonRpc, see the note in 05).
+> - The templates are **`velaplugin` and `velaplugin-ui`**; `velaplugin-automation` waits for the
+>   automation capability domain.
+> - The test double is **`TestPluginContext`**, not `FakePluginContext`; the declarative VelaUI tree
+>   was dropped by product decision, so there is no `VelaUiAssert`.
+> - `vela-plugin` subcommands: `validate` / `pack` / `sign` / `verify` / `info` / `unpack` /
+>   `keygen` / `install` / `dev-link` / `dev-unlink`. There is no hot-reloading `dev` subcommand;
+>   the inner loop is `dev-link`, which mounts a project's output directory into the host
+>   (see [dev-guide.md §2.3](dev-guide.md)).
+> - Publishing runs through `.github/workflows/nuget.yml` (tag `sdk-v<version>`) and includes an
+>   end-to-end template smoke test.
+
 Goal (G5): from `dotnet new` to a plugin running in VelaShell in ≤ 5 minutes;
 F5 debugging works out of the box. Developer experience is the decisive factor
 in the success of the plugin ecosystem, so this area is treated as a

@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageType>Template</PackageType>
+    <PackageId>VelaShell.Plugin.Templates</PackageId>
+    <Title>VelaShell plugin templates</Title>
+    <Description>VelaShell 插件工程的 dotnet new 模板:velaplugin(基础)与 velaplugin-ui(带 Avalonia 面板)。`dotnet new install VelaShell.Plugin.Templates` 后即可用。</Description>
+    <PackageTags>dotnet-new;templates;velashell;plugin</PackageTags>
+    <Version>$(VelaSdkVersion)</Version>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/joesdu/VelaShell</PackageProjectUrl>
+
+    <!-- 模板包只有内容,没有程序集。 -->
+    <IncludeContentInPack>true</IncludeContentInPack>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <ContentTargetFolders>content</ContentTargetFolders>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <EnableDefaultNoneItems>false</EnableDefaultNoneItems>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- 关键:.template.config 以点开头,不关掉默认排除的话它不会进包,
+         装上去的模板就"看不见" —— 而且不会报错,只是 dotnet new 列表里没有。 -->
+    <NoDefaultExcludes>true</NoDefaultExcludes>
+    <!-- NU5128:有 content 无 lib,模板包的正常形态。 -->
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="content\**\*" Exclude="content\**\bin\**;content\**\obj\**" />
+    <Compile Remove="**\*" />
+  </ItemGroup>
+
+  <!--
+    模板里写死了要引用的 SDK 包版本(template.json 的 sdkVersion 默认值)。
+    发新版 SDK 却忘了改它,新建出来的工程就会去还原一个旧版包 —— 这里在构建期核对一遍。
+  -->
+  <Target Name="VerifyTemplateSdkVersion" BeforeTargets="Build">
+    <ItemGroup>
+      <_VelaTemplateConfig Include="content\*\.template.config\template.json" />
+    </ItemGroup>
+    <Error Condition="!$([System.IO.File]::ReadAllText('%(_VelaTemplateConfig.FullPath)').Contains('$(VelaSdkVersion)'))"
+           Code="VELA1004"
+           Text="%(_VelaTemplateConfig.Identity) does not mention the current SDK version '$(VelaSdkVersion)'. Update the sdkVersion symbol's defaultValue so generated projects reference the package version being released." />
+  </Target>
+
+</Project>

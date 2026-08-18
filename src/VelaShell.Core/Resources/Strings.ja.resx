@@ -3560,6 +3560,7 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   <data name="PluginManager_Installed"><value>「{0}」をインストールしました。</value></data>
   <data name="PluginManager_InstallFailed"><value>インストール失敗: {0}</value></data>
   <data name="PluginManager_ConfirmUninstall"><value>「{0}」をアンインストールしますか？データも削除されます。</value></data>
+  <data name="PluginManager_Author"><value>作者: {0}</value></data>
   <data name="PluginManager_VpxFilter"><value>VelaShell プラグインパッケージ</value></data>  <data name="Ftp_Encryption" xml:space="preserve">
     <value>暗号化</value>
   </data>

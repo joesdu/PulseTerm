@@ -80,4 +80,45 @@ public class PluginManifestReaderTests
             """);
         Assert.AreEqual("bin/X.dll", manifest.Entry);
     }
+
+    [TestMethod]
+    public void Parse_Author_IsReadAndSeparateFromPublisher()
+    {
+        PluginManifest manifest = PluginManifestReader.Parse("""
+            { "id": "a.b", "version": "1.0.0", "displayName": "X", "entry": "X.dll",
+              "author": "Joe <joe@example.com>", "publisher": "acme" }
+            """);
+        Assert.AreEqual("Joe <joe@example.com>", manifest.Author);
+        Assert.AreEqual("acme", manifest.Publisher);
+    }
+
+    [TestMethod]
+    public void Parse_AuthorOmitted_IsNull()
+    {
+        PluginManifest manifest = PluginManifestReader.Parse("""
+            { "id": "a.b", "version": "1.0.0", "displayName": "X", "entry": "X.dll" }
+            """);
+        Assert.IsNull(manifest.Author);
+    }
+
+    [TestMethod]
+    public void Validate_AuthorWithControlCharacters_Rejected()
+    {
+        // author 会原样进插件管理页:换行能把一行卡片撑成一屏,回退符还能伪造别的插件名。
+        PluginManifestException ex = Assert.ThrowsExactly<PluginManifestException>(() =>
+            PluginManifestReader.Parse("""
+                { "id": "a.b", "version": "1.0.0", "displayName": "X", "entry": "X.dll",
+                  "author": "Joe\nVelaShell Official" }
+                """));
+        Assert.Contains("author", ex.Message);
+    }
+
+    [TestMethod]
+    public void Validate_OverlongAuthor_Rejected()
+    {
+        Assert.ThrowsExactly<PluginManifestException>(() => PluginManifestReader.Parse($$"""
+            { "id": "a.b", "version": "1.0.0", "displayName": "X", "entry": "X.dll",
+              "author": "{{new string('a', 129)}}" }
+            """));
+    }
 }

@@ -3652,6 +3652,7 @@ Windows 填 exe 完整路径或命令名(如 notepad);Linux 填命令名(如 ged
   <data name="PluginManager_Installed"><value>已安装“{0}”。</value></data>
   <data name="PluginManager_InstallFailed"><value>安装失败:{0}</value></data>
   <data name="PluginManager_ConfirmUninstall"><value>卸载“{0}”?其数据将被清除。</value></data>
+  <data name="PluginManager_Author"><value>作者:{0}</value></data>
   <data name="PluginManager_VpxFilter"><value>VelaShell 插件包</value></data>  <data name="Ftp_Encryption" xml:space="preserve">
     <value>加密方式</value>
   </data>

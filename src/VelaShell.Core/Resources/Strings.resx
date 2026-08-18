@@ -3561,6 +3561,7 @@ Overwrite it?</value>
   <data name="PluginManager_Installed"><value>Installed "{0}".</value></data>
   <data name="PluginManager_InstallFailed"><value>Install failed: {0}</value></data>
   <data name="PluginManager_ConfirmUninstall"><value>Uninstall "{0}"? Its data will be removed.</value></data>
+  <data name="PluginManager_Author"><value>by {0}</value></data>
   <data name="PluginManager_VpxFilter"><value>VelaShell plugin package</value></data>  <data name="Ftp_Encryption" xml:space="preserve">
     <value>Encryption</value>
   </data>

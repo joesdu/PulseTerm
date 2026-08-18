@@ -9,6 +9,7 @@ using VelaShell.PluginSdk.Commands;
 using VelaShell.PluginSdk.Hosting;
 using VelaShell.PluginSdk.Logging;
 using VelaShell.PluginSdk.Manifest;
+using VelaShell.PluginSdk.Packaging;
 using VelaShell.PluginSdk.RemoteExec;
 using VelaShell.PluginSdk.RemoteFs;
 using VelaShell.PluginSdk.Sessions;
@@ -233,11 +234,12 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
     }
 
     /// <summary>
-    /// 从 <c>.vpx</c> 包安装插件(zip 容器,含 plugin.json + 入口 dll)。解包到用户插件目录
-    /// (zip-slip 防护),校验清单;同 id 已存在则先卸载旧版。安装后按激活策略激活。
-    /// 返回安装的插件 id。
+    /// 从 <c>.vpx</c> 包安装插件(专属容器:魔数头 + SHA-256 + 可选签名,内含 zip 载荷)。
+    /// 解包到用户插件目录(zip-slip 与解压炸弹防护),校验清单;同 id 已存在则先卸载旧版。
+    /// 安装后按激活策略激活。返回安装的插件 id。
     /// </summary>
-    /// <exception cref="InvalidOperationException">无用户插件目录、包非法或校验失败。</exception>
+    /// <exception cref="InvalidOperationException">无用户插件目录、清单校验失败或签名策略拒绝。</exception>
+    /// <exception cref="VpxFormatException">包不是合法的 <c>.vpx</c> 容器,或已损坏/被篡改。</exception>
     public async Task<string> InstallFromVpxAsync(string vpxPath, CancellationToken cancellationToken = default)
     {
         if (options.UserPluginRoot is not { } userRoot)
@@ -256,7 +258,7 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         PluginManifest? manifest = null;
         try
         {
-            ExtractZipSafely(vpxPath, staging);
+            ExtractPackage(vpxPath, staging);
             string manifestPath = Path.Combine(staging, PluginManifestReader.FileName);
             if (!File.Exists(manifestPath))
             {
@@ -321,10 +323,61 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
     }
 
     /// <summary>解压 zip,拒绝绝对路径与 <c>..</c> 逃逸(zip-slip 防护)。</summary>
-    private static void ExtractZipSafely(string zipPath, string destination)
+    /// <summary>单包条目数上限。</summary>
+    private const int MaxPackageEntries = 10_000;
+
+    /// <summary>单包解压后总字节上限(解压炸弹防护:压缩比可以做到上千倍)。</summary>
+    private const long MaxUnpackedBytes = 512L * 1024 * 1024;
+
+    /// <summary>
+    /// 打开插件包并安全解包。只认 <c>.vpx</c> 专属容器(魔数 + 摘要 + 可选签名,见
+    /// <see cref="VpxContainer" />)—— 改了后缀的 zip 一律拒绝,拒绝原因里带重新打包的办法。
+    /// </summary>
+    private void ExtractPackage(string packagePath, string destination)
+    {
+        // 格式非法(裸 zip / 截断 / 头部损坏 / 根本不是包)在此抛出并带可读原因。
+        using Stream payload = VpxContainer.OpenPayload(packagePath, out VpxPackageInfo info);
+        CheckSignature(packagePath, info);
+        using var archive = new ZipArchive(payload, ZipArchiveMode.Read);
+        ExtractZipSafely(archive, destination);
+    }
+
+    /// <summary>
+    /// 签名闸。坏签名一律拒绝(哪怕没开强制签名)—— 签名对不上意味着内容被动过,
+    /// 这比"未签名"严重得多,不该因为策略宽松就放行。
+    /// </summary>
+    private void CheckSignature(string packagePath, VpxPackageInfo info)
+    {
+        VpxSignatureState state = VpxContainer.VerifySignature(info, options.TrustedPackageKeys);
+        string name = Path.GetFileName(packagePath);
+        switch (state)
+        {
+            case VpxSignatureState.Invalid:
+                throw new VpxFormatException(
+                    $"'{name}' carries an invalid signature: the package was modified after it was signed.");
+            case VpxSignatureState.Untrusted when options.RequireTrustedPackageSignature:
+                throw new InvalidOperationException(
+                    $"'{name}' is signed by an unknown publisher and this host only installs packages from trusted keys.");
+            case VpxSignatureState.Unsigned when options.RequireTrustedPackageSignature:
+                throw new InvalidOperationException(
+                    $"'{name}' is not signed and this host only installs signed packages.");
+            case VpxSignatureState.Trusted:
+                Log($"Package '{name}' carries a trusted signature.");
+                break;
+            default:
+                break;
+        }
+    }
+
+    private static void ExtractZipSafely(ZipArchive archive, string destination)
     {
         string root = Path.GetFullPath(destination + Path.DirectorySeparatorChar);
-        using ZipArchive archive = ZipFile.OpenRead(zipPath);
+        if (archive.Entries.Count > MaxPackageEntries)
+        {
+            throw new InvalidOperationException(
+                $"Rejected package: it has {archive.Entries.Count} entries (limit {MaxPackageEntries}).");
+        }
+        long budget = MaxUnpackedBytes;
         foreach (ZipArchiveEntry entry in archive.Entries)
         {
             string targetPath = Path.GetFullPath(Path.Combine(destination, entry.FullName));
@@ -338,8 +391,31 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
                 continue;
             }
             Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
-            entry.ExtractToFile(targetPath, overwrite: true);
+            using Stream source = entry.Open();
+            using FileStream target = File.Create(targetPath);
+            // 按实际写出的字节数记账,而不是信 entry.Length —— 中央目录里的长度是包自己写的,
+            // 炸弹包大可以谎报 1 KB 再吐出 10 GB。
+            budget -= CopyBounded(source, target, budget, entry.FullName);
         }
+    }
+
+    /// <summary>把条目内容拷进目标流,超出预算即中止并抛出。返回实际写出的字节数。</summary>
+    private static long CopyBounded(Stream source, Stream destination, long budget, string entryName)
+    {
+        byte[] buffer = new byte[81920];
+        long written = 0;
+        int read;
+        while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
+        {
+            written += read;
+            if (written > budget)
+            {
+                throw new InvalidOperationException(
+                    $"Rejected package: unpacked size exceeds {MaxUnpackedBytes} bytes (while extracting '{entryName}').");
+            }
+            destination.Write(buffer, 0, read);
+        }
+        return written;
     }
 
     /// <summary>删除某插件的 DB 命名空间与数据目录(卸载/覆盖安装时)。</summary>
@@ -680,7 +756,11 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
     {
         var seenIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var found = new List<PluginRuntime>();
-        foreach (string root in options.PluginRoots)
+        // 开发根排在正式根之后:同 id 先到先得,于是本机开发中的插件绝不会顶掉
+        // 用户已安装的同名插件(反过来才是意外)。
+        IEnumerable<(string Root, bool IsDev)> roots =
+            options.PluginRoots.Select(r => (r, false)).Concat(options.DevPluginRoots.Select(r => (r, true)));
+        foreach ((string root, bool isDev) in roots)
         {
             if (!Directory.Exists(root))
             {
@@ -693,7 +773,9 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
                 {
                     continue;
                 }
-                found.Add(new() { Descriptor = Describe(dir, manifestPath, seenIds) });
+                PluginDescriptor descriptor = Describe(dir, manifestPath, seenIds);
+                descriptor.IsDevelopment = isDev;
+                found.Add(new() { Descriptor = descriptor });
             }
         }
         lock (_gate)
@@ -835,26 +917,46 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         runtime.Instance = instance;
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(_shutdown.Token, cancellationToken);
-        cts.CancelAfter(options.ActivationTimeout);
+        // 挂着调试器时放宽激活超时:断点停住的是整个进程,而 CancelAfter 的计时按墙钟走 ——
+        // 不放宽的话,在 ActivateAsync 里下个断点、看两眼变量,恢复执行时激活已经被判超时。
+        cts.CancelAfter(Debugger.IsAttached ? DebugActivationTimeout : options.ActivationTimeout);
         // WaitAsync:即使插件无视取消令牌,宿主也不陪它挂着。
         await instance.ActivateAsync(context, cts.Token).WaitAsync(cts.Token).ConfigureAwait(false);
     }
+
+    /// <summary>调试期的激活超时:够人看完一屏变量,又不至于真挂死时永远等下去。</summary>
+    private static readonly TimeSpan DebugActivationTimeout = TimeSpan.FromMinutes(10);
+
+    /// <summary>该插件是否处于调试目标集合(见 <see cref="PluginManagerOptions.DebugPluginIds" />)。</summary>
+    private bool IsDebugTarget(string pluginId) =>
+        options.DebugPluginIds.Count > 0
+        && (options.DebugPluginIds.Contains("*")
+            || options.DebugPluginIds.Contains(pluginId, StringComparer.OrdinalIgnoreCase));
 
     /// <summary>隔离模式:拉起 PluginHost 进程并经 RPC 激活(设计稿 02/04/05)。</summary>
     private async Task ActivateIsolatedAsync(PluginRuntime runtime, PluginManifest manifest, string entryPath,
         PluginContext context, CancellationToken cancellationToken)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(_shutdown.Token, cancellationToken);
+        bool debug = IsDebugTarget(manifest.Id);
+        if (debug)
+        {
+            Log($"Plugin '{manifest.Id}' starts in debug mode: the host process waits for a debugger, " +
+                "activation timeout is relaxed and the heartbeat is off.");
+        }
         PluginProcessClient client = await PluginProcessClient.StartAsync(manifest, entryPath, context,
-            options.HostVersion, context.DataDirectory, options.ActivationTimeout, cts.Token,
-            options.ThemeTokensProvider, options.EmbedHost).ConfigureAwait(false);
+            options.HostVersion, context.DataDirectory,
+            debug ? DebugActivationTimeout : options.ActivationTimeout, cts.Token,
+            options.ThemeTokensProvider, options.EmbedHost, debug).ConfigureAwait(false);
         runtime.Process = client;
         runtime.LastActivityTicks = Environment.TickCount64;
         runtime.OpenSurfaces = 0;
         client.Crashed += () => OnIsolatedCrashed(runtime);
         client.Activity += () => runtime.LastActivityTicks = Environment.TickCount64;
         client.SurfacesChanged += count => runtime.OpenSurfaces = count;
-        client.StartHeartbeat(options.HeartbeatInterval);
+        // 调试目标不发心跳:断点会冻住插件进程的全部线程,ping 必然连续失败,
+        // 而心跳失败的处置是强杀 —— 那就等于"下断点即插件被杀"。
+        client.StartHeartbeat(debug ? TimeSpan.Zero : options.HeartbeatInterval);
     }
 
     /// <summary>

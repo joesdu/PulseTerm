@@ -1,0 +1,28 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="VelaPlugin1.DemoPanel">
+
+  <!--
+    主题令牌:用 {DynamicResource Vela*} 取宿主的配色与字体,插件面板就会随宿主明暗切换
+    与外观设置一起变(隔离进程里由宿主经 RPC 下发同一套令牌)。
+    别写死颜色和字号 —— 写死的那一处就等于该处的外观设置失效。
+  -->
+  <Border Background="{DynamicResource VelaBgSurface}" Padding="16">
+    <StackPanel Spacing="12">
+      <TextBlock Text="VelaPlugin1"
+                 Foreground="{DynamicResource VelaTextPrimary}"
+                 FontFamily="{DynamicResource VelaUiFont}"
+                 FontSize="{DynamicResource VelaFontSize14}"
+                 FontWeight="SemiBold" />
+      <TextBlock x:Name="StatusText"
+                 Text="Ready."
+                 Foreground="{DynamicResource VelaTextSecondary}"
+                 FontSize="{DynamicResource VelaFontSize12}"
+                 TextWrapping="Wrap" />
+      <Button x:Name="CountSessionsButton"
+              Content="Count sessions"
+              HorizontalAlignment="Left" />
+    </StackPanel>
+  </Border>
+
+</UserControl>

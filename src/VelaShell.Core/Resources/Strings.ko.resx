@@ -3560,6 +3560,7 @@ Windows는 exe 전체 경로 또는 명령 이름(예: notepad), Linux는 명령
   <data name="PluginManager_Installed"><value>"{0}"을(를) 설치했습니다.</value></data>
   <data name="PluginManager_InstallFailed"><value>설치 실패: {0}</value></data>
   <data name="PluginManager_ConfirmUninstall"><value>"{0}"을(를) 제거하시겠습니까? 데이터도 삭제됩니다.</value></data>
+  <data name="PluginManager_Author"><value>제작: {0}</value></data>
   <data name="PluginManager_VpxFilter"><value>VelaShell 플러그인 패키지</value></data>  <data name="Ftp_Encryption" xml:space="preserve">
     <value>암호화</value>
   </data>
