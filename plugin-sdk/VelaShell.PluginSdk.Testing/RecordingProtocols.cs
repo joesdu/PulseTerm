@@ -31,7 +31,7 @@ public sealed class RecordingProtocols : IProtocolsApi
     /// <param name="pluginId">插件 id,用于前缀校验。</param>
     public RecordingProtocols(string pluginId) => PluginId = pluginId;
 
-    /// <summary>拥有这些注册的插件 id(前缀校验依据);由 <see cref="TestPluginContext" /> 同步。</summary>
+    /// <summary>拥有这些注册的插件 id(前缀校验依据)。</summary>
     public string PluginId { get; set; } = "test.plugin";
 
     /// <summary><see cref="GetTransferOptionsAsync" /> 返回的值;默认不限速、保留时间戳。</summary>

@@ -25,7 +25,7 @@ public sealed class RecordingWorkspaces : IWorkspacesApi
     /// <param name="pluginId">插件 id,用于前缀校验。</param>
     public RecordingWorkspaces(string pluginId) => PluginId = pluginId;
 
-    /// <summary>拥有这些注册的插件 id(前缀校验依据);由 <see cref="TestPluginContext" /> 同步。</summary>
+    /// <summary>拥有这些注册的插件 id(前缀校验依据)</summary>
     public string PluginId { get; set; } = "test.plugin";
 
     /// <summary>当前已注册的连接类型描述快照。</summary>

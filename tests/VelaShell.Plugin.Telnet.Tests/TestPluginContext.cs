@@ -1,3 +1,4 @@
+using VelaShell.PluginSdk;
 using VelaShell.PluginSdk.Clipboard;
 using VelaShell.PluginSdk.Commands;
 using VelaShell.PluginSdk.Events;
@@ -8,9 +9,13 @@ using VelaShell.PluginSdk.RemoteFs;
 using VelaShell.PluginSdk.Secrets;
 using VelaShell.PluginSdk.Sessions;
 using VelaShell.PluginSdk.Storage;
+using VelaShell.PluginSdk.Terminal;
+using VelaShell.PluginSdk.Testing;
+using VelaShell.PluginSdk.TimeSeries;
 using VelaShell.PluginSdk.Ui;
+using VelaShell.PluginSdk.Workspaces;
 
-namespace VelaShell.PluginSdk.Testing;
+namespace VelaShell.Plugin.Telnet.Tests;
 
 /// <summary><see cref="IHostInfo" /> 的可设置实现。</summary>
 public sealed class TestHostInfo : IHostInfo
@@ -128,7 +133,7 @@ public sealed class TestPluginContext : IPluginContext, IDisposable
     public IPluginStorage Storage { get; init; }
 
     /// <inheritdoc cref="IPluginContext.TimeSeries" />
-    public TimeSeries.ITimeSeriesApi TimeSeries { get; init; }
+    public ITimeSeriesApi TimeSeries { get; init; }
 
     /// <inheritdoc cref="IPluginContext.Sessions" />
     public ISessionsApi Sessions { get; init; }
@@ -155,13 +160,13 @@ public sealed class TestPluginContext : IPluginContext, IDisposable
     public IClipboardApi Clipboard { get; init; }
 
     /// <inheritdoc cref="IPluginContext.Terminal" />
-    public Terminal.ITerminalApi Terminal { get; init; }
+    public ITerminalApi Terminal { get; init; }
 
     /// <inheritdoc cref="IPluginContext.Protocols" />
     public IProtocolsApi Protocols { get; init; }
 
     /// <inheritdoc cref="IPluginContext.Workspaces" />
-    public Workspaces.IWorkspacesApi Workspaces { get; init; }
+    public IWorkspacesApi Workspaces { get; init; }
 
     /// <inheritdoc />
     public CancellationToken Shutdown => _shutdownSource.Token;

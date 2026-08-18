@@ -1,7 +1,7 @@
 using VelaShell.PluginSdk.Events;
 using VelaShell.PluginSdk.Sessions;
 
-namespace VelaShell.PluginSdk.Testing;
+namespace VelaShell.Plugin.Telnet.Tests;
 
 /// <summary><see cref="IHostEvents" /> 的测试替身:用 Raise 方法从测试触发事件。</summary>
 public sealed class TestHostEvents : IHostEvents
