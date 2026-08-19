@@ -54,7 +54,7 @@ public sealed class RedisValueTextTests
         foreach (byte[] raw in new[]
                  {
                      Gzip,
-                     new byte[] { 0xC3, 0x28 },
+                     [0xC3, 0x28],
                      Encoding.UTF8.GetBytes("plain"),
                      Encoding.UTF8.GetBytes("双引号\" 反斜杠\\ 换行\n 制表\t"),
                      [.. Enumerable.Range(0, 256).Select(b => (byte)b)]

@@ -15,7 +15,7 @@ public sealed class LocTests
     public void Tables_Initialize_WithoutDuplicateKeys()
     {
         // 触发静态构造。重复键会在这里抛。
-        Assert.IsTrue(Loc.AllKeys.Count > 100);
+        Assert.IsGreaterThan(100, Loc.AllKeys.Count);
     }
 
     [TestMethod]

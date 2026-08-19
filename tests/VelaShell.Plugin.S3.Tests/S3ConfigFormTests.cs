@@ -171,7 +171,7 @@ public sealed class S3ConfigFormTests
 
         Assert.HasCount(3, written);
         Assert.AreSequenceEqual(
-            new[] { "env", "team", "owner" }, [.. written.Select(t => t!["Key"]!.GetValue<string>())], Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
+            ["env", "team", "owner"], [.. written.Select(t => t!["Key"]!.GetValue<string>())], Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
     }
 
     /// <summary>损坏的 JSON 不能把表单打崩,退化成空表单即可。</summary>

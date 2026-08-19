@@ -1,4 +1,4 @@
-﻿using System.IO.Pipes;
+using System.IO.Pipes;
 using VelaShell.Infrastructure.Plugins;
 using VelaShell.Infrastructure.Plugins.Capabilities;
 using VelaShell.PluginSdk;
@@ -111,10 +111,10 @@ public class TimeSeriesRoutingTests
 
             string[]? conversations = await pluginConnection.RequestAsync<string[]>(PluginRpc.TimeSeriesDistinct,
                 new TimeSeriesDistinctRequest("chat_messages", "conv"), Timeout);
-            Assert.AreSequenceEqual(new[] { "c1", "c2" }, conversations!);
+            Assert.AreSequenceEqual(["c1", "c2"], conversations!);
 
             string[]? listed = await pluginConnection.RequestAsync<string[]>(PluginRpc.TimeSeriesList, null, Timeout);
-            Assert.AreSequenceEqual(new[] { "chat_messages" }, listed!);
+            Assert.AreSequenceEqual(["chat_messages"], listed!);
 
             await pluginConnection.RequestAsync<int>(PluginRpc.TimeSeriesDelete,
                 new TimeSeriesDeleteRequest("chat_messages", new() { ["conv"] = "c1" }), Timeout);

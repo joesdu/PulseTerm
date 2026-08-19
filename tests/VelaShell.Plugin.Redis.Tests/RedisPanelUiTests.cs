@@ -172,7 +172,7 @@ public sealed class RedisPanelUiTests
 
                 Assert.IsTrue(group.IsExpandedGroup, "展开态应显示向下的箭头。");
                 Assert.IsFalse(group.IsCollapsed);
-                Assert.AreEqual(13, viewModel.Rows.Count, "10 个成员就地铺开。");
+                Assert.HasCount(13, viewModel.Rows, "10 个成员就地铺开。");
                 RedisKeyRow member = Row(viewModel, $"{_prefix}:order:2026:0000");
                 Assert.AreEqual(1, member.Depth);
                 Assert.AreEqual("string", member.TypeName);
@@ -271,7 +271,7 @@ public sealed class RedisPanelUiTests
                 CollectionAssert.AreEquivalent(
                     new[] { $"{_prefix}:user:1:name", $"{_prefix}:user:1:profile" },
                     viewModel.Rows.Select(row => row.Display).ToArray());
-                Assert.IsFalse(viewModel.Rows.Any(row => row.IsGroup), "两个键远低于折叠阈值。");
+                Assert.DoesNotContain(row => row.IsGroup, viewModel.Rows, "两个键远低于折叠阈值。");
                 Assert.AreEqual("string", viewModel.Rows.Single(row => row.Display.EndsWith(":name", StringComparison.Ordinal)).TypeName);
                 Assert.AreEqual("hash", viewModel.Rows.Single(row => row.Display.EndsWith(":profile", StringComparison.Ordinal)).TypeName);
 
@@ -430,7 +430,7 @@ public sealed class RedisPanelUiTests
             try
             {
                 Assert.IsTrue(viewModel.SupportsDatabases);
-                Assert.IsTrue(viewModel.Databases.Count >= 10);
+                Assert.IsGreaterThanOrEqualTo(10, viewModel.Databases.Count);
                 Assert.AreEqual(Database, viewModel.SelectedDatabase!.Index);
                 // 键数直接进下拉文本,省掉"逐个库点进去看有没有东西"的盲测。
                 Assert.Contains("db9", viewModel.Databases[Database].Display);

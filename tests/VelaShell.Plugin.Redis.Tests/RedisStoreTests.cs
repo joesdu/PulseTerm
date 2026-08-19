@@ -79,7 +79,7 @@ public sealed class RedisStoreTests
             await store.AppendHistoryAsync("host:6379", $"GET key{i}");
         }
 
-        Assert.AreEqual(20, (await store.LoadHistoryAsync("host:6379")).Count);
+        Assert.HasCount(20, await store.LoadHistoryAsync("host:6379"));
     }
 
     [TestMethod]
@@ -92,9 +92,9 @@ public sealed class RedisStoreTests
         await store.AppendHistoryAsync("host:6379", "PING");
 
         Assert.IsEmpty(await store.LoadHistoryAsync("host:6379"));
-        Assert.IsTrue(
-            context.CollectingLog.Entries.Any(entry =>
-                entry.Message.Contains("not persisted", StringComparison.OrdinalIgnoreCase)),
+        Assert.Contains(
+            entry =>
+                entry.Message.Contains("not persisted", StringComparison.OrdinalIgnoreCase), context.CollectingLog.Entries,
             "降级要留一条可查的日志。");
     }
 

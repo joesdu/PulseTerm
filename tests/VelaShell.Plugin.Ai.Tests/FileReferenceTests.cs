@@ -107,22 +107,22 @@ public sealed class FileReferenceTests
     {
         List<string> paths = FileReference.Parse("对比 @/etc/hosts 和 @\"/opt/my app/a.conf\",别理 @someone 和 @/etc/hosts");
 
-        Assert.AreSequenceEqual(new[] { "/etc/hosts", "/opt/my app/a.conf" }, paths);
+        Assert.AreSequenceEqual(["/etc/hosts", "/opt/my app/a.conf"], paths);
     }
 
     [TestMethod]
     public void Parse_DropsTrailingSentencePunctuation()
     {
-        Assert.AreSequenceEqual(new[] { "/var/log/syslog" }, FileReference.Parse("看看 @/var/log/syslog。"));
-        Assert.AreSequenceEqual(new[] { "~/notes.md" }, FileReference.Parse("还有 @~/notes.md, 谢谢"));
+        Assert.AreSequenceEqual(["/var/log/syslog"], FileReference.Parse("看看 @/var/log/syslog。"));
+        Assert.AreSequenceEqual(["~/notes.md"], FileReference.Parse("还有 @~/notes.md, 谢谢"));
     }
 
     [TestMethod]
     public void Parse_StopsAtCjk_SoChinesePunctuationDoesNotSwallowThePath()
     {
         // 中文里逗号后不空格,路径必须在 CJK 处收住;非 ASCII 路径则要求带引号(补全会自动加)
-        Assert.AreSequenceEqual(new[] { "/etc/hosts" }, FileReference.Parse("看 @/etc/hosts,再看别的"));
-        Assert.AreSequenceEqual(new[] { "/data/报表.xlsx" }, FileReference.Parse("看 @\"/data/报表.xlsx\",谢谢"));
+        Assert.AreSequenceEqual(["/etc/hosts"], FileReference.Parse("看 @/etc/hosts,再看别的"));
+        Assert.AreSequenceEqual(["/data/报表.xlsx"], FileReference.Parse("看 @\"/data/报表.xlsx\",谢谢"));
         Assert.IsTrue(FileReference.NeedsQuoting("/data/报表.xlsx"));
         Assert.IsTrue(FileReference.NeedsQuoting("/opt/my app/a.conf"));
         Assert.IsFalse(FileReference.NeedsQuoting("/etc/hosts"));

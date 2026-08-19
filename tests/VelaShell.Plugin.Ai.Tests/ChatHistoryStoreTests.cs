@@ -110,7 +110,7 @@ public sealed class ChatHistoryStoreTests
 
         IReadOnlyList<string> inputs = await store.RecentUserInputsAsync();
 
-        Assert.AreSequenceEqual(new[] { "第一条", "第二条" }, inputs);
+        Assert.AreSequenceEqual(["第一条", "第二条"], inputs);
     }
 
     [TestMethod]

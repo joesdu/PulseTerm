@@ -20,7 +20,7 @@
          我们配的是 DB-IP Lite City(CC BY 4.0),同一格式。 -->
     <PackageVersion Include="MaxMind.Db" Version="5.1.0" />
     <PackageVersion Include="SonnetDB.Core" Version="3.0.1" />
-    <PackageVersion Include="Tmds.Ssh" Version="0.23.0" />
+    <PackageVersion Include="Tmds.Ssh" Version="0.24.0" />
     <!-- FTP / FTPS 客户端(MIT,零依赖)。截至 54.2.0 最高只出到 net9.0 资产,
          本仓库 net11.0 会解析到那一份 —— 纯托管 DLL,且发布不裁剪、非单文件,无打包风险。
          注意:不要顺手引 FluentFTP.GnuTLS(LGPL-2.1-only),与商业授权冲突,

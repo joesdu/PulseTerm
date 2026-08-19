@@ -109,7 +109,7 @@ public sealed class RedisWriteIntegrationTests
 
         RedisKeyInfo info = await connection.DescribeAsync(key);
         Assert.IsNotNull(info.Ttl, "改值不该把过期时间抹掉。");
-        Assert.IsTrue(info.Ttl!.Value > TimeSpan.FromMinutes(8));
+        Assert.IsGreaterThan(TimeSpan.FromMinutes(8), info.Ttl!.Value);
         RedisStringValue value = await connection.ReadStringAsync(key);
         Assert.AreEqual("second", Encoding.UTF8.GetString(value.Bytes));
     }
@@ -299,7 +299,7 @@ public sealed class RedisWriteIntegrationTests
         RedisConnection connection = Require();
 
         Assert.IsTrue(connection.Guard.MetadataFromServer, "COMMAND 应答过就该用服务器的 flags。");
-        Assert.IsTrue(connection.CommandHints.Count > 100, $"命令数偏少:{connection.CommandHints.Count}");
+        Assert.IsGreaterThan(100, connection.CommandHints.Count, $"命令数偏少:{connection.CommandHints.Count}");
         Assert.AreEqual(RedisCommandRisk.Read, connection.Guard.Classify("GET"));
         Assert.AreEqual(RedisCommandRisk.Write, connection.Guard.Classify("SET"));
     }
@@ -309,7 +309,7 @@ public sealed class RedisWriteIntegrationTests
     {
         IReadOnlyList<RedisCommandHint> hints = Require().Complete("hget");
 
-        Assert.IsTrue(hints.Any(hint => hint.Name == "HGETALL"));
+        Assert.Contains(hint => hint.Name == "HGETALL", hints);
         Assert.IsTrue(hints.All(hint => hint.Name.StartsWith("HGET", StringComparison.Ordinal)));
     }
 
@@ -342,7 +342,7 @@ public sealed class RedisWriteIntegrationTests
 
         RedisConsoleResult result = await connection.ExecuteConsoleAsync($"HGETALL \"{key.Display}\"");
 
-        Assert.AreEqual(2, result.Lines.Count);
+        Assert.HasCount(2, result.Lines);
         Assert.AreEqual("1) \"a\"", result.Lines[0].Text);
         Assert.AreEqual("2) \"1\"", result.Lines[1].Text);
     }
@@ -409,11 +409,11 @@ public sealed class RedisWriteIntegrationTests
     {
         IReadOnlyList<RedisMetricGroup> groups = await Require().ReadOverviewAsync();
 
-        Assert.IsFalse(groups.Any(group => group.Unavailable), "INFO 应能读到。");
+        Assert.DoesNotContain(group => group.Unavailable, groups, "INFO 应能读到。");
         RedisMetricGroup server = groups.Single(group => group.Title == "server");
         Assert.IsFalse(string.IsNullOrEmpty(server.Items.Single(item => item.Label == "version").Value));
-        Assert.IsTrue(groups.Any(group => group.Title == "memory"));
-        Assert.IsTrue(groups.Any(group => group.Title == "persistence"));
+        Assert.Contains(group => group.Title == "memory", groups);
+        Assert.Contains(group => group.Title == "persistence", groups);
     }
 
     [TestMethod]
@@ -436,7 +436,7 @@ public sealed class RedisWriteIntegrationTests
         Assert.IsNotNull(entries, "这台服务器开放了 SLOWLOG,应能读到(可能是空表)。");
         foreach (RedisSlowlogEntry entry in entries)
         {
-            Assert.IsTrue(entry.Duration >= TimeSpan.Zero);
+            Assert.IsGreaterThanOrEqualTo(TimeSpan.Zero, entry.Duration);
             Assert.IsFalse(string.IsNullOrEmpty(entry.DurationText));
         }
     }
@@ -449,7 +449,7 @@ public sealed class RedisWriteIntegrationTests
         IReadOnlyList<RedisClientEntry>? clients = await Require().ReadClientsAsync();
 
         Assert.IsNotNull(clients);
-        Assert.IsTrue(clients.Any(client => client.IsSelf), "至少本连接自己应被认出来。");
+        Assert.Contains(client => client.IsSelf, clients, "至少本连接自己应被认出来。");
         Assert.IsTrue(clients.All(client => client.Address.Length > 0));
     }
 
@@ -463,7 +463,7 @@ public sealed class RedisWriteIntegrationTests
         if (Version.TryParse(connection.Info.Version, out Version? version) && version.Major >= 4)
         {
             Assert.IsTrue(sample.Available);
-            Assert.IsTrue(sample.SampledKeys > 0);
+            Assert.IsGreaterThan(0, sample.SampledKeys);
         }
         else
         {

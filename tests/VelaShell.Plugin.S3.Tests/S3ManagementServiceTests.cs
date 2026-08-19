@@ -144,7 +144,7 @@ public sealed class S3ManagementServiceTests
 
         IReadOnlyList<string> ids = await _service.ListBucketConfigIdsAsync(_session, Bucket, S3ConfigKind.Inventory);
 
-        Assert.AreSequenceEqual(new[] { "daily", "weekly" }, [.. ids], Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
+        Assert.AreSequenceEqual(["daily", "weekly"], [.. ids], Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
     }
 
     // ---- 版本 ---------------------------------------------------------------

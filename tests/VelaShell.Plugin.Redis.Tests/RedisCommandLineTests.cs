@@ -94,7 +94,7 @@ public sealed class RedisCommandLineTests
         // SET k "" 要真的写一个空字符串,而不是把参数丢掉。
         IReadOnlyList<string> args = Split("SET k \"\"");
 
-        Assert.AreEqual(3, args.Count);
+        Assert.HasCount(3, args);
         Assert.AreEqual(string.Empty, args[2]);
     }
 }

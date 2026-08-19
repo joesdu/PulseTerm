@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using VelaShell.PluginSdk.Protocols;
+using VelaShell.PluginSdk.Testing;
 
 namespace VelaShell.Plugin.Telnet.Tests;
 

@@ -77,7 +77,7 @@ public sealed class S3FileServiceIntegrationTests
 
         Assert.HasCount(2, entries);
         Assert.IsTrue(entries.All(e => e.IsDirectory));
-        Assert.AreSequenceEqual(new[] { "another-bucket", "test-bucket" }, [.. entries.Select(e => e.Name)], Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
+        Assert.AreSequenceEqual(["another-bucket", "test-bucket"], [.. entries.Select(e => e.Name)], Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
         Assert.AreEqual("/test-bucket", entries.Single(e => e.Name == Bucket).FullPath);
         AssertAllRequestsSigned();
     }
@@ -107,7 +107,7 @@ public sealed class S3FileServiceIntegrationTests
 
         // 进到子目录:两个文件 + 一个更深的目录。
         List<S3FileEntry> logs = await _service.ListDirectoryAsync(_session, "/test-bucket/logs");
-        Assert.AreSequenceEqual(new[] { "a.log", "b.log", "2026" }, [.. logs.Select(e => e.Name)], Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
+        Assert.AreSequenceEqual(["a.log", "b.log", "2026"], [.. logs.Select(e => e.Name)], Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
         Assert.AreEqual("/test-bucket/logs/2026", logs.Single(e => e.IsDirectory).FullPath);
         AssertAllRequestsSigned();
     }
@@ -485,7 +485,7 @@ public sealed class S3FileServiceIntegrationTests
 
         await _service.DeleteAsync(_session, "/test-bucket/drop.txt");
 
-        Assert.AreSequenceEqual(new[] { "keep.txt" }, [.. _server.Keys(Bucket)], Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
+        Assert.AreSequenceEqual(["keep.txt"], [.. _server.Keys(Bucket)], Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
         AssertAllRequestsSigned();
     }
 
@@ -503,7 +503,7 @@ public sealed class S3FileServiceIntegrationTests
             new SynchronousProgress<ProtocolDeleteProgress>(progress.Add));
 
         // "treasure.txt" 以 "tree" 开头但不在 "tree/" 前缀下 —— 前缀拼接漏了斜杠就会误删它。
-        Assert.AreSequenceEqual(new[] { "treasure.txt" }, [.. _server.Keys(Bucket)], Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
+        Assert.AreSequenceEqual(["treasure.txt"], [.. _server.Keys(Bucket)], Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
         Assert.IsGreaterThanOrEqualTo(1, progress.Count);
         AssertAllRequestsSigned();
     }
@@ -597,7 +597,7 @@ public sealed class S3FileServiceIntegrationTests
 
         await _service.RenameAsync(_session, "/test-bucket/v1", "/test-bucket/v2");
 
-        Assert.AreSequenceEqual(new[] { "v2/a.txt", "v2/sub/b.txt" }, [.. _server.Keys(Bucket)], Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
+        Assert.AreSequenceEqual(["v2/a.txt", "v2/sub/b.txt"], [.. _server.Keys(Bucket)], Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
         AssertAllRequestsSigned();
     }
 

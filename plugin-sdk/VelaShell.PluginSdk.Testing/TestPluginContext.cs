@@ -1,4 +1,3 @@
-using VelaShell.PluginSdk;
 using VelaShell.PluginSdk.Clipboard;
 using VelaShell.PluginSdk.Commands;
 using VelaShell.PluginSdk.Events;
@@ -10,12 +9,11 @@ using VelaShell.PluginSdk.Secrets;
 using VelaShell.PluginSdk.Sessions;
 using VelaShell.PluginSdk.Storage;
 using VelaShell.PluginSdk.Terminal;
-using VelaShell.PluginSdk.Testing;
 using VelaShell.PluginSdk.TimeSeries;
 using VelaShell.PluginSdk.Ui;
 using VelaShell.PluginSdk.Workspaces;
 
-namespace VelaShell.Plugin.Telnet.Tests;
+namespace VelaShell.PluginSdk.Testing;
 
 /// <summary><see cref="IHostInfo" /> 的可设置实现。</summary>
 public sealed class TestHostInfo : IHostInfo
