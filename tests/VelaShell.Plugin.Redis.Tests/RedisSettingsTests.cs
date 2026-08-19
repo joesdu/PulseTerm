@@ -175,7 +175,7 @@ public sealed class RedisSettingsTests
         // 每一条条件指向的键都必须是同一张表里真实存在的字段。
         foreach (ProtocolSettingField declared in fields.Where(f => f.VisibleWhen is not null))
         {
-            Assert.IsTrue(keys.Contains(declared.VisibleWhen!.Key),
+            Assert.Contains(declared.VisibleWhen!.Key, keys,
                 $"字段 {declared.Key} 的显示条件指向了不存在的键 {declared.VisibleWhen.Key}。");
         }
 
@@ -189,7 +189,7 @@ public sealed class RedisSettingsTests
             }
             foreach (string value in declared.VisibleWhen!.Values)
             {
-                Assert.IsTrue(target.Choices.Any(choice => choice.Value == value),
+                Assert.Contains(choice => choice.Value == value, target.Choices,
                     $"字段 {declared.Key} 的条件取值 {value} 不在 {target.Key} 的候选里。");
             }
         }

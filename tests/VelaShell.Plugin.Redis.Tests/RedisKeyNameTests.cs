@@ -23,7 +23,7 @@ public sealed class RedisKeyNameTests
     [TestMethod]
     public void Display_EscapesNonPrintableBytes()
     {
-        var key = new RedisKeyName(new byte[] { (byte)'a', 0x00, 0xFF, (byte)'b' });
+        var key = new RedisKeyName([(byte)'a', 0x00, 0xFF, (byte)'b']);
 
         Assert.AreEqual("a\\x00\\xffb", key.Display);
     }
@@ -58,7 +58,7 @@ public sealed class RedisKeyNameTests
     {
         // 退回转义形式而不是带 U+FFFD 的近似值:一个看起来正常却其实不对的键名
         // 比一串 \xNN 危险得多。
-        var key = new RedisKeyName(new byte[] { 0xC3, 0x28 });
+        var key = new RedisKeyName([0xC3, 0x28]);
 
         Assert.IsFalse(key.IsUtf8);
         Assert.AreEqual(key.Display, key.Text);
@@ -68,7 +68,7 @@ public sealed class RedisKeyNameTests
     public void Text_ForValidUtf8ContainingControlChars_FallsBackToEscapedForm()
     {
         // 合法 UTF-8 但含控制字符:直接进列表会把行高与对齐搞乱。
-        var key = new RedisKeyName(new byte[] { (byte)'a', 0x07, (byte)'b' });
+        var key = new RedisKeyName([(byte)'a', 0x07, (byte)'b']);
 
         Assert.IsFalse(key.IsUtf8);
         Assert.AreEqual("a\\ab", key.Text);
@@ -103,9 +103,9 @@ public sealed class RedisKeyNameTests
     {
         // 去重靠它:SCAN 在 rehash 期间会返回重复键。而两个不同的字节串可能解出
         // 同一个替换字符串 —— 按文本比就会把两个不同的键判成同一个。
-        var first = new RedisKeyName(new byte[] { 0xC3, 0x28 });
-        var second = new RedisKeyName(new byte[] { 0xC3, 0x29 });
-        var sameAsFirst = new RedisKeyName(new byte[] { 0xC3, 0x28 });
+        var first = new RedisKeyName([0xC3, 0x28]);
+        var second = new RedisKeyName([0xC3, 0x29]);
+        var sameAsFirst = new RedisKeyName([0xC3, 0x28]);
 
         Assert.AreEqual(first, sameAsFirst);
         Assert.AreEqual(first.GetHashCode(), sameAsFirst.GetHashCode());

@@ -292,7 +292,7 @@ public sealed class RedisPanelEditingUiTests
             vm.RemoveElementCommand.Execute(null);
             await PumpAsync();
 
-            Assert.IsFalse(vm.Elements.Any(row => row.Label == "age"));
+            Assert.DoesNotContain(row => row.Label == "age", vm.Elements);
         });
     }
 
@@ -437,9 +437,9 @@ public sealed class RedisPanelEditingUiTests
             vm.Console.RunCommand.Execute(null);
             await PumpAsync();
 
-            Assert.IsTrue(vm.Console.Lines.Any(line => line.Text == "PONG"));
+            Assert.Contains(line => line.Text == "PONG", vm.Console.Lines);
             Assert.AreEqual(string.Empty, vm.Console.Input, "跑完就清空输入。");
-            Assert.IsTrue(vm.Console.Lines.Any(line => line.IsCommand), "敲过的那一行要留在输出里。");
+            Assert.Contains(line => line.IsCommand, vm.Console.Lines, "敲过的那一行要留在输出里。");
         });
     }
 
@@ -500,7 +500,7 @@ public sealed class RedisPanelEditingUiTests
             console.RunCommand.Execute(null);
             await PumpAsync();
 
-            Assert.IsTrue(console.Lines.Any(line => line.IsNote && line.Text.Contains("只读", StringComparison.Ordinal)));
+            Assert.Contains(line => line.IsNote && line.Text.Contains("只读", StringComparison.Ordinal), console.Lines);
         });
     }
 
@@ -557,7 +557,7 @@ public sealed class RedisPanelEditingUiTests
             Assert.IsTrue(vm.IsOverviewTab);
             Assert.IsTrue(vm.IsDrawerOpen);
             Assert.IsFalse(vm.HasOverviewNotice, $"概览应能读到:{vm.OverviewNotice}");
-            Assert.IsTrue(vm.Overview.Any(group => group.Title == "server"));
+            Assert.Contains(group => group.Title == "server", vm.Overview);
         });
     }
 
@@ -574,7 +574,7 @@ public sealed class RedisPanelEditingUiTests
             await PumpAsync();
 
             Assert.IsFalse(vm.HasClientsNotice, $"客户端列表应能读到:{vm.ClientsNotice}");
-            Assert.IsTrue(vm.Clients.Any(client => client.IsSelf));
+            Assert.Contains(client => client.IsSelf, vm.Clients);
             // 自己的连接禁止断开。
             vm.SelectedClient = vm.Clients.First(client => client.IsSelf);
             Assert.IsFalse(vm.KillClientCommand.CanExecute(null));

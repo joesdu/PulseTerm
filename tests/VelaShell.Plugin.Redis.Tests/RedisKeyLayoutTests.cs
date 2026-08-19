@@ -79,7 +79,7 @@ public sealed class RedisKeyLayoutTests
         List<RedisKeyRow> rows = RedisKeyLayout.Build(Demo(), Delimiter, threshold: 2);
 
         Assert.IsFalse(rows is [{ Display: "demo:*" }], "整批键的公共前缀是面包屑,不该再折成一行。");
-        Assert.IsTrue(rows.Count > 1);
+        Assert.IsGreaterThan(1, rows.Count);
     }
 
     /// <summary>展开分组行:成员就地铺开,并且**继续按同一套规则收敛**。</summary>
@@ -128,7 +128,7 @@ public sealed class RedisKeyLayoutTests
 
         List<RedisKeyRow> rows = RedisKeyLayout.Build(keys, Delimiter, threshold: 8);
 
-        Assert.IsFalse(rows.Any(row => row.IsGroup));
+        Assert.DoesNotContain(row => row.IsGroup, rows);
         Assert.HasCount(3, rows);
     }
 
@@ -143,7 +143,7 @@ public sealed class RedisKeyLayoutTests
 
         List<RedisKeyRow> rows = RedisKeyLayout.Build(keys, Delimiter, threshold: 2);
 
-        Assert.IsFalse(rows.Any(row => row.Display == "a:b:*"),
+        Assert.DoesNotContain(row => row.Display == "a:b:*", rows,
             "a:b 会被这条分组行错误地算进去。");
         CollectionAssert.AreEqual(
             new[] { "a:b", "a:b:c", "a:b:d" },
@@ -166,7 +166,7 @@ public sealed class RedisKeyLayoutTests
     {
         List<RedisKeyRow> rows = RedisKeyLayout.Build(Demo(), Delimiter, threshold: 1);
 
-        Assert.IsFalse(rows.Any(row => row.IsGroup));
+        Assert.DoesNotContain(row => row.IsGroup, rows);
         Assert.HasCount(46, rows);
     }
 

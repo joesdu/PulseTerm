@@ -107,7 +107,7 @@ public sealed class RedisConnectionIntegrationTests
         Assert.IsTrue(connection.IsConnected);
         Assert.AreNotEqual("?", connection.Info.Version, "版本探测失败会让状态条显示一个问号。");
         Assert.IsTrue(connection.Info.Protocol is "RESP2" or "RESP3");
-        Assert.IsTrue(connection.Info.Databases >= 1);
+        Assert.IsGreaterThanOrEqualTo(1, connection.Info.Databases);
         Assert.AreEqual(Database, connection.Database);
     }
 
@@ -116,7 +116,7 @@ public sealed class RedisConnectionIntegrationTests
     {
         TimeSpan rtt = await Require().PingAsync();
 
-        Assert.IsTrue(rtt >= TimeSpan.Zero);
+        Assert.IsGreaterThanOrEqualTo(TimeSpan.Zero, rtt);
     }
 
     [TestMethod]
@@ -124,7 +124,7 @@ public sealed class RedisConnectionIntegrationTests
     {
         long size = await Require().DatabaseSizeAsync();
 
-        Assert.IsTrue(size >= 7, $"至少应能数到造出来的 7 个键,实际 {size}。");
+        Assert.IsGreaterThanOrEqualTo(7, size, $"至少应能数到造出来的 7 个键,实际 {size}。");
     }
 
     [TestMethod]
@@ -145,12 +145,12 @@ public sealed class RedisConnectionIntegrationTests
                 found.Add(key);
             }
             rounds++;
-            Assert.IsTrue(rounds < 500, "游标没有收敛,扫描逻辑有问题。");
+            Assert.IsLessThan(500, rounds, "游标没有收敛,扫描逻辑有问题。");
         }
         while (cursor is not "0");
 
-        Assert.AreEqual(7, found.Count, "七个键都要被扫到,一个不多一个不少。");
-        Assert.IsTrue(found.Any(k => k.Text == $"{_prefix}:user:1:profile"));
+        Assert.HasCount(7, found, "七个键都要被扫到,一个不多一个不少。");
+        Assert.Contains(k => k.Text == $"{_prefix}:user:1:profile", found);
     }
 
     /// <summary>
@@ -172,7 +172,7 @@ public sealed class RedisConnectionIntegrationTests
         }
         while (cursor is not "0");
 
-        Assert.AreEqual(1, found.Count);
+        Assert.HasCount(1, found);
         Assert.AreEqual($"{_prefix}:user:1:profile", found[0].Text);
     }
 
@@ -227,7 +227,7 @@ public sealed class RedisConnectionIntegrationTests
 
         Assert.AreEqual("string", withTtl.Type);
         Assert.IsNotNull(withTtl.Ttl, "设过过期时间的键必须报出 TTL。");
-        Assert.IsTrue(withTtl.Ttl!.Value <= TimeSpan.FromMinutes(30));
+        Assert.IsLessThanOrEqualTo(TimeSpan.FromMinutes(30), withTtl.Ttl!.Value);
         Assert.IsNull(withoutTtl.Ttl, "没有过期时间就是 null,而不是 0 或负数。");
         Assert.IsFalse(string.IsNullOrEmpty(withoutTtl.Encoding), "OBJECT ENCODING 应能取到。");
         Assert.AreEqual(6, withoutTtl.Length, "「张三」的 UTF-8 长度是 6 字节。");
@@ -254,7 +254,7 @@ public sealed class RedisConnectionIntegrationTests
 
         if (Version.TryParse(connection.Info.Version, out Version? version) && version.Major >= 4)
         {
-            Assert.IsTrue(info.MemoryBytes > 0, "4.0 及以上应给出一个抽样估计值。");
+            Assert.IsGreaterThan(0, info.MemoryBytes, "4.0 及以上应给出一个抽样估计值。");
         }
         else
         {
@@ -292,7 +292,7 @@ public sealed class RedisConnectionIntegrationTests
 
         RedisElementPage first = await connection.ReadElementsAsync(key, "list", "0", 2);
         Assert.AreEqual(3, first.Total);
-        Assert.AreEqual(2, first.Rows.Count);
+        Assert.HasCount(2, first.Rows);
         Assert.AreEqual("0", first.Rows[0].Label);
         Assert.AreEqual("a", first.Rows[0].Value);
         Assert.IsFalse(first.IsComplete);
@@ -341,6 +341,6 @@ public sealed class RedisConnectionIntegrationTests
         await connection.RefreshKeyspaceAsync();
 
         Assert.IsTrue(connection.Info.KeyCountByDatabase.TryGetValue(Database, out long count));
-        Assert.IsTrue(count >= 7);
+        Assert.IsGreaterThanOrEqualTo(7, count);
     }
 }

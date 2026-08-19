@@ -85,7 +85,7 @@ public sealed class RedisDiscoveryTests
 
         IReadOnlyList<RedisDiscoveredInstance> found = await new RedisDiscovery(context).ProbeAsync(sessionId);
 
-        CollectionAssert.AreEqual(new[] { 6379, 6380 }, found.Select(item => item.Port).ToArray());
+        Assert.AreSequenceEqual([6379, 6380], [.. found.Select(item => item.Port)]);
     }
 
     [TestMethod]
@@ -196,7 +196,7 @@ public sealed class RedisDiscoveryTests
 
         // 替身只造得出已连接的会话,所以这里守的是全部都被收进来;
         // "跳过未连接的" 那一半由 ConnectedSessionsAsync 里的 State 过滤本身承担。
-        Assert.AreEqual(2, sessions.Count);
+        Assert.HasCount(2, sessions);
         Assert.IsTrue(sessions.All(session => session.State == PluginSdk.Sessions.SessionState.Connected));
     }
 
@@ -220,7 +220,7 @@ public sealed class RedisDiscoveryTests
 
         await context.RecordingCommands.RunAsync("velashell.redis.discover");
 
-        Assert.AreEqual(2, context.RecordingWorkspaces.Proposals.Count);
+        Assert.HasCount(2, context.RecordingWorkspaces.Proposals);
         WorkspaceConnectionProposal first = context.RecordingWorkspaces.Proposals[0];
         Assert.AreEqual(PluginId, first.WorkspaceId);
         Assert.AreEqual(6379, first.Port);
@@ -244,7 +244,7 @@ public sealed class RedisDiscoveryTests
 
         await context.RecordingCommands.RunAsync("velashell.redis.discover");
 
-        Assert.AreEqual(1, context.RecordingWorkspaces.Proposals.Count);
+        Assert.HasCount(1, context.RecordingWorkspaces.Proposals);
     }
 
     [TestMethod]
@@ -266,8 +266,8 @@ public sealed class RedisDiscoveryTests
         Assert.AreEqual("hunter2", context.RecordingWorkspaces.Proposals.Single().Password,
             "探到的口令要带上,否则用户还得自己去翻一遍配置。");
         // **口令绝不进日志。** 这一条比"能探到"更重要。
-        Assert.IsFalse(
-            context.CollectingLog.Entries.Any(entry => entry.Message.Contains("hunter2", StringComparison.Ordinal)),
+        Assert.DoesNotContain(
+            entry => entry.Message.Contains("hunter2", StringComparison.Ordinal), context.CollectingLog.Entries,
             "日志里出现了口令。");
     }
 

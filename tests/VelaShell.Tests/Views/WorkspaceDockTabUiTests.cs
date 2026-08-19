@@ -60,8 +60,8 @@ public sealed class WorkspaceDockTabUiTests
                     "标签页退回了 ToString():模板没有匹配上 PluginWorkspaceDocument。");
             }
 
-            Assert.IsTrue(
-                tab.GetVisualDescendants().OfType<TextBlock>().Any(text => text.Text == "local-redis"),
+            Assert.Contains(
+                text => text.Text == "local-redis", tab.GetVisualDescendants().OfType<TextBlock>(),
                 "标签上没有连接名。");
 
             window.Close();

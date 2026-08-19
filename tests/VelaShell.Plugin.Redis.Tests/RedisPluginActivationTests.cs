@@ -101,6 +101,6 @@ public sealed class RedisPluginActivationTests
 
         await plugin.DeactivateAsync(CancellationToken.None);
 
-        Assert.AreEqual(0, context.RecordingWorkspaces.Registered.Count);
+        Assert.IsEmpty(context.RecordingWorkspaces.Registered);
     }
 }
