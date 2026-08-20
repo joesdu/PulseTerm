@@ -1838,4 +1838,104 @@ public class FileBrowserViewModelTests
 
         Assert.AreSequenceEqual([a, b], [.. kept], Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
     }
+
+    // ---- 手动输入路径(#226)-------------------------------------------------
+
+    [TestMethod]
+    [TestCategory("FileBrowser")]
+    public async Task PathEdit_NavigatesToTypedPath_AndClosesEditor()
+    {
+        _sftpService
+            .ListDirectoryAsync(_sessionId, "/data/app", Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new List<RemoteFileInfo>()));
+        _vm.CurrentPath = "/home/user";
+
+        await _vm.BeginPathEditCommand.Execute().FirstAsync();
+        Assert.IsTrue(_vm.IsPathEditing);
+        Assert.AreEqual("/home/user", _vm.PathEditText, "切入输入态时应预填当前路径。");
+
+        _vm.PathEditText = "/data/app/";
+        await _vm.CommitPathEditCommand.Execute().FirstAsync();
+
+        Assert.AreEqual("/data/app", _vm.CurrentPath);
+        Assert.IsFalse(_vm.IsPathEditing, "导航成功后应退回面包屑。");
+    }
+
+    [TestMethod]
+    [TestCategory("FileBrowser")]
+    public async Task PathEdit_KeepsEditorOpen_WhenTargetIsUnreadable()
+    {
+        // 输错路径 / 目标没权限是手动输入的常态:此时不能把输入框收掉,否则用户
+        // 得从头再点一次才能改一个字母。
+        _sftpService
+            .ListDirectoryAsync(_sessionId, "/root/secret", Arg.Any<CancellationToken>())
+            .Returns<Task<List<RemoteFileInfo>>>(_ => throw new UnauthorizedAccessException("denied"));
+        _vm.CurrentPath = "/home/user";
+
+        await _vm.BeginPathEditCommand.Execute().FirstAsync();
+        _vm.PathEditText = "/root/secret";
+        await _vm.CommitPathEditCommand.Execute().FirstAsync();
+
+        Assert.IsTrue(_vm.IsPathEditing, "导航失败应保持输入态,让用户就地改。");
+        Assert.AreEqual("/home/user", _vm.CurrentPath, "失败不应改变当前目录。");
+        Assert.IsFalse(string.IsNullOrEmpty(_vm.ErrorMessage));
+    }
+
+    [TestMethod]
+    [TestCategory("FileBrowser")]
+    public async Task PathEdit_ResolvesRelativeInputAgainstCurrentDirectory()
+    {
+        _sftpService
+            .ListDirectoryAsync(_sessionId, "/home/user/logs", Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new List<RemoteFileInfo>()));
+        _vm.CurrentPath = "/home/user";
+
+        await _vm.BeginPathEditCommand.Execute().FirstAsync();
+        _vm.PathEditText = "logs";
+        await _vm.CommitPathEditCommand.Execute().FirstAsync();
+
+        Assert.AreEqual("/home/user/logs", _vm.CurrentPath);
+    }
+
+    [TestMethod]
+    [TestCategory("FileBrowser")]
+    public async Task PathEdit_ExpandsTildeUsingRemoteHome()
+    {
+        // 报告 #226 的场景:根目录不可读,只能靠直接敲路径进目标目录。~ 展开要问服务端。
+        _sftpService
+            .GetWorkingDirectoryAsync(_sessionId, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult("/data/data/com.termux/files/home"));
+        _sftpService
+            .ListDirectoryAsync(
+                _sessionId,
+                "/data/data/com.termux/files/home/storage",
+                Arg.Any<CancellationToken>()
+            )
+            .Returns(Task.FromResult(new List<RemoteFileInfo>()));
+        _vm.CurrentPath = "/";
+
+        await _vm.BeginPathEditCommand.Execute().FirstAsync();
+        _vm.PathEditText = "~/storage";
+        await _vm.CommitPathEditCommand.Execute().FirstAsync();
+
+        Assert.AreEqual("/data/data/com.termux/files/home/storage", _vm.CurrentPath);
+        Assert.IsFalse(_vm.IsPathEditing);
+    }
+
+    [TestMethod]
+    [TestCategory("FileBrowser")]
+    public async Task PathEdit_CancelKeepsCurrentDirectory()
+    {
+        _vm.CurrentPath = "/home/user";
+
+        await _vm.BeginPathEditCommand.Execute().FirstAsync();
+        _vm.PathEditText = "/somewhere/else";
+        await _vm.CancelPathEditCommand.Execute().FirstAsync();
+
+        Assert.IsFalse(_vm.IsPathEditing);
+        Assert.AreEqual("/home/user", _vm.CurrentPath);
+        await _sftpService
+            .DidNotReceive()
+            .ListDirectoryAsync(_sessionId, "/somewhere/else", Arg.Any<CancellationToken>());
+    }
 }

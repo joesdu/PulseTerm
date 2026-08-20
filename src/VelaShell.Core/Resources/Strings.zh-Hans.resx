@@ -531,6 +531,12 @@
   <data name="Sftp_FollowTerminal" xml:space="preserve">
     <value>跟随终端目录(同步到终端当前路径)</value>
   </data>
+  <data name="Sftp_EditPath" xml:space="preserve">
+    <value>编辑路径 (Ctrl+L)</value>
+  </data>
+  <data name="Sftp_PathInputHint" xml:space="preserve">
+    <value>输入路径后回车跳转</value>
+  </data>
   <data name="TransferHistory" xml:space="preserve">
     <value>传输记录</value>
   </data>

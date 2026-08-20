@@ -3256,6 +3256,12 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   <data name="Sftp_FollowTerminal" xml:space="preserve">
     <value>ターミナルのディレクトリに追従(現在のパスに同期)</value>
   </data>
+  <data name="Sftp_EditPath" xml:space="preserve">
+    <value>パスを編集 (Ctrl+L)</value>
+  </data>
+  <data name="Sftp_PathInputHint" xml:space="preserve">
+    <value>パスを入力して Enter</value>
+  </data>
   <data name="Cmd_ProcessManager" xml:space="preserve">
     <value>タスクマネージャー</value>
   </data>

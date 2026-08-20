@@ -120,31 +120,54 @@
                            Data="{StaticResource Icon.folder-open}"
                            Foreground="{DynamicResource VelaAccent}"
                            VerticalAlignment="Center" />
-            <!-- 可点击面包屑(§6):"/" 为根目录,其后每段可导航到对应层级。 -->
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" ClipToBounds="True">
-              <Button Classes="crumb" Content="/"
-                      Command="{Binding NavigateToCommand}" CommandParameter="/" />
-              <ItemsControl ItemsSource="{Binding Breadcrumbs}" VerticalAlignment="Center">
-                <ItemsControl.ItemsPanel>
-                  <ItemsPanelTemplate>
-                    <StackPanel Orientation="Horizontal" />
-                  </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate x:DataType="vm:BreadcrumbSegment">
-                    <StackPanel Orientation="Horizontal">
-                      <Button Classes="crumb" Content="{Binding Name}"
-                              Command="{Binding $parent[ItemsControl].((vm:FileBrowserViewModel)DataContext).NavigateToCommand}"
-                              CommandParameter="{Binding Path}" />
-                      <TextBlock Text="/"
+            <!-- 路径区:面包屑(默认)与手动输入框(#226)在同一位置互斥切换。
+                 面包屑只能沿「列得出来的目录」逐级点;中途某一层没有读权限时(Termux 的 /、
+                 受限跳板机的 /home)那条链就断在半路,目标目录明明可读却点不到。故必须能直接敲路径。 -->
+            <Panel VerticalAlignment="Center">
+              <StackPanel Orientation="Horizontal" VerticalAlignment="Center" ClipToBounds="True"
+                          IsVisible="{Binding !IsPathEditing}">
+                <Button Classes="crumb" Content="/"
+                        Command="{Binding NavigateToCommand}" CommandParameter="/" />
+                <ItemsControl ItemsSource="{Binding Breadcrumbs}" VerticalAlignment="Center">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <StackPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:BreadcrumbSegment">
+                      <StackPanel Orientation="Horizontal">
+                        <Button Classes="crumb" Content="{Binding Name}"
+                                Command="{Binding $parent[ItemsControl].((vm:FileBrowserViewModel)DataContext).NavigateToCommand}"
+                                CommandParameter="{Binding Path}" />
+                        <TextBlock Text="/"
+                                   Foreground="{DynamicResource VelaTextMuted}"
+                                   FontFamily="{DynamicResource VelaUiMonoFont}"
+                                   FontSize="{DynamicResource VelaFontSize11}" VerticalAlignment="Center" />
+                      </StackPanel>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Button Classes="crumb" Margin="2,0,0,0"
+                        Command="{Binding BeginPathEditCommand}"
+                        ToolTip.Tip="{loc:Localize Sftp_EditPath}">
+                  <pc:LucideIcon Width="11" Height="11" Data="{StaticResource Icon.pencil}"
                                  Foreground="{DynamicResource VelaTextMuted}"
-                                 FontFamily="{DynamicResource VelaUiMonoFont}"
-                                 FontSize="{DynamicResource VelaFontSize11}" VerticalAlignment="Center" />
-                    </StackPanel>
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
-            </StackPanel>
+                                 VerticalAlignment="Center" />
+                </Button>
+              </StackPanel>
+              <!-- 回车提交、Esc 取消、失焦取消,均在代码后置(OnPathEditKeyDown / OnPathEditLostFocus)。 -->
+              <TextBox x:Name="PathEditBox"
+                       IsVisible="{Binding IsPathEditing}"
+                       Text="{Binding PathEditText}"
+                       PlaceholderText="{loc:Localize Sftp_PathInputHint}"
+                       MinWidth="240" Height="22" Padding="6,0" VerticalAlignment="Center"
+                       VerticalContentAlignment="Center"
+                       FontFamily="{DynamicResource VelaUiMonoFont}"
+                       FontSize="{DynamicResource VelaFontSize11}"
+                       KeyDown="OnPathEditKeyDown"
+                       LostFocus="OnPathEditLostFocus" />
+            </Panel>
           </StackPanel>
 
           <ProgressBar Grid.Column="1" Width="54" Height="3" Margin="12,0"
