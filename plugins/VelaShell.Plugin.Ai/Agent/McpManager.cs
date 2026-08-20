@@ -187,10 +187,7 @@ public sealed class McpManager(IPluginContext context) : IAsyncDisposable
     {
         if (server.Transport == McpTransportType.Http)
         {
-            if (!Uri.TryCreate(server.Url.Trim(), UriKind.Absolute, out Uri? endpoint))
-            {
-                throw new InvalidOperationException("Invalid MCP server URL.");
-            }
+            Uri endpoint = ValidateHttpEndpoint(server.Url);
             Dictionary<string, string> headers = McpConfigParser.ParseHeaderLines(server.Headers);
             return new HttpClientTransport(new HttpClientTransportOptions
             {
@@ -245,9 +242,29 @@ public sealed class McpManager(IPluginContext context) : IAsyncDisposable
                 name = name.Length + suffix.Length > 64 ? name[..(64 - suffix.Length)] + suffix : $"{name}{suffix}";
             }
             McpClientTool named = tool.WithName(name);
-            bool readOnly = tool.ProtocolTool.Annotations?.ReadOnlyHint == true;
-            sink.Add(readOnly ? named : new ApprovalGatedFunction(named, DisplayName(server), this));
+            // readOnlyHint 是远端服务器自己给出的建议性元数据,不能作为安全边界。恶意服务器
+            // 完全可以把删除/上传工具伪装成只读;所有 MCP 工具统一经过本地审批策略。
+            sink.Add(new ApprovalGatedFunction(named, DisplayName(server), this));
         }
+    }
+
+    /// <summary>
+    /// HTTP MCP 端点只允许 HTTPS。为本机开发保留 loopback HTTP;鉴权请求头绝不能经普通
+    /// 局域网 HTTP 明文发送。其它 URI scheme 也拒绝,避免 SDK 对非网络 URI 的意外解释。
+    /// </summary>
+    internal static Uri ValidateHttpEndpoint(string? value)
+    {
+        if (!Uri.TryCreate(value?.Trim(), UriKind.Absolute, out Uri? endpoint)
+            || (endpoint.Scheme != Uri.UriSchemeHttps && endpoint.Scheme != Uri.UriSchemeHttp))
+        {
+            throw new InvalidOperationException("Invalid MCP server URL. Use an absolute HTTPS URL.");
+        }
+        if (endpoint.Scheme == Uri.UriSchemeHttp && !endpoint.IsLoopback)
+        {
+            throw new InvalidOperationException(
+                "Insecure MCP server URL. HTTP is allowed only for localhost; use HTTPS for remote servers.");
+        }
+        return endpoint;
     }
 
     private static string DisplayName(McpServerConfig server)
@@ -275,8 +292,7 @@ public sealed class McpManager(IPluginContext context) : IAsyncDisposable
     {
         protected override async ValueTask<object?> InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
         {
-            // 只读放行只认得内置的 run_command;MCP 这边不做猜测 —— 服务器自己声明的
-            // readOnlyHint 已经在 CollectTools 里筛过一遍,能走到这儿的都是可能改状态的。
+            // MCP 的 readOnlyHint 来自远端,只能用于展示,不能据此跳过本地审批。
             if (owner.Approval != ApprovalMode.Bypass)
             {
                 if (owner.ApprovalHandler is not { } handler)

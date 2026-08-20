@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Security.Cryptography;
 using VelaShell.Infrastructure.Plugins;
 using VelaShell.Plugin.HelloWorld;
 using VelaShell.PluginSdk.Packaging;
@@ -55,11 +56,12 @@ public class PluginInstallUninstallTests
         }
     }
 
-    private PluginManager CreateManager() => new(new()
+    private PluginManager CreateManager(string? trustedPublisherStorePath = null) => new(new()
     {
         PluginRoots = [_appRoot, _userRoot],
         DataRootDirectory = _dataRoot,
         UserPluginRoot = _userRoot,
+        TrustedPublisherStorePath = trustedPublisherStorePath,
         HostVersion = "1.0.0",
         CommandsFactory = (_, _) => new RecordingCommands(),
         DataStore = _dataStore
@@ -103,7 +105,7 @@ public class PluginInstallUninstallTests
         await manager.StartAsync();
         string vpx = BuildVpx();
 
-        string id = await manager.InstallFromVpxAsync(vpx);
+        string id = await manager.InstallFromVpxAsync(vpx, allowUntrustedPackage: true);
         Assert.AreEqual("acme.packaged", id);
         PluginDescriptor descriptor = manager.Plugins.Single(p => p.Id == id);
         Assert.AreEqual(PluginState.Active, descriptor.State, descriptor.Error);
@@ -118,7 +120,7 @@ public class PluginInstallUninstallTests
     {
         PluginManager manager = CreateManager();
         await manager.StartAsync();
-        string id = await manager.InstallFromVpxAsync(BuildVpx());
+        string id = await manager.InstallFromVpxAsync(BuildVpx(), allowUntrustedPackage: true);
 
         Assert.IsTrue(await manager.UninstallAsync(id));
         Assert.DoesNotContain(p => p.Id == id, manager.Plugins);
@@ -163,6 +165,58 @@ public class PluginInstallUninstallTests
         await manager.DisposeAsync();
     }
 
+    private static string BuildSignedVpx(ECDsa signingKey, string id = "acme.signed")
+    {
+        string stage = StagePlugin(id);
+        string vpx = stage + ".vpx";
+        VpxContainer.Pack(stage, vpx, new VpxPackOptions { SigningKey = signingKey });
+        return vpx;
+    }
+
+    [TestMethod]
+    public async Task InstallFromVpx_UnsignedPackage_RequiresExplicitApproval()
+    {
+        PluginManager manager = CreateManager();
+        await manager.StartAsync();
+        string package = BuildVpx("acme.unsigned");
+
+        InvalidOperationException ex = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => manager.InstallFromVpxAsync(package));
+
+        Assert.Contains("Explicit approval", ex.Message);
+        Assert.AreEqual(VpxSignatureState.Unsigned, manager.InspectPackageSignature(package));
+        Assert.DoesNotContain(p => p.Id == "acme.unsigned", manager.Plugins);
+        await manager.DisposeAsync();
+    }
+
+    [TestMethod]
+    public async Task TrustPublisher_PersistsKey_AndFuturePackagesInstallWithoutBypass()
+    {
+        string trustStore = Path.Combine(_dataRoot, "trusted-publishers.json");
+        using var publisher = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        string first = BuildSignedVpx(publisher, "acme.signed-one");
+
+        PluginManager manager = CreateManager(trustStore);
+        await manager.StartAsync();
+        PluginPackageTrustInfo before = manager.InspectPackageTrust(first);
+        Assert.AreEqual(VpxSignatureState.Untrusted, before.State);
+        Assert.StartsWith("SHA256:", before.PublisherFingerprint);
+
+        string fingerprint = manager.TrustPackagePublisher(first);
+        Assert.AreEqual(before.PublisherFingerprint, fingerprint);
+        Assert.AreEqual(VpxSignatureState.Trusted, manager.InspectPackageSignature(first));
+        await manager.InstallFromVpxAsync(first);
+        await manager.DisposeAsync();
+
+        string second = BuildSignedVpx(publisher, "acme.signed-two");
+        PluginManager restarted = CreateManager(trustStore);
+        Assert.AreEqual(VpxSignatureState.Trusted, restarted.InspectPackageSignature(second));
+        await restarted.StartAsync();
+        await restarted.InstallFromVpxAsync(second);
+        Assert.Contains(p => p.Id == "acme.signed-two", restarted.Plugins);
+        await restarted.DisposeAsync();
+    }
+
     [TestMethod]
     public async Task InstallFromVpx_TamperedPackage_IsRejected()
     {
@@ -203,7 +257,8 @@ public class PluginInstallUninstallTests
             VpxContainer.Write(destination, payload);
         }
 
-        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => manager.InstallFromVpxAsync(vpx));
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => manager.InstallFromVpxAsync(vpx, allowUntrustedPackage: true));
         await manager.DisposeAsync();
     }
 
@@ -212,9 +267,9 @@ public class PluginInstallUninstallTests
     {
         PluginManager manager = CreateManager();
         await manager.StartAsync();
-        await manager.InstallFromVpxAsync(BuildVpx("acme.dup"));
+        await manager.InstallFromVpxAsync(BuildVpx("acme.dup"), allowUntrustedPackage: true);
         // 覆盖安装同 id:不抛,替换。
-        string id = await manager.InstallFromVpxAsync(BuildVpx("acme.dup"));
+        string id = await manager.InstallFromVpxAsync(BuildVpx("acme.dup"), allowUntrustedPackage: true);
         Assert.ContainsSingle(p => p.Id == "acme.dup", manager.Plugins);
         Assert.AreEqual(PluginState.Active, manager.Plugins.Single(p => p.Id == id).State);
         await manager.DisposeAsync();

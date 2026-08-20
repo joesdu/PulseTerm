@@ -170,12 +170,20 @@ public sealed class PluginManagerViewModel : ReactiveObject, IDisposable
         }
     }
 
-    /// <summary>从 .vpx 文件安装。成功/失败经 <see cref="Notice" /> 反馈。</summary>
-    public async Task InstallFromVpxAsync(string vpxPath)
+    /// <summary>校验插件包并返回发布者信任状态与公钥指纹。</summary>
+    public PluginPackageTrustInfo InspectPackageTrust(string vpxPath) =>
+        _manager.InspectPackageTrust(vpxPath);
+
+    /// <summary>把已由用户核对的签名发布者加入本机信任库。</summary>
+    public string TrustPackagePublisher(string vpxPath) =>
+        _manager.TrustPackagePublisher(vpxPath);
+
+    /// <summary>从 .vpx 文件安装。未知来源只能由界面明确确认后单次放行。</summary>
+    public async Task InstallFromVpxAsync(string vpxPath, bool allowUntrustedPackage = false)
     {
         try
         {
-            string id = await _manager.InstallFromVpxAsync(vpxPath).ConfigureAwait(false);
+            string id = await _manager.InstallFromVpxAsync(vpxPath, allowUntrustedPackage).ConfigureAwait(false);
             SetNotice(Strings.Format("PluginManager_Installed", id));
         }
         catch (Exception ex)

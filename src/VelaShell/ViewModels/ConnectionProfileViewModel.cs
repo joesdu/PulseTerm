@@ -34,6 +34,12 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
 
     private readonly IConnectionWorkflowService? _connectionWorkflowService;
 
+    /// <summary>复制成功回执(「已复制」)的停留时长。</summary>
+    private static readonly TimeSpan CopyFeedbackDuration = TimeSpan.FromSeconds(2);
+
+    /// <summary>回执退回的定时器句柄;连点时先取消上一个。</summary>
+    private IDisposable? _copyFeedbackReset;
+
     private readonly Guid _profileId;
     private readonly ISessionRepository? _sessionRepository;
     private AuthMethod _authMethod = AuthMethod.Password;
@@ -191,6 +197,7 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
         ConnectCommand = ReactiveCommand.CreateFromTask(ConnectAsync, canExecute);
         CancelCommand = ReactiveCommand.Create(() => (SessionProfile?)null);
         TestConnectionCommand = ReactiveCommand.CreateFromTask(TestConnectionAsync, canExecute);
+        CopyErrorCommand = ReactiveCommand.CreateFromTask(CopyErrorAsync, this.WhenAnyValue(x => x.ErrorMessage, message => !string.IsNullOrWhiteSpace(message)));
         SelectConnectionTypeCommand = ReactiveCommand.Create<ConnectionType>(SelectConnectionType);
         SelectPluginProtocolCommand = ReactiveCommand.CreateFromTask<string>(SelectPluginProtocolAsync);
         // 表单是插件异步装载出来的,字段进集合的那一刻就得带上当前的折叠状态 ——
@@ -498,7 +505,20 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
         {
             this.RaiseAndSetIfChanged(ref field, value);
             this.RaisePropertyChanged(nameof(HasFeedback));
+            this.RaisePropertyChanged(nameof(HasError));
+            // 换了一条错误(或清空)就收回上一条的「已复制」:那句回执是对具体那段文本说的。
+            ErrorCopied = false;
         }
+    }
+
+    /// <summary>是否有可复制的错误信息 —— 复制按钮据此出现。</summary>
+    public bool HasError => !string.IsNullOrWhiteSpace(ErrorMessage);
+
+    /// <summary>刚复制过错误信息;按钮短暂显示「已复制」,随后自己退回。</summary>
+    public bool ErrorCopied
+    {
+        get;
+        private set => this.RaiseAndSetIfChanged(ref field, value);
     }
 
     /// <summary>最近一次连接测试结果;null 表示尚未测试,变更时同步刷新 <see cref="ShowTestSuccess" />。</summary>
@@ -604,6 +624,15 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
 
     /// <summary>连接测试命令;不落库,仅探测能否连通并回填结果。</summary>
     public ReactiveCommand<RxVoid, RxVoid> TestConnectionCommand { get; }
+
+    /// <summary>
+    /// 复制当前错误信息到剪贴板。连接失败的原因常是一长串服务端原文(认证链、
+    /// 主机密钥指纹、栈顶异常),要拿去搜索或贴给同事,靠眼睛照抄不现实。
+    /// </summary>
+    public ReactiveCommand<RxVoid, RxVoid> CopyErrorCommand { get; }
+
+    /// <summary>写系统剪贴板的回调;由视图注入(视图模型层拿不到 TopLevel)。</summary>
+    public Func<string, Task>? CopyToClipboard { get; set; }
 
     /// <summary>浏览私钥文件命令;由视图层挂接文件选择对话框。</summary>
     public ReactiveCommand<RxVoid, RxVoid> BrowseKeyFileCommand { get; }
@@ -755,6 +784,24 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
         {
             EndBusy();
         }
+    }
+
+    /// <summary>
+    /// 把错误信息原文送进剪贴板,并在按钮上留一句「已复制」的回执 ——
+    /// 没有回执就分不清"复制成功了"和"按钮没反应",用户只会再点两下。
+    /// 回执 <see cref="CopyFeedbackDuration" /> 后自动退回;连点时先取消上一个定时器,
+    /// 否则第二次点完会立刻被第一次的定时器把提示抹掉。
+    /// </summary>
+    private async Task CopyErrorAsync()
+    {
+        if (CopyToClipboard is not { } copy || ErrorMessage is not { Length: > 0 } message)
+        {
+            return;
+        }
+        await copy(message).ConfigureAwait(true);
+        ErrorCopied = true;
+        _copyFeedbackReset?.Dispose();
+        _copyFeedbackReset = DispatcherTimer.RunOnce(() => ErrorCopied = false, CopyFeedbackDuration);
     }
 
     /// <summary>
@@ -1143,6 +1190,7 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
     public void Dispose()
     {
         _protocolRegistry?.Changed -= OnProtocolsChanged;
+        _copyFeedbackReset?.Dispose();
     }
 
     /// <summary>把注册表里的协议页签同步到界面(打开对话框时调用)。</summary>

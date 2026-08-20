@@ -259,11 +259,25 @@ public class TerminalEmulatorTests
     public void Osc52_SetClipboard_RaisesClipboardWriteRequested()
     {
         TerminalEmulator e = New();
+        e.AllowOsc52ClipboardWrite = true;
         string? clipboard = null;
         e.ClipboardWriteRequested += text => clipboard = text;
         string payload = Convert.ToBase64String(Encoding.UTF8.GetBytes("hello 世界"));
         Feed(e, $"\x1b]52;c;{payload}\x07");
         Assert.AreEqual("hello 世界", clipboard);
+    }
+
+    [TestMethod]
+    public void Osc52_IsIgnoredByDefault_ForSecurity()
+    {
+        TerminalEmulator e = New();
+        string? clipboard = null;
+        e.ClipboardWriteRequested += text => clipboard = text;
+        string payload = Convert.ToBase64String(Encoding.UTF8.GetBytes("poisoned"));
+
+        Feed(e, $"\x1b]52;c;{payload}\x07");
+
+        Assert.IsNull(clipboard);
     }
 
     [TestMethod]

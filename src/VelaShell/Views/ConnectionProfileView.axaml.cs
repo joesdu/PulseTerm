@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Platform;
@@ -218,6 +219,9 @@ public partial class ConnectionProfileView : Window
         ApplyScreenBounds(preferCurrentScreen: true);
         ClampToWorkingArea();
         ApplyProtoTabFocusAdorner();
+        // 剪贴板挂在 TopLevel 上,视图模型层够不着,由视图注入。赋值幂等:
+        // 窗口重开也只是覆盖同一个委托,不会像事件订阅那样越接越多。
+        viewModel.CopyToClipboard = CopyToClipboardAsync;
         // 协议切换只改按钮前景色、不触发布局,滑动下划线必须由 VM 属性变化驱动。
         // 直接盯 ConnectionType 本身,而不是逐个列举 IsXxxSelected —— 后者每加一个协议
         // 都要回来补一项,漏掉就表现为「下划线停在上一个页签」。
@@ -270,6 +274,15 @@ public partial class ConnectionProfileView : Window
         if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
             BeginMoveDrag(e);
+        }
+    }
+
+    /// <summary>把文本写进系统剪贴板;拿不到剪贴板(无 TopLevel)时静默跳过。</summary>
+    private async Task CopyToClipboardAsync(string text)
+    {
+        if (TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
+        {
+            await clipboard.SetTextAsync(text);
         }
     }
 

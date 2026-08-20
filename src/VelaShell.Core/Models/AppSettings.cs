@@ -487,6 +487,15 @@ public class TerminalBehaviorOptions : ObservableOptions
         set => Set(ref field, value);
     } = "system";
 
+    /// <summary>
+    /// 允许远端程序通过 OSC 52 写入本机剪贴板。默认关闭,避免不可信终端输出实施剪贴板投毒。
+    /// </summary>
+    public bool AllowRemoteClipboardWrite
+    {
+        get;
+        set => Set(ref field, value);
+    }
+
     /// <summary>后台标签收到响铃时是否闪烁标签提示。</summary>
     public bool TabFlashAlert
     {

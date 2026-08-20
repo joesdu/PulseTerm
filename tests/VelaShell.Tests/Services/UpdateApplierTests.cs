@@ -86,6 +86,34 @@ public class UpdateApplierTests : IDisposable
 
     [TestMethod]
     [TestCategory("Update")]
+    public void CopyWithBudget_RejectsActualBytesBeyondLimit()
+    {
+        using var source = new MemoryStream(new byte[9]);
+        using var destination = new MemoryStream();
+
+        InvalidDataException ex = Assert.ThrowsExactly<InvalidDataException>(
+            () => UpdateApplier.CopyWithBudget(source, destination, 8, "bomb.bin"));
+
+        Assert.Contains("bomb.bin", ex.Message);
+        Assert.IsLessThanOrEqualTo(8, destination.Length);
+    }
+
+    [TestMethod]
+    [TestCategory("Update")]
+    public void CopyWithBudget_AllowsContentAtExactLimit()
+    {
+        byte[] content = "12345678"u8.ToArray();
+        using var source = new MemoryStream(content);
+        using var destination = new MemoryStream();
+
+        long written = UpdateApplier.CopyWithBudget(source, destination, content.Length, "app.bin");
+
+        Assert.AreEqual(content.Length, written);
+        Assert.AreSequenceEqual(content, destination.ToArray());
+    }
+
+    [TestMethod]
+    [TestCategory("Update")]
     public void Stage_CorruptPackage_LeavesApplicationIntact_AndNextAttemptStillWorks()
     {
         // 老实现在这里会永久卡死:一次失败留下删不掉的残骸,之后每次升级都在同一处抛异常。

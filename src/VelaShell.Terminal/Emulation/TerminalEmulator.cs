@@ -12,7 +12,7 @@ namespace VelaShell.Terminal.Emulation;
 public sealed class TerminalEmulator : IVtActions
 {
     /// <summary>OSC 52 载荷上限(base64 解码后),防远端滥发撑爆剪贴板。</summary>
-    private const int MaxOsc52Bytes = 1024 * 1024;
+    private const int MaxOsc52Bytes = 64 * 1024;
 
     // 字符集:G0..G3 指定,GL/GR 调用,单字符移位。
     private readonly bool[] _decGraphics = new bool[4]; // true => DEC 特殊图形
@@ -76,6 +76,12 @@ public sealed class TerminalEmulator : IVtActions
 
     /// <summary>当前光标行(从 0 开始)。</summary>
     public int CursorY => Screen.CursorY;
+
+    /// <summary>
+    /// 是否接受 OSC 52 远端剪贴板写入。默认关闭:终端输出属于不可信输入,只有用户显式开启后
+    /// tmux/vim 等远端 yank 才能改写本机剪贴板。
+    /// </summary>
+    public bool AllowOsc52ClipboardWrite { get; set; }
 
     /// <summary>备用屏缓冲区处于活动状态(DECSET 1047/1049)时为 true。</summary>
     public bool IsAlternateScreen { get; private set; }
@@ -453,7 +459,9 @@ public sealed class TerminalEmulator : IVtActions
                 break;
             case 52:
                 // 形如 52;c;<base64>(c/p/s… 选区种类一律当系统剪贴板处理)。
-                if (p.Count > 2 && p[2] is { Length: > 0 } payload && payload != "?" && payload.Length <= MaxOsc52Bytes / 3 * 4 + 4)
+                if (AllowOsc52ClipboardWrite
+                    && p.Count > 2 && p[2] is { Length: > 0 } payload
+                    && payload != "?" && payload.Length <= MaxOsc52Bytes / 3 * 4 + 4)
                 {
                     try
                     {

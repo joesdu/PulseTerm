@@ -295,6 +295,67 @@ public sealed class ConnectionProfileViewModelTests
     }
 
     [TestMethod]
+    public async Task CopyErrorCommand_CopiesFailureText_AndAcknowledgesWithCopiedState()
+    {
+        // 连接失败的原文(认证链、主机密钥指纹、栈顶异常)常常一长串,
+        // 用户要拿去搜索或贴给同事 —— 照着屏幕抄不现实,复制按钮就是为它准备的。
+        IConnectionWorkflowService? workflow = Substitute.For<IConnectionWorkflowService>();
+        workflow.TestConnectionAsync(Arg.Any<SessionProfile>(), Arg.Any<CancellationToken>())
+                .Returns(new ConnectionTestResult(false, "Permission denied (publickey,password)."));
+        ConnectionProfileViewModel vm = CreateValidViewModel(workflow);
+        string? copied = null;
+        vm.CopyToClipboard = text =>
+        {
+            copied = text;
+            return Task.CompletedTask;
+        };
+
+        await vm.TestConnectionCommand.Execute().FirstAsync();
+        Assert.IsTrue(vm.HasError, "失败之后必须有可复制的错误信息,按钮才出得来。");
+        Assert.IsFalse(vm.ErrorCopied);
+
+        await vm.CopyErrorCommand.Execute().FirstAsync();
+        Assert.AreEqual("Permission denied (publickey,password).", copied);
+        // 没有这句回执就分不清"复制成功了"和"按钮没反应",用户只会再点两下。
+        Assert.IsTrue(vm.ErrorCopied);
+    }
+
+    [TestMethod]
+    public async Task CopyErrorCommand_IsUnavailable_WhenThereIsNoError()
+    {
+        // 成功那一条没有可复制的内容:命令必须自己灰掉,而不是复制一个空串。
+        IConnectionWorkflowService? workflow = Substitute.For<IConnectionWorkflowService>();
+        workflow.TestConnectionAsync(Arg.Any<SessionProfile>(), Arg.Any<CancellationToken>())
+                .Returns(new ConnectionTestResult(true));
+        ConnectionProfileViewModel vm = CreateValidViewModel(workflow);
+
+        Assert.IsFalse(await vm.CopyErrorCommand.CanExecute.FirstAsync());
+        await vm.TestConnectionCommand.Execute().FirstAsync();
+        Assert.IsFalse(vm.HasError);
+        Assert.IsFalse(await vm.CopyErrorCommand.CanExecute.FirstAsync());
+    }
+
+    [TestMethod]
+    public async Task NewError_ClearsPreviousCopiedAcknowledgement()
+    {
+        // 「已复制」是对某一段具体文本说的:换了一条错误还顶着旧回执,
+        // 用户会以为新的这条也已经在剪贴板里了。
+        IConnectionWorkflowService? workflow = Substitute.For<IConnectionWorkflowService>();
+        workflow.TestConnectionAsync(Arg.Any<SessionProfile>(), Arg.Any<CancellationToken>())
+                .Returns(new ConnectionTestResult(false, "第一条"), new ConnectionTestResult(false, "第二条"));
+        ConnectionProfileViewModel vm = CreateValidViewModel(workflow);
+        vm.CopyToClipboard = _ => Task.CompletedTask;
+
+        await vm.TestConnectionCommand.Execute().FirstAsync();
+        await vm.CopyErrorCommand.Execute().FirstAsync();
+        Assert.IsTrue(vm.ErrorCopied);
+
+        await vm.TestConnectionCommand.Execute().FirstAsync();
+        Assert.AreEqual("第二条", vm.ErrorMessage);
+        Assert.IsFalse(vm.ErrorCopied);
+    }
+
+    [TestMethod]
     public async Task SaveCommand_CreatesNewGroup_WhenGroupTextIsUnknown()
     {
         // 分组框输入了不存在的分组名:保存时应新建分组落库,并把配置归入该组。

@@ -1700,6 +1700,12 @@
   <data name="Profile_TestSuccess" xml:space="preserve">
     <value>连接测试成功</value>
   </data>
+  <data name="Profile_CopyErrorTip" xml:space="preserve">
+    <value>复制错误信息</value>
+  </data>
+  <data name="Profile_ErrorCopied" xml:space="preserve">
+    <value>已复制</value>
+  </data>
   <data name="Profile_Title" xml:space="preserve">
     <value>新建连接</value>
   </data>
@@ -3821,4 +3827,19 @@ Windows 填 exe 完整路径或命令名(如 notepad);Linux 填命令名(如 ged
   <data name="Plugin_TestUnavailable" xml:space="preserve">
     <value>这种连接类型没法在这里测试。直接按「连接」——它的插件会在面板上给出真实结果。</value>
   </data>
+  <data name="SetTerm_RemoteClipboard" xml:space="preserve">
+    <value>允许远端写入剪贴板（OSC 52）</value>
+  </data>
+  <data name="SetTerm_RemoteClipboardDesc" xml:space="preserve">
+    <value>默认关闭。仅对可信主机开启，否则终端输出可以替换本机剪贴板内容。</value>
+  </data>
+  <data name="PluginManager_UntrustedTitle" xml:space="preserve"><value>不受信任的插件包</value></data>
+  <data name="PluginManager_UnsignedWarning" xml:space="preserve"><value>“{0}”没有签名。插件能以你的账户权限执行代码，请仅在信任其来源时安装。</value></data>
+  <data name="PluginManager_UntrustedWarning" xml:space="preserve"><value>“{0}”的签名有效，但此设备尚不信任其发布者。继续前请通过作者官网、GitHub 等独立渠道核对公钥指纹：
+
+{1}
+
+信任后，同一密钥签署的后续包也会自动可信。插件能以你的账户权限执行代码。</value></data>
+  <data name="PluginManager_InstallAnyway" xml:space="preserve"><value>仍然安装</value></data>
+  <data name="PluginManager_TrustAndInstall" xml:space="preserve"><value>信任发布者并安装</value></data>
 </root>

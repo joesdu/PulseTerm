@@ -81,6 +81,23 @@
       <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
       <Setter Property="FontWeight" Value="Medium" />
     </Style>
+    <!-- 错误信息旁的「复制」小按钮:比页脚按钮矮一圈,免得抢走测试/保存的分量 -->
+    <Style Selector="Button.copy-chip">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Height" Value="24" />
+      <Setter Property="Padding" Value="8,0" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
+      <Setter Property="VerticalAlignment" Value="Top" />
+    </Style>
+    <Style Selector="Button.copy-chip:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
+    </Style>
     <!-- 协议标签页 -->
     <Style Selector="Border.proto-tab">
       <Setter Property="Height" Value="32" />
@@ -472,9 +489,37 @@
               BorderThickness="0,1,0,0"
               BorderBrush="{DynamicResource VelaBorderPrimary}">
         <StackPanel Spacing="4">
-          <TextBlock Text="{Binding ErrorMessage}"
-                     IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                     Foreground="#FF6B6B" FontSize="{DynamicResource VelaFontSize11}" TextWrapping="Wrap" />
+          <!-- 失败原因常是一长串服务端原文(认证链、主机密钥指纹、栈顶异常):
+               给它配一个复制按钮,用户才拿得走去搜索或贴给同事 —— 照着屏幕抄不现实。
+               按钮与文案同排、钉在顶端:错误可能好几行,贴顶才不会随行数上下跑。 -->
+          <Grid ColumnDefinitions="*,Auto"
+                IsVisible="{Binding HasError}">
+            <TextBlock Grid.Column="0" Text="{Binding ErrorMessage}"
+                       Foreground="#FF6B6B" FontSize="{DynamicResource VelaFontSize11}" TextWrapping="Wrap"
+                       VerticalAlignment="Center" />
+            <Button Grid.Column="1" x:Name="CopyErrorButton" Classes="copy-chip"
+                    Margin="12,0,0,0"
+                    Command="{Binding CopyErrorCommand}"
+                    ToolTip.Tip="{loc:Localize Profile_CopyErrorTip}"
+                    ToolTip.Placement="Top">
+              <!-- 两态叠放而不是换文字:同宽同位,复制完按钮不会跳一下 -->
+              <Panel>
+                <StackPanel Orientation="Horizontal" Spacing="5" IsVisible="{Binding !ErrorCopied}">
+                  <PathIcon Width="11" Height="11"
+                            Data="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"
+                            Foreground="{DynamicResource VelaTextSecondary}" />
+                  <TextBlock Text="{loc:Localize Copy}" VerticalAlignment="Center" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="5" IsVisible="{Binding ErrorCopied}">
+                  <PathIcon Width="11" Height="11"
+                            Data="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"
+                            Foreground="{DynamicResource VelaAccent}" />
+                  <TextBlock Text="{loc:Localize Profile_ErrorCopied}" VerticalAlignment="Center"
+                             Foreground="{DynamicResource VelaAccent}" />
+                </StackPanel>
+              </Panel>
+            </Button>
+          </Grid>
           <TextBlock Text="{loc:Localize Profile_TestSuccess}"
                      IsVisible="{Binding ShowTestSuccess}"
                      Foreground="{DynamicResource VelaAccent}" FontSize="{DynamicResource VelaFontSize11}" />

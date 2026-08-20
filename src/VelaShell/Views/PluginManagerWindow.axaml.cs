@@ -5,7 +5,9 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using VelaShell.Core.Resources;
+using VelaShell.Infrastructure.Plugins;
 using VelaShell.ViewModels;
+using VelaShell.PluginSdk.Packaging;
 
 namespace VelaShell.Views;
 
@@ -122,7 +124,54 @@ public partial class PluginManagerWindow : Window
         });
         if (files is [{ } file] && file.TryGetLocalPath() is { } path)
         {
-            await vm.InstallFromVpxAsync(path);
+            PluginPackageTrustInfo trust;
+            try
+            {
+                trust = vm.InspectPackageTrust(path);
+            }
+            catch
+            {
+                // 让统一安装路径生成本地化错误提示(损坏摘要/错误格式等)。
+                await vm.InstallFromVpxAsync(path);
+                return;
+            }
+            bool allowUntrusted = false;
+            if (trust.State == VpxSignatureState.Unsigned)
+            {
+                allowUntrusted = await MessageDialog.ConfirmAsync(this,
+                    Strings.Get("PluginManager_UntrustedTitle"),
+                    Strings.Format("PluginManager_UnsignedWarning", Path.GetFileName(path)),
+                    confirmText: Strings.Get("PluginManager_InstallAnyway"),
+                    danger: true);
+                if (!allowUntrusted)
+                {
+                    return;
+                }
+            }
+            else if (trust.State == VpxSignatureState.Untrusted)
+            {
+                bool trustPublisher = await MessageDialog.ConfirmAsync(this,
+                    Strings.Get("PluginManager_UntrustedTitle"),
+                    Strings.Format("PluginManager_UntrustedWarning",
+                        Path.GetFileName(path), trust.PublisherFingerprint ?? "(unavailable)"),
+                    confirmText: Strings.Get("PluginManager_TrustAndInstall"),
+                    danger: true);
+                if (!trustPublisher)
+                {
+                    return;
+                }
+                try
+                {
+                    vm.TrustPackagePublisher(path);
+                }
+                catch (Exception ex)
+                {
+                    await MessageDialog.ShowMessageAsync(this,
+                        Strings.Get("PluginManager_UntrustedTitle"), ex.Message, MessageDialogKind.Error);
+                    return;
+                }
+            }
+            await vm.InstallFromVpxAsync(path, allowUntrusted);
         }
     }
 

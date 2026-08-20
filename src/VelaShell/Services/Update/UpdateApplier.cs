@@ -49,6 +49,8 @@ public sealed class UpdateApplier(string applicationDirectory)
 
     private const string PayloadDirectoryName = "payload";
     private const string BackupDirectoryName = "backup";
+    internal const int MaxUpdateEntries = 20_000;
+    internal const long MaxUpdateUnpackedBytes = 2L * 1024 * 1024 * 1024;
 
     /// <summary>外置换版进程临时目录的保留时长;超过此年龄的遗留目录在启动时清扫。</summary>
     private static readonly TimeSpan UpdaterDirectoryMaxAge = TimeSpan.FromHours(6);
@@ -511,16 +513,36 @@ public sealed class UpdateApplier(string applicationDirectory)
             EnsureInsideApplicationDirectory(rel, entry.FullName);
             if (byPath.TryAdd(rel, entry))
             {
+                if (order.Count >= MaxUpdateEntries)
+                {
+                    throw new InvalidDataException(
+                        $"Update package contains too many files (limit {MaxUpdateEntries}).");
+                }
                 order.Add(rel);
-                required += entry.Length;
+                try
+                {
+                    required = checked(required + entry.Length);
+                }
+                catch (OverflowException ex)
+                {
+                    throw new InvalidDataException("Update package declares an invalid unpacked size.", ex);
+                }
+                if (required > MaxUpdateUnpackedBytes)
+                {
+                    throw new InvalidDataException(
+                        $"Update package exceeds the {MaxUpdateUnpackedBytes}-byte unpacked-size limit.");
+                }
             }
         }
         EnsureDiskSpace(required);
+        long remainingBudget = MaxUpdateUnpackedBytes;
         foreach (string rel in order)
         {
             string destination = Path.Combine(PayloadDirectory, rel);
             Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-            byPath[rel].ExtractToFile(destination, true);
+            using Stream source = byPath[rel].Open();
+            using FileStream target = File.Create(destination);
+            remainingBudget -= CopyWithBudget(source, target, remainingBudget, rel);
         }
         return order;
     }
@@ -536,10 +558,12 @@ public sealed class UpdateApplier(string applicationDirectory)
         {
             throw new NotSupportedException($"Unsupported update package format: {archivePath}");
         }
-        // 压缩包大小的 4 倍是个保守的解压后估算;真解爆了也只是 payload 写失败,应用目录不受影响。
-        EnsureDiskSpace(new FileInfo(archivePath).Length * 4);
+        // 这里只做早期空间提示;真正的安全边界是下方按实际写出字节递减的总预算。
+        long compressedBytes = new FileInfo(archivePath).Length;
+        EnsureDiskSpace(compressedBytes > long.MaxValue / 4 ? long.MaxValue : compressedBytes * 4);
         List<string> entries = [];
         HashSet<string> seen = [with(StringComparer.OrdinalIgnoreCase)];
+        long remainingBudget = MaxUpdateUnpackedBytes;
         using FileStream file = File.OpenRead(archivePath);
         using GZipStream gzip = new(file, CompressionMode.Decompress);
         using TarReader tar = new(gzip);
@@ -555,12 +579,47 @@ public sealed class UpdateApplier(string applicationDirectory)
             {
                 continue;
             }
+            if (entries.Count >= MaxUpdateEntries)
+            {
+                throw new InvalidDataException(
+                    $"Update package contains too many files (limit {MaxUpdateEntries}).");
+            }
             string destination = Path.Combine(PayloadDirectory, rel);
             Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-            entry.ExtractToFile(destination, true);
+            using (FileStream target = File.Create(destination))
+            {
+                remainingBudget -= CopyWithBudget(
+                    entry.DataStream ?? Stream.Null, target, remainingBudget, rel);
+            }
+            if (!OperatingSystem.IsWindows())
+            {
+                File.SetUnixFileMode(destination, entry.Mode);
+            }
             entries.Add(rel);
         }
         return entries;
+    }
+
+    /// <summary>
+    /// 按实际解压出的字节计费,不信任 zip/tar 头部声明。返回本条目写出的字节数。
+    /// </summary>
+    internal static long CopyWithBudget(Stream source, Stream destination, long remainingBudget, string entryName)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(remainingBudget);
+        byte[] buffer = new byte[81920];
+        long written = 0;
+        int read;
+        while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
+        {
+            if (written > remainingBudget - read)
+            {
+                throw new InvalidDataException(
+                    $"Update package exceeds the {MaxUpdateUnpackedBytes}-byte unpacked-size limit while extracting '{entryName}'.");
+            }
+            destination.Write(buffer, 0, read);
+            written += read;
+        }
+        return written;
     }
 
     /// <summary>
@@ -584,7 +643,7 @@ public sealed class UpdateApplier(string applicationDirectory)
         {
             return;
         }
-        long required = payloadBytes * 2;
+        long required = payloadBytes > long.MaxValue / 2 ? long.MaxValue : payloadBytes * 2;
         if (available < required)
         {
             throw new IOException(
