@@ -878,6 +878,7 @@ public partial class TerminalTabView : UserControl
         {
             _termControl.ScrollChanged -= OnTerminalScrollChanged;
             _termControl.LostFocus -= OnTerminalLostFocus;
+            _termControl.LayoutPaddingChanged -= OnTerminalPaddingChanged;
         }
         _termControl = null;
     }
@@ -904,6 +905,7 @@ public partial class TerminalTabView : UserControl
         {
             _termControl.ScrollChanged -= OnTerminalScrollChanged;
             _termControl.LostFocus -= OnTerminalLostFocus;
+            _termControl.LayoutPaddingChanged -= OnTerminalPaddingChanged;
             // 幽灵是画在控件上的覆盖层:换出的旧控件若在别的面板仍可见,
             // 不清会把幽灵永久残留在旧光标处。
             _termControl.ClearGhostSuggestion();
@@ -914,12 +916,29 @@ public partial class TerminalTabView : UserControl
         {
             _termControl.ScrollChanged += OnTerminalScrollChanged;
             _termControl.LostFocus += OnTerminalLostFocus;
-            // 滚动条正好铺满终端正文右侧那条留白带(RightPadding 已从列数里扣掉),
-            // 于是覆盖式滚动条不再压住文字(#117)。宽度取自控件,单一事实来源。
-            ScrollBarView?.Width = _termControl.RightPadding;
+            _termControl.LayoutPaddingChanged += OnTerminalPaddingChanged;
+            SyncScrollBarGeometry();
         }
         SyncScrollBar();
     }
+
+    /// <summary>
+    /// 让覆盖式滚动条正好铺满终端正文右侧那条留白带(RightPadding 已从列数里扣掉),
+    /// 于是它不再压住文字(#117);用户内边距(设置 → 终端 → 内边距)则以外边距让开,
+    /// 使滚动条始终紧贴正文而非窗口边缘(#227)。几何全部取自控件,单一事实来源。
+    /// </summary>
+    private void SyncScrollBarGeometry()
+    {
+        if (ScrollBarView is null || _termControl is null)
+        {
+            return;
+        }
+        double pad = _termControl.ContentPadding;
+        ScrollBarView.Width = _termControl.RightPadding;
+        ScrollBarView.Margin = new(0, pad, pad, pad);
+    }
+
+    private void OnTerminalPaddingChanged() => SyncScrollBarGeometry();
 
     private void OnTerminalScrollChanged() => SyncScrollBar();
 

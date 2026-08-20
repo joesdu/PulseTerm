@@ -2528,6 +2528,12 @@
   <data name="SetTerm_LineHeightDesc" xml:space="preserve">
     <value>// 行间距倍数,1.0 为默认</value>
   </data>
+  <data name="SetTerm_Padding" xml:space="preserve">
+    <value>内边距</value>
+  </data>
+  <data name="SetTerm_PaddingDesc" xml:space="preserve">
+    <value>// 终端正文四周的留白像素,0 为默认</value>
+  </data>
   <data name="SetTerm_AutoOpenSftp" xml:space="preserve">
     <value>连接后自动打开文件浏览器</value>
   </data>

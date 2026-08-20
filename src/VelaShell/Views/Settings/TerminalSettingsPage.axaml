@@ -31,6 +31,14 @@
       </StackPanel>
       <NumericUpDown Grid.Column="1" Width="80" Value="{Binding TerminalBehavior.LineHeight}" Minimum="0.8" Maximum="2.0" Increment="0.1" FormatString="0.0" VerticalAlignment="Center" />
     </Grid>
+    <!-- 内边距上限与 VelaTerminalControl.MaxContentPadding 一致(#227)。 -->
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetTerm_Padding}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetTerm_PaddingDesc}" />
+      </StackPanel>
+      <NumericUpDown Grid.Column="1" Width="80" Value="{Binding TerminalBehavior.Padding}" Minimum="0" Maximum="40" Increment="1" FormatString="0" VerticalAlignment="Center" />
+    </Grid>
     <Grid ColumnDefinitions="*,Auto">
       <StackPanel Spacing="2">
         <TextBlock Classes="row-label" Text="{loc:Localize SetTerm_AutoOpenSftp}" />

@@ -2437,6 +2437,12 @@ Paste anyway?</value>
   <data name="SetTerm_LineHeightDesc" xml:space="preserve">
     <value>// Line spacing multiplier; 1.0 is default</value>
   </data>
+  <data name="SetTerm_Padding" xml:space="preserve">
+    <value>Padding</value>
+  </data>
+  <data name="SetTerm_PaddingDesc" xml:space="preserve">
+    <value>// Blank margin around the terminal text, in pixels; 0 is the default</value>
+  </data>
   <data name="SetTerm_AutoOpenSftp" xml:space="preserve">
     <value>Auto-open file browser on connect</value>
   </data>
