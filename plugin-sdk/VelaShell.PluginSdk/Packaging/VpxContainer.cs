@@ -131,6 +131,13 @@ public static class VpxContainer
     /// <summary>包扩展名。</summary>
     public const string FileExtension = ".vpx";
 
+    /// <summary>把 Base64 SPKI 公钥转换为可跨工具核对的 SHA-256 指纹。</summary>
+    public static string PublicKeyFingerprint(string publicKey)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(publicKey);
+        return "SHA256:" + Convert.ToHexStringLower(SHA256.HashData(Convert.FromBase64String(publicKey)));
+    }
+
     /// <summary>单个包允许的最大载荷(512 MB):挡住损坏头部里的天文数字长度。</summary>
     public const long MaxPayloadLength = 512L * 1024 * 1024;
 

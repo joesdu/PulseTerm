@@ -42,11 +42,8 @@ public sealed class PluginManagerOptions
     /// </summary>
     public IReadOnlyCollection<string>? TrustedPackageKeys { get; init; }
 
-    /// <summary>
-    /// 用户确认过的发布者公钥存储文件(JSON 字符串数组)。为空时信任仅保留在当前进程;
-    /// 文件只含公钥,不含任何私钥或凭据。
-    /// </summary>
-    public string? TrustedPublisherStorePath { get; init; }
+    /// <summary>受 AES-GCM 完整性保护的发布者信任与安装凭据仓储。</summary>
+    public PluginTrustRepository? TrustRepository { get; init; }
 
     /// <summary>
     /// 是否只安装带受信签名的包。打开后未签名与不受信签名的包都会被拒,不能通过单次授权绕过。

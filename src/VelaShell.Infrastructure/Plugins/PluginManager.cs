@@ -1,8 +1,9 @@
+using System.Buffers.Binary;
 using System.Diagnostics;
 using System.IO.Compression;
 using System.Reflection;
 using System.Security.Cryptography;
-using System.Text.Json;
+using System.Text;
 using VelaShell.Infrastructure.Plugins.Capabilities;
 using VelaShell.Infrastructure.Plugins.Isolated;
 using VelaShell.PluginSdk;
@@ -25,8 +26,12 @@ namespace VelaShell.Infrastructure.Plugins;
 /// </summary>
 public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposable
 {
-    private readonly HashSet<string> _trustedPackageKeys = LoadTrustedPackageKeys(options);
+    private readonly HashSet<string> _trustedPackageKeys = new(options.TrustedPackageKeys ?? [], StringComparer.Ordinal);
     private readonly Lock _trustedPackageKeysGate = new();
+    private readonly SemaphoreSlim _trustStateGate = new(1, 1);
+    private PluginTrustState? _trustState;
+    private string? _trustLoadError;
+    private bool _trustInitialized;
     private sealed class PluginRuntime
     {
         public required PluginDescriptor Descriptor { get; init; }
@@ -150,6 +155,15 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         await runtime.ActivationGate.WaitAsync().ConfigureAwait(false);
         try
         {
+            if (options.TrustRepository is not null && options.UserPluginRoot is { } userRoot
+                && IsUnder(runtime.Descriptor.Directory, userRoot)
+                && !ValidateInstallReceipt(pluginId, runtime.Descriptor.Directory, out string? receiptError))
+            {
+                runtime.Descriptor.State = PluginState.Invalid;
+                runtime.Descriptor.Error = receiptError;
+                RaiseChanged();
+                return;
+            }
             TryWriteDisabledMarker(runtime.Descriptor.Directory, disabled: false);
             runtime.Descriptor.State = PluginState.Discovered;
             runtime.Descriptor.Error = null;
@@ -222,6 +236,7 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
             options.ProtocolRegistry?.RemovePlugin(pluginId);
             TryDeleteDirectory(runtime.Descriptor.Directory);
             await PurgePluginDataAsync(pluginId).ConfigureAwait(false);
+            await RemoveInstallReceiptAsync(pluginId).ConfigureAwait(false);
             lock (_gate)
             {
                 _plugins.Remove(runtime);
@@ -264,7 +279,8 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         PluginManifest? manifest = null;
         try
         {
-            ExtractPackage(vpxPath, staging, allowUntrustedPackage);
+            await EnsureTrustInitializedAsync(cancellationToken).ConfigureAwait(false);
+            VpxPackageInfo packageInfo = ExtractPackage(vpxPath, staging, allowUntrustedPackage);
             string manifestPath = Path.Combine(staging, PluginManifestReader.FileName);
             if (!File.Exists(manifestPath))
             {
@@ -298,7 +314,18 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
             Directory.Move(staging, target);
             staging = target; // 已搬走,finally 不再删
 
-            var runtime = new PluginRuntime { Descriptor = Describe(target, Path.Combine(target, PluginManifestReader.FileName), []) };
+            try
+            {
+                await SaveInstallReceiptAsync(manifest.Id, target, packageInfo, cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                // 没有受保护收据的目录绝不能留下来被下次启动误认为已安装。
+                TryDeleteDirectory(target);
+                throw;
+            }
+
+            var runtime = new PluginRuntime { Descriptor = Describe(target, Path.Combine(target, PluginManifestReader.FileName), [], false) };
             lock (_gate)
             {
                 _plugins.Add(runtime);
@@ -339,13 +366,14 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
     /// 打开插件包并安全解包。只认 <c>.vpx</c> 专属容器(魔数 + 摘要 + 可选签名,见
     /// <see cref="VpxContainer" />)—— 改了后缀的 zip 一律拒绝,拒绝原因里带重新打包的办法。
     /// </summary>
-    private void ExtractPackage(string packagePath, string destination, bool allowUntrustedPackage)
+    private VpxPackageInfo ExtractPackage(string packagePath, string destination, bool allowUntrustedPackage)
     {
         // 格式非法(裸 zip / 截断 / 头部损坏 / 根本不是包)在此抛出并带可读原因。
         using Stream payload = VpxContainer.OpenPayload(packagePath, out VpxPackageInfo info);
         CheckSignature(packagePath, info, allowUntrustedPackage);
         using var archive = new ZipArchive(payload, ZipArchiveMode.Read);
         ExtractZipSafely(archive, destination);
+        return info;
     }
 
     /// <summary>
@@ -401,31 +429,60 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
     /// <summary>
     /// 把一个签名有效但发布者未知的公钥加入本机信任库。未签名、坏签名或已经可信的包拒绝走此入口。
     /// </summary>
-    public string TrustPackagePublisher(string packagePath)
+    public async Task<string> TrustPackagePublisherAsync(string packagePath, CancellationToken cancellationToken = default)
     {
+        await EnsureTrustInitializedAsync(cancellationToken).ConfigureAwait(false);
+        if (options.TrustRepository is not null && _trustState is null)
+        {
+            throw new InvalidOperationException($"Plugin trust store is unavailable: {_trustLoadError ?? "unknown error"}");
+        }
         using Stream _ = VpxContainer.OpenPayload(packagePath, out VpxPackageInfo info);
         if (info.Signature is not { PublicKey: { Length: > 0 } publicKey }
             || GetSignatureState(info) != VpxSignatureState.Untrusted)
         {
             throw new InvalidOperationException("Only a valid package from an unknown publisher can establish publisher trust.");
         }
-        lock (_trustedPackageKeysGate)
+        string fingerprint = VpxContainer.PublicKeyFingerprint(publicKey);
+        await _trustStateGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
-            bool added = _trustedPackageKeys.Add(publicKey);
+            bool added;
+            lock (_trustedPackageKeysGate)
+            {
+                added = _trustedPackageKeys.Add(publicKey);
+            }
+            TrustedPluginPublisher? publisher = null;
             try
             {
-                SaveTrustedPackageKeys();
+                if (options.TrustRepository is not null && _trustState is not null
+                    && !_trustState.Publishers.Any(p => p.PublicKey == publicKey))
+                {
+                    publisher = new(publicKey, fingerprint, DateTimeOffset.UtcNow);
+                    _trustState.Publishers.Add(publisher);
+                    await options.TrustRepository.SaveAsync(_trustState, cancellationToken).ConfigureAwait(false);
+                }
             }
             catch
             {
+                if (publisher is not null)
+                {
+                    _trustState!.Publishers.Remove(publisher);
+                }
                 if (added)
                 {
-                    _trustedPackageKeys.Remove(publicKey);
+                    lock (_trustedPackageKeysGate)
+                    {
+                        _trustedPackageKeys.Remove(publicKey);
+                    }
                 }
                 throw;
             }
         }
-        return Fingerprint(publicKey)!;
+        finally
+        {
+            _trustStateGate.Release();
+        }
+        return fingerprint;
     }
 
     private VpxSignatureState GetSignatureState(VpxPackageInfo info)
@@ -444,7 +501,7 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         }
         try
         {
-            return "SHA256:" + Convert.ToHexStringLower(SHA256.HashData(Convert.FromBase64String(publicKey)));
+            return VpxContainer.PublicKeyFingerprint(publicKey);
         }
         catch (FormatException)
         {
@@ -452,41 +509,215 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         }
     }
 
-    private static HashSet<string> LoadTrustedPackageKeys(PluginManagerOptions managerOptions)
+    private async Task EnsureTrustInitializedAsync(CancellationToken cancellationToken)
     {
-        var keys = new HashSet<string>(managerOptions.TrustedPackageKeys ?? [], StringComparer.Ordinal);
-        if (managerOptions.TrustedPublisherStorePath is not { } path || !File.Exists(path))
-        {
-            return keys;
-        }
-        try
-        {
-            foreach (string key in JsonSerializer.Deserialize<string[]>(File.ReadAllText(path)) ?? [])
-            {
-                if (!string.IsNullOrWhiteSpace(key))
-                {
-                    keys.Add(key);
-                }
-            }
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
-        {
-            Trace.WriteLine($"[VelaShell] Failed to read trusted plugin publishers: {ex.Message}");
-        }
-        return keys;
-    }
-
-    private void SaveTrustedPackageKeys()
-    {
-        if (options.TrustedPublisherStorePath is not { } path)
+        if (_trustInitialized)
         {
             return;
         }
-        string fullPath = Path.GetFullPath(path);
-        Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
-        string temporary = fullPath + ".tmp";
-        File.WriteAllText(temporary, JsonSerializer.Serialize(_trustedPackageKeys.Order(StringComparer.Ordinal)));
-        File.Move(temporary, fullPath, overwrite: true);
+        await _trustStateGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (_trustInitialized)
+            {
+                return;
+            }
+            if (options.TrustRepository is null)
+            {
+                _trustInitialized = true;
+                return;
+            }
+            try
+            {
+                _trustState = await options.TrustRepository.LoadAsync(cancellationToken).ConfigureAwait(false);
+                lock (_trustedPackageKeysGate)
+                {
+                    foreach (TrustedPluginPublisher publisher in _trustState.Publishers)
+                    {
+                        _trustedPackageKeys.Add(publisher.PublicKey);
+                    }
+                }
+                if (!_trustState.LegacyInstallMigrationCompleted)
+                {
+                    AdoptExistingUserPlugins(_trustState);
+                    _trustState.LegacyInstallMigrationCompleted = true;
+                    await options.TrustRepository.SaveAsync(_trustState, cancellationToken).ConfigureAwait(false);
+                }
+                _trustInitialized = true;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _trustState = null;
+                _trustLoadError = ex.Message;
+                _trustInitialized = true;
+                lock (_trustedPackageKeysGate)
+                {
+                    _trustedPackageKeys.Clear();
+                    foreach (string configuredKey in options.TrustedPackageKeys ?? [])
+                    {
+                        _trustedPackageKeys.Add(configuredKey);
+                    }
+                }
+                Log($"Plugin trust store unavailable; user plugins will be rejected: {ex.Message}");
+            }
+        }
+        finally
+        {
+            _trustStateGate.Release();
+        }
+    }
+
+    private void AdoptExistingUserPlugins(PluginTrustState state)
+    {
+        if (options.UserPluginRoot is not { } root || !Directory.Exists(root))
+        {
+            return;
+        }
+        foreach (string directory in Directory.EnumerateDirectories(root))
+        {
+            string manifestPath = Path.Combine(directory, PluginManifestReader.FileName);
+            if (!File.Exists(manifestPath))
+            {
+                continue;
+            }
+            try
+            {
+                PluginManifest manifest = PluginManifestReader.Load(manifestPath);
+                state.Receipts[manifest.Id] = new(manifest.Id, ComputePluginContentSha256(directory), null, null,
+                    LegacyAdopted: true, DateTimeOffset.UtcNow);
+            }
+            catch (PluginManifestException)
+            {
+                // 原本就无效的遗留目录不建立可信基线，发现阶段仍会给出清单错误。
+            }
+        }
+    }
+
+    private async Task SaveInstallReceiptAsync(
+        string pluginId,
+        string directory,
+        VpxPackageInfo packageInfo,
+        CancellationToken cancellationToken)
+    {
+        if (options.TrustRepository is null)
+        {
+            return;
+        }
+        if (_trustState is null)
+        {
+            throw new InvalidOperationException($"Plugin trust store is unavailable: {_trustLoadError ?? "unknown error"}");
+        }
+        await _trustStateGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            InstalledPluginReceipt? previous = _trustState.Receipts.GetValueOrDefault(pluginId);
+            _trustState.Receipts[pluginId] = new(pluginId, ComputePluginContentSha256(directory),
+                packageInfo.PayloadSha256, packageInfo.Signature?.PublicKey, LegacyAdopted: false, DateTimeOffset.UtcNow);
+            try
+            {
+                await options.TrustRepository.SaveAsync(_trustState, cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                if (previous is null)
+                {
+                    _trustState.Receipts.Remove(pluginId);
+                }
+                else
+                {
+                    _trustState.Receipts[pluginId] = previous;
+                }
+                throw;
+            }
+        }
+        finally
+        {
+            _trustStateGate.Release();
+        }
+    }
+
+    private async Task RemoveInstallReceiptAsync(string pluginId)
+    {
+        if (options.TrustRepository is null || _trustState is null)
+        {
+            return;
+        }
+        await _trustStateGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (!_trustState.Receipts.Remove(pluginId, out InstalledPluginReceipt? removed))
+            {
+                return;
+            }
+            try
+            {
+                await options.TrustRepository.SaveAsync(_trustState).ConfigureAwait(false);
+            }
+            catch
+            {
+                _trustState.Receipts[pluginId] = removed;
+                throw;
+            }
+        }
+        finally
+        {
+            _trustStateGate.Release();
+        }
+    }
+
+    private static string ComputePluginContentSha256(string root)
+    {
+        string fullRoot = Path.GetFullPath(root);
+        if ((File.GetAttributes(fullRoot) & FileAttributes.ReparsePoint) != 0)
+        {
+            throw new InvalidDataException("Plugin root is a symbolic link.");
+        }
+        var files = new List<string>();
+        var pending = new Stack<string>();
+        pending.Push(fullRoot);
+        while (pending.TryPop(out string? directory))
+        {
+            foreach (string child in Directory.EnumerateDirectories(directory))
+            {
+                if ((File.GetAttributes(child) & FileAttributes.ReparsePoint) != 0)
+                {
+                    throw new InvalidDataException($"Plugin directory contains a symbolic link: {Path.GetRelativePath(fullRoot, child)}");
+                }
+                pending.Push(child);
+            }
+            foreach (string file in Directory.EnumerateFiles(directory))
+            {
+                if (directory == fullRoot && Path.GetFileName(file).Equals(".disabled", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+                if ((File.GetAttributes(file) & FileAttributes.ReparsePoint) != 0)
+                {
+                    throw new InvalidDataException($"Plugin directory contains a symbolic link: {Path.GetRelativePath(fullRoot, file)}");
+                }
+                files.Add(file);
+            }
+        }
+
+        using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        Span<byte> frame = stackalloc byte[8];
+        foreach (string file in files.OrderBy(f => Path.GetRelativePath(fullRoot, f).Replace('\\', '/'), StringComparer.Ordinal))
+        {
+            byte[] path = Encoding.UTF8.GetBytes(Path.GetRelativePath(fullRoot, file).Replace('\\', '/'));
+            BinaryPrimitives.WriteInt32LittleEndian(frame, path.Length);
+            hash.AppendData(frame[..4]);
+            hash.AppendData(path);
+            using FileStream stream = File.OpenRead(file);
+            BinaryPrimitives.WriteInt64LittleEndian(frame, stream.Length);
+            hash.AppendData(frame);
+            byte[] buffer = new byte[64 * 1024];
+            int read;
+            while ((read = stream.Read(buffer)) > 0)
+            {
+                hash.AppendData(buffer.AsSpan(0, read));
+            }
+        }
+        return Convert.ToHexStringLower(hash.GetHashAndReset());
     }
 
     private static void ExtractZipSafely(ZipArchive archive, string destination)
@@ -559,8 +790,11 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
     {
         string full = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar);
         string rootFull = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar);
-        return full.StartsWith(rootFull + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
-               || string.Equals(full, rootFull, StringComparison.OrdinalIgnoreCase);
+        StringComparison comparison = OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+        return full.StartsWith(rootFull + Path.DirectorySeparatorChar, comparison)
+               || string.Equals(full, rootFull, comparison);
     }
 
     private static void TryDeleteDirectory(string directory)
@@ -626,6 +860,7 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         {
             registry.ActivationRequested = ActivateForProtocolAsync;
         }
+        await EnsureTrustInitializedAsync(cancellationToken).ConfigureAwait(false);
         Discover();
         await PurgeUninstalledDataAsync().ConfigureAwait(false);
         List<PluginRuntime> discovered;
@@ -893,7 +1128,7 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
                 {
                     continue;
                 }
-                PluginDescriptor descriptor = Describe(dir, manifestPath, seenIds);
+                PluginDescriptor descriptor = Describe(dir, manifestPath, seenIds, isDev);
                 descriptor.IsDevelopment = isDev;
                 found.Add(new() { Descriptor = descriptor });
             }
@@ -946,7 +1181,7 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         return runtime is not null && await EnsureActivatedAsync(runtime).ConfigureAwait(false);
     }
 
-    private PluginDescriptor Describe(string dir, string manifestPath, HashSet<string> seenIds)
+    private PluginDescriptor Describe(string dir, string manifestPath, HashSet<string> seenIds, bool isDevelopment)
     {
         PluginManifest manifest;
         try
@@ -964,6 +1199,13 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
             descriptor.State = PluginState.Invalid;
             descriptor.Error = $"Duplicate plugin id '{manifest.Id}' (already provided by an earlier plugin root).";
         }
+        else if (!isDevelopment && options.TrustRepository is not null
+                 && options.UserPluginRoot is { } userRoot && IsUnder(dir, userRoot)
+                 && !ValidateInstallReceipt(manifest.Id, dir, out string? receiptError))
+        {
+            descriptor.State = PluginState.Invalid;
+            descriptor.Error = receiptError;
+        }
         else if (File.Exists(Path.Combine(dir, ".disabled")))
         {
             descriptor.State = PluginState.Disabled;
@@ -979,6 +1221,42 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
             descriptor.Error = $"Plugin requires host >= {minHost}, current host is {options.HostVersion}.";
         }
         return descriptor;
+    }
+
+    private bool ValidateInstallReceipt(string pluginId, string directory, out string? error)
+    {
+        if (_trustLoadError is not null)
+        {
+            error = $"Plugin trust store is unavailable; refusing to load user plugin ({_trustLoadError}).";
+            return false;
+        }
+        InstalledPluginReceipt? receipt = null;
+        if (_trustState is not null)
+        {
+            _trustState.Receipts.TryGetValue(pluginId, out receipt);
+        }
+        if (receipt is null)
+        {
+            error = "Protected installation receipt is missing. Reinstall this plugin through the plugin manager.";
+            return false;
+        }
+        try
+        {
+            string actual = ComputePluginContentSha256(directory);
+            if (!CryptographicOperations.FixedTimeEquals(
+                    Encoding.ASCII.GetBytes(actual), Encoding.ASCII.GetBytes(receipt.ContentSha256)))
+            {
+                error = "Installed plugin files changed after installation. Reinstall the original package.";
+                return false;
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+        {
+            error = $"Installed plugin files could not be verified: {ex.Message}";
+            return false;
+        }
+        error = null;
+        return true;
     }
 
     /// <summary>宿主版本是否低于要求(数字段比较,忽略预发布后缀;不可解析时不拦)。</summary>
