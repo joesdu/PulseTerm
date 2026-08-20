@@ -16,6 +16,25 @@ namespace VelaShell.Tests.ViewModels;
 public sealed class MainWindowSshFeatureTests
 {
     [TestMethod]
+    public void BuildStartupCommand_WithoutUserCommand_InstallsWorkingDirectoryReporter()
+    {
+        string command = MainWindowViewModel.BuildStartupCommand(null);
+
+        Assert.Contains("PROMPT_COMMAND", command);
+        Assert.Contains("vela_shell_osc7", command);
+        Assert.Contains(@"\033]7;file://%s%s", command);
+    }
+
+    [TestMethod]
+    public void BuildStartupCommand_WithUserCommand_AppendsItToReporter()
+    {
+        string command = MainWindowViewModel.BuildStartupCommand("  cd /srv/app  ");
+
+        Assert.Contains("vela_shell_osc7", command);
+        Assert.EndsWith("; cd /srv/app", command);
+    }
+
+    [TestMethod]
     public async Task ConnectProfileAsync_AddsTerminalTab_AndUpdatesStatusBar()
     {
         IConnectionWorkflowService? workflow = Substitute.For<IConnectionWorkflowService>();

@@ -471,8 +471,8 @@ public sealed class TerminalEmulator : IVtActions
                 break;
             case 7:
                 // OSC 7:shell 上报当前工作目录(file://host/path)。用于「文件浏览器跟随终端目录」。
-                // 由对端 shell 自己发出(常见于 bash/zsh 的 PROMPT_COMMAND、fish 的 fish_prompt);
-                // VelaShell 不再内置注入上报脚本,用户可自行写进"连接后执行命令"或远端 rc 文件。
+                // 由对端 shell 发出(SSH bash 会话会自动安装 PROMPT_COMMAND 钩子;
+                // 其他 shell 也可通过各自的提示符钩子上报)。
                 if (p.Count > 1 && ParseOsc7Path(p[1]) is { Length: > 0 } dir)
                 {
                     WorkingDirectoryChanged?.Invoke(dir);
