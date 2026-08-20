@@ -3256,6 +3256,12 @@ Windows는 exe 전체 경로 또는 명령 이름(예: notepad), Linux는 명령
   <data name="Sftp_FollowTerminal" xml:space="preserve">
     <value>터미널 디렉터리 따라가기(현재 경로에 동기화)</value>
   </data>
+  <data name="Sftp_EditPath" xml:space="preserve">
+    <value>경로 편집 (Ctrl+L)</value>
+  </data>
+  <data name="Sftp_PathInputHint" xml:space="preserve">
+    <value>경로 입력 후 Enter</value>
+  </data>
   <data name="Cmd_ProcessManager" xml:space="preserve">
     <value>작업 관리자</value>
   </data>

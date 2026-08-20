@@ -3256,6 +3256,12 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   <data name="Sftp_FollowTerminal" xml:space="preserve">
     <value>跟隨終端機目錄(同步到終端機目前路徑)</value>
   </data>
+  <data name="Sftp_EditPath" xml:space="preserve">
+    <value>編輯路徑 (Ctrl+L)</value>
+  </data>
+  <data name="Sftp_PathInputHint" xml:space="preserve">
+    <value>輸入路徑後按 Enter 跳轉</value>
+  </data>
   <data name="Cmd_ProcessManager" xml:space="preserve">
     <value>工作管理員</value>
   </data>

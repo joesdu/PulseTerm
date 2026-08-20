@@ -430,6 +430,12 @@
   <data name="Sftp_FollowTerminal" xml:space="preserve">
     <value>Follow terminal directory (sync to the terminal's current path)</value>
   </data>
+  <data name="Sftp_EditPath" xml:space="preserve">
+    <value>Edit path (Ctrl+L)</value>
+  </data>
+  <data name="Sftp_PathInputHint" xml:space="preserve">
+    <value>Type a path, press Enter</value>
+  </data>
   <data name="TransferHistory" xml:space="preserve">
     <value>Transfer history</value>
   </data>

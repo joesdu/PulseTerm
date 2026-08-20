@@ -74,12 +74,14 @@ public partial class FileBrowserView : UserControl
         DataContextChanged += (_, _) =>
         {
             _viewModel?.DirectoryChanged -= OnDirectoryChanged;
+            _viewModel?.PathEditActivated -= OnPathEditActivated;
             _viewModel = DataContext as FileBrowserViewModel;
             if (_viewModel is not { } vm)
             {
                 return;
             }
             vm.DirectoryChanged += OnDirectoryChanged;
+            vm.PathEditActivated += OnPathEditActivated;
             vm.PickLocalPathsForUpload = PickLocalPathsAsync;
             vm.PickSavePathForDownload = PickSavePathAsync;
             vm.PickFolderForDownload = PickDownloadFolderAsync;
@@ -123,6 +125,68 @@ public partial class FileBrowserView : UserControl
         }
         AddHandler(PointerMovedEvent, OnColumnSplitterPointerMoved, RoutingStrategies.Tunnel);
         AddHandler(PointerReleasedEvent, OnColumnSplitterReleased, RoutingStrategies.Tunnel);
+
+        // Ctrl+L 切到手动输入路径(浏览器/文件管理器的通用手势)。走隧道,免得先被
+        // 文件列表的键盘导航吃掉。
+        AddHandler(KeyDownEvent, OnFileBrowserKeyDown, RoutingStrategies.Tunnel);
+    }
+
+    // ---- 手动输入路径(#226)-------------------------------------------------
+
+    private void OnFileBrowserKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.L && e.KeyModifiers.HasFlag(KeyModifiers.Control)
+            && DataContext is FileBrowserViewModel vm)
+        {
+            vm.BeginPathEditCommand.Execute().Subscribe(_ => { }, _ => { });
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>
+    /// 进入手动输入态后聚焦输入框并全选:用户十有八九要整条换掉,而不是在现有路径里插字。
+    /// 延到 Loaded 优先级是因为输入框此刻刚由 IsVisible 显现,尚未参与布局,立即 Focus 会落空。
+    /// </summary>
+    private void OnPathEditActivated(object? sender, EventArgs e) =>
+        Dispatcher.UIThread.Post(
+            () =>
+            {
+                if (PathEditBox is not { IsVisible: true } box)
+                {
+                    return;
+                }
+                box.Focus();
+                box.SelectAll();
+            },
+            DispatcherPriority.Loaded
+        );
+
+    private void OnPathEditKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (DataContext is not FileBrowserViewModel vm)
+        {
+            return;
+        }
+        switch (e.Key)
+        {
+            case Key.Enter:
+                vm.CommitPathEditCommand.Execute().Subscribe(_ => { }, _ => { });
+                e.Handled = true;
+                return;
+            case Key.Escape:
+                vm.CancelPathEditCommand.Execute().Subscribe(_ => { }, _ => { });
+                e.Handled = true;
+                return;
+        }
+    }
+
+    /// <summary>点到别处即放弃输入,回到面包屑 —— 与地址栏的常见行为一致,不留一个半开的输入框。</summary>
+    private void OnPathEditLostFocus(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is FileBrowserViewModel { IsPathEditing: true } vm)
+        {
+            vm.CancelPathEditCommand.Execute().Subscribe(_ => { }, _ => { });
+        }
     }
 
     private void OnDirectoryChanged(object? sender, EventArgs e)
