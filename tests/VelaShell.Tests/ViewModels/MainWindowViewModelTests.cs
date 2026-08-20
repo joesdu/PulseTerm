@@ -5,6 +5,7 @@ using ReactiveUI.Primitives.Concurrency;
 using VelaShell.Core.Data;
 using VelaShell.Core.Models;
 using VelaShell.Core.Sftp;
+using VelaShell.Core.Sync;
 using VelaShell.Core.Tunnels;
 using VelaShell.Presentation.Commands;
 using VelaShell.Presentation.Services;
@@ -322,6 +323,40 @@ public class MainWindowViewModelTests
         );
 
         Assert.IsTrue(vm.Sidebar.IsQuickCommandsVisible);
+    }
+
+    [TestMethod]
+    [TestCategory("SessionTree")]
+    public async Task SyncProfilesApplied_RefreshesSessionTreeWithoutRestart()
+    {
+        ISessionRepository repository = Substitute.For<ISessionRepository>();
+        IGistSyncService syncService = Substitute.For<IGistSyncService>();
+        var profiles = new List<SessionProfile>();
+        repository.GetAllGroupsAsync().Returns([]);
+        repository.GetAllSessionsAsync().Returns(_ => [.. profiles]);
+        var vm = new MainWindowViewModel(
+            sessionRepository: repository,
+            gistSyncService: syncService
+        );
+        await vm.InitializeAsync();
+        Assert.IsTrue(vm.Sidebar.SessionTree?.HasNoSessions);
+
+        SessionProfile pulled = new()
+        {
+            Id = Guid.NewGuid(),
+            Name = "pulled-server",
+            Host = "pulled.example.com",
+            Username = "root",
+        };
+        profiles.Add(pulled);
+
+        syncService.ProfilesApplied += Raise.Event<EventHandler>(syncService, EventArgs.Empty);
+
+        bool appeared = SpinWait.SpinUntil(
+            () => vm.Sidebar.SessionTree?.Nodes.Any(node => node.Id == pulled.Id) == true,
+            TimeSpan.FromSeconds(5)
+        );
+        Assert.IsTrue(appeared, "云同步拉取的连接应立即出现在会话树中。");
     }
 
     [TestMethod]

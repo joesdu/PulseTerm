@@ -6,6 +6,12 @@ namespace VelaShell.Core.Sync;
 /// </summary>
 public interface IGistSyncService
 {
+    /// <summary>
+    /// 远端连接配置已成功应用到本地仓储后触发。订阅方可据此刷新会话树等内存视图;
+    /// 事件可能从后台线程触发。
+    /// </summary>
+    event EventHandler? ProfilesApplied;
+
     /// <summary>正在把远端数据应用到本地(此期间的本地保存事件不算“本地改动”,防止拉取后立刻回推)。</summary>
     bool IsApplyingRemote { get; }
 
