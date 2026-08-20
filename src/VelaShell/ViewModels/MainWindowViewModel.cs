@@ -22,6 +22,7 @@ using VelaShell.Core.Resources;
 using VelaShell.Core.Services;
 using VelaShell.Core.Sftp;
 using VelaShell.Core.Ssh;
+using VelaShell.Core.Sync;
 using VelaShell.Core.Tunnels;
 using VelaShell.Docking;
 using VelaShell.Docking.Model;
@@ -185,7 +186,8 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
         IFtpSessionService? ftpSessionService = null,
         IPluginProtocolSessionService? pluginProtocolService = null,
         PluginProtocolRegistry? protocolRegistry = null,
-        PluginWorkspaceLauncher? workspaceLauncher = null
+        PluginWorkspaceLauncher? workspaceLauncher = null,
+        IGistSyncService? gistSyncService = null
     )
     {
         // 注册表可注入(DI 里与插件命令桥共享同一单例);无 UI 单测传 null 时自建。
@@ -214,6 +216,7 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
         _pluginProtocols = pluginProtocolService;
         _protocolRegistry = protocolRegistry;
         _workspaceLauncher = workspaceLauncher;
+        gistSyncService?.ProfilesApplied += OnSyncProfilesApplied;
         // 插件被停用/卸载 → 它名下的工作台文档已无人应答,走正常关闭路径撤掉标签页。
         workspaceLauncher?.SessionAbandoned += OnWorkspaceSessionAbandoned;
         // 新建连接对话框里的「测试」对插件连接类型没法拿 SSH 去试(那只会撞出一个
@@ -1771,6 +1774,17 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
         }
         await RefreshPaletteSessionsAsync();
         RevealActiveSessionInSidebar();
+    }
+
+    /// <summary>
+    /// 云同步在后台线程完成 Profile upsert 后刷新所有会话入口。除侧边栏树外还要刷新
+    /// 命令面板的全量会话缓存,否则树已出现新连接而命令面板仍需重启才可搜索到。
+    /// </summary>
+    private void OnSyncProfilesApplied(object? sender, EventArgs args)
+    {
+        _ = sender;
+        _ = args;
+        RxSchedulers.MainThreadScheduler.Schedule(() => _ = RefreshSessionTreeAsync());
     }
 
     /// <summary>BuildPaletteItems 是同步回调,这里预取 session_profiles 全量与分组名。</summary>

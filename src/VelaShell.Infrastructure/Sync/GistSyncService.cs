@@ -43,6 +43,9 @@ public sealed class GistSyncService(
     /// <summary>是否正在应用远端数据;为 true 时忽略由此触发的本地保存事件,避免拉取后被误判为本地改动而立即回推。</summary>
     public bool IsApplyingRemote { get; private set; }
 
+    /// <inheritdoc />
+    public event EventHandler? ProfilesApplied;
+
     /// <summary>读取持久化的同步配置;不存在时返回默认 <see cref="SyncSettings"/>。</summary>
     public async Task<SyncSettings> GetSyncSettingsAsync(
         CancellationToken cancellationToken = default
@@ -518,7 +521,7 @@ public sealed class GistSyncService(
 
     // ———— 拉取与应用 ————
 
-    private async Task<SyncResult> ApplyRemoteAsync(
+    internal async Task<SyncResult> ApplyRemoteAsync(
         SyncSettings config,
         SyncEnvelope envelope,
         string? remoteVersion,
@@ -635,6 +638,12 @@ public sealed class GistSyncService(
             config.LastLocalChangeAtUtc = null;
         }
         await SaveSyncSettingsAsync(config, cancellationToken).ConfigureAwait(false);
+        if (config.SyncProfiles)
+        {
+            // 仓储已经完整应用远端分组/Profile/隧道后再通知界面。同步通常在后台线程执行,
+            // 订阅方负责封送到自己的 UI 线程。历史版本恢复也复用本路径,因此无需另行接线。
+            ProfilesApplied?.Invoke(this, EventArgs.Empty);
+        }
         return new(
             SyncAction.Pulled,
             true,
