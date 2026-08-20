@@ -20,7 +20,7 @@
          不用 S3 的用户,安装包里不必带这两个各约 1 MB 的程序集,进程里也永不装载它们。
          选它而非自己签 SigV4 的原委见 docs/S3协议插件化设计.md §二:S3 有 116 个操作,
          自己实现只能覆盖很小一角,且每加一个能力都要重做一遍 XML 序列化与错误码映射。 -->
-    <PackageReference Include="AWSSDK.S3" Version="4.0.102.2" />
+    <PackageReference Include="AWSSDK.S3" Version="4.0.102.3" />
   </ItemGroup>
 
   <ItemGroup>

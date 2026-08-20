@@ -12,7 +12,7 @@
     <PackageVersion Include="NSubstitute" Version="6.2.0" />
     <!-- S3 插件的测试要直接构造 AWSSDK 的请求/响应类型(替身客户端与环回服务器都要),
          版本与 plugins/VelaShell.Plugin.S3 保持一致。 -->
-    <PackageVersion Include="AWSSDK.S3" Version="4.0.102.2" />
+    <PackageVersion Include="AWSSDK.S3" Version="4.0.102.3" />
     <PackageVersion Include="Avalonia" Version="12.1.1" />
     <PackageVersion Include="Avalonia.Headless" Version="12.1.1" />
     <!-- 菜单等控件的模板由主题提供:没有它 MenuItem 无模板、不可命中,真实点击测不了。 -->
