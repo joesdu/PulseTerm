@@ -3479,7 +3479,7 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
     <value>尚無可落到地圖上的躍點。</value>
   </data>
   <data name="Trace_MapNeedsDatabase" xml:space="preserve">
-    <value>未找到離線 IP 歸屬地資料庫。請將 .mmdb 放到 %LocalAppData%/VelaShell/geoip/,或在設定中指定路徑。沒有它追蹤照常運作,只是地圖為空。</value>
+    <value>未找到離線 IP 歸屬地資料庫。請將 .mmdb 放到 ~/.velashell/geoip/,或在設定中指定路徑。沒有它追蹤照常運作,只是地圖為空。</value>
   </data>
   <data name="Trace_LocationHint" xml:space="preserve">
     <value>依據 IP 網段登記資訊推斷。骨幹路由器登記的多為業者註冊地址而非裝置實際位置,中繼躍點僅供參考。</value>

@@ -91,7 +91,7 @@ most machines will not notice, but systems with a strong GPU and plenty of memor
 Three implementation constraints must not be broken during changes:
 
 1. **The rendering backend must be selected before Avalonia initialization**, when DI and SonnetDB are not running yet and settings cannot be read.
-   Therefore `SaveSettingsAsync` additionally mirrors this setting to the one-line file `%LocalAppData%/VelaShell/render.mode`;
+   Therefore `SaveSettingsAsync` additionally mirrors this setting to the one-line file `~/.velashell/render.mode`;
    `Program.ResolveRenderingMode()` performs only one `File.ReadAllText`, adding no database-initialization overhead.
 2. **The software-rendering fallback must always remain at the end of the GPU-mode list** (`[AngleEgl, Software]`), so remote desktops or driver failures do not prevent startup.
 3. This setting is not included in Gist sync (machine-specific; see `GistSyncService.ScrubDeviceLocalFields`).

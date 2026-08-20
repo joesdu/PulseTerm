@@ -121,7 +121,7 @@ See [03-plugin-model.md](03-plugin-model.md) and [04-plugin-host.md](04-plugin-h
 ## 5. Data and Directory Layout (on the User's Machine)
 
 ```text
-<AppData>/VelaShell/plugins/
+~/.velashell/plugins/
   installed/<pluginId>/<version>/     -> unpacked plugin (used read-only)
   data/<pluginId>/                    -> plugin-private data directory (root of the storage capability)
   permissions.json                    -> persisted authorization decisions (see 06)

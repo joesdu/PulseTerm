@@ -31,24 +31,25 @@ computer unless you explicitly enable the optional sync feature described below.
 
 | Data | Location |
 | --- | --- |
-| Connection profiles (host, port, username), groups, and settings | Local application data folder |
+| Connection profiles (host, port, username), groups, and settings | `~/.velashell` |
 | Passwords and private-key passphrases you choose to save | Same folder, encrypted with AES-256 |
 | The encryption key protecting the above | Same folder, generated on your device |
 | Known SSH host keys | Same folder |
 | Saved commands and snippets | Same folder |
 | Session logs — raw terminal output, **off by default** | `logs` subfolder, auto-deleted after a retention period you set |
 | Offline IP geolocation database, if you add one | `geoip` subfolder |
+| Plugins you manually install | `~/.velashell/plugins` |
 
-The local application data folder is `%LocalAppData%\VelaShell` on Windows,
-`~/Library/Application Support/VelaShell` on macOS, and `~/.local/share/VelaShell` on Linux.
-For the Microsoft Store version, Windows redirects this to the app's private package storage.
+The application data folder is `~/.velashell` on Windows, macOS, and Linux. On first launch
+after this location changed, VelaShell migrates the former platform-specific data directory
+into this folder and removes the former directory after verification.
 
 VelaShell also **reads** your existing OpenSSH configuration in `~/.ssh` (keys and
 `known_hosts`) so that keys you already use with OpenSSH, Git, and other tools work without
 being duplicated. These files are read from and written to on your device only.
 
-You can delete all of this at any time by removing the folder, or by using the in-app controls
-under Settings.
+You can delete all of this at any time by removing the corresponding folder, or by using the
+in-app controls under Settings or Plugin Manager.
 
 ### Network connections
 
@@ -151,22 +152,22 @@ VelaShell 发起的每一个网络连接,都完整列在下方。
 
 | 数据 | 位置 |
 | --- | --- |
-| 连接配置(主机、端口、用户名)、分组与应用设置 | 本地应用数据目录 |
+| 连接配置(主机、端口、用户名)、分组与应用设置 | `~/.velashell` |
 | 你选择保存的密码与私钥口令 | 同上,以 AES-256 加密 |
 | 保护上述内容的加密密钥 | 同上,在你的设备上生成 |
 | 已知的 SSH 主机密钥 | 同上 |
 | 快捷命令与代码片段 | 同上 |
 | 会话日志 —— 终端原始输出,**默认关闭** | `logs` 子目录,按你设定的保留天数自动清理 |
 | 离线 IP 归属地数据库(如果你添加了) | `geoip` 子目录 |
+| 你手动安装的插件 | `~/.velashell/plugins` |
 
-本地应用数据目录在 Windows 上是 `%LocalAppData%\VelaShell`,macOS 上是
-`~/Library/Application Support/VelaShell`,Linux 上是 `~/.local/share/VelaShell`。
-Microsoft Store 版本由 Windows 重定向到应用的包私有存储位置。
+应用数据目录在 Windows、macOS 与 Linux 上统一为 `~/.velashell`。位置变更后的首次启动会把
+原平台数据目录迁入此目录，校验成功后删除原目录。
 
 VelaShell 还会**读取**你既有的 OpenSSH 配置(`~/.ssh` 下的密钥与 `known_hosts`),使你已经在
 OpenSSH、Git 等工具中配置好的密钥无需重复配置即可使用。这些文件的读写全部发生在你的设备上。
 
-你可以随时删除该目录,或通过设置中的相应功能清除这些数据。
+你可以随时删除对应目录,或通过设置、插件管理器中的相应功能清除这些数据。
 
 ### 网络连接
 

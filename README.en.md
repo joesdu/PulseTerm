@@ -182,12 +182,13 @@ docker-compose -f docker-compose.test.yml up
 
 | Content | Location |
 |---------|----------|
-| SonnetDB data directory (profiles/groups/settings/known_hosts/history/audit/recordings/plugin data) | `%LocalAppData%/VelaShell/sonnetdb` |
-| Credential encryption key (AES-256) | `%LocalAppData%/VelaShell/secret.key` |
-| User-installed plugins (`.vpx`) | `%LocalAppData%/VelaShell/plugins` |
+| SonnetDB data directory (profiles/groups/settings/known_hosts/history/audit/recordings/plugin data) | `~/.velashell/sonnetdb` |
+| Credential encryption key (AES-256) | `~/.velashell/secret.key` |
+| Manually installed plugins (`.vpx`) | `~/.velashell/plugins` (first-party plugins remain in the application's `plugins/` directory) |
 | SSH key pairs (Key management page) | `~/.ssh` |
 
 > Legacy JSON configuration (`sessions.json` / `settings.json` …) is imported into SonnetDB on first run and renamed to `*.migrated.bak`.
+> When upgrading from the former data root, VelaShell verifies and migrates everything under `%LocalAppData%/VelaShell` into `~/.velashell`, then removes the former directory. Conflicting files already present in `~/.velashell` are preserved under `.migration-backup/localappdata/`.
 
 ---
 
@@ -202,7 +203,7 @@ Artifacts cover Windows x64/arm64 (portable zip) plus macOS and Linux x64/arm64 
 
 > Microsoft Store (MSIX) installs are updated by the Store, so in-app update actions are hidden there. The Store build lives under the read-only `WindowsApps` directory and its data folder is redirected to a package-private location, so **its settings, sessions and keys are separate from the portable build's**.
 
-**In-app updates**: Settings → About → Check for updates. The app reads the `latest.json` manifest from GitHub Releases, downloads the matching archive into a staging directory inside the app folder, verifies SHA-256, unpacks it, and then lets an external swap process — which only starts after the app exits — replace the files and relaunch. By then nothing in the app directory is locked, so no undeletable leftovers remain. That "external process" *is* the freshly unpacked new version (releases are self-contained and **not** single-file, so they run straight from disk), which is why no separate updater has to be shipped. Updates happen wherever the app is installed, with no location requirement; the `%LocalAppData%/VelaShell` data directory is completely isolated from the update flow, so upgrades and rollbacks never touch user data. A failed swap rolls back to the previous version automatically, and if the flow is interrupted, "Repair update state" on the About page resets it. The update channel (stable / preview) is switchable in Settings.
+**In-app updates**: Settings → About → Check for updates. The app reads the `latest.json` manifest from GitHub Releases, downloads the matching archive into a staging directory inside the app folder, verifies SHA-256, unpacks it, and then lets an external swap process — which only starts after the app exits — replace the files and relaunch. By then nothing in the app directory is locked, so no undeletable leftovers remain. That "external process" *is* the freshly unpacked new version (releases are self-contained and **not** single-file, so they run straight from disk), which is why no separate updater has to be shipped. Updates happen wherever the app is installed, with no location requirement; the `~/.velashell` data directory is completely isolated from the update flow, so upgrades and rollbacks never touch user data. A failed swap rolls back to the previous version automatically, and if the flow is interrupted, "Repair update state" on the About page resets it. The update channel (stable / preview) is switchable in Settings.
 
 **CI/CD**: [`.github/workflows/release.yml`](.github/workflows/release.yml) triggers when a GitHub Release is published and builds on all three native runners in parallel (the version comes from the Release tag via `-p:Version`, so releasing needs no code changes), then attaches `SHA256SUMS.txt` and the `latest.json` update manifest to the Release. The same pipeline also produces an **MSIX** for Microsoft Store submission (deliberately unsigned — the Store signs it with its own certificate after certification).
 

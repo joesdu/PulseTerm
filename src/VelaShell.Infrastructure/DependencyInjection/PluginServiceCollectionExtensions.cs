@@ -16,7 +16,7 @@ public static class PluginServiceCollectionExtensions
 {
     /// <summary>
     /// 注册进程内插件运行时(<see cref="PluginManager" />)。发现根目录为
-    /// 应用目录与用户数据目录下的 <c>plugins/</c>;命令能力经 UI 层注册的
+    /// 应用目录与 <c>~/.velashell/plugins</c>;命令能力经 UI 层注册的
     /// <c>Func&lt;string, IPluginLogger, ICommandsApi&gt;</c> 桥接(缺席时命令注册退化为空操作)。
     /// 注册本身零开销:PluginManager 直到 <see cref="PluginManager.StartAsync" /> 才做任何 I/O。
     /// </summary>
@@ -43,14 +43,14 @@ public static class PluginServiceCollectionExtensions
                 PluginRoots =
                 [
                     Path.Combine(AppContext.BaseDirectory, "plugins"),
-                    Path.Combine(paths.RootDirectory, "plugins")
+                    paths.UserPluginDirectory
                 ],
                 // 开发期挂载:环境变量 VELA_PLUGIN_DEV_ROOT 或 <数据根>/plugins.dev.txt 里登记的
                 // 插件工程输出目录。默认两处都空 → 这里得到空表,发现期一个额外目录都不扫。
                 DevPluginRoots = DevPluginRootResolver.Resolve(paths.RootDirectory),
                 DebugPluginIds = DevPluginRootResolver.ResolveDebugPluginIds(),
                 DataRootDirectory = Path.Combine(paths.RootDirectory, "plugin-data"),
-                UserPluginRoot = Path.Combine(paths.RootDirectory, "plugins"),
+                UserPluginRoot = paths.UserPluginDirectory,
                 TrustRepository = sp.GetRequiredService<PluginTrustRepository>(),
                 HostVersion = hostVersion,
                 Connections = sp.GetService<ISshConnectionService>(),

@@ -71,7 +71,7 @@ Plugin calls a capability → Broker.Demand(pluginId, permId, scope)
 
 ## 3. Persistence and Management
 
-`<AppData>/VelaShell/plugins/permissions.json`:
+`~/.velashell/plugins/permissions.json`:
 
 ```jsonc
 { "version": 1,

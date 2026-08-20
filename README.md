@@ -182,12 +182,13 @@ docker-compose -f docker-compose.test.yml up
 
 | 内容 | 位置 |
 |------|------|
-| SonnetDB 数据目录（连接/分组/设置/known_hosts/连接历史/审计/录制/插件数据） | `%LocalAppData%/VelaShell/sonnetdb` |
-| 凭据加密密钥（AES-256） | `%LocalAppData%/VelaShell/secret.key` |
-| 用户安装的插件（`.vpx`） | `%LocalAppData%/VelaShell/plugins` |
+| SonnetDB 数据目录（连接/分组/设置/known_hosts/连接历史/审计/录制/插件数据） | `~/.velashell/sonnetdb` |
+| 凭据加密密钥（AES-256） | `~/.velashell/secret.key` |
+| 用户手动安装的插件（`.vpx`） | `~/.velashell/plugins`（第一方插件仍位于程序目录的 `plugins/`） |
 | SSH 密钥对（密钥管理页） | `~/.ssh` |
 
 > 旧版本的 `sessions.json` / `settings.json` 等 JSON 配置会在首次运行时自动导入 SonnetDB 并改名为 `*.migrated.bak`。
+> 从旧数据根升级时，应用会先把 `%LocalAppData%/VelaShell` 的全部内容校验迁移到 `~/.velashell`，成功后删除旧目录；若与更早版本已放在 `~/.velashell` 的文件冲突，旧目标文件会保存在 `.migration-backup/localappdata/`。
 
 ---
 
@@ -202,7 +203,7 @@ pwsh scripts/publish-all.ps1
 
 > 从 Microsoft Store 安装的版本（MSIX）更新由商店接管，应用内的更新操作会自动隐藏。商店版装在只读的 `WindowsApps` 下，数据目录被系统重定向到包私有位置，因此**与便携版的配置、会话、密钥互不相通**。
 
-**应用内自动更新**：设置 → 关于 → 检查更新。应用从 GitHub Releases 读取 `latest.json` 清单，下载对应平台压缩包到应用目录下的暂存目录，SHA-256 校验后解包，再由应用退出后才动手的外置换版进程完成换版并重启 —— 那时应用目录里没有任何文件被占用，不会留下删不掉的残骸。该「外置进程」就是暂存目录里解包出来的那份新版应用（Release 为自包含**摊开**发布，解开即可运行），因此无需随包分发额外的更新器。应用装在哪里就更新哪里，不限定安装位置；`%LocalAppData%/VelaShell` 数据目录与更新流程完全隔离，升级/回滚均不触碰用户数据。换版中途失败会自动还原到旧版本，若流程被意外中断卡住，关于页的「修复更新状态」可一键重置。更新通道（stable / preview）在设置页切换。
+**应用内自动更新**：设置 → 关于 → 检查更新。应用从 GitHub Releases 读取 `latest.json` 清单，下载对应平台压缩包到应用目录下的暂存目录，SHA-256 校验后解包，再由应用退出后才动手的外置换版进程完成换版并重启 —— 那时应用目录里没有任何文件被占用，不会留下删不掉的残骸。该「外置进程」就是暂存目录里解包出来的那份新版应用（Release 为自包含**摊开**发布，解开即可运行），因此无需随包分发额外的更新器。应用装在哪里就更新哪里，不限定安装位置；`~/.velashell` 数据目录与更新流程完全隔离，升级/回滚均不触碰用户数据。换版中途失败会自动还原到旧版本，若流程被意外中断卡住，关于页的「修复更新状态」可一键重置。更新通道（stable / preview）在设置页切换。
 
 **CI/CD**：[`.github/workflows/release.yml`](.github/workflows/release.yml) 在 GitHub 发布 Release 时触发，三平台原生 runner 并行构建（版本号取 Release 标签，`-p:Version` 覆盖，发版无需改代码），汇总 `SHA256SUMS.txt` 与自动更新清单 `latest.json` 后全部附加到该 Release；同一条流水线另打 **MSIX** 供 Microsoft Store 提交（刻意不自签，商店认证通过后由微软用商店证书签名）。
 

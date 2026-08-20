@@ -12,6 +12,7 @@ using VelaShell.Core.Resources;
 using VelaShell.Core.Services;
 using VelaShell.Core.Ssh;
 using VelaShell.Core.Sync;
+using VelaShell.Infrastructure.Persistence;
 using VelaShell.Presentation.ViewModels;
 using VelaShell.Services;
 
@@ -523,11 +524,7 @@ public class SettingsViewModel : ReactiveObject
         architecture.ToString().ToLowerInvariant();
 
     /// <summary>关于页显示的配置文件所在目录。</summary>
-    public static string AboutConfigPath =>
-        Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "VelaShell"
-        );
+    public static string AboutConfigPath => new VelaShellStoragePaths().RootDirectory;
 
     /// <summary>
     /// 关于页贡献者(设计 kGwqX;数据来自仓库真实提交者,新增贡献者在此追加)。

@@ -103,11 +103,7 @@ makepri dump /if out/msix/win-x64/resources.pri /of dump.xml /o
   误判成了 US person,检查税务问卷里的身份回答与账户国家/地区)。
 - **隐私政策 URL**:联网应用的硬性要求。
 
-## 已知差异:数据目录不互通
+## 数据目录
 
-商店版装在只读的 `WindowsApps` 下,写入 `%LocalAppData%\VelaShell` 会被系统重定向到
-包私有目录,因此**商店版与便携版的配置、会话、密钥相互独立**。
-
-理论上 `desktop6:FileSystemWriteVirtualization` 能关掉这层重定向让两者共用数据,但它需要
-`unvirtualizedResources` 受限能力,而微软限定该能力"仅供微软及合作伙伴发布的特定 PC 游戏
-使用",第三方申请基本不会过审。所以这条路走不通,只能接受并在 README 里向用户说明。
+商店版与便携版都以用户主目录下的 `~/.velashell` 作为应用数据根。应用不再把持久化数据
+写入 `%LocalAppData%\VelaShell`；旧目录只在升级后的首次启动中读取、校验迁移并删除。

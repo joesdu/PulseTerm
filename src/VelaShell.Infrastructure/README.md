@@ -11,7 +11,7 @@
 | `Persistence/SonnetDbEngine.cs` | **唯一持久化引擎**：封装嵌入式 [SonnetDB](https://github.com/IoTSharp/SonnetDB) 多模型数据库实例，业务数据走文档集合、时间序列数据走时序引擎，退出时统一刷盘。 |
 | `Persistence/SonnetDb*Service.cs` | 各 Core 存储契约的 SonnetDB 实现：`AppDataStore`、`SessionRepository`、`SettingsService`、`RecentConnectionService`、`AuditLogService`、`HostKeyService`、`SessionRecordingStore`。 |
 | `Persistence/AesSecretProtector.cs` | `ISecretProtector` 实现：连接密码与私钥口令以 **AES-256-GCM** 加密落盘；Windows 上密钥文件再经 DPAPI（CurrentUser）包裹。 |
-| `Persistence/VelaShellStoragePaths.cs` | 数据目录、密钥文件等路径解析（`%LocalAppData%/VelaShell`）。 |
+| `Persistence/VelaShellStoragePaths.cs` | 数据目录、密钥文件等路径解析（`~/.velashell`）。 |
 | `Persistence/SonnetDbJson.cs` | 文档序列化辅助。 |
 | `Persistence/SonnetDbPluginDataStore.cs` `SonnetDbPluginTimeSeries.cs` | 插件数据的宿主侧后端：KV/机密走 `plugin_data` 文档集合（复合主键 `<插件id>\|<种类>\|<键>`），时序走 `pts_<插件命名空间>_<短名>` measurement；两者都按插件 id 命名空间隔离，卸载时整体清除。 |
 | `Persistence/SonnetDbHostKeyService.cs` | `IHostKeyService` 实现：`known_hosts` 文档集合读写与指纹比对。 |

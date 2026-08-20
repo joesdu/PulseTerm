@@ -46,6 +46,9 @@ internal static partial class Program
         }
         try
         {
+            // 首次运行新版时，先完整迁移旧 LocalAppData 数据。失败则中止启动，绝不能在
+            // 新目录另建一个空数据库，让用户误以为原数据丢失。
+            VelaShellDataMigration.MigrateIfNeeded(new VelaShellStoragePaths());
             FinalizePendingUpdate();
             BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
         }
@@ -68,7 +71,7 @@ internal static partial class Program
     /// <remarks>
     /// 开机自启走的是 <c>HKCU\...\Run</c>,而 Explorer 拉起 Run 键里的程序时会把子进程的工作目录
     /// 设成 <c>C:\Windows\System32</c>(继承它自己的 CWD)。应用本身从不依赖 CWD——所有持久化路径
-    /// 都以 <c>%LocalAppData%\VelaShell</c> 或 <see cref="Environment.ProcessPath" /> 为根——但
+    /// 都以 <c>~/.velashell</c> 或 <see cref="Environment.ProcessPath" /> 为根——但
     /// 系统层面仍有两处会踩到它:没指定起始目录的文件对话框会停在 CWD,设置里若填了相对路径也按
     /// CWD 解析。二者都会让 System32 莫名其妙地冒出来(#120)。这里定死一次即可根除。
     /// 外置换版进程不走这条路径(它在上面就返回了),其临时目录语义不受影响。
@@ -130,7 +133,7 @@ internal static partial class Program
     /// <summary>
     /// 获取一个以本地数据目录为键、作用域限于会话的命名互斥体。当已有其他实例持有时返回 false
     /// —— 常见情形是应用已打开时的双击启动。以存储路径为键,使不同的 Windows 用户
-    /// (不同的 %LocalAppData%)各自独立运行。使用 Local 命名空间(无需 Global 那样的
+    /// (不同的用户主目录)各自独立运行。使用 Local 命名空间(无需 Global 那样的
     /// SeCreateGlobalPrivilege);罕见的同用户跨会话冲突,会在之后由 SonnetDB 的文件锁与启动错误
     /// 对话框捕获,而非静默继续直至崩溃。
     /// </summary>

@@ -298,7 +298,7 @@ internal static class Program
 
     /// <summary>VelaShell 的数据根目录,与宿主的 VelaShellStoragePaths 保持一致。</summary>
     private static string DataRoot => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "VelaShell");
+        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".velashell");
 
     private static PluginManifest LoadManifest(string directory)
     {
