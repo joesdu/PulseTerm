@@ -172,8 +172,7 @@ dotnet build -c Release -t:PackVpx               # → bin/vpx/acme.snippets-0.1
 **方式二:直接放目录**——把构建输出(入口 dll + deps.json + 自带依赖 + plugin.json)放进:
 
 ```text
-%LocalAppData%\VelaShell\plugins\<插件id>\        (Windows)
-~/.local/share/VelaShell/plugins/<插件id>/        (Linux/macOS,以宿主数据根目录为准)
+~/.velashell/plugins/<插件id>/                    (Windows/Linux/macOS)
 ```
 
 重启 VelaShell 即加载。再次强调:`VelaShell.PluginSdk.dll` 与 `Avalonia*.dll`
@@ -803,7 +802,7 @@ public async Task Refresh_ListsContainers()
 | 事项 | 位置/方法 |
 | --- | --- |
 | 应用自带插件 | `<应用目录>/plugins/<id 把点换成短横>/`(如 `plugins/velashell-ai/`,见 §2.1 的说明) |
-| 用户安装插件 | `<数据根>/plugins/<id>/`(Windows 为 `%LocalAppData%\VelaShell\plugins\`;这里不在 `.app` 内,不参与签名,故仍按 id 建目录) |
+| 用户手动安装插件 | `~/.velashell/plugins/<id>/`(这里不在 `.app` 内,不参与签名,故仍按 id 建目录) |
 | 插件数据 | KV/机密在宿主 SonnetDB(`plugin_data` 集合);文件在 `<数据根>/plugin-data/<id>/` |
 | 卸载清理 | 从 plugins/ 删除插件目录 → 下次启动自动整体清除其 DB 数据与数据目录(`.disabled` 只禁用,数据保留) |
 | 禁用单个插件 | 插件目录内放一个空的 `.disabled` 文件 |

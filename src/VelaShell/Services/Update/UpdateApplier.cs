@@ -25,7 +25,7 @@ namespace VelaShell.Services.Update;
 /// <see cref="TryFinalizeStartup" /> 清掉,顺带让"换版失败后重试"不必重新解包。
 /// </para>
 /// 全程只触碰更新包内列出的文件,应用目录里用户自己的文件绝不改名或删除;
-/// 应用数据目录(%LocalAppData%/VelaShell)与本流程无关,永不触碰。
+/// 应用数据目录(~/.velashell)与本流程无关,永不触碰。
 /// 进度记录在暂存目录的日志文件里,中途崩溃由下次启动的 <see cref="TryFinalizeStartup" />
 /// 依据日志回滚或收尾。
 /// </summary>

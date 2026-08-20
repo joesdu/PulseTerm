@@ -155,8 +155,7 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         await runtime.ActivationGate.WaitAsync().ConfigureAwait(false);
         try
         {
-            if (options.TrustRepository is not null && options.UserPluginRoot is { } userRoot
-                && IsUnder(runtime.Descriptor.Directory, userRoot)
+            if (options.TrustRepository is not null && IsUserPluginDirectory(runtime.Descriptor.Directory)
                 && !ValidateInstallReceipt(pluginId, runtime.Descriptor.Directory, out string? receiptError))
             {
                 runtime.Descriptor.State = PluginState.Invalid;
@@ -194,14 +193,14 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
     /// </summary>
     public bool IsUninstallable(string pluginId)
     {
-        if (options.UserPluginRoot is not { } userRoot)
+        if (options.UserPluginRoot is null)
         {
             return false;
         }
         lock (_gate)
         {
             return _plugins.FirstOrDefault(p => p.Descriptor.Id == pluginId) is { } runtime
-                   && IsUnder(runtime.Descriptor.Directory, userRoot);
+                   && IsUserPluginDirectory(runtime.Descriptor.Directory);
         }
     }
 
@@ -297,7 +296,7 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
             lock (_gate)
             {
                 if (_plugins.FirstOrDefault(p => p.Descriptor.Id == manifest.Id) is { } existing
-                    && !IsUnder(existing.Descriptor.Directory, userRoot))
+                    && !IsUserPluginDirectory(existing.Descriptor.Directory))
                 {
                     throw new InvalidOperationException(
                         $"A built-in plugin with id '{manifest.Id}' already exists and cannot be replaced.");
@@ -1200,7 +1199,7 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
             descriptor.Error = $"Duplicate plugin id '{manifest.Id}' (already provided by an earlier plugin root).";
         }
         else if (!isDevelopment && options.TrustRepository is not null
-                 && options.UserPluginRoot is { } userRoot && IsUnder(dir, userRoot)
+                 && IsUserPluginDirectory(dir)
                  && !ValidateInstallReceipt(manifest.Id, dir, out string? receiptError))
         {
             descriptor.State = PluginState.Invalid;
@@ -1222,6 +1221,9 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         }
         return descriptor;
     }
+
+    private bool IsUserPluginDirectory(string directory) =>
+        options.UserPluginRoot is { } root && IsUnder(directory, root);
 
     private bool ValidateInstallReceipt(string pluginId, string directory, out string? error)
     {

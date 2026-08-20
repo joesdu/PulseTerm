@@ -12,7 +12,7 @@ namespace VelaShell.Services;
 /// 便携式自更新服务:从 GitHub Releases 读取 CI 生成的 latest.json 清单,下载与当前
 /// 平台匹配的压缩包到应用目录下的暂存目录,SHA-256 校验后由 <see cref="UpdateApplier" />
 /// 解包,再交由本进程退出后才动手的外置换版进程完成换版与重启(见 <see cref="UpdateRunner" />)。
-/// 应用装在哪里就更新哪里,不强制安装位置,也绝不触碰 %LocalAppData%/VelaShell 数据目录。
+/// 应用装在哪里就更新哪里,不强制安装位置,也绝不触碰 ~/.velashell 数据目录。
 /// </summary>
 public class UpdateService : IUpdateService
 {

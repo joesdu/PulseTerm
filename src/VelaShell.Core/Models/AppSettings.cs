@@ -107,7 +107,7 @@ public class GeneralOptions : ObservableOptions
 {
     /// <summary>
     /// 离线 IP 归属地数据库(*.mmdb)的绝对路径;留空则自动使用
-    /// <c>%LocalAppData%/VelaShell/geoip/</c> 下的第一个 .mmdb。
+    /// <c>~/.velashell/geoip/</c> 下的第一个 .mmdb。
     /// 缺库时链路追踪照常工作,只是地图上没有落点。
     /// </summary>
     public string GeoIpDatabasePath

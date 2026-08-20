@@ -127,7 +127,7 @@ PluginSdk              -> PluginProtocol
 ## 5. 数据与目录布局(用户机器上)
 
 ```text
-<AppData>/VelaShell/plugins/
+~/.velashell/plugins/
   installed/<pluginId>/<version>/     -> 解包后的插件(只读使用)
   data/<pluginId>/                    -> 插件私有数据目录(storage 能力的根)
   permissions.json                    -> 授权决定持久化(见 06)

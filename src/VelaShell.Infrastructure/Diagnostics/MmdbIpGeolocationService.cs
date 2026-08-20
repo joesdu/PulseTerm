@@ -6,7 +6,7 @@ using VelaShell.Core.Diagnostics;
 namespace VelaShell.Infrastructure.Diagnostics;
 
 /// <summary>
-/// 基于本地 MMDB 文件的离线 IP 归属地查询。默认找 <c>%LocalAppData%/VelaShell/geoip/</c> 下的
+/// 基于本地 MMDB 文件的离线 IP 归属地查询。默认找 <c>~/.velashell/geoip/</c> 下的
 /// 第一个 .mmdb;设置里可以指定绝对路径。文件缺失时整个功能静默降级(<see cref="IsAvailable" />
 /// 为 false),追踪照常工作,只是没有地图落点。
 /// </summary>

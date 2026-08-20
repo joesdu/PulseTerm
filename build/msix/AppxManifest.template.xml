@@ -15,9 +15,8 @@
     runFullTrust                — 桌面(Win32/Avalonia)应用的必备受限能力,商店自动批准。
     internetClient              — SSH/SFTP 出站连接、检查 GitHub 上的资源。
     privateNetworkClientServer  — 连内网主机(家庭/公司网段)所必需。
-  刻意不声明 unvirtualizedResources:它虽能关掉 AppData 写入虚拟化、让商店版与便携版共用
-  %LocalAppData%\VelaShell 数据目录,但微软限定该受限能力"仅供微软及合作伙伴发布的特定
-  PC 游戏使用",第三方应用申请基本不会过审。因此商店版的数据落在包私有目录,与便携版相互独立。
+  刻意不声明 unvirtualizedResources:应用数据根已经统一为用户主目录下的 ~/.velashell，
+  不再依赖 %LocalAppData%\VelaShell 的写入或 AppData 虚拟化开关。
 -->
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"

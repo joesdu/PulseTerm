@@ -86,7 +86,7 @@
 
 ## 3. 持久化与管理
 
-`<AppData>/VelaShell/plugins/permissions.json`:
+`~/.velashell/plugins/permissions.json`:
 
 ```jsonc
 { "version": 1,

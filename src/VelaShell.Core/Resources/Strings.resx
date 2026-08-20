@@ -3480,7 +3480,7 @@ Overwrite it?</value>
     <value>No hop can be placed on the map yet.</value>
   </data>
   <data name="Trace_MapNeedsDatabase" xml:space="preserve">
-    <value>No offline IP location database found. Put a .mmdb file in %LocalAppData%/VelaShell/geoip/ or set its path in Settings. Tracing works without it — only the map stays empty.</value>
+    <value>No offline IP location database found. Put a .mmdb file in ~/.velashell/geoip/ or set its path in Settings. Tracing works without it — only the map stays empty.</value>
   </data>
   <data name="Trace_LocationHint" xml:space="preserve">
     <value>Inferred from IP registration data. Backbone routers are often registered to the operator's address rather than where the device physically sits, so intermediate hops are approximate.</value>

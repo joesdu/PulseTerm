@@ -3479,7 +3479,7 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
     <value>地図に配置できるホップはまだありません。</value>
   </data>
   <data name="Trace_MapNeedsDatabase" xml:space="preserve">
-    <value>オフライン IP 位置データベースが見つかりません。.mmdb を %LocalAppData%/VelaShell/geoip/ に置くか、設定でパスを指定してください。無くてもトレースは動作し、地図が空になるだけです。</value>
+    <value>オフライン IP 位置データベースが見つかりません。.mmdb を ~/.velashell/geoip/ に置くか、設定でパスを指定してください。無くてもトレースは動作し、地図が空になるだけです。</value>
   </data>
   <data name="Trace_LocationHint" xml:space="preserve">
     <value>IP 登録情報からの推定です。バックボーンルーターは事業者の登録住所で登録されていることが多く、中間ホップの位置は目安です。</value>

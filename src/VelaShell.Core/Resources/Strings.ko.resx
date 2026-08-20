@@ -3479,7 +3479,7 @@ Windows는 exe 전체 경로 또는 명령 이름(예: notepad), Linux는 명령
     <value>아직 지도에 표시할 홉이 없습니다.</value>
   </data>
   <data name="Trace_MapNeedsDatabase" xml:space="preserve">
-    <value>오프라인 IP 위치 데이터베이스를 찾을 수 없습니다. .mmdb 파일을 %LocalAppData%/VelaShell/geoip/에 두거나 설정에서 경로를 지정하세요. 없어도 추적은 동작하며 지도만 비어 있습니다.</value>
+    <value>오프라인 IP 위치 데이터베이스를 찾을 수 없습니다. .mmdb 파일을 ~/.velashell/geoip/에 두거나 설정에서 경로를 지정하세요. 없어도 추적은 동작하며 지도만 비어 있습니다.</value>
   </data>
   <data name="Trace_LocationHint" xml:space="preserve">
     <value>IP 등록 정보를 기반으로 추정합니다. 백본 라우터는 장비의 실제 위치가 아닌 사업자 등록 주소로 등록된 경우가 많아 중간 홉은 참고용입니다.</value>

@@ -3571,7 +3571,7 @@ Windows 填 exe 完整路径或命令名(如 notepad);Linux 填命令名(如 ged
     <value>还没有可以落到地图上的跃点。</value>
   </data>
   <data name="Trace_MapNeedsDatabase" xml:space="preserve">
-    <value>未找到离线 IP 归属地数据库。把 .mmdb 放到 %LocalAppData%/VelaShell/geoip/,或在设置里指定路径。没有它追踪照常工作,只是地图为空。</value>
+    <value>未找到离线 IP 归属地数据库。把 .mmdb 放到 ~/.velashell/geoip/,或在设置里指定路径。没有它追踪照常工作,只是地图为空。</value>
   </data>
   <data name="Trace_LocationHint" xml:space="preserve">
     <value>依据 IP 段登记信息推断。骨干路由器登记的常是运营商注册地址而非设备实际位置,中间跳仅供参考。</value>

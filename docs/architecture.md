@@ -136,7 +136,7 @@ The text menu bar (会话/编辑/…) was removed in favor of the command palett
 
 All persistence goes through **SonnetDB** (https://github.com/IoTSharp/SonnetDB), used as an
 **embedded** multi-model database (`SonnetDB.Core`, opened via `Tsdb.Open` under
-`%LocalAppData%/VelaShell/sonnetdb`). Legacy JSON files (`sessions.json`, `settings.json`,
+`~/.velashell/sonnetdb`). Legacy JSON files (`sessions.json`, `settings.json`,
 `state.json`, `known_hosts.json`, `quick-commands.json`) are imported once on first run.
 
 - **Document collections** (JSON documents) hold business/config data:

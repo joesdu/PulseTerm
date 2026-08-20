@@ -144,8 +144,7 @@ That one package brings everything a plugin project needs: the `VelaShell.Plugin
 **Method 2: Place the directory directly**. Put the build output (entry DLL + deps.json + bundled dependencies + plugin.json) in:
 
 ```text
-%LocalAppData%\VelaShell\plugins\<plugin id>\        (Windows)
-~/.local/share/VelaShell/plugins/<plugin id>/        (Linux/macOS, based on the host data root)
+~/.velashell/plugins/<plugin id>/                    (Windows/Linux/macOS)
 ```
 
 Restart VelaShell to load it. Again: do not put `VelaShell.PluginSdk.dll` or `Avalonia*.dll` there (the loader forcibly shares its own copies; adding them only increases the package size).
@@ -480,7 +479,7 @@ Test doubles: `CollectingLogger`, `InMemoryStorage`, `FakeSessions`, `FakeRemote
 | Item | Location/Method |
 | --- | --- |
 | Built-in application plugins | `<application directory>/plugins/<id with dots replaced by hyphens>/` (for example, `plugins/velashell-ai/`; see §2.1) |
-| User-installed plugins | `<data root>/plugins/<id>/` (on Windows, `%LocalAppData%\VelaShell\plugins\`; this is outside the `.app` and does not participate in signing, so the directory is still named by id) |
+| Manually installed plugins | `~/.velashell/plugins/<id>/` (this is outside the `.app` and does not participate in signing, so the directory is still named by id) |
 | Plugin data | KV/secrets in the host's SonnetDB (`plugin_data` collection); files in `<data root>/plugin-data/<id>/` |
 | Uninstallation cleanup | Remove the plugin directory from `plugins/` → the next startup automatically clears its database data and data directory as a whole (`.disabled` only disables it and retains data) |
 | Disable one plugin | Place an empty `.disabled` file in the plugin directory |

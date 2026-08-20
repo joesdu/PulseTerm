@@ -1,14 +1,16 @@
+using VelaShell.Infrastructure.Persistence;
+
 namespace VelaShell.Services;
 
 /// <summary>
 /// 会话日志(设置 → 常规 → 数据与存储):开启后把每个会话的原始终端输出追加写入
-/// %LocalAppData%\VelaShell\logs\session-*.log(含 ANSI 序列,同 script(1) 的产物);
+/// ~/.velashell/logs/session-*.log(含 ANSI 序列,同 script(1) 的产物);
 /// 启动时按“日志保留天数”清理过期文件。
 /// </summary>
 public static class SessionLogService
 {
-    /// <summary>会话日志目录:%LocalAppData%\VelaShell\logs。</summary>
-    public static string LogDirectory => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "VelaShell", "logs");
+    /// <summary>会话日志目录:~/.velashell/logs。</summary>
+    public static string LogDirectory => Path.Combine(new VelaShellStoragePaths().RootDirectory, "logs");
 
     /// <summary>为一个会话开启日志;返回 null 表示无法创建日志文件(不影响会话)。</summary>
     public static SessionLogWriter? CreateWriter(string sessionName)

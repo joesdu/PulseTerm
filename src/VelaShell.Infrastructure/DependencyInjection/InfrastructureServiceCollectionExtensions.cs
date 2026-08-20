@@ -56,7 +56,7 @@ public static class InfrastructureServiceCollectionExtensions
         {
             VelaShellStoragePaths paths = sp.GetRequiredService<VelaShellStoragePaths>();
             return new SonnetDbSettingsService(sp.GetRequiredService<SonnetDbEngine>(),
-                [paths.RootDirectory, paths.LegacyDotDirectory]);
+                [paths.RootDirectory]);
         });
         // 会话一键迁移:各来源(Xshell / WinSCP)解析 + 还原密码 + 写入会话仓储。
         // 同时以 ISessionImportService 集合注册 —— 导入对话框打开即遍历全部来源自动扫描,
@@ -71,7 +71,7 @@ public static class InfrastructureServiceCollectionExtensions
         {
             VelaShellStoragePaths paths = sp.GetRequiredService<VelaShellStoragePaths>();
             return new SonnetDbHostKeyService(sp.GetRequiredService<SonnetDbEngine>(),
-                Path.Combine(paths.LegacyDotDirectory, "known_hosts.json"));
+                Path.Combine(paths.RootDirectory, "known_hosts.json"));
         });
         services.AddSingleton<IRecentConnectionService, SonnetDbRecentConnectionService>();
         services.AddSingleton<IAuditLogService, SonnetDbAuditLogService>();
