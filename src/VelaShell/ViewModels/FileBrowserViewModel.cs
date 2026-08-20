@@ -291,7 +291,8 @@ public class FileBrowserViewModel : ReactiveObject
     /// <summary>
     /// 「跟随终端目录」(map-pin 按钮):开启时,本会话终端 shell 的 cwd 变化(经 OSC 7)会自动把文件浏览器
     /// 切到该目录。开启当下立即同步到终端当前目录;关闭则不同步。手动切换目录不影响开关——终端下次 cd 到
-    /// 新目录时再同步到最新。仅在 shell 发出 OSC 7 时有效(VelaShell 注入的 bash 提示符脚本会发)。
+    /// 新目录时再同步到最新。依赖 shell 发出 OSC 7;SSH bash 会话会自动安装上报钩子,
+    /// 其他 shell 可在自己的提示符钩子中发送 OSC 7。
     /// </summary>
     public bool FollowTerminal
     {

@@ -46,6 +46,20 @@ namespace VelaShell.ViewModels;
 /// </summary>
 public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.ITerminalResolver
 {
+    /// <summary>
+    /// bash 提示符目录上报钩子(内置、静默注入):每次提示符出现时发送 OSC 7,
+    /// 供 SFTP 文件浏览器的「跟随终端目录」功能读取当前工作目录。
+    /// </summary>
+    /// <remarks>
+    /// bash 代码放在单引号包裹的 eval 参数里,避免 fish 等 shell 预解析函数体时报错;
+    /// 外层守卫让非 bash shell 不执行。只追加 PROMPT_COMMAND,不覆盖用户已有的
+    /// starship/direnv/atuin 等钩子,并在重连时按函数名去重。
+    /// </remarks>
+    private const string WorkingDirectoryReportHook =
+        """
+        test -n "$BASH_VERSION" && eval 'vela_shell_osc7() { printf "\033]7;file://%s%s\033\\\\" "$HOSTNAME" "$PWD"; }; case ";$PROMPT_COMMAND;" in *";vela_shell_osc7;"*) ;; *) PROMPT_COMMAND="${PROMPT_COMMAND:+$PROMPT_COMMAND;}vela_shell_osc7";; esac'; printf "\r\033[2K"
+        """;
+
     /// <summary>RIS(ESC c)完全重置序列:重开会话前清掉旧进程的残留缓冲。</summary>
     private static readonly byte[] RisResetSequence = [0x1B, (byte)'c']; // ESC c
 
@@ -2284,22 +2298,20 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
     }
 
     /// <summary>
-    /// 连接成功后静默注入用户配置的"连接后执行命令"(设置 → 终端 → 会话),
-    /// 经回显抑制不在终端显示;未配置则什么都不发。PTY 输入由内核缓冲,
-    /// shell 就绪后才会读取,无需等待提示符。
+    /// 连接成功后静默注入目录上报钩子,并追加用户配置的"连接后执行命令"
+    /// (设置 → 终端 → 会话)。PTY 输入由内核缓冲,shell 就绪后才会读取,
+    /// 无需等待提示符。
     /// </summary>
-    // 这里曾额外内置一段 bash 提示符补行脚本(prompt_nl + OSC 7 上报 cwd)。
-    // 它只在 bash 下生效,其余 shell(fish/dash/tcsh 等)要么静默无效、要么把命令原文糊在屏幕上,
-    // 收益覆盖不到大多数会话,故整体撤除:需要补行或「文件浏览器跟随终端目录」的用户
-    // 自行把脚本写进"连接后执行命令"或远端 rc 文件即可。
     private static void SendStartupCommand(TerminalTabViewModel tab, AppSettings settings)
     {
-        string user = settings.TerminalBehavior.StartupCommand.Trim();
-        if (user.Length == 0)
-        {
-            return;
-        }
-        tab.SendSilentCommand(user);
+        tab.SendSilentCommand(BuildStartupCommand(settings.TerminalBehavior.StartupCommand));
+    }
+
+    /// <summary>组合内置目录上报钩子与用户启动命令;保持一次注入以共用同一个回显抑制窗口。</summary>
+    internal static string BuildStartupCommand(string? userCommand)
+    {
+        string user = userCommand?.Trim() ?? string.Empty;
+        return user.Length == 0 ? WorkingDirectoryReportHook : WorkingDirectoryReportHook + "; " + user;
     }
 
     /// <summary>
