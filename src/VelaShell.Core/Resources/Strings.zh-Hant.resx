@@ -2337,6 +2337,12 @@
   <data name="SetTerm_LineHeightDesc" xml:space="preserve">
     <value>// 行距倍數,預設為 1.0</value>
   </data>
+  <data name="SetTerm_Padding" xml:space="preserve">
+    <value>內邊距</value>
+  </data>
+  <data name="SetTerm_PaddingDesc" xml:space="preserve">
+    <value>// 終端內文四周的留白像素,0 為預設</value>
+  </data>
   <data name="SetTerm_AutoOpenSftp" xml:space="preserve">
     <value>連線後自動開啟檔案瀏覽器</value>
   </data>

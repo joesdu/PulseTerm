@@ -3641,6 +3641,7 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
         control.BackgroundOpacity = backgroundImageActive ? 0.0 : 1.0;
         TerminalBehaviorOptions behavior = settings.TerminalBehavior;
         control.LineHeight = behavior.LineHeight;
+        control.ContentPadding = behavior.Padding;
         control.CursorStyle = behavior.CursorStyle;
         control.CursorBlink = behavior.CursorBlink;
         control.BellMode = behavior.BellMode;

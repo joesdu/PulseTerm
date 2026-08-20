@@ -441,6 +441,17 @@ public class TerminalBehaviorOptions : ObservableOptions
     } = 1.0;
 
     /// <summary>
+    /// 终端正文四周的内边距(px,0 = 历史行为)。留白从可用宽高中扣除后再算列/行数,
+    /// 因此加大内边距会相应减少可显示的列与行。右侧另有一条固定的滚动条留白带
+    /// (<c>VelaTerminalControl.DefaultRightPadding</c>),本项在其之外叠加。
+    /// </summary>
+    public double Padding
+    {
+        get;
+        set => Set(ref field, value);
+    }
+
+    /// <summary>
     /// 新连接的远程会话是否自动打开 SFTP 文件浏览器。只决定标签首次连接时面板的
     /// 初始状态,保存后即对之后的新连接生效;每个标签此后的开/关由用户在该标签上
     /// 的操作各自记忆,互不影响。面板不显示时不做任何 SFTP 拉取(文件列表、

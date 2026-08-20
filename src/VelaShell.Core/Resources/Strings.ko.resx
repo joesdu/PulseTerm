@@ -2337,6 +2337,12 @@
   <data name="SetTerm_LineHeightDesc" xml:space="preserve">
     <value>// 줄 간격 배율, 기본값 1.0</value>
   </data>
+  <data name="SetTerm_Padding" xml:space="preserve">
+    <value>안쪽 여백</value>
+  </data>
+  <data name="SetTerm_PaddingDesc" xml:space="preserve">
+    <value>// 터미널 본문 주위의 여백(픽셀). 기본값은 0</value>
+  </data>
   <data name="SetTerm_AutoOpenSftp" xml:space="preserve">
     <value>연결 시 파일 브라우저 자동 열기</value>
   </data>
