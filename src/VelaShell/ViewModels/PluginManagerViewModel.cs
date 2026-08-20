@@ -175,8 +175,8 @@ public sealed class PluginManagerViewModel : ReactiveObject, IDisposable
         _manager.InspectPackageTrust(vpxPath);
 
     /// <summary>把已由用户核对的签名发布者加入本机信任库。</summary>
-    public string TrustPackagePublisher(string vpxPath) =>
-        _manager.TrustPackagePublisher(vpxPath);
+    public Task<string> TrustPackagePublisherAsync(string vpxPath) =>
+        _manager.TrustPackagePublisherAsync(vpxPath);
 
     /// <summary>从 .vpx 文件安装。未知来源只能由界面明确确认后单次放行。</summary>
     public async Task InstallFromVpxAsync(string vpxPath, bool allowUntrustedPackage = false)

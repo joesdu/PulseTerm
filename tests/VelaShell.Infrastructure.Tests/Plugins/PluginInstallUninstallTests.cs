@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using System.Security.Cryptography;
+using VelaShell.Infrastructure.Persistence;
 using VelaShell.Infrastructure.Plugins;
 using VelaShell.Plugin.HelloWorld;
 using VelaShell.PluginSdk.Packaging;
@@ -56,12 +57,12 @@ public class PluginInstallUninstallTests
         }
     }
 
-    private PluginManager CreateManager(string? trustedPublisherStorePath = null) => new(new()
+    private PluginManager CreateManager(PluginTrustRepository? trustRepository = null) => new(new()
     {
         PluginRoots = [_appRoot, _userRoot],
         DataRootDirectory = _dataRoot,
         UserPluginRoot = _userRoot,
-        TrustedPublisherStorePath = trustedPublisherStorePath,
+        TrustRepository = trustRepository,
         HostVersion = "1.0.0",
         CommandsFactory = (_, _) => new RecordingCommands(),
         DataStore = _dataStore
@@ -192,28 +193,70 @@ public class PluginInstallUninstallTests
     [TestMethod]
     public async Task TrustPublisher_PersistsKey_AndFuturePackagesInstallWithoutBypass()
     {
-        string trustStore = Path.Combine(_dataRoot, "trusted-publishers.json");
+        using var engine = new SonnetDbEngine(Path.Combine(_dataRoot, "trust-db"));
+        var repository = new PluginTrustRepository(engine, new TestSecretProtector());
         using var publisher = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         string first = BuildSignedVpx(publisher, "acme.signed-one");
 
-        PluginManager manager = CreateManager(trustStore);
+        PluginManager manager = CreateManager(repository);
         await manager.StartAsync();
         PluginPackageTrustInfo before = manager.InspectPackageTrust(first);
         Assert.AreEqual(VpxSignatureState.Untrusted, before.State);
         Assert.StartsWith("SHA256:", before.PublisherFingerprint);
 
-        string fingerprint = manager.TrustPackagePublisher(first);
+        string fingerprint = await manager.TrustPackagePublisherAsync(first);
         Assert.AreEqual(before.PublisherFingerprint, fingerprint);
         Assert.AreEqual(VpxSignatureState.Trusted, manager.InspectPackageSignature(first));
         await manager.InstallFromVpxAsync(first);
         await manager.DisposeAsync();
 
         string second = BuildSignedVpx(publisher, "acme.signed-two");
-        PluginManager restarted = CreateManager(trustStore);
-        Assert.AreEqual(VpxSignatureState.Trusted, restarted.InspectPackageSignature(second));
+        PluginManager restarted = CreateManager(repository);
         await restarted.StartAsync();
+        Assert.AreEqual(VpxSignatureState.Trusted, restarted.InspectPackageSignature(second));
         await restarted.InstallFromVpxAsync(second);
         Assert.Contains(p => p.Id == "acme.signed-two", restarted.Plugins);
+        await restarted.DisposeAsync();
+    }
+
+    [TestMethod]
+    public async Task Restart_ModifiedInstalledPlugin_IsRejectedByProtectedReceipt()
+    {
+        using var engine = new SonnetDbEngine(Path.Combine(_dataRoot, "receipt-db"));
+        var repository = new PluginTrustRepository(engine, new TestSecretProtector());
+        PluginManager manager = CreateManager(repository);
+        await manager.StartAsync();
+        const string id = "acme.receipt-tamper";
+        await manager.InstallFromVpxAsync(BuildVpx(id), allowUntrustedPackage: true);
+        await manager.DisposeAsync();
+
+        await File.AppendAllTextAsync(Path.Combine(_userRoot, id, "plugin.json"), " ");
+        PluginManager restarted = CreateManager(repository);
+        await restarted.StartAsync();
+
+        PluginDescriptor descriptor = Assert.ContainsSingle(plugin => plugin.Id == id, restarted.Plugins);
+        Assert.AreEqual(PluginState.Invalid, descriptor.State);
+        Assert.Contains("changed after installation", descriptor.Error);
+        await restarted.DisposeAsync();
+    }
+
+    [TestMethod]
+    public async Task Restart_DirectlyDroppedPlugin_IsRejectedWhenReceiptIsMissing()
+    {
+        using var engine = new SonnetDbEngine(Path.Combine(_dataRoot, "direct-drop-db"));
+        var repository = new PluginTrustRepository(engine, new TestSecretProtector());
+        PluginManager firstRun = CreateManager(repository);
+        await firstRun.StartAsync(); // 完成一次空目录迁移；此后不再自动收养新目录。
+        await firstRun.DisposeAsync();
+
+        const string id = "acme.direct-drop";
+        Directory.Move(StagePlugin(id), Path.Combine(_userRoot, id));
+        PluginManager restarted = CreateManager(repository);
+        await restarted.StartAsync();
+
+        PluginDescriptor descriptor = Assert.ContainsSingle(plugin => plugin.Id == id, restarted.Plugins);
+        Assert.AreEqual(PluginState.Invalid, descriptor.State);
+        Assert.Contains("receipt is missing", descriptor.Error);
         await restarted.DisposeAsync();
     }
 

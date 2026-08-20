@@ -162,7 +162,7 @@ public partial class PluginManagerWindow : Window
                 }
                 try
                 {
-                    vm.TrustPackagePublisher(path);
+                    await vm.TrustPackagePublisherAsync(path);
                 }
                 catch (Exception ex)
                 {

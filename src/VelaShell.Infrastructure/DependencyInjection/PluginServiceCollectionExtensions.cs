@@ -27,6 +27,14 @@ public static class PluginServiceCollectionExtensions
         services.AddSingleton<Plugins.IPluginDataStore>(sp => new Persistence.SonnetDbPluginDataStore(
             sp.GetRequiredService<Persistence.SonnetDbEngine>(),
             sp.GetService<Core.Data.ISecretProtector>()));
+        services.AddSingleton(sp =>
+        {
+            VelaShellStoragePaths paths = sp.GetRequiredService<VelaShellStoragePaths>();
+            return new PluginTrustRepository(
+                sp.GetRequiredService<SonnetDbEngine>(),
+                sp.GetRequiredService<Core.Data.ISecretProtector>(),
+                Path.Combine(paths.RootDirectory, "trusted-plugin-publishers.json"));
+        });
         services.AddSingleton<PluginManager>(sp =>
         {
             VelaShellStoragePaths paths = sp.GetRequiredService<VelaShellStoragePaths>();
@@ -43,7 +51,7 @@ public static class PluginServiceCollectionExtensions
                 DebugPluginIds = DevPluginRootResolver.ResolveDebugPluginIds(),
                 DataRootDirectory = Path.Combine(paths.RootDirectory, "plugin-data"),
                 UserPluginRoot = Path.Combine(paths.RootDirectory, "plugins"),
-                TrustedPublisherStorePath = Path.Combine(paths.RootDirectory, "trusted-plugin-publishers.json"),
+                TrustRepository = sp.GetRequiredService<PluginTrustRepository>(),
                 HostVersion = hostVersion,
                 Connections = sp.GetService<ISshConnectionService>(),
                 Sftp = sp.GetService<ISftpService>(),

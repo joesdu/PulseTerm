@@ -85,7 +85,7 @@ internal static class Program
         Console.WriteLine($"Packed {manifest.Id} v{manifest.Version}");
         Console.WriteLine($"  -> {output}");
         Console.WriteLine($"     payload {info.PayloadLength} bytes, sha256 {info.PayloadSha256}");
-        Console.WriteLine($"     {(info.Signature is null ? "unsigned" : "signed by " + Shorten(info.Signature.PublicKey))}");
+        Console.WriteLine($"     {(info.Signature is null ? "unsigned" : "signed by " + VpxContainer.PublicKeyFingerprint(info.Signature.PublicKey))}");
         return 0;
     }
 
@@ -122,8 +122,9 @@ internal static class Program
         Console.WriteLine($"  flags      {info.Flags}");
         Console.WriteLine($"  payload    {info.PayloadLength} bytes");
         Console.WriteLine($"  sha256     {info.PayloadSha256}");
-        Console.WriteLine($"  signature  {VpxContainer.VerifySignature(info)}"
-                          + (info.Signature is { } s ? $" ({Shorten(s.PublicKey)})" : ""));
+        VpxSignatureState signature = VpxContainer.VerifySignature(info);
+        Console.WriteLine($"  signature  {(signature == VpxSignatureState.Trusted ? "Valid" : signature.ToString())}"
+                          + (info.Signature is { } s ? $" ({VpxContainer.PublicKeyFingerprint(s.PublicKey)})" : ""));
         // 顺带把清单读出来:光有摘要看不出这是哪个插件。
         using Stream payload = VpxContainer.OpenPayload(package);
         using var archive = new ZipArchive(payload, ZipArchiveMode.Read);
@@ -147,7 +148,7 @@ internal static class Program
         using Stream payload = VpxContainer.OpenPayload(package);
         using var archive = new ZipArchive(payload, ZipArchiveMode.Read);
         Directory.CreateDirectory(destination);
-        archive.ExtractToDirectory(destination, overwriteFiles: true);
+        ExtractZipSafely(archive, destination);
         Console.WriteLine($"Unpacked to {destination}");
         return 0;
     }
@@ -163,9 +164,27 @@ internal static class Program
                                    "and packages signed with it can no longer be updated under the same identity).");
         }
         using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        File.WriteAllText(path, key.ExportPkcs8PrivateKeyPem());
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        if (OperatingSystem.IsWindows())
+        {
+            File.WriteAllText(path, key.ExportPkcs8PrivateKeyPem());
+        }
+        else
+        {
+            using var stream = new FileStream(path, new FileStreamOptions
+            {
+                Mode = FileMode.Create,
+                Access = FileAccess.Write,
+                Share = FileShare.None,
+                UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite
+            });
+            using var writer = new StreamWriter(stream);
+            writer.Write(key.ExportPkcs8PrivateKeyPem());
+        }
+        string publicKey = Convert.ToBase64String(key.ExportSubjectPublicKeyInfo());
         Console.WriteLine($"Private key written to {path}  (keep it secret, keep it backed up)");
-        Console.WriteLine($"Public key (base64 SPKI): {Convert.ToBase64String(key.ExportSubjectPublicKeyInfo())}");
+        Console.WriteLine($"Public key (base64 SPKI): {publicKey}");
+        Console.WriteLine($"Fingerprint: {VpxContainer.PublicKeyFingerprint(publicKey)}");
         return 0;
     }
 
@@ -192,7 +211,7 @@ internal static class Program
             VpxContainer.Write(destination, source, new() { SigningKey = key });
         }
         Console.WriteLine($"Signed {output}");
-        Console.WriteLine($"  public key: {Convert.ToBase64String(key.ExportSubjectPublicKeyInfo())}");
+        Console.WriteLine($"  fingerprint: {VpxContainer.PublicKeyFingerprint(Convert.ToBase64String(key.ExportSubjectPublicKeyInfo()))}");
         return 0;
     }
 
@@ -206,38 +225,20 @@ internal static class Program
         using (Stream _ = VpxContainer.OpenPayload(package, out info))
         {
         }
-        string[] trusted = options.Get("--key", "-k") is { } key ? [key] : [];
-        VpxSignatureState state = VpxContainer.VerifySignature(info, trusted);
+        string? expectedKey = options.Get("--key", "-k");
+        VpxSignatureState state = expectedKey is null
+            ? VpxContainer.VerifySignature(info)
+            : VpxContainer.VerifySignature(info, [expectedKey]);
         Console.WriteLine($"payload  OK ({info.PayloadLength} bytes, sha256 {info.PayloadSha256})");
-        Console.WriteLine($"signature {state}");
+        Console.WriteLine($"signature {(expectedKey is null && state == VpxSignatureState.Trusted ? "Valid (publisher identity not checked)" : state.ToString())}");
         return state is VpxSignatureState.Invalid or VpxSignatureState.Untrusted ? 1 : 0;
     }
 
-    /// <summary>把 .vpx 装进本机 VelaShell 的用户插件目录(下次启动生效)。</summary>
+    /// <summary>安装必须由宿主完成，确保签名授权和受保护安装收据不可绕过。</summary>
     private static int Install(string[] args)
     {
-        string package = RequirePackagePath(args);
-        using Stream payload = VpxContainer.OpenPayload(package);
-        using var archive = new ZipArchive(payload, ZipArchiveMode.Read);
-        if (archive.GetEntry(PluginManifestReader.FileName) is not { } entry)
-        {
-            throw new CliException("The package has no plugin.json at its root.");
-        }
-        PluginManifest manifest;
-        using (StreamReader reader = new(entry.Open()))
-        {
-            manifest = PluginManifestReader.Parse(reader.ReadToEnd());
-        }
-        string target = Path.Combine(UserPluginRoot, manifest.Id);
-        if (Directory.Exists(target))
-        {
-            Directory.Delete(target, recursive: true);
-        }
-        Directory.CreateDirectory(target);
-        archive.ExtractToDirectory(target, overwriteFiles: true);
-        Console.WriteLine($"Installed {manifest.Id} v{manifest.Version} to {target}");
-        Console.WriteLine("Restart VelaShell (or use the plugin manager page) to load it.");
-        return 0;
+        _ = RequirePackagePath(args);
+        throw new CliException("Direct CLI installation is disabled because it would bypass publisher approval and the protected installation receipt. Install the package from VelaShell's plugin manager; use `dev-link` only for development builds.");
     }
 
     /// <summary>把一个插件输出目录登记进 / 移出 plugins.dev.txt(开发期挂载)。</summary>
@@ -299,8 +300,6 @@ internal static class Program
     private static string DataRoot => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "VelaShell");
 
-    private static string UserPluginRoot => Path.Combine(DataRoot, "plugins");
-
     private static PluginManifest LoadManifest(string directory)
     {
         string manifestPath = Path.Combine(directory, PluginManifestReader.FileName);
@@ -352,7 +351,52 @@ internal static class Program
         return key;
     }
 
-    private static string Shorten(string value) => value.Length <= 24 ? value : value[..12] + "..." + value[^8..];
+    private const int MaxUnpackEntries = 10_000;
+    private const long MaxUnpackedBytes = 512L * 1024 * 1024;
+
+    private static void ExtractZipSafely(ZipArchive archive, string destination)
+    {
+        if (archive.Entries.Count > MaxUnpackEntries)
+        {
+            throw new CliException($"Package contains too many entries ({archive.Entries.Count}; limit {MaxUnpackEntries}).");
+        }
+        string root = Path.GetFullPath(destination + Path.DirectorySeparatorChar);
+        StringComparison pathComparison = OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+        long remaining = MaxUnpackedBytes;
+        byte[] buffer = new byte[64 * 1024];
+        foreach (ZipArchiveEntry entry in archive.Entries)
+        {
+            if (((entry.ExternalAttributes >> 16) & 0xF000) == 0xA000)
+            {
+                throw new CliException($"Package contains a symbolic link: {entry.FullName}");
+            }
+            string target = Path.GetFullPath(Path.Combine(destination, entry.FullName));
+            if (!target.StartsWith(root, pathComparison))
+            {
+                throw new CliException($"Package entry escapes the destination: {entry.FullName}");
+            }
+            if (entry.FullName.EndsWith('/') || entry.FullName.EndsWith('\\'))
+            {
+                Directory.CreateDirectory(target);
+                continue;
+            }
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            using Stream source = entry.Open();
+            using FileStream output = File.Create(target);
+            int read;
+            while ((read = source.Read(buffer)) > 0)
+            {
+                remaining -= read;
+                if (remaining < 0)
+                {
+                    throw new CliException($"Package expands beyond the {MaxUnpackedBytes / (1024 * 1024)} MB limit.");
+                }
+                output.Write(buffer, 0, read);
+            }
+        }
+    }
 
     private static void Error(string message) => Console.Error.WriteLine($"error: {message}");
 
@@ -381,7 +425,7 @@ internal static class Program
           keygen                Create a P-256 signing key pair
               -o, --output      Key file path (default: velashell-plugin-key.pem)
                   --force       Overwrite an existing key file
-          install <pkg.vpx>     Unpack into this machine's VelaShell plugin folder
+          install <pkg.vpx>     Disabled: install through VelaShell to record trust securely
           dev-link [dir]        Register a plugin output directory for development
           dev-unlink [dir]      Remove such a registration
 
