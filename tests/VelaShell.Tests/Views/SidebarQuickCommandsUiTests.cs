@@ -445,6 +445,45 @@ public class SidebarQuickCommandsUiTests
         });
     }
 
+    /// <summary>
+    /// 区域标题的折叠按钮与同排图标按钮必须等高(#228)。两者都会画悬停药丸,高度一旦
+    /// 不同,鼠标在标题栏上横向滑过时药丸忽高忽低 —— 报告里正是这个观感。
+    /// </summary>
+    [TestMethod]
+    public void SectionToggleButtons_MatchIconButtonHeight()
+    {
+        OnUi(() =>
+        {
+            IQuickCommandRepository repository = Substitute.For<IQuickCommandRepository>();
+            var runner = new QuickCommandRunnerViewModel(new QuickCommandsViewModel(repository));
+            var viewModel = new SidebarViewModel(quickCommands: runner)
+            {
+                IsQuickCommandsVisible = true,
+            };
+            var view = new SidebarView { DataContext = viewModel };
+            var window = new Window
+            {
+                Width = 280,
+                Height = 700,
+                Content = view,
+            };
+            window.Show();
+            Relayout(window);
+
+            Button clear = view.FindControl<Button>("RecentConnectionsClear")!;
+            Button refresh = view.FindControl<Button>("RecentConnectionsRefresh")!;
+            Button recentToggle = view.FindControl<Button>("RecentConnectionsToggle")!;
+            Button quickToggle = view.FindControl<Button>("QuickCommandsToggle")!;
+
+            double iconHeight = clear.Bounds.Height;
+            Assert.IsGreaterThan(0, iconHeight);
+            Assert.AreEqual(iconHeight, refresh.Bounds.Height);
+            Assert.AreEqual(iconHeight, recentToggle.Bounds.Height, "折叠按钮不应比图标按钮高。");
+            Assert.AreEqual(iconHeight, quickToggle.Bounds.Height, "折叠按钮不应比图标按钮高。");
+            window.Close();
+        });
+    }
+
     private static void Relayout(Window window)
     {
         Dispatcher.UIThread.RunJobs();

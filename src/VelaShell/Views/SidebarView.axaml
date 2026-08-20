@@ -84,8 +84,11 @@
           <Grid RowDefinitions="36,*">
             <Border Grid.Row="0" BorderThickness="0,0,0,1"
                     BorderBrush="{DynamicResource VelaBorderPrimary}" Padding="8,0">
+              <!-- 高度锁 24px 并垂直居中:与同排的 24×24 图标按钮共用同一悬停药丸高度(#228)。
+                   不锁则按钮撑满 36px 行高,悬停时比旁边的图标按钮高出一截。 -->
               <Button x:Name="QuickCommandsToggle"
                       Background="Transparent" Padding="4,0" CornerRadius="3"
+                      Height="24" VerticalAlignment="Center" VerticalContentAlignment="Center"
                       HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                       Click="ToggleQuickCommands_Click" Cursor="Hand"
                       ToolTip.Tip="{loc:Localize Sidebar_ToggleSection}">
@@ -126,8 +129,11 @@
           <Border Grid.Row="0" BorderThickness="0,0,0,1"
                   BorderBrush="{DynamicResource VelaBorderPrimary}" Padding="8,0">
             <Grid ColumnDefinitions="Auto,6,*,Auto">
+              <!-- 同上(#228):锁 24px 高并居中;右侧留 4px,悬停药丸不至于贴住清除按钮。 -->
               <Button x:Name="RecentConnectionsToggle" Grid.Column="0" Grid.ColumnSpan="3"
                       Background="Transparent" Padding="4,0" CornerRadius="3"
+                      Height="24" VerticalAlignment="Center" VerticalContentAlignment="Center"
+                      Margin="0,0,4,0"
                       HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                       Click="ToggleRecentConnections_Click" Cursor="Hand"
                       ToolTip.Tip="{loc:Localize Sidebar_ToggleSection}">
