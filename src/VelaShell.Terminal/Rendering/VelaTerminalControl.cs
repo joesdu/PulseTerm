@@ -28,6 +28,9 @@ namespace VelaShell.Terminal.Rendering;
 /// </summary>
 public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
 {
+    private const int WheelScrollLines = 3;
+    private const int FastWheelScrollMultiplier = 5;
+
     private static readonly ImmutableSolidColorBrush BellFlashBrush = new(
         Color.FromArgb(0x30, 0xFF, 0xFF, 0xFF)
     );
@@ -2524,7 +2527,10 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     /// <summary>字体大小经 Ctrl+滚轮缩放改变时触发,便于宿主持久化。</summary>
     public event Action<double>? FontSizeChanged;
 
-    /// <summary>Ctrl+滚轮缩放字体;否则转发给应用鼠标追踪或滚动回滚区。</summary>
+    /// <summary>
+    /// Ctrl+滚轮缩放字体;否则转发给应用鼠标追踪或滚动回滚区。
+    /// 本地回滚区中按住 Alt 使用五倍步长快速滚动。
+    /// </summary>
     protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
     {
         base.OnPointerWheelChanged(e);
@@ -2557,7 +2563,10 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
                 return;
             }
         }
-        int delta = (int)(e.Delta.Y * 3);
+        int multiplier = e.KeyModifiers.HasFlag(KeyModifiers.Alt)
+            ? FastWheelScrollMultiplier
+            : 1;
+        int delta = (int)(e.Delta.Y * WheelScrollLines * multiplier);
         int maxOffset = Emulator.Screen.ScrollbackCount;
         _scrollOffset = Math.Clamp(_scrollOffset + delta, 0, maxOffset);
         InvalidateVisual();
