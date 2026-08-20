@@ -37,14 +37,19 @@ public sealed class PluginManagerOptions
     public string? UserPluginRoot { get; init; }
 
     /// <summary>
-    /// 受信的包签名公钥(Base64 SPKI)。为空表示不做来源判定 —— 此时任何**有效**签名都算受信,
-    /// 但签名对不上的包依然被拒(那是篡改,不是来源问题)。
+    /// 受信的包签名公钥(Base64 SPKI)。为空表示没有可信发布者;有效自签名包仍属于不受信来源,
+    /// 必须由安装入口取得用户的单次明确授权。
     /// </summary>
     public IReadOnlyCollection<string>? TrustedPackageKeys { get; init; }
 
     /// <summary>
-    /// 是否只安装带受信签名的包(默认否:第一方/自装插件场景信任即安装,见蓝图 10 的分期决策)。
-    /// 打开后未签名与不受信签名的包都会被拒。
+    /// 用户确认过的发布者公钥存储文件(JSON 字符串数组)。为空时信任仅保留在当前进程;
+    /// 文件只含公钥,不含任何私钥或凭据。
+    /// </summary>
+    public string? TrustedPublisherStorePath { get; init; }
+
+    /// <summary>
+    /// 是否只安装带受信签名的包。打开后未签名与不受信签名的包都会被拒,不能通过单次授权绕过。
     /// </summary>
     public bool RequireTrustedPackageSignature { get; init; }
 

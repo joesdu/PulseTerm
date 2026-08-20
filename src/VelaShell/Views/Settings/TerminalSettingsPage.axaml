@@ -129,6 +129,13 @@
       </StackPanel>
       <ToggleSwitch Grid.Column="1" IsChecked="{Binding TerminalBehavior.TabFlashAlert}" VerticalAlignment="Center" />
     </Grid>
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetTerm_RemoteClipboard}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetTerm_RemoteClipboardDesc}" />
+      </StackPanel>
+      <ToggleSwitch Grid.Column="1" IsChecked="{Binding TerminalBehavior.AllowRemoteClipboardWrite}" VerticalAlignment="Center" />
+    </Grid>
 
     <Border Classes="sep" />
 

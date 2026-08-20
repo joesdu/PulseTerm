@@ -1609,6 +1609,12 @@ Paste anyway?</value>
   <data name="Profile_TestSuccess" xml:space="preserve">
     <value>Connection test succeeded</value>
   </data>
+  <data name="Profile_CopyErrorTip" xml:space="preserve">
+    <value>Copy error message</value>
+  </data>
+  <data name="Profile_ErrorCopied" xml:space="preserve">
+    <value>Copied</value>
+  </data>
   <data name="Profile_Title" xml:space="preserve">
     <value>New Connection</value>
   </data>
@@ -3730,4 +3736,19 @@ Overwrite it?</value>
   <data name="Plugin_TestUnavailable" xml:space="preserve">
     <value>This connection type cannot be tested here. Use Connect — its plugin reports the real result on the panel.</value>
   </data>
+  <data name="SetTerm_RemoteClipboard" xml:space="preserve">
+    <value>Allow remote clipboard writes (OSC 52)</value>
+  </data>
+  <data name="SetTerm_RemoteClipboardDesc" xml:space="preserve">
+    <value>Off by default. Enable only for trusted hosts; terminal output can otherwise replace your local clipboard.</value>
+  </data>
+  <data name="PluginManager_UntrustedTitle" xml:space="preserve"><value>Untrusted plugin package</value></data>
+  <data name="PluginManager_UnsignedWarning" xml:space="preserve"><value>"{0}" is not signed. Plugins can execute code with your account permissions. Install only if you trust its source.</value></data>
+  <data name="PluginManager_UntrustedWarning" xml:space="preserve"><value>"{0}" has a valid signature, but its publisher is not trusted on this device. Verify this public-key fingerprint through the author's official channel before continuing:
+
+{1}
+
+Trusting it will also trust future packages signed by the same key. Plugins can execute code with your account permissions.</value></data>
+  <data name="PluginManager_InstallAnyway" xml:space="preserve"><value>Install anyway</value></data>
+  <data name="PluginManager_TrustAndInstall" xml:space="preserve"><value>Trust publisher and install</value></data>
 </root>

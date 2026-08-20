@@ -3644,6 +3644,7 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
         control.CursorStyle = behavior.CursorStyle;
         control.CursorBlink = behavior.CursorBlink;
         control.BellMode = behavior.BellMode;
+        control.AllowRemoteClipboardWrite = behavior.AllowRemoteClipboardWrite;
         control.ScrollOnOutput = behavior.ScrollOnOutput;
         control.ShowLineTimestamp = behavior.ShowLineTimestamp;
         control.ShowLineNumber = behavior.ShowLineNumber;

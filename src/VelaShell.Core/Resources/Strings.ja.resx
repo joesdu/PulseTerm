@@ -1475,6 +1475,12 @@
   <data name="Profile_TestSuccess" xml:space="preserve">
     <value>接続テストに成功しました</value>
   </data>
+  <data name="Profile_CopyErrorTip" xml:space="preserve">
+    <value>エラーメッセージをコピー</value>
+  </data>
+  <data name="Profile_ErrorCopied" xml:space="preserve">
+    <value>コピーしました</value>
+  </data>
   <data name="Profile_Title" xml:space="preserve">
     <value>新規接続</value>
   </data>
@@ -3729,4 +3735,19 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   <data name="Plugin_TestUnavailable" xml:space="preserve">
     <value>この接続タイプはここではテストできません。「接続」を押してください。プラグインがパネル上に実際の結果を表示します。</value>
   </data>
+  <data name="SetTerm_RemoteClipboard" xml:space="preserve">
+    <value>リモートからのクリップボード書き込みを許可（OSC 52）</value>
+  </data>
+  <data name="SetTerm_RemoteClipboardDesc" xml:space="preserve">
+    <value>既定では無効です。端末出力がローカルのクリップボードを書き換えられるため、信頼できるホストでのみ有効にしてください。</value>
+  </data>
+  <data name="PluginManager_UntrustedTitle" xml:space="preserve"><value>信頼されていないプラグイン</value></data>
+  <data name="PluginManager_UnsignedWarning" xml:space="preserve"><value>「{0}」は署名されていません。プラグインはユーザー権限でコードを実行できます。配布元を信頼できる場合のみインストールしてください。</value></data>
+  <data name="PluginManager_UntrustedWarning" xml:space="preserve"><value>「{0}」の署名は有効ですが、このデバイスでは発行元が信頼されていません。続行する前に、作者の公式サイトや GitHub など別の経路で公開鍵のフィンガープリントを確認してください：
+
+{1}
+
+信頼すると、同じ鍵で署名された今後のパッケージも信頼されます。プラグインはユーザー権限でコードを実行できます。</value></data>
+  <data name="PluginManager_InstallAnyway" xml:space="preserve"><value>続行してインストール</value></data>
+  <data name="PluginManager_TrustAndInstall" xml:space="preserve"><value>発行元を信頼してインストール</value></data>
 </root>

@@ -5,9 +5,11 @@ using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using NSubstitute;
 using ReactiveUI.Primitives;
 using VelaShell.Behaviors;
 using VelaShell.Core.Models;
+using VelaShell.Presentation.Services;
 using VelaShell.Security;
 using VelaShell.ViewModels;
 using VelaShell.Views;
@@ -77,6 +79,51 @@ public sealed class ConnectionProfileViewUiTests
 
             // 没有插件协议时,页签集合里不该凭空多出什么。
             Assert.IsEmpty(vm.PluginProtocols);
+            window.Close();
+        }, CancellationToken.None).GetAwaiter().GetResult();
+    }
+
+    [TestMethod]
+    public void CopyErrorButton_AppearsOnlyWithAnError_AndSwitchesToCopiedState()
+    {
+        _session.Dispatch(() =>
+        {
+            IConnectionWorkflowService workflow = Substitute.For<IConnectionWorkflowService>();
+            workflow.TestConnectionAsync(Arg.Any<SessionProfile>(), Arg.Any<CancellationToken>())
+                    .Returns(new ConnectionTestResult(false, "Permission denied (publickey,password)."));
+            var vm = new ConnectionProfileViewModel(connectionWorkflowService: workflow)
+            {
+                Host = "prod.example.com",
+                Username = "root",
+                Password = SecureStringConvert.FromPlaintext("secret")
+            };
+            var window = new ConnectionProfileView { DataContext = vm };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            Button copyButton = window.GetVisualDescendants()
+                .OfType<Button>()
+                .Single(button => button.Name == "CopyErrorButton");
+            // 没出错时反馈条整条不占位置,复制按钮自然也不该露出来。
+            Assert.IsFalse(copyButton.IsEffectivelyVisible);
+
+            vm.TestConnectionCommand.Execute().Subscribe();
+            Dispatcher.UIThread.RunJobs();
+            Assert.IsTrue(copyButton.IsEffectivelyVisible, "测试失败后错误信息旁必须出现复制按钮。");
+
+            // 视图在 Opened 里把剪贴板回调注入了 VM;headless 下换成探针,
+            // 断言点击真的走到剪贴板这一步(而不是命令灰着、按了没反应)。
+            string? copied = null;
+            vm.CopyToClipboard = text =>
+            {
+                copied = text;
+                return Task.CompletedTask;
+            };
+            copyButton.Command?.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.AreEqual("Permission denied (publickey,password).", copied);
+            Assert.IsTrue(vm.ErrorCopied);
+
             window.Close();
         }, CancellationToken.None).GetAwaiter().GetResult();
     }

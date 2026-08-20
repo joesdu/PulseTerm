@@ -373,11 +373,13 @@ public class ModelSerializationTests
             TerminalFont = "Fira Code",
             TerminalFontSize = 18,
             ScrollbackLines = 20000,
-            DefaultPort = 2222
+            DefaultPort = 2222,
+            TerminalBehavior = new() { AllowRemoteClipboardWrite = true }
         };
         string json = JsonSerializer.Serialize(original, _options);
         AppSettings? deserialized = JsonSerializer.Deserialize<AppSettings>(json, _options);
         Assert.AreEqual(JsonSerializer.Serialize(original, _options),
             JsonSerializer.Serialize(deserialized, _options));
+        Assert.IsTrue(deserialized!.TerminalBehavior.AllowRemoteClipboardWrite);
     }
 }

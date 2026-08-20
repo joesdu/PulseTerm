@@ -1475,6 +1475,12 @@
   <data name="Profile_TestSuccess" xml:space="preserve">
     <value>連線測試成功</value>
   </data>
+  <data name="Profile_CopyErrorTip" xml:space="preserve">
+    <value>複製錯誤訊息</value>
+  </data>
+  <data name="Profile_ErrorCopied" xml:space="preserve">
+    <value>已複製</value>
+  </data>
   <data name="Profile_Title" xml:space="preserve">
     <value>新增連線</value>
   </data>
@@ -3729,4 +3735,19 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   <data name="Plugin_TestUnavailable" xml:space="preserve">
     <value>這種連線類型沒法在這裡測試。直接按「連線」——它的外掛會在面板上給出真實結果。</value>
   </data>
+  <data name="SetTerm_RemoteClipboard" xml:space="preserve">
+    <value>允許遠端寫入剪貼簿（OSC 52）</value>
+  </data>
+  <data name="SetTerm_RemoteClipboardDesc" xml:space="preserve">
+    <value>預設關閉。僅對可信任主機開啟，否則終端輸出可以取代本機剪貼簿內容。</value>
+  </data>
+  <data name="PluginManager_UntrustedTitle" xml:space="preserve"><value>不受信任的外掛套件</value></data>
+  <data name="PluginManager_UnsignedWarning" xml:space="preserve"><value>「{0}」沒有簽章。外掛能以你的帳戶權限執行程式碼，請僅在信任其來源時安裝。</value></data>
+  <data name="PluginManager_UntrustedWarning" xml:space="preserve"><value>「{0}」的簽章有效，但此裝置尚不信任其發行者。繼續前請透過作者官網、GitHub 等獨立管道核對公鑰指紋：
+
+{1}
+
+信任後，同一密鑰簽署的後續套件也會自動可信。外掛能以你的帳戶權限執行程式碼。</value></data>
+  <data name="PluginManager_InstallAnyway" xml:space="preserve"><value>仍要安裝</value></data>
+  <data name="PluginManager_TrustAndInstall" xml:space="preserve"><value>信任發行者並安裝</value></data>
 </root>

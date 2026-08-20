@@ -26,7 +26,7 @@ public enum VpxSignatureState
     /// <summary>包未签名。</summary>
     Unsigned,
 
-    /// <summary>签名有效,且公钥在信任集合内(未提供信任集合时,任何有效签名都算 <see cref="Trusted" />)。</summary>
+    /// <summary>签名有效且公钥在信任集合内;未要求来源判定时也表示纯验签成功。</summary>
     Trusted,
 
     /// <summary>签名有效,但公钥不在信任集合内(自签名包)。</summary>
@@ -276,7 +276,8 @@ public static class VpxContainer
 
     /// <summary>
     /// 校验包尾签名。<paramref name="trustedPublicKeys" /> 为 Base64 的 SPKI 公钥集合;
-    /// 传空集合表示"只验签名本身有效性,不判来源",此时有效签名返回 <see cref="VpxSignatureState.Trusted" />。
+    /// 参数省略(<see langword="null" />)表示只校验签名完整性、不判来源;显式传入空集合表示
+    /// 当前没有可信发布者,有效自签名返回 <see cref="VpxSignatureState.Untrusted" />。
     /// </summary>
     /// <param name="info">包头信息(须来自 <see cref="ReadInfo" /> 或 <see cref="OpenPayload(string, out VpxPackageInfo)" />)。</param>
     /// <param name="trustedPublicKeys">受信公钥集合(Base64 SPKI)。</param>
@@ -304,7 +305,7 @@ public static class VpxContainer
         {
             return VpxSignatureState.Invalid;
         }
-        return trustedPublicKeys is not { Count: > 0 }
+        return trustedPublicKeys is null
                || trustedPublicKeys.Contains(block.PublicKey, StringComparer.Ordinal)
             ? VpxSignatureState.Trusted
             : VpxSignatureState.Untrusted;

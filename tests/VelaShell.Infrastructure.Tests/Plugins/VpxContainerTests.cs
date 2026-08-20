@@ -168,7 +168,8 @@ public class VpxContainerTests
 
         string publicKey = Convert.ToBase64String(key.ExportSubjectPublicKeyInfo());
         Assert.AreEqual(VpxSignatureState.Trusted, VpxContainer.VerifySignature(info, [publicKey]));
-        Assert.AreEqual(VpxSignatureState.Trusted, VpxContainer.VerifySignature(info), "不给信任集合时,有效签名即算受信");
+        Assert.AreEqual(VpxSignatureState.Trusted, VpxContainer.VerifySignature(info), "省略信任集合时只做密码学验签");
+        Assert.AreEqual(VpxSignatureState.Untrusted, VpxContainer.VerifySignature(info, []), "显式空信任库不能把自签名当可信发布者");
     }
 
     [TestMethod]

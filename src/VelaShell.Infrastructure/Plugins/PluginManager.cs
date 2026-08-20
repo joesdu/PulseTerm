@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.IO.Compression;
 using System.Reflection;
+using System.Security.Cryptography;
+using System.Text.Json;
 using VelaShell.Infrastructure.Plugins.Capabilities;
 using VelaShell.Infrastructure.Plugins.Isolated;
 using VelaShell.PluginSdk;
@@ -23,6 +25,8 @@ namespace VelaShell.Infrastructure.Plugins;
 /// </summary>
 public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposable
 {
+    private readonly HashSet<string> _trustedPackageKeys = LoadTrustedPackageKeys(options);
+    private readonly Lock _trustedPackageKeysGate = new();
     private sealed class PluginRuntime
     {
         public required PluginDescriptor Descriptor { get; init; }
@@ -239,7 +243,10 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
     /// </summary>
     /// <exception cref="InvalidOperationException">无用户插件目录、清单校验失败或签名策略拒绝。</exception>
     /// <exception cref="VpxFormatException">包不是合法的 <c>.vpx</c> 容器,或已损坏/被篡改。</exception>
-    public async Task<string> InstallFromVpxAsync(string vpxPath, CancellationToken cancellationToken = default)
+    public async Task<string> InstallFromVpxAsync(
+        string vpxPath,
+        bool allowUntrustedPackage = false,
+        CancellationToken cancellationToken = default)
     {
         if (options.UserPluginRoot is not { } userRoot)
         {
@@ -257,7 +264,7 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         PluginManifest? manifest = null;
         try
         {
-            ExtractPackage(vpxPath, staging);
+            ExtractPackage(vpxPath, staging, allowUntrustedPackage);
             string manifestPath = Path.Combine(staging, PluginManifestReader.FileName);
             if (!File.Exists(manifestPath))
             {
@@ -332,11 +339,11 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
     /// 打开插件包并安全解包。只认 <c>.vpx</c> 专属容器(魔数 + 摘要 + 可选签名,见
     /// <see cref="VpxContainer" />)—— 改了后缀的 zip 一律拒绝,拒绝原因里带重新打包的办法。
     /// </summary>
-    private void ExtractPackage(string packagePath, string destination)
+    private void ExtractPackage(string packagePath, string destination, bool allowUntrustedPackage)
     {
         // 格式非法(裸 zip / 截断 / 头部损坏 / 根本不是包)在此抛出并带可读原因。
         using Stream payload = VpxContainer.OpenPayload(packagePath, out VpxPackageInfo info);
-        CheckSignature(packagePath, info);
+        CheckSignature(packagePath, info, allowUntrustedPackage);
         using var archive = new ZipArchive(payload, ZipArchiveMode.Read);
         ExtractZipSafely(archive, destination);
     }
@@ -345,9 +352,9 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
     /// 签名闸。坏签名一律拒绝(哪怕没开强制签名)—— 签名对不上意味着内容被动过,
     /// 这比"未签名"严重得多,不该因为策略宽松就放行。
     /// </summary>
-    private void CheckSignature(string packagePath, VpxPackageInfo info)
+    private void CheckSignature(string packagePath, VpxPackageInfo info, bool allowUntrustedPackage)
     {
-        VpxSignatureState state = VpxContainer.VerifySignature(info, options.TrustedPackageKeys);
+        VpxSignatureState state = GetSignatureState(info);
         string name = Path.GetFileName(packagePath);
         switch (state)
         {
@@ -357,15 +364,129 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
             case VpxSignatureState.Untrusted when options.RequireTrustedPackageSignature:
                 throw new InvalidOperationException(
                     $"'{name}' is signed by an unknown publisher and this host only installs packages from trusted keys.");
+            case VpxSignatureState.Untrusted when !allowUntrustedPackage:
+                throw new InvalidOperationException(
+                    $"'{name}' is signed by an unknown publisher. Explicit approval is required to install it.");
             case VpxSignatureState.Unsigned when options.RequireTrustedPackageSignature:
                 throw new InvalidOperationException(
-                    $"'{name}' is not signed and this host only installs signed packages.");
+                    $"'{name}' is not signed and this host only installs packages from trusted keys.");
+            case VpxSignatureState.Unsigned when !allowUntrustedPackage:
+                throw new InvalidOperationException(
+                    $"'{name}' is not signed. Explicit approval is required to install it.");
             case VpxSignatureState.Trusted:
                 Log($"Package '{name}' carries a trusted signature.");
                 break;
             default:
                 break;
         }
+    }
+
+    /// <summary>
+    /// 校验容器摘要并返回发布者信任状态,供交互安装入口在落盘前显示准确警告。
+    /// 坏包会像正式安装一样抛出 <see cref="VpxFormatException" />。
+    /// </summary>
+    public VpxSignatureState InspectPackageSignature(string packagePath)
+    {
+        using Stream _ = VpxContainer.OpenPayload(packagePath, out VpxPackageInfo info);
+        return GetSignatureState(info);
+    }
+
+    /// <summary>读取包签名及可供用户通过独立渠道核对的 SHA-256 公钥指纹。</summary>
+    public PluginPackageTrustInfo InspectPackageTrust(string packagePath)
+    {
+        using Stream _ = VpxContainer.OpenPayload(packagePath, out VpxPackageInfo info);
+        return new(GetSignatureState(info), Fingerprint(info.Signature?.PublicKey));
+    }
+
+    /// <summary>
+    /// 把一个签名有效但发布者未知的公钥加入本机信任库。未签名、坏签名或已经可信的包拒绝走此入口。
+    /// </summary>
+    public string TrustPackagePublisher(string packagePath)
+    {
+        using Stream _ = VpxContainer.OpenPayload(packagePath, out VpxPackageInfo info);
+        if (info.Signature is not { PublicKey: { Length: > 0 } publicKey }
+            || GetSignatureState(info) != VpxSignatureState.Untrusted)
+        {
+            throw new InvalidOperationException("Only a valid package from an unknown publisher can establish publisher trust.");
+        }
+        lock (_trustedPackageKeysGate)
+        {
+            bool added = _trustedPackageKeys.Add(publicKey);
+            try
+            {
+                SaveTrustedPackageKeys();
+            }
+            catch
+            {
+                if (added)
+                {
+                    _trustedPackageKeys.Remove(publicKey);
+                }
+                throw;
+            }
+        }
+        return Fingerprint(publicKey)!;
+    }
+
+    private VpxSignatureState GetSignatureState(VpxPackageInfo info)
+    {
+        lock (_trustedPackageKeysGate)
+        {
+            return VpxContainer.VerifySignature(info, _trustedPackageKeys);
+        }
+    }
+
+    private static string? Fingerprint(string? publicKey)
+    {
+        if (string.IsNullOrWhiteSpace(publicKey))
+        {
+            return null;
+        }
+        try
+        {
+            return "SHA256:" + Convert.ToHexStringLower(SHA256.HashData(Convert.FromBase64String(publicKey)));
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
+    }
+
+    private static HashSet<string> LoadTrustedPackageKeys(PluginManagerOptions managerOptions)
+    {
+        var keys = new HashSet<string>(managerOptions.TrustedPackageKeys ?? [], StringComparer.Ordinal);
+        if (managerOptions.TrustedPublisherStorePath is not { } path || !File.Exists(path))
+        {
+            return keys;
+        }
+        try
+        {
+            foreach (string key in JsonSerializer.Deserialize<string[]>(File.ReadAllText(path)) ?? [])
+            {
+                if (!string.IsNullOrWhiteSpace(key))
+                {
+                    keys.Add(key);
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        {
+            Trace.WriteLine($"[VelaShell] Failed to read trusted plugin publishers: {ex.Message}");
+        }
+        return keys;
+    }
+
+    private void SaveTrustedPackageKeys()
+    {
+        if (options.TrustedPublisherStorePath is not { } path)
+        {
+            return;
+        }
+        string fullPath = Path.GetFullPath(path);
+        Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+        string temporary = fullPath + ".tmp";
+        File.WriteAllText(temporary, JsonSerializer.Serialize(_trustedPackageKeys.Order(StringComparer.Ordinal)));
+        File.Move(temporary, fullPath, overwrite: true);
     }
 
     private static void ExtractZipSafely(ZipArchive archive, string destination)

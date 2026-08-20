@@ -1,4 +1,5 @@
 using VelaShell.Plugin.Ai.Configuration;
+using VelaShell.Plugin.Ai.Agent;
 using VelaShell.PluginSdk.Testing;
 
 namespace VelaShell.Plugin.Ai.Tests;
@@ -63,6 +64,20 @@ public sealed class McpConfigTests
         Assert.AreEqual("mcp", McpConfigParser.SanitizeToolPrefix("  "));
         Assert.AreEqual("mcp", McpConfigParser.SanitizeToolPrefix("!!!"));
         Assert.AreEqual(24, McpConfigParser.SanitizeToolPrefix(new string('x', 60)).Length);
+    }
+
+    [TestMethod]
+    public void HttpEndpoint_RequiresHttps_ExceptForLoopbackDevelopment()
+    {
+        Assert.AreEqual("https://example.com/mcp", McpManager.ValidateHttpEndpoint("https://example.com/mcp").ToString());
+        Assert.AreEqual("http://localhost:3000/mcp", McpManager.ValidateHttpEndpoint("http://localhost:3000/mcp").ToString());
+        Assert.AreEqual("http://127.0.0.1:3000/mcp", McpManager.ValidateHttpEndpoint("http://127.0.0.1:3000/mcp").ToString());
+
+        InvalidOperationException plainHttp = Assert.ThrowsExactly<InvalidOperationException>(
+            () => McpManager.ValidateHttpEndpoint("http://example.com/mcp"));
+        Assert.Contains("HTTPS", plainHttp.Message);
+        Assert.ThrowsExactly<InvalidOperationException>(() => McpManager.ValidateHttpEndpoint("file:///tmp/mcp"));
+        Assert.ThrowsExactly<InvalidOperationException>(() => McpManager.ValidateHttpEndpoint("not a url"));
     }
 
     [TestMethod]

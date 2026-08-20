@@ -43,6 +43,7 @@ public static class PluginServiceCollectionExtensions
                 DebugPluginIds = DevPluginRootResolver.ResolveDebugPluginIds(),
                 DataRootDirectory = Path.Combine(paths.RootDirectory, "plugin-data"),
                 UserPluginRoot = Path.Combine(paths.RootDirectory, "plugins"),
+                TrustedPublisherStorePath = Path.Combine(paths.RootDirectory, "trusted-plugin-publishers.json"),
                 HostVersion = hostVersion,
                 Connections = sp.GetService<ISshConnectionService>(),
                 Sftp = sp.GetService<ISftpService>(),

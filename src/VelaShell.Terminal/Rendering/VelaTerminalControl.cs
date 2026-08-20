@@ -256,6 +256,13 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     /// <summary>BEL 处理:"system"(蜂鸣)、"none"(静默)或 "visual"(屏幕闪烁)。</summary>
     public string BellMode { get; set; } = "system";
 
+    /// <summary>允许远端通过 OSC 52 写入本机剪贴板;默认关闭。</summary>
+    public bool AllowRemoteClipboardWrite
+    {
+        get => Emulator.AllowOsc52ClipboardWrite;
+        set => Emulator.AllowOsc52ClipboardWrite = value;
+    }
+
     /// <summary>
     /// 左侧栏显示每行的收行时间 <c>[HH:mm:ss]</c>(设置 → 终端 / 侧栏右键)。与 <see cref="ShowLineNumber" />
     /// 等相互独立。任一侧栏部件开启都会占用左侧宽度(减少可用列数,PTY 随之改列宽)。
