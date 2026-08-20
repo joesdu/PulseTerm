@@ -98,6 +98,9 @@ public class FileBrowserViewModel : ReactiveObject
         Files = _files;
         SelectedFiles = [];
         NavigateToCommand = ReactiveCommand.CreateFromTask<string>(NavigateToAsync);
+        BeginPathEditCommand = ReactiveCommand.Create(BeginPathEdit);
+        CancelPathEditCommand = ReactiveCommand.Create(CancelPathEdit);
+        CommitPathEditCommand = ReactiveCommand.CreateFromTask(CommitPathEditAsync);
         ActivateCommand = ReactiveCommand.CreateFromTask<RemoteFileInfoViewModel>(ActivateAsync);
         GoUpCommand = ReactiveCommand.CreateFromTask(GoUpAsync);
         RefreshCommand = ReactiveCommand.CreateFromTask(RefreshAsync);
@@ -366,6 +369,108 @@ public class FileBrowserViewModel : ReactiveObject
                 segments.Add(new(part, path));
             }
             return segments;
+        }
+    }
+
+    // ---- 手动输入路径(#226)-------------------------------------------------
+    //
+    // 面包屑只能沿着「已经列得出来的目录」往下点。可一旦某一层没有读权限(Termux 上的
+    // /、受限跳板机上的 /home 等),那条链在半路就断了 —— 目标目录明明可读,却没有任何
+    // 路径能点到它。因此路径栏必须能直接敲:面包屑末尾的铅笔按钮(或 Ctrl+L)切成输入框,
+    // 回车导航,Esc / 失焦取消。
+
+    /// <summary>路径栏是否处于手动输入态;为 true 时视图用输入框替换面包屑。</summary>
+    public bool IsPathEditing
+    {
+        get;
+        private set => this.RaiseAndSetIfChanged(ref field, value);
+    }
+
+    /// <summary>手动输入态下输入框里的文本。</summary>
+    public string PathEditText
+    {
+        get;
+        set => this.RaiseAndSetIfChanged(ref field, value);
+    } = string.Empty;
+
+    /// <summary>切入手动输入态(点击路径区 / Ctrl+L)。</summary>
+    public ReactiveCommand<RxVoid, RxVoid> BeginPathEditCommand { get; }
+
+    /// <summary>放弃手动输入,退回面包屑(Esc / 失焦)。</summary>
+    public ReactiveCommand<RxVoid, RxVoid> CancelPathEditCommand { get; }
+
+    /// <summary>提交手动输入的路径并导航(回车)。</summary>
+    public ReactiveCommand<RxVoid, RxVoid> CommitPathEditCommand { get; }
+
+    /// <summary>进入手动输入态时触发,供视图聚焦输入框并全选文本。</summary>
+    public event EventHandler? PathEditActivated;
+
+    /// <summary>
+    /// 远端家目录缓存,用来展开输入里的 <c>~</c>。首次需要时才去问服务端,
+    /// 问不到就保持 null —— 此时 <c>~</c> 原样透传,由服务端报出真实错误。
+    /// </summary>
+    private string? _homePath;
+
+    private void BeginPathEdit()
+    {
+        // 未绑定会话的占位面板没有可导航的目标,别把用户丢进一个提交不了的输入框。
+        if (IsPathEditing || _sftpService is null || _sessionId == Guid.Empty)
+        {
+            return;
+        }
+        PathEditText = CurrentPath;
+        IsPathEditing = true;
+        PathEditActivated?.Invoke(this, EventArgs.Empty);
+
+        // 家目录尽力而为地预取:等用户敲完再问会在回车那一刻多一次往返。
+        _ = EnsureHomePathAsync();
+    }
+
+    private void CancelPathEdit() => IsPathEditing = false;
+
+    private async Task CommitPathEditAsync()
+    {
+        if (!IsPathEditing)
+        {
+            return;
+        }
+        if (PathEditText.Contains('~', StringComparison.Ordinal))
+        {
+            await EnsureHomePathAsync();
+        }
+        string? target = RemotePathInput.Normalize(PathEditText, CurrentPath, _homePath);
+        if (target is null)
+        {
+            IsPathEditing = false;
+            return;
+        }
+
+        // 输错路径是手动输入的常态。导航失败(ErrorMessage 非空)时保持输入态不收、
+        // 也不动已输入的文本,让用户就地改一个字母重按回车;成功才退回面包屑。
+        await NavigateToAsync(target);
+        if (string.IsNullOrEmpty(ErrorMessage))
+        {
+            IsPathEditing = false;
+        }
+    }
+
+    private async Task EnsureHomePathAsync()
+    {
+        if (_homePath is not null || _sftpService is null || _sessionId == Guid.Empty)
+        {
+            return;
+        }
+        try
+        {
+            string working = await _sftpService.GetWorkingDirectoryAsync(_sessionId, _lifetime.Token);
+            if (!string.IsNullOrWhiteSpace(working))
+            {
+                _homePath = working;
+            }
+        }
+        catch
+        {
+            // 拿不到家目录不影响绝对路径输入,静默降级(~ 原样透传)。
         }
     }
 

@@ -2337,6 +2337,12 @@
   <data name="SetTerm_LineHeightDesc" xml:space="preserve">
     <value>// 行間の倍率(既定値 1.0)</value>
   </data>
+  <data name="SetTerm_Padding" xml:space="preserve">
+    <value>余白</value>
+  </data>
+  <data name="SetTerm_PaddingDesc" xml:space="preserve">
+    <value>// ターミナル本文の周囲の余白(ピクセル)。既定値は 0</value>
+  </data>
   <data name="SetTerm_AutoOpenSftp" xml:space="preserve">
     <value>接続時にファイルブラウザーを自動的に開く</value>
   </data>
@@ -3255,6 +3261,12 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   </data>
   <data name="Sftp_FollowTerminal" xml:space="preserve">
     <value>ターミナルのディレクトリに追従(現在のパスに同期)</value>
+  </data>
+  <data name="Sftp_EditPath" xml:space="preserve">
+    <value>パスを編集 (Ctrl+L)</value>
+  </data>
+  <data name="Sftp_PathInputHint" xml:space="preserve">
+    <value>パスを入力して Enter</value>
   </data>
   <data name="Cmd_ProcessManager" xml:space="preserve">
     <value>タスクマネージャー</value>

@@ -318,8 +318,52 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
             field = sanitized;
             RelayoutFromBounds();
             InvalidateVisual();
+            LayoutPaddingChanged?.Invoke();
         }
     } = DefaultRightPadding;
+
+    /// <summary>内边距上限(px);再大就只剩不了几列,且滚动条留白带会被挤没。</summary>
+    public const double MaxContentPadding = 40;
+
+    /// <summary>
+    /// 用户可调的正文四周内边距(px,设置 → 终端 → 内边距;0 = 历史行为)。
+    /// <para>
+    /// 语义与 <see cref="RightPadding" /> 一致 —— 留白先从可用宽高里扣掉,再算列/行数,
+    /// 因此加大内边距只会减少格子数,绝不会让文字被裁掉。右侧是两段叠加:
+    /// 用户内边距 + 滚动条留白带。
+    /// </para>
+    /// <para>
+    /// 取整数像素:侧栏的 1px 导引线/折叠方框按 <c>floor(x)+0.5</c> 做像素对齐,
+    /// 平移量若带小数会把这些笔画糊成 2px 灰线。
+    /// </para>
+    /// </summary>
+    public double ContentPadding
+    {
+        get;
+        set
+        {
+            double sanitized = Math.Round(
+                Math.Clamp(double.IsFinite(value) ? value : 0, 0, MaxContentPadding)
+            );
+            if (Math.Abs(field - sanitized) < 0.01)
+            {
+                return;
+            }
+            field = sanitized;
+            RelayoutFromBounds();
+            InvalidateVisual();
+            LayoutPaddingChanged?.Invoke();
+        }
+    }
+
+    /// <summary>
+    /// 内边距(<see cref="ContentPadding" /> / <see cref="RightPadding" />)变化后触发,
+    /// 供宿主重新摆放覆盖在控件上的部件(当前是回滚滚动条,它必须落在右侧留白带内)。
+    /// </summary>
+    public event Action? LayoutPaddingChanged;
+
+    /// <summary>把控件坐标换算到正文坐标系(扣掉左/上内边距),供指针命中测试使用。</summary>
+    private Point ToContent(Point p) => new(p.X - ContentPadding, p.Y - ContentPadding);
 
     /// <summary>
     /// 侧栏部件开关的公共写入:变化时重排布局(侧栏宽度→可用列数→PTY)并重绘。
@@ -848,7 +892,10 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     public Rect GetCursorRect(int columnsBack)
     {
         Rect rect = GetImeCursorRect();
-        double x = Math.Max(GutterWidth(), rect.X - columnsBack * CellWidthForTest);
+        double x = Math.Max(
+            ContentPadding + GutterWidth(),
+            rect.X - columnsBack * CellWidthForTest
+        );
         return new(x, rect.Y, rect.Width, rect.Height);
     }
 
@@ -952,8 +999,8 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
             screenRow = Math.Max(0, screen.Rows - 1 - _scrollOffset);
         }
         return new(
-            screen.CursorX * CellWidthForTest + GutterWidth(),
-            screenRow * CellHeightForTest,
+            ContentPadding + GutterWidth() + screen.CursorX * CellWidthForTest,
+            ContentPadding + screenRow * CellHeightForTest,
             CellWidthForTest,
             CellHeightForTest
         );
@@ -1284,8 +1331,12 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         {
             return;
         }
-        int cols = (int)((size.Width - GutterWidth() - RightPadding) / CellWidthForTest);
-        int rows = (int)(size.Height / CellHeightForTest);
+        // 用户内边距在四边各扣一份(右侧再叠加滚动条留白带),剩下的才是网格可用区。
+        double pad = ContentPadding;
+        int cols = (int)(
+            (size.Width - pad * 2 - GutterWidth() - RightPadding) / CellWidthForTest
+        );
+        int rows = (int)((size.Height - pad * 2) / CellHeightForTest);
 
         // 忽略过早/退化的布局过程(尺寸为零或不足一格)。在这里把网格压缩成
         // 单列,正是过去登录横幅每行只渲染一个字符的元凶:后续每个字符都自动换行。
@@ -1335,11 +1386,16 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
 
         // 行号/时间侧栏在正文左侧:先画侧栏,再把正文(含光标、选区)整体右移一个侧栏宽度绘制,
         // 这样所有 col*_cellWidth 的坐标计算保持不变,只在命中测试处减去侧栏宽度即可。
+        // 用户内边距是整体平移:底色已铺满全控件,平移只挪侧栏与正文,故留白处自然是终端底色。
+        double pad = ContentPadding;
         if (GutterEnabled)
         {
-            RenderGutter(context, screen, palette, rows);
+            using (context.PushTransform(Matrix.CreateTranslation(pad, pad)))
+            {
+                RenderGutter(context, screen, palette, rows);
+            }
         }
-        using (context.PushTransform(Matrix.CreateTranslation(GutterWidth(), 0)))
+        using (context.PushTransform(Matrix.CreateTranslation(pad + GutterWidth(), pad)))
         {
             for (int screenRow = 0; screenRow < rows; screenRow++)
             {
@@ -2169,6 +2225,8 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
 
     private (int Row, int Col) PointToCell(Point p)
     {
+        // 传入的是控件坐标;正文被内边距整体平移过,先换算回正文坐标系再分格。
+        p = ToContent(p);
         int col = (int)((p.X - GutterWidth()) / CellWidthForTest);
         // 夹取行号:捕获指针期间,拖拽可能把指针拖出控件(负 p.Y),
         // 而负的绝对行曾导致选区复制崩溃。
@@ -2290,8 +2348,10 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         PointerPointProperties props = e.GetCurrentPoint(this).Properties;
 
         // 侧栏(时间/行号/折叠)区域的交互:右键弹设置菜单;折叠列左键折叠/展开;其余左键吞掉不选文本。
+        // 侧栏几何以正文坐标系表达,故先扣掉内边距再命中。
+        Point contentPoint = ToContent(point);
         GutterLayout gutter = Gutter;
-        if (gutter.ContainsX(point.X))
+        if (contentPoint.X >= 0 && gutter.ContainsX(contentPoint.X))
         {
             if (props.IsRightButtonPressed)
             {
@@ -2299,9 +2359,9 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
                 e.Handled = true;
                 return;
             }
-            if (props.IsLeftButtonPressed && gutter.IsFoldColumnHit(point.X))
+            if (props.IsLeftButtonPressed && gutter.IsFoldColumnHit(contentPoint.X))
             {
-                ToggleFoldAt((int)(point.Y / CellHeightForTest));
+                ToggleFoldAt((int)(contentPoint.Y / CellHeightForTest));
                 e.Handled = true;
                 return;
             }
@@ -2446,9 +2506,9 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         // 空白行(最后一行输出之下)不给提示——那里折叠无意义且极易误点(内容消失事故)。
         if (ShowFoldMarker && !_selecting)
         {
-            Point gp = e.GetPosition(this);
-            int hover = Gutter.IsFoldColumnHit(gp.X)
-                ? AbsoluteForScreenRow((int)(gp.Y / CellHeightForTest))
+            Point gp = ToContent(e.GetPosition(this));
+            int hover = gp.X >= 0 && Gutter.IsFoldColumnHit(gp.X)
+                ? AbsoluteForScreenRow((int)(Math.Max(0, gp.Y) / CellHeightForTest))
                 : -1;
             if (hover != -1 && !IsFoldTargetRow(hover))
             {
@@ -2584,6 +2644,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     /// <summary>将指针位置映射到可见屏幕内从 0 起始的单元。</summary>
     private (int Col, int Row) ScreenCell(Point p)
     {
+        p = ToContent(p);
         int col = Math.Clamp(
             (int)((p.X - GutterWidth()) / CellWidthForTest),
             0,

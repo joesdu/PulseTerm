@@ -531,6 +531,12 @@
   <data name="Sftp_FollowTerminal" xml:space="preserve">
     <value>跟随终端目录(同步到终端当前路径)</value>
   </data>
+  <data name="Sftp_EditPath" xml:space="preserve">
+    <value>编辑路径 (Ctrl+L)</value>
+  </data>
+  <data name="Sftp_PathInputHint" xml:space="preserve">
+    <value>输入路径后回车跳转</value>
+  </data>
   <data name="TransferHistory" xml:space="preserve">
     <value>传输记录</value>
   </data>
@@ -2521,6 +2527,12 @@
   </data>
   <data name="SetTerm_LineHeightDesc" xml:space="preserve">
     <value>// 行间距倍数,1.0 为默认</value>
+  </data>
+  <data name="SetTerm_Padding" xml:space="preserve">
+    <value>内边距</value>
+  </data>
+  <data name="SetTerm_PaddingDesc" xml:space="preserve">
+    <value>// 终端正文四周的留白像素,0 为默认</value>
   </data>
   <data name="SetTerm_AutoOpenSftp" xml:space="preserve">
     <value>连接后自动打开文件浏览器</value>
