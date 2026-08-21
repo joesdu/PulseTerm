@@ -19,6 +19,12 @@
     干净克隆之后不跑这个脚本一样能构建、能跑,只是启动后只有自建的那几个插件;
     `dotnet publish` 在两边都空时才失败 —— 发行包不接受"插件系统看着在、实则没插件"。
 
+    ⚠️ 2026-08-22 起**发布流水线不再跑这个脚本**:Redis / S3 / Telnet 不再随安装包预装
+    (不是每个人都要连 Redis、开 S3、拨 Telnet),改由用户按需从插件商店
+    https://market.easilynet.top 自行安装。这个脚本从此只是**本机开发/联调**的工具:
+    想在自己机器上连同那几个插件一起跑就手动跑一次。跑过之后 artifacts/plugins/ 会一直留着,
+    本机 `dotnet publish` 出来的包会把它们一并打进去 —— 那只影响你自己的产物,不影响正式发行包。
+
 .PARAMETER Version
     要取的插件分发包版本。默认读 Directory.Build.props 的 VelaPluginsBundleVersion。
 
