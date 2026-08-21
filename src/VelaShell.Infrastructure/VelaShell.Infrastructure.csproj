@@ -6,11 +6,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\VelaShell.Core\VelaShell.Core.csproj" />
-    <!-- 插件契约程序集。默认取 nuget.org 上的正式包(版本 = 根 Directory.Build.props 的
-         VelaSdkVersion);设了 VelaSdkPath 则换成对本机工具链仓库的 ProjectReference,
-         便于改契约时联调,见根 Directory.Build.props 的说明。 -->
-    <PackageReference Include="VelaShell.PluginSdk" Condition="'$(VelaSdkPath)' == ''" />
-    <ProjectReference Include="$(VelaSdkProject)" Condition="'$(VelaSdkPath)' != ''" />
+    <!-- 插件契约程序集。取 nuget.org 上的正式包,版本 = 根 Directory.Build.props 的
+         VelaSdkVersion(由 joesdu/velashell-plugin-toolchain 发布)。 -->
+    <PackageReference Include="VelaShell.PluginSdk" />
   </ItemGroup>
 
   <ItemGroup>

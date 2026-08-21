@@ -1,4 +1,4 @@
-﻿<Solution>
+<Solution>
   <Folder Name="/.github/">
     <File Path=".github/dependabot.yml" />
   </Folder>
@@ -37,7 +37,13 @@
     <Project Path="src/VelaShell.PluginHost/VelaShell.PluginHost.csproj" />
     <Project Path="src/VelaShell.Presentation/VelaShell.Presentation.csproj" />
     <Project Path="src/VelaShell.Terminal/VelaShell.Terminal.csproj" />
-    <Project Path="src/VelaShell/VelaShell.csproj" /> 
+    <Project Path="src/VelaShell/VelaShell.csproj" />
+  </Folder>
+  <Folder Name="/plugins/">
+    <File Path="plugins/Directory.Build.props" />
+    <File Path="plugins/Directory.Build.targets" />
+    <File Path="plugins/README.md" />
+    <Project Path="plugins/VelaShell.Plugin.Ai/VelaShell.Plugin.Ai.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <File Path="tests/Directory.Build.props" />
@@ -45,9 +51,10 @@
     <Project Path="tests/VelaShell.Controls.Tests/VelaShell.Controls.Tests.csproj" />
     <Project Path="tests/VelaShell.Core.Tests/VelaShell.Core.Tests.csproj" />
     <Project Path="tests/VelaShell.Infrastructure.Tests/VelaShell.Infrastructure.Tests.csproj" />
+    <Project Path="tests/VelaShell.Plugin.Ai.Tests/VelaShell.Plugin.Ai.Tests.csproj" />
     <Project Path="tests/VelaShell.Presentation.Tests/VelaShell.Presentation.Tests.csproj" />
     <Project Path="tests/VelaShell.Terminal.Tests/VelaShell.Terminal.Tests.csproj" />
-    <Project Path="tests/VelaShell.Tests/VelaShell.Tests.csproj" /> 
+    <Project Path="tests/VelaShell.Tests/VelaShell.Tests.csproj" />
     <File Path="tests/fixtures/README.md" />
     <Project Path="tests/fixtures/VelaShell.TestPlugin/VelaShell.TestPlugin.csproj" />
     <Project Path="tests/fixtures/VelaShell.TestPlugin.Terminal/VelaShell.TestPlugin.Terminal.csproj" />

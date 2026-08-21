@@ -16,9 +16,8 @@
 	  VelaShell.PluginSdk 包在 buildTransitive 里导出 $(VelaSdkPinnedAvaloniaVersion),
 	  由这里核对。
 
-	  只在包引用路径上核对:设了 VelaSdkPath 走本地 ProjectReference 时,
-	  buildTransitive 的 props 不参与(那是 NuGet 的机制),这个属性自然为空,跳过即可 ——
-	  联调阶段两边本来就在一起改。
+	  $(VelaSdkPinnedAvaloniaVersion) 只在包引用路径上有值(buildTransitive 是 NuGet 的机制),
+	  为空就跳过。
 	-->
 	<Target Name="VerifyAvaloniaMatchesSdk" BeforeTargets="Build"
 	        Condition="'$(VelaSdkPinnedAvaloniaVersion)' != ''">
@@ -28,6 +27,6 @@
 		</XmlPeek>
 		<Error Condition="'@(_VelaHostAvaloniaVersion)' != '$(VelaSdkPinnedAvaloniaVersion)'"
 		       Code="VELA1000"
-		       Text="Avalonia version pin drifted: the host references '@(_VelaHostAvaloniaVersion)' (src/Directory.Packages.props) but VelaShell.PluginSdk $(VelaSdkVersion) pins plugins to '$(VelaSdkPinnedAvaloniaVersion)'. Plugins would compile against a different Avalonia than this host loads. Update both repositories in the same release." />
+		       Text="Avalonia version pin drifted: the host references '@(_VelaHostAvaloniaVersion)' (src/Directory.Packages.props) but the referenced VelaShell.PluginSdk pins plugins to '$(VelaSdkPinnedAvaloniaVersion)'. Plugins would compile against a different Avalonia than this host loads. Update both repositories in the same release." />
 	</Target>
 </Project>

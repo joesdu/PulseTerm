@@ -245,28 +245,37 @@ VelaShell/
 
 ### 🧩 插件工具链在另一个仓库
 
-插件 SDK、`dotnet new` 模板、`vela-plugin` 命令行与全部第一方插件（AI / Redis / S3 / Telnet
-与 HelloWorld 示例）已于 2026-08-21 拆到
+插件 SDK、`dotnet new` 模板、`vela-plugin` 命令行与 Redis / S3 / Telnet 插件（及 HelloWorld
+示例）已于 2026-08-21 拆到
 **[joesdu/velashell-plugin-toolchain](https://github.com/joesdu/velashell-plugin-toolchain)**。
-本仓库只保留主程序，通过两样东西消费它：
+
+**AI 插件是例外**：它留在本仓库的 [`plugins/VelaShell.Plugin.Ai/`](plugins/VelaShell.Plugin.Ai)，
+是随主程序一起构建、一起发布的第一方插件——它与宿主耦合最紧（借宿主的 AvaloniaEdit 作输入框、
+必须进程内装载、Avalonia 版本必须与宿主逐字一致），理由见
+[`plugins/README.md`](plugins/README.md)。
 
 | 消费方式 | pin 在哪 |
 | --- | --- |
-| `VelaShell.PluginSdk` / `.Testing` NuGet 包（编译期契约） | `Directory.Build.props` 的 `VelaSdkVersion` |
-| `velashell-plugins-<版本>.zip` Release 资产（随包分发的插件） | `Directory.Build.props` 的 `VelaPluginsBundleVersion` |
+| `VelaShell.PluginSdk` / `.Testing` NuGet 包（编译期契约） | `src/Directory.Packages.props`、`tests/Directory.Packages.props`（都是具体版本号） |
+| `velashell-plugins-<版本>.zip` Release 资产（Redis / S3 / Telnet） | `Directory.Build.props` 的 `VelaPluginsBundleVersion` |
 
-克隆之后先取一次插件，否则启动起来是"插件系统在、一个插件都没有"：
+克隆之后先取一次那批插件，否则启动起来只装得上 AI 一个：
 
 ```powershell
 pwsh scripts/Fetch-Plugins.ps1
 ```
 
-要改插件或 SDK 契约，把工具链仓库也克隆下来，指给本仓库即可切成本地工程引用、无需先发包：
+要在本机改 Redis / S3 / Telnet，把工具链仓库也克隆下来，就地构建它们、不走网络
+（脚本会自动丢掉包里的 `velashell-ai`——那一份由本仓库自己构建）：
 
 ```powershell
-$env:VELASHELL_SDK_PATH = 'G:\velashell-plugin-toolchain'
-pwsh scripts/Fetch-Plugins.ps1 -FromToolchain $env:VELASHELL_SDK_PATH
+pwsh scripts/Fetch-Plugins.ps1 -FromToolchain G:\velashell-plugin-toolchain
 ```
+
+改 SDK 契约则先在工具链仓库发一个（预发布）包，再把
+`src/Directory.Packages.props`、`tests/Directory.Packages.props` 与
+`plugins/VelaShell.Plugin.Ai/VelaShell.Plugin.Ai.csproj` 里的 `VelaShell.PluginSdk`
+版本一起抬上去——本仓库一律走 NuGet 包，不做工程引用。
 
 **写插件请直接读工具链仓库的
 [`docs/dev-guide.md`](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/dev-guide.md)**；

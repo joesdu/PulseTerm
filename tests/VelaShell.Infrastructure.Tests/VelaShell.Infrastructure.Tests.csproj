@@ -13,6 +13,7 @@
     <PackageReference Include="MSTest.TestAdapter" />
     <PackageReference Include="MSTest.TestFramework" />
     <PackageReference Include="NSubstitute" />
+    <PackageReference Include="VelaShell.PluginSdk.Testing" />
   </ItemGroup>
 
   <ItemGroup>
@@ -29,9 +30,6 @@
     <!-- 终端协议 e2e:把夹具(含它自己的 plugin.json)铺进临时插件根,
          验证"清单发现 → 惰性激活 → 注册成终端协议 → 宿主适配 → 真实套接字"整条链。 -->
     <ProjectReference Include="..\fixtures\VelaShell.TestPlugin.Terminal\VelaShell.TestPlugin.Terminal.csproj" />
-    <!-- SDK 测试替身。同上,默认包引用、VelaSdkPath 时切本地工程。 -->
-    <PackageReference Include="VelaShell.PluginSdk.Testing" Condition="'$(VelaSdkPath)' == ''" />
-    <ProjectReference Include="$(VelaSdkTestingProject)" Condition="'$(VelaSdkPath)' != ''" />
     <!-- 隔离模式 e2e:测试目录里要有真实的 PluginHost 可执行。 -->
     <ProjectReference Include="..\..\src\VelaShell.PluginHost\VelaShell.PluginHost.csproj" />
   </ItemGroup>

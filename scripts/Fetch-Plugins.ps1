@@ -4,15 +4,19 @@
     取回随安装包分发的第一方插件,解到 artifacts/plugins/。
 
 .DESCRIPTION
-    插件(AI / Redis / S3 / Telnet)已于 2026-08-21 随工具链搬到独立仓库
+    Redis / S3 / Telnet 插件于 2026-08-21 随工具链搬到独立仓库
     https://github.com/joesdu/velashell-plugin-toolchain
     并以 Release 资产 velashell-plugins-<版本>.zip 的形式交付,包内布局就是安装包
     plugins/ 那一层。本脚本按根 Directory.Build.props 里 pin 的 VelaPluginsBundleVersion
     下载那一版,校验 sha256,解到 artifacts/plugins/ —— 构建(F5)与发布都从这个目录取件
     (见 src/VelaShell/VelaShell.csproj 的 VelaPluginsStageDir)。
 
-    干净克隆之后不跑这个脚本一样能构建、能跑,只是启动后一个插件都没有;
-    `dotnet publish` 则会直接失败 —— 发行包不接受"插件系统看着在、实则没插件"。
+    **AI 插件不在其列**:它是本仓库自建的第一方插件(源码在 plugins/VelaShell.Plugin.Ai),
+    随主程序一起构建、一起发布。分发包里若还带着 velashell-ai,取回后会被本脚本丢掉 ——
+    同一个 id 出现两份会被 PluginManager 判重,后来者标 Invalid,表象是"插件莫名其妙用不了"。
+
+    干净克隆之后不跑这个脚本一样能构建、能跑,只是启动后只有自建的那几个插件;
+    `dotnet publish` 在两边都空时才失败 —— 发行包不接受"插件系统看着在、实则没插件"。
 
 .PARAMETER Version
     要取的插件分发包版本。默认读 Directory.Build.props 的 VelaPluginsBundleVersion。
@@ -51,6 +55,31 @@ function Reset-StageDirectory {
     New-Item -ItemType Directory -Force $stageDir | Out-Null
 }
 
+function Remove-LocallyBuiltPlugins {
+    <#
+        丢掉分发包里与**本仓库自建插件**同名的目录(当前是 velashell-ai)。
+        自建插件的产物由 plugins/Directory.Build.targets 直接铺进宿主输出目录、由
+        AddVelaPluginsToPublish 直接登记进发行包,不经过这个暂存目录;分发包里那一份
+        只会是过期的重复,留着就是两份同 id。
+
+        目录名 = csproj 里 <VelaPluginId> 把点换成短横(与 plugins/Directory.Build.targets 一致)。
+    #>
+    $localDirNames = Get-ChildItem (Join-Path $repoRoot 'plugins') -Directory -ErrorAction SilentlyContinue |
+        ForEach-Object { Get-ChildItem $_.FullName -Filter *.csproj -File } |
+        ForEach-Object {
+            $m = [regex]::Match((Get-Content -Raw $_.FullName), '<VelaPluginId>([^<]+)</VelaPluginId>')
+            if ($m.Success) { $m.Groups[1].Value.Replace('.', '-') }
+        }
+
+    foreach ($name in $localDirNames) {
+        $dup = Join-Path $stageDir $name
+        if (Test-Path $dup) {
+            Write-Host "Dropping '$name' from the bundle — this repository builds it locally."
+            Remove-Item $dup -Recurse -Force
+        }
+    }
+}
+
 if ($FromToolchain) {
     $toolchain = (Resolve-Path $FromToolchain).Path
     $bundleProj = Join-Path $toolchain 'build/PluginBundle.proj'
@@ -62,6 +91,7 @@ if ($FromToolchain) {
     # 用 Release:发行包里就是 Release 产物,联调时也保持一致,免得"本机好好的、发出去炸了"。
     & dotnet build $bundleProj -c Release -t:Bundle -p:BundleDir=$stageDir --nologo
     if ($LASTEXITCODE -ne 0) { throw "PluginBundle.proj 构建失败。" }
+    Remove-LocallyBuiltPlugins
     Set-Content $stampFile "local:$toolchain"
     Write-Host "Plugins staged at $stageDir (local build)."
     return
@@ -70,14 +100,9 @@ if ($FromToolchain) {
 if (-not $Version) {
     $props = Get-Content -Raw (Join-Path $repoRoot 'Directory.Build.props')
     $match = [regex]::Match($props, '<VelaPluginsBundleVersion[^>]*>([^<]+)</VelaPluginsBundleVersion>')
-    # pin 默认写成 $(VelaSdkVersion),那就再解一层。
-    $Version = if ($match.Success -and $match.Groups[1].Value -notmatch '^\$\(') {
-        $match.Groups[1].Value
-    } else {
-        [regex]::Match($props, '<VelaSdkVersion[^>]*>([^<]+)</VelaSdkVersion>').Groups[1].Value
-    }
+    $Version = if ($match.Success) { $match.Groups[1].Value } else { '' }
     if ([string]::IsNullOrWhiteSpace($Version)) {
-        throw "读不出 VelaPluginsBundleVersion / VelaSdkVersion,请用 -Version 显式指定。"
+        throw "读不出 Directory.Build.props 的 VelaPluginsBundleVersion,请用 -Version 显式指定。"
     }
 }
 
@@ -111,6 +136,7 @@ try {
 
     Reset-StageDirectory
     Expand-Archive -Path $zipPath -DestinationPath $stageDir -Force
+    Remove-LocallyBuiltPlugins
     Set-Content $stampFile $Version
     $count = (Get-ChildItem $stageDir -Directory).Count
     Write-Host "Plugins $Version staged at $stageDir ($count plugin(s))."

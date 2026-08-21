@@ -1,0 +1,61 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="VelaShell.Plugin.Ai.Ui.GlobalSettingsView">
+
+  <!-- 全局设置:不属于某一个供应商/模型的那些(系统提示词 / 上下文压缩 / 后续提问)。
+       原本是模型配置页最下面的一节,跟着长表单一起滚很难找;现在从模型配置窗口标题栏的 ⚙ 进来,
+       自己一个小窗口。版式与模型配置页同一套:节标题 + 描边卡片 + 末行操作。 -->
+
+  <UserControl.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="avares://VelaShell.Plugin.Ai/Ui/AiTheme.axaml" />
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </UserControl.Resources>
+
+  <UserControl.Styles>
+    <StyleInclude Source="avares://VelaShell.Plugin.Ai/Ui/DialogStyles.axaml" />
+  </UserControl.Styles>
+
+  <!-- 不用 ScrollViewer + StackPanel:那样内容按自然高度排,窗口余下的高度全变成卡片下面的空白。
+       改成 Grid,提示词框占 * 行 —— 窗口多高它就多高,留白落进最有用的那个框里。 -->
+  <Grid Margin="24,20,24,20" RowDefinitions="Auto,8,*,Auto">
+      <TextBlock x:Name="SectionGlobalTitle" Classes="section-title" />
+      <Border Grid.Row="2" Classes="section">
+        <Grid RowDefinitions="Auto,*,Auto,Auto,Auto,Auto">
+          <TextBlock x:Name="SystemPromptLabel" Classes="label" Margin="0,0,0,3" />
+          <TextBox Grid.Row="1" x:Name="SystemPromptBox" AcceptsReturn="True" MinHeight="96" TextWrapping="Wrap"
+                   VerticalAlignment="Stretch" VerticalContentAlignment="Top" />
+
+          <CheckBox Grid.Row="2" x:Name="CompactContextCheck" Theme="{StaticResource AiCheckBoxTheme}"
+                    FontSize="{DynamicResource VelaFontSize12}" Margin="0,14,0,0" />
+          <TextBlock Grid.Row="3" x:Name="CompactContextHintText" Classes="hint" />
+
+          <CheckBox Grid.Row="4" x:Name="SuggestFollowUpsCheck" Theme="{StaticResource AiCheckBoxTheme}"
+                    FontSize="{DynamicResource VelaFontSize12}" Margin="0,14,0,0" />
+          <TextBlock Grid.Row="5" x:Name="SuggestFollowUpsHintText" Classes="hint" />
+        </Grid>
+      </Border>
+
+      <Border Grid.Row="3" BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,1,0,0"
+              Padding="0,14,0,0" Margin="0,4,0,0">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock x:Name="StatusText" Classes="dim" TextWrapping="Wrap"
+                     Margin="0,0,12,0" VerticalAlignment="Center" />
+          <Button x:Name="SaveButton" Grid.Column="1" Theme="{DynamicResource VelaAccentPillButtonTheme}" Height="26" Padding="12,0">
+            <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+              <Viewbox Width="11" Height="11" VerticalAlignment="Center">
+                <Path Width="24" Height="24" Data="{DynamicResource Icon.save}"
+                      Stroke="{DynamicResource VelaAccent}" StrokeThickness="2"
+                      StrokeLineCap="Round" StrokeJoin="Round" />
+              </Viewbox>
+              <TextBlock x:Name="SaveText" VerticalAlignment="Center"
+                         FontSize="{DynamicResource VelaFontSize11}" FontWeight="Medium" />
+            </StackPanel>
+          </Button>
+        </Grid>
+      </Border>
+
+  </Grid>
+</UserControl>

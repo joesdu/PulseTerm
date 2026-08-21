@@ -245,30 +245,41 @@ VelaShell/
 
 ### 🧩 The plugin toolchain lives in another repository
 
-The plugin SDK, `dotnet new` templates, the `vela-plugin` CLI and all first-party plugins
-(AI / Redis / S3 / Telnet plus the HelloWorld sample) were split out on 2026-08-21 into
+The plugin SDK, `dotnet new` templates, the `vela-plugin` CLI and the Redis / S3 / Telnet
+plugins (plus the HelloWorld sample) were split out on 2026-08-21 into
 **[joesdu/velashell-plugin-toolchain](https://github.com/joesdu/velashell-plugin-toolchain)**.
-This repository keeps only the main application and consumes the toolchain in two ways:
+
+**The AI plugin is the exception**: it lives here in
+[`plugins/VelaShell.Plugin.Ai/`](plugins/VelaShell.Plugin.Ai) and is a first-party plugin built
+and released together with the app — it is the one most tightly coupled to the host (it borrows
+the host's AvaloniaEdit for its input box, must load in-process, and must compile against the
+exact Avalonia version the host loads). The reasoning is in
+[`plugins/README.md`](plugins/README.md).
 
 | How it is consumed | Where it is pinned |
 | --- | --- |
-| `VelaShell.PluginSdk` / `.Testing` NuGet packages (compile-time contract) | `VelaSdkVersion` in `Directory.Build.props` |
-| `velashell-plugins-<version>.zip` release asset (the plugins that ship with the app) | `VelaPluginsBundleVersion` in `Directory.Build.props` |
+| `VelaShell.PluginSdk` / `.Testing` NuGet packages (compile-time contract) | `src/Directory.Packages.props` and `tests/Directory.Packages.props` (literal versions) |
+| `velashell-plugins-<version>.zip` release asset (Redis / S3 / Telnet) | `VelaPluginsBundleVersion` in `Directory.Build.props` |
 
-After cloning, fetch the plugins once — otherwise the app starts with the plugin system
-present but not a single plugin installed:
+After cloning, fetch that bundle once — otherwise AI is the only plugin the app can install:
 
 ```powershell
 pwsh scripts/Fetch-Plugins.ps1
 ```
 
-To work on a plugin or on the SDK contract, clone the toolchain repository too and point this
-one at it; project references replace the package references, so you do not need to publish first:
+To work on Redis / S3 / Telnet locally, clone the toolchain repository too and build them in
+place instead of downloading (the script drops `velashell-ai` from the bundle — this repository
+builds that one itself):
 
 ```powershell
-$env:VELASHELL_SDK_PATH = 'G:\velashell-plugin-toolchain'
-pwsh scripts/Fetch-Plugins.ps1 -FromToolchain $env:VELASHELL_SDK_PATH
+pwsh scripts/Fetch-Plugins.ps1 -FromToolchain G:\velashell-plugin-toolchain
 ```
+
+To change the SDK contract, publish a (pre-release) package from the toolchain repository first,
+then bump the `VelaShell.PluginSdk` version in `src/Directory.Packages.props`,
+`tests/Directory.Packages.props` and
+`plugins/VelaShell.Plugin.Ai/VelaShell.Plugin.Ai.csproj` together — this repository always
+consumes the SDK as a NuGet package, never as a project reference.
 
 **To write a plugin, read the toolchain repository's
 [`docs-en/dev-guide.md`](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs-en/dev-guide.md)**;

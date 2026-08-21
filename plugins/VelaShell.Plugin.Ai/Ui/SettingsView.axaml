@@ -1,0 +1,280 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:VelaShell.Plugin.Ai.Ui"
+             x:Class="VelaShell.Plugin.Ai.Ui.SettingsView">
+
+  <!-- 与聊天面板同一套视觉语言:主操作药丸 / 次操作描边 / 危险操作描边换 VelaError。 -->
+
+  <UserControl.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="avares://VelaShell.Plugin.Ai/Ui/AiTheme.axaml" />
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </UserControl.Resources>
+
+  <UserControl.Styles>
+    <StyleInclude Source="avares://VelaShell.Plugin.Ai/Ui/DialogStyles.axaml" />
+  </UserControl.Styles>
+
+  <!-- 版式对齐宿主设置页:左边一条 bg-sidebar 导航(贴着窗口边,跟着卡片左下圆角),
+       右边留足内边距的可滚动内容区,内容按"节"分块。
+       左栏是"供应商 › 模型"两层:供应商一行、其下模型缩进一档;右侧表单随选中的是哪一层切换。 -->
+  <Grid ColumnDefinitions="220,*">
+    <!-- 左:供应商/模型树 + 新增 -->
+    <Border Grid.Column="0"
+            Background="{DynamicResource VelaBgSidebar}"
+            BorderBrush="{DynamicResource VelaBorderPrimary}"
+            BorderThickness="0,0,1,0"
+            CornerRadius="0,0,0,7">
+      <!-- 内圆角 7 = 外框 8 − 1px 描边:照抄 8 会让方角背景盖掉外框那段弧线,看起来像断线 -->
+      <DockPanel>
+        <Border DockPanel.Dock="Top" Height="40" Padding="14,0"
+                BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,0,0,1">
+          <TextBlock x:Name="ProvidersHeader" Classes="section-title" VerticalAlignment="Center" />
+        </Border>
+        <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="10,8,10,10">
+          <!-- 新增模型挂在当前选中的供应商(或选中模型所属的供应商)下面 -->
+          <Button x:Name="AddModelButton" Theme="{DynamicResource VelaOutlineButtonTheme}"
+                  HorizontalAlignment="Stretch" Height="28">
+            <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+              <Viewbox Width="11" Height="11" VerticalAlignment="Center">
+                <Path Width="24" Height="24" Data="{DynamicResource Icon.plus}"
+                      Stroke="{DynamicResource VelaTextSecondary}" StrokeThickness="2"
+                      StrokeLineCap="Round" StrokeJoin="Round" />
+              </Viewbox>
+              <TextBlock x:Name="AddModelText" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+          <Border Classes="sep" Margin="0,4" />
+          <ComboBox x:Name="PresetCombo" HorizontalAlignment="Stretch" />
+          <Button x:Name="AddButton" Theme="{DynamicResource VelaOutlineButtonTheme}"
+                  HorizontalAlignment="Stretch" Height="28">
+            <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+              <Viewbox Width="11" Height="11" VerticalAlignment="Center">
+                <Path Width="24" Height="24" Data="{DynamicResource Icon.plus}"
+                      Stroke="{DynamicResource VelaTextSecondary}" StrokeThickness="2"
+                      StrokeLineCap="Round" StrokeJoin="Round" />
+              </Viewbox>
+              <TextBlock x:Name="AddText" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+        </StackPanel>
+        <ListBox x:Name="ProvidersList" Classes="nav">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="ui:ProviderNavItem">
+              <!-- 供应商行加粗、模型行缩进一档:一眼分清层级,不靠展开箭头 -->
+              <TextBlock Text="{Binding Text}" Margin="{Binding Indent}"
+                         FontWeight="{Binding Weight}" TextTrimming="CharacterEllipsis" />
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </DockPanel>
+    </Border>
+
+    <!-- 右:编辑表单。滚动条留白放在内容 Margin 上(勿用 ScrollViewer.Padding),
+         避免悬停展开的覆盖式滚动条压住输入框右缘。
+         左右都是 24:滚动条是<b>浮在</b>内容上的(不占布局),所以左右留白就等于这里写的数,
+         右边不需要为它另外扣一块。它会飘在这 24 的空档里,压不到卡片。 -->
+    <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Disabled">
+      <StackPanel Margin="24,20,24,20" Spacing="8">
+
+        <!-- ═══ 供应商编辑器:选中左栏供应商行时显示 ═══ -->
+        <StackPanel x:Name="ProviderEditor" Spacing="8">
+          <TextBlock x:Name="SectionProviderTitle" Classes="section-title" />
+          <Border Classes="section">
+            <StackPanel>
+              <TextBlock x:Name="ProviderNameLabel" Classes="label" Margin="0,0,0,3" />
+              <TextBox x:Name="ProviderNameBox" />
+              <TextBlock x:Name="ProviderBaseUrlLabel" Classes="label" />
+              <TextBox x:Name="ProviderBaseUrlBox" FontFamily="{DynamicResource VelaUiMonoFont}" />
+              <TextBlock x:Name="ProviderProtocolLabel" Classes="label" />
+              <ComboBox x:Name="ProviderProtocolCombo" HorizontalAlignment="Stretch" />
+              <TextBlock x:Name="ProviderProtocolHintText" Classes="hint" />
+              <TextBlock x:Name="ProviderApiKeyLabel" Classes="label" />
+              <Grid ColumnDefinitions="*,6,Auto">
+                <TextBox x:Name="ProviderApiKeyBox" PasswordChar="●" FontFamily="{DynamicResource VelaUiMonoFont}" />
+                <ToggleButton x:Name="ProviderRevealKeyToggle" Grid.Column="2" Theme="{StaticResource AiChipToggleTheme}"
+                              Width="30" Height="30" Padding="0" VerticalAlignment="Center">
+                  <Viewbox Width="13" Height="13">
+                    <Path Width="24" Height="24" Data="{DynamicResource Icon.eye}"
+                          Stroke="{Binding $parent[ToggleButton].Foreground}" StrokeThickness="2"
+                          StrokeLineCap="Round" StrokeJoin="Round" />
+                  </Viewbox>
+                </ToggleButton>
+              </Grid>
+              <TextBlock x:Name="ProviderApiKeyHintText" Classes="hint" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <!-- ═══ 模型编辑器:选中左栏模型行时显示 ═══ -->
+        <StackPanel x:Name="ModelEditor" Spacing="8">
+          <!-- 一、接入:叫什么、模型 id、走什么协议、拿什么鉴权(默认全继承供应商) -->
+          <TextBlock x:Name="SectionEndpointTitle" Classes="section-title" />
+          <Border Classes="section">
+            <StackPanel>
+              <TextBlock x:Name="NameLabel" Classes="label" Margin="0,0,0,3" />
+              <TextBox x:Name="NameBox" />
+              <TextBlock x:Name="ModelLabel" Classes="label" />
+              <TextBox x:Name="ModelBox" FontFamily="{DynamicResource VelaUiMonoFont}" />
+              <TextBlock x:Name="ProtocolLabel" Classes="label" />
+              <!-- 第 0 项 = 继承供应商默认;其后与 ChatProtocol 枚举一一对应 -->
+              <ComboBox x:Name="ProtocolCombo" HorizontalAlignment="Stretch" />
+
+              <CheckBox x:Name="OwnKeyCheck" Theme="{StaticResource AiCheckBoxTheme}"
+                        FontSize="{DynamicResource VelaFontSize12}" Margin="0,12,0,0" />
+              <TextBlock x:Name="OwnKeyHintText" Classes="hint" />
+              <StackPanel x:Name="OwnKeyPanel">
+                <TextBlock x:Name="ApiKeyLabel" Classes="label" />
+                <Grid ColumnDefinitions="*,6,Auto">
+                  <TextBox x:Name="ApiKeyBox" PasswordChar="●" FontFamily="{DynamicResource VelaUiMonoFont}" />
+                  <ToggleButton x:Name="RevealKeyToggle" Grid.Column="2" Theme="{StaticResource AiChipToggleTheme}"
+                                Width="30" Height="30" Padding="0" VerticalAlignment="Center">
+                    <Viewbox Width="13" Height="13">
+                      <Path Width="24" Height="24" Data="{DynamicResource Icon.eye}"
+                            Stroke="{Binding $parent[ToggleButton].Foreground}" StrokeThickness="2"
+                            StrokeLineCap="Round" StrokeJoin="Round" />
+                    </Viewbox>
+                  </ToggleButton>
+                </Grid>
+                <TextBlock x:Name="ApiKeyHintText" Classes="hint" />
+              </StackPanel>
+
+              <TextBlock x:Name="BaseUrlLabel" Classes="label" />
+              <TextBox x:Name="BaseUrlBox" FontFamily="{DynamicResource VelaUiMonoFont}" />
+              <TextBlock x:Name="BaseUrlHintText" Classes="hint" />
+            </StackPanel>
+          </Border>
+
+          <!-- 二、模型能力:上下限与思考 -->
+          <TextBlock x:Name="SectionCapacityTitle" Classes="section-title" Margin="0,14,0,0" />
+          <Border Classes="section">
+            <StackPanel>
+              <!-- 输出上限随请求下发;输入上限(上下文窗口)只喂给输入框下方的用量占比 -->
+              <Grid ColumnDefinitions="*,12,*">
+                <StackPanel>
+                  <TextBlock x:Name="MaxTokensLabel" Classes="label" Margin="0,0,0,3" />
+                  <TextBox x:Name="MaxTokensBox" />
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                  <TextBlock x:Name="MaxInputTokensLabel" Classes="label" Margin="0,0,0,3" />
+                  <TextBox x:Name="MaxInputTokensBox" />
+                </StackPanel>
+              </Grid>
+              <TextBlock x:Name="MaxInputTokensHintText" Classes="hint" />
+              <TextBlock x:Name="ReasoningLabel" Classes="label" />
+              <ComboBox x:Name="ReasoningCombo" HorizontalAlignment="Stretch" />
+              <TextBlock x:Name="ReasoningHintText" Classes="hint" />
+              <!-- 提示词缓存:只有 Anthropic 协议吃这个标记,解出的协议不是它时整块隐藏 -->
+              <StackPanel x:Name="PromptCachePanel">
+                <CheckBox x:Name="PromptCacheCheck" Theme="{StaticResource AiCheckBoxTheme}"
+                          FontSize="{DynamicResource VelaFontSize12}" Margin="0,12,0,0" />
+                <TextBlock x:Name="PromptCacheHintText" Classes="hint" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <!-- 三、采样、计费与本模型专用提示词 -->
+          <TextBlock x:Name="SectionSamplingTitle" Classes="section-title" Margin="0,14,0,0" />
+          <Border Classes="section">
+            <StackPanel>
+              <!-- 采样参数:留空 = 不发这个参数,用服务端默认 -->
+              <Grid ColumnDefinitions="*,12,*,12,*">
+                <StackPanel>
+                  <TextBlock x:Name="TemperatureLabel" Classes="label" Margin="0,0,0,3" />
+                  <TextBox x:Name="TemperatureBox" />
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                  <TextBlock x:Name="TopPLabel" Classes="label" Margin="0,0,0,3" />
+                  <TextBox x:Name="TopPBox" />
+                </StackPanel>
+                <StackPanel Grid.Column="4">
+                  <TextBlock x:Name="StopLabel" Classes="label" Margin="0,0,0,3" />
+                  <TextBox x:Name="StopBox" FontFamily="{DynamicResource VelaUiMonoFont}" />
+                </StackPanel>
+              </Grid>
+              <TextBlock x:Name="SamplingHintText" Classes="hint" />
+
+              <Border Classes="sep" Margin="0,14" />
+
+              <!-- 单价(用户自填,用于用量提示里的花费估算);留 0 就不估 -->
+              <Grid ColumnDefinitions="*,12,*,12,*">
+                <StackPanel>
+                  <TextBlock x:Name="PriceInLabel" Classes="label" Margin="0,0,0,3" />
+                  <TextBox x:Name="PriceInBox" />
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                  <TextBlock x:Name="PriceOutLabel" Classes="label" Margin="0,0,0,3" />
+                  <TextBox x:Name="PriceOutBox" />
+                </StackPanel>
+                <StackPanel Grid.Column="4">
+                  <TextBlock x:Name="PriceCachedLabel" Classes="label" Margin="0,0,0,3" />
+                  <TextBox x:Name="PriceCachedBox" />
+                </StackPanel>
+              </Grid>
+              <TextBlock x:Name="PriceHintText" Classes="hint" />
+
+              <TextBlock x:Name="ProviderPromptLabel" Classes="label" />
+              <TextBox x:Name="ProviderPromptBox" AcceptsReturn="True" MinHeight="60" TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <!-- 全局设置(系统提示词 / 上下文压缩 / 后续提问)不在这页了:从窗口标题栏的 ⚙ 进 GlobalSettingsView,
+             省得跟着长表单一起滚才找得到。 -->
+
+        <!-- MCP 服务器搬去「配置工具」窗口了:配好服务器紧接着就要挑它的工具,
+             那份勾选列表就在那边;隔着两个窗口来回切很别扭。 -->
+
+        <!-- 操作行落在表单最末、靠右,上方一道分隔线跟配置项断开。
+             不钉死在窗口底部:一条常驻横栏会一直占着高度,而这页大多数时候在读、在填,
+             真要按保存时滚到底就是了。
+             测试 / 删除作用于左栏当前选中的那一层(供应商 or 模型)。 -->
+        <Border BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,1,0,0"
+                Padding="0,14,0,0" Margin="0,4,0,0">
+          <!-- 侧栏宽度不在这儿(也不在任何一节里):它跟着用户拖分割条走,拖完就记住,
+               下次打开还是那个宽度。让人来填一个百分比,不如直接把他拖出来的结果记下来。 -->
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock x:Name="StatusText" Classes="dim" TextWrapping="Wrap"
+                       Margin="0,0,12,0" VerticalAlignment="Center" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+              <Button x:Name="SaveButton" Theme="{DynamicResource VelaAccentPillButtonTheme}" Height="26" Padding="12,0">
+                <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                  <Viewbox Width="11" Height="11" VerticalAlignment="Center">
+                    <Path Width="24" Height="24" Data="{DynamicResource Icon.save}"
+                          Stroke="{DynamicResource VelaAccent}" StrokeThickness="2"
+                          StrokeLineCap="Round" StrokeJoin="Round" />
+                  </Viewbox>
+                  <TextBlock x:Name="SaveText" VerticalAlignment="Center"
+                             FontSize="{DynamicResource VelaFontSize11}" FontWeight="Medium" />
+                </StackPanel>
+              </Button>
+              <Button x:Name="TestButton" Theme="{DynamicResource VelaOutlineButtonTheme}" Height="26" Padding="12,0">
+                <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                  <Viewbox Width="11" Height="11" VerticalAlignment="Center">
+                    <Path Width="24" Height="24" Data="{DynamicResource Icon.play}"
+                          Stroke="{DynamicResource VelaTextSecondary}" StrokeThickness="2"
+                          StrokeLineCap="Round" StrokeJoin="Round" />
+                  </Viewbox>
+                  <TextBlock x:Name="TestText" VerticalAlignment="Center" />
+                </StackPanel>
+              </Button>
+              <Button x:Name="DeleteButton" Theme="{DynamicResource VelaOutlineButtonTheme}" Height="26" Padding="12,0"
+                      Foreground="{DynamicResource VelaError}" BorderBrush="{DynamicResource VelaError}">
+                <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                  <Viewbox Width="11" Height="11" VerticalAlignment="Center">
+                    <Path Width="24" Height="24" Data="{DynamicResource Icon.trash-2}"
+                          Stroke="{DynamicResource VelaError}" StrokeThickness="2"
+                          StrokeLineCap="Round" StrokeJoin="Round" />
+                  </Viewbox>
+                  <TextBlock x:Name="DeleteText" VerticalAlignment="Center" />
+                </StackPanel>
+              </Button>
+            </StackPanel>
+          </Grid>
+        </Border>
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+</UserControl>

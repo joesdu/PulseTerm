@@ -23,40 +23,23 @@
   </PropertyGroup>
 
   <!--
-    ============================ 插件工具链的两个 pin ============================
-    插件 SDK、模板、vela-plugin CLI 与全部第一方插件已于 2026-08-21 拆到独立仓库
+    ============================ 随包分发的插件从哪来 ============================
+    插件 SDK、模板、vela-plugin CLI 与 Redis/S3/Telnet/HelloWorld 插件于 2026-08-21 拆到
     https://github.com/joesdu/velashell-plugin-toolchain
-    本仓库只剩主程序,通过下面两个版本号消费它。
+    契约程序集(VelaShell.PluginSdk / .Testing)一律走 nuget.org 上的正式包,版本写在
+    src/ 与 tests/ 的 Directory.Packages.props 里;那几个插件的二进制走下面这个 Release pin。
 
-    发布顺序是**先工具链、后主程序**:工具链发 Release → 五个包上 nuget.org、
-    插件分发包挂到该 Release → 回到这里把两个 pin 抬上去。
+    **例外:AI 插件(velashell.ai)是本仓库自建的第一方插件**,源码在 plugins/ 下,
+    随主程序一起构建、一起发布 —— 它与宿主的耦合最紧(要用宿主的 AvaloniaEdit 作输入框、
+    必须进程内装载、Avalonia 版本必须与宿主逐字一致),分在两个仓库时每改一处 UI 都要
+    先发一次工具链 Release 才能联调。详见 plugins/README.md。
   -->
   <PropertyGroup>
-    <!-- 契约程序集(VelaShell.PluginSdk / .Testing)的包版本。**与宿主版本解耦**:
-         宿主发 1.2.3 不代表插件契约变了,插件作者也不该为了跟版本号而重新编译。 -->
-    <VelaSdkVersion Condition="'$(VelaSdkVersion)' == ''">1.4.0</VelaSdkVersion>
-
-    <!-- 随安装包分发的第一方插件(AI / Redis / S3 / Telnet)所在的工具链 Release 标签,
-         去掉前导 v。发布流水线据此下载
-         releases/download/v$(VelaPluginsBundleVersion)/velashell-plugins-$(VelaPluginsBundleVersion).zip
-         解进发布目录的 plugins/。通常与 VelaSdkVersion 同版(同一次 Release 出的),
-         分成两个属性是因为它们回答的是不同问题:一个是"编译期绑哪个契约",
-         一个是"发行包里装哪一批插件"。 -->
-    <VelaPluginsBundleVersion Condition="'$(VelaPluginsBundleVersion)' == ''">$(VelaSdkVersion)</VelaPluginsBundleVersion>
-
-    <!--
-      联调逃生口。设了它就把上面那个 NuGet 包引用换成对本机工具链仓库的 ProjectReference,
-      改契约不必先发一个 preview 包。三种设法(任选其一):
-        · 环境变量 VELASHELL_SDK_PATH=G:\velashell-plugin-toolchain
-        · 命令行 -p:VelaSdkPath=G:\velashell-plugin-toolchain
-        · 本地 Directory.Build.props.user 之类的私有文件(别提交)
-      留空(默认)= 走 nuget.org 上的正式包,这是 CI 与日常开发的路径。
-      注意:切成 ProjectReference 时 SDK 是**未签名**的 Debug 产物,
-      因此这条路径只适用于 Debug;Release 仍应走签名过的正式包。
-    -->
-    <VelaSdkPath Condition="'$(VelaSdkPath)' == ''">$(VELASHELL_SDK_PATH)</VelaSdkPath>
-    <VelaSdkProject>$(VelaSdkPath)\plugin-sdk\VelaShell.PluginSdk\VelaShell.PluginSdk.csproj</VelaSdkProject>
-    <VelaSdkTestingProject>$(VelaSdkPath)\plugin-sdk\VelaShell.PluginSdk.Testing\VelaShell.PluginSdk.Testing.csproj</VelaSdkTestingProject>
+    <!-- 随安装包分发的**工具链侧**插件(Redis / S3 / Telnet)所在的工具链 Release 标签,
+         去掉前导 v。scripts/Fetch-Plugins.ps1 据此下载
+         releases/download/v<版本>/velashell-plugins-<版本>.zip 解进 artifacts/plugins/。
+         包里若含 velashell-ai,取回时会被丢掉 —— 那一份由本仓库自己构建,见脚本注释。 -->
+    <VelaPluginsBundleVersion Condition="'$(VelaPluginsBundleVersion)' == ''">1.4.0</VelaPluginsBundleVersion>
   </PropertyGroup>
 
   <PropertyGroup>
