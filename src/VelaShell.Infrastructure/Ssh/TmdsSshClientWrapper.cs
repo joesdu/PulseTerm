@@ -363,6 +363,44 @@ public sealed class TmdsSshClientWrapper : ISshClientWrapper
     }
 
     /// <summary>
+    /// 在当前连接上开一条到远端 unix 域套接字的双工字节流。
+    /// </summary>
+    public async Task<Stream> OpenUnixConnectionAsync(string socketPath, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(socketPath);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_client is null) throw new InvalidOperationException("Not connected.");
+        try
+        {
+            return await _client.OpenUnixConnectionAsync(socketPath, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (TmdsSshInterop.Translate(ex, cancellationToken) is { } translated)
+        {
+            throw translated;
+        }
+    }
+
+    /// <summary>
+    /// 在当前连接上开一条到远端 TCP 端点的双工字节流。
+    /// </summary>
+    public async Task<Stream> OpenTcpConnectionAsync(string host, int port, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(host);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(port);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(port, 65535);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_client is null) throw new InvalidOperationException("Not connected.");
+        try
+        {
+            return await _client.OpenTcpConnectionAsync(host, port, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (TmdsSshInterop.Translate(ex, cancellationToken) is { } translated)
+        {
+            throw translated;
+        }
+    }
+
+    /// <summary>
     /// 释放当前连接,并将 _client 置 null,不抛出异常。
     /// </summary>
     public void Dispose()

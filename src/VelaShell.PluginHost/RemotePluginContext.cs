@@ -85,7 +85,32 @@ internal sealed class RemotePluginContext : IPluginContext, IDisposable
 
     public PluginSdk.Workspaces.IWorkspacesApi Workspaces { get; } = new IsolatedWorkspaces();
 
+    /// <summary>
+    /// 隧道能力在隔离进程里**不可用**。它交出去的是一条活的 <see cref="Stream" />;
+    /// 跨进程代理一条裸流,除了把每个字节多搬一次、再给它套上一层会断的 RPC 之外
+    /// 得不到任何东西 —— 而隧道恰恰是用来承载"一条连接挂几小时"的流的。
+    /// 明确报不可用,好过给一个语义已经变质的实现。
+    /// </summary>
+    public PluginSdk.RemoteTunnel.IRemoteTunnelApi RemoteTunnel { get; } = new IsolatedRemoteTunnel();
+
     public CancellationToken Shutdown { get; }
+
+    /// <summary>隔离进程的隧道能力退化实现:调用即报不可用。</summary>
+    private sealed class IsolatedRemoteTunnel : PluginSdk.RemoteTunnel.IRemoteTunnelApi
+    {
+        private static NotSupportedException Unsupported() => new(
+            "Remote tunnels require hostMode \"inProcess\": a live byte stream cannot be proxied across processes.");
+
+        public int ActiveTunnels => 0;
+
+        public Task<Stream> OpenUnixSocketAsync(string sessionId, string socketPath,
+            PluginSdk.RemoteTunnel.TunnelOptions? options = null, CancellationToken cancellationToken = default)
+            => Task.FromException<Stream>(Unsupported());
+
+        public Task<Stream> OpenTcpAsync(string sessionId, string host, int port,
+            PluginSdk.RemoteTunnel.TunnelOptions? options = null, CancellationToken cancellationToken = default)
+            => Task.FromException<Stream>(Unsupported());
+    }
 
     /// <summary>
     /// 隔离进程的工作台能力退化实现:注册即报不可用。原生控件无法跨进程嵌入,

@@ -14,6 +14,7 @@ using VelaShell.PluginSdk.Manifest;
 using VelaShell.PluginSdk.Packaging;
 using VelaShell.PluginSdk.RemoteExec;
 using VelaShell.PluginSdk.RemoteFs;
+using VelaShell.PluginSdk.RemoteTunnel;
 using VelaShell.PluginSdk.Sessions;
 
 namespace VelaShell.Infrastructure.Plugins;
@@ -1475,6 +1476,9 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
             RemoteExec = options.Connections is { } execConnections
                 ? new RemoteExecCapability(execConnections)
                 : new UnavailableRemoteExec(),
+            RemoteTunnel = options.Connections is { } tunnelConnections
+                ? new RemoteTunnelCapability(tunnelConnections)
+                : new UnavailableRemoteTunnel(),
             Commands = GetOrCreateCommandsApi(runtime),
             Events = new PluginEventHub(log, options.Connections, options.Theme, options.Localization),
             Ui = options.UiFactory?.Invoke(manifest.Id, log) ?? new NullUiApi(log),
@@ -1651,6 +1655,19 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
     {
         public Task<ExecResult> RunAsync(string sessionId, string command, ExecOptions? options = null, CancellationToken cancellationToken = default)
             => Task.FromException<ExecResult>(new InvalidOperationException("Remote exec capability is unavailable in this host."));
+    }
+
+    private sealed class UnavailableRemoteTunnel : IRemoteTunnelApi
+    {
+        private static InvalidOperationException Unavailable() => new("Remote tunnel capability is unavailable in this host.");
+
+        public int ActiveTunnels => 0;
+
+        public Task<Stream> OpenUnixSocketAsync(string sessionId, string socketPath, TunnelOptions? options = null, CancellationToken cancellationToken = default)
+            => Task.FromException<Stream>(Unavailable());
+
+        public Task<Stream> OpenTcpAsync(string sessionId, string host, int port, TunnelOptions? options = null, CancellationToken cancellationToken = default)
+            => Task.FromException<Stream>(Unavailable());
     }
 
     /// <summary>无数据库的宿主上的时序能力:明确报不可用,绝不静默丢数据。</summary>

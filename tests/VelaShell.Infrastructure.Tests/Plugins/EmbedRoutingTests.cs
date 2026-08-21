@@ -69,6 +69,7 @@ public class EmbedRoutingTests
         Sessions = new FakeSessions(),
         RemoteFs = new FakeRemoteFs(),
         RemoteExec = new FakeRemoteExec(),
+        RemoteTunnel = new FakeRemoteTunnel(),
         Commands = new RecordingCommands(),
         Events = new PluginEventHub(new CollectingLogger(), null, null, null),
         Ui = new FakeUi(),
