@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using VelaShell.Core.Models;
@@ -54,20 +54,15 @@ public sealed class TelnetPluginEndToEndTests
     /// 把**构建产物里的**真 Telnet 插件目录铺到临时插件根下。
     /// 刻意不在测试里手写一份 plugin.json:那样就测不到真清单里的
     /// contributes/activationEvents 写没写对 —— 而那正是最容易错的地方。
+    /// <para>
+    /// <b>从插件自己的 bin 取,而不是本测试项目的 bin</b>(见
+    /// <see cref="PluginOutputLocator" />):本项目引了三个插件项目,它们都把
+    /// <c>plugin.json</c> 复制到测试 bin 的**根**下,谁赢由 MSBuild 的复制顺序决定。
+    /// 这条用例曾经绿过很久,只是**恰好**赢了那枚硬币 —— 第三个插件一进来就翻了。
+    /// </para>
     /// </summary>
-    private void StageTelnetPlugin()
-    {
-        string source = Path.GetDirectoryName(typeof(VelaShell.Plugin.Telnet.TelnetPlugin).Assembly.Location)!;
-        string manifest = Path.Combine(source, "plugin.json");
-        Assert.IsTrue(File.Exists(manifest), $"构建产物里应有 plugin.json:{manifest}");
-        string target = Path.Combine(_root, "velashell-telnet");
-        Directory.CreateDirectory(target);
-        foreach (string file in Directory.EnumerateFiles(source, "VelaShell.Plugin.Telnet.*"))
-        {
-            File.Copy(file, Path.Combine(target, Path.GetFileName(file)), overwrite: true);
-        }
-        File.Copy(manifest, Path.Combine(target, "plugin.json"), overwrite: true);
-    }
+    private void StageTelnetPlugin() =>
+        PluginOutputLocator.StageInto("VelaShell.Plugin.Telnet", Path.Combine(_root, "velashell-telnet"));
 
     private (PluginManager Manager, PluginProtocolRegistry Registry) CreateManager()
     {

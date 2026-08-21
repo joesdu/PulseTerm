@@ -256,6 +256,24 @@ public class SettingsViewUiTests
         });
     }
 
+    /// <summary>
+    /// 在 UI 线程上跑一段。
+    /// <para>
+    /// <b>这里必须把 <paramref name="body" /> 包一层再交出去,不能直传。</b>
+    /// <c>HeadlessUnitTestSession</c> 没有 <c>Func&lt;Task&gt;</c> 那一支重载,直传只能绑到
+    /// <c>Dispatch&lt;T&gt;(Func&lt;T&gt;, …)</c> 上、T 推成 <c>Task</c> ——
+    /// <c>GetResult()</c> 拿回的是**那个还没跑完的内层 Task**,第一个 <c>await</c> 之后的断言
+    /// 全部落在没人接的地方。编译通过、测试恒绿。
+    /// 实测:把 <c>Assert.Fail</c> 放在用例第一行,dotnet test 照样报全过。
+    /// 包成 <c>async () =&gt; { await body(); return true; }</c> 才落到
+    /// <c>Func&lt;Task&lt;T&gt;&gt;</c> 上,异常才随 Task 传回来。
+    /// </para>
+    /// </summary>
+    /// <param name="body">要在 UI 线程上跑的活。</param>
     private static void OnUi(Func<Task> body) =>
-        _session.Dispatch(body, CancellationToken.None).GetAwaiter().GetResult();
+        _session.Dispatch(async () =>
+        {
+            await body();
+            return true;
+        }, CancellationToken.None).GetAwaiter().GetResult();
 }
