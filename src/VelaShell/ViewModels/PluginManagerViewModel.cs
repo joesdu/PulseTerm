@@ -72,6 +72,19 @@ public sealed class PluginRowViewModel(PluginDescriptor descriptor, bool hasTerm
     [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "XAML 绑定只解析实例成员。")]
     public string RevokeText => Strings.Get("PluginManager_RevokePermission");
 
+    /// <summary>
+    /// 是否可"重新加载"。只对开发期挂载的插件出现:它的意义是"我刚重编了,跑新代码",
+    /// 对已安装插件没有对应的用户动作(那条路是重装)。
+    /// </summary>
+    public bool CanReload => descriptor.IsDevelopment
+                             && descriptor.Manifest is not null
+                             && descriptor.State is not (PluginState.Invalid or PluginState.Incompatible
+                                 or PluginState.Disabled);
+
+    /// <summary>重新加载按钮文案。</summary>
+    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "XAML 绑定只解析实例成员。")]
+    public string ReloadText => Strings.Get("PluginManager_Reload");
+
     /// <summary>是否可卸载(用户安装,非应用自带)。</summary>
     public bool CanUninstall { get; init; }
 
@@ -89,6 +102,7 @@ public sealed class PluginManagerViewModel : ReactiveObject, IDisposable
     private readonly PluginManager _manager;
     private readonly PluginPermissionGate? _gate;
     private readonly Action _onChanged;
+    private readonly Action<string, int> _onDebugAttach;
 
     /// <summary>插件行集合(UI 线程更新)。</summary>
     public ObservableCollection<PluginRowViewModel> Plugins { get; } = [];
@@ -128,7 +142,12 @@ public sealed class PluginManagerViewModel : ReactiveObject, IDisposable
         _manager = manager;
         _gate = gate;
         _onChanged = () => Dispatcher.UIThread.Post(() => _ = ReloadAsync());
+        // 等待调试器的隔离插件:把 pid 摆到管理页上。它同时进日志、落 pid 文件,
+        // 但开发者此刻多半正开着这个页面,让他去翻日志属于本可以省掉的一步。
+        _onDebugAttach = (pluginId, pid) =>
+            SetNotice(Strings.Format("PluginManager_WaitingForDebugger", pluginId, pid));
         _manager.Changed += _onChanged;
+        _manager.DebugAttachRequested += _onDebugAttach;
         _ = ReloadAsync();
     }
 
@@ -147,6 +166,20 @@ public sealed class PluginManagerViewModel : ReactiveObject, IDisposable
         {
             await _manager.DisableAsync(row.Id).ConfigureAwait(false);
         }
+        // Changed 事件会触发刷新;这里不重复。
+    }
+
+    /// <summary>
+    /// 重新加载某个开发期插件:停用 → 重读清单 → 重新装载。开发内环的一步:
+    /// 改完代码 <c>dotnet build</c>,点这里就跑上新代码,不必重启 VelaShell。
+    /// </summary>
+    public async Task ReloadPluginAsync(PluginRowViewModel row)
+    {
+        if (!row.CanReload)
+        {
+            return;
+        }
+        await _manager.ReloadAsync(row.Id).ConfigureAwait(false);
         // Changed 事件会触发刷新;这里不重复。
     }
 
@@ -224,5 +257,9 @@ public sealed class PluginManagerViewModel : ReactiveObject, IDisposable
     }
 
     /// <inheritdoc />
-    public void Dispose() => _manager.Changed -= _onChanged;
+    public void Dispose()
+    {
+        _manager.Changed -= _onChanged;
+        _manager.DebugAttachRequested -= _onDebugAttach;
+    }
 }

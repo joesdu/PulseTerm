@@ -3575,6 +3575,8 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   <data name="PluginPerm_Deny"><value>拒絕</value></data>
   <data name="PluginManager_Install"><value>安裝 .vpx…</value></data>
   <data name="PluginManager_Uninstall"><value>解除安裝</value></data>
+  <data name="PluginManager_Reload"><value>重新載入</value></data>
+  <data name="PluginManager_WaitingForDebugger"><value>外掛「{0}」的宿主行程正在等待偵錯工具附加,行程 id {1}。</value></data>
   <data name="PluginManager_Installed"><value>已安裝「{0}」。</value></data>
   <data name="PluginManager_InstallFailed"><value>安裝失敗：{0}</value></data>
   <data name="PluginManager_ConfirmUninstall"><value>解除安裝「{0}」？其資料將被清除。</value></data>

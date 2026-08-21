@@ -138,7 +138,7 @@ dotnet build -c Release -t:PackVpx               # → bin/vpx/acme.snippets-0.1
 生成的 `.csproj` 只有一行依赖:
 
 ```xml
-<PackageReference Include="VelaShell.PluginSdk.Build" Version="1.0.0-preview.1" />
+<PackageReference Include="VelaShell.PluginSdk.Build" Version="1.4.0" />
 ```
 
 这一个包把插件工程需要的东西一并带到:契约程序集 `VelaShell.PluginSdk`、**与宿主版本
@@ -159,7 +159,7 @@ dotnet build -c Release -t:PackVpx               # → bin/vpx/acme.snippets-0.1
 > `PackageReference` 引用;只有 `vela-plugin`(`VelaShell.Plugin.Cli`)是 dotnet tool。
 > 而且**打包不需要装这个工具** —— 打包器随 `VelaShell.PluginSdk.Build` 一起分发,
 > `dotnet build -t:PackVpx` 直接可用。装全局工具是为了在构建之外随手校验、签名、
-> 查看包内容、以及做开发期挂载(`vela-plugin dev-link`)。
+> 查看包内容、体检(`vela-plugin doctor`),以及配开发内环(`vela-plugin dev init`)。
 
 装上去有两种方式:
 
@@ -183,33 +183,97 @@ dotnet build -c Release -t:PackVpx               # → bin/vpx/acme.snippets-0.1
 
 ### 2.3 开发内环与断点调试
 
-仓库外插件不必"打包 → 安装 → 再看效果"。把工程的输出目录**挂**进宿主即可:
+仓库外插件不必"打包 → 安装 → 再看效果"。三步:
 
 ```bash
-vela-plugin dev-link bin/Debug/net11.0     # 登记(写进 <数据根>/plugins.dev.txt)
-vela-plugin dev-unlink bin/Debug/net11.0   # 取消
+dotnet tool install -g VelaShell.Plugin.Cli   # 一次性
+dotnet build
+vela-plugin dev init                          # 配好 IDE 启动配置
 ```
 
-之后 `dotnet build` 完重启 VelaShell 就是最新代码,插件在管理页带 **DEV** 角标。
-等价的临时做法是设环境变量 `VELA_PLUGIN_DEV_ROOT=<目录>`(多条以系统路径分隔符分隔)。
+然后在 IDE 里按 **F5**(启动配置名 `VelaShell`)。全套命令与开关见
+[CLI 手册](cli.md);这里说清它到底做了什么、为什么这么做。
 
-两点机制说明:
+#### 宿主自己报家门
 
-- 登记的是插件目录的**父目录**:宿主扫描一个根目录下的**一级子目录**,每个含
-  `plugin.json` 的子目录算一个插件。`dev-link` 传插件目录时会自动上移一级,
-  于是插件目录名就是 `net11.0` —— 目录名不参与任何逻辑(id 从 `plugin.json` 读)。
-- 开发根排在正式根**之后**,同 id 先到先得:本机开发中的插件不会顶掉用户已安装的同名插件。
-- Windows 上宿主运行时会锁住插件 dll,重编译前先关掉 VelaShell。
+`dev init` 不去猜 VelaShell 装在哪 —— 三个平台三套安装位置,还有便携版与自更新换过位置,
+探测逻辑既长又常年失准。改成**宿主每次启动把自己写进 `~/.velashell/host.json`**:
+可执行文件路径、版本、apiLevel、内置 SDK 版本、Avalonia 版本、数据根、PluginHost 路径。
 
-断点:
+```bash
+vela-plugin hosts     # 看本机登记了哪几份安装
+```
+
+因此前置条件只有一条:**本机至少完整启动过一次 VelaShell**。没有的话用
+`vela-plugin dev init --exe <路径>` 直指可执行文件。多份安装并存(正式版 + 预览版)时,
+默认取最近启动过的那份,`--host 1.5` 可以点名。
+
+#### 生成的启动配置
+
+```jsonc
+"VelaShell": {
+  "commandName": "Executable",
+  "executablePath": "…/VelaShell.exe",
+  "commandLineArgs": "--dev-root …/Snippets/bin/Debug --wait-debugger acme.snippets --data-root …/.velashell-dev"
+}
+```
+
+| 参数 | 解决的问题 |
+| --- | --- |
+| `--dev-root` | 把工程输出挂进宿主。**跟着工程走**,不写机器级全局状态 —— 同时开两个插件工程、或在分支间切换都互不干扰 |
+| `--wait-debugger` | 隔离插件的子进程在装载程序集**之前**挂起等你附加 |
+| `--data-root` | 调试实例用独立数据根 |
+
+第三条最容易被低估:开发者日常几乎肯定开着一份 VelaShell,而**共用数据根的第二个实例会
+撞上单实例保护**(SonnetDB 对 WAL 持独占锁),弹一句"已在运行"就干净退出 —— 看起来像
+启动配置写错了。换个数据根,两个实例并存,调试用的连接与设置也不会污染日常配置。
+真要在日常配置里试,加 `--shared-data`(此时必须先退出日常实例)。
+
+这三个参数都有等价的环境变量(`VELA_PLUGIN_DEV_ROOT` / `VELA_PLUGIN_WAIT_DEBUGGER`),
+**参数优先**;第三个来源是 `~/.velashell/plugins.dev.txt`(`vela-plugin dev link` 写的,
+适合"让日常实例长期带着这个插件跑")。三者叠加,开发根整体排在正式插件根**之后**,
+同 id 先到先得 —— 本机开发中的插件不会顶掉用户已安装的同名插件。
+
+#### 改完代码怎么办:重新加载,不重启
+
+```bash
+dotnet build
+```
+
+回到插件管理页,在该插件那一行点 **重新加载**:停用 → 卸载 ALC / 回收进程 → **重读清单** →
+重新装载。清单也一起重读,所以两次构建之间改了版本、命令、协议页签都会跟着更新。
+
+Windows 上这一步过去做不到:ALC 用 `LoadFromAssemblyPath` 装载,插件活着就锁着入口 dll,
+于是内环退化成"关掉宿主 → 重编 → 再启动"。现在**开发期插件从影子副本装载**
+(`~/.velashell/dev-shadow/<id>/gen-N`,每次装载换一代目录,旧代能删则删),
+工程 `bin` 随时可以重编。生产路径不走影子拷贝,行为分文不动。
+
+想连按钮都省掉:`vela-plugin dev init --watch`(即 `--dev-watch`),宿主监视开发根,
+入口程序集的写入时间一变就自动重载(去抖 1.5 秒,等构建写完)。默认关 ——
+文件监视器在网络盘/共享盘上会抖,不该是所有人默认承担的成本。
+
+> 开发期插件的**禁用状态**记在 `~/.velashell/plugins.dev.disabled`,不写进构建产物目录 ——
+> 否则 `.disabled` 标记会留在 `bin` 里,表现为"我明明重编了怎么还是禁用状态"。
+
+#### 断点
 
 | 插件形态 | 怎么调 |
 | --- | --- |
-| `inProcess` | 插件跑在 VelaShell 进程里 —— IDE"附加到进程"选 `VelaShell` 即可。挂着调试器时宿主自动把激活超时从 10 秒放宽到 10 分钟,不会因为你在 `ActivateAsync` 里停了两分钟就判超时 |
-| `isolated` | 插件跑在 `VelaShell.PluginHost` 子进程里。启动 VelaShell 前设 `VELA_PLUGIN_WAIT_DEBUGGER=<插件id>`(或 `*` 表示全部),子进程会在**装载插件程序集之前**挂起等你附加,进程 id 打在宿主日志里 |
+| `inProcess` | F5 起来的宿主进程本身就附着着调试器,插件被装进这个进程,断点直接命中(包括 `ActivateAsync` 第一行)。宿主检测到调试器时会把激活超时从 10 秒放宽到 10 分钟 |
+| `isolated` | 插件跑在 `VelaShell.PluginHost` 子进程里。`--wait-debugger <id>` 命中的插件,子进程在**装载插件程序集之前**挂起等你附加;pid 显示在插件管理页上、打进日志、并落在 `~/.velashell/logs/plugin-host-<id>.pid` |
 
-`VELA_PLUGIN_WAIT_DEBUGGER` 命中的插件,宿主同时会**放宽激活超时并停掉心跳** ——
-否则断点冻住插件进程的全部线程,心跳连续两次失败就把它强杀了,表现为"一下断点插件就没了"。
+`--wait-debugger` 命中的插件,宿主同时**放宽激活超时并停掉心跳** —— 否则断点冻住插件进程的
+全部线程,心跳连续两次失败就把它强杀了,表现为"一下断点插件就没了"。
+
+#### 出问题先问 doctor
+
+```bash
+vela-plugin doctor
+```
+
+一次性核对:宿主是否已登记、`apiLevel`/`minSdkVersion`/`minHostVersion` 三道兼容闸、
+输出目录里有没有 `plugin.json` 与 `.deps.json`、有没有误把 `VelaShell.PluginSdk.dll` /
+`Avalonia*.dll` 打进输出、启动配置是否还留着占位符。有阻断性问题时退出码为 1(可进 CI)。
 
 不想启动整个宿主时,插件的业务逻辑可以用 `VelaShell.PluginSdk.Testing` 的
 `TestPluginContext` 在普通单测里跑(见 §7)。

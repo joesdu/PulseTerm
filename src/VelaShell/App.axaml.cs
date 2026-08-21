@@ -213,6 +213,13 @@ public class App : Application
                 );
             }
 
+            // 宿主自我登记(~/.velashell/host.json):插件工具链据此找到本机安装、核对版本。
+            // 一次文件写入,放后台线程,不占启动路径。
+            if (_serviceProvider?.GetService<VelaShell.Infrastructure.Persistence.VelaShellStoragePaths>() is { } storagePaths)
+            {
+                _ = Task.Run(() => HostRegistrationService.Register(storagePaths));
+            }
+
             // 插件运行时:主窗口就绪后在后台线程发现并激活插件(启动路径零阻塞)。
             // VELASHELL_DISABLE_PLUGINS=1 为排障急停开关;停用随 DI 容器释放执行。
             if (Environment.GetEnvironmentVariable("VELASHELL_DISABLE_PLUGINS") != "1"

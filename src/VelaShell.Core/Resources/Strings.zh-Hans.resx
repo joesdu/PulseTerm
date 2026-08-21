@@ -3667,6 +3667,8 @@ Windows 填 exe 完整路径或命令名(如 notepad);Linux 填命令名(如 ged
   <data name="PluginPerm_Deny"><value>拒绝</value></data>
   <data name="PluginManager_Install"><value>安装 .vpx…</value></data>
   <data name="PluginManager_Uninstall"><value>卸载</value></data>
+  <data name="PluginManager_Reload"><value>重新加载</value></data>
+  <data name="PluginManager_WaitingForDebugger"><value>插件“{0}”的宿主进程正在等待调试器附加,进程 id {1}。</value></data>
   <data name="PluginManager_Installed"><value>已安装“{0}”。</value></data>
   <data name="PluginManager_InstallFailed"><value>安装失败:{0}</value></data>
   <data name="PluginManager_ConfirmUninstall"><value>卸载“{0}”?其数据将被清除。</value></data>

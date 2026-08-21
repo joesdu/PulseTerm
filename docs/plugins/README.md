@@ -20,6 +20,9 @@
 | 文档 | 内容 | 读者 |
 | --- | --- | --- |
 | [dev-guide.md](dev-guide.md) | **开发指南(已实现)**:快速上手、清单、生命周期、能力 API、隔离模式、测试、部署、性能纪律 | 插件开发者(必读) |
+| [cli.md](cli.md) | **`vela-plugin` 手册**:开发内环(`dev init`)、体检(`doctor`)、校验/打包/签名、宿主启动参数 | 插件开发者 |
+| [publishing.md](publishing.md) | **打包与发布**:Release 构建、`.vpx`、签名与信任、发布到[插件商店](http://market.easilynet.top)、CI 出包 | 插件开发者 |
+| [sdk-reference.md](sdk-reference.md) | **SDK 参考**:包结构、入口契约、能力域一览、SDK 版本历史、测试替身、装载模型 | 插件开发者 |
 | [STATUS.md](STATUS.md) | **进度总览(单一权威)**:分项完成度、验收证据、刻意决策、下一步建议 | 所有人 |
 | [01-vision-and-goals.md](01-vision-and-goals.md) | 愿景、目标/非目标、典型场景、与 VSCode 等系统的对比 | 所有人 |
 | [02-architecture.md](02-architecture.md) | 总体架构、进程模型、组件划分、工程目录规划、关键决策记录 | 所有人 |
@@ -59,7 +62,8 @@
 
 ## 阅读顺序建议
 
-- **写插件**:只读 [dev-guide.md](dev-guide.md) 即可(现状唯一权威)。
+- **写插件**:[dev-guide.md](dev-guide.md)(现状唯一权威)→ 手边备着
+  [cli.md](cli.md) 与 [sdk-reference.md](sdk-reference.md);要发布时读 [publishing.md](publishing.md)。
 - **了解进度**:[STATUS.md](STATUS.md)。
 - **研究长期设计**:01 → 02 → 12(信任模型)→ 03 → 06 → 07,其余按需;
   注意各篇顶部的"实现注记"标注了现状与蓝图的偏离。

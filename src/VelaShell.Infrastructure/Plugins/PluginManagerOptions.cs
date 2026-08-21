@@ -27,6 +27,37 @@ public sealed class PluginManagerOptions
     /// </summary>
     public IReadOnlyList<string> DevPluginRoots { get; init; } = [];
 
+    /// <summary>
+    /// 开发期插件的影子副本根目录。非空时,来自 <see cref="DevPluginRoots" /> 的插件
+    /// 在装载前被整份复制到 <c>&lt;root&gt;/&lt;pluginId&gt;/</c> 再从副本加载。
+    /// <para>
+    /// 为的是 Windows 上的文件锁:ALC 用 <c>LoadFromAssemblyPath</c> 装载,插件活着时
+    /// 入口 dll 的句柄不放,于是内环退化成"关掉宿主 → 重编 → 再启动"。从副本装载后,
+    /// 工程的 <c>bin</c> 随时可以重编,改完点一下"重新加载"即可(见 <see cref="PluginManager.ReloadAsync" />)。
+    /// </para>
+    /// <para>缺省(<see langword="null" />)时就地装载,行为与影子拷贝引入前一致。</para>
+    /// </summary>
+    public string? DevShadowRootDirectory { get; init; }
+
+    /// <summary>
+    /// 开发期插件的禁用登记文件(每行一个插件 id)。已安装插件的禁用标记写在插件目录里,
+    /// 但开发期插件的目录是构建产物目录,写进去只会让人困惑(重编后标记还在)。
+    /// 缺省时开发期插件的禁用状态不持久(仅本次运行有效)。
+    /// </summary>
+    public string? DevDisabledStateFile { get; init; }
+
+    /// <summary>
+    /// 是否监视开发期插件根,检测到构建产物变化后自动重载(启动参数 <c>--dev-watch</c>)。
+    /// 默认关:文件监视器在共享盘/网络盘上会抖,不该是所有人默认承担的成本。
+    /// </summary>
+    public bool DevAutoReload { get; init; }
+
+    /// <summary>
+    /// 诊断文件目录(等待调试器的隔离插件在此落一个 <c>plugin-host-&lt;id&gt;.pid</c>)。
+    /// 缺省时不落文件,pid 仍会打进日志。
+    /// </summary>
+    public string? DiagnosticsDirectory { get; init; }
+
     /// <summary>插件私有数据根目录:每插件一个 <c>&lt;root&gt;/&lt;pluginId&gt;/</c> 子目录。</summary>
     public required string DataRootDirectory { get; init; }
 

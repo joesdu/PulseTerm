@@ -2,27 +2,36 @@
 
 VelaShell 插件。插件 id:`PLUGIN_ID`。
 
-## 开发内环
+## 三步跑起来
+
+```bash
+dotnet tool install -g VelaShell.Plugin.Cli   # 只需装一次
+dotnet build
+vela-plugin dev init                          # 配好 IDE 启动配置
+```
+
+然后在 IDE 里按 **F5**(启动配置名 `VelaShell`)。它做的事:
+
+- 从 `~/.velashell/host.json` 找到本机安装的 VelaShell —— 这份文件由 VelaShell 每次启动时自己写,
+  所以不必手工填安装路径(**前提是本机至少启动过一次 VelaShell**);
+- 以调试器附着的方式启动宿主,并用 `--dev-root` 把本工程的构建输出挂进去,插件在管理页带 **DEV** 角标;
+- 用 `--data-root ~/.velashell-dev` 起一个**独立数据根的调试实例**,于是你日常那份 VelaShell
+  可以一直开着(共用数据根会撞上单实例保护,直接退出);
+- 隔离插件(`hostMode: isolated`)加上 `--wait-debugger PLUGIN_ID`,插件进程会在装载程序集之前
+  挂起等你附加,pid 显示在管理页上、也落在 `~/.velashell/logs/plugin-host-PLUGIN_ID.pid`。
+
+`vela-plugin doctor` 一次性体检:宿主版本、清单兼容性、构建产物是否干净、启动配置是否可用。
+
+## 改了代码之后
 
 ```bash
 dotnet build
-
-# 一次性:把本工程的输出目录登记为宿主的开发期插件根
-dotnet tool install -g VelaShell.Plugin.Cli    # 只需装一次
-vela-plugin dev-link bin/Debug/net11.0
 ```
 
-之后每次 `dotnet build` 完重启 VelaShell 即加载到最新代码,插件在管理页带 **DEV** 角标。
-不想再挂:`vela-plugin dev-unlink bin/Debug/net11.0`。
+回到 VelaShell 的插件管理页,在本插件那一行点 **重新加载** —— 不必重启宿主。
+(开发期插件从影子副本装载,所以宿主运行时不会锁住 `bin`,随时可以重编。)
 
-## 断点调试
-
-- **inProcess 插件**:插件代码跑在 VelaShell 进程里 —— 用 IDE 的"附加到进程"选 `VelaShell`,
-  或直接用本工程的 `VelaShell` 启动配置(需先把环境变量 `VELASHELL_EXE` 指向 VelaShell 可执行文件)。
-- **isolated 插件**:插件跑在 `VelaShell.PluginHost` 子进程里。设环境变量
-  `VELA_PLUGIN_WAIT_DEBUGGER=PLUGIN_ID` 后启动 VelaShell,子进程会在**装载插件程序集之前**
-  挂起等你附加(进程 id 打在宿主日志里),于是 `ActivateAsync` 的第一行断点也能命中。
-  这期间宿主会自动放宽激活超时并停掉心跳,不会把停在断点上的你判成"插件挂死"。
+想更省事:`vela-plugin dev init --watch`,重编后自动重载。
 
 ## 出包
 
@@ -34,7 +43,8 @@ dotnet build -c Release -t:PackVpx
 dotnet build -c Release -t:PackVpx -p:VelaSigningKey=/path/to/key.pem
 ```
 
-`.vpx` 在 VelaShell 的插件管理页"安装 .vpx…"一键装上,或 `vela-plugin install <包>`。
+`.vpx` 在 VelaShell 的插件管理页"安装 .vpx…"一键装上。发布到插件商店见
+<https://github.com/joesdu/VelaShell/blob/main/docs/plugins/publishing.md>。
 
 ## 要点
 
@@ -44,3 +54,4 @@ dotnet build -c Release -t:PackVpx -p:VelaSigningKey=/path/to/key.pem
 - `VelaShell.PluginSdk.dll` 与 `Avalonia*.dll` 永远不进插件目录:装载器强制共享宿主那一套。
 
 完整开发指南:<https://github.com/joesdu/VelaShell/blob/main/docs/plugins/dev-guide.md>
+命令行工具手册:<https://github.com/joesdu/VelaShell/blob/main/docs/plugins/cli.md>

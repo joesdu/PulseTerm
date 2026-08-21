@@ -68,6 +68,10 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
     private readonly List<PluginRuntime> _plugins = [];
     private readonly Lock _gate = new();
     private readonly CancellationTokenSource _shutdown = new();
+    private readonly List<FileSystemWatcher> _devWatchers = [];
+    private readonly Lock _devDisabledGate = new();
+    private HashSet<string>? _devDisabled;
+    private Timer? _devWatchDebounce;
     private bool _started;
     private bool _disposed;
 
@@ -85,6 +89,13 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
 
     /// <summary>插件集合或某插件状态变化时触发(供管理页刷新);在后台线程触发。</summary>
     public event Action? Changed;
+
+    /// <summary>
+    /// 某个隔离插件的宿主进程正挂起等待调试器附加时触发(插件 id,进程 id)。
+    /// 界面据此提示开发者"附加到哪个进程" —— 这个数字只打进日志的话,
+    /// 等于要求开发者在最需要专注的时刻去翻日志。在后台线程触发。
+    /// </summary>
+    public event Action<string, int>? DebugAttachRequested;
 
     private void RaiseChanged()
     {
@@ -116,7 +127,7 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         await runtime.ActivationGate.WaitAsync().ConfigureAwait(false);
         try
         {
-            TryWriteDisabledMarker(runtime.Descriptor.Directory, disabled: true);
+            SetDisabledMarker(runtime.Descriptor, disabled: true);
             if (runtime.Descriptor.State == PluginState.Active)
             {
                 await DeactivateAsync(runtime).ConfigureAwait(false);
@@ -164,7 +175,7 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
                 RaiseChanged();
                 return;
             }
-            TryWriteDisabledMarker(runtime.Descriptor.Directory, disabled: false);
+            SetDisabledMarker(runtime.Descriptor, disabled: false);
             runtime.Descriptor.State = PluginState.Discovered;
             runtime.Descriptor.Error = null;
             DeclareProtocols(runtime);
@@ -825,9 +836,20 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         }
     }
 
-    private static void TryWriteDisabledMarker(string directory, bool disabled)
+    /// <summary>
+    /// 落/清禁用标记。已安装插件写插件目录里的 <c>.disabled</c>;
+    /// **开发期插件写数据根一侧的登记文件** —— 它的"插件目录"是工程的构建产物目录,
+    /// 标记写进去既会被 <c>dotnet clean</c> 顺手抹掉,又不会被 <c>dotnet build</c> 清除,
+    /// 于是表现为"我明明重编了怎么还是禁用状态"。
+    /// </summary>
+    private void SetDisabledMarker(PluginDescriptor descriptor, bool disabled)
     {
-        string marker = Path.Combine(directory, ".disabled");
+        if (descriptor.IsDevelopment)
+        {
+            SetDevDisabled(descriptor.Id, disabled);
+            return;
+        }
+        string marker = Path.Combine(descriptor.Directory, ".disabled");
         try
         {
             if (disabled)
@@ -842,6 +864,71 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             // 应用目录只读(商店版)时标记写不进:运行时状态仍已切换,只是重启不持久。
+        }
+    }
+
+    /// <summary>开发期插件的禁用集合(懒加载;登记文件缺席或读不出时为空集)。</summary>
+    private HashSet<string> DevDisabled
+    {
+        get
+        {
+            lock (_devDisabledGate)
+            {
+                if (_devDisabled is not null)
+                {
+                    return _devDisabled;
+                }
+                var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                try
+                {
+                    if (options.DevDisabledStateFile is { } file && File.Exists(file))
+                    {
+                        foreach (string line in File.ReadAllLines(file))
+                        {
+                            string id = line.Trim();
+                            if (id.Length > 0 && !id.StartsWith('#'))
+                            {
+                                set.Add(id);
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    Log($"Could not read the development disable list: {ex.Message}");
+                }
+                return _devDisabled = set;
+            }
+        }
+    }
+
+    /// <summary>登记/撤销某开发期插件的禁用状态(持久化到数据根一侧的登记文件)。</summary>
+    private void SetDevDisabled(string pluginId, bool disabled)
+    {
+        lock (_devDisabledGate)
+        {
+            HashSet<string> set = DevDisabled;
+            if (disabled ? !set.Add(pluginId) : !set.Remove(pluginId))
+            {
+                return; // 状态没变,不必落盘。
+            }
+            if (options.DevDisabledStateFile is not { } file)
+            {
+                return; // 没配登记文件:仅本次运行有效(headless 测试路径)。
+            }
+            try
+            {
+                string? directory = Path.GetDirectoryName(file);
+                if (!string.IsNullOrEmpty(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+                File.WriteAllLines(file, set.Order(StringComparer.OrdinalIgnoreCase));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                Log($"Could not persist the development disable list: {ex.Message}");
+            }
         }
     }
 
@@ -862,6 +949,7 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         }
         await EnsureTrustInitializedAsync(cancellationToken).ConfigureAwait(false);
         Discover();
+        PurgeOrphanShadows();
         await PurgeUninstalledDataAsync().ConfigureAwait(false);
         List<PluginRuntime> discovered;
         lock (_gate)
@@ -886,6 +974,7 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
                 RegisterActivationTriggers(runtime);
             }
         }
+        StartDevWatchers();
         _ = IdleMonitorAsync();
     }
 
@@ -1206,7 +1295,9 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
             descriptor.State = PluginState.Invalid;
             descriptor.Error = receiptError;
         }
-        else if (File.Exists(Path.Combine(dir, ".disabled")))
+        else if (isDevelopment
+                     ? DevDisabled.Contains(manifest.Id)
+                     : File.Exists(Path.Combine(dir, ".disabled")))
         {
             descriptor.State = PluginState.Disabled;
         }
@@ -1304,7 +1395,17 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         var stopwatch = Stopwatch.StartNew();
         try
         {
-            string entryPath = Path.GetFullPath(Path.Combine(descriptor.Directory, manifest.Entry));
+            // 开发期插件先落一份影子副本再装载:否则运行中的插件锁住工程 bin 里的 dll,
+            // Windows 上就没法边跑边重编(见 PrepareLoadDirectory)。
+            string sourceEntry = Path.GetFullPath(Path.Combine(descriptor.Directory, manifest.Entry));
+            if (!File.Exists(sourceEntry))
+            {
+                throw new FileNotFoundException($"Entry assembly '{manifest.Entry}' not found in plugin directory.");
+            }
+            descriptor.EntryTimestampUtc = TryGetWriteTimeUtc(sourceEntry);
+            string loadDirectory = PrepareLoadDirectory(descriptor);
+            descriptor.LoadDirectory = loadDirectory;
+            string entryPath = Path.GetFullPath(Path.Combine(loadDirectory, manifest.Entry));
             if (!File.Exists(entryPath))
             {
                 throw new FileNotFoundException($"Entry assembly '{manifest.Entry}' not found in plugin directory.");
@@ -1380,6 +1481,21 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         runtime.Process = client;
         runtime.LastActivityTicks = Environment.TickCount64;
         runtime.OpenSurfaces = 0;
+        if (debug)
+        {
+            // pid 既进日志也落文件:IDE 的"附加到进程"要的是这个数字,
+            // 而在日志里翻它是本可以省掉的一步(同时挂了两个隔离插件时按进程名还会挑错)。
+            WriteDebugPidFile(manifest.Id, client.ProcessId);
+            Log($"Plugin host for '{manifest.Id}' is waiting for a debugger: pid {client.ProcessId}.");
+            try
+            {
+                DebugAttachRequested?.Invoke(manifest.Id, client.ProcessId);
+            }
+            catch
+            {
+                // 通知订阅方异常不回灌运行时。
+            }
+        }
         client.Crashed += () => OnIsolatedCrashed(runtime);
         client.Activity += () => runtime.LastActivityTicks = Environment.TickCount64;
         client.SurfacesChanged += count => runtime.OpenSurfaces = count;
@@ -1513,6 +1629,7 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
             _disposed = true;
             active = [.. _plugins.Where(p => p.Descriptor.State == PluginState.Active)];
         }
+        StopDevWatchers();
         await _shutdown.CancelAsync().ConfigureAwait(false);
         // 并发停用:退出耗时 = 最慢一个插件(带上限),而非全体之和。
         await Task.WhenAll(active.Select(DeactivateAsync)).ConfigureAwait(false);
@@ -1552,6 +1669,7 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         }
         finally
         {
+            WriteDebugPidFile(runtime.Descriptor.Id, null); // 进程没了,pid 文件不该留下误导
             await CleanupRuntimeAsync(runtime).ConfigureAwait(false);
         }
     }
@@ -1618,6 +1736,400 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
             // 已卸载或不可卸载:忽略。
         }
         runtime.LoadContext = null;
+    }
+
+    // ---- 开发内环:影子拷贝 / 重新加载 / 自动重载 --------------------------------
+
+    /// <summary>
+    /// 决定从哪个目录装载。已安装插件就地装载;开发期插件在配置了
+    /// <see cref="PluginManagerOptions.DevShadowRootDirectory" /> 时先整份复制到
+    /// <c>&lt;影子根&gt;/&lt;id&gt;/gen-N</c> 再从副本装载。
+    /// <para>
+    /// 用"新一代目录"而不是"覆盖同一个目录":ALC 的卸载是异步的(要等 GC 真正回收才放句柄),
+    /// 刚停用的那一代很可能还锁着,覆盖必然时灵时不灵。换个代号目录则永远成功,
+    /// 旧代能删则删、删不掉留着下次再清。
+    /// </para>
+    /// <para>拷贝失败绝不阻断激活:退回就地装载(等于影子拷贝引入前的行为)并记一行日志。</para>
+    /// </summary>
+    private string PrepareLoadDirectory(PluginDescriptor descriptor)
+    {
+        if (!descriptor.IsDevelopment || options.DevShadowRootDirectory is not { } shadowRoot)
+        {
+            return descriptor.Directory;
+        }
+        try
+        {
+            string pluginShadow = Path.Combine(shadowRoot, SanitizeDirectoryName(descriptor.Id));
+            Directory.CreateDirectory(pluginShadow);
+            int generation = 1;
+            foreach (string existing in Directory.EnumerateDirectories(pluginShadow))
+            {
+                string name = Path.GetFileName(existing);
+                if (name.StartsWith("gen-", StringComparison.Ordinal)
+                    && int.TryParse(name.AsSpan(4), out int n) && n >= generation)
+                {
+                    generation = n + 1;
+                }
+            }
+            string target = Path.Combine(pluginShadow, $"gen-{generation}");
+            CopyDirectory(descriptor.Directory, target);
+            PurgeShadowGenerations(pluginShadow, keep: target);
+            return target;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            Log($"Could not shadow-copy development plugin '{descriptor.Id}' ({ex.Message}); loading in place.");
+            return descriptor.Directory;
+        }
+    }
+
+    /// <summary>把插件目录整份复制到目标(递归)。<c>.disabled</c> 标记不带过去。</summary>
+    private static void CopyDirectory(string source, string target)
+    {
+        Directory.CreateDirectory(target);
+        foreach (string file in Directory.EnumerateFiles(source))
+        {
+            if (Path.GetFileName(file) is ".disabled")
+            {
+                continue;
+            }
+            File.Copy(file, Path.Combine(target, Path.GetFileName(file)), overwrite: true);
+        }
+        foreach (string directory in Directory.EnumerateDirectories(source))
+        {
+            CopyDirectory(directory, Path.Combine(target, Path.GetFileName(directory)));
+        }
+    }
+
+    /// <summary>清理某插件影子目录下除 <paramref name="keep" /> 外的旧代(删不掉的留到下次)。</summary>
+    private static void PurgeShadowGenerations(string pluginShadowDirectory, string? keep)
+    {
+        foreach (string directory in Directory.EnumerateDirectories(pluginShadowDirectory))
+        {
+            if (keep is not null && string.Equals(directory, keep, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+            try
+            {
+                Directory.Delete(directory, recursive: true);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // 上一代还被未回收的 ALC 锁着:留着,下次装载时再清。
+            }
+        }
+    }
+
+    /// <summary>清掉已不再挂载的开发期插件留下的影子目录(每次发现后调用)。</summary>
+    private void PurgeOrphanShadows()
+    {
+        if (options.DevShadowRootDirectory is not { } shadowRoot || !Directory.Exists(shadowRoot))
+        {
+            return;
+        }
+        HashSet<string> live;
+        lock (_gate)
+        {
+            live = [.. _plugins.Where(p => p.Descriptor.IsDevelopment)
+                               .Select(p => SanitizeDirectoryName(p.Descriptor.Id))];
+        }
+        try
+        {
+            foreach (string directory in Directory.EnumerateDirectories(shadowRoot))
+            {
+                if (!live.Contains(Path.GetFileName(directory)))
+                {
+                    PurgeShadowGenerations(directory, keep: null);
+                    try
+                    {
+                        Directory.Delete(directory, recursive: true);
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                    {
+                        // 留着,下次再清。
+                    }
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Log($"Could not sweep the development shadow directory: {ex.Message}");
+        }
+    }
+
+    /// <summary>插件 id 里可能出现的路径非法字符一律换成 <c>_</c>(id 规则本已很窄,这是兜底)。</summary>
+    private static string SanitizeDirectoryName(string id)
+    {
+        Span<char> buffer = stackalloc char[id.Length];
+        for (int i = 0; i < id.Length; i++)
+        {
+            buffer[i] = Array.IndexOf(Path.GetInvalidFileNameChars(), id[i]) >= 0 ? '_' : id[i];
+        }
+        return new(buffer);
+    }
+
+    private static DateTime? TryGetWriteTimeUtc(string path)
+    {
+        try
+        {
+            return File.GetLastWriteTimeUtc(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 重新加载一个插件:停用 → 卸载 ALC / 回收进程 → **重读清单** → 按激活策略重新装载。
+    /// 开发内环的主入口:改完代码 <c>dotnet build</c>,点一下就跑上新代码,不必重启宿主。
+    /// <para>
+    /// 之所以整条描述重来而不是只换程序集:两次构建之间清单也可能变了(版本、命令、协议页签),
+    /// 只换程序集会让管理页与连接页显示的还是上一版的声明。
+    /// </para>
+    /// <para>
+    /// 禁用中的插件不在此列(先启用再说);清单已被删掉的插件重载后标记 Invalid 而非消失,
+    /// 否则"我删错了文件"会表现成"插件凭空不见了"。
+    /// </para>
+    /// </summary>
+    /// <param name="pluginId">插件 id。</param>
+    /// <returns>重载后是否处于 <see cref="PluginState.Active" /> 或已挂上惰性触发器。</returns>
+    public async Task<bool> ReloadAsync(string pluginId)
+    {
+        PluginRuntime? old;
+        lock (_gate)
+        {
+            if (_disposed)
+            {
+                return false;
+            }
+            old = _plugins.FirstOrDefault(p => p.Descriptor.Id == pluginId);
+        }
+        if (old is null || old.Descriptor.State == PluginState.Disabled)
+        {
+            return false;
+        }
+        string directory = old.Descriptor.Directory;
+        bool isDevelopment = old.Descriptor.IsDevelopment;
+
+        await old.ActivationGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (old.Descriptor.State == PluginState.Active)
+            {
+                await DeactivateAsync(old).ConfigureAwait(false);
+            }
+            (old.CommandsApi as IDisposable)?.Dispose();
+            old.CommandsApi = null;
+            options.ProtocolRegistry?.RemovePlugin(pluginId);
+            await CleanupRuntimeAsync(old).ConfigureAwait(false);
+        }
+        finally
+        {
+            old.ActivationGate.Release();
+        }
+
+        // 重新发现:id 去重要排除自己那条,否则重读出来的清单会被判成"与自己重复"。
+        HashSet<string> seenIds;
+        lock (_gate)
+        {
+            seenIds = [.. _plugins.Where(p => !ReferenceEquals(p, old)).Select(p => p.Descriptor.Id)];
+        }
+        string manifestPath = Path.Combine(directory, PluginManifestReader.FileName);
+        PluginDescriptor descriptor = File.Exists(manifestPath)
+            ? Describe(directory, manifestPath, seenIds, isDevelopment)
+            : new()
+            {
+                Directory = directory,
+                State = PluginState.Invalid,
+                Error = $"{PluginManifestReader.FileName} is no longer present in '{directory}'."
+            };
+        descriptor.IsDevelopment = isDevelopment;
+        var fresh = new PluginRuntime { Descriptor = descriptor };
+        lock (_gate)
+        {
+            int index = _plugins.IndexOf(old);
+            if (index >= 0)
+            {
+                _plugins[index] = fresh;
+            }
+            else
+            {
+                _plugins.Add(fresh);
+            }
+        }
+        DeclareProtocols(fresh);
+        bool ok = false;
+        if (descriptor.State == PluginState.Discovered)
+        {
+            if (descriptor.Manifest!.ActivatesOnStartup)
+            {
+                ok = await EnsureActivatedAsync(fresh).ConfigureAwait(false);
+            }
+            else
+            {
+                RegisterActivationTriggers(fresh);
+                ok = true;
+            }
+        }
+        Log($"Reloaded plugin '{pluginId}': {descriptor.State}{(descriptor.Error is { } e ? $" ({e})" : "")}.");
+        RaiseChanged();
+        return ok;
+    }
+
+    /// <summary>
+    /// 开发期自动重载(<c>--dev-watch</c>):监视开发根,构建产物落定后重载受影响的插件。
+    /// 只在显式开启时才挂 —— 文件监视器在网络盘/共享盘上会抖,不该是所有人默认承担的成本。
+    /// </summary>
+    private void StartDevWatchers()
+    {
+        if (!options.DevAutoReload)
+        {
+            return;
+        }
+        // 去抖定时器在挂监视器之前建好:留到事件回调里懒建的话,两个几乎同时到达的
+        // 变更事件会各建一个,其中一个从此没人 Dispose。
+        _devWatchDebounce = new(_ => _ = ReloadChangedDevPluginsAsync(), null,
+            Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+        foreach (string root in options.DevPluginRoots)
+        {
+            if (!Directory.Exists(root))
+            {
+                continue;
+            }
+            try
+            {
+                var watcher = new FileSystemWatcher(root)
+                {
+                    IncludeSubdirectories = true,
+                    NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.Size,
+                    EnableRaisingEvents = true
+                };
+                watcher.Changed += OnDevRootChanged;
+                watcher.Created += OnDevRootChanged;
+                watcher.Renamed += OnDevRootChanged;
+                watcher.Error += (_, e) => Log($"Development watcher on '{root}' failed: {e.GetException().Message}");
+                _devWatchers.Add(watcher);
+                Log($"Watching development plugin root '{root}' for rebuilds.");
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+            {
+                Log($"Could not watch development plugin root '{root}': {ex.Message}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// 变更去抖:一次 <c>dotnet build</c> 会连着写十几个文件,每个都触发一次重载纯属自找麻烦。
+    /// 最后一次变更之后静默 1.5 秒才动手 —— 也给链接器写完 pdb 留出余地。
+    /// </summary>
+    private void OnDevRootChanged(object sender, FileSystemEventArgs e)
+    {
+        if (_disposed || _shutdown.IsCancellationRequested)
+        {
+            return;
+        }
+        string name = Path.GetFileName(e.FullPath);
+        if (!name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)
+            && !name.Equals(PluginManifestReader.FileName, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+        try
+        {
+            _devWatchDebounce?.Change(TimeSpan.FromMilliseconds(1500), Timeout.InfiniteTimeSpan);
+        }
+        catch (ObjectDisposedException)
+        {
+            // 正在停机。
+        }
+    }
+
+    /// <summary>重载那些入口程序集写入时间与装载时不同的开发期插件。</summary>
+    private async Task ReloadChangedDevPluginsAsync()
+    {
+        List<PluginDescriptor> candidates;
+        lock (_gate)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+            candidates = [.. _plugins.Select(p => p.Descriptor)
+                                     .Where(d => d.IsDevelopment && d.Manifest is not null
+                                                 && d.State is not PluginState.Disabled)];
+        }
+        foreach (PluginDescriptor descriptor in candidates)
+        {
+            string entry = Path.Combine(descriptor.Directory, descriptor.Manifest!.Entry);
+            DateTime? stamp = TryGetWriteTimeUtc(entry);
+            // 装载失败过的插件没有时间戳:那种情况下只要文件还在就重试一次,
+            // 否则"编译错误 → 修好 → 自动重载"这条链在第二步就断了。
+            if (stamp is null || (descriptor.EntryTimestampUtc is { } previous && stamp == previous))
+            {
+                continue;
+            }
+            Log($"Development plugin '{descriptor.Id}' was rebuilt; reloading.");
+            try
+            {
+                await ReloadAsync(descriptor.Id).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                // 自动重载是后台的尽力而为:构建到一半被抓到、文件正被写等等都可能失败,
+                // 下一次变更还会再来一遍。这里不吞的话就是一条没人观察的后台异常。
+                Log($"Auto-reload of '{descriptor.Id}' failed: {ex.Message}");
+            }
+        }
+    }
+
+    private void StopDevWatchers()
+    {
+        foreach (FileSystemWatcher watcher in _devWatchers)
+        {
+            try
+            {
+                watcher.EnableRaisingEvents = false;
+                watcher.Dispose();
+            }
+            catch (Exception ex) when (ex is IOException or ObjectDisposedException)
+            {
+                // 停机路径:尽力而为。
+            }
+        }
+        _devWatchers.Clear();
+        _devWatchDebounce?.Dispose();
+        _devWatchDebounce = null;
+    }
+
+    /// <summary>
+    /// 等待调试器的隔离插件把 pid 落一个文件,免得开发者去日志里翻。
+    /// <paramref name="processId" /> 为 null 表示插件已停,删掉文件。
+    /// </summary>
+    private void WriteDebugPidFile(string pluginId, int? processId)
+    {
+        if (options.DiagnosticsDirectory is not { } directory)
+        {
+            return;
+        }
+        string path = Path.Combine(directory, $"plugin-host-{SanitizeDirectoryName(pluginId)}.pid");
+        try
+        {
+            if (processId is { } pid)
+            {
+                Directory.CreateDirectory(directory);
+                File.WriteAllText(path, pid.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            }
+            else if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Log($"Could not write the debug pid file for '{pluginId}': {ex.Message}");
+        }
     }
 
     private static void Log(string message) => Trace.WriteLine($"[PluginManager] {message}");

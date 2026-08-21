@@ -13,6 +13,9 @@ Make VelaShell an **extensible operations workbench**: plugins run in independen
 | Document | Contents | Audience |
 | --- | --- | --- |
 | [dev-guide.md](dev-guide.md) | **Development guide (implemented)**: quick start, manifest, lifecycle, capability APIs, isolation modes, testing, deployment, performance discipline | Plugin developers (required reading) |
+| [cli.md](cli.md) | **`vela-plugin` manual**: development inner loop (`dev init`), health check (`doctor`), validate/pack/sign, host launch arguments | Plugin developers |
+| [publishing.md](publishing.md) | **Packaging and publishing**: release build, `.vpx`, signing and trust, submitting to the [marketplace](http://market.easilynet.top), CI packaging | Plugin developers |
+| [sdk-reference.md](sdk-reference.md) | **SDK reference**: packages, entry contract, capability surface, SDK version history, test doubles, loading model | Plugin developers |
 | [STATUS.md](STATUS.md) | **Progress overview (single source of truth)**: completion by area, acceptance evidence, deliberate decisions, next-step recommendations | Everyone |
 | [01-vision-and-goals.md](01-vision-and-goals.md) | Vision, goals/non-goals, typical scenarios, comparison with systems such as VS Code | Everyone |
 | [02-architecture.md](02-architecture.md) | Overall architecture, process model, component divisions, project-directory plan, key decision records | Everyone |
@@ -52,7 +55,7 @@ Each component document ends with its own "Development Plan" section;
 
 ## Recommended Reading Order
 
-- **Writing a plugin**: read only [dev-guide.md](dev-guide.md) (the sole authority for the current implementation).
+- **Writing a plugin**: [dev-guide.md](dev-guide.md) (the sole authority for the current implementation), with [cli.md](cli.md) and [sdk-reference.md](sdk-reference.md) at hand; read [publishing.md](publishing.md) when you are ready to ship.
 - **Checking progress**: [STATUS.md](STATUS.md).
 - **Studying the long-term design**: 01 → 02 → 12 (trust model) → 03 → 06 → 07, and the rest as needed;
   note that the "Implementation Notes" at the top of each document identify deviations between the current implementation and the blueprint.

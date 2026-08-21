@@ -209,6 +209,9 @@
                       <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                         <Button Classes="row-action" Content="{Binding RevokeText}"
                                 IsVisible="{Binding HasTerminalGrant}" Click="Revoke_Click" />
+                        <!-- 开发内环:重编后点这里就跑上新代码(开发期挂载的插件才有)。 -->
+                        <Button Classes="row-action" Content="{Binding ReloadText}"
+                                IsVisible="{Binding CanReload}" Click="Reload_Click" />
                         <Button Classes="row-action" Content="{Binding ToggleText}"
                                 IsVisible="{Binding CanToggle}" Click="Toggle_Click" />
                         <Button Classes="row-action row-danger" Content="{Binding UninstallText}"

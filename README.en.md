@@ -94,7 +94,7 @@ Together, VelaShell means **"a terminal as your sail, riding the signal winds to
   Plugins reach host functionality through `IPluginContext`: `Sessions` (enumerate/observe sessions), `Terminal` (read output, write input), `RemoteFs` (remote file read/write and directory listing), `RemoteExec` (run remote commands), `Storage` and `TimeSeries` (per-plugin private document and time-series storage), `Secrets` (host-encrypted secrets), `Commands` (register commands and entry points), `Events` (session/locale/theme events), `Ui` (panels as docked documents or standalone windows), `Clipboard` and `Log`. Dangerous capabilities are granted one by one through a permission dialog.
 
 - **Packaging and management**  
-  Plugins ship as `.vpx` packages and can be installed, enabled, disabled and uninstalled from a dedicated plugin manager window; uninstalling also purges the plugin's private data (its SonnetDB namespace and data directory). The SDK ships test doubles (`VelaShell.PluginSdk.Testing`) so plugins can be tested headlessly. Full blueprint in [`docs-en/plugins/`](docs-en/plugins/) (15 design documents + a [dev guide](docs-en/plugins/dev-guide.md) + a [status overview](docs-en/plugins/STATUS.md)).
+  Plugins ship as `.vpx` packages and can be installed, enabled, disabled and uninstalled from a dedicated plugin manager window; uninstalling also purges the plugin's private data (its SonnetDB namespace and data directory). The SDK ships test doubles (`VelaShell.PluginSdk.Testing`) so plugins can be tested headlessly. Third-party developers get a debugger in one command (`vela-plugin dev init` → F5); see the [dev guide](docs-en/plugins/dev-guide.md), [CLI manual](docs-en/plugins/cli.md), [SDK reference](docs-en/plugins/sdk-reference.md) and [packaging and publishing](docs-en/plugins/publishing.md); marketplace: <http://market.easilynet.top>. Full blueprint in [`docs-en/plugins/`](docs-en/plugins/) (15 design documents + a [status overview](docs-en/plugins/STATUS.md)).
 
 - **AI assistant plugin (first-party)**  
   Multi-provider streaming chat across three wire protocols — OpenAI Responses, OpenAI Chat Completions-compatible and Anthropic Messages — covering OpenAI, Grok, Ollama and relay endpoints, with your own base URL and API key (keys go into the host's encrypted secret store). **Agent mode** runs a Microsoft.Extensions.AI `FunctionInvokingChatClient` tool loop bridged to sessions / terminal / remoteExec / remoteFs, with per-command approval for dangerous operations, and can attach custom **MCP servers** (stdio / HTTP) for extra tools. Conversations are persisted to the plugin's private time-series store: browse history, resume a conversation, delete one or clear all; `↑`/`↓` recalls previous prompts and `@` opens a remote file picker for the selected session, attaching file contents to the message. The composer itself is an editor with **Markdown highlighting**, where `@` references render as themed short-name chips (full path on hover), and message bubbles are rendered as Markdown.
@@ -185,6 +185,8 @@ docker-compose -f docker-compose.test.yml up
 | SonnetDB data directory (profiles/groups/settings/known_hosts/history/audit/recordings/plugin data) | `~/.velashell/sonnetdb` |
 | Credential encryption key (AES-256) | `~/.velashell/secret.key` |
 | Manually installed plugins (`.vpx`) | `~/.velashell/plugins` (first-party plugins remain in the application's `plugins/` directory) |
+| Host self-registration (lets `vela-plugin` locate the install and check versions) | `~/.velashell/host.json` |
+| Plugin development mounts and shadow copies | `~/.velashell/plugins.dev.txt`, `~/.velashell/dev-shadow/` |
 | SSH key pairs (Key management page) | `~/.ssh` |
 
 > Legacy JSON configuration (`sessions.json` / `settings.json` …) is imported into SonnetDB on first run and renamed to `*.migrated.bak`.
@@ -295,7 +297,7 @@ English translations of the design documents are linked below; the Chinese origi
 
 - [`docs-en/architecture.md`](docs-en/architecture.md) — layering, dependency direction and the SonnetDB persistence strategy
 - [`docs-en/architecture-design.md`](docs-en/architecture-design.md) — engineering refactor blueprint
-- [`docs-en/plugins/`](docs-en/plugins/) — 15-part plugin blueprint + [dev guide](docs-en/plugins/dev-guide.md) + [status overview](docs-en/plugins/STATUS.md)
+- [`docs-en/plugins/`](docs-en/plugins/) — 15-part plugin blueprint + [dev guide](docs-en/plugins/dev-guide.md) + [CLI manual](docs-en/plugins/cli.md) + [SDK reference](docs-en/plugins/sdk-reference.md) + [packaging and publishing](docs-en/plugins/publishing.md) + [status overview](docs-en/plugins/STATUS.md)
 - [`docs-en/dock-replacement-plan.md`](docs-en/dock-replacement-plan.md) — replacing Dock.Avalonia with VelaDock
 - [`docs-en/design-specs.md`](docs-en/design-specs.md) — UI visual specs (extracted frame by frame from Pencil)
 - [`DESIGN.md`](DESIGN.md) — design system: colour/type/spacing tokens and component rules

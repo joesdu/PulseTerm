@@ -94,7 +94,7 @@ VelaShell 是一个使用 .NET 11 与 Avalonia 构建的桌面终端应用，支
   插件经 `IPluginContext` 访问宿主能力：`Sessions`（会话枚举/状态）、`Terminal`（读输出/写输入）、`RemoteFs`（远端文件读写与目录列举）、`RemoteExec`（远端命令执行）、`Storage` 与 `TimeSeries`（插件私有的文档与时序存储）、`Secrets`（经宿主加密的机密）、`Commands`（注册命令与快捷入口）、`Events`（会话/语言/主题事件）、`Ui`（面板：停靠文档或独立窗口）、`Clipboard`、`Log`。危险能力经权限对话框逐项授权。
 
 - **打包与管理**  
-  插件以 `.vpx` 包分发，独立的插件管理窗口可安装/启停/卸载；卸载时其私有数据（SonnetDB 命名空间与数据目录）一并清理。SDK 另提供测试替身（`VelaShell.PluginSdk.Testing`），插件可在 headless 下自测。完整蓝图见 [`docs/plugins/`](docs/plugins/)（15 篇设计 + [开发指南](docs/plugins/dev-guide.md) + [进度总览](docs/plugins/STATUS.md)）。
+  插件以 `.vpx` 包分发，独立的插件管理窗口可安装/启停/卸载；卸载时其私有数据（SonnetDB 命名空间与数据目录）一并清理。SDK 另提供测试替身（`VelaShell.PluginSdk.Testing`），插件可在 headless 下自测。第三方开发者一条命令即可断点调试（`vela-plugin dev init` → F5），详见 [开发指南](docs/plugins/dev-guide.md)、[命令行手册](docs/plugins/cli.md)、[SDK 参考](docs/plugins/sdk-reference.md)与[打包发布](docs/plugins/publishing.md)；插件商店：<http://market.easilynet.top>。完整蓝图见 [`docs/plugins/`](docs/plugins/)（15 篇设计 + [进度总览](docs/plugins/STATUS.md)）。
 
 - **AI 助手插件（第一方）**  
   多提供商流式对话：OpenAI Responses / OpenAI Chat Completions 兼容 / Anthropic Messages 三种线协议，覆盖 OpenAI、Grok、Ollama 与各类中转站，Base URL 与 API Key 自填（Key 走宿主加密机密存储）。**Agent 模式**基于 Microsoft.Extensions.AI 的 `FunctionInvokingChatClient` 工具循环，工具桥接到 sessions / terminal / remoteExec / remoteFs，危险操作面板内逐条审批；可挂接自定义 **MCP 服务器**（stdio / HTTP）扩展工具集。对话落插件私有时序库，历史可翻回、可续聊、可删除；输入框 ↑↓ 调历史，`@` 唤出所选会话的远端文件选择器，发送时把文件内容随消息附给模型。输入框本身是带 **Markdown 着色**的编辑器，`@` 引用显示为主题色短名芯片（悬停给全路径），消息气泡按 Markdown 渲染。
@@ -185,6 +185,8 @@ docker-compose -f docker-compose.test.yml up
 | SonnetDB 数据目录（连接/分组/设置/known_hosts/连接历史/审计/录制/插件数据） | `~/.velashell/sonnetdb` |
 | 凭据加密密钥（AES-256） | `~/.velashell/secret.key` |
 | 用户手动安装的插件（`.vpx`） | `~/.velashell/plugins`（第一方插件仍位于程序目录的 `plugins/`） |
+| 宿主自登记（供 `vela-plugin` 定位安装与核对版本） | `~/.velashell/host.json` |
+| 插件开发期挂载与影子副本 | `~/.velashell/plugins.dev.txt`、`~/.velashell/dev-shadow/` |
 | SSH 密钥对（密钥管理页） | `~/.ssh` |
 
 > 旧版本的 `sessions.json` / `settings.json` 等 JSON 配置会在首次运行时自动导入 SonnetDB 并改名为 `*.migrated.bak`。
@@ -293,7 +295,7 @@ dotnet test --logger "console;verbosity=detailed"
 
 - [`docs/architecture.md`](docs/architecture.md) — 分层架构、依赖方向与 SonnetDB 持久化策略
 - [`docs/架构设计.md`](docs/架构设计.md) — 工程化重构蓝图
-- [`docs/plugins/`](docs/plugins/) — 插件系统蓝图 15 篇 + [开发指南](docs/plugins/dev-guide.md) + [进度总览](docs/plugins/STATUS.md)
+- [`docs/plugins/`](docs/plugins/) — 插件系统蓝图 15 篇 + [开发指南](docs/plugins/dev-guide.md) + [命令行手册](docs/plugins/cli.md) + [SDK 参考](docs/plugins/sdk-reference.md) + [打包发布](docs/plugins/publishing.md) + [进度总览](docs/plugins/STATUS.md)
 - [`docs/dock-replacement-plan.md`](docs/dock-replacement-plan.md) — VelaDock 自研替换方案
 - [`docs/design-specs.md`](docs/design-specs.md) — UI 视觉规格（Pencil 逐帧提取）
 - [`DESIGN.md`](DESIGN.md) — 设计系统：色彩/字体/间距令牌与组件规范

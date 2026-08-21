@@ -1,5 +1,10 @@
 # 10 · Packaging, Signing, and Distribution
 
+> **The operational handbook is [publishing.md](publishing.md)** (build → pack → sign → submit).
+> Marketplace: <http://market.easilynet.top> (the client has no built-in marketplace client yet;
+> users download the `.vpx` and install it from the plugin manager page). This document is the
+> long-term blueprint.
+>
 > **Implementation note (2026-08)**: **packaging and signing have shipped**; **distribution
 > (registry / store) is still deferred**. Three places where the implementation departs from the
 > blueprint below — the implementation wins:

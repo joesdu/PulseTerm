@@ -45,10 +45,19 @@ public static class PluginServiceCollectionExtensions
                     Path.Combine(AppContext.BaseDirectory, "plugins"),
                     paths.UserPluginDirectory
                 ],
-                // 开发期挂载:环境变量 VELA_PLUGIN_DEV_ROOT 或 <数据根>/plugins.dev.txt 里登记的
-                // 插件工程输出目录。默认两处都空 → 这里得到空表,发现期一个额外目录都不扫。
-                DevPluginRoots = DevPluginRootResolver.Resolve(paths.RootDirectory),
-                DebugPluginIds = DevPluginRootResolver.ResolveDebugPluginIds(),
+                // 开发期挂载:启动参数 --dev-root、环境变量 VELA_PLUGIN_DEV_ROOT,
+                // 或 <数据根>/plugins.dev.txt 里登记的插件工程输出目录。
+                // 默认三处都空 → 这里得到空表,发现期一个额外目录都不扫。
+                DevPluginRoots = DevPluginRootResolver.Resolve(
+                    paths.RootDirectory, Startup.VelaShellStartupArguments.Current.DevPluginRoots),
+                DebugPluginIds = DevPluginRootResolver.ResolveDebugPluginIds(
+                    Startup.VelaShellStartupArguments.Current.DebugPluginIds),
+                // 开发期插件从影子副本装载:工程的 bin 因此不被运行中的宿主锁住,
+                // 可以边跑边重编,改完在管理页点"重新加载"即可(Windows 上尤其关键)。
+                DevShadowRootDirectory = paths.DevPluginShadowDirectory,
+                DevDisabledStateFile = paths.DevPluginDisabledFile,
+                DevAutoReload = Startup.VelaShellStartupArguments.Current.DevWatch,
+                DiagnosticsDirectory = paths.LogsDirectory,
                 DataRootDirectory = Path.Combine(paths.RootDirectory, "plugin-data"),
                 UserPluginRoot = paths.UserPluginDirectory,
                 TrustRepository = sp.GetRequiredService<PluginTrustRepository>(),

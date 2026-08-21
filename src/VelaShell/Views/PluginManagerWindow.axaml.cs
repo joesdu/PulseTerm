@@ -82,6 +82,14 @@ public partial class PluginManagerWindow : Window
         }
     }
 
+    private void Reload_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Control { DataContext: PluginRowViewModel row } && ViewModel is { } vm)
+        {
+            _ = vm.ReloadPluginAsync(row);
+        }
+    }
+
     private void Revoke_Click(object? sender, RoutedEventArgs e)
     {
         if (sender is Control { DataContext: PluginRowViewModel row } && ViewModel is { } vm)

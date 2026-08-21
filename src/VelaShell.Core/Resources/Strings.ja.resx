@@ -3575,6 +3575,8 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   <data name="PluginPerm_Deny"><value>拒否</value></data>
   <data name="PluginManager_Install"><value>.vpx をインストール…</value></data>
   <data name="PluginManager_Uninstall"><value>アンインストール</value></data>
+  <data name="PluginManager_Reload"><value>再読み込み</value></data>
+  <data name="PluginManager_WaitingForDebugger"><value>プラグイン「{0}」のホストプロセスがデバッガーの接続を待機しています(プロセス ID {1})。</value></data>
   <data name="PluginManager_Installed"><value>「{0}」をインストールしました。</value></data>
   <data name="PluginManager_InstallFailed"><value>インストール失敗: {0}</value></data>
   <data name="PluginManager_ConfirmUninstall"><value>「{0}」をアンインストールしますか？データも削除されます。</value></data>

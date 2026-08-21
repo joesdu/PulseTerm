@@ -4,9 +4,14 @@ namespace VelaShell.Infrastructure.Plugins;
 /// 开发期插件根目录的来源解析。让插件作者把工程的 <c>bin/Debug/net11.0</c> 直接挂进宿主,
 /// 免去"打包 → 安装 → 再看效果"这一圈:
 /// <list type="number">
+///   <item>启动参数 <c>--dev-root &lt;dir&gt;</c>(可重复;跟着 IDE 启动配置走,工程本地);</item>
 ///   <item>环境变量 <c>VELA_PLUGIN_DEV_ROOT</c>(多条以 <see cref="Path.PathSeparator" /> 分隔);</item>
 ///   <item>数据根目录下的 <c>plugins.dev.txt</c>,每行一个目录,<c>#</c> 起头为注释。</item>
 /// </list>
+/// <para>
+/// 三者叠加(不是互斥),顺序即上表 —— 参数最先,因为它最"局部":同时开两个插件工程时,
+/// 各自的启动配置各说各的,而环境变量与登记文件是机器级的全局状态,必然互相串味。
+/// </para>
 /// <para>
 /// 刻意用纯文本而不是 JSON:这个文件既要人手改,也要被模板工程的构建目标追加一行,
 /// 纯文本两边都省事,也不会因为一个逗号让宿主启动路径上多一处解析失败。
@@ -27,20 +32,28 @@ public static class DevPluginRootResolver
     public const string DebugEnvironmentVariable = "VELA_PLUGIN_WAIT_DEBUGGER";
 
     /// <summary>
-    /// 解析要等待调试器的插件 id 集合:环境变量 <c>VELA_PLUGIN_WAIT_DEBUGGER</c>,
-    /// 取 <c>*</c>(全部)或以逗号/分号分隔的插件 id。未设置时返回空集合。
+    /// 解析要等待调试器的插件 id 集合:启动参数 <c>--wait-debugger</c> 与环境变量
+    /// <c>VELA_PLUGIN_WAIT_DEBUGGER</c> 并集,取 <c>*</c>(全部)或以逗号/分号分隔的插件 id。
+    /// 两处都没有时返回空集合(生产路径分文不动)。
     /// </summary>
-    public static IReadOnlyCollection<string> ResolveDebugPluginIds() =>
-        (Environment.GetEnvironmentVariable(DebugEnvironmentVariable) ?? "")
-        .Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    /// <param name="commandLineIds">启动参数给出的 id(见 <c>VelaShellStartupArguments</c>)。</param>
+    public static IReadOnlyCollection<string> ResolveDebugPluginIds(IReadOnlyCollection<string>? commandLineIds = null)
+    {
+        var ids = new List<string>(commandLineIds ?? []);
+        ids.AddRange((Environment.GetEnvironmentVariable(DebugEnvironmentVariable) ?? "")
+            .Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        return [.. ids.Distinct(StringComparer.OrdinalIgnoreCase)];
+    }
 
     /// <summary>
     /// 解析开发期插件根目录。返回去重后的绝对路径(保持来源顺序);不存在的目录也一并返回 ——
     /// 发现期本就跳过不存在的根,而保留它们能让"路径写错了"在日志里看得见。
     /// </summary>
     /// <param name="dataRootDirectory">宿主数据根目录(<c>plugins.dev.txt</c> 所在处)。</param>
+    /// <param name="commandLineRoots">启动参数给出的根(见 <c>VelaShellStartupArguments</c>),排在最前。</param>
     /// <param name="readFile">文件读取器(测试注入用);默认读磁盘。</param>
-    public static IReadOnlyList<string> Resolve(string dataRootDirectory, Func<string, string[]?>? readFile = null)
+    public static IReadOnlyList<string> Resolve(string dataRootDirectory,
+        IReadOnlyList<string>? commandLineRoots = null, Func<string, string[]?>? readFile = null)
     {
         ArgumentException.ThrowIfNullOrEmpty(dataRootDirectory);
         readFile ??= ReadLinesOrNull;
@@ -48,6 +61,10 @@ public static class DevPluginRootResolver
         var roots = new List<string>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+        foreach (string raw in commandLineRoots ?? [])
+        {
+            Add(raw);
+        }
         foreach (string raw in (Environment.GetEnvironmentVariable(EnvironmentVariable) ?? "")
                  .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {

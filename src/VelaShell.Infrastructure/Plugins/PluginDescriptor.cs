@@ -51,6 +51,16 @@ public sealed class PluginDescriptor
     /// </summary>
     public bool IsDevelopment { get; internal set; }
 
+    /// <summary>
+    /// 实际装载所用的目录。通常与 <see cref="Directory" /> 相同;开发期插件启用影子拷贝时
+    /// 指向 <c>&lt;数据根&gt;/dev-shadow/&lt;id&gt;/gen-N</c>(见
+    /// <see cref="PluginManagerOptions.DevShadowRootDirectory" />)。未激活时为 <see langword="null" />。
+    /// </summary>
+    public string? LoadDirectory { get; internal set; }
+
+    /// <summary>装载时入口程序集的写入时间(UTC);开发期自动重载据此判断"是否重编过"。</summary>
+    internal DateTime? EntryTimestampUtc { get; set; }
+
     /// <summary>插件 id;清单非法时退化为目录名。</summary>
     public string Id => Manifest?.Id ?? Path.GetFileName(Directory);
 }

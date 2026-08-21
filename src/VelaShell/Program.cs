@@ -6,6 +6,7 @@ using Avalonia;
 using ReactiveUI.Avalonia;
 using VelaShell.Core.Resources;
 using VelaShell.Infrastructure.Persistence;
+using VelaShell.Infrastructure.Startup;
 using VelaShell.Services;
 using VelaShell.Services.Update;
 
@@ -27,6 +28,16 @@ internal static partial class Program
         if (UpdateRunner.TryRun(args))
         {
             return;
+        }
+
+        // 插件开发用的启动参数(--dev-root / --wait-debugger / --data-root / --dev-watch)。
+        // 必须排在任何一次存储路径解析之前:--data-root 连带切换单实例互斥键、数据库位置与
+        // 全部数据文件,晚一步设就会有半套路径指向旧根。
+        VelaShellStartupArguments startup = VelaShellStartupArguments.Parse(args);
+        VelaShellStartupArguments.Current = startup;
+        if (startup.DataRoot is { } dataRoot)
+        {
+            VelaShellStoragePaths.RootDirectoryOverride = dataRoot;
         }
 
         NormalizeWorkingDirectory();

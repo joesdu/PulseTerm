@@ -49,6 +49,12 @@ public static class VelaPluginApi
     /// 既没有主机端口也没有账号密码的形态 —— 在这之前它们只能把无关字段留在界面上晾着。
     /// 仍是只增不改,apiLevel 仍是 1,靠 <c>minSdkVersion: "1.3.1"</c> 在发现期拦住老宿主。
     /// </para>
+    /// <para>
+    /// <b>1.4</b> 加了 <see cref="Hosting.HostRegistry" />:宿主每次启动把安装路径与版本写进
+    /// <c>~/.velashell/host.json</c>,<c>vela-plugin</c> 据此生成 IDE 启动配置、核对兼容性。
+    /// 这一档是**工具链**面而不是插件运行时面 —— 插件代码不会调用它,因此**不需要**为它声明
+    /// <c>minSdkVersion: "1.4.0"</c>(声明了反而会把插件挡在老宿主之外,而它在老宿主上跑得好好的)。
+    /// </para>
     /// </summary>
-    public const string SdkVersion = "1.3.1";
+    public const string SdkVersion = "1.4.0";
 }

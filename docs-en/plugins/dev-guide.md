@@ -122,7 +122,7 @@ dotnet build -c Release -t:PackVpx               # → bin/vpx/acme.snippets-0.1
 The generated `.csproj` has a single dependency:
 
 ```xml
-<PackageReference Include="VelaShell.PluginSdk.Build" Version="1.0.0-preview.1" />
+<PackageReference Include="VelaShell.PluginSdk.Build" Version="1.4.0" />
 ```
 
 That one package brings everything a plugin project needs: the `VelaShell.PluginSdk` contract assembly, **Avalonia pinned to exactly the host's version** (including its AXAML compiler), `EnableDynamicLoading`, `plugin.json` copied to the output, shared assemblies kept out of the plugin directory, build-time manifest validation, and the `PackVpx` target. Do **not** reference `VelaShell.PluginSdk` or `Avalonia` separately: a version mismatch fails the build with `VELA1001` instead of surfacing at runtime as a cross-load-context cast failure on the user's machine.
@@ -132,10 +132,10 @@ That one package brings everything a plugin project needs: the `VelaShell.Plugin
 | `VelaShell.PluginSdk.Build` | **the plugin project** | All of the above. Reference this one alone |
 | `VelaShell.PluginSdk` | (flows transitively) | Contract assembly, BCL-only |
 | `VelaShell.PluginSdk.Testing` | the plugin's **test project** | `TestPluginContext` and in-memory capability doubles |
-| `VelaShell.Plugin.Cli` (`vela-plugin`) | developer machine | dotnet tool: validate / pack / sign / dev-link |
+| `VelaShell.Plugin.Cli` (`vela-plugin`) | developer machine | dotnet tool: dev inner loop, doctor, validate, pack, sign |
 | `VelaShell.Plugin.Templates` | developer machine | `dotnet new` templates |
 
-> **The SDK is not a dotnet tool.** All three `VelaShell.PluginSdk*` packages are ordinary NuGet packages consumed via `PackageReference`; only `vela-plugin` (`VelaShell.Plugin.Cli`) is a dotnet tool. And **packing does not require installing it** — the packer ships inside `VelaShell.PluginSdk.Build`, so `dotnet build -t:PackVpx` works out of the box. Install the global tool to validate, sign, inspect packages, or set up a development mount (`vela-plugin dev-link`) outside a build.
+> **The SDK is not a dotnet tool.** All three `VelaShell.PluginSdk*` packages are ordinary NuGet packages consumed via `PackageReference`; only `vela-plugin` (`VelaShell.Plugin.Cli`) is a dotnet tool. And **packing does not require installing it** — the packer ships inside `VelaShell.PluginSdk.Build`, so `dotnet build -t:PackVpx` works out of the box. Install the global tool to validate, sign, inspect packages, run `vela-plugin doctor`, or set up the development inner loop (`vela-plugin dev init`) outside a build.
 
 **Method 1: `.vpx` package (recommended)**. Sidebar plugin icon → Plugin Management page → select the file with "Install .vpx…" (validates the container and manifest, guards against zip slip and zip bombs, extracts into the user directory, replaces the old version for the same id, and activates according to the activation policy). The command-line equivalent is `vela-plugin install <package>`. Uninstallation is also a one-click operation on the management page (deletes the directory and clears database data).
 
@@ -154,31 +154,116 @@ Restart VelaShell to load it. Again: do not put `VelaShell.PluginSdk.dll` or `Av
 
 ### 2.3 Inner Loop and Debugging
 
-Third-party plugins do not need the "pack → install → look" cycle. Mount the project's output directory into the host instead:
+Third-party plugins do not need the "pack → install → look" cycle. Three steps:
 
 ```bash
-vela-plugin dev-link bin/Debug/net11.0     # register (writes <data root>/plugins.dev.txt)
-vela-plugin dev-unlink bin/Debug/net11.0   # remove
+dotnet tool install -g VelaShell.Plugin.Cli   # one-off
+dotnet build
+vela-plugin dev init                          # writes the IDE launch profile
 ```
 
-From then on, `dotnet build` plus a host restart runs the latest code, and the plugin is badged **DEV** on the management page. The equivalent ad-hoc form is the `VELA_PLUGIN_DEV_ROOT=<dir>` environment variable (multiple entries separated by the platform path separator).
+Then press **F5** in your IDE (profile `VelaShell`). The full command surface is in the
+[CLI manual](cli.md); this section explains what it does and why.
 
-Two mechanics worth knowing:
+#### The host announces itself
 
-- What gets registered is the plugin directory's **parent**: the host scans a root's **immediate sub-directories**, and each sub-directory containing `plugin.json` is one plugin. `dev-link` moves up one level automatically, so the plugin directory ends up named `net11.0` — directory names take part in no logic (the id is read from `plugin.json`).
-- Development roots are scanned **after** the regular ones and first id wins, so a plugin you are developing never displaces an installed plugin with the same id.
-- On Windows the running host locks the plugin DLL; close VelaShell before rebuilding.
+`dev init` does not guess where VelaShell is installed — three platforms mean three sets of
+install locations, plus portable copies and self-updates that moved the binary. Probing logic
+is long and perpetually wrong. Instead, **the host writes itself into `~/.velashell/host.json`
+on every launch**: executable path, version, apiLevel, bundled SDK version, Avalonia version,
+data root, PluginHost path.
 
-Breakpoints:
+```bash
+vela-plugin hosts     # list the installations registered on this machine
+```
+
+So there is exactly one prerequisite: **VelaShell must have been started at least once on this
+machine**. If it has not, point the tool at the binary with `vela-plugin dev init --exe <path>`.
+When several installations coexist (release plus preview), the most recently started one wins
+by default and `--host 1.5` picks a specific one.
+
+#### The generated launch profile
+
+```jsonc
+"VelaShell": {
+  "commandName": "Executable",
+  "executablePath": "…/VelaShell.exe",
+  "commandLineArgs": "--dev-root …/Snippets/bin/Debug --wait-debugger acme.snippets --data-root …/.velashell-dev"
+}
+```
+
+| Argument | The problem it solves |
+| --- | --- |
+| `--dev-root` | Mounts the project output into the host. It **travels with the project**, not with the machine — two plugin projects, or two branches, never contaminate each other |
+| `--wait-debugger` | An isolated plugin's child process suspends **before loading the plugin assembly** and waits for you to attach |
+| `--data-root` | The debug instance gets its own data root |
+
+The third one is easy to underestimate: you almost certainly keep VelaShell open all day, and
+**a second instance sharing the data root hits the single-instance guard** (SonnetDB holds an
+exclusive lock on its WAL). It shows "already running" and exits cleanly — which looks exactly
+like a broken launch profile. With a separate data root both instances coexist, and your
+throw-away debug sessions never pollute your real configuration. To deliberately test inside
+your everyday configuration, pass `--shared-data` (and quit the everyday instance first).
+
+All three arguments have environment-variable equivalents (`VELA_PLUGIN_DEV_ROOT`,
+`VELA_PLUGIN_WAIT_DEBUGGER`); **arguments win**. The third source is
+`~/.velashell/plugins.dev.txt` (written by `vela-plugin dev link`), which suits "keep this
+plugin mounted in my everyday instance forever". All three sources merge; development roots
+are scanned **after** the regular ones and first id wins, so a plugin you are developing never
+displaces an installed plugin with the same id.
+
+#### After you change code: reload, do not restart
+
+```bash
+dotnet build
+```
+
+Go back to the plugin manager page and press **Reload** on that plugin's row: deactivate →
+unload the ALC / reclaim the process → **re-read the manifest** → load again. The manifest is
+re-read too, so a changed version, command set or protocol tab shows up as well.
+
+On Windows this used to be impossible: the ALC loads through `LoadFromAssemblyPath` and holds
+the entry DLL open for as long as the plugin lives, which degraded the inner loop into
+"close the host → rebuild → start again". Development plugins now **load from a shadow copy**
+(`~/.velashell/dev-shadow/<id>/gen-N`, a new generation per load, old ones removed when
+possible), so the project's `bin` can be rebuilt at any time. The production path does not use
+shadow copies and behaves exactly as before.
+
+To skip even the button: `vela-plugin dev init --watch` (i.e. `--dev-watch`) makes the host
+watch the development roots and reload whenever the entry assembly's timestamp changes
+(debounced by 1.5 s so the build can finish). It is off by default — file watchers misbehave on
+network and shared drives, and that is not a cost everyone should pay by default.
+
+> A development plugin's **disabled state** lives in `~/.velashell/plugins.dev.disabled`, not in
+> the build output — otherwise the `.disabled` marker would sit in `bin` and produce the classic
+> "but I rebuilt it, why is it still disabled?".
+
+#### Breakpoints
 
 | Plugin shape | How to debug |
 | --- | --- |
-| `inProcess` | The plugin runs inside the VelaShell process — use "attach to process" and pick `VelaShell`. While a debugger is attached the host stretches the activation timeout from 10 seconds to 10 minutes, so stopping inside `ActivateAsync` does not trip it |
-| `isolated` | The plugin runs in a `VelaShell.PluginHost` child process. Set `VELA_PLUGIN_WAIT_DEBUGGER=<plugin id>` (or `*` for all) before starting VelaShell and the child suspends **before loading the plugin assembly**, waiting for you to attach; its process id is printed to the host log |
+| `inProcess` | The host process started by F5 already has the debugger attached, and the plugin is loaded into it, so breakpoints hit immediately — including the first line of `ActivateAsync`. With a debugger attached the host stretches the activation timeout from 10 seconds to 10 minutes |
+| `isolated` | The plugin runs in a `VelaShell.PluginHost` child process. For plugins matched by `--wait-debugger <id>` the child suspends **before loading the plugin assembly**; its pid is shown on the plugin manager page, printed to the log, and written to `~/.velashell/logs/plugin-host-<id>.pid` |
 
-For plugins matched by `VELA_PLUGIN_WAIT_DEBUGGER` the host also **relaxes the activation timeout and stops the heartbeat** — otherwise a breakpoint freezes every thread in the plugin process, two missed pings in a row kill it, and the symptom is "the plugin disappears the moment I hit a breakpoint".
+For plugins matched by `--wait-debugger` the host also **relaxes the activation timeout and
+stops the heartbeat** — otherwise a breakpoint freezes every thread in the plugin process, two
+missed pings in a row kill it, and the symptom is "the plugin disappears the moment I hit a
+breakpoint".
 
-When you do not want to start the host at all, plugin logic runs in ordinary unit tests against `TestPluginContext` from `VelaShell.PluginSdk.Testing` (see §7).
+#### When something is wrong, ask doctor
+
+```bash
+vela-plugin doctor
+```
+
+One pass over: whether a host is registered, the three compatibility gates
+(`apiLevel` / `minSdkVersion` / `minHostVersion`), whether the output directory contains
+`plugin.json` and a `.deps.json`, whether `VelaShell.PluginSdk.dll` or `Avalonia*.dll` were
+accidentally copied into the output, and whether the launch profile still holds a placeholder.
+It exits with code 1 when it finds a blocking problem, so it fits in CI.
+
+When you do not want to start the host at all, plugin logic runs in ordinary unit tests against
+`TestPluginContext` from `VelaShell.PluginSdk.Testing` (see §7).
 
 ## 3. Manifest (`plugin.json`) Reference
 

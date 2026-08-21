@@ -50,10 +50,10 @@ AI / Redis 面板另有 headless 装载与交互测试。
 | 能力域:remoteFs 流式读取 | 07 | `OpenReadAsync` 顺序流;隔离模式 RPC 分块(openRead/streamRead/close,EOF 自动释放) | StreamingRoutingTests |
 | 插件管理页 | 02/06 | 侧栏插件图标 → 自绘卡片窗口(与资源监视同规格:min/max/close+缩放):列表/状态/启停/**卸载**/**从 .vpx 安装**/撤销终端授权;Changed 自动刷新 | PluginManagerEnableDisableTests、PluginInstallUninstallTests |
 | SDK 测试替身 | 09/13 | `TestPluginContext` + 全能力内存替身,插件无宿主可单测 | 被 HelloWorld 测试 dogfood |
-| 示例与开发内环 | 09 | HelloWorld(AXAML 面板/双语/各能力演示);F5 自动重建镜像插件 | HelloWorldDemoPanelTests |
+| 示例与开发内环 | 09 | HelloWorld(AXAML 面板/双语/各能力演示);F5 自动重建镜像插件。**仓库外插件(SDK 1.4)**:宿主自登记 `host.json` → `vela-plugin dev init` 生成 IDE 启动配置(`--dev-root` / `--wait-debugger` / `--data-root` 独立调试实例);开发期插件走影子副本装载 + 管理页"重新加载" + `--dev-watch` 自动重载 | HelloWorldDemoPanelTests、DevInnerLoopTests、HostRegistryTests、VelaShellStartupArgumentsTests |
 | 能力域:protocols(自带文件协议) | 07 | 声明 → 注册 → 惰性激活 → 注销;宿主的双栏浏览器/传输栈零改动复用;仅 `inProcess`。首个使用者:S3 插件 | PluginProtocolTests |
 | 能力域:workspaces(自带非文件型连接) | 07 | 同一排页签、同一套声明式表单、同一条惰性激活链路;宿主向插件索取一个控件挂成停靠文档。含**声明式 SSH 隧道**与**连接提议**;仅 `inProcess`。首个使用者:Redis 插件 | PluginWorkspaceTests(25 项) |
-| 开发文档 | 09 | dev-guide.md(唯一权威);01–15 蓝图已加实现注记 | — |
+| 开发文档 | 09 | dev-guide.md(唯一权威)+ cli.md(命令行手册)+ publishing.md(打包发布/商店)+ sdk-reference.md(SDK 参考);中英双份;01–15 蓝图已加实现注记 | — |
 
 ### ⏳ 部分完成
 

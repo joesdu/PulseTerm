@@ -45,7 +45,7 @@ public class DevPluginRootTests
             "   ",
             "# 又一条注释"
         ];
-        IReadOnlyList<string> roots = DevPluginRootResolver.Resolve(_base, _ => lines);
+        IReadOnlyList<string> roots = DevPluginRootResolver.Resolve(_base, readFile: _ => lines);
 
         Assert.ContainsSingle(roots);
         Assert.EndsWith(Path.Combine("my-plugin", "bin", "Debug"), roots[0]);
@@ -55,14 +55,14 @@ public class DevPluginRootTests
     public void Resolve_DuplicateEntries_AreCollapsed()
     {
         string[] lines = [@"C:\a\b", @"C:\a\b\", @"C:\A\B"];
-        Assert.ContainsSingle(DevPluginRootResolver.Resolve(_base, _ => lines));
+        Assert.ContainsSingle(DevPluginRootResolver.Resolve(_base, readFile: _ => lines));
     }
 
     [TestMethod]
     public void Resolve_NoListFileAndNoEnvironment_IsEmpty()
     {
         // 生产路径:两个来源都空 → 发现期一个额外目录都不扫。
-        Assert.IsEmpty(DevPluginRootResolver.Resolve(_base, _ => null));
+        Assert.IsEmpty(DevPluginRootResolver.Resolve(_base, readFile: _ => null));
     }
 
     [TestMethod]
@@ -70,8 +70,36 @@ public class DevPluginRootTests
     {
         // 写坏的一行不该让宿主起不来 —— 跳过它,别的照常生效。
         string[] lines = ["\0not a path", @"C:\good"];
-        IReadOnlyList<string> roots = DevPluginRootResolver.Resolve(_base, _ => lines);
+        IReadOnlyList<string> roots = DevPluginRootResolver.Resolve(_base, readFile: _ => lines);
         Assert.ContainsSingle(roots);
+    }
+
+    [TestMethod]
+    public void Resolve_CommandLineRoots_ComeFirstAndMergeWithTheListFile()
+    {
+        // 参数优先于登记文件:同时开两个插件工程时,各自的启动配置各说各的,
+        // 而登记文件是机器级全局状态,必然互相串味。
+        string[] lines = [@"C:\from-file"];
+        IReadOnlyList<string> roots = DevPluginRootResolver.Resolve(
+            _base, [@"C:\from-args"], _ => lines);
+
+        Assert.HasCount(2, roots);
+        Assert.EndsWith("from-args", roots[0]);
+        Assert.EndsWith("from-file", roots[1]);
+    }
+
+    [TestMethod]
+    public void Resolve_SameRootFromArgsAndFile_IsCollapsed()
+    {
+        string[] lines = [@"C:\shared\bin\Debug"];
+        Assert.ContainsSingle(DevPluginRootResolver.Resolve(_base, [@"C:\shared\bin\Debug\"], _ => lines));
+    }
+
+    [TestMethod]
+    public void ResolveDebugPluginIds_FromCommandLine()
+    {
+        Assert.Contains("acme.one", DevPluginRootResolver.ResolveDebugPluginIds(["acme.one"]));
+        Assert.IsEmpty(DevPluginRootResolver.ResolveDebugPluginIds());
     }
 
     [TestMethod]

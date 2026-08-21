@@ -93,7 +93,7 @@ at load time):
 | `VelaShell.PluginSdk.Build` | **the plugin project (this one alone)** | MSBuild props/targets plus the bundled packer; transitively brings in the two below and **Avalonia pinned to the host's exact version** |
 | `VelaShell.PluginSdk` | transitively | Contract assembly (BCL only) |
 | `VelaShell.PluginSdk.Testing` | plugin test projects | `TestPluginContext` and capability doubles |
-| `VelaShell.Plugin.Cli` | dotnet tool | `vela-plugin`: validate / pack / sign / verify / info / unpack / keygen / install / dev-link |
+| `VelaShell.Plugin.Cli` | dotnet tool | `vela-plugin`: dev init/run/list/prune/link, hosts, doctor, validate, pack, sign, verify, info, unpack, keygen |
 | `VelaShell.Plugin.Templates` | dotnet new | `velaplugin`, `velaplugin-ui` |
 
 The Build package handles four things on the plugin project's behalf: `EnableDynamicLoading` and

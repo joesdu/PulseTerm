@@ -3576,6 +3576,8 @@ Overwrite it?</value>
   <data name="PluginPerm_Deny"><value>Deny</value></data>
   <data name="PluginManager_Install"><value>Install .vpx…</value></data>
   <data name="PluginManager_Uninstall"><value>Uninstall</value></data>
+  <data name="PluginManager_Reload"><value>Reload</value></data>
+  <data name="PluginManager_WaitingForDebugger"><value>Plugin host for "{0}" is waiting for a debugger — attach to process {1}.</value></data>
   <data name="PluginManager_Installed"><value>Installed "{0}".</value></data>
   <data name="PluginManager_InstallFailed"><value>Install failed: {0}</value></data>
   <data name="PluginManager_ConfirmUninstall"><value>Uninstall "{0}"? Its data will be removed.</value></data>
