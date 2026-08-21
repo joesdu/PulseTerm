@@ -20,7 +20,7 @@
          已知边界(见 docs/Redis客户端插件化调研与设计.md §四):多路复用连接不提供
          MONITOR 与阻塞类命令(BLPOP 等);控制台上这两类命令按"该连接形态不支持"如实拒绝,
          不假装能跑。 -->
-    <PackageReference Include="StackExchange.Redis" Version="3.1.13" />
+    <PackageReference Include="StackExchange.Redis" Version="3.1.31" />
   </ItemGroup>
 
   <ItemGroup>
