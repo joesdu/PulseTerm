@@ -43,6 +43,7 @@ public class StreamingRoutingTests
             RemoteFs = remoteFs,
             RemoteExec = new FakeRemoteExec(),
             RemoteTunnel = new FakeRemoteTunnel(),
+            TerminalView = new VelaShell.PluginSdk.Testing.FakeTerminalViewApi(),
             Commands = new RecordingCommands(),
             Events = new PluginEventHub(new CollectingLogger(), null, null, null),
             Ui = new FakeUi(),

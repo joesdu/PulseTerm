@@ -76,6 +76,11 @@ public class App : Application
                 (pluginId, log) => new VelaShell.Services.Plugins.HostTerminal(pluginId, log,
                     () => sp.GetService<MainWindowViewModel>(),
                     sp.GetRequiredService<Infrastructure.Plugins.PluginPermissionGate>()))
+            // 插件终端视图能力:出借宿主的终端仿真器(VT 解析 + 屏幕缓冲 + 输入编码),
+            // 外观跟随宿主当前的终端设置。仅进程内插件可用 —— 交出去的是活的原生控件。
+            .AddSingleton<PluginSdk.TerminalView.ITerminalViewApi>(sp =>
+                new VelaShell.Services.Plugins.PluginTerminalViewApi(
+                    () => sp.GetService<MainWindowViewModel>()))
             // 进程内插件运行时(docs/plugins/dev-guide.md)。注册零开销:
             // 发现与激活在主窗口显示后的后台线程进行,不占启动路径。
             .AddVelaShellPlugins(typeof(App).Assembly

@@ -63,6 +63,13 @@ public interface IPluginContext
     /// </summary>
     IRemoteTunnelApi RemoteTunnel { get; }
 
+    /// <summary>
+    /// 终端视图能力:向插件出借宿主的终端仿真器,拿到一个可嵌进自己界面的终端控件。
+    /// 与 <see cref="Terminal" />(旁路宿主已有会话)不同,这里插件拥有一个自己的终端。
+    /// 仅 <c>inProcess</c> 宿主模式可用,见 <see cref="TerminalView.ITerminalViewApi" />。
+    /// </summary>
+    TerminalView.ITerminalViewApi TerminalView { get; }
+
     /// <summary>命令能力:向命令面板/菜单注册命令,或执行宿主命令。</summary>
     ICommandsApi Commands { get; }
 

@@ -31,6 +31,14 @@ public static class VelaPluginApi
     /// 全是二进制 —— 用文本模型承载它们不是"慢一点",是数据静默损坏。同样只增不改,
     /// apiLevel 仍是 1,靠 <c>minSdkVersion: "1.2.0"</c> 在发现期拦住老宿主。
     /// </para>
+    /// <para>
+    /// <b>1.3</b> 加了 <see cref="TerminalView.ITerminalViewApi" />:把宿主那套 VT 解析、
+    /// 屏幕缓冲、选区、IME 与键盘编码整体出借给插件,插件拿到一个可嵌进自己界面的终端控件。
+    /// 在这之前,插件想要一个真终端只有两条路 —— 自己再写一个仿真器(ANSI 不是"处理一下
+    /// 转义序列"那么回事),或者退化成"一条命令一份输出"的行式控制台(<c>top</c>、<c>vim</c>、
+    /// <c>less</c> 一概不能用)。同样只增不改,apiLevel 仍是 1,
+    /// 靠 <c>minSdkVersion: "1.3.0"</c> 在发现期拦住老宿主。
+    /// </para>
     /// </summary>
-    public const string SdkVersion = "1.2.0";
+    public const string SdkVersion = "1.3.0";
 }

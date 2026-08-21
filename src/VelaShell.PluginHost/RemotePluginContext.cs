@@ -93,7 +93,25 @@ internal sealed class RemotePluginContext : IPluginContext, IDisposable
     /// </summary>
     public PluginSdk.RemoteTunnel.IRemoteTunnelApi RemoteTunnel { get; } = new IsolatedRemoteTunnel();
 
+    /// <summary>
+    /// 终端视图在隔离进程里**不可用**:它交出去的是一个活的原生控件,嵌不进另一个进程的窗口。
+    /// (本进程确实有自己的 Avalonia,但那是用来画插件自己的界面的;终端仿真器归宿主进程,
+    /// 跨进程把每一帧屏幕搬过来既慢又会丢输入时序。)
+    /// </summary>
+    public PluginSdk.TerminalView.ITerminalViewApi TerminalView { get; } = new IsolatedTerminalView();
+
     public CancellationToken Shutdown { get; }
+
+    /// <summary>隔离进程的终端视图退化实现:调用即报不可用。</summary>
+    private sealed class IsolatedTerminalView : PluginSdk.TerminalView.ITerminalViewApi
+    {
+        public bool IsAvailable => false;
+
+        public PluginSdk.TerminalView.IPluginTerminalView Create(
+            PluginSdk.TerminalView.TerminalViewOptions? options = null) =>
+            throw new NotSupportedException(
+                "Terminal views require hostMode \"inProcess\": a live native control cannot be embedded across processes.");
+    }
 
     /// <summary>隔离进程的隧道能力退化实现:调用即报不可用。</summary>
     private sealed class IsolatedRemoteTunnel : PluginSdk.RemoteTunnel.IRemoteTunnelApi

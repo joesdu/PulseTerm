@@ -436,6 +436,39 @@ await using Stream stream = await context.RemoteTunnel
 > 与宿主的本地端口转发不同:隧道**不在本机开监听端口**,流只交给发起调用的插件。
 > 对面是一个 root 等价的 socket 时,这个区别不是优化而是前提。
 
+### 5.5c TerminalView —— 借宿主的终端仿真器(SDK 1.3)
+
+插件想要一个**真终端**(能跑 `top` / `vim` / `less`),不必自己写 ANSI 解析:
+
+```csharp
+if (!context.TerminalView.IsAvailable)
+{
+    // 老宿主或隔离进程:退化成行式输出,别让按钮点下去炸。
+    return;
+}
+// 必须在 UI 线程调用(视图构造本来就在 UI 线程上)。
+IPluginTerminalView view = context.TerminalView.Create(new() { ScrollbackLines = 5000 });
+var host = new ContentControl { Content = (Control)view.Control };
+
+// 远端尺寸要跟着控件走,否则 vim 会照旧尺寸画,画出来是错位的。
+view.Resized += (cols, rows) => _ = session.ResizeAsync(rows, cols);
+
+// 一行接上双工流:读在后台、渲染回 UI 线程、用户按键串行写回 —— 都由宿主做掉。
+await view.AttachAsync(session.Stream, token);
+```
+
+- 交出去的 `Control` 是 Avalonia 控件(以 `object` 出面 —— SDK 这一层刻意不认识 UI 框架,
+  与 `IUiApi.ShowPanelAsync` 的内容工厂同一个约定)。
+- 外观默认**跟随宿主的终端设置**(字体、字号、行高、配色、光标、Gutter)。
+  用户调过一次终端字体,不该因为换到插件面板里就得再调一次。
+- `AttachAsync` 同一时刻只接一条流;再接一条会先把前一条断掉。它**不**负责释放传入的流。
+- `Dispose` 销毁控件并断开当前的流。
+- **只在 `inProcess` 可用**:交出去的是活的原生控件,跨进程嵌不了。
+  隔离进程里调用抛 `NotSupportedException` —— 先用 `IsAvailable` 问一句。
+
+> 与 `ITerminalApi` 的分工:那一个是对**宿主已有会话**的旁路(读缓冲、搜输出、经授权回写);
+> 这一个是插件**自己的**终端。前者操作别人的终端,后者拥有一个自己的。
+
 ### 5.6 Commands —— 命令面板
 
 ```csharp

@@ -1489,6 +1489,7 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
                     : new UnavailableSecrets(),
             Clipboard = options.Clipboard ?? new UnavailableClipboard(),
             Terminal = options.TerminalFactory?.Invoke(manifest.Id, log) ?? new UnavailableTerminal(),
+            TerminalView = options.TerminalView ?? new UnavailableTerminalView(),
             Protocols = options.ProtocolRegistry is { } protocols
                 ? new ProtocolsCapability(manifest.Id, protocols, log)
                 : new UnavailableProtocols(),
@@ -1668,6 +1669,16 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
 
         public Task<Stream> OpenTcpAsync(string sessionId, string host, int port, TunnelOptions? options = null, CancellationToken cancellationToken = default)
             => Task.FromException<Stream>(Unavailable());
+    }
+
+    /// <summary>没有界面层的宿主(headless 测试)上的终端视图能力:明确报不可用。</summary>
+    private sealed class UnavailableTerminalView : PluginSdk.TerminalView.ITerminalViewApi
+    {
+        public bool IsAvailable => false;
+
+        public PluginSdk.TerminalView.IPluginTerminalView Create(
+            PluginSdk.TerminalView.TerminalViewOptions? options = null) =>
+            throw new InvalidOperationException("Terminal view capability is unavailable in this host.");
     }
 
     /// <summary>无数据库的宿主上的时序能力:明确报不可用,绝不静默丢数据。</summary>

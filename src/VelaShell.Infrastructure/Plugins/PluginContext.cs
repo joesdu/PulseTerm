@@ -38,6 +38,7 @@ internal sealed class PluginContext : IPluginContext, IDisposable
     public required ISecretsApi Secrets { get; init; }
     public required IClipboardApi Clipboard { get; init; }
     public required PluginSdk.Terminal.ITerminalApi Terminal { get; init; }
+    public required PluginSdk.TerminalView.ITerminalViewApi TerminalView { get; init; }
     public required IProtocolsApi Protocols { get; init; }
     public required PluginSdk.Workspaces.IWorkspacesApi Workspaces { get; init; }
     public required CancellationToken Shutdown { get; init; }

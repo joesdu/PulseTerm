@@ -111,6 +111,16 @@ public sealed class PluginManagerOptions
     public Func<string, IPluginLogger, PluginSdk.Terminal.ITerminalApi>? TerminalFactory { get; init; }
 
     /// <summary>
+    /// 终端视图能力(由 UI 层提供:出借宿主的终端仿真器控件);缺席时报不可用。
+    /// <para>
+    /// 与 <see cref="TerminalFactory" /> 不同,这一项**不按插件分实例** ——
+    /// 它不持有任何每插件状态,每次 <c>Create</c> 都新建一个独立的控件,
+    /// 生命周期归调用它的插件自己管(<c>Dispose</c> 即销毁)。
+    /// </para>
+    /// </summary>
+    public PluginSdk.TerminalView.ITerminalViewApi? TerminalView { get; init; }
+
+    /// <summary>
     /// 插件协议注册表:清单声明的协议页签在发现期登记于此,插件激活后再补上实现。
     /// 缺席时协议能力报不可用(headless 测试路径),声明的页签也不会出现。
     /// </summary>

@@ -67,6 +67,9 @@ public sealed class TestPluginContext : IPluginContext, IDisposable
     /// <summary>默认远程隧道替身。</summary>
     public FakeRemoteTunnel FakeRemoteTunnel { get; } = new();
 
+    /// <summary>终端视图能力的替身。</summary>
+    public FakeTerminalViewApi FakeTerminalView { get; } = new();
+
     /// <summary>默认命令替身。</summary>
     public RecordingCommands RecordingCommands { get; } = new();
 
@@ -149,6 +152,9 @@ public sealed class TestPluginContext : IPluginContext, IDisposable
     /// <inheritdoc cref="IPluginContext.RemoteTunnel" />
     public IRemoteTunnelApi RemoteTunnel { get; init; }
 
+    /// <inheritdoc cref="IPluginContext.TerminalView" />
+    public PluginSdk.TerminalView.ITerminalViewApi TerminalView { get; init; }
+
     /// <inheritdoc cref="IPluginContext.Commands" />
     public ICommandsApi Commands { get; init; }
 
@@ -186,6 +192,7 @@ public sealed class TestPluginContext : IPluginContext, IDisposable
         RemoteFs = FakeRemoteFs;
         RemoteExec = FakeRemoteExec;
         RemoteTunnel = FakeRemoteTunnel;
+        TerminalView = FakeTerminalView;
         Commands = RecordingCommands;
         Events = HostEvents;
         Ui = FakeUi;

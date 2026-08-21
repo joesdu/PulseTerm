@@ -3868,6 +3868,17 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
         });
     }
 
+    /// <summary>
+    /// 把当前设置的终端外观应用到一个**插件**的终端视图。
+    /// <para>
+    /// 走的是宿主自己那条路(<see cref="ApplyLiveTerminalSettings" />),不是另抄一份 ——
+    /// 用户调过一次终端字体,不该因为换到插件的面板里就得再调一次;
+    /// 以后加的外观项也自动跟着走,不会有一处忘了同步。
+    /// </para>
+    /// </summary>
+    internal void ApplyTerminalAppearanceToPluginView(ITerminalEmulator emulator) =>
+        ApplyLiveTerminalSettings(emulator, _latestSettings ?? new AppSettings());
+
     /// <summary>把一份设置应用到所有已打开的终端标签(保存与外观预览共用)。</summary>
     private void ApplyLiveSettingsToOpenTabs(AppSettings settings)
     {
