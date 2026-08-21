@@ -410,6 +410,32 @@ ExecStreamResult done = await context.RemoteExec.StreamAsync(sid,
 > 交互式命令(要伪终端、要键盘输入)两者都不适用 —— 那是终端标签的事,
 > 用 `context.Terminal.WriteAsync` 把命令敲进去(需用户授权)。
 
+### 5.5b RemoteTunnel —— 到远端 socket / TCP 的裸字节流(SDK 1.2)
+
+```csharp
+await using Stream stream = await context.RemoteTunnel
+    .OpenUnixSocketAsync(sessionId, "/var/run/docker.sock", cancellationToken: token);
+// 也可以连远端的 TCP 端点(地址从**远端**的角度解析):
+// await context.RemoteTunnel.OpenTcpAsync(sessionId, "127.0.0.1", 6379, cancellationToken: token);
+```
+
+**什么时候需要它。** 远程执行的两种形态都是**文本**:`RunAsync` 把整个输出 UTF-8 解码成
+一个字符串,`StreamAsync` 按 `\n` 切行回调。承载二进制协议时这不是"慢一点",是**数据静默
+损坏** —— UTF-8 解码会把非法字节换成 U+FFFD(不可逆),按行切分会在 `0x0A` 处把一帧劈成
+两半。Docker Engine API 的分块传输、`/archive` 的 tar 流、`/exec` 的 8 字节多路复用帧
+都属于这一类。要说这类协议就用隧道。
+
+- 返回的 `Stream` 可读可写;`Dispose` 关闭 SSH 通道并归还配额 —— **调用方必须释放它**。
+- 取消令牌只作用于**建立**阶段;通道建成之后读写由调用方自己的令牌与远端决定。
+  隧道的正常形态就是 `docker events` 这种挂着不动的长连接,给它一个总时限只会让界面
+  在第 N 分钟莫名其妙地断流。
+- 每插件最多 `IRemoteTunnelApi.MaxConcurrentTunnels`(16)条,理由同流式执行。
+- **只在 `inProcess` 可用**:它交出去的是一条活的流,跨进程代理除了把每个字节多搬一次
+  之外得不到任何东西。隔离进程里调用抛 `NotSupportedException`。
+
+> 与宿主的本地端口转发不同:隧道**不在本机开监听端口**,流只交给发起调用的插件。
+> 对面是一个 root 等价的 socket 时,这个区别不是优化而是前提。
+
 ### 5.6 Commands —— 命令面板
 
 ```csharp
