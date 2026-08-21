@@ -3761,4 +3761,7 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
 信任後，同一密鑰簽署的後續套件也會自動可信。外掛能以你的帳戶權限執行程式碼。</value></data>
   <data name="PluginManager_InstallAnyway" xml:space="preserve"><value>仍要安裝</value></data>
   <data name="PluginManager_TrustAndInstall" xml:space="preserve"><value>信任發行者並安裝</value></data>
+  <data name="PluginManager_SecurityTip" xml:space="preserve"><value>外掛以你的帳戶權限執行，可讀寫本機檔案、工作階段與網路。安裝前請核實外掛來源並核對簽章指紋，只安裝來自可信發行者的外掛，以免惡意外掛竊取資料或破壞系統。</value></data>
+  <data name="PluginManager_Market" xml:space="preserve"><value>外掛商店</value></data>
+  <data name="PluginManager_MarketTip" xml:space="preserve"><value>前往 market.easilynet.top 瀏覽已審核的外掛</value></data>
 </root>

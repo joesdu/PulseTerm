@@ -3761,4 +3761,7 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
 信頼すると、同じ鍵で署名された今後のパッケージも信頼されます。プラグインはユーザー権限でコードを実行できます。</value></data>
   <data name="PluginManager_InstallAnyway" xml:space="preserve"><value>続行してインストール</value></data>
   <data name="PluginManager_TrustAndInstall" xml:space="preserve"><value>発行元を信頼してインストール</value></data>
+  <data name="PluginManager_SecurityTip" xml:space="preserve"><value>プラグインはユーザー権限で実行され、ローカルファイル・セッション・ネットワークにアクセスできます。インストール前に配布元を確認し、署名のフィンガープリントを照合したうえで、信頼できる発行元のプラグインのみをインストールしてください。</value></data>
+  <data name="PluginManager_Market" xml:space="preserve"><value>プラグインストア</value></data>
+  <data name="PluginManager_MarketTip" xml:space="preserve"><value>market.easilynet.top で審査済みプラグインを見る</value></data>
 </root>
