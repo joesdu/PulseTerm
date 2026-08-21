@@ -242,6 +242,105 @@ public sealed class TmdsSshClientWrapper : ISshClientWrapper
         }
     }
 
+    /// <inheritdoc />
+    public async Task<RemoteCommandResult> RunCommandDetailedAsync(string commandText, CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_client is null) throw new InvalidOperationException("Not connected.");
+        try
+        {
+            using RemoteProcess process = await _client
+                .ExecuteAsync(commandText, cancellationToken)
+                .ConfigureAwait(false);
+
+            // 两条流分别读进内存。Tmds 的 ReadToEndAsStringAsync(readStdout, readStderr, ct)
+            // 一次调用同时收两条并各自返回,不会因为一条读空了就把另一条堵住 ——
+            // 自己分两次读才是那个经典的死锁:对端在 stderr 上写满了缓冲区等你读,
+            // 而你在 stdout 上等它写完。
+            (string? standardOutput, string? standardError) = await process
+                .ReadToEndAsStringAsync(readStdout: true, readStderr: true, cancellationToken)
+                .ConfigureAwait(false);
+            int exitCode = await process.GetExitCodeAsync(cancellationToken).ConfigureAwait(false);
+            return new(standardOutput ?? string.Empty, standardError ?? string.Empty, exitCode);
+        }
+        catch (Exception ex) when (ex is SshConnectionException && IsTornDown())
+        {
+            throw new ObjectDisposedException(nameof(TmdsSshClientWrapper), ex);
+        }
+        catch (Exception ex) when (TmdsSshInterop.Translate(ex, cancellationToken) is { } translated)
+        {
+            throw translated;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<RemoteCommandStreamResult> StreamCommandAsync(
+        string commandText,
+        bool includeStandardError,
+        Action<bool, string> onLine,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(onLine);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_client is null) throw new InvalidOperationException("Not connected.");
+        RemoteProcess? process = null;
+        try
+        {
+            process = await _client.ExecuteAsync(commandText, cancellationToken).ConfigureAwait(false);
+            long lines = 0;
+            while (true)
+            {
+                (bool isError, string? line) = await process
+                    .ReadLineAsync(readStdout: true, readStderr: includeStandardError, cancellationToken)
+                    .ConfigureAwait(false);
+                // line == null 表示进程已退出且输出读完 —— 这是**唯一**的正常收尾条件。
+                if (line is null)
+                {
+                    break;
+                }
+                lines++;
+                onLine(isError, line);
+            }
+            int exitCode = await process.GetExitCodeAsync(cancellationToken).ConfigureAwait(false);
+            return new(exitCode, lines);
+        }
+        catch (OperationCanceledException)
+        {
+            // 取消长驻命令时先给远端进程一个 TERM。只 Dispose 通道的话,`docker logs -f`
+            // 那一端要等到写管道被拒才知道该退出 —— 在没有新日志的空闲期,那可能是"永远"。
+            TrySendTerm(process);
+            throw;
+        }
+        catch (Exception ex) when (ex is SshConnectionException && IsTornDown())
+        {
+            throw new ObjectDisposedException(nameof(TmdsSshClientWrapper), ex);
+        }
+        catch (Exception ex) when (TmdsSshInterop.Translate(ex, cancellationToken) is { } translated)
+        {
+            throw translated;
+        }
+        finally
+        {
+            process?.Dispose();
+        }
+    }
+
+    private static void TrySendTerm(RemoteProcess? process)
+    {
+        if (process is null)
+        {
+            return;
+        }
+        try
+        {
+            process.SendSignal("TERM");
+        }
+        catch (Exception)
+        {
+            // 通道可能已经塌了 —— 这只是尽力而为的礼貌收尾,失败不该盖住原来的取消异常。
+        }
+    }
+
     /// <summary>
     /// 在当前连接上异步启动端口转发,返回 <see cref="IPortForwardHandle" />。Tmds.Ssh 的 ForwardToRemoteAsync 只支持远程转发,本地转发被忽略。
     /// </summary>

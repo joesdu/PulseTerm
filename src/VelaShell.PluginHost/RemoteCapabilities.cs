@@ -49,6 +49,21 @@ internal sealed class RpcSessions(RpcConnection rpc) : ISessionsApi
 /// <summary>远程执行能力的 RPC 代理(超时随选项放宽,留 15s 往返余量)。</summary>
 internal sealed class RpcRemoteExec(RpcConnection rpc) : IRemoteExecApi
 {
+    /// <summary>隔离模式下长驻命令的兜底死线。见 <see cref="StreamAsync" /> 的说明。</summary>
+    private static readonly TimeSpan DefaultStreamTimeout = TimeSpan.FromHours(2);
+
+    /// <summary>在途流式执行的输出接收器(outputToken → 回调)。</summary>
+    internal ConcurrentDictionary<string, IProgress<ExecOutput>> OutputSinks { get; } = new();
+
+    /// <summary>宿主输出通知入口。</summary>
+    internal void OnOutput(ExecOutputNotification notification)
+    {
+        if (OutputSinks.TryGetValue(notification.OutputToken, out IProgress<ExecOutput>? sink))
+        {
+            sink.Report(new(notification.IsStandardError ? ExecStream.StandardError : ExecStream.StandardOutput, notification.Line));
+        }
+    }
+
     public async Task<ExecResult> RunAsync(string sessionId, string command, ExecOptions? options = null,
         CancellationToken cancellationToken = default)
     {
@@ -57,6 +72,36 @@ internal sealed class RpcRemoteExec(RpcConnection rpc) : IRemoteExecApi
                    new ExecRunRequest(sessionId, command, execTimeout.TotalSeconds),
                    execTimeout + TimeSpan.FromSeconds(15), cancellationToken).ConfigureAwait(false)
                ?? new("");
+    }
+
+    /// <summary>
+    /// 流式执行的 RPC 代理。
+    /// <para>
+    /// **隔离模式下"不限时"是做不到的**:取消令牌不跨进程传播(dev-guide §6),
+    /// 插件这边取消了,宿主那边的 <c>docker logs -f</c> 不会知道。所以这里给未指定超时的
+    /// 流补上一个两小时的死线 —— 让"忘了取消"最坏也只是浪费两小时一个通道,
+    /// 而不是把它泄漏到宿主退出为止。要真正即时的取消,请用 <c>inProcess</c>。
+    /// </para>
+    /// </summary>
+    public async Task<ExecStreamResult> StreamAsync(string sessionId, string command, ExecStreamOptions? options,
+        IProgress<ExecOutput> output, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(output);
+        TimeSpan deadline = options?.Timeout is { } t && t > TimeSpan.Zero ? t : DefaultStreamTimeout;
+        string token = Guid.NewGuid().ToString("n");
+        OutputSinks[token] = output;
+        try
+        {
+            return await rpc.RequestAsync<ExecStreamResult>(PluginRpc.ExecStream,
+                       new ExecStreamRequest(sessionId, command, token, deadline.TotalSeconds,
+                           options?.IncludeStandardError ?? true),
+                       deadline + TimeSpan.FromSeconds(15), cancellationToken).ConfigureAwait(false)
+                   ?? new(0, 0);
+        }
+        finally
+        {
+            OutputSinks.TryRemove(token, out _);
+        }
     }
 }
 

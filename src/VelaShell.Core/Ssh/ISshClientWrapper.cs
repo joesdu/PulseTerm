@@ -44,6 +44,37 @@ public interface ISshClientWrapper : IDisposable
     Task<string> RunCommandAsync(string commandText, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// 在远端主机上执行一次性命令,取回**标准输出、标准错误与退出码**。
+    /// <para>
+    /// 与 <see cref="RunCommandAsync" /> 的区别只在于不丢东西:后者为了调用点简单
+    /// 把标准错误与退出码都扔了,而任何要**如实报告失败**的调用方(插件的远程执行能力
+    /// 就是其一)都需要这两样 —— 没有它们,"命令失败了"和"命令没有输出"长得一模一样。
+    /// </para>
+    /// </summary>
+    /// <param name="commandText">命令行。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>标准输出、标准错误与退出码。</returns>
+    Task<RemoteCommandResult> RunCommandDetailedAsync(string commandText, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 在远端主机上执行命令,并**边跑边按行**回调输出;进程结束后返回退出码。
+    /// <para>
+    /// 用于长驻命令(<c>docker logs -f</c>、<c>tail -F</c>、<c>docker events</c>)。
+    /// 取消令牌触发时向远端进程发 <c>TERM</c> 再关闭通道,而不是干等它自己结束。
+    /// </para>
+    /// </summary>
+    /// <param name="commandText">命令行。</param>
+    /// <param name="includeStandardError">是否也回调标准错误。</param>
+    /// <param name="onLine">逐行回调(参数为「是否来自标准错误」与「行文本」);在 I/O 线程上调用,应快速返回。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>退出码与行数。</returns>
+    Task<RemoteCommandStreamResult> StreamCommandAsync(
+        string commandText,
+        bool includeStandardError,
+        Action<bool, string> onLine,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// 异步建立并启动一条端口转发;返回的句柄负责其停止与清理。
     /// 启动失败时抛出且不留下半挂的监听。
     /// </summary>

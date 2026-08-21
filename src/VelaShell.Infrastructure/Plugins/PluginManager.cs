@@ -1219,6 +1219,15 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
             descriptor.State = PluginState.Incompatible;
             descriptor.Error = $"Plugin requires host >= {minHost}, current host is {options.HostVersion}.";
         }
+        else if (manifest.MinSdkVersion is { } minSdk && IsOlder(VelaPluginApi.SdkVersion, minSdk))
+        {
+            // apiLevel 拦不住这一档:它只在**破坏性**变更时才动,而新增的接口方法 / DTO 字段
+            // 不算破坏性。不在这里拦,插件就会装上、激活、然后在第一次调用新方法时
+            // 抛一个 MissingMethodException —— 正是 apiLevel 当初要消灭的那种异常。
+            descriptor.State = PluginState.Incompatible;
+            descriptor.Error =
+                $"Plugin requires plugin SDK >= {minSdk}, this host ships {VelaPluginApi.SdkVersion}. Update VelaShell.";
+        }
         return descriptor;
     }
 
@@ -1262,7 +1271,18 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
     }
 
     /// <summary>宿主版本是否低于要求(数字段比较,忽略预发布后缀;不可解析时不拦)。</summary>
-    private bool IsHostOlderThan(string minHostVersion)
+    private bool IsHostOlderThan(string minHostVersion) => IsOlder(options.HostVersion, minHostVersion);
+
+    /// <summary>
+    /// <paramref name="actual" /> 是否比 <paramref name="required" /> 老。
+    /// 预发布后缀被忽略(<c>1.1.0-beta</c> 视作 <c>1.1.0</c>):把 beta 判成"不够新"
+    /// 会让预览版宿主装不上为它写的插件,而那正是预览版存在的意义。
+    /// 任一侧解析不出版本号就放行 —— 拦下一个只是版本号写得怪的插件,损失大于收益。
+    /// </summary>
+    /// <param name="actual">实际版本。</param>
+    /// <param name="required">要求的最低版本。</param>
+    /// <returns>实际版本更老时为 true。</returns>
+    private static bool IsOlder(string actual, string required)
     {
         static Version? ParseNumeric(string v)
         {
@@ -1273,7 +1293,7 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
             }
             return Version.TryParse(numeric, out Version? parsed) ? parsed : null;
         }
-        return ParseNumeric(options.HostVersion) is { } host && ParseNumeric(minHostVersion) is { } min && host < min;
+        return ParseNumeric(actual) is { } left && ParseNumeric(required) is { } right && left < right;
     }
 
     private async Task ActivateAsync(PluginRuntime runtime, CancellationToken cancellationToken)

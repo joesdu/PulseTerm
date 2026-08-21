@@ -227,6 +227,7 @@ vela-plugin dev-unlink bin/Debug/net11.0   # 取消
 | `author` | | 作者,展示在插件管理页(如 `"Joe <joe@example.com>"`,≤128 字符、不许控制字符)。缺省时管理页退回显示 `publisher` |
 | `apiLevel` | | 默认 1;高于宿主支持的代际 → 标记 Incompatible 拒载 |
 | `minHostVersion` | | 要求的最低宿主版本;不满足 → Incompatible |
+| `minSdkVersion` | | 要求的最低**插件 SDK** 版本(如 `1.1.0`);不满足 → Incompatible。**用到了新 SDK 面的插件必须声明它**:`apiLevel` 只在破坏性变更时才动,而新增的接口方法与 DTO 字段不算破坏性 —— 不声明的话老宿主会把插件装上、激活,然后在第一次调用新方法时抛 `MissingMethodException`。SDK 版本与宿主版本刻意解耦,所以 `minHostVersion` 表达不了这件事 |
 | `activationEvents` | | 省略或含 `"onStartup"` = 启动激活;`"onCommand:<命令id>"` / `"onProtocol:<协议id>"` / `"onWorkspace:<连接类型id>"` = **惰性激活**(命中占位命令、或用户选中该页签才装载;须在对应的 `contributes.*` 里声明) |
 | `contributes.commands` | | 声明式命令占位 `[{id,title,category}]`:发现期即进命令面板,id 必须以插件 id 为前缀;激活时插件应 `Register` 同 id 的真实处理器替换占位 |
 | `contributes.protocols` | | 声明式协议页签 `[{id,displayName,defaultPort}]`:发现期即进连接配置页(**不装载程序集**),id 必须等于插件 id 或以其为前缀;设置表单在激活后由 `ProtocolDescriptor` 补齐。要求 `hostMode` 为 `inProcess` |
@@ -358,15 +359,56 @@ await context.RemoteFs.DownloadFileAsync(sid, "/var/log/app.log", localPath, pro
   经 RPC 分块拉取(不支持 Seek)。
 - 进度回调已由宿主节流(≥100ms),放心直接更新状态。
 
-### 5.5 RemoteExec —— 远程一次性命令
+### 5.5 RemoteExec —— 远程命令(一次性 / 流式)
+
+独立 exec 通道:不进用户终端、不污染 shell 历史与环境。两种形态:
+
+**一次性**(探测类命令)——
 
 ```csharp
 ExecResult r = await context.RemoteExec.RunAsync(sid, "docker ps --format json",
     new ExecOptions { Timeout = TimeSpan.FromSeconds(10) }, ct);
+
+if (!r.IsSuccess)                     // 退出码非 0 **不抛异常** —— 命令跑失败是正常结果
+{
+    context.Log.Warn(r.FailureText);  // 优先取 stderr 首行,没有才退回 stdout / 退出码
+}
+Parse(r.Output);                      // stdout 与 stderr 是分开的两条流
 ```
 
-独立 exec 通道:不进用户终端、不污染 shell 历史与环境。默认超时 30s、上限
-10min。适合探测类命令,不适合交互式/长驻进程。
+- 默认超时 30s、上限 10min;超时抛 `TimeoutException`。
+- **`Output` 只含标准输出**;`Error` 是标准错误,`ExitCode` 是退出码 —— 三样都在
+  `ExecResult` 上。别再自己拼 `2>&1; echo $?` 那种哨兵:合并两条流会让解析
+  `--format json` 的代码被一行 `WARNING:` 噎死,而哨兵在用户登录 shell 是 fish/csh 时就崩了。
+
+**流式**(长驻命令:`docker logs -f`、`docker events`、`tail -F`)——
+
+```csharp
+sealed class LineSink(Action<string> onLine) : IProgress<ExecOutput>
+{
+    public void Report(ExecOutput o) => onLine(o.Line);   // 同步转发,顺序即到达顺序
+}
+
+ExecStreamResult done = await context.RemoteExec.StreamAsync(sid,
+    "docker logs -f --tail 200 web",
+    new ExecStreamOptions { Timeout = null },             // null = 不限时,靠取消令牌收尾
+    new LineSink(AppendToView), panelClosedToken);
+```
+
+- 输出**按行**回调,宿主不节流(日志的价值就在于即时);要攒批请自己攒。
+- **别传 `System.Progress<T>`**:它把每次回调 `Post` 到同步上下文或线程池,
+  顺序与线程都不再保证 —— 对进度百分比无所谓,对一屏日志是灾难。
+  宿主是在读行的那个线程上顺序调 `Report` 的,所以只要你的实现是同步的,行序就是保证的。
+- 取消令牌触发 → 宿主给远端进程发 `TERM` 再关通道,方法抛 `OperationCanceledException`;
+  `Timeout` 到点 → 抛 `TimeoutException`。**插件必须持有并触发那个令牌**。
+- 每插件最多 `IRemoteExecApi.MaxConcurrentStreams`(4)条流同时在飞,超了抛
+  `InvalidOperationException`。流不限时且各占一个 SSH 通道,没有上限的话一个忘了取消的
+  插件能把对端的 `MaxSessions` 耗光 —— 那时坏的是用户的连接,不只是这个插件。
+- **隔离模式下"不限时"做不到**:取消令牌不跨进程传播(§6),未指定 `Timeout` 的流会被
+  补上两小时的死线。要即时取消的流式插件请用 `inProcess`。
+
+> 交互式命令(要伪终端、要键盘输入)两者都不适用 —— 那是终端标签的事,
+> 用 `context.Terminal.WriteAsync` 把命令敲进去(需用户授权)。
 
 ### 5.6 Commands —— 命令面板
 
@@ -764,7 +806,7 @@ internal sealed class MyWorkspaceProvider(IPluginContext context) : IWorkspacePr
 | Storage / Log | ✅ KV 经 RPC 落宿主 SonnetDB(插件进程不落本地文件);日志转发宿主并本地 Trace 兜底 |
 | Secrets / Clipboard | ✅ RPC 路由到宿主执行(机密只存宿主侧加密落盘) |
 | 停靠进主窗口标签区 | ❌ **一律独立卡片窗口**(稳定,与主程序统一)。跨进程 dock 嵌入(HWND 收养)与 dock 切标签的 reparenting 有根本张力(卡顿/窗口飘出),**已弃用**;真·dock 标签页请用 inProcess。跨平台稳态方案 = 蓝图 08 共享内存表面(远期) |
-| `CancellationToken` 跨进程传播 | ⚠️ 不传播;以两侧超时兜底(exec 随 `ExecOptions.Timeout`) |
+| `CancellationToken` 跨进程传播 | ⚠️ 不传播;以两侧超时兜底(exec 随 `ExecOptions.Timeout`;流式 exec 未指定 `Timeout` 时补两小时死线,见 §5.5) |
 
 - **选型建议**:第一方/可信插件用默认 `inProcess`(零 IPC 开销、面板可停靠拖拽);
   第三方或实验性插件用 `isolated`(多一个进程换崩溃隔离;面板为独立卡片窗口)。
@@ -793,7 +835,7 @@ public async Task Refresh_ListsContainers()
 
 替身清单:`CollectingLogger`、`InMemoryStorage`、`FakeSessions`、`RecordingProtocols`
 (协议注册,含与宿主一致的 id 前缀校验)、`FakeRemoteFs`
-(内存路径树,语义与真实实现对齐)、`FakeRemoteExec`(脚本化应答)、
+(内存路径树,语义与真实实现对齐)、`FakeRemoteExec`(脚本化应答,含退出码/标准错误与流式逐行)、
 `RecordingCommands`(可 `RunAsync` 驱动命令体)、`TestHostEvents`(Raise 方法)、
 `TestHostInfo`、`FakeUi`(记录面板与惰性内容工厂)、`FakeSecrets`、`FakeClipboard`。
 
