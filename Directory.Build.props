@@ -38,13 +38,16 @@
   -->
   <PropertyGroup>
     <!-- 随安装包分发的**插件仓库侧**插件(Redis / S3 / Telnet)所在的 velashell-plugins
-         Release 标签,去掉前导 v。它与 src/Directory.Packages.props 里
+         Release 版本。它与 src/Directory.Packages.props 里
          VelaShell.PluginSdk 的版本是两个独立的号 —— 插件仓库有自己的发行版本
          (VelaPluginsVersion),不跟 SDK 走。
          scripts/Fetch-Plugins.ps1 据此下载
-         releases/download/v<版本>/velashell-plugins-<版本>.zip 解进 artifacts/plugins/。
-         包里若含 velashell-ai,取回时会被丢掉 —— 那一份由本仓库自己构建,见脚本注释。 -->
-    <VelaPluginsBundleVersion Condition="'$(VelaPluginsBundleVersion)' == ''">1.4.0</VelaPluginsBundleVersion>
+         releases/download/<标签>/velashell-plugins-<版本>.zip 解进 artifacts/plugins/;
+         插件仓库的标签不带前导 v,脚本两种写法都会试一遍。
+         包里若含 velashell-ai,取回时会被丢掉 —— 那一份由本仓库自己构建,见脚本注释。
+         别退回 1.4.0:那一版的 zip 与 1.4.1 的二进制逐字节相同,但三个 plugin.json 里
+         写的还是 0.1.0,装出来插件管理页会显示 v0.1.0。 -->
+    <VelaPluginsBundleVersion Condition="'$(VelaPluginsBundleVersion)' == ''">1.4.1</VelaPluginsBundleVersion>
   </PropertyGroup>
 
   <PropertyGroup>

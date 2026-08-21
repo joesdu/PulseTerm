@@ -116,14 +116,35 @@ if (-not $Force -and (Test-Path $stampFile) -and (Get-Content -Raw $stampFile).T
 
 $repo = 'joesdu/velashell-plugins'
 $asset = "velashell-plugins-$Version.zip"
-$base = "https://github.com/$repo/releases/download/v$Version"
+# 插件仓库的 Release 标签**不带前导 v**(1.4.1,不是 v1.4.1),与本仓库的体例正好相反 ——
+# 2026-08-22 发 1.3.0 时四个平台的 job 全挂在这一步,就是照本仓库的习惯拼了个 v 出来。
+# 两种写法都试一遍:对面的标签体例是对面的事,这边不该因为它换个前缀就整条发布流水线 404。
+$tagCandidates = @($Version, "v$Version")
 $temp = Join-Path ([IO.Path]::GetTempPath()) ("vela-plugins-" + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Force $temp | Out-Null
 
 try {
     Write-Host "Downloading $asset ..."
     $zipPath = Join-Path $temp $asset
-    Invoke-WebRequest -Uri "$base/$asset" -OutFile $zipPath
+    $base = $null
+    foreach ($tag in $tagCandidates) {
+        $candidate = "https://github.com/$repo/releases/download/$tag"
+        try {
+            Invoke-WebRequest -Uri "$candidate/$asset" -OutFile $zipPath
+            $base = $candidate
+            break
+        } catch {
+            # 失败的尝试可能落下半截文件,清掉再换下一个候选 —— 否则下一轮的
+            # -OutFile 覆盖不彻底时,校验和会对着一份混合内容算。
+            Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
+            Write-Host "  tag '$tag': $($_.Exception.Message)"
+        }
+    }
+    if (-not $base) {
+        throw "在 $repo 的 $($tagCandidates -join ' / ') 标签下都找不到 $asset。" +
+              "确认插件仓库已发布该版本(当前 Directory.Build.props 的 VelaPluginsBundleVersion=$Version)," +
+              "或用 -Version 指定一个已存在的版本。"
+    }
 
     # sha256 核对。SHA256SUMS.txt 与 zip 出自同一次流水线运行,取不到就明说 ——
     # 静默跳过校验等于把"下到半截的包"变成用户机器上的启动崩溃。
