@@ -25,6 +25,16 @@
     <ProjectReference Include="..\..\plugins\VelaShell.Plugin.HelloWorld\VelaShell.Plugin.HelloWorld.csproj" />
     <!-- 终端协议 e2e:把真实的 Telnet 插件(含它自己的 plugin.json)铺进临时插件根,
          验证"清单发现 → 惰性激活 → 注册成终端协议 → 宿主适配 → 真实套接字"整条链。 -->
+    <!-- 数据库插件:整链路用例要把**它自己 bin 目录里的**真插件产物铺开(含 SqlSugar 与四个驱动)。
+         **ReferenceOutputAssembly=false 是必须的,不是优化。** 每个插件项目都把自己的
+         plugin.json 复制到输出目录**根**下;一旦有第二个插件项目把产物复制进这个测试 bin,
+         两份 plugin.json 就在同一个路径上打架,谁赢由 MSBuild 定 ——
+         实测加上这条引用之后,测试 bin 里的 plugin.json 变成了数据库插件的那份,
+         于是 Telnet 的整链路用例把一份 SQL 清单铺进 velashell-telnet/ 目录,
+         报的是"没有这个页签",完全指不到症结。
+         这里只借它做**构建顺序**依赖,一个文件都不复制;用例改为按路径去插件自己的 bin 取。 -->
+    <ProjectReference Include="..\..\plugins\VelaShell.Plugin.Sql\VelaShell.Plugin.Sql.csproj"
+                      ReferenceOutputAssembly="false" />
     <ProjectReference Include="..\..\plugins\VelaShell.Plugin.Telnet\VelaShell.Plugin.Telnet.csproj" />
     <ProjectReference Include="..\..\plugin-sdk\VelaShell.PluginSdk.Testing\VelaShell.PluginSdk.Testing.csproj" />
     <!-- 隔离模式 e2e:测试目录里要有真实的 PluginHost 可执行。 -->

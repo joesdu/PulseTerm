@@ -11,6 +11,17 @@
 		     示例插件用它:代码是给人读的范例,不是给用户装的功能。
 		     取值见 Directory.Build.targets 的 GetVelaPluginPayload。 -->
 		<VelaPluginShip Condition="'$(VelaPluginShip)' == ''">true</VelaPluginShip>
+
+		<!-- 发布期把宿主的 RID 转回来。
+		     为什么要绕这一道:宿主调 GetVelaPluginPayload 时用 RemoveProperties 摘掉了
+		     RuntimeIdentifier(它按**名字**摘,换个名字传就能穿过去),而插件以 RID 无关方式构建
+		     会把 27 个 RID 的原生库全打进包 —— 数据库插件实测 94 MB,其中 76 MB 是用不到的 RID 树。
+		     传 RID + SelfContained=false 之后 runtimes/ 整个消失、原生库拍平到顶层,
+		     而且**自动绕开了 RID 图的坑**:手工只留 runtimes/<rid>/ 会把 SQL Server 打死,
+		     因为 Microsoft.Data.SqlClient 的托管实现在 RID 图的父节点 runtimes/win/ 里
+		     (实测见 docs/SqlSugar数据库管理插件调研与设计.md §9.2)。 -->
+		<RuntimeIdentifier Condition="'$(VelaPluginRid)' != ''">$(VelaPluginRid)</RuntimeIdentifier>
+		<SelfContained Condition="'$(VelaPluginRid)' != ''">false</SelfContained>
 	</PropertyGroup>
 
 	<ItemGroup>

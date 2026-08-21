@@ -7,6 +7,9 @@
         <FluentTheme />
         <!-- AvaloniaEdit 的控件模板随其主题提供;缺了它 TextEditor 无模板、内容不渲染。 -->
         <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" />
+        <!-- DataGrid 的控件模板同理:缺了它 DataGrid 连可视树都没有(实测 0 个单元格),
+             看起来像"虚拟化得很好",其实是根本没画。数据库插件的结果网格用它。 -->
+        <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
         <StyleInclude Source="avares://VelaShell/Themes/DockStyles.axaml" />
         <!-- antd 风格的前缀/后缀输入框容器(Border.input-affix),供各视图复用 -->
         <StyleInclude Source="avares://VelaShell/Themes/InputStyles.axaml" />

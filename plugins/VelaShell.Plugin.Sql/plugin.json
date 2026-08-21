@@ -1,0 +1,32 @@
+{
+  "id": "velashell.sql",
+  "version": "0.1.0",
+  "displayName": "Database Client",
+  "description": "关系数据库界面客户端:MySQL / PostgreSQL / SQL Server / Oracle / SQLite —— 对象树、SQL 编辑器、结果网格。",
+  "publisher": "velashell",
+  "entry": "VelaShell.Plugin.Sql.dll",
+  "apiLevel": 1,
+  "license": "MIT",
+  "homepage": "https://github.com/joesdu/VelaShell",
+  // 工作台贡献:**一个**「数据库」页签,五个方言是它的五个变体。
+  //
+  // 初版是五个页签(velashell.sql.mysql 等),更直白,但那五个页签除了默认端口
+  // 几乎一模一样,把连接类型那一排撑得很长。现在收成一个,具体哪个方言由表单
+  // 第一栏的下拉决定,而默认端口 / "主机"那一栏的含义 / 要不要凭据这三样
+  // 由宿主的**变体**机制跟着走(WorkspaceDescriptor.Variants)。
+  //
+  // 连接配置页在**不装载本程序集**的前提下就能画出这个页签 ——
+  // 用户点到它(或打开一条数据库会话)才触发惰性激活,
+  // 于是不碰数据库的用户,进程里一个字节的驱动都不会装载。
+  //
+  // defaultPort 这里给 MySQL 的 3306(默认方言那一档);其余四种由变体覆盖。
+  "contributes": {
+    "workspaces": [
+      { "id": "velashell.sql", "displayName": "数据库", "defaultPort": 3306 }
+    ]
+  },
+  "activationEvents": [
+    "onWorkspace:velashell.sql"
+  ]
+  // hostMode 必须是默认的 inProcess:宿主要向插件索取一个 Avalonia 控件挂进停靠区。
+}

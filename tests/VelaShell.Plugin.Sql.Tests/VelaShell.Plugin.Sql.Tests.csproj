@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <!-- 截图那条用例要按扫描线抽样判"整帧是不是一种颜色",走 ILockedFramebuffer 的裸指针。 -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="MSTest.TestAdapter" />
+    <PackageReference Include="MSTest.TestFramework" />
+    <!-- 插件把 Avalonia 设成 ExcludeAssets="runtime",这份排除会沿 ProjectReference 传到这里 ——
+         于是测试输出目录里没有 Avalonia.Base.dll。视图模型是纯数据类不碰它,
+         但面板的 headless 装载测试要,所以显式引一次(与 Redis / S3 测试项目同一条注记)。 -->
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Headless" />
+    <!-- 截图验界面要真渲染器:headless 的假绘制下 CaptureRenderedFrame 返回 null。
+         与宿主 tests/VelaShell.Tests/Views/VelaHeadlessApp.cs 同一条口径。 -->
+    <PackageReference Include="Avalonia.Skia" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <!-- 面板用的两个控件库:它们的模板随各自主题提供,headless 里要显式装,
+         否则控件连可视树都没有(那种"什么都没画"很容易被误读成"虚拟化得真好")。 -->
+    <PackageReference Include="Avalonia.AvaloniaEdit" />
+    <PackageReference Include="Avalonia.Controls.DataGrid" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\plugins\VelaShell.Plugin.Sql\VelaShell.Plugin.Sql.csproj" />
+    <!-- CollectingLogger:面板测试要给视图模型一个不往控制台喷的日志实现。 -->
+    <ProjectReference Include="..\..\plugin-sdk\VelaShell.PluginSdk.Testing\VelaShell.PluginSdk.Testing.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -32,7 +32,13 @@
 		<RemoveDir Directories="$(_VelaPluginOutputRoot)\$(VelaPluginId)"
 		           Condition="'$(VelaPluginDirName)' != '$(VelaPluginId)'" />
 		<ItemGroup>
-			<_VelaPluginFiles Include="$(TargetDir)**\*" />
+		<!-- 排除 RID 构建留下的嵌套输出目录。
+		     带 RID 的输出目录(bin/<cfg>/net11.0/win-x64/)是无 RID 输出目录的**子目录**,
+		     同一棵工作树里两种构建都跑过之后,无 RID 那次的通配会把它整个再收一遍
+		     (实测递归清单从 84 涨到 128 个文件)。
+		     按 RID 前缀排除而不是"带连字符就排除":卫星资源目录(zh-Hans、pt-BR)也带连字符,
+		     那样会把本地化资源一起误伤。 -->
+			<_VelaPluginFiles Include="$(TargetDir)**\*" Exclude="$(TargetDir)win-*\**;$(TargetDir)linux-*\**;$(TargetDir)osx-*\**;$(TargetDir)android-*\**;$(TargetDir)ios-*\**;$(TargetDir)browser-*\**;$(TargetDir)maccatalyst-*\**;$(TargetDir)freebsd-*\**" />
 		</ItemGroup>
 		<Copy SourceFiles="@(_VelaPluginFiles)"
 		      DestinationFiles="@(_VelaPluginFiles->'$(_VelaPluginOutputRoot)\$(VelaPluginDirName)\%(RecursiveDir)%(Filename)%(Extension)')"
@@ -65,7 +71,7 @@
 	     (Windows/便携版发布后还会再扫一遍删 pdb,这里先不产出更省事)。 -->
 	<Target Name="GetVelaPluginPayload" DependsOnTargets="Build" Returns="@(VelaPluginPayload)">
 		<ItemGroup Condition="'$(VelaPluginShip)' == 'true' and '$(VelaPluginId)' != ''">
-			<_VelaPluginPayloadFile Include="$(TargetDir)**\*" Exclude="$(TargetDir)**\*.pdb;$(TargetDir)**\*.xml" />
+			<_VelaPluginPayloadFile Include="$(TargetDir)**\*" Exclude="$(TargetDir)**\*.pdb;$(TargetDir)**\*.xml;$(TargetDir)win-*\**;$(TargetDir)linux-*\**;$(TargetDir)osx-*\**;$(TargetDir)android-*\**;$(TargetDir)ios-*\**;$(TargetDir)browser-*\**;$(TargetDir)maccatalyst-*\**;$(TargetDir)freebsd-*\**" />
 			<VelaPluginPayload Include="@(_VelaPluginPayloadFile)">
 				<VelaPluginRelativePath>$(VelaPluginDirName)\%(_VelaPluginPayloadFile.RecursiveDir)%(_VelaPluginPayloadFile.Filename)%(_VelaPluginPayloadFile.Extension)</VelaPluginRelativePath>
 			</VelaPluginPayload>

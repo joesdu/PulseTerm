@@ -1,0 +1,564 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VelaShell.Plugin.Sql.Ui"
+             xmlns:ae="using:AvaloniaEdit"
+             x:Class="VelaShell.Plugin.Sql.Ui.SqlWorkspaceView"
+             x:DataType="vm:SqlWorkspaceViewModel">
+
+  <!-- 数据库工作台面板。几何与配色按 DESIGN.md:36px 文档头 / 26px 列头 / 28px 行 / 24px 状态条,
+       颜色一律走 {DynamicResource VelaXxx} 主题令牌,明暗切换即时跟随。
+
+       布局:左对象树 + 右工作区(内含多标签),查询标签内**编辑器在上、结果网格在下**。
+       上下而不是左右,是因为 SQL 是宽的(一行 80–200 字符)、结果也是宽的,
+       左右分栏会让两边都被压扁 —— 商业工具无一例外是上下分。
+
+       标签有三种形态(查询 / 结构 / 运维),共用同一条标签栏:用户在这三件事之间来回切是常态。
+
+       环境与只读徽标摆在最显眼处:护栏跟着连接走,"我在动线上"这件事必须无法被忽略。 -->
+
+  <UserControl.Resources>
+    <!-- 节点图标:走宿主主题字典里那套 lucide 图集(与 Redis 插件同一套),插件不自带资源。
+         转换器在拿不到资源时返回 null —— Path 的 Data 为空就是不画,树照常可用。 -->
+    <vm:SqlNodeIconConverter x:Key="NodeIcon" />
+  </UserControl.Resources>
+
+  <UserControl.Styles>
+    <Style Selector="TextBlock.label">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextTertiary}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.meta">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextTertiary}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.cellmono">
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+    <Style Selector="Border.badge">
+      <Setter Property="CornerRadius" Value="3" />
+      <Setter Property="Padding" Value="6,1" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <!-- 结果网格的行高与列头按 DESIGN.md。 -->
+    <Style Selector="DataGrid">
+      <Setter Property="RowHeight" Value="28" />
+      <Setter Property="ColumnHeaderHeight" Value="26" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
+      <Setter Property="GridLinesVisibility" Value="Horizontal" />
+      <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource VelaBorderPrimary}" />
+      <Setter Property="Background" Value="{DynamicResource VelaBgPage}" />
+    </Style>
+  </UserControl.Styles>
+
+  <Border Background="{DynamicResource VelaBgPage}">
+    <DockPanel>
+
+      <!-- ══ 文档头 ══ -->
+      <Border DockPanel.Dock="Top" Height="36"
+              Background="{DynamicResource VelaBgSurface}"
+              BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,0,0,1">
+        <StackPanel Orientation="Horizontal" Spacing="8" Margin="12,0" VerticalAlignment="Center">
+          <TextBlock Text="{Binding Title}" FontSize="{DynamicResource VelaFontSize12}"
+                     Foreground="{DynamicResource VelaTextPrimary}" VerticalAlignment="Center" />
+          <TextBlock Text="{Binding DialectName}" Classes="label" />
+          <TextBlock Text="{Binding Endpoint}" Classes="meta" />
+          <TextBlock Text="{Binding TunnelText}" Classes="meta" IsVisible="{Binding HasTunnel}" />
+
+          <!-- 生产用警示色。颜色是这里唯一的信息通道 —— 三档的文字长得差不多。 -->
+          <Border Classes="badge" Background="{DynamicResource VelaBgActive}" IsVisible="{Binding !IsProduction}">
+            <TextBlock Text="{Binding EnvironmentText}" FontSize="{DynamicResource VelaFontSize10}"
+                       Foreground="{DynamicResource VelaTextSecondary}" />
+          </Border>
+          <Border Classes="badge" Background="{DynamicResource VelaError}" IsVisible="{Binding IsProduction}">
+            <TextBlock Text="{Binding EnvironmentText}" FontSize="{DynamicResource VelaFontSize10}"
+                       Foreground="{DynamicResource VelaTextPrimary}" />
+          </Border>
+          <Border Classes="badge" Background="{DynamicResource VelaWarning}" IsVisible="{Binding IsReadOnly}">
+            <TextBlock Text="{Binding ReadOnlyText}" FontSize="{DynamicResource VelaFontSize10}"
+                       Foreground="{DynamicResource VelaTextPrimary}" />
+          </Border>
+
+          <!-- 旁路取消通道开不出来时如实说 —— 否则用户按下取消才会发现它没用。 -->
+          <TextBlock Text="{Binding BypassCancelWarning}" Classes="meta"
+                     Foreground="{DynamicResource VelaWarning}" IsVisible="{Binding !HasBypassCancel}" />
+        </StackPanel>
+      </Border>
+
+      <!-- ══ 主体:左树 + 右工作区 ══ -->
+      <!-- 树那一列 300 而不是原先的 240:240 是这棵树只有"表 / 视图"两栏、
+           每行只有一段文字时定的。现在一行上并排着图标、名字、计数、注释四样,
+           而层级也深了一级(库 → schema → 分类 → 对象),240 下光缩进就吃掉小半行 ——
+           真机上 public 的注释 "standard public schema" 只画得出前半句。
+
+           MinWidth / MaxWidth 是给旁边那条 GridSplitter 用的护栏:
+           不设的话它拖得动到 0 宽,而一个宽度为 0 的树在界面上与"树没画出来"
+           长得一模一样,用户不会想到去把它拖回来。 -->
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="300" MinWidth="200" MaxWidth="640" />
+          <ColumnDefinition Width="4" />
+          <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- ── 对象树 ── -->
+        <Border Grid.Column="0" Background="{DynamicResource VelaBgSidebar}"
+                BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,0,1,0">
+          <DockPanel>
+            <Border DockPanel.Dock="Top" Height="26" Background="{DynamicResource VelaBgSurface}"
+                    BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,0,0,1">
+              <Grid ColumnDefinitions="*,Auto" Margin="6,0">
+                <TextBox x:Name="FilterBox" Grid.Column="0"
+                         Text="{Binding Tree.Filter, Mode=TwoWay}"
+                         PlaceholderText="{Binding Tree.FilterWatermark}"
+                         FontSize="{DynamicResource VelaFontSize10}"
+                         BorderThickness="0" Background="Transparent"
+                         VerticalAlignment="Center" />
+                <Button Grid.Column="1" Command="{Binding RefreshTreeCommand}"
+                        Content="⟳" FontSize="{DynamicResource VelaFontSize10}"
+                        Background="Transparent" BorderThickness="0" Padding="4,0"
+                        ToolTip.Tip="F5" />
+              </Grid>
+            </Border>
+
+            <TreeView x:Name="ObjectTree" ItemsSource="{Binding Tree.Roots}"
+                      Background="Transparent" BorderThickness="0">
+              <!-- 右键菜单是"查看结构"的唯一入口:双击已经给了"打开数据"(最高频的那个动作),
+                   再让它兼任第二个动作只会让人猜。
+
+                   两项都只对表 / 视图 / 物化视图成立,所以在库 / schema / 分类 / 列上
+                   **整个菜单不挂**:代码后置的 SyncTreeMenu 按选中项装卸 ContextMenu 属性本身,
+                   而不是弹一个两项全灰的空框(理由与"为什么不用 Opening+Cancel"都写在那里)。 -->
+              <TreeView.ContextMenu>
+                <ContextMenu>
+                  <MenuItem Header="{Binding OpenDataLabel}" Click="OnMenuOpenData" />
+                  <MenuItem Header="{Binding OpenStructureLabel}" Click="OnMenuOpenStructure" />
+                </ContextMenu>
+              </TreeView.ContextMenu>
+              <TreeView.ItemTemplate>
+                <!-- x:DataType 必须显式写成节点类型:本控件的 x:DataType 是工作台 VM,
+                     而工作台 VM 上**也有**一个 Title 属性 —— 编译期绑定按外层类型解析的话
+                     每一行画出来的都会是文档标题,而且不报错。 -->
+                <TreeDataTemplate ItemsSource="{Binding Children}" x:DataType="vm:SqlTreeNode">
+                  <StackPanel Orientation="Horizontal" Spacing="5" Height="28">
+                    <!-- 图标让"表 / 视图 / 函数 / 序列"这几类在一屏里一眼分得开。
+                         Viewbox 包住 24×24 的 lucide 视图框,描边等比缩放(宿主 LucideIcon 的做法)。 -->
+                    <Viewbox Width="13" Height="13" VerticalAlignment="Center">
+                      <Path Width="24" Height="24"
+                            Data="{Binding Kind, Converter={StaticResource NodeIcon}}"
+                            Stroke="{DynamicResource VelaTextTertiary}" StrokeThickness="2"
+                            StrokeLineCap="Round" StrokeJoin="Round" />
+                    </Viewbox>
+                    <!-- 当前连接落脚的那个库 / schema 加粗:"我现在在哪"是打开一棵
+                         十几个库的树之后第一个要问的问题。 -->
+                    <TextBlock Text="{Binding Title}"
+                               FontSize="{DynamicResource VelaFontSize11}"
+                               FontWeight="{Binding IsCurrent, Converter={x:Static vm:SqlNodeIconConverter.Weight}}"
+                               Foreground="{DynamicResource VelaTextSecondary}"
+                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                    <!-- 计数只在展开过之后才有值 —— 展开前给估算值是撒谎。 -->
+                    <TextBlock Text="{Binding CountText}" Classes="meta" />
+                    <!-- 注释跟在后面,弱化显示:它是"这张表是干什么的"最直接的答案,
+                         而早先这一格被 "@system" 那个记号占着,根本轮不到真注释。 -->
+                    <!-- 160 是照着最常见的那条注释量的:PG 给 public 的
+                         "standard public schema" 在 120 下只画得出 "standard public sche…"。
+                         仍然要有上限 —— 一条几百字的表注释会把整行推到滚动条外面去。 -->
+                    <TextBlock Text="{Binding Detail}" Classes="meta"
+                               IsVisible="{Binding HasDetail}"
+                               MaxWidth="160" TextTrimming="CharacterEllipsis" />
+                  </StackPanel>
+                </TreeDataTemplate>
+              </TreeView.ItemTemplate>
+              <TreeView.Styles>
+                <!-- 把容器的展开状态接到节点上 —— 展开即触发懒加载。
+                     这里必须用 ReflectionBinding:样式里的绑定目标是 TreeViewItem(它的
+                     DataContext 是 SqlTreeNode),而编译期绑定会拿本控件的 x:DataType 去解析,
+                     于是报"SqlWorkspaceViewModel 上没有 IsExpanded"。 -->
+                <Style Selector="TreeViewItem">
+                  <Setter Property="IsExpanded" Value="{ReflectionBinding IsExpanded, Mode=TwoWay}" />
+                </Style>
+              </TreeView.Styles>
+            </TreeView>
+          </DockPanel>
+        </Border>
+
+        <GridSplitter Grid.Column="1" Background="{DynamicResource VelaBorderPrimary}" />
+
+        <!-- ── 工作区 ── -->
+        <DockPanel Grid.Column="2">
+          <Border DockPanel.Dock="Top" Height="26" Background="{DynamicResource VelaBgSurface}"
+                  BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="*,Auto">
+              <ListBox Grid.Column="0" ItemsSource="{Binding Tabs}"
+                       SelectedItem="{Binding ActiveTab, Mode=TwoWay}"
+                       Background="Transparent" BorderThickness="0"
+                       ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                <ListBox.ItemsPanel>
+                  <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+                <ListBox.ItemTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding Title}" FontSize="{DynamicResource VelaFontSize10}"
+                               Padding="8,0" VerticalAlignment="Center" />
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+              <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button Command="{Binding OpenOpsCommand}" Content="{Binding OpenOpsLabel}"
+                        FontSize="{DynamicResource VelaFontSize10}"
+                        Background="Transparent" BorderThickness="0" Padding="8,0" />
+                <Button Command="{Binding NewTabCommand}" Content="+"
+                        Background="Transparent" BorderThickness="0" Padding="8,0" />
+              </StackPanel>
+            </Grid>
+          </Border>
+
+          <ContentControl Content="{Binding ActiveTab}">
+            <ContentControl.DataTemplates>
+
+              <!-- ══ 查询标签 ══ -->
+              <DataTemplate DataType="vm:SqlQueryTabViewModel">
+                <Grid RowDefinitions="*,4,2*,Auto,24">
+
+                  <!-- 编辑器 -->
+                  <Border Grid.Row="0" Background="{DynamicResource VelaBgInput}">
+                    <ae:TextEditor x:Name="Editor"
+                                   ShowLineNumbers="True"
+                                   WordWrap="False"
+                                   FontFamily="{DynamicResource VelaUiMonoFont}"
+                                   FontSize="{DynamicResource VelaFontSize11}"
+                                   Background="Transparent"
+                                   Foreground="{DynamicResource VelaTextPrimary}" />
+                  </Border>
+
+                  <GridSplitter Grid.Row="1" Background="{DynamicResource VelaBorderPrimary}" />
+
+                  <!-- 结果网格。IsReadOnly 由"这个结果集能不能定位到一行"决定(主键/唯一索引),
+                       不能编辑时底栏会说清原因 —— 而不是让用户对着改不动的格子发懵。 -->
+                  <DataGrid Grid.Row="2" x:Name="ResultGrid"
+                            ItemsSource="{Binding Grid.Rows}"
+                            AutoGenerateColumns="False"
+                            IsReadOnly="{Binding !Grid.IsEditable}"
+                            CanUserResizeColumns="True"
+                            CanUserSortColumns="False"
+                            SelectionMode="Extended" />
+
+                  <!-- 错误面板:出错时才出现,并把行号说出来 -->
+                  <Border Grid.Row="3" IsVisible="{Binding HasError}"
+                          Background="{DynamicResource VelaBgSurface}"
+                          BorderBrush="{DynamicResource VelaError}" BorderThickness="0,1,0,0"
+                          Padding="10,6">
+                    <StackPanel Spacing="2">
+                      <TextBlock Text="{Binding ErrorText}" TextWrapping="Wrap"
+                                 FontSize="{DynamicResource VelaFontSize11}"
+                                 Foreground="{DynamicResource VelaError}" />
+                      <TextBlock Text="{Binding ErrorLocationText}" Classes="meta"
+                                 IsVisible="{Binding HasErrorLocation}" />
+                    </StackPanel>
+                  </Border>
+
+                  <!-- 状态条 -->
+                  <Border Grid.Row="4" Background="{DynamicResource VelaBgSurface}"
+                          BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,1,0,0">
+                    <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto" Margin="10,0">
+                      <Button Grid.Column="0" Command="{Binding ExecuteAllCommand}"
+                              Content="▶" ToolTip.Tip="Ctrl+Shift+Enter"
+                              Background="Transparent" BorderThickness="0" Padding="4,0"
+                              IsVisible="{Binding !IsBusy}" />
+                      <Button Grid.Column="1" Command="{Binding CancelCommand}"
+                              Content="■" ToolTip.Tip="Esc"
+                              Background="Transparent" BorderThickness="0" Padding="4,0"
+                              IsVisible="{Binding IsBusy}" />
+                      <!-- 执行计划。"真跑"那一档只对只读语句提供 —— EXPLAIN ANALYZE 会真的执行,
+                           对 DELETE 就是真删。 -->
+                      <Button Grid.Column="2" Command="{Binding ExplainCommand}"
+                              Content="{Binding ExplainLabel}"
+                              FontSize="{DynamicResource VelaFontSize10}"
+                              Background="Transparent" BorderThickness="0" Padding="6,0" />
+                      <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6"
+                                  Margin="8,0" VerticalAlignment="Center">
+                        <!-- 这个标签跑在哪个库上。**只在与连接落脚的库不同时才出现** ——
+                             在树上双击别的库里的表会开出一条绑在那个库上的连接,
+                             而 SQL 里的两段限定名说不出这件事,不写出来用户没有第二个途径知道。 -->
+                        <Border Classes="badge" Background="{DynamicResource VelaBgActive}"
+                                IsVisible="{Binding HasOwnCatalog}">
+                          <TextBlock Text="{Binding CatalogBadge}" FontSize="{DynamicResource VelaFontSize10}"
+                                     Foreground="{DynamicResource VelaTextSecondary}" />
+                        </Border>
+                        <TextBlock Text="{Binding Status}" Classes="meta" />
+                      </StackPanel>
+
+                      <!-- 提交/撤销:只在网格可编辑时出现。提交前会先给 SQL 预览 ——
+                           改错一格的代价可能是一次事故,而看一眼要发的 SQL 只要一秒。 -->
+                      <Button Grid.Column="4" Command="{Binding CommitEditsCommand}"
+                              Content="{Binding CommitLabel}" ToolTip.Tip="{Binding CommitTooltip}"
+                              FontSize="{DynamicResource VelaFontSize10}"
+                              Background="Transparent" BorderThickness="0" Padding="6,0"
+                              IsVisible="{Binding Grid.IsEditable}" />
+                      <Button Grid.Column="5" Command="{Binding RevertEditsCommand}"
+                              Content="{Binding RevertLabel}"
+                              FontSize="{DynamicResource VelaFontSize10}"
+                              Background="Transparent" BorderThickness="0" Padding="6,0"
+                              IsVisible="{Binding Grid.IsEditable}" />
+
+                      <!-- 导出:CSV/JSON 给别的工具与程序,INSERT 给另一个数据库。 -->
+                      <Button Grid.Column="6" Command="{Binding ExportCsvCommand}"
+                              Content="{Binding ExportCsvLabel}"
+                              FontSize="{DynamicResource VelaFontSize10}"
+                              Background="Transparent" BorderThickness="0" Padding="6,0" />
+                      <Button Grid.Column="7" Command="{Binding ExportJsonCommand}"
+                              Content="{Binding ExportJsonLabel}"
+                              FontSize="{DynamicResource VelaFontSize10}"
+                              Background="Transparent" BorderThickness="0" Padding="6,0" />
+                      <Button Grid.Column="8" Command="{Binding ExportInsertCommand}"
+                              Content="{Binding ExportInsertLabel}"
+                              FontSize="{DynamicResource VelaFontSize10}"
+                              Background="Transparent" BorderThickness="0" Padding="6,0" />
+
+                      <!-- 取消进度:按下取消后立刻可见,并随阶梯升级更新文案 ——
+                           用户必须看得见我们在做什么,而不是一个转不停的圈。 -->
+                      <TextBlock Grid.Column="9" Text="{Binding CancelHint}" Classes="meta"
+                                 Foreground="{DynamicResource VelaWarning}"
+                                 IsVisible="{Binding IsCancelling}" />
+                    </Grid>
+                  </Border>
+
+                  <!-- 确认框:贴在本面板上而不是飘在屏幕中央 ——
+                       同时开着生产与开发两个标签页时,一个不说清"是哪条连接"的弹窗是危险的。 -->
+                  <Border Grid.Row="0" Grid.RowSpan="5" IsVisible="{Binding HasConfirmation}"
+                          Background="#B0000000">
+                    <Border Background="{DynamicResource VelaBgSurface}"
+                            BorderBrush="{DynamicResource VelaError}" BorderThickness="1"
+                            CornerRadius="4" Padding="16" MaxWidth="520"
+                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                      <StackPanel Spacing="10">
+                        <TextBlock Text="{Binding Confirmation.Title}"
+                                   FontSize="{DynamicResource VelaFontSize12}"
+                                   Foreground="{DynamicResource VelaTextPrimary}" />
+                        <SelectableTextBlock Text="{Binding Confirmation.Message}" TextWrapping="Wrap"
+                                             FontFamily="{DynamicResource VelaUiMonoFont}"
+                                             FontSize="{DynamicResource VelaFontSize11}"
+                                             MaxHeight="240"
+                                             Foreground="{DynamicResource VelaTextSecondary}" />
+                        <!-- 最高一档要手打对象名。这一档存在的意义就是"让手滑停下来"。 -->
+                        <TextBox Text="{Binding TypedConfirmation, Mode=TwoWay}"
+                                 PlaceholderText="{Binding Confirmation.TypedName}"
+                                 IsVisible="{Binding Confirmation.TypedName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                 FontFamily="{DynamicResource VelaUiMonoFont}" />
+                        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                          <Button Command="{Binding RejectCommand}" Content="{Binding CancelLabel}" />
+                          <Button Command="{Binding ConfirmCommand}" Content="{Binding ConfirmLabel}" />
+                        </StackPanel>
+                      </StackPanel>
+                    </Border>
+                  </Border>
+
+                </Grid>
+              </DataTemplate>
+
+              <!-- ══ 结构页 ══ -->
+              <DataTemplate DataType="vm:SqlStructureTabViewModel">
+                <Grid>
+                <DockPanel>
+                  <Border DockPanel.Dock="Bottom" Height="24"
+                          Background="{DynamicResource VelaBgSurface}"
+                          BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,1,0,0">
+                    <TextBlock Text="{Binding Status}" Classes="meta" Margin="10,0" />
+                  </Border>
+                  <ScrollViewer>
+                    <StackPanel Margin="12" Spacing="10">
+                      <TextBlock Text="{Binding ColumnsLabel}" Classes="label" />
+                      <!-- ListBox 而不是 ItemsControl:删列要有个"删哪一列"的选中态。 -->
+                      <ListBox ItemsSource="{Binding Columns}"
+                               SelectedItem="{Binding SelectedColumn, Mode=TwoWay}"
+                               Background="Transparent" BorderThickness="0" MaxHeight="260">
+                        <ListBox.ItemTemplate>
+                          <DataTemplate DataType="vm:SqlStructureRow">
+                            <Grid ColumnDefinitions="200,180,*" Height="24">
+                              <TextBlock Grid.Column="0" Text="{Binding Name}" Classes="cellmono" />
+                              <TextBlock Grid.Column="1" Text="{Binding Detail}" Classes="cellmono" />
+                              <TextBlock Grid.Column="2" Text="{Binding Extra}" Classes="meta"
+                                         TextTrimming="CharacterEllipsis" />
+                            </Grid>
+                          </DataTemplate>
+                        </ListBox.ItemTemplate>
+                      </ListBox>
+
+                      <TextBlock Text="{Binding IndexesLabel}" Classes="label" />
+                      <ListBox ItemsSource="{Binding Indexes}"
+                               SelectedItem="{Binding SelectedIndex, Mode=TwoWay}"
+                               Background="Transparent" BorderThickness="0" MaxHeight="200">
+                        <ListBox.ItemTemplate>
+                          <DataTemplate DataType="vm:SqlStructureRow">
+                            <Grid ColumnDefinitions="200,180,*" Height="24">
+                              <TextBlock Grid.Column="0" Text="{Binding Name}" Classes="cellmono" />
+                              <TextBlock Grid.Column="1" Text="{Binding Detail}" Classes="cellmono" />
+                              <TextBlock Grid.Column="2" Text="{Binding Extra}" Classes="meta"
+                                         TextTrimming="CharacterEllipsis" />
+                            </Grid>
+                          </DataTemplate>
+                        </ListBox.ItemTemplate>
+                      </ListBox>
+                      <TextBlock Text="{Binding EmptyLabel}" Classes="meta" Margin="8,0"
+                                 IsVisible="{Binding HasNoIndexes}" />
+
+                      <TextBlock Text="{Binding ForeignKeysLabel}" Classes="label" />
+                      <ItemsControl ItemsSource="{Binding ForeignKeys}">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate DataType="vm:SqlStructureRow">
+                            <Grid ColumnDefinitions="200,*" Height="28">
+                              <TextBlock Grid.Column="0" Text="{Binding Name}" Classes="cellmono" />
+                              <TextBlock Grid.Column="1" Text="{Binding Detail}" Classes="cellmono" />
+                            </Grid>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                      <TextBlock Text="{Binding EmptyLabel}" Classes="meta" Margin="8,0"
+                                 IsVisible="{Binding HasNoForeignKeys}" />
+
+                      <TextBlock Text="{Binding DdlLabel}" Classes="label" />
+                      <Border Background="{DynamicResource VelaBgInput}" Padding="8" CornerRadius="3">
+                        <SelectableTextBlock Text="{Binding Ddl}" TextWrapping="Wrap"
+                                             FontFamily="{DynamicResource VelaUiMonoFont}"
+                                             FontSize="{DynamicResource VelaFontSize11}"
+                                             Foreground="{DynamicResource VelaTextSecondary}" />
+                      </Border>
+
+                      <!-- ══ 改结构 ══
+                           只读连接、非表对象、方言包给不出 DDL —— 三种情况下整段不出现,
+                           而不是摆一排点了才报错的按钮。 -->
+                      <TextBlock Text="{Binding DesignerLabel}" Classes="label"
+                                 IsVisible="{Binding CanDesign}" />
+                      <StackPanel Spacing="6" IsVisible="{Binding CanDesign}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                          <TextBox Text="{Binding NewColumnName, Mode=TwoWay}" Width="140"
+                                   PlaceholderText="{Binding AddColumnLabel}"
+                                   FontFamily="{DynamicResource VelaUiMonoFont}" />
+                          <!-- 类型候选来自方言包,不是一份通用清单。 -->
+                          <ComboBox ItemsSource="{Binding TypeChoices}"
+                                    SelectedItem="{Binding NewColumnType, Mode=TwoWay}" Width="150" />
+                          <CheckBox IsChecked="{Binding NewColumnNullable, Mode=TwoWay}" Content="NULL" />
+                          <TextBox Text="{Binding NewColumnDefault, Mode=TwoWay}" Width="120"
+                                   PlaceholderText="DEFAULT"
+                                   FontFamily="{DynamicResource VelaUiMonoFont}" />
+                          <Button Command="{Binding AddColumnCommand}" Content="{Binding AddColumnLabel}" />
+                          <Button Command="{Binding DropColumnCommand}" Content="{Binding DropColumnLabel}"
+                                  Foreground="{DynamicResource VelaError}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                          <TextBox Text="{Binding NewIndexName, Mode=TwoWay}" Width="140"
+                                   PlaceholderText="{Binding CreateIndexLabel}"
+                                   FontFamily="{DynamicResource VelaUiMonoFont}" />
+                          <TextBox Text="{Binding NewIndexColumns, Mode=TwoWay}" Width="220"
+                                   PlaceholderText="col1, col2"
+                                   FontFamily="{DynamicResource VelaUiMonoFont}" />
+                          <CheckBox IsChecked="{Binding NewIndexUnique, Mode=TwoWay}" Content="UNIQUE" />
+                          <Button Command="{Binding CreateIndexCommand}" Content="{Binding CreateIndexLabel}" />
+                          <Button Command="{Binding DropIndexCommand}" Content="{Binding DropIndexLabel}"
+                                  Foreground="{DynamicResource VelaError}" />
+                        </StackPanel>
+                      </StackPanel>
+                    </StackPanel>
+                  </ScrollViewer>
+                </DockPanel>
+
+                <!-- DDL 的确认框。与改数据同一套形态:给的是**真要发的那条原文**。 -->
+                <Border IsVisible="{Binding HasConfirmation}" Background="#B0000000">
+                  <Border Background="{DynamicResource VelaBgSurface}"
+                          BorderBrush="{DynamicResource VelaError}" BorderThickness="1"
+                          CornerRadius="4" Padding="16" MaxWidth="520"
+                          HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <StackPanel Spacing="10">
+                      <TextBlock Text="{Binding Confirmation.Title}"
+                                 FontSize="{DynamicResource VelaFontSize12}"
+                                 Foreground="{DynamicResource VelaTextPrimary}" />
+                      <SelectableTextBlock Text="{Binding Confirmation.Message}" TextWrapping="Wrap"
+                                           FontFamily="{DynamicResource VelaUiMonoFont}"
+                                           FontSize="{DynamicResource VelaFontSize11}"
+                                           MaxHeight="240"
+                                           Foreground="{DynamicResource VelaTextSecondary}" />
+                      <TextBox Text="{Binding TypedConfirmation, Mode=TwoWay}"
+                               PlaceholderText="{Binding Confirmation.TypedName}"
+                               IsVisible="{Binding Confirmation.TypedName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                               FontFamily="{DynamicResource VelaUiMonoFont}" />
+                      <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                        <Button Command="{Binding RejectCommand}" Content="{Binding CancelLabel}" />
+                        <Button Command="{Binding ConfirmCommand}" Content="{Binding ConfirmLabel}" />
+                      </StackPanel>
+                    </StackPanel>
+                  </Border>
+                </Border>
+                </Grid>
+              </DataTemplate>
+
+              <!-- ══ 运维面 ══ -->
+              <DataTemplate DataType="vm:SqlOpsTabViewModel">
+                <DockPanel>
+                  <Border DockPanel.Dock="Top" Height="26"
+                          Background="{DynamicResource VelaBgSurface}"
+                          BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,0,0,1">
+                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="10,0" VerticalAlignment="Center">
+                      <!-- 方言没有服务端会话时,这两个按钮点了也没有任何事发生 ——
+                           摆一排点不动的按钮,比不摆更让人以为是自己权限不够。 -->
+                      <Button Command="{Binding RefreshCommand}" Content="{Binding RefreshLabel}"
+                              IsVisible="{Binding IsSupported}"
+                              FontSize="{DynamicResource VelaFontSize10}"
+                              Background="Transparent" BorderThickness="0" Padding="4,0" />
+                      <Button Command="{Binding KillCommand}" Content="{Binding KillLabel}"
+                              IsVisible="{Binding IsSupported}"
+                              FontSize="{DynamicResource VelaFontSize10}"
+                              Foreground="{DynamicResource VelaError}"
+                              Background="Transparent" BorderThickness="0" Padding="4,0" />
+                      <TextBlock Text="{Binding Status}" Classes="meta" />
+                    </StackPanel>
+                  </Border>
+                  <!-- 方言不提供时明说,而不是给一张空表 —— 空表与"现在没人连"长得一样。 -->
+                  <!-- VerticalAlignment 必须显式给 Top:DockPanel 的填充子元素默认居中,
+                       一句说明飘在半空正中间,看起来像是哪里出错了。 -->
+                  <TextBlock Text="{Binding UnsupportedNotice}" Classes="meta" Margin="12"
+                             VerticalAlignment="Top" HorizontalAlignment="Left"
+                             TextWrapping="Wrap" IsVisible="{Binding !IsSupported}" />
+                  <Grid RowDefinitions="*,4,*" IsVisible="{Binding IsSupported}">
+                    <DataGrid Grid.Row="0" ItemsSource="{Binding Sessions}"
+                              SelectedItem="{Binding Selected, Mode=TwoWay}"
+                              AutoGenerateColumns="False" IsReadOnly="True">
+                      <DataGrid.Columns>
+                        <DataGridTextColumn Header="id" Binding="{Binding Columns[0]}" Width="70" />
+                        <DataGridTextColumn Header="user" Binding="{Binding Columns[1]}" Width="110" />
+                        <DataGridTextColumn Header="host" Binding="{Binding Columns[2]}" Width="130" />
+                        <DataGridTextColumn Header="db" Binding="{Binding Columns[3]}" Width="110" />
+                        <DataGridTextColumn Header="state" Binding="{Binding Columns[4]}" Width="90" />
+                        <DataGridTextColumn Header="sec" Binding="{Binding Columns[5]}" Width="60" />
+                        <DataGridTextColumn Header="query" Binding="{Binding Columns[6]}" Width="*" />
+                      </DataGrid.Columns>
+                    </DataGrid>
+                    <GridSplitter Grid.Row="1" Background="{DynamicResource VelaBorderPrimary}" />
+                    <DataGrid Grid.Row="2" ItemsSource="{Binding Locks}"
+                              AutoGenerateColumns="False" IsReadOnly="True">
+                      <DataGrid.Columns>
+                        <DataGridTextColumn Header="blocked" Binding="{Binding Columns[0]}" Width="80" />
+                        <DataGridTextColumn Header="blocking" Binding="{Binding Columns[1]}" Width="80" />
+                        <DataGridTextColumn Header="object" Binding="{Binding Columns[2]}" Width="160" />
+                        <DataGridTextColumn Header="mode" Binding="{Binding Columns[3]}" Width="120" />
+                        <DataGridTextColumn Header="query" Binding="{Binding Columns[4]}" Width="*" />
+                      </DataGrid.Columns>
+                    </DataGrid>
+                  </Grid>
+                </DockPanel>
+              </DataTemplate>
+
+            </ContentControl.DataTemplates>
+          </ContentControl>
+        </DockPanel>
+      </Grid>
+    </DockPanel>
+  </Border>
+
+</UserControl>

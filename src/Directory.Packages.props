@@ -9,6 +9,12 @@
     <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.1" />
     <PackageVersion Include="Avalonia.Fonts.Inter" Version="12.1.1" />
     <PackageVersion Include="Avalonia.AvaloniaEdit" Version="12.0.0" />
+    <!-- 结果网格。**必须由宿主引**:程序集名以 Avalonia 开头,命中
+         PluginAssemblyLoadContext.SharedPrefixes 一律回落默认 ALC —— 插件自己带不了。
+         与 AvaloniaEdit 同一条路。选它而不是自研的依据是实测(见
+         docs/SqlSugar数据库管理插件调研与设计.md §4.4):行虚拟化有(20 万行恒实现 21 行),
+         列虚拟化没有,但代价线性有界(100 列 54MB/650ms、200 列 87MB/886ms)。 -->
+    <PackageVersion Include="Avalonia.Controls.DataGrid" Version="12.1.1" />
     <PackageVersion Include="Avalonia.Wayland" Version="12.1.1" />
     <PackageVersion Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3" />
     <PackageVersion Include="ReactiveUI.Avalonia" Version="12.1.1" />

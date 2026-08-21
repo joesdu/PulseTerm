@@ -1,0 +1,64 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>VelaShell 数据库管理插件:MySQL / PostgreSQL / SQL Server / Oracle / SQLite 的界面客户端 —— 对象树 + SQL 编辑器 + 结果网格。</Description>
+    <!-- 与 plugin.json 的 id 一致;驱动构建后复制到应用输出的 plugins/<目录名>/。 -->
+    <VelaPluginId>velashell.sql</VelaPluginId>
+    <!-- AVLN3001:面板视图刻意只有带上下文的构造(由文档工厂创建)。 -->
+    <NoWarn>$(NoWarn);AVLN3001</NoWarn>
+
+    <!-- 包体裁剪,三条杠杆都在这儿(依据见 docs/SqlSugar数据库管理插件调研与设计.md §九):
+         ① 卫星资源只留 en —— 10 个 Microsoft.Data.SqlClient 本地化 resources.dll 共 2.57MB,
+            代价只是 SqlServer 的**驱动层**错误消息不再本地化(插件自己的文案照常多语言)。
+         ② RID 裁剪由宿主打包时传 RuntimeIdentifier 驱动(见 §9.5),这里不写死 ——
+            写死会让 F5 开发构建也分叉到 bin/<cfg>/net11.0/<rid>/。
+         ③ 不能只留 runtimes/<rid>/:Microsoft.Data.SqlClient 的托管实现在 RID 图的
+            **父节点** runtimes/win/lib/net8.0/,手工裁会把 SQL Server 打死(§9.2 实测)。 -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- SDK 由宿主统一提供(共享契约程序集),不随插件输出复制。 -->
+    <ProjectReference Include="..\..\plugin-sdk\VelaShell.PluginSdk\VelaShell.PluginSdk.csproj" Private="false" ExcludeAssets="runtime" />
+    <!-- 仅编译期引用 Avalonia,运行时由装载方共享同一套(版本须与宿主一致)。 -->
+    <PackageReference Include="Avalonia" Version="12.1.1" ExcludeAssets="runtime" />
+    <!-- SQL 编辑器。行号是刚需:错误定位那套三步算法(§7.4)最终要把用户带到**出错的那一行**,
+         纯 TextBox 给不了行号,用户就只能自己数。
+         程序集名 AvaloniaEdit 命中 PluginAssemblyLoadContext 的 SharedPrefixes("Avalonia"),
+         运行时一律回落到装载方那份,故只要编译期引用 —— 也因此**本插件必须进程内装载**。 -->
+    <PackageReference Include="Avalonia.AvaloniaEdit" Version="12.0.0" ExcludeAssets="runtime" />
+    <!-- 结果网格用宿主提供的 DataGrid(同样是 Avalonia 前缀,运行时回落装载方那份)。
+         选型依据是实测:行虚拟化有、列虚拟化没有但代价线性有界(设计文档 §4.4)。 -->
+    <PackageReference Include="Avalonia.Controls.DataGrid" Version="12.1.1" ExcludeAssets="runtime" />
+
+    <!-- SqlSugar(MIT,与本仓库 AGPL-3.0 + 商业双许可相容)。
+         它在本插件里的定位是**驱动装配层与元数据兜底层,不是引擎** ——
+         边界与实测见 docs/SqlSugar数据库管理插件调研与设计.md §一 / §二。 -->
+    <PackageReference Include="SqlSugarCore" Version="5.1.4.217" />
+
+    <!-- 显式覆盖 SqlSugarCore 传递依赖的 Npgsql 5.0.18(2021 年那一代)。
+         §3.8 已在 PostgreSQL 18.1 上逐版本真机验证:5.0.18→10.0.3 共 10 个版本
+         40 项功能冒烟全绿,包体只 +0.51MB、零新增文件。升的理由是三条实伤:
+         ① 5.0.18 的 SslMode 只有 Disable/Prefer/Require —— PG 侧**没有证书校验档位**,
+            连接表单的 verify-ca 与 ProtocolCertificateTrustException 在旧版下不可达;
+         ② 5.0.18 会把 interval '1 year 2 mons' **静默折算**成 423 天(新版改成明确报错);
+         ③ 与服务端同代。
+         代价:结果网格要认 DateOnly / TimeOnly / IPNetwork(§7.3 的类型清单已列)。
+         **降级不可行**(NU1605),所以这里只能往上走。 -->
+    <PackageReference Include="Npgsql" Version="10.0.3" />
+
+    <!-- 覆盖 SqlSugarCore → Microsoft.Data.Sqlite 10.0.9 传递下来的
+         SQLitePCLRaw.bundle_e_sqlite3 2.1.11 —— 它带的原生 e_sqlite3 有一个**已知高危漏洞**
+         (GHSA-2m69-gcr7-jv3q,NU1903)。这不是洁癖:那是要随插件分发到用户机器上的原生库。
+         3.0.x 是修好的一支;Microsoft.Data.Sqlite 的 SQLitePCLRaw 依赖是 (>= 2.1.11),
+         往上覆盖不冲突。**升完必须真机验证 SQLite 仍然连得上**(见 tests 里的连通性用例):
+         原生库换版本是运行期才暴露的那类改动。 -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 单测直接驱动内部实现(方言映射、设置解析、异常翻译、装配纪律)。 -->
+    <InternalsVisibleTo Include="VelaShell.Plugin.Sql.Tests" />
+  </ItemGroup>
+
+</Project>
