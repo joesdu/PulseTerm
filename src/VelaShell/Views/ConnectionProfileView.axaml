@@ -270,13 +270,17 @@
                     ScrollViewer.AllowAutoHide="False">
       <StackPanel Margin="20,18" Spacing="14">
 
-        <!-- 主机名/IP + 端口(插件协议可改写这一格的标签与占位,如 S3 的「服务端点」) -->
-        <Grid ColumnDefinitions="*,12,90">
+        <!-- 主机名/IP + 端口(插件协议可改写这一格的标签与占位,如 S3 的「服务端点」)
+             端口那一格用 Auto 列 + 定宽内容而不是定宽列:声明了 NoEndpoint 的形态
+             (SQLite 就是个文件)把它收起来时,Auto 列跟着塌成 0,主机框才能补上那块空白;
+             写死 90 的话收起来只会留一个 90 宽的洞。左边距挪到格子自己身上,连间隔列一起省了。 -->
+        <Grid ColumnDefinitions="*,Auto">
           <StackPanel Grid.Column="0">
             <TextBlock Classes="field-label" Text="{Binding HostLabel}" />
             <TextBox Text="{Binding Host}" PlaceholderText="{Binding HostPlaceholder}" />
           </StackPanel>
-          <StackPanel Grid.Column="2">
+          <StackPanel Grid.Column="1" Width="90" Margin="12,0,0,0"
+                      IsVisible="{Binding ShowPortField}">
             <TextBlock Classes="field-label" Text="{loc:Localize Port}" />
             <NumericUpDown Value="{Binding Port}" Minimum="1" Maximum="65535"
                            Increment="1" FormatString="0" ShowButtonSpinner="False" />

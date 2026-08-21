@@ -2992,7 +2992,21 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
             // 可能触发插件的惰性激活(用户刚从「最近连接」点开一条 Redis 会话)。
             WorkspaceDescriptor? descriptor =
                 (await registry.ResolveWorkspaceAsync(profile.PluginProtocolId).ConfigureAwait(true))?.Descriptor;
-            allowsAnonymous = descriptor?.Features.HasFlag(WorkspaceFeatures.AnonymousAccess) == true;
+
+            // **必须按变体取能力位,不能只看描述符本身。**
+            // 一个连接类型可以按某个设置字段切换形态(数据库插件的「数据库」页签下有五种方言),
+            // 而"要不要凭据"正是随之变的:SQLite 是一个本地文件,没有用户名口令这回事。
+            // 只看描述符的话,SQLite 会话在打开前会被判成"缺凭据"→ **弹一个填了也没用的登录框**,
+            // 而连接框里那两栏早就按变体收起来了 —— 两处判据不一致,用户看到的就是
+            // "明明没让我填,连的时候却非要我填"。
+            WorkspaceFeatures features = descriptor?.ResolveVariant(
+                key => profile.PluginSettings is { } bag && bag.TryGetValue(key, out string? value) ? value : null)
+                ?.Features ?? descriptor?.Features ?? WorkspaceFeatures.None;
+
+            // NoCredentials 蕴含匿名:没有凭据这回事,自然不能拿"没填"把连接拦下来。
+            // 与连接配置页(PluginConnectionForm)用的是同一条判定。
+            allowsAnonymous = features.HasFlag(WorkspaceFeatures.AnonymousAccess)
+                              || features.HasFlag(WorkspaceFeatures.NoCredentials);
         }
 
         SessionProfile current = profile;
@@ -3182,7 +3196,15 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
         }
         WorkspaceDescriptor? descriptor =
             (await registry.ResolveWorkspaceAsync(profile.PluginProtocolId).ConfigureAwait(true))?.Descriptor;
-        if (descriptor is null || !descriptor.Features.HasFlag(WorkspaceFeatures.SshTunnel))
+        // **能力位同样要按变体取**,理由与上面那处凭据判定一模一样(见 ResolveVariant 那段长注)。
+        // 漏了这一格的后果是具体的:数据库插件的基础描述符带 SshTunnel,而 SQLite 变体不带 ——
+        // 用户先在 MySQL 下选了跳板会话、再把方言切成 SQLite,那一行只是**收起来**、
+        // 值仍在 PluginSettings 里。于是打开一个本地 .db 文件时,宿主会真的去连跳板机,
+        // 并把 `RemoteHost` 设成 `D:\app.db` 建本地转发,插件最后收到的"主机"变成 127.0.0.1。
+        WorkspaceFeatures tunnelFeatures = descriptor?.ResolveVariant(
+            key => profile.PluginSettings is { } bag && bag.TryGetValue(key, out string? value) ? value : null)
+            ?.Features ?? descriptor?.Features ?? WorkspaceFeatures.None;
+        if (descriptor is null || !tunnelFeatures.HasFlag(WorkspaceFeatures.SshTunnel))
         {
             return (null, Guid.Empty);
         }
