@@ -24,19 +24,24 @@
 
   <!--
     ============================ 随包分发的插件从哪来 ============================
-    插件 SDK、模板、vela-plugin CLI 与 Redis/S3/Telnet/HelloWorld 插件于 2026-08-21 拆到
-    https://github.com/joesdu/velashell-plugin-toolchain
+    插件 SDK、模板、vela-plugin CLI 与 Redis/S3/Telnet/HelloWorld 插件于 2026-08-21 拆出主仓库;
+    2026-08-22 两者又各自独立,现在是两个仓库:
+      https://github.com/joesdu/velashell-plugin-toolchain   SDK 与工具链
+      https://github.com/joesdu/velashell-plugins            第一方插件(Redis / S3 / Telnet / HelloWorld)
     契约程序集(VelaShell.PluginSdk / .Testing)一律走 nuget.org 上的正式包,版本写在
     src/ 与 tests/ 的 Directory.Packages.props 里;那几个插件的二进制走下面这个 Release pin。
 
     **例外:AI 插件(velashell.ai)是本仓库自建的第一方插件**,源码在 plugins/ 下,
     随主程序一起构建、一起发布 —— 它与宿主的耦合最紧(要用宿主的 AvaloniaEdit 作输入框、
     必须进程内装载、Avalonia 版本必须与宿主逐字一致),分在两个仓库时每改一处 UI 都要
-    先发一次工具链 Release 才能联调。详见 plugins/README.md。
+    先发一次插件仓库的 Release 才能联调。详见 plugins/README.md。
   -->
   <PropertyGroup>
-    <!-- 随安装包分发的**工具链侧**插件(Redis / S3 / Telnet)所在的工具链 Release 标签,
-         去掉前导 v。scripts/Fetch-Plugins.ps1 据此下载
+    <!-- 随安装包分发的**插件仓库侧**插件(Redis / S3 / Telnet)所在的 velashell-plugins
+         Release 标签,去掉前导 v。它与 src/Directory.Packages.props 里
+         VelaShell.PluginSdk 的版本是两个独立的号 —— 插件仓库有自己的发行版本
+         (VelaPluginsVersion),不跟 SDK 走。
+         scripts/Fetch-Plugins.ps1 据此下载
          releases/download/v<版本>/velashell-plugins-<版本>.zip 解进 artifacts/plugins/。
          包里若含 velashell-ai,取回时会被丢掉 —— 那一份由本仓库自己构建,见脚本注释。 -->
     <VelaPluginsBundleVersion Condition="'$(VelaPluginsBundleVersion)' == ''">1.4.0</VelaPluginsBundleVersion>

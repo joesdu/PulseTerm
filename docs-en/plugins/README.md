@@ -1,17 +1,21 @@
 # VelaShell Plugin System Design Documents
 
-> 📦 **Repository split note (2026-08-21)**: the plugin SDK, `dotnet new` templates, the
-> `vela-plugin` CLI and all first-party plugins moved to
-> [joesdu/velashell-plugin-toolchain](https://github.com/joesdu/velashell-plugin-toolchain).
-> Paths such as `plugin-sdk/…`, `plugins/VelaShell.Plugin.…`, `tools/…`, `templates/…` and
-> `tests/VelaShell.Plugin.*.Tests` that appear on this page (and in blueprints 01–15) now
-> refer to that repository; this one keeps only `src/` (host implementation) and `tests/`
-> (host tests, with plugin fixtures under `tests/fixtures/`).
+> 📦 **Repository split note (2026-08-21, revised 2026-08-22)**: plugin-related code now lives in
+> two repositories — the plugin SDK, `dotnet new` templates and the `vela-plugin` CLI are in
+> [joesdu/velashell-plugin-toolchain](https://github.com/joesdu/velashell-plugin-toolchain);
+> the first-party plugins (Redis / S3 / Telnet and the HelloWorld example) are in
+> [joesdu/velashell-plugins](https://github.com/joesdu/velashell-plugins).
+> On this page (and in blueprints 01–15), `plugin-sdk/…`, `tools/…` and `templates/…` refer to
+> the former; `plugins/VelaShell.Plugin.…` and `tests/VelaShell.Plugin.*.Tests` refer to the latter.
+> **Exception: the AI plugin stays in this repository** (`plugins/VelaShell.Plugin.Ai`, tests in
+> `tests/VelaShell.Plugin.Ai.Tests`) and is built and released with the host — see
+> [plugins/README.md](../../plugins/README.md). Otherwise this repository keeps only `src/`
+> (host implementation) and `tests/` (host tests, with plugin fixtures under `tests/fixtures/`).
 > The conclusions and acceptance evidence are unaffected — only which repository the paths live in.
 
 > Status: **v1 simplified version implemented** (2026-08: dual host modes + full Avalonia UI); documents 01–15 are retained as the **long-term design blueprint** for the complete plugin platform (process isolation, permission system, packaging/distribution/store, etc. will be delivered in phases as needed; the distribution system has been explicitly deferred). Any decision changes made during implementation should be written back to the corresponding document.
 >
-> ⚠️ **The four plugin-author documents moved out with the toolchain** (2026-08-21): `dev-guide.md` / `cli.md` / `publishing.md` / `sdk-reference.md` now live in **[joesdu/velashell-plugin-toolchain](https://github.com/joesdu/velashell-plugin-toolchain/tree/main/docs-en)**, next to the SDK, templates, CLI and first-party plugins they describe — documentation for plugin authors belongs with the code it documents. What stays here is the **host-side** blueprint.
+> ⚠️ **The four plugin-author documents moved out with the toolchain** (2026-08-21): `dev-guide.md` / `cli.md` / `publishing.md` / `sdk-reference.md` now live in **[joesdu/velashell-plugin-toolchain](https://github.com/joesdu/velashell-plugin-toolchain/tree/main/docs-en)**, next to the SDK, templates and CLI they describe — documentation for plugin authors belongs with the code it documents. What stays here is the **host-side** blueprint.
 >
 > **To write a plugin, read [dev-guide.md](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs-en/dev-guide.md) directly** — it describes the APIs that are actually available today; the interface shapes in the blueprint documents (one process per plugin, Broker, etc.) are not implemented in v1.
 

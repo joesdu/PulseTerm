@@ -1,10 +1,11 @@
 # 插件系统进度总览
 
 > 📦 **仓库拆分注记(2026-08-21,2026-08-22 修订)**:插件 SDK、`dotnet new` 模板、
-> `vela-plugin` CLI 与 Redis / S3 / Telnet / HelloWorld 插件已迁到
-> [joesdu/velashell-plugin-toolchain](https://github.com/joesdu/velashell-plugin-toolchain)。
-> 本页(以及 01–15 蓝图)里出现的 `plugin-sdk/…`、`tools/…`、`templates/…`、
-> `tests/VelaShell.Plugin.{Redis,S3,Telnet,HelloWorld}.Tests` 等路径,现在都指那个仓库。
+> `vela-plugin` CLI 在 [joesdu/velashell-plugin-toolchain](https://github.com/joesdu/velashell-plugin-toolchain);
+> Redis / S3 / Telnet / HelloWorld 插件在
+> [joesdu/velashell-plugins](https://github.com/joesdu/velashell-plugins)。
+> 本页(以及 01–15 蓝图)里出现的 `plugin-sdk/…`、`tools/…`、`templates/…` 指前者,
+> `tests/VelaShell.Plugin.{Redis,S3,Telnet,HelloWorld}.Tests` 与那几个插件的源码路径指后者。
 >
 > **例外:AI 插件(`plugins/VelaShell.Plugin.Ai`,测试在 `tests/VelaShell.Plugin.Ai.Tests`)
 > 仍在主仓库**,随主程序一起构建、一起发布 —— 它与宿主是编译期耦合(借宿主的 AvaloniaEdit、

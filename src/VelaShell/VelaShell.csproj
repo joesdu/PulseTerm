@@ -105,14 +105,14 @@
        AI 插件留在主仓库的原因见 plugins/README.md —— 它与宿主耦合最紧
        (借宿主的 AvaloniaEdit、必须进程内装载、Avalonia 必须逐字同版)。
 
-    ② 工具链仓库 joesdu/velashell-plugin-toolchain(Redis / S3 / Telnet)
+    ② 第一方插件仓库 joesdu/velashell-plugins(Redis / S3 / Telnet)
        以 Release 资产 velashell-plugins-<版本>.zip 交付,包内布局就是安装包 plugins/ 那一层。
        本仓库按根 Directory.Build.props 的 VelaPluginsBundleVersion 取那一版,解到
        artifacts/plugins/ 作为**暂存目录**,构建与发布都从这里取件。
 
     暂存目录怎么来:
       · 日常:pwsh scripts/Fetch-Plugins.ps1      —— 按 pin 的版本下载并校验 sha256
-      · 联调:pwsh scripts/Fetch-Plugins.ps1 -FromToolchain <工具链仓库路径>
+      · 联调:pwsh scripts/Fetch-Plugins.ps1 -FromPluginsRepo <插件仓库路径>
               —— 就地构建那边的插件,不走网络
       · CI:  发布流水线在 publish 之前跑同一个脚本(见 .github/workflows/release.yml)
     也可以用 -p:VelaPluginsStageDir=<目录> 直接指别处。
