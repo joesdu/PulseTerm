@@ -24,6 +24,13 @@ public static class VelaPluginApi
     /// 所以清单上多了一个 <c>minSdkVersion</c>:用到新面的插件声明它,老宿主在**发现期**
     /// 就干净地标 Incompatible 并说清该升级什么。
     /// </para>
+    /// <para>
+    /// <b>1.2</b> 加了 <see cref="RemoteTunnel.IRemoteTunnelApi" />:到远端 unix socket /
+    /// TCP 端点的**裸字节双工流**。远程执行的两种形态都是文本(整段 UTF-8 解码,或按
+    /// <c>\n</c> 切行回调),而 Docker Engine API 的分块传输、tar 归档流与 exec 的多路复用帧
+    /// 全是二进制 —— 用文本模型承载它们不是"慢一点",是数据静默损坏。同样只增不改,
+    /// apiLevel 仍是 1,靠 <c>minSdkVersion: "1.2.0"</c> 在发现期拦住老宿主。
+    /// </para>
     /// </summary>
-    public const string SdkVersion = "1.1.0";
+    public const string SdkVersion = "1.2.0";
 }

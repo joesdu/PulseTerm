@@ -6,6 +6,7 @@ using VelaShell.PluginSdk.Logging;
 using VelaShell.PluginSdk.Protocols;
 using VelaShell.PluginSdk.RemoteExec;
 using VelaShell.PluginSdk.RemoteFs;
+using VelaShell.PluginSdk.RemoteTunnel;
 using VelaShell.PluginSdk.Secrets;
 using VelaShell.PluginSdk.Sessions;
 using VelaShell.PluginSdk.Storage;
@@ -30,6 +31,7 @@ internal sealed class PluginContext : IPluginContext, IDisposable
     public required ISessionsApi Sessions { get; init; }
     public required IRemoteFsApi RemoteFs { get; init; }
     public required IRemoteExecApi RemoteExec { get; init; }
+    public required IRemoteTunnelApi RemoteTunnel { get; init; }
     public required ICommandsApi Commands { get; init; }
     public required IHostEvents Events { get; init; }
     public required IUiApi Ui { get; init; }

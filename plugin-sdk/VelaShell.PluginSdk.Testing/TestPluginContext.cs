@@ -5,6 +5,7 @@ using VelaShell.PluginSdk.Logging;
 using VelaShell.PluginSdk.Protocols;
 using VelaShell.PluginSdk.RemoteExec;
 using VelaShell.PluginSdk.RemoteFs;
+using VelaShell.PluginSdk.RemoteTunnel;
 using VelaShell.PluginSdk.Secrets;
 using VelaShell.PluginSdk.Sessions;
 using VelaShell.PluginSdk.Storage;
@@ -62,6 +63,9 @@ public sealed class TestPluginContext : IPluginContext, IDisposable
 
     /// <summary>默认远程执行替身。</summary>
     public FakeRemoteExec FakeRemoteExec { get; } = new();
+
+    /// <summary>默认远程隧道替身。</summary>
+    public FakeRemoteTunnel FakeRemoteTunnel { get; } = new();
 
     /// <summary>默认命令替身。</summary>
     public RecordingCommands RecordingCommands { get; } = new();
@@ -142,6 +146,9 @@ public sealed class TestPluginContext : IPluginContext, IDisposable
     /// <inheritdoc cref="IPluginContext.RemoteExec" />
     public IRemoteExecApi RemoteExec { get; init; }
 
+    /// <inheritdoc cref="IPluginContext.RemoteTunnel" />
+    public IRemoteTunnelApi RemoteTunnel { get; init; }
+
     /// <inheritdoc cref="IPluginContext.Commands" />
     public ICommandsApi Commands { get; init; }
 
@@ -178,6 +185,7 @@ public sealed class TestPluginContext : IPluginContext, IDisposable
         Sessions = FakeSessions;
         RemoteFs = FakeRemoteFs;
         RemoteExec = FakeRemoteExec;
+        RemoteTunnel = FakeRemoteTunnel;
         Commands = RecordingCommands;
         Events = HostEvents;
         Ui = FakeUi;

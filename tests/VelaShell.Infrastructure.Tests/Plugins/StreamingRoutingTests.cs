@@ -42,6 +42,7 @@ public class StreamingRoutingTests
             Sessions = new FakeSessions(),
             RemoteFs = remoteFs,
             RemoteExec = new FakeRemoteExec(),
+            RemoteTunnel = new FakeRemoteTunnel(),
             Commands = new RecordingCommands(),
             Events = new PluginEventHub(new CollectingLogger(), null, null, null),
             Ui = new FakeUi(),

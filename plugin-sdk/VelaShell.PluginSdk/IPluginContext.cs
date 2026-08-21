@@ -5,6 +5,7 @@ using VelaShell.PluginSdk.Logging;
 using VelaShell.PluginSdk.Protocols;
 using VelaShell.PluginSdk.RemoteExec;
 using VelaShell.PluginSdk.RemoteFs;
+using VelaShell.PluginSdk.RemoteTunnel;
 using VelaShell.PluginSdk.Secrets;
 using VelaShell.PluginSdk.Sessions;
 using VelaShell.PluginSdk.Storage;
@@ -54,6 +55,13 @@ public interface IPluginContext
 
     /// <summary>远程执行能力:在既有会话上执行一次性命令(独立通道,不进用户终端)。</summary>
     IRemoteExecApi RemoteExec { get; }
+
+    /// <summary>
+    /// 远程隧道能力:在既有会话上开一条到远端 unix socket / TCP 端点的**裸字节双工流**。
+    /// 用于承载文本行模型装不下的协议(Docker Engine API 的分块传输与 tar 流等)。
+    /// 仅 <c>inProcess</c> 宿主模式可用,见 <see cref="IRemoteTunnelApi" />。
+    /// </summary>
+    IRemoteTunnelApi RemoteTunnel { get; }
 
     /// <summary>命令能力:向命令面板/菜单注册命令,或执行宿主命令。</summary>
     ICommandsApi Commands { get; }

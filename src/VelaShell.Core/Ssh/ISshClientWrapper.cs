@@ -79,4 +79,28 @@ public interface ISshClientWrapper : IDisposable
     /// 启动失败时抛出且不留下半挂的监听。
     /// </summary>
     Task<IPortForwardHandle> StartPortForwardAsync(PortForwardRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 在当前连接上开一条到远端 <b>unix 域套接字</b>的双工字节流
+    /// (SSH 的 <c>direct-streamlocal@openssh.com</c> 通道)。
+    /// <para>
+    /// 与 <see cref="StartPortForwardAsync" /> 的区别是**不在本机开监听端口**:
+    /// 流直接交给调用方,同机的其它进程连不上去。对 <c>/var/run/docker.sock</c>
+    /// 这种 root 等价的端点,这个区别不是优化而是前提。
+    /// </para>
+    /// </summary>
+    /// <param name="socketPath">远端 socket 的绝对路径。</param>
+    /// <param name="cancellationToken">取消令牌(只作用于建立阶段)。</param>
+    /// <returns>双工字节流;调用方负责释放。</returns>
+    Task<Stream> OpenUnixConnectionAsync(string socketPath, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 在当前连接上开一条到远端 TCP 端点的双工字节流(SSH 的 <c>direct-tcpip</c> 通道)。
+    /// 地址从**远端主机**的角度解析,因此 <c>localhost</c> 指远端的环回。
+    /// </summary>
+    /// <param name="host">远端可解析的主机名或 IP。</param>
+    /// <param name="port">端口。</param>
+    /// <param name="cancellationToken">取消令牌(只作用于建立阶段)。</param>
+    /// <returns>双工字节流;调用方负责释放。</returns>
+    Task<Stream> OpenTcpConnectionAsync(string host, int port, CancellationToken cancellationToken = default);
 }
