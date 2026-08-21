@@ -1,11 +1,15 @@
 # VelaShell 插件系统设计文档
 
-> 📦 **仓库拆分注记(2026-08-21)**:插件 SDK、`dotnet new` 模板、`vela-plugin` CLI 与
-> 全部第一方插件已迁到
-> [joesdu/velashell-plugin-toolchain](https://github.com/joesdu/velashell-plugin-toolchain)。
-> 本页(以及 01–15 蓝图)里出现的 `plugin-sdk/…`、`plugins/VelaShell.Plugin.…`、
-> `tools/…`、`templates/…`、`tests/VelaShell.Plugin.*.Tests` 等路径,现在都指那个仓库;
-> 主仓库这边只剩 `src/`(宿主实现)与 `tests/`(宿主测试,插件夹具在 `tests/fixtures/`)。
+> 📦 **仓库拆分注记(2026-08-21,2026-08-22 修订)**:插件相关的东西现在分在两个仓库 ——
+> 插件 SDK、`dotnet new` 模板、`vela-plugin` CLI 在
+> [joesdu/velashell-plugin-toolchain](https://github.com/joesdu/velashell-plugin-toolchain);
+> 第一方插件(Redis / S3 / Telnet 与 HelloWorld 示例)在
+> [joesdu/velashell-plugins](https://github.com/joesdu/velashell-plugins)。
+> 本页(以及 01–15 蓝图)里出现的 `plugin-sdk/…`、`tools/…`、`templates/…` 指前者,
+> `plugins/VelaShell.Plugin.…`、`tests/VelaShell.Plugin.*.Tests` 指后者。
+> **例外:AI 插件仍在主仓库**(`plugins/VelaShell.Plugin.Ai`,测试在 `tests/VelaShell.Plugin.Ai.Tests`),
+> 随主程序一起构建发布,理由见 [plugins/README.md](../../plugins/README.md)。
+> 除此之外主仓库只剩 `src/`(宿主实现)与 `tests/`(宿主测试,插件夹具在 `tests/fixtures/`)。
 > 结论与验收证据本身不受影响,仅路径的仓库归属变了。
 
 > 状态:**v1 简化版已实现**(2026-08:双宿主模式 + 完整 Avalonia UI);编号 01–15 的
@@ -15,8 +19,7 @@
 > ⚠️ **面向插件作者的四篇文档已随工具链搬走**(2026-08-21):
 > `dev-guide.md` / `cli.md` / `publishing.md` / `sdk-reference.md` 现在在
 > **[joesdu/velashell-plugin-toolchain](https://github.com/joesdu/velashell-plugin-toolchain/tree/main/docs)**,
-> 与 SDK、模板、CLI、第一方插件在同一个仓库里 —— 它们描述的是插件作者的世界,
-> 跟着代码走才不会漂。本目录留下的是**宿主侧**的设计蓝图。
+> 与 SDK、模板、CLI 在同一个仓库里 —— 它们描述的是插件作者的世界,跟着代码走才不会漂。本目录留下的是**宿主侧**的设计蓝图。
 >
 > **写插件请直接读
 > [dev-guide.md](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/dev-guide.md)** ——

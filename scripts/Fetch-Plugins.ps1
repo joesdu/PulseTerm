@@ -4,9 +4,10 @@
     取回随安装包分发的第一方插件,解到 artifacts/plugins/。
 
 .DESCRIPTION
-    Redis / S3 / Telnet 插件于 2026-08-21 随工具链搬到独立仓库
-    https://github.com/joesdu/velashell-plugin-toolchain
-    并以 Release 资产 velashell-plugins-<版本>.zip 的形式交付,包内布局就是安装包
+    Redis / S3 / Telnet 插件于 2026-08-21 随工具链搬出主仓库,2026-08-22 又从工具链仓库
+    独立出来,现在住在 https://github.com/joesdu/velashell-plugins
+    (工具链仓库 velashell-plugin-toolchain 从此只管 SDK 与工具链,不再产出插件分发包)。
+    它以 Release 资产 velashell-plugins-<版本>.zip 的形式交付,包内布局就是安装包
     plugins/ 那一层。本脚本按根 Directory.Build.props 里 pin 的 VelaPluginsBundleVersion
     下载那一版,校验 sha256,解到 artifacts/plugins/ —— 构建(F5)与发布都从这个目录取件
     (见 src/VelaShell/VelaShell.csproj 的 VelaPluginsStageDir)。
@@ -21,9 +22,10 @@
 .PARAMETER Version
     要取的插件分发包版本。默认读 Directory.Build.props 的 VelaPluginsBundleVersion。
 
-.PARAMETER FromToolchain
-    改为就地构建本机工具链仓库的插件,不走网络。传工具链仓库的路径,
-    例如 -FromToolchain G:\velashell-plugin-toolchain。改插件时用这条。
+.PARAMETER FromPluginsRepo
+    改为就地构建本机插件仓库的插件,不走网络。传插件仓库的路径,
+    例如 -FromPluginsRepo G:\velashell-plugins。改插件时用这条。
+    别名 -FromToolchain 保留,因为插件曾经确实在工具链仓库里 —— 老命令行不至于突然报错。
 
 .PARAMETER Force
     即使暂存目录已是目标版本也重新取。
@@ -32,12 +34,13 @@
     pwsh scripts/Fetch-Plugins.ps1
 
 .EXAMPLE
-    pwsh scripts/Fetch-Plugins.ps1 -FromToolchain G:\velashell-plugin-toolchain
+    pwsh scripts/Fetch-Plugins.ps1 -FromPluginsRepo G:\velashell-plugins
 #>
 [CmdletBinding()]
 param(
     [string] $Version,
-    [string] $FromToolchain,
+    [Alias('FromToolchain')]
+    [string] $FromPluginsRepo,
     [switch] $Force
 )
 
@@ -80,19 +83,19 @@ function Remove-LocallyBuiltPlugins {
     }
 }
 
-if ($FromToolchain) {
-    $toolchain = (Resolve-Path $FromToolchain).Path
-    $bundleProj = Join-Path $toolchain 'build/PluginBundle.proj'
+if ($FromPluginsRepo) {
+    $pluginsRepo = (Resolve-Path $FromPluginsRepo).Path
+    $bundleProj = Join-Path $pluginsRepo 'build/PluginBundle.proj'
     if (-not (Test-Path $bundleProj)) {
-        throw "在 '$toolchain' 下找不到 build/PluginBundle.proj —— 这个路径是插件工具链仓库吗?"
+        throw "在 '$pluginsRepo' 下找不到 build/PluginBundle.proj —— 这个路径是第一方插件仓库(joesdu/velashell-plugins)吗?"
     }
     Reset-StageDirectory
-    Write-Host "Building first-party plugins from $toolchain ..."
+    Write-Host "Building first-party plugins from $pluginsRepo ..."
     # 用 Release:发行包里就是 Release 产物,联调时也保持一致,免得"本机好好的、发出去炸了"。
     & dotnet build $bundleProj -c Release -t:Bundle -p:BundleDir=$stageDir --nologo
     if ($LASTEXITCODE -ne 0) { throw "PluginBundle.proj 构建失败。" }
     Remove-LocallyBuiltPlugins
-    Set-Content $stampFile "local:$toolchain"
+    Set-Content $stampFile "local:$pluginsRepo"
     Write-Host "Plugins staged at $stageDir (local build)."
     return
 }
@@ -111,7 +114,7 @@ if (-not $Force -and (Test-Path $stampFile) -and (Get-Content -Raw $stampFile).T
     return
 }
 
-$repo = 'joesdu/velashell-plugin-toolchain'
+$repo = 'joesdu/velashell-plugins'
 $asset = "velashell-plugins-$Version.zip"
 $base = "https://github.com/$repo/releases/download/v$Version"
 $temp = Join-Path ([IO.Path]::GetTempPath()) ("vela-plugins-" + [Guid]::NewGuid().ToString('N'))

@@ -6,10 +6,14 @@
 | --- | --- | --- | --- | --- |
 | [VelaShell.Plugin.Ai](VelaShell.Plugin.Ai/) | `velashell.ai` | 是 | 进程内 | AI 助手：多提供商流式对话 + Agent 模式（读终端/执行命令带审批）+ 自定义 MCP 服务器 |
 
-其余第一方插件（Redis / S3 / Telnet 与 HelloWorld 示例）连同 SDK、模板、`vela-plugin` CLI
-一起住在 **[joesdu/velashell-plugin-toolchain](https://github.com/joesdu/velashell-plugin-toolchain)**，
+其余第一方插件（Redis / S3 / Telnet 与 HelloWorld 示例）住在
+**[joesdu/velashell-plugins](https://github.com/joesdu/velashell-plugins)**，
 以 Release 资产 `velashell-plugins-<版本>.zip` 交付，由 [`scripts/Fetch-Plugins.ps1`](../scripts/Fetch-Plugins.ps1)
-取回解到 `artifacts/plugins/`。
+取回解到 `artifacts/plugins/`（联调时 `-FromPluginsRepo <插件仓库路径>` 就地构建，不走网络）。
+
+SDK、模板与 `vela-plugin` CLI 则在
+**[joesdu/velashell-plugin-toolchain](https://github.com/joesdu/velashell-plugin-toolchain)**，
+以 NuGet 包交付。三个仓库各管一摊：主程序、SDK 与工具链、第一方插件。
 
 ## 为什么 AI 插件留在主仓库
 

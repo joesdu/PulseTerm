@@ -8,7 +8,7 @@
 #   Linux  x64 / arm64 含运行时 → tar.gz
 # 每份产物内含 plugins/<目录名>/(目录名 = 插件 id 把点换成短横),两个来源:
 #   ① AI 插件(velashell.ai)在本仓库 plugins/ 下,随 publish 一起构建;
-#   ② Redis / S3 / Telnet 随工具链在 joesdu/velashell-plugin-toolchain,以 Release 资产
+#   ② Redis / S3 / Telnet 在第一方插件仓库 joesdu/velashell-plugins,以 Release 资产
 #      velashell-plugins-<版本>.zip 交付 —— 本脚本在 publish 之前跑 scripts/Fetch-Plugins.ps1
 #      按 Directory.Build.props 的 VelaPluginsBundleVersion 取回解到 artifacts/plugins/。
 #   MSBuild 在发布期把两边一起登记入包。哪个插件进包由各插件的 <VelaPluginShip> 把关
