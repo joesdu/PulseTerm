@@ -170,6 +170,9 @@ internal static class Program
             case PluginRpc.FsProgress when Deserialize<FsProgressNotification>(payload) is { } progress:
                 context.RemoteFsProxy.OnProgress(progress);
                 break;
+            case PluginRpc.ExecOutput when Deserialize<ExecOutputNotification>(payload) is { } line:
+                context.RemoteExecProxy.OnOutput(line);
+                break;
         }
     }
 

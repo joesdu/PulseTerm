@@ -27,6 +27,12 @@ public static class PluginRpc
     /// <summary>远程执行。</summary>
     public const string ExecRun = "exec/run";
 
+    /// <summary>远程流式执行(应答为退出码与行数,输出经 <see cref="ExecOutput" /> 通知回流)。</summary>
+    public const string ExecStream = "exec/stream";
+
+    /// <summary>流式执行的输出通知(宿主 → 插件,带 outputToken)。</summary>
+    public const string ExecOutput = "exec/output";
+
     /// <summary>远程文件:列目录。</summary>
     public const string FsList = "fs/list";
 
@@ -211,6 +217,31 @@ public sealed record SessionRef(string SessionId);
 
 /// <summary>远程执行参数。</summary>
 public sealed record ExecRunRequest(string SessionId, string Command, double TimeoutSeconds);
+
+/// <summary>远程流式执行参数。</summary>
+/// <param name="SessionId">会话 id。</param>
+/// <param name="Command">命令行。</param>
+/// <param name="OutputToken">输出通知令牌(宿主按它把行回流给正确的调用点)。</param>
+/// <param name="TimeoutSeconds">超时秒数;<c>0</c> 表示不限时(由插件侧取消驱动)。</param>
+/// <param name="IncludeStandardError">是否也回流标准错误。</param>
+public sealed record ExecStreamRequest(
+    string SessionId,
+    string Command,
+    string OutputToken,
+    double TimeoutSeconds,
+    bool IncludeStandardError);
+
+/// <summary>
+/// 流式执行的输出通知载荷。
+/// </summary>
+/// <param name="OutputToken">对应 <see cref="ExecStreamRequest.OutputToken" />。</param>
+/// <param name="IsStandardError">这一行是否来自标准错误。</param>
+/// <param name="Line">一行文本(不含行尾换行)。</param>
+/// <remarks>
+/// 一行一条通知。看起来很碎,但管道上跑的是长度前缀 + JSON 的轻量帧,而日志的价值
+/// 就在于即时 —— 攒批会让"跟随"变成"每秒抖一下"。真需要攒批的插件自己在回调里攒。
+/// </remarks>
+public sealed record ExecOutputNotification(string OutputToken, bool IsStandardError, string Line);
 
 /// <summary>远程文件通用参数(路径类)。</summary>
 public sealed record FsPathRequest(string SessionId, string Path);

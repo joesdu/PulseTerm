@@ -1,3 +1,4 @@
+using VelaShell.PluginSdk;
 using VelaShell.Infrastructure.Plugins;
 using VelaShell.Plugin.HelloWorld;
 
@@ -56,13 +57,18 @@ public class PluginManagerTests
         File.WriteAllText(Path.Combine(_root, "disabled", ".disabled"), "");
         AddPlugin("future", """{ "id": "a.future", "version": "1.0.0", "displayName": "F", "entry": "F.dll", "apiLevel": 99 }""");
         AddPlugin("needs-newer-host", """{ "id": "a.newer", "version": "1.0.0", "displayName": "N", "entry": "N.dll", "minHostVersion": "9.9.9" }""");
+        // apiLevel 只在**破坏性**变更时才动,所以"我用到了 SDK 1.1 新增的接口方法"没法用它表达。
+        // 不拦的话插件会装上、激活,然后在第一次调用新方法时抛 MissingMethodException ——
+        // 正是 apiLevel 当初要消灭的那种异常。
+        AddPlugin("needs-newer-sdk", """{ "id": "a.newsdk", "version": "1.0.0", "displayName": "S", "entry": "S.dll", "minSdkVersion": "9.9.9" }""");
+        AddPlugin("sdk-satisfied", $$"""{ "id": "a.sdkok", "version": "1.0.0", "displayName": "S2", "entry": "S2.dll", "minSdkVersion": "{{VelaPluginApi.SdkVersion}}" }""");
         Directory.CreateDirectory(Path.Combine(_root, "no-manifest")); // 无 plugin.json:直接忽略
 
         var manager = new PluginManager(Options());
         manager.Discover();
         var byId = manager.Plugins.ToDictionary(p => p.Id);
 
-        Assert.HasCount(5, byId);
+        Assert.HasCount(7, byId);
         Assert.AreEqual(PluginState.Discovered, byId["a.ok"].State);
         Assert.AreEqual(PluginState.Invalid, byId["bad-json"].State);
         Assert.IsNotNull(byId["bad-json"].Error);
@@ -71,6 +77,10 @@ public class PluginManagerTests
         Assert.Contains("apiLevel", byId["a.future"].Error);
         Assert.AreEqual(PluginState.Incompatible, byId["a.newer"].State);
         Assert.Contains("9.9.9", byId["a.newer"].Error);
+        Assert.AreEqual(PluginState.Incompatible, byId["a.newsdk"].State);
+        Assert.Contains("SDK", byId["a.newsdk"].Error);
+        // 要求的正是本宿主带的这一版 —— 必须放行,不能把"等于"判成"更老"。
+        Assert.AreEqual(PluginState.Discovered, byId["a.sdkok"].State);
     }
 
     [TestMethod]

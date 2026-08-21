@@ -26,7 +26,7 @@
     <!-- 插件 SDK 系列包(VelaShell.PluginSdk / .Testing / .Build、VelaShell.Plugin.Cli、
          VelaShell.Plugin.Templates)的版本。**与宿主版本解耦**:宿主发 1.2.3 不代表插件
          契约变了,插件作者也不该为了跟版本号而重新编译。CI 发包时用 -p:VelaSdkVersion= 覆盖。 -->
-    <VelaSdkVersion Condition="'$(VelaSdkVersion)' == ''">1.0.1</VelaSdkVersion>
+    <VelaSdkVersion Condition="'$(VelaSdkVersion)' == ''">1.1.0</VelaSdkVersion>
     <!-- 去掉预发布后缀的数字版(AssemblyVersion/FileVersion 不接受后缀)与主版本号。 -->
     <VelaSdkVersionCore>$([System.Text.RegularExpressions.Regex]::Replace($(VelaSdkVersion), '-.*$', ''))</VelaSdkVersionCore>
     <VelaSdkMajor>$([System.Text.RegularExpressions.Regex]::Replace($(VelaSdkVersionCore), '\..*$', ''))</VelaSdkMajor>

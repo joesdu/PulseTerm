@@ -35,7 +35,9 @@ internal sealed class RemotePluginContext : IPluginContext, IDisposable
         TimeSeries = new RpcTimeSeries(rpc);
         Sessions = new RpcSessions(rpc);
         RemoteFsProxy = new(rpc);
-        RemoteExec = new RpcRemoteExec(rpc);
+        // 保留具体类型的引用:流式执行的输出经通知回流,Program 要按 token 路由到它。
+        RemoteExecProxy = new(rpc);
+        RemoteExec = RemoteExecProxy;
         CommandsProxy = new(rpc, Log);
         EventsHub = new(Log);
         UiLocal = new(pluginId, Log, rpc);
@@ -122,6 +124,9 @@ internal sealed class RemotePluginContext : IPluginContext, IDisposable
 
     /// <inheritdoc cref="HostInfo" />
     internal RpcRemoteFs RemoteFsProxy { get; }
+
+    /// <inheritdoc cref="HostInfo" />
+    internal RpcRemoteExec RemoteExecProxy { get; }
 
     /// <inheritdoc cref="HostInfo" />
     internal RpcCommands CommandsProxy { get; }

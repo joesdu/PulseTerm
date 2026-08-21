@@ -84,6 +84,11 @@ public static partial class PluginManifestReader
             throw new PluginManifestException(
                 $"Invalid minHostVersion '{minHost}': expected semver-style like \"0.1.0\".");
         }
+        if (manifest.MinSdkVersion is { } minSdk && !VersionPattern().IsMatch(minSdk))
+        {
+            throw new PluginManifestException(
+                $"Invalid minSdkVersion '{minSdk}': expected semver-style like \"1.1.0\".");
+        }
         ValidateDisplayText(manifest.Author, "author");
         ValidateDisplayText(manifest.Publisher, "publisher");
         ValidateActivation(manifest);

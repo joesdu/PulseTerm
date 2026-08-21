@@ -183,6 +183,22 @@ public sealed record PluginManifest
     [JsonPropertyName("minHostVersion")]
     public string? MinHostVersion { get; init; }
 
+    /// <summary>
+    /// 要求的最低**插件 SDK** 版本(可选,如 <c>1.1.0</c>);不满足时插件被标记为不兼容。
+    /// <para>
+    /// 与 <see cref="MinHostVersion" /> 是两回事:SDK 版本与宿主版本**刻意解耦**
+    /// (宿主发 1.2.3 不代表契约变了),所以"我用到了 SDK 1.1 才有的东西"没法用宿主版本表达;
+    /// 也不能靠 <see cref="ApiLevel" /> —— 它只在破坏性变更时才动,而新增的接口方法与
+    /// DTO 字段不算破坏性。
+    /// </para>
+    /// <para>
+    /// 用到了新 SDK 面的插件应当声明它。不声明照样能装,但会在**运行期**撞上
+    /// <c>MissingMethodException</c>,而那比发现期一句"请升级 VelaShell"难查得多。
+    /// </para>
+    /// </summary>
+    [JsonPropertyName("minSdkVersion")]
+    public string? MinSdkVersion { get; init; }
+
     /// <summary>主页/仓库地址(可选)。</summary>
     [JsonPropertyName("homepage")]
     public string? Homepage { get; init; }

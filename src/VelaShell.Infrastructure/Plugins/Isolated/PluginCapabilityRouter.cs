@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
 using VelaShell.PluginSdk;
+using VelaShell.PluginSdk.RemoteExec;
 using VelaShell.PluginSdk.RemoteFs;
 using VelaShell.PluginSdk.Rpc;
 
@@ -113,6 +114,27 @@ internal sealed class PluginCapabilityRouter : IDisposable
                     ExecRunRequest request = Get<ExecRunRequest>(payload);
                     return await _context.RemoteExec.RunAsync(request.SessionId, request.Command,
                         new() { Timeout = TimeSpan.FromSeconds(request.TimeoutSeconds) }, cancellationToken).ConfigureAwait(false);
+                }
+            case PluginRpc.ExecStream:
+                {
+                    ExecStreamRequest request = Get<ExecStreamRequest>(payload);
+                    // 输出逐行经通知回流(与 fs/progress 同一套 token 机制);应答只带退出码与行数,
+                    // 所以一条跑了一小时的 `docker logs -f` 不会在应答里堆出一个 GB 级的字符串。
+                    Progress<ExecOutput> sink = new(line =>
+                        _ = _rpc.NotifyAsync(PluginRpc.ExecOutput,
+                            new ExecOutputNotification(request.OutputToken, line.Stream is ExecStream.StandardError, line.Line)));
+                    return await _context.RemoteExec.StreamAsync(
+                        request.SessionId,
+                        request.Command,
+                        new()
+                        {
+                            // 取消令牌不跨进程传播(dev-guide §6),所以隔离插件的长驻命令
+                            // 必须靠这个死线收尾 —— 0 表示插件明确要求不限时。
+                            Timeout = request.TimeoutSeconds > 0 ? TimeSpan.FromSeconds(request.TimeoutSeconds) : null,
+                            IncludeStandardError = request.IncludeStandardError
+                        },
+                        sink,
+                        cancellationToken).ConfigureAwait(false);
                 }
             case PluginRpc.FsList:
                 {
