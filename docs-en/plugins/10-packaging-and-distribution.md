@@ -1,6 +1,6 @@
 # 10 · Packaging, Signing, and Distribution
 
-> **The operational handbook is [publishing.md](publishing.md)** (build → pack → sign → submit).
+> **The operational handbook is [publishing.md](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs-en/publishing.md)** (build → pack → sign → submit).
 > Marketplace: <http://market.easilynet.top> (the client has no built-in marketplace client yet;
 > users download the `.vpx` and install it from the plugin manager page). This document is the
 > long-term blueprint.
@@ -12,7 +12,7 @@
 > 1. **`.vpx` is a dedicated container**, not "a zip with a different extension": a 64-byte header
 >    (magic `56 50 58 1A`, format version, flags, payload length, SHA-256, mask nonce, header CRC32)
 >    followed by a masked zip payload and an optional signature block. See
->    `VelaShell.PluginSdk/Packaging/VpxContainer.cs` and [dev-guide.md §12](dev-guide.md).
+>    `VelaShell.PluginSdk/Packaging/VpxContainer.cs` and [dev-guide.md §12](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs-en/dev-guide.md).
 > 2. **The signature algorithm is ECDSA P-256 + SHA-256**, not the Ed25519 named below. Ed25519 is
 >    not in the BCL, and taking a third-party dependency would break the rule that the contract
 >    assembly — the only type source shared between host and plugins — has no heavyweight

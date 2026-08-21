@@ -121,7 +121,6 @@ public class LocalizationTests : IDisposable
         Assert.IsFalse(string.IsNullOrEmpty(Strings.NewTunnel));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.Network));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.Docker));
-        Assert.IsFalse(string.IsNullOrEmpty(Strings.Custom));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.Connected));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.Connecting));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.Disconnected));
@@ -174,7 +173,6 @@ public class LocalizationTests : IDisposable
         Assert.IsFalse(string.IsNullOrEmpty(Strings.NewTunnel));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.Network));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.Docker));
-        Assert.IsFalse(string.IsNullOrEmpty(Strings.Custom));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.Connected));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.Connecting));
         Assert.IsFalse(string.IsNullOrEmpty(Strings.Disconnected));

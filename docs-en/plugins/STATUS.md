@@ -1,6 +1,15 @@
 # Plugin System Progress Overview
 
-> Updated: 2026-08-12. This page is the **single source of truth** for implementation progress: each blueprint area is listed as complete / partially complete / not started, with acceptance evidence (tests) and recommended next steps. To write a plugin, read [dev-guide.md](dev-guide.md).
+> 📦 **Repository split note (2026-08-21)**: the plugin SDK, `dotnet new` templates, the
+> `vela-plugin` CLI and all first-party plugins moved to
+> [joesdu/velashell-plugin-toolchain](https://github.com/joesdu/velashell-plugin-toolchain).
+> Paths such as `plugin-sdk/…`, `plugins/VelaShell.Plugin.…`, `tools/…`, `templates/…` and
+> `tests/VelaShell.Plugin.*.Tests` that appear on this page (and in blueprints 01–15) now
+> refer to that repository; this one keeps only `src/` (host implementation) and `tests/`
+> (host tests, with plugin fixtures under `tests/fixtures/`).
+> The conclusions and acceptance evidence are unaffected — only which repository the paths live in.
+
+> Updated: 2026-08-12. This page is the **single source of truth** for implementation progress: each blueprint area is listed as complete / partially complete / not started, with acceptance evidence (tests) and recommended next steps. To write a plugin, read [dev-guide.md](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs-en/dev-guide.md).
 
 ## I. Overall Status
 

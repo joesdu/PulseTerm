@@ -1,0 +1,33 @@
+<Project>
+	<!-- 必须显式导入上层的 Directory.Build.targets:本文件的存在会让 MSBuild 不再自动去找上一层,
+	     不导入就等于把根目录那条「禁止在 csproj 里写死 TargetFramework」的校验悄悄关掉了。 -->
+	<Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.targets', '$(MSBuildThisFileDirectory)../'))" />
+
+	<!--
+	  宿主与插件 SDK 的 Avalonia 版本一致性核对。
+
+	  插件在宿主进程里运行时,Avalonia* 一律被强制回落到**宿主**这一份
+	  (见 VelaShell.Infrastructure/Plugins 的 PluginAssemblyLoadContext);而插件是拿
+	  VelaShell.PluginSdk.Build 锁定的那个版本编译的。两者不是同一个版本时,现象是
+	  跨 ALC 的控件类型对不上 —— 而且要等到用户装上插件、点开面板那一刻才炸。
+
+	  拆库之前这个核对由工具链侧 XmlPeek 本仓库的 src/Directory.Packages.props 完成;
+	  两个仓库之后读不到对方的文件,于是反过来:工具链仓库是版本号的权威,
+	  VelaShell.PluginSdk 包在 buildTransitive 里导出 $(VelaSdkPinnedAvaloniaVersion),
+	  由这里核对。
+
+	  只在包引用路径上核对:设了 VelaSdkPath 走本地 ProjectReference 时,
+	  buildTransitive 的 props 不参与(那是 NuGet 的机制),这个属性自然为空,跳过即可 ——
+	  联调阶段两边本来就在一起改。
+	-->
+	<Target Name="VerifyAvaloniaMatchesSdk" BeforeTargets="Build"
+	        Condition="'$(VelaSdkPinnedAvaloniaVersion)' != ''">
+		<XmlPeek XmlInputPath="$(MSBuildThisFileDirectory)Directory.Packages.props"
+		         Query="/Project/ItemGroup/PackageVersion[@Include='Avalonia']/@Version">
+			<Output TaskParameter="Result" ItemName="_VelaHostAvaloniaVersion" />
+		</XmlPeek>
+		<Error Condition="'@(_VelaHostAvaloniaVersion)' != '$(VelaSdkPinnedAvaloniaVersion)'"
+		       Code="VELA1000"
+		       Text="Avalonia version pin drifted: the host references '@(_VelaHostAvaloniaVersion)' (src/Directory.Packages.props) but VelaShell.PluginSdk $(VelaSdkVersion) pins plugins to '$(VelaSdkPinnedAvaloniaVersion)'. Plugins would compile against a different Avalonia than this host loads. Update both repositories in the same release." />
+	</Target>
+</Project>

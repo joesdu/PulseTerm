@@ -202,9 +202,6 @@
   <data name="CopyFilePath" xml:space="preserve">
     <value>경로 복사</value>
   </data>
-  <data name="Custom" xml:space="preserve">
-    <value>사용자 지정</value>
-  </data>
   <data name="DefaultPort" xml:space="preserve">
     <value>기본 포트</value>
   </data>

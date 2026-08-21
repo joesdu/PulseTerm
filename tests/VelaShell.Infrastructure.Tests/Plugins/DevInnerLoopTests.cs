@@ -1,5 +1,5 @@
 using VelaShell.Infrastructure.Plugins;
-using VelaShell.Plugin.HelloWorld;
+using VelaShell.TestPlugin;
 using VelaShell.PluginSdk.Testing;
 
 namespace VelaShell.Infrastructure.Tests.Plugins;
@@ -45,14 +45,14 @@ public class DevInnerLoopTests
     private void WritePlugin(string version, string displayName)
     {
         Directory.CreateDirectory(_pluginDirectory);
-        string entry = Path.Combine(_pluginDirectory, "VelaShell.Plugin.HelloWorld.dll");
+        string entry = Path.Combine(_pluginDirectory, "VelaShell.TestPlugin.dll");
         if (!File.Exists(entry))
         {
-            File.Copy(typeof(HelloWorldPlugin).Assembly.Location, entry);
+            File.Copy(typeof(TestFixturePlugin).Assembly.Location, entry);
         }
         File.WriteAllText(Path.Combine(_pluginDirectory, "plugin.json"), $$"""
             { "id": "acme.inner-loop", "version": "{{version}}", "displayName": "{{displayName}}",
-              "hostMode": "inProcess", "entry": "VelaShell.Plugin.HelloWorld.dll" }
+              "hostMode": "inProcess", "entry": "VelaShell.TestPlugin.dll" }
             """);
     }
 
@@ -81,7 +81,7 @@ public class DevInnerLoopTests
 
         // 这一条才是影子拷贝存在的理由:插件运行期间,工程 bin 里的入口 dll 必须仍可覆盖/删除,
         // 否则 Windows 上根本无法在宿主开着的时候重新编译。
-        string sourceEntry = Path.Combine(_pluginDirectory, "VelaShell.Plugin.HelloWorld.dll");
+        string sourceEntry = Path.Combine(_pluginDirectory, "VelaShell.TestPlugin.dll");
         File.Delete(sourceEntry);
         Assert.IsFalse(File.Exists(sourceEntry), "运行中的插件不应锁住工程构建产物");
 

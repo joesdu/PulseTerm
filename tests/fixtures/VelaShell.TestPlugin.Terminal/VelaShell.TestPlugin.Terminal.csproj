@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>宿主终端协议链路用例的夹具:清单声明协议贡献 + 惰性激活,激活后注册成终端协议。非示例代码。</Description>
+    <RootNamespace>VelaShell.TestPlugin.Terminal</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 清单随构建进输出目录:用例把构建产物目录整个铺到临时插件根,读的就是这一份。 -->
+    <None Include="plugin.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="VelaShell.PluginSdk" Condition="'$(VelaSdkPath)' == ''"
+                      PrivateAssets="all" ExcludeAssets="runtime" />
+    <ProjectReference Include="$(VelaSdkProject)" Condition="'$(VelaSdkPath)' != ''"
+                      Private="false" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+</Project>

@@ -1,12 +1,26 @@
 # VelaShell 插件系统设计文档
 
-> 状态:**v1 简化版已实现**(2026-08:进程内 SDK + 仓库内插件,见
-> [dev-guide.md](dev-guide.md));编号 01–15 的文档保留为完整插件平台的
-> **长期设计蓝图**(进程隔离、权限系统、打包分发/商店等按需分期落地,
-> 分发系统已显式推迟)。实现过程中的任何决策变更都应回写到对应文档。
+> 📦 **仓库拆分注记(2026-08-21)**:插件 SDK、`dotnet new` 模板、`vela-plugin` CLI 与
+> 全部第一方插件已迁到
+> [joesdu/velashell-plugin-toolchain](https://github.com/joesdu/velashell-plugin-toolchain)。
+> 本页(以及 01–15 蓝图)里出现的 `plugin-sdk/…`、`plugins/VelaShell.Plugin.…`、
+> `tools/…`、`templates/…`、`tests/VelaShell.Plugin.*.Tests` 等路径,现在都指那个仓库;
+> 主仓库这边只剩 `src/`(宿主实现)与 `tests/`(宿主测试,插件夹具在 `tests/fixtures/`)。
+> 结论与验收证据本身不受影响,仅路径的仓库归属变了。
+
+> 状态:**v1 简化版已实现**(2026-08:双宿主模式 + 完整 Avalonia UI);编号 01–15 的
+> 文档保留为完整插件平台的**长期设计蓝图**(进程隔离、权限系统、打包分发/商店等
+> 按需分期落地,分发系统已显式推迟)。实现过程中的任何决策变更都应回写到对应文档。
 >
-> **写插件请直接读 [dev-guide.md](dev-guide.md)** —— 它描述当前真实可用的
-> API;蓝图文档中的接口形态(每插件一进程、Broker、.vpx 等)v1 并未实现。
+> ⚠️ **面向插件作者的四篇文档已随工具链搬走**(2026-08-21):
+> `dev-guide.md` / `cli.md` / `publishing.md` / `sdk-reference.md` 现在在
+> **[joesdu/velashell-plugin-toolchain](https://github.com/joesdu/velashell-plugin-toolchain/tree/main/docs)**,
+> 与 SDK、模板、CLI、第一方插件在同一个仓库里 —— 它们描述的是插件作者的世界,
+> 跟着代码走才不会漂。本目录留下的是**宿主侧**的设计蓝图。
+>
+> **写插件请直接读
+> [dev-guide.md](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/dev-guide.md)** ——
+> 它描述当前真实可用的 API;蓝图文档中的接口形态(每插件一进程、Broker 等)v1 并未实现。
 
 ## 一句话愿景
 
@@ -19,10 +33,10 @@
 
 | 文档 | 内容 | 读者 |
 | --- | --- | --- |
-| [dev-guide.md](dev-guide.md) | **开发指南(已实现)**:快速上手、清单、生命周期、能力 API、隔离模式、测试、部署、性能纪律 | 插件开发者(必读) |
-| [cli.md](cli.md) | **`vela-plugin` 手册**:开发内环(`dev init`)、体检(`doctor`)、校验/打包/签名、宿主启动参数 | 插件开发者 |
-| [publishing.md](publishing.md) | **打包与发布**:Release 构建、`.vpx`、签名与信任、发布到[插件商店](http://market.easilynet.top)、CI 出包 | 插件开发者 |
-| [sdk-reference.md](sdk-reference.md) | **SDK 参考**:包结构、入口契约、能力域一览、SDK 版本历史、测试替身、装载模型 | 插件开发者 |
+| [dev-guide.md](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/dev-guide.md) | **开发指南(已实现)**:快速上手、清单、生命周期、能力 API、隔离模式、测试、部署、性能纪律 | 插件开发者(必读) |
+| [cli.md](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/cli.md) | **`vela-plugin` 手册**:开发内环(`dev init`)、体检(`doctor`)、校验/打包/签名、宿主启动参数 | 插件开发者 |
+| [publishing.md](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/publishing.md) | **打包与发布**:Release 构建、`.vpx`、签名与信任、发布到[插件商店](http://market.easilynet.top)、CI 出包 | 插件开发者 |
+| [sdk-reference.md](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/sdk-reference.md) | **SDK 参考**:包结构、入口契约、能力域一览、SDK 版本历史、测试替身、装载模型 | 插件开发者 |
 | [STATUS.md](STATUS.md) | **进度总览(单一权威)**:分项完成度、验收证据、刻意决策、下一步建议 | 所有人 |
 | [01-vision-and-goals.md](01-vision-and-goals.md) | 愿景、目标/非目标、典型场景、与 VSCode 等系统的对比 | 所有人 |
 | [02-architecture.md](02-architecture.md) | 总体架构、进程模型、组件划分、工程目录规划、关键决策记录 | 所有人 |
@@ -62,8 +76,8 @@
 
 ## 阅读顺序建议
 
-- **写插件**:[dev-guide.md](dev-guide.md)(现状唯一权威)→ 手边备着
-  [cli.md](cli.md) 与 [sdk-reference.md](sdk-reference.md);要发布时读 [publishing.md](publishing.md)。
+- **写插件**:[dev-guide.md](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/dev-guide.md)(现状唯一权威)→ 手边备着
+  [cli.md](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/cli.md) 与 [sdk-reference.md](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/sdk-reference.md);要发布时读 [publishing.md](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/publishing.md)。
 - **了解进度**:[STATUS.md](STATUS.md)。
 - **研究长期设计**:01 → 02 → 12(信任模型)→ 03 → 06 → 07,其余按需;
   注意各篇顶部的"实现注记"标注了现状与蓝图的偏离。

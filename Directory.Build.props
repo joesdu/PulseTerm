@@ -22,19 +22,41 @@
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
+  <!--
+    ============================ 插件工具链的两个 pin ============================
+    插件 SDK、模板、vela-plugin CLI 与全部第一方插件已于 2026-08-21 拆到独立仓库
+    https://github.com/joesdu/velashell-plugin-toolchain
+    本仓库只剩主程序,通过下面两个版本号消费它。
+
+    发布顺序是**先工具链、后主程序**:工具链发 Release → 五个包上 nuget.org、
+    插件分发包挂到该 Release → 回到这里把两个 pin 抬上去。
+  -->
   <PropertyGroup>
-    <!-- 插件 SDK 系列包(VelaShell.PluginSdk / .Testing / .Build、VelaShell.Plugin.Cli、
-         VelaShell.Plugin.Templates)的版本。**与宿主版本解耦**:宿主发 1.2.3 不代表插件
-         契约变了,插件作者也不该为了跟版本号而重新编译。CI 发包时用 -p:VelaSdkVersion= 覆盖。 -->
+    <!-- 契约程序集(VelaShell.PluginSdk / .Testing)的包版本。**与宿主版本解耦**:
+         宿主发 1.2.3 不代表插件契约变了,插件作者也不该为了跟版本号而重新编译。 -->
     <VelaSdkVersion Condition="'$(VelaSdkVersion)' == ''">1.4.0</VelaSdkVersion>
-    <!-- 去掉预发布后缀的数字版(AssemblyVersion/FileVersion 不接受后缀)与主版本号。 -->
-    <VelaSdkVersionCore>$([System.Text.RegularExpressions.Regex]::Replace($(VelaSdkVersion), '-.*$', ''))</VelaSdkVersionCore>
-    <VelaSdkMajor>$([System.Text.RegularExpressions.Regex]::Replace($(VelaSdkVersionCore), '\..*$', ''))</VelaSdkMajor>
-    <!-- 插件与宿主必须用同一版本的 Avalonia:装载器强制让 Avalonia* 回落到宿主那一套
-         (见 PluginAssemblyLoadContext),版本不一致时表现为跨 ALC 的控件类型对不上。
-         这个值是插件 SDK 包对外锁定的版本,须与 src/Directory.Packages.props 保持一致
-         (VelaShell.PluginSdk.Build 的 VerifyAvaloniaVersionPin 目标会在构建期核对)。 -->
-    <VelaAvaloniaVersion>12.1.1</VelaAvaloniaVersion>
+
+    <!-- 随安装包分发的第一方插件(AI / Redis / S3 / Telnet)所在的工具链 Release 标签,
+         去掉前导 v。发布流水线据此下载
+         releases/download/v$(VelaPluginsBundleVersion)/velashell-plugins-$(VelaPluginsBundleVersion).zip
+         解进发布目录的 plugins/。通常与 VelaSdkVersion 同版(同一次 Release 出的),
+         分成两个属性是因为它们回答的是不同问题:一个是"编译期绑哪个契约",
+         一个是"发行包里装哪一批插件"。 -->
+    <VelaPluginsBundleVersion Condition="'$(VelaPluginsBundleVersion)' == ''">$(VelaSdkVersion)</VelaPluginsBundleVersion>
+
+    <!--
+      联调逃生口。设了它就把上面那个 NuGet 包引用换成对本机工具链仓库的 ProjectReference,
+      改契约不必先发一个 preview 包。三种设法(任选其一):
+        · 环境变量 VELASHELL_SDK_PATH=G:\velashell-plugin-toolchain
+        · 命令行 -p:VelaSdkPath=G:\velashell-plugin-toolchain
+        · 本地 Directory.Build.props.user 之类的私有文件(别提交)
+      留空(默认)= 走 nuget.org 上的正式包,这是 CI 与日常开发的路径。
+      注意:切成 ProjectReference 时 SDK 是**未签名**的 Debug 产物,
+      因此这条路径只适用于 Debug;Release 仍应走签名过的正式包。
+    -->
+    <VelaSdkPath Condition="'$(VelaSdkPath)' == ''">$(VELASHELL_SDK_PATH)</VelaSdkPath>
+    <VelaSdkProject>$(VelaSdkPath)\plugin-sdk\VelaShell.PluginSdk\VelaShell.PluginSdk.csproj</VelaSdkProject>
+    <VelaSdkTestingProject>$(VelaSdkPath)\plugin-sdk\VelaShell.PluginSdk.Testing\VelaShell.PluginSdk.Testing.csproj</VelaSdkTestingProject>
   </PropertyGroup>
 
   <PropertyGroup>

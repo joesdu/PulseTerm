@@ -202,9 +202,6 @@
   <data name="CopyFilePath" xml:space="preserve">
     <value>複製路徑</value>
   </data>
-  <data name="Custom" xml:space="preserve">
-    <value>自訂</value>
-  </data>
   <data name="DefaultPort" xml:space="preserve">
     <value>預設連接埠</value>
   </data>

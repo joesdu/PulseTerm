@@ -81,32 +81,55 @@
     <ProjectReference Include="..\VelaShell.Infrastructure\VelaShell.Infrastructure.csproj" />
     <!-- 隔离插件的宿主进程:随应用分发(exe/deps/runtimeconfig 一并进输出目录)。 -->
     <ProjectReference Include="..\VelaShell.PluginHost\VelaShell.PluginHost.csproj" />
-    <!-- 仓库内插件:只建立构建顺序,不引用程序集 —— 保证 F5 时插件(含 plugin.json)
-         总是重新构建并镜像进本项目输出的 plugins/ 目录。改了 manifest 或插件代码
-         不再需要手动先构建插件项目(踩过:输出里留着旧 isolated 清单,Tab 模式"失灵")。
-         UndefineProperties:发布命令行上的 -r / -p:SelfContained / -p:PublishSingleFile 是
-         全局属性,默认会顺着引用流进插件项目,把插件也当成"自带运行时的单文件应用"来构建
-         (输出目录多出一整套运行时,还会跟着 RID 分叉到 bin/<cfg>/net11.0/<rid>/,
-         与下面按 TargetDir 取件的约定对不上)。插件由宿主的 ALC 装载,天然是框架依赖、
-         RID 无关的类库,这里显式把这些属性摘掉,让本机构建与发布构建落在同一个输出目录。 -->
-    <ProjectReference Include="..\..\plugins\*\*.csproj" ReferenceOutputAssembly="false" Private="false"
-                      UndefineProperties="RuntimeIdentifier;SelfContained;PublishSingleFile;PublishTrimmed;PublishReadyToRun;PublishAot" />
   </ItemGroup>
+
+  <!--
+    ======================== 第一方插件从哪里来 ========================
+    2026-08-21 之前:插件工程就在本仓库的 plugins/ 下,这里对 plugins/*/*.csproj 建一个
+    纯构建顺序引用,F5 时插件自动重建并镜像进本项目 bin/ 的 plugins/。
+
+    现在:插件随工具链搬去了 joesdu/velashell-plugin-toolchain,以 **Release 资产**
+    velashell-plugins-<版本>.zip 的形式交付,包内布局就是安装包 plugins/ 那一层。
+    本仓库按根 Directory.Build.props 的 VelaPluginsBundleVersion 取那一版,解到
+    artifacts/plugins/ 作为暂存目录,构建与发布都从这里取件。
+
+    暂存目录怎么来:
+      · 日常:pwsh scripts/Fetch-Plugins.ps1      —— 按 pin 的版本下载并校验 sha256
+      · 联调:pwsh scripts/Fetch-Plugins.ps1 -FromToolchain <工具链仓库路径>
+              —— 就地构建那边的插件,不走网络
+      · CI:  发布流水线在 publish 之前跑同一个脚本(见 .github/workflows/release.yml)
+    也可以用 -p:VelaPluginsStageDir=<目录> 直接指别处。
+  -->
+  <PropertyGroup>
+    <VelaPluginsStageDir Condition="'$(VelaPluginsStageDir)' == ''">$(MSBuildThisFileDirectory)..\..\artifacts\plugins</VelaPluginsStageDir>
+  </PropertyGroup>
+
+  <!-- 开发内环:把暂存目录镜像进本项目输出的 plugins/,F5 即可装载。
+       暂存目录不存在就静默跳过 —— 没取过插件的干净克隆照样能构建、能跑,
+       只是启动后一个插件都没有。发布路径不接受这种情况,见 AddVelaPluginsToPublish。 -->
+  <Target Name="CopyVelaPluginsToOutput" AfterTargets="Build" Condition="Exists('$(VelaPluginsStageDir)')">
+    <ItemGroup>
+      <_VelaStagedPluginFile Include="$(VelaPluginsStageDir)\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_VelaStagedPluginFile)"
+          DestinationFiles="@(_VelaStagedPluginFile->'$(OutDir)plugins\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
 
   <!--
     发布期把"随应用分发"的插件放进安装包的 plugins/<目录名>/ —— 运行时的插件发现根之一
     (另一个是用户手动安装目录 ~/.velashell/plugins/,见 PluginServiceCollectionExtensions)。
 
-    为什么必须显式做这件事:上面的 ProjectReference 只建立构建顺序,插件产物是被
-    plugins/Directory.Build.targets 镜像进本项目 bin/ 的;而 publish 只收
-    ResolvedFileToPublish 里登记过的文件,不扫 bin 目录 —— 不登记,发行包里就一个插件都没有。
+    为什么必须显式做这件事:publish 只收 ResolvedFileToPublish 里登记过的文件,不扫 bin
+    目录 —— 不登记,发行包里就一个插件都没有(上面的 CopyVelaPluginsToOutput 只管 F5)。
 
     走 ResolvedFileToPublish 而不是 AfterTargets="Publish" 手工拷贝:让 -o / 增量 /
     各 RID 布局都由 SDK 统一处理。ExcludeFromSingleFile 是道保险 —— 当前发布形态已不用
     单文件(见上面 Release 的 PropertyGroup),但插件 dll 必须以磁盘上的真实文件形态存在
     (ALC 要按 deps.json 解析装载),万一哪天有人重新打开单文件,这行能挡住它们被卷进 bundle。
 
-    哪些插件进包由各插件的 <VelaPluginShip> 决定(示例插件 velashell.hello-world 设了 false)。
+    哪些插件进包不再由本仓库决定 —— 分发包里有什么就装什么。那一头由工具链仓库各插件的
+    <VelaPluginShip> 把关(示例插件 velashell.hello-world 设了 false,不进包)。
 
     **必须 AfterTargets 而非 BeforeTargets**(#181,1.2.2 全平台发行包踩过):
     ComputeResolvedFilesToPublishList 的正文里会跑 ResolveOverlappingItemGroupConflicts,
@@ -122,22 +145,15 @@
   -->
   <Target Name="AddVelaPluginsToPublish" AfterTargets="ComputeResolvedFilesToPublishList">
     <ItemGroup>
-      <_VelaPluginProject Include="$(MSBuildThisFileDirectory)..\..\plugins\*\*.csproj" />
+      <_VelaPluginPayload Include="$(VelaPluginsStageDir)\**\*" />
     </ItemGroup>
-    <MSBuild Projects="@(_VelaPluginProject)"
-             Targets="GetVelaPluginPayload"
-             Properties="Configuration=$(Configuration)"
-             RemoveProperties="RuntimeIdentifier;SelfContained;PublishSingleFile;PublishTrimmed;PublishReadyToRun;PublishAot;PublishDir">
-      <Output TaskParameter="TargetOutputs" ItemName="_VelaPluginPayload" />
-    </MSBuild>
-    <!-- 一个可发行插件都没收到,基本只有两种可能:通配符没匹配到项目,或者谁把
-         VelaPluginShip 全关了。两种都会悄无声息地发出一个"插件系统看着在、实则没插件"的包,
-         宁可在这里断掉发布。 -->
+    <!-- 暂存目录空了会悄无声息地发出一个"插件系统看着在、实则没插件"的包,
+         宁可在这里断掉发布。发布路径不像构建路径那样容忍缺插件。 -->
     <Error Condition="'@(_VelaPluginPayload)' == ''"
-           Text="发布产物里没有任何插件:请检查 plugins/ 下是否有 &lt;VelaPluginShip&gt;true&lt;/VelaPluginShip&gt; 的插件项目。" />
+           Text="发布产物里没有任何插件:插件暂存目录 '$(VelaPluginsStageDir)' 是空的或不存在。先跑 `pwsh scripts/Fetch-Plugins.ps1` 取回 pin 的那一版($(VelaPluginsBundleVersion)),或用 -p:VelaPluginsStageDir= 指到别处。" />
     <ItemGroup>
       <ResolvedFileToPublish Include="@(_VelaPluginPayload)">
-        <RelativePath>plugins\%(_VelaPluginPayload.VelaPluginRelativePath)</RelativePath>
+        <RelativePath>plugins\%(_VelaPluginPayload.RecursiveDir)%(_VelaPluginPayload.Filename)%(_VelaPluginPayload.Extension)</RelativePath>
         <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
         <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
       </ResolvedFileToPublish>

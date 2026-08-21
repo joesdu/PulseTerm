@@ -94,7 +94,7 @@ Together, VelaShell means **"a terminal as your sail, riding the signal winds to
   Plugins reach host functionality through `IPluginContext`: `Sessions` (enumerate/observe sessions), `Terminal` (read output, write input), `RemoteFs` (remote file read/write and directory listing), `RemoteExec` (run remote commands), `Storage` and `TimeSeries` (per-plugin private document and time-series storage), `Secrets` (host-encrypted secrets), `Commands` (register commands and entry points), `Events` (session/locale/theme events), `Ui` (panels as docked documents or standalone windows), `Clipboard` and `Log`. Dangerous capabilities are granted one by one through a permission dialog.
 
 - **Packaging and management**  
-  Plugins ship as `.vpx` packages and can be installed, enabled, disabled and uninstalled from a dedicated plugin manager window; uninstalling also purges the plugin's private data (its SonnetDB namespace and data directory). The SDK ships test doubles (`VelaShell.PluginSdk.Testing`) so plugins can be tested headlessly. Third-party developers get a debugger in one command (`vela-plugin dev init` → F5); see the [dev guide](docs-en/plugins/dev-guide.md), [CLI manual](docs-en/plugins/cli.md), [SDK reference](docs-en/plugins/sdk-reference.md) and [packaging and publishing](docs-en/plugins/publishing.md); marketplace: <http://market.easilynet.top>. Full blueprint in [`docs-en/plugins/`](docs-en/plugins/) (15 design documents + a [status overview](docs-en/plugins/STATUS.md)).
+  Plugins ship as `.vpx` packages and can be installed, enabled, disabled and uninstalled from a dedicated plugin manager window; uninstalling also purges the plugin's private data (its SonnetDB namespace and data directory). The SDK ships test doubles (`VelaShell.PluginSdk.Testing`) so plugins can be tested headlessly. Third-party developers get a debugger in one command (`vela-plugin dev init` → F5); see the [dev guide](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs-en/dev-guide.md), [CLI manual](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs-en/cli.md), [SDK reference](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs-en/sdk-reference.md) and [packaging and publishing](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs-en/publishing.md); marketplace: <http://market.easilynet.top>. Full blueprint in [`docs-en/plugins/`](docs-en/plugins/) (15 design documents + a [status overview](docs-en/plugins/STATUS.md)).
 
 - **AI assistant plugin (first-party)**  
   Multi-provider streaming chat across three wire protocols — OpenAI Responses, OpenAI Chat Completions-compatible and Anthropic Messages — covering OpenAI, Grok, Ollama and relay endpoints, with your own base URL and API key (keys go into the host's encrypted secret store). **Agent mode** runs a Microsoft.Extensions.AI `FunctionInvokingChatClient` tool loop bridged to sessions / terminal / remoteExec / remoteFs, with per-command approval for dangerous operations, and can attach custom **MCP servers** (stdio / HTTP) for extra tools. Conversations are persisted to the plugin's private time-series store: browse history, resume a conversation, delete one or clear all; `↑`/`↓` recalls previous prompts and `@` opens a remote file picker for the selected session, attaching file contents to the message. The composer itself is an editor with **Markdown highlighting**, where `@` references render as themed short-name chips (full path on hover), and message bubbles are rendered as Markdown.
@@ -151,14 +151,17 @@ Releases are **self-contained**, so no .NET runtime is required on the target ma
 git clone https://github.com/joesdu/VelaShell
 cd VelaShell
 
-# Build the whole solution (including plugins and the plugin host)
+# Fetch the first-party plugins that ship with the app (AI / Redis / S3 / Telnet), from the toolchain repo's Release
+pwsh scripts/Fetch-Plugins.ps1
+
+# Build the whole solution (including the plugin host)
 dotnet build
 
 # Or just the desktop entry project
 dotnet build src/VelaShell/VelaShell.csproj
 ```
 
-> Plugin projects mirror their output into `plugins/<plugin-dir>/` under the app's output directory after each build, so F5 always picks up the latest plugin. **Building while the app is running fails on locked files** — close the app first.
+> The fetched plugins land in `artifacts/plugins/` and are mirrored into `plugins/<plugin-dir>/` under the app's output directory on every build, so F5 always picks up the latest. Skipping the fetch still builds and runs — the app just starts with no plugins installed; `dotnet publish`, however, fails outright, because a release package with no plugins is not an acceptable shape. **Building while the app is running fails on locked files** — close the app first.
 
 ### Run
 
@@ -226,15 +229,11 @@ VelaShell/
 │   ├── VelaShell.Infrastructure/   # SSH/SFTP/FTP/tunnels, SonnetDB persistence, AES-256 credential encryption,
 │   │                               # Gist sync, plugin management and capability implementations
 │   └── VelaShell.PluginHost/       # Host process for isolated plugins (named-pipe RPC, SDK contract only)
-├── plugin-sdk/
-│   ├── VelaShell.PluginSdk/        # Plugin contracts and capability interfaces (the one assembly host and plugin share)
-│   └── VelaShell.PluginSdk.Testing/# Test doubles (fake sessions / fake remote FS / fake context)
-├── plugins/
-│   ├── VelaShell.Plugin.Ai/        # First-party AI assistant plugin (multi-provider + agent + MCP)
-│   └── VelaShell.Plugin.HelloWorld/# Sample plugin running in isolated mode
-├── tests/                          # 7 MSTest projects: unit, integration, UI and smoke tests
+├── tests/                          # 6 MSTest projects: unit, integration, UI and smoke tests
+│   └── fixtures/                   # Fixture plugins for the plugin-runtime tests (not sample code; see its README)
 ├── docs/                           # Architecture, UI specs, settings audit, plugin blueprint, interaction notes
 ├── scripts/publish-all.ps1         # One-shot cross-platform publish script
+├── scripts/Fetch-Plugins.ps1       # Fetches the first-party plugins that ship with the app (see below)
 ├── docker-compose.test.yml         # Local SSH test server
 ├── global.json                     # SDK version pin
 ├── Directory.Build.props           # Repo-wide version and shared MSBuild properties
@@ -243,6 +242,37 @@ VelaShell/
 ```
 
 > Every source and test project has its own `README.md` describing its architecture, directory responsibilities and dependencies. The entry project is named `VelaShell` (`VelaShell.App` in older docs is a stale alias).
+
+### 🧩 The plugin toolchain lives in another repository
+
+The plugin SDK, `dotnet new` templates, the `vela-plugin` CLI and all first-party plugins
+(AI / Redis / S3 / Telnet plus the HelloWorld sample) were split out on 2026-08-21 into
+**[joesdu/velashell-plugin-toolchain](https://github.com/joesdu/velashell-plugin-toolchain)**.
+This repository keeps only the main application and consumes the toolchain in two ways:
+
+| How it is consumed | Where it is pinned |
+| --- | --- |
+| `VelaShell.PluginSdk` / `.Testing` NuGet packages (compile-time contract) | `VelaSdkVersion` in `Directory.Build.props` |
+| `velashell-plugins-<version>.zip` release asset (the plugins that ship with the app) | `VelaPluginsBundleVersion` in `Directory.Build.props` |
+
+After cloning, fetch the plugins once — otherwise the app starts with the plugin system
+present but not a single plugin installed:
+
+```powershell
+pwsh scripts/Fetch-Plugins.ps1
+```
+
+To work on a plugin or on the SDK contract, clone the toolchain repository too and point this
+one at it; project references replace the package references, so you do not need to publish first:
+
+```powershell
+$env:VELASHELL_SDK_PATH = 'G:\velashell-plugin-toolchain'
+pwsh scripts/Fetch-Plugins.ps1 -FromToolchain $env:VELASHELL_SDK_PATH
+```
+
+**To write a plugin, read the toolchain repository's
+[`docs-en/dev-guide.md`](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs-en/dev-guide.md)**;
+what remains under `docs-en/plugins/` here is the host-side architecture blueprint.
 
 ---
 
@@ -297,7 +327,7 @@ English translations of the design documents are linked below; the Chinese origi
 
 - [`docs-en/architecture.md`](docs-en/architecture.md) — layering, dependency direction and the SonnetDB persistence strategy
 - [`docs-en/architecture-design.md`](docs-en/architecture-design.md) — engineering refactor blueprint
-- [`docs-en/plugins/`](docs-en/plugins/) — 15-part plugin blueprint + [dev guide](docs-en/plugins/dev-guide.md) + [CLI manual](docs-en/plugins/cli.md) + [SDK reference](docs-en/plugins/sdk-reference.md) + [packaging and publishing](docs-en/plugins/publishing.md) + [status overview](docs-en/plugins/STATUS.md)
+- [`docs-en/plugins/`](docs-en/plugins/) — 15-part plugin blueprint + [dev guide](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs-en/dev-guide.md) + [CLI manual](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs-en/cli.md) + [SDK reference](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs-en/sdk-reference.md) + [packaging and publishing](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs-en/publishing.md) + [status overview](docs-en/plugins/STATUS.md)
 - [`docs-en/dock-replacement-plan.md`](docs-en/dock-replacement-plan.md) — replacing Dock.Avalonia with VelaDock
 - [`docs-en/design-specs.md`](docs-en/design-specs.md) — UI visual specs (extracted frame by frame from Pencil)
 - [`DESIGN.md`](DESIGN.md) — design system: colour/type/spacing tokens and component rules
@@ -348,7 +378,7 @@ The full completion matrix and backlog live in [`plan.md`](plan.md) §10–§12 
 
 ## 🤝 Contributing
 
-Issues and pull requests are welcome. Before contributing, read [`docs-en/architecture.md`](docs-en/architecture.md) for the layering conventions and dependency direction; if you are writing a plugin, start with [`docs-en/plugins/dev-guide.md`](docs-en/plugins/dev-guide.md).
+Issues and pull requests are welcome. Before contributing, read [`docs-en/architecture.md`](docs-en/architecture.md) for the layering conventions and dependency direction; if you are writing a plugin, start with the [plugin development guide](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs-en/dev-guide.md).
 
 ---
 

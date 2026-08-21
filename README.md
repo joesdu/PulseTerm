@@ -94,7 +94,7 @@ VelaShell 是一个使用 .NET 11 与 Avalonia 构建的桌面终端应用，支
   插件经 `IPluginContext` 访问宿主能力：`Sessions`（会话枚举/状态）、`Terminal`（读输出/写输入）、`RemoteFs`（远端文件读写与目录列举）、`RemoteExec`（远端命令执行）、`Storage` 与 `TimeSeries`（插件私有的文档与时序存储）、`Secrets`（经宿主加密的机密）、`Commands`（注册命令与快捷入口）、`Events`（会话/语言/主题事件）、`Ui`（面板：停靠文档或独立窗口）、`Clipboard`、`Log`。危险能力经权限对话框逐项授权。
 
 - **打包与管理**  
-  插件以 `.vpx` 包分发，独立的插件管理窗口可安装/启停/卸载；卸载时其私有数据（SonnetDB 命名空间与数据目录）一并清理。SDK 另提供测试替身（`VelaShell.PluginSdk.Testing`），插件可在 headless 下自测。第三方开发者一条命令即可断点调试（`vela-plugin dev init` → F5），详见 [开发指南](docs/plugins/dev-guide.md)、[命令行手册](docs/plugins/cli.md)、[SDK 参考](docs/plugins/sdk-reference.md)与[打包发布](docs/plugins/publishing.md)；插件商店：<http://market.easilynet.top>。完整蓝图见 [`docs/plugins/`](docs/plugins/)（15 篇设计 + [进度总览](docs/plugins/STATUS.md)）。
+  插件以 `.vpx` 包分发，独立的插件管理窗口可安装/启停/卸载；卸载时其私有数据（SonnetDB 命名空间与数据目录）一并清理。SDK 另提供测试替身（`VelaShell.PluginSdk.Testing`），插件可在 headless 下自测。第三方开发者一条命令即可断点调试（`vela-plugin dev init` → F5），详见 [开发指南](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/dev-guide.md)、[命令行手册](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/cli.md)、[SDK 参考](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/sdk-reference.md)与[打包发布](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/publishing.md)；插件商店：<http://market.easilynet.top>。完整蓝图见 [`docs/plugins/`](docs/plugins/)（15 篇设计 + [进度总览](docs/plugins/STATUS.md)）。
 
 - **AI 助手插件（第一方）**  
   多提供商流式对话：OpenAI Responses / OpenAI Chat Completions 兼容 / Anthropic Messages 三种线协议，覆盖 OpenAI、Grok、Ollama 与各类中转站，Base URL 与 API Key 自填（Key 走宿主加密机密存储）。**Agent 模式**基于 Microsoft.Extensions.AI 的 `FunctionInvokingChatClient` 工具循环，工具桥接到 sessions / terminal / remoteExec / remoteFs，危险操作面板内逐条审批；可挂接自定义 **MCP 服务器**（stdio / HTTP）扩展工具集。对话落插件私有时序库，历史可翻回、可续聊、可删除；输入框 ↑↓ 调历史，`@` 唤出所选会话的远端文件选择器，发送时把文件内容随消息附给模型。输入框本身是带 **Markdown 着色**的编辑器，`@` 引用显示为主题色短名芯片（悬停给全路径），消息气泡按 Markdown 渲染。
@@ -151,14 +151,17 @@ VelaShell 是一个使用 .NET 11 与 Avalonia 构建的桌面终端应用，支
 git clone https://github.com/joesdu/VelaShell
 cd VelaShell
 
-# 构建整个解决方案（含插件与插件宿主）
+# 取回随包分发的第一方插件（AI / Redis / S3 / Telnet，来自插件工具链仓库的 Release）
+pwsh scripts/Fetch-Plugins.ps1
+
+# 构建整个解决方案（含插件宿主）
 dotnet build
 
 # 或直接构建桌面应用入口项目
 dotnet build src/VelaShell/VelaShell.csproj
 ```
 
-> 插件项目构建后会自动镜像到应用输出目录的 `plugins/<插件目录名>/`，F5 即可加载到最新插件。**应用正在运行时构建会因文件占用失败**，先关掉应用。
+> 取回的插件落在 `artifacts/plugins/`，构建时自动镜像到应用输出目录的 `plugins/<插件目录名>/`，F5 即可加载。不跑这一步照样能构建能跑，只是启动后一个插件都没有；`dotnet publish` 则会直接失败——发行包不接受没插件的形态。**应用正在运行时构建会因文件占用失败**，先关掉应用。
 
 ### 运行
 
@@ -226,15 +229,11 @@ VelaShell/
 │   ├── VelaShell.Infrastructure/   # SSH/SFTP/FTP/隧道实现、SonnetDB 持久化、AES-256 凭据加密、
 │   │                               # Gist 同步、插件管理与能力实现
 │   └── VelaShell.PluginHost/       # 隔离插件的宿主进程（命名管道 RPC，只依赖 SDK 契约）
-├── plugin-sdk/
-│   ├── VelaShell.PluginSdk/        # 插件契约与能力接口（宿主与插件共享的唯一程序集）
-│   └── VelaShell.PluginSdk.Testing/# 测试替身（假会话/假远端文件系统/假上下文）
-├── plugins/
-│   ├── VelaShell.Plugin.Ai/        # 第一方 AI 助手插件（多提供商 + Agent + MCP）
-│   └── VelaShell.Plugin.HelloWorld/# 隔离模式示例插件
-├── tests/                          # 7 个 MSTest 项目：单元、集成、UI 与冒烟测试
+├── tests/                          # 6 个 MSTest 项目：单元、集成、UI 与冒烟测试
+│   └── fixtures/                   # 插件运行时用例的夹具插件（非示例代码，见其 README）
 ├── docs/                           # 架构设计、UI 规格、设置审计、插件蓝图与交互说明
 ├── scripts/publish-all.ps1         # 跨平台一键发布脚本
+├── scripts/Fetch-Plugins.ps1       # 取回随包分发的第一方插件（见下方「插件工具链」）
 ├── docker-compose.test.yml         # 本地 SSH 测试服务器
 ├── global.json                     # SDK 版本锁定
 ├── Directory.Build.props           # 全仓版本与公共 MSBuild 属性
@@ -243,6 +242,35 @@ VelaShell/
 ```
 
 > 每个源项目与测试项目均带有独立 `README.md`，说明该项目的架构、目录职责与依赖关系。入口项目实际名为 `VelaShell`（历史文档中的 `VelaShell.App` 为旧别名）。
+
+### 🧩 插件工具链在另一个仓库
+
+插件 SDK、`dotnet new` 模板、`vela-plugin` 命令行与全部第一方插件（AI / Redis / S3 / Telnet
+与 HelloWorld 示例）已于 2026-08-21 拆到
+**[joesdu/velashell-plugin-toolchain](https://github.com/joesdu/velashell-plugin-toolchain)**。
+本仓库只保留主程序，通过两样东西消费它：
+
+| 消费方式 | pin 在哪 |
+| --- | --- |
+| `VelaShell.PluginSdk` / `.Testing` NuGet 包（编译期契约） | `Directory.Build.props` 的 `VelaSdkVersion` |
+| `velashell-plugins-<版本>.zip` Release 资产（随包分发的插件） | `Directory.Build.props` 的 `VelaPluginsBundleVersion` |
+
+克隆之后先取一次插件，否则启动起来是"插件系统在、一个插件都没有"：
+
+```powershell
+pwsh scripts/Fetch-Plugins.ps1
+```
+
+要改插件或 SDK 契约，把工具链仓库也克隆下来，指给本仓库即可切成本地工程引用、无需先发包：
+
+```powershell
+$env:VELASHELL_SDK_PATH = 'G:\velashell-plugin-toolchain'
+pwsh scripts/Fetch-Plugins.ps1 -FromToolchain $env:VELASHELL_SDK_PATH
+```
+
+**写插件请直接读工具链仓库的
+[`docs/dev-guide.md`](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/dev-guide.md)**；
+本仓库 `docs/plugins/` 下保留的是宿主侧的架构蓝图。
 
 ---
 
@@ -262,7 +290,7 @@ VelaShell/
 
 ## 🧪 测试
 
-项目包含覆盖核心模型、VT 引擎、ViewModel、插件系统与集成场景的 MSTest 测试套件（7 个测试项目，含真实双进程插件 e2e 与 headless UI 测试）。
+项目包含覆盖核心模型、VT 引擎、ViewModel、插件系统与集成场景的 MSTest 测试套件（6 个测试项目，含真实双进程插件 e2e 与 headless UI 测试）。
 
 ```bash
 # 运行全部测试
@@ -295,7 +323,7 @@ dotnet test --logger "console;verbosity=detailed"
 
 - [`docs/architecture.md`](docs/architecture.md) — 分层架构、依赖方向与 SonnetDB 持久化策略
 - [`docs/架构设计.md`](docs/架构设计.md) — 工程化重构蓝图
-- [`docs/plugins/`](docs/plugins/) — 插件系统蓝图 15 篇 + [开发指南](docs/plugins/dev-guide.md) + [命令行手册](docs/plugins/cli.md) + [SDK 参考](docs/plugins/sdk-reference.md) + [打包发布](docs/plugins/publishing.md) + [进度总览](docs/plugins/STATUS.md)
+- [`docs/plugins/`](docs/plugins/) — 插件系统蓝图 15 篇 + [开发指南](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/dev-guide.md) + [命令行手册](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/cli.md) + [SDK 参考](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/sdk-reference.md) + [打包发布](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/publishing.md) + [进度总览](docs/plugins/STATUS.md)
 - [`docs/dock-replacement-plan.md`](docs/dock-replacement-plan.md) — VelaDock 自研替换方案
 - [`docs/design-specs.md`](docs/design-specs.md) — UI 视觉规格（Pencil 逐帧提取）
 - [`DESIGN.md`](DESIGN.md) — 设计系统：色彩/字体/间距令牌与组件规范
@@ -347,7 +375,7 @@ dotnet test --logger "console;verbosity=detailed"
 
 ## 🤝 贡献
 
-欢迎提交 Issue 与 Pull Request。在贡献前，建议先阅读 [`docs/architecture.md`](docs/architecture.md) 了解项目的分层约定与依赖方向；写插件请读 [`docs/plugins/dev-guide.md`](docs/plugins/dev-guide.md)。
+欢迎提交 Issue 与 Pull Request。在贡献前，建议先阅读 [`docs/architecture.md`](docs/architecture.md) 了解项目的分层约定与依赖方向；写插件请读 [插件开发指南](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/dev-guide.md)。
 
 ---
 

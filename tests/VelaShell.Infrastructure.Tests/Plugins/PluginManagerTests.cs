@@ -1,6 +1,6 @@
 using VelaShell.PluginSdk;
 using VelaShell.Infrastructure.Plugins;
-using VelaShell.Plugin.HelloWorld;
+using VelaShell.TestPlugin;
 
 namespace VelaShell.Infrastructure.Tests.Plugins;
 
@@ -124,22 +124,22 @@ public class PluginManagerTests
     [TestMethod]
     public async Task StartAsync_ActivatesRealPluginEndToEnd_AndDeactivatesOnDispose()
     {
-        // 用真实的 HelloWorld 示例程序集端到端验证:可收集 ALC 装载、入口发现、
+        // 用真实的夹具插件程序集端到端验证:可收集 ALC 装载、入口发现、
         // 激活(能力缺席时退化实现)、存储落盘、停用。
         string pluginDir = Path.Combine(_root, "hello");
         Directory.CreateDirectory(pluginDir);
-        string source = typeof(HelloWorldPlugin).Assembly.Location;
-        File.Copy(source, Path.Combine(pluginDir, "VelaShell.Plugin.HelloWorld.dll"));
+        string source = typeof(TestFixturePlugin).Assembly.Location;
+        File.Copy(source, Path.Combine(pluginDir, "VelaShell.TestPlugin.dll"));
         File.WriteAllText(Path.Combine(pluginDir, "plugin.json"), """
-            { "id": "velashell.hello-world", "version": "0.1.0", "displayName": "Hello",
-              "entry": "VelaShell.Plugin.HelloWorld.dll" }
+            { "id": "velashell.test-fixture", "version": "0.1.0", "displayName": "Test Fixture",
+              "entry": "VelaShell.TestPlugin.dll" }
             """);
 
         var manager = new PluginManager(Options());
         await manager.StartAsync();
         PluginDescriptor descriptor = manager.Plugins.Single();
         Assert.AreEqual(PluginState.Active, descriptor.State, descriptor.Error);
-        Assert.IsTrue(File.Exists(Path.Combine(_dataRoot, "velashell.hello-world", "storage.json")),
+        Assert.IsTrue(File.Exists(Path.Combine(_dataRoot, "velashell.test-fixture", "storage.json")),
             "激活应把激活计数写入插件存储");
 
         await manager.DisposeAsync();

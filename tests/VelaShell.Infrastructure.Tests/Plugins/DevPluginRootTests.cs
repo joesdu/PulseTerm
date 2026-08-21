@@ -1,5 +1,5 @@
 using VelaShell.Infrastructure.Plugins;
-using VelaShell.Plugin.HelloWorld;
+using VelaShell.TestPlugin;
 using VelaShell.PluginSdk.Testing;
 
 namespace VelaShell.Infrastructure.Tests.Plugins;
@@ -156,11 +156,11 @@ public class DevPluginRootTests
     private static void WritePlugin(string directory, string id)
     {
         Directory.CreateDirectory(directory);
-        File.Copy(typeof(HelloWorldPlugin).Assembly.Location,
-            Path.Combine(directory, "VelaShell.Plugin.HelloWorld.dll"));
+        File.Copy(typeof(TestFixturePlugin).Assembly.Location,
+            Path.Combine(directory, "VelaShell.TestPlugin.dll"));
         File.WriteAllText(Path.Combine(directory, "plugin.json"), $$"""
             { "id": "{{id}}", "version": "1.0.0", "displayName": "Dev", "hostMode": "inProcess",
-              "entry": "VelaShell.Plugin.HelloWorld.dll" }
+              "entry": "VelaShell.TestPlugin.dll" }
             """);
     }
 }

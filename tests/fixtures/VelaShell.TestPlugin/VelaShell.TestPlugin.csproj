@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>宿主插件运行时用例的通用夹具:激活写存储、注册若干命令。非示例代码。</Description>
+    <RootNamespace>VelaShell.TestPlugin</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <!-- 夹具要被当成真插件装载:生成 deps.json(ALC 依赖解析依据)、不复制共享框架。 -->
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 清单随构建进输出目录:有几条用例是直接把构建产物目录整个铺过去的。 -->
+    <None Include="plugin.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 契约由装载方(测试宿主)统一提供,不随夹具输出复制 —— 与真插件同一条规则:
+         VelaShell.PluginSdk 必须与装载方是同一份程序集,复制过去就成了两份类型。 -->
+    <PackageReference Include="VelaShell.PluginSdk" Condition="'$(VelaSdkPath)' == ''"
+                      PrivateAssets="all" ExcludeAssets="runtime" />
+    <ProjectReference Include="$(VelaSdkProject)" Condition="'$(VelaSdkPath)' != ''"
+                      Private="false" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+</Project>

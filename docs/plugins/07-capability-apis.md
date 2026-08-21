@@ -151,7 +151,7 @@ public interface ITimeSeries
 
 落宿主同一个 SonnetDB;物理 measurement 名 `pts_<插件命名空间>_<短名>`,命名空间由
 插件 id 派生(不可由插件指定),卸载按前缀整体 drop。语义与配额见
-[dev-guide §5.2b](dev-guide.md#52b-timeseries--私有时序库);隔离进程经
+[dev-guide §5.2b](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/dev-guide.md#52b-timeseries--私有时序库);隔离进程经
 `ts/*` 方法路由到同一实现(见 05)。**插件永不直连数据库,也拿不到 SQL 入口** ——
 标签值等外来输入一律走参数化,列名限 `[a-z0-9_]`。
 

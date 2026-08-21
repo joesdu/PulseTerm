@@ -22,7 +22,9 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\VelaShell.Presentation\VelaShell.Presentation.csproj" />
     <!-- 插件命令桥测试复用 SDK 测试替身(顺带 dogfood Testing 包)。 -->
-    <ProjectReference Include="..\..\plugin-sdk\VelaShell.PluginSdk.Testing\VelaShell.PluginSdk.Testing.csproj" />
+    <!-- SDK 测试替身。同上,默认包引用、VelaSdkPath 时切本地工程。 -->
+    <PackageReference Include="VelaShell.PluginSdk.Testing" Condition="'$(VelaSdkPath)' == ''" />
+    <ProjectReference Include="$(VelaSdkTestingProject)" Condition="'$(VelaSdkPath)' != ''" />
   </ItemGroup>
 
 </Project>

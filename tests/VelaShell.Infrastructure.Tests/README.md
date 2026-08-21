@@ -9,7 +9,7 @@
 | 文件 | 被测对象 |
 |------|----------|
 | `SonnetDbPersistenceTests` | SonnetDB 各存储服务的读写、时序/文档双模型持久化。 |
-| `Plugins/` | **插件运行时全链路**：清单读取（`PluginManifestReaderTests`）、发现/装载/启停（`PluginManagerTests`、`PluginManagerEnableDisableTests`、`LazyActivationTests`）、安装卸载（`PluginInstallUninstallTests`）、权限闸门（`PluginPermissionGateTests`）、机密与存储（`ProtectedSecretsCapabilityTests`、`JsonFilePluginStorageTests`、`SonnetDbPluginDataStoreTests`）、**隔离进程**链路（`IsolatedPluginTests`、`RpcConnectionTests`、`StreamingRoutingTests`、`TimeSeriesRoutingTests`、`EmbedRoutingTests`），以及拿示例插件当活体验证的 `HelloWorld*Tests`。 |
+| `Plugins/` | **插件运行时全链路**：发现/装载/启停（`PluginManagerTests`、`PluginManagerEnableDisableTests`、`LazyActivationTests`）、安装卸载（`PluginInstallUninstallTests`）、权限闸门（`PluginPermissionGateTests`）、机密与存储（`ProtectedSecretsCapabilityTests`、`JsonFilePluginStorageTests`、`SonnetDbPluginDataStoreTests`）、**隔离进程**链路（`IsolatedPluginTests`、`RpcConnectionTests`、`StreamingRoutingTests`、`TimeSeriesRoutingTests`、`EmbedRoutingTests`），以及终端协议整链（`PluginTerminalProtocolEndToEndTests`）。需要真实插件程序集的用例统一用 [`tests/fixtures/`](../fixtures/README.md) 下的两个夹具驱动。<br/>注：`.vpx` 容器格式与 `plugin.json` 解析的用例（`VpxContainerTests` / `PluginManifestReaderTests`）已随 SDK 搬到 [插件工具链仓库](https://github.com/joesdu/velashell-plugin-toolchain) —— 那两块的实现在 SDK 里，地面真值也该跟着它走。 |
 | `PluginTimeSeriesTests` | 插件时序数据的命名空间隔离与写入校验。 |
 | `SshKeyServiceTests` | `~/.ssh` 密钥枚举、RSA 密钥对生成、公钥导入。 |
 | `SshConnectionServiceTests` | 连接服务在真实包装类上的行为。 |

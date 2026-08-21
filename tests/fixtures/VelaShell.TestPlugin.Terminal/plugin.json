@@ -1,0 +1,23 @@
+{
+  "id": "velashell.test-terminal",
+  "version": "0.1.0",
+  "displayName": "Test Terminal",
+  "description": "宿主终端协议链路用例的夹具(非示例代码)。",
+  "publisher": "velashell",
+  "entry": "VelaShell.TestPlugin.Terminal.dll",
+  "apiLevel": 1,
+  // 协议贡献:连接配置页在**不装载本程序集**的前提下就能画出页签,
+  // 用户点到它(或打开一条该协议的会话)才触发下面的惰性激活。
+  // 用例刻意不在测试里手写这份清单 —— 那样就测不到真清单里的 contributes/activationEvents
+  // 写没写对,而那正是最容易错的地方。
+  "contributes": {
+    "protocols": [
+      { "id": "velashell.test-terminal", "displayName": "Test Terminal", "defaultPort": 2323 }
+    ]
+  },
+  "activationEvents": [
+    "onProtocol:velashell.test-terminal"
+  ]
+  // hostMode 必须是默认的 inProcess:协议是宿主反向调用插件的高频通道,
+  // 隔离进程的 RPC 只承载插件→宿主方向(清单校验会拒绝 protocols + isolated)。
+}
