@@ -3853,4 +3853,7 @@ Windows 填 exe 完整路径或命令名(如 notepad);Linux 填命令名(如 ged
 信任后，同一密钥签署的后续包也会自动可信。插件能以你的账户权限执行代码。</value></data>
   <data name="PluginManager_InstallAnyway" xml:space="preserve"><value>仍然安装</value></data>
   <data name="PluginManager_TrustAndInstall" xml:space="preserve"><value>信任发布者并安装</value></data>
+  <data name="PluginManager_SecurityTip" xml:space="preserve"><value>插件以你的账户权限运行，可读写本地文件、会话与网络。安装前请核实插件来源并核对签名指纹，只安装来自可信发布者的插件，以免恶意插件窃取数据或破坏系统。</value></data>
+  <data name="PluginManager_Market" xml:space="preserve"><value>插件商店</value></data>
+  <data name="PluginManager_MarketTip" xml:space="preserve"><value>前往 market.easilynet.top 浏览已审核的插件</value></data>
 </root>

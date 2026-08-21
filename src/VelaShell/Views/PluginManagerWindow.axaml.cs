@@ -183,6 +183,18 @@ public partial class PluginManagerWindow : Window
         }
     }
 
+    /// <summary>点击"插件商店"链接:交给系统默认浏览器打开(地址存放在控件 Tag)。</summary>
+    private async void OpenMarket_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Control { Tag: string url }
+            || !Uri.TryCreate(url, UriKind.Absolute, out Uri? uri)
+            || TopLevel.GetTopLevel(this) is not { } top)
+        {
+            return;
+        }
+        await top.Launcher.LaunchUriAsync(uri);
+    }
+
     /// <inheritdoc />
     protected override void OnKeyDown(KeyEventArgs e)
     {

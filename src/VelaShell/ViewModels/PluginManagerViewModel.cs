@@ -118,6 +118,25 @@ public sealed class PluginManagerViewModel : ReactiveObject, IDisposable
     /// <summary>是否可安装(有可写用户目录)。</summary>
     public bool CanInstall => _manager.IsInstallSupported;
 
+    /// <summary>
+    /// 安装按钮上方的安全须知。安装是本页唯一会引入外部代码的动作,风险说明摆在
+    /// 按下之前 —— 签名对话框只在包未签名/发布者陌生时才弹,不能当成唯一的告知点。
+    /// </summary>
+    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "XAML 绑定只解析实例成员。")]
+    public string SecurityTipText => Strings.Get("PluginManager_SecurityTip");
+
+    /// <summary>插件商店链接文案。</summary>
+    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "XAML 绑定只解析实例成员。")]
+    public string MarketText => Strings.Get("PluginManager_Market");
+
+    /// <summary>插件商店链接的悬停提示。</summary>
+    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "XAML 绑定只解析实例成员。")]
+    public string MarketTipText => Strings.Get("PluginManager_MarketTip");
+
+    /// <summary>插件商店地址(点击链接后交给系统浏览器)。</summary>
+    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "XAML 绑定只解析实例成员。")]
+    public string MarketUrl => "https://market.easilynet.top";
+
     /// <summary>空态文案。</summary>
     [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "XAML 绑定只解析实例成员。")]
     public string EmptyText => Strings.Get("PluginManager_Empty");

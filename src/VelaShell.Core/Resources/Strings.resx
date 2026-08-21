@@ -3762,4 +3762,7 @@ Overwrite it?</value>
 Trusting it will also trust future packages signed by the same key. Plugins can execute code with your account permissions.</value></data>
   <data name="PluginManager_InstallAnyway" xml:space="preserve"><value>Install anyway</value></data>
   <data name="PluginManager_TrustAndInstall" xml:space="preserve"><value>Trust publisher and install</value></data>
+  <data name="PluginManager_SecurityTip" xml:space="preserve"><value>Plugins run with your account permissions and can reach your files, sessions and network. Before installing, confirm where the package came from and check its signature fingerprint — install only from publishers you trust.</value></data>
+  <data name="PluginManager_Market" xml:space="preserve"><value>Plugin store</value></data>
+  <data name="PluginManager_MarketTip" xml:space="preserve"><value>Browse reviewed plugins at market.easilynet.top</value></data>
 </root>

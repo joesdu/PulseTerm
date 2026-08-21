@@ -69,6 +69,34 @@
       <Setter Property="BorderBrush" Value="{DynamicResource VelaError}" />
     </Style>
 
+    <!-- 商店超链接:Foreground 在 LucideIcon 上不继承,文字与外链角标各自着色。 -->
+    <Style Selector="Button.link">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Button.link /template/ ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Button.link:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Button.link TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextTertiary}" />
+    </Style>
+    <Style Selector="Button.link pc|LucideIcon">
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextTertiary}" />
+    </Style>
+    <Style Selector="Button.link:pointerover TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource VelaAccent}" />
+      <Setter Property="TextDecorations" Value="Underline" />
+    </Style>
+    <Style Selector="Button.link:pointerover pc|LucideIcon">
+      <Setter Property="Foreground" Value="{DynamicResource VelaAccent}" />
+    </Style>
+
     <Style Selector="Ellipse.dot">
       <Setter Property="Width" Value="8" />
       <Setter Property="Height" Value="8" />
@@ -130,21 +158,50 @@
           </Grid>
         </Border>
 
-        <!-- 工具条:安装 + 提示 -->
+        <!-- 工具条:安全须知 + 安装 + 提示 + 商店链接 -->
         <Border Grid.Row="1" Padding="14,10"
                 BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,0,0,1">
-          <Grid ColumnDefinitions="Auto,*">
-            <Button Grid.Column="0" Classes="tool" Click="Install_Click" IsVisible="{Binding CanInstall}">
-              <StackPanel Orientation="Horizontal" Spacing="6">
-                <pc:LucideIcon Width="12" Height="12" Data="{StaticResource Icon.download}"
-                               Foreground="{DynamicResource VelaTextSecondary}" VerticalAlignment="Center" />
-                <TextBlock Text="{Binding InstallText}" VerticalAlignment="Center" />
-              </StackPanel>
-            </Button>
-            <TextBlock Grid.Column="1" Text="{Binding Notice}"
-                       IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}"
-                       Foreground="{DynamicResource VelaTextMuted}" FontSize="{DynamicResource VelaFontSize10}"
-                       VerticalAlignment="Center" Margin="12,0,0,0" TextTrimming="CharacterEllipsis" />
+          <Grid RowDefinitions="Auto,Auto">
+            <!-- 安全须知摆在安装按钮之前:签名对话框只在包未签名/发布者陌生时才弹,
+                 那时用户已经选完文件;风险要在按下"安装"之前就看得到。 -->
+            <Border Grid.Row="0" Margin="0,0,0,10" Padding="10,8"
+                    Background="{DynamicResource VelaBgInput}"
+                    BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="1"
+                    CornerRadius="5" IsVisible="{Binding CanInstall}">
+              <Grid ColumnDefinitions="Auto,*">
+                <pc:LucideIcon Grid.Column="0" Width="13" Height="13" Data="{StaticResource Icon.shield}"
+                               Foreground="{DynamicResource VelaWarning}"
+                               VerticalAlignment="Top" Margin="0,1,9,0" />
+                <TextBlock Grid.Column="1" Text="{Binding SecurityTipText}"
+                           Foreground="{DynamicResource VelaTextSecondary}"
+                           FontSize="{DynamicResource VelaFontSize10}"
+                           LineHeight="16" TextWrapping="Wrap" />
+              </Grid>
+            </Border>
+
+            <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto">
+              <Button Grid.Column="0" Classes="tool" Click="Install_Click" IsVisible="{Binding CanInstall}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <pc:LucideIcon Width="12" Height="12" Data="{StaticResource Icon.download}"
+                                 Foreground="{DynamicResource VelaTextSecondary}" VerticalAlignment="Center" />
+                  <TextBlock Text="{Binding InstallText}" VerticalAlignment="Center" />
+                </StackPanel>
+              </Button>
+              <TextBlock Grid.Column="1" Text="{Binding Notice}"
+                         IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}"
+                         Foreground="{DynamicResource VelaTextMuted}" FontSize="{DynamicResource VelaFontSize10}"
+                         VerticalAlignment="Center" Margin="12,0,12,0" TextTrimming="CharacterEllipsis" />
+              <!-- 商店入口:告诉用户"可信来源"具体去哪儿找,否则上面那句只是免责。 -->
+              <Button Grid.Column="2" Classes="link" Tag="{Binding MarketUrl}" Click="OpenMarket_Click"
+                      VerticalAlignment="Center" ToolTip.Tip="{Binding MarketTipText}">
+                <StackPanel Orientation="Horizontal" Spacing="5">
+                  <TextBlock Text="{Binding MarketText}" VerticalAlignment="Center"
+                             FontSize="{DynamicResource VelaFontSize11}" />
+                  <pc:LucideIcon Width="11" Height="11" Data="{StaticResource Icon.external-link}"
+                                 VerticalAlignment="Center" />
+                </StackPanel>
+              </Button>
+            </Grid>
           </Grid>
         </Border>
 
