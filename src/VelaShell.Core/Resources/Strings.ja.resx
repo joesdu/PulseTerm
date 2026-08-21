@@ -202,9 +202,6 @@
   <data name="CopyFilePath" xml:space="preserve">
     <value>パスをコピー</value>
   </data>
-  <data name="Custom" xml:space="preserve">
-    <value>カスタム</value>
-  </data>
   <data name="DefaultPort" xml:space="preserve">
     <value>既定のポート</value>
   </data>

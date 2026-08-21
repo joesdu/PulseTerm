@@ -2,7 +2,7 @@ using System.IO.Compression;
 using System.Security.Cryptography;
 using VelaShell.Infrastructure.Persistence;
 using VelaShell.Infrastructure.Plugins;
-using VelaShell.Plugin.HelloWorld;
+using VelaShell.TestPlugin;
 using VelaShell.PluginSdk.Packaging;
 using VelaShell.PluginSdk.Testing;
 
@@ -68,15 +68,15 @@ public class PluginInstallUninstallTests
         DataStore = _dataStore
     });
 
-    /// <summary>把 HelloWorld 摊成一个待打包目录(plugin.json + dll)。</summary>
+    /// <summary>把夹具插件摊成一个待打包目录(plugin.json + dll)。</summary>
     private static string StagePlugin(string id)
     {
         string stage = Path.Combine(Path.GetTempPath(), "velashell-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(stage);
-        File.Copy(typeof(HelloWorldPlugin).Assembly.Location, Path.Combine(stage, "VelaShell.Plugin.HelloWorld.dll"));
+        File.Copy(typeof(TestFixturePlugin).Assembly.Location, Path.Combine(stage, "VelaShell.TestPlugin.dll"));
         File.WriteAllText(Path.Combine(stage, "plugin.json"), $$"""
             { "id": "{{id}}", "version": "1.0.0", "displayName": "Packaged", "author": "Test Author",
-              "entry": "VelaShell.Plugin.HelloWorld.dll" }
+              "entry": "VelaShell.TestPlugin.dll" }
             """);
         return stage;
     }
@@ -137,16 +137,16 @@ public class PluginInstallUninstallTests
         // 应用自带插件(app-plugins 目录,只读语义)不可卸载。
         string dir = Path.Combine(_appRoot, "builtin");
         Directory.CreateDirectory(dir);
-        File.Copy(typeof(HelloWorldPlugin).Assembly.Location, Path.Combine(dir, "VelaShell.Plugin.HelloWorld.dll"));
+        File.Copy(typeof(TestFixturePlugin).Assembly.Location, Path.Combine(dir, "VelaShell.TestPlugin.dll"));
         File.WriteAllText(Path.Combine(dir, "plugin.json"), """
-            { "id": "velashell.hello-world", "version": "0.1.0", "displayName": "Hello",
-              "entry": "VelaShell.Plugin.HelloWorld.dll" }
+            { "id": "velashell.test-fixture", "version": "0.1.0", "displayName": "Test Fixture",
+              "entry": "VelaShell.TestPlugin.dll" }
             """);
         PluginManager manager = CreateManager();
         await manager.StartAsync();
 
-        Assert.IsFalse(manager.IsUninstallable("velashell.hello-world"));
-        Assert.IsFalse(await manager.UninstallAsync("velashell.hello-world"));
+        Assert.IsFalse(manager.IsUninstallable("velashell.test-fixture"));
+        Assert.IsFalse(await manager.UninstallAsync("velashell.test-fixture"));
         Assert.IsTrue(Directory.Exists(dir), "自带插件目录不该被删");
         await manager.DisposeAsync();
     }

@@ -1,8 +1,21 @@
 # 插件系统进度总览
 
+> 📦 **仓库拆分注记(2026-08-21,2026-08-22 修订)**:插件 SDK、`dotnet new` 模板、
+> `vela-plugin` CLI 与 Redis / S3 / Telnet / HelloWorld 插件已迁到
+> [joesdu/velashell-plugin-toolchain](https://github.com/joesdu/velashell-plugin-toolchain)。
+> 本页(以及 01–15 蓝图)里出现的 `plugin-sdk/…`、`tools/…`、`templates/…`、
+> `tests/VelaShell.Plugin.{Redis,S3,Telnet,HelloWorld}.Tests` 等路径,现在都指那个仓库。
+>
+> **例外:AI 插件(`plugins/VelaShell.Plugin.Ai`,测试在 `tests/VelaShell.Plugin.Ai.Tests`)
+> 仍在主仓库**,随主程序一起构建、一起发布 —— 它与宿主是编译期耦合(借宿主的 AvaloniaEdit、
+> 必须进程内装载、Avalonia 须逐字同版),理由见 [`plugins/README.md`](../../plugins/README.md)。
+> 主仓库这边是 `src/`(宿主实现)、`plugins/`(AI 插件)与 `tests/`(宿主测试,
+> 插件夹具在 `tests/fixtures/`)。
+> 结论与验收证据本身不受影响,仅路径的仓库归属变了。
+
 > 更新:2026-08-18(新增工作台能力域与 Redis 插件、SDK 产品化,均见文末各节)。本页是
 > 实现进度的**单一权威来源**:按蓝图分项列出 已完成 / 部分完成 / 未开始,并给出验收证据
-> (测试)与建议的下一步。写插件请读 [dev-guide.md](dev-guide.md)。
+> (测试)与建议的下一步。写插件请读 [dev-guide.md](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/dev-guide.md)。
 
 ## 一、总体状态
 

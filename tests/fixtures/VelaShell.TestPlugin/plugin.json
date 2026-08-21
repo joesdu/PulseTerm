@@ -1,0 +1,9 @@
+{
+  "id": "velashell.test-fixture",
+  "version": "0.1.0",
+  "displayName": "Test Fixture",
+  "description": "宿主插件运行时用例的通用夹具(非示例代码)。",
+  "publisher": "velashell",
+  "entry": "VelaShell.TestPlugin.dll",
+  "apiLevel": 1
+}

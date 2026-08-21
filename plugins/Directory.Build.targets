@@ -20,8 +20,13 @@
 	<!-- 开发内环:构建后把插件输出镜像到应用输出目录的 plugins/<目录名>/ 下,
 	     F5 启动应用即可加载到最新插件,无需手工拷贝。
 	     插件项目需在 csproj 里声明 <VelaPluginId>(与 plugin.json 的 id 一致)。
-	     这里不看 VelaPluginShip:本机构建目录是开发环境,示例插件也要能跑起来看效果;
-	     "不进安装包"由下面的 GetVelaPluginPayload 在发布期把关。 -->
+	     这里不看 VelaPluginShip:本机构建目录是开发环境,不随包分发的插件也要能跑起来看效果;
+	     "不进安装包"由下面的 GetVelaPluginPayload 在发布期把关。
+
+	     注意这里**不写 artifacts/plugins/**:那个目录是 scripts/Fetch-Plugins.ps1 取回
+	     工具链侧插件(Redis / S3 / Telnet)的落点,取件时会被整目录清空重建
+	     (见脚本的 Reset-StageDirectory)。本仓库自建的插件走 ProjectReference 构建顺序
+	     进宿主输出、走 GetVelaPluginPayload 进发行包,与那个暂存目录互不相干。 -->
 	<Target Name="CopyVelaPluginToAppOutput" AfterTargets="Build" Condition="'$(VelaPluginId)' != ''">
 		<PropertyGroup>
 			<_VelaPluginOutputRoot>$(MSBuildThisFileDirectory)..\src\VelaShell\bin\$(Configuration)\net11.0\plugins</_VelaPluginOutputRoot>
@@ -37,25 +42,19 @@
 		<Copy SourceFiles="@(_VelaPluginFiles)"
 		      DestinationFiles="@(_VelaPluginFiles->'$(_VelaPluginOutputRoot)\$(VelaPluginDirName)\%(RecursiveDir)%(Filename)%(Extension)')"
 		      SkipUnchangedFiles="true" />
-	</Target>
 
-	<!-- 仓库内插件也能出 .vpx:`dotnet build plugins/VelaShell.Plugin.X -t:PackVpx`。
-	     用的是 tools/VelaShell.Plugin.Cli(与对外 SDK 包里随包分发的是同一份代码),
-	     先把它构建出来再调 —— 第一方插件与第三方插件因此走完全一样的打包路径,
-	     格式出问题我们自己先撞上。 -->
-	<Target Name="PackVpx" DependsOnTargets="Build" Condition="'$(VelaPluginId)' != ''">
+		<!-- 额外镜像到别处(可选)。属性 VelaDevAppDir 或环境变量 VELASHELL_DEV_APP_DIR
+		     指向某个已安装/已解包的 VelaShell 应用目录时,顺手也铺一份过去 ——
+		     想拿正式安装的那一份验插件时省一次手工拷贝。 -->
 		<PropertyGroup>
-			<_VelaCliProject>$(MSBuildThisFileDirectory)..\tools\VelaShell.Plugin.Cli\VelaShell.Plugin.Cli.csproj</_VelaCliProject>
-			<_VelaCliDll>$(MSBuildThisFileDirectory)..\tools\VelaShell.Plugin.Cli\bin\$(Configuration)\net11.0\VelaShell.Plugin.Cli.dll</_VelaCliDll>
-			<VelaVpxOutputDirectory Condition="'$(VelaVpxOutputDirectory)' == ''">$(MSBuildProjectDirectory)\bin\vpx\</VelaVpxOutputDirectory>
+			<VelaDevAppDir Condition="'$(VelaDevAppDir)' == ''">$(VELASHELL_DEV_APP_DIR)</VelaDevAppDir>
 		</PropertyGroup>
-		<MSBuild Projects="$(_VelaCliProject)" Targets="Build" Properties="Configuration=$(Configuration)" />
-		<MakeDir Directories="$(VelaVpxOutputDirectory)" />
-		<PropertyGroup>
-			<_VelaPackArgs>pack &quot;$(TargetDir.TrimEnd('\'))&quot; --output &quot;$(VelaVpxOutputDirectory.TrimEnd('\'))&quot;</_VelaPackArgs>
-			<_VelaPackArgs Condition="'$(VelaSigningKey)' != ''">$(_VelaPackArgs) --key &quot;$(VelaSigningKey)&quot;</_VelaPackArgs>
-		</PropertyGroup>
-		<Exec Command="dotnet exec &quot;$(_VelaCliDll)&quot; $(_VelaPackArgs)" />
+		<RemoveDir Directories="$(VelaDevAppDir)\plugins\$(VelaPluginId)"
+		           Condition="'$(VelaDevAppDir)' != '' and '$(VelaPluginDirName)' != '$(VelaPluginId)'" />
+		<Copy SourceFiles="@(_VelaPluginFiles)"
+		      DestinationFiles="@(_VelaPluginFiles->'$(VelaDevAppDir)\plugins\$(VelaPluginDirName)\%(RecursiveDir)%(Filename)%(Extension)')"
+		      SkipUnchangedFiles="true"
+		      Condition="'$(VelaDevAppDir)' != ''" />
 	</Target>
 
 	<!-- 发布期契约:由 src/VelaShell/VelaShell.csproj 的 AddVelaPluginsToPublish 调用,

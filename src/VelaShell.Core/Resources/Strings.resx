@@ -459,9 +459,6 @@
   <data name="Docker" xml:space="preserve">
     <value>Docker</value>
   </data>
-  <data name="Custom" xml:space="preserve">
-    <value>Custom</value>
-  </data>
   <data name="QuickCommands" xml:space="preserve">
     <value>Quick Commands</value>
   </data>

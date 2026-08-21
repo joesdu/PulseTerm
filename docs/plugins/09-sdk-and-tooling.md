@@ -12,12 +12,12 @@
 >   因此没有 `VelaUiAssert`。
 > - `vela-plugin` 的子命令:`validate` / `pack` / `sign` / `verify` / `info` / `unpack` /
 >   `keygen` / `install` / `hosts` / `doctor` / `dev init|run|list|prune|link|unlink`
->   (`dev-link` / `dev-unlink` 保留为旧名别名)。完整手册见 [cli.md](cli.md)。
+>   (`dev-link` / `dev-unlink` 保留为旧名别名)。完整手册见 [cli.md](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/cli.md)。
 > - **开发内环(SDK 1.4)**:宿主每次启动把自己登记进 `~/.velashell/host.json`,
 >   `vela-plugin dev init` 据此生成 IDE 启动配置(`--dev-root` 挂载工程输出、
 >   `--wait-debugger` 等待附加、`--data-root` 用独立数据根从而与日常实例并存);
 >   开发期插件从影子副本装载,因此宿主运行时不锁工程 `bin`,管理页的"重新加载"
->   即可跑上新代码,`--dev-watch` 还能重编后自动重载。见 [dev-guide.md §2.3](dev-guide.md)。
+>   即可跑上新代码,`--dev-watch` 还能重编后自动重载。见 [dev-guide.md §2.3](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/dev-guide.md)。
 > - 发布走 `.github/workflows/nuget.yml`(标签 `sdk-v<版本>`),含模板端到端冒烟。
 
 目标(G5):从 `dotnet new` 到插件在 VelaShell 里跑起来 ≤ 5 分钟;

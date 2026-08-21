@@ -22,19 +22,24 @@
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
+  <!--
+    ============================ 随包分发的插件从哪来 ============================
+    插件 SDK、模板、vela-plugin CLI 与 Redis/S3/Telnet/HelloWorld 插件于 2026-08-21 拆到
+    https://github.com/joesdu/velashell-plugin-toolchain
+    契约程序集(VelaShell.PluginSdk / .Testing)一律走 nuget.org 上的正式包,版本写在
+    src/ 与 tests/ 的 Directory.Packages.props 里;那几个插件的二进制走下面这个 Release pin。
+
+    **例外:AI 插件(velashell.ai)是本仓库自建的第一方插件**,源码在 plugins/ 下,
+    随主程序一起构建、一起发布 —— 它与宿主的耦合最紧(要用宿主的 AvaloniaEdit 作输入框、
+    必须进程内装载、Avalonia 版本必须与宿主逐字一致),分在两个仓库时每改一处 UI 都要
+    先发一次工具链 Release 才能联调。详见 plugins/README.md。
+  -->
   <PropertyGroup>
-    <!-- 插件 SDK 系列包(VelaShell.PluginSdk / .Testing / .Build、VelaShell.Plugin.Cli、
-         VelaShell.Plugin.Templates)的版本。**与宿主版本解耦**:宿主发 1.2.3 不代表插件
-         契约变了,插件作者也不该为了跟版本号而重新编译。CI 发包时用 -p:VelaSdkVersion= 覆盖。 -->
-    <VelaSdkVersion Condition="'$(VelaSdkVersion)' == ''">1.4.0</VelaSdkVersion>
-    <!-- 去掉预发布后缀的数字版(AssemblyVersion/FileVersion 不接受后缀)与主版本号。 -->
-    <VelaSdkVersionCore>$([System.Text.RegularExpressions.Regex]::Replace($(VelaSdkVersion), '-.*$', ''))</VelaSdkVersionCore>
-    <VelaSdkMajor>$([System.Text.RegularExpressions.Regex]::Replace($(VelaSdkVersionCore), '\..*$', ''))</VelaSdkMajor>
-    <!-- 插件与宿主必须用同一版本的 Avalonia:装载器强制让 Avalonia* 回落到宿主那一套
-         (见 PluginAssemblyLoadContext),版本不一致时表现为跨 ALC 的控件类型对不上。
-         这个值是插件 SDK 包对外锁定的版本,须与 src/Directory.Packages.props 保持一致
-         (VelaShell.PluginSdk.Build 的 VerifyAvaloniaVersionPin 目标会在构建期核对)。 -->
-    <VelaAvaloniaVersion>12.1.1</VelaAvaloniaVersion>
+    <!-- 随安装包分发的**工具链侧**插件(Redis / S3 / Telnet)所在的工具链 Release 标签,
+         去掉前导 v。scripts/Fetch-Plugins.ps1 据此下载
+         releases/download/v<版本>/velashell-plugins-<版本>.zip 解进 artifacts/plugins/。
+         包里若含 velashell-ai,取回时会被丢掉 —— 那一份由本仓库自己构建,见脚本注释。 -->
+    <VelaPluginsBundleVersion Condition="'$(VelaPluginsBundleVersion)' == ''">1.4.0</VelaPluginsBundleVersion>
   </PropertyGroup>
 
   <PropertyGroup>

@@ -1,5 +1,5 @@
 using VelaShell.Infrastructure.Plugins;
-using VelaShell.Plugin.HelloWorld;
+using VelaShell.TestPlugin;
 using VelaShell.PluginSdk.Testing;
 
 namespace VelaShell.Infrastructure.Tests.Plugins;
@@ -34,14 +34,14 @@ public class PluginManagerEnableDisableTests
         }
     }
 
-    private string StageHelloWorld()
+    private string StageFixture()
     {
         string dir = Path.Combine(_root, "hello");
         Directory.CreateDirectory(dir);
-        File.Copy(typeof(HelloWorldPlugin).Assembly.Location, Path.Combine(dir, "VelaShell.Plugin.HelloWorld.dll"));
+        File.Copy(typeof(TestFixturePlugin).Assembly.Location, Path.Combine(dir, "VelaShell.TestPlugin.dll"));
         File.WriteAllText(Path.Combine(dir, "plugin.json"), """
-            { "id": "velashell.hello-world", "version": "0.1.0", "displayName": "Hello",
-              "entry": "VelaShell.Plugin.HelloWorld.dll" }
+            { "id": "velashell.test-fixture", "version": "0.1.0", "displayName": "Test Fixture",
+              "entry": "VelaShell.TestPlugin.dll" }
             """);
         return dir;
     }
@@ -57,19 +57,19 @@ public class PluginManagerEnableDisableTests
     [TestMethod]
     public async Task Disable_StopsActivePlugin_WritesMarker_AndRaisesChanged()
     {
-        string dir = StageHelloWorld();
+        string dir = StageFixture();
         PluginManager manager = CreateManager();
         int changes = 0;
         manager.Changed += () => Interlocked.Increment(ref changes);
         await manager.StartAsync();
         Assert.AreEqual(PluginState.Active, manager.Plugins.Single().State);
 
-        await manager.DisableAsync("velashell.hello-world");
+        await manager.DisableAsync("velashell.test-fixture");
         Assert.AreEqual(PluginState.Disabled, manager.Plugins.Single().State);
         Assert.IsTrue(File.Exists(Path.Combine(dir, ".disabled")), "禁用应落 .disabled 标记(重启仍禁用)");
         Assert.IsGreaterThanOrEqualTo(1, changes);
 
-        await manager.EnableAsync("velashell.hello-world");
+        await manager.EnableAsync("velashell.test-fixture");
         Assert.AreEqual(PluginState.Active, manager.Plugins.Single().State);
         Assert.IsFalse(File.Exists(Path.Combine(dir, ".disabled")), "启用应移除 .disabled 标记");
         await manager.DisposeAsync();
@@ -78,7 +78,7 @@ public class PluginManagerEnableDisableTests
     [TestMethod]
     public async Task DisabledMarker_KeepsPluginDisabledAcrossRestart()
     {
-        string dir = StageHelloWorld();
+        string dir = StageFixture();
         File.WriteAllText(Path.Combine(dir, ".disabled"), "");
 
         PluginManager manager = CreateManager();

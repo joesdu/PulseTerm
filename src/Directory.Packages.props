@@ -3,7 +3,9 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
-    <!-- Avalonia UI -->
+    <!-- Avalonia UI。plugins/ 下的自建插件只在编译期引用 Avalonia / Avalonia.AvaloniaEdit
+         (运行时回落到宿主这份),那两个版本号必须与这里逐字一致 —— 改这里就得同步改
+         plugins/VelaShell.Plugin.Ai/VelaShell.Plugin.Ai.csproj。 -->
     <PackageVersion Include="Avalonia" Version="12.1.1" />
     <PackageVersion Include="Avalonia.Desktop" Version="12.1.1" />
     <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.1" />
@@ -26,16 +28,11 @@
          注意:不要顺手引 FluentFTP.GnuTLS(LGPL-2.1-only),与商业授权冲突,
          详见 docs/FTP客户端可行性调研.md §4.3。 -->
     <PackageVersion Include="FluentFTP" Version="54.2.0" />
-    <!-- S3 兼容对象存储客户端(Apache-2.0,与本仓库 AGPL-3.0 + 商业双许可相容)。
-         **只有 plugins/VelaShell.Plugin.S3 引用它**,随插件目录分发、由插件 ALC 隔离加载 ——
-         宿主进程里没有这两个程序集,不用 S3 的用户连装都不会装到。
-         选它而非自己签 SigV4:S3 不是"上传下载"那么小的协议 —— 版本控制、生命周期、
-         桶策略、ACL/CORS、对象锁定、复制、标签、Glacier 取回、清单/分析、事件通知……
-         近百个操作。自己实现只能覆盖其中很小一角,且每加一个能力都要重做一遍
-         XML 序列化与错误码映射。详见 docs/S3协议插件化设计.md §2。
-         注意:AWSSDK 的类型不得越过插件程序集边界(与 FluentFTP / Tmds.Ssh 在宿主里
-         同一条分层硬规则),插件对外只暴露 SDK 的 IProtocolFileSystem。 -->
-    <PackageVersion Include="AWSSDK.S3" Version="4.0.102.1" />
+    <!-- 插件契约程序集,由插件工具链仓库(joesdu/velashell-plugin-toolchain)发布到 nuget.org。
+         注意:S3 插件用的 AWSSDK.S3 曾经登记在这里 —— 那个插件在工具链仓库里,
+         版本由它自己写死,别再加回来。plugins/ 下的自建插件不走中央包版本管理
+         (根目录没有 Directory.Packages.props),依赖版本写在各自的 csproj 里。 -->
+    <PackageVersion Include="VelaShell.PluginSdk" Version="1.4.0" />
     <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="11.0.0-preview.7.26381.103" />
     <!-- 构建期工具:SourceLink(见 src/Directory.Build.props) -->
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="11.0.100-preview.7.26381.103" />

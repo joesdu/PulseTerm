@@ -10,14 +10,17 @@
     <PackageVersion Include="coverlet.collector" Version="10.0.1" />
     <!-- 测试辅助 -->
     <PackageVersion Include="NSubstitute" Version="6.2.0" />
-    <!-- S3 插件的测试要直接构造 AWSSDK 的请求/响应类型(替身客户端与环回服务器都要),
-         版本与 plugins/VelaShell.Plugin.S3 保持一致。 -->
-    <PackageVersion Include="AWSSDK.S3" Version="4.0.102.3" />
+    <!-- 插件契约与测试替身,由插件工具链仓库(joesdu/velashell-plugin-toolchain)
+         发布到 nuget.org。 -->
+    <PackageVersion Include="VelaShell.PluginSdk" Version="1.4.0" />
+    <PackageVersion Include="VelaShell.PluginSdk.Testing" Version="1.4.0" />
     <PackageVersion Include="Avalonia" Version="12.1.1" />
     <PackageVersion Include="Avalonia.Headless" Version="12.1.1" />
     <!-- 菜单等控件的模板由主题提供:没有它 MenuItem 无模板、不可命中,真实点击测不了。 -->
     <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.1" />
-    <!-- AI 面板的输入框(与 src 的 CPM 同版):测试宿主要扮演"装载方"提供这份程序集。 -->
+    <!-- AI 插件的输入框是 AvaloniaEdit,而插件只在编译期引用它(运行时按 ALC 规则回落到
+         装载方那份)。测试宿主在这里就扮演"装载方":不摆这一条,面板一构造就是
+         FileNotFoundException。 -->
     <PackageVersion Include="Avalonia.AvaloniaEdit" Version="12.0.0" />
     <PackageVersion Include="ReactiveUI.Testing" Version="24.1.0" />
   </ItemGroup>

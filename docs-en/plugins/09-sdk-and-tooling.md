@@ -16,14 +16,14 @@
 >   was dropped by product decision, so there is no `VelaUiAssert`.
 > - `vela-plugin` subcommands: `validate` / `pack` / `sign` / `verify` / `info` / `unpack` /
 >   `keygen` / `install` / `hosts` / `doctor` / `dev init|run|list|prune|link|unlink`
->   (`dev-link` / `dev-unlink` remain as aliases). Full manual: [cli.md](cli.md).
+>   (`dev-link` / `dev-unlink` remain as aliases). Full manual: [cli.md](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs-en/cli.md).
 > - **Inner loop (SDK 1.4)**: the host registers itself in `~/.velashell/host.json` on every
 >   launch, and `vela-plugin dev init` turns that into an IDE launch profile (`--dev-root` mounts
 >   the project output, `--wait-debugger` suspends an isolated plugin until you attach,
 >   `--data-root` gives the debug instance its own data root so it coexists with your everyday
 >   instance). Development plugins load from a shadow copy, so the running host never locks the
 >   project's `bin`: press Reload on the manager page, or use `--dev-watch` to reload
->   automatically after a rebuild. See [dev-guide.md §2.3](dev-guide.md).
+>   automatically after a rebuild. See [dev-guide.md §2.3](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs-en/dev-guide.md).
 > - Publishing runs through `.github/workflows/nuget.yml` (tag `sdk-v<version>`) and includes an
 >   end-to-end template smoke test.
 

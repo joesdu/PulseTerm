@@ -1,6 +1,6 @@
 # 10 · 打包、签名与分发
 
-> **发布操作手册见 [publishing.md](publishing.md)**(编译 → 打包 → 签名 → 提交商店);
+> **发布操作手册见 [publishing.md](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/publishing.md)**(编译 → 打包 → 签名 → 提交商店);
 > 插件商店:<http://market.easilynet.top>(客户端尚未内置商店客户端,用户下载 `.vpx`
 > 后经插件管理页安装)。本篇是长期设计蓝图。
 >
@@ -10,7 +10,7 @@
 > 1. **`.vpx` 是专属容器**,不是"zip 改后缀":64 字节头部(魔数 `56 50 58 1A` + 格式版本 +
 >    标志位 + 载荷长度 + SHA-256 + 掩码随机数 + 头部 CRC32)+ 掩码后的 zip 载荷 +
 >    可选签名尾。见 `VelaShell.PluginSdk/Packaging/VpxContainer.cs` 与
->    [dev-guide.md §12](dev-guide.md)。
+>    [dev-guide.md §12](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/dev-guide.md)。
 > 2. **签名算法改为 ECDSA P-256 + SHA-256**,不是下文写的 Ed25519 —— Ed25519 不在 BCL 里,
 >    引第三方库会破掉"契约程序集零重量级依赖"这条纪律(那个程序集是宿主与插件唯一共享的类型来源)。
 >    签的是 64 字节头部,而头部含载荷长度与摘要,等价于对全包签名。

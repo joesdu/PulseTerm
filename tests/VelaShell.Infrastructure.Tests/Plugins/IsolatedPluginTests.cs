@@ -1,12 +1,12 @@
 using VelaShell.Infrastructure.Plugins;
-using VelaShell.Plugin.HelloWorld;
+using VelaShell.TestPlugin;
 using VelaShell.PluginSdk;
 
 namespace VelaShell.Infrastructure.Tests.Plugins;
 
 /// <summary>
 /// 隔离模式真实端到端:PluginManager 拉起真实的 VelaShell.PluginHost 子进程,
-/// 经命名管道握手、跨进程激活 HelloWorld、停用后进程回收。
+/// 经命名管道握手、跨进程激活夹具插件、停用后进程回收。
 /// </summary>
 [TestClass]
 [TestCategory("Plugins")]
@@ -37,21 +37,21 @@ public class IsolatedPluginTests
         }
     }
 
-    private void StageHelloWorld(string hostMode)
+    private void StageFixture(string hostMode)
     {
         string dir = Path.Combine(_root, "hello");
         Directory.CreateDirectory(dir);
-        File.Copy(typeof(HelloWorldPlugin).Assembly.Location, Path.Combine(dir, "VelaShell.Plugin.HelloWorld.dll"));
+        File.Copy(typeof(TestFixturePlugin).Assembly.Location, Path.Combine(dir, "VelaShell.TestPlugin.dll"));
         File.WriteAllText(Path.Combine(dir, "plugin.json"), $$"""
-            { "id": "velashell.hello-world", "version": "0.1.0", "displayName": "Hello",
-              "entry": "VelaShell.Plugin.HelloWorld.dll", "hostMode": "{{hostMode}}" }
+            { "id": "velashell.test-fixture", "version": "0.1.0", "displayName": "Test Fixture",
+              "entry": "VelaShell.TestPlugin.dll", "hostMode": "{{hostMode}}" }
             """);
     }
 
     [TestMethod]
     public async Task IsolatedPlugin_ActivatesInChildProcess_AndDeactivatesCleanly()
     {
-        StageHelloWorld("isolated");
+        StageFixture("isolated");
         var manager = new PluginManager(new()
         {
             PluginRoots = [_root],
@@ -64,7 +64,7 @@ public class IsolatedPluginTests
         PluginDescriptor descriptor = manager.Plugins.Single();
         Assert.AreEqual(PluginState.Active, descriptor.State, descriptor.Error);
         // 激活计数由插件进程本地写入存储:文件存在即证明跨进程激活真实跑通。
-        Assert.IsTrue(File.Exists(Path.Combine(_dataRoot, "velashell.hello-world", "storage.json")),
+        Assert.IsTrue(File.Exists(Path.Combine(_dataRoot, "velashell.test-fixture", "storage.json")),
             "插件进程应把激活计数写入其数据目录");
 
         await manager.DisposeAsync();
@@ -93,7 +93,7 @@ public class IsolatedPluginTests
     [TestMethod]
     public async Task IsolatedPlugin_CrashedProcess_RestartsWithBackoff_ThenFailsWhenExceeded()
     {
-        StageHelloWorld("isolated");
+        StageFixture("isolated");
         var manager = new PluginManager(new()
         {
             PluginRoots = [_root],
@@ -107,15 +107,15 @@ public class IsolatedPluginTests
         });
         await manager.StartAsync();
         Assert.AreEqual(PluginState.Active, manager.Plugins.Single().State, manager.Plugins.Single().Error);
-        int firstPid = manager.GetIsolatedProcessId("velashell.hello-world")!.Value;
+        int firstPid = manager.GetIsolatedProcessId("velashell.test-fixture")!.Value;
 
         // 第一次崩溃:强杀子进程 → 应按退避自动重启为新进程。
         System.Diagnostics.Process.GetProcessById(firstPid).Kill();
         await WaitForAsync(() => manager.Plugins.Single().State == PluginState.Active
-                                 && manager.GetIsolatedProcessId("velashell.hello-world") is { } pid
+                                 && manager.GetIsolatedProcessId("velashell.test-fixture") is { } pid
                                  && pid != firstPid,
             TimeSpan.FromSeconds(30), "崩溃后应自动重启为新的插件进程");
-        int secondPid = manager.GetIsolatedProcessId("velashell.hello-world")!.Value;
+        int secondPid = manager.GetIsolatedProcessId("velashell.test-fixture")!.Value;
         Assert.AreNotEqual(firstPid, secondPid);
 
         // 第二次崩溃:超过退避上限 → Failed,不再重启。
@@ -136,7 +136,7 @@ public class IsolatedPluginTests
         // 下一次编译直接以 MSB3027「文件被另一进程锁定」失败。
         // 自退场的三个码:0 = 停用应答后自退,2 = 管道断后自退,3 = 父进程消失后自退;
         // 被 Process.Kill 强杀则是 -1。
-        StageHelloWorld("isolated");
+        StageFixture("isolated");
         var manager = new PluginManager(new()
         {
             PluginRoots = [_root],
@@ -148,7 +148,7 @@ public class IsolatedPluginTests
         await manager.StartAsync();
         Assert.AreEqual(PluginState.Active, manager.Plugins.Single().State, manager.Plugins.Single().Error);
 
-        int pid = manager.GetIsolatedProcessId("velashell.hello-world")!.Value;
+        int pid = manager.GetIsolatedProcessId("velashell.test-fixture")!.Value;
         // 自己开一个句柄:PluginManager 释放后它那份 Process 就没了,退出码得从这里读。
         // 必须在进程还活着时把 Handle 抓在手里,否则退出后 ExitCode 会抛
         //「Process was not started by this object」。

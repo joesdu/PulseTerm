@@ -1,5 +1,5 @@
 using VelaShell.Infrastructure.Plugins;
-using VelaShell.Plugin.HelloWorld;
+using VelaShell.TestPlugin;
 using VelaShell.PluginSdk;
 using VelaShell.PluginSdk.Manifest;
 using VelaShell.PluginSdk.Testing;
@@ -40,16 +40,16 @@ public class LazyActivationTests
         }
     }
 
-    private void StageHelloWorld(string manifestExtras)
+    private void StageFixture(string manifestExtras)
     {
         string dir = Path.Combine(_root, "hello");
         Directory.CreateDirectory(dir);
-        File.Copy(typeof(HelloWorldPlugin).Assembly.Location, Path.Combine(dir, "VelaShell.Plugin.HelloWorld.dll"));
+        File.Copy(typeof(TestFixturePlugin).Assembly.Location, Path.Combine(dir, "VelaShell.TestPlugin.dll"));
         File.WriteAllText(Path.Combine(dir, "plugin.json"), $$"""
-            { "id": "velashell.hello-world", "version": "0.1.0", "displayName": "Hello",
-              "entry": "VelaShell.Plugin.HelloWorld.dll",
+            { "id": "velashell.test-fixture", "version": "0.1.0", "displayName": "Test Fixture",
+              "entry": "VelaShell.TestPlugin.dll",
               "contributes": { "commands": [
-                { "id": "velashell.hello-world.list-sessions", "title": "Hello World: List Sessions", "category": "Hello World" }
+                { "id": "velashell.test-fixture.list-sessions", "title": "Test Fixture: List Sessions", "category": "Test Fixture" }
               ] }{{manifestExtras}} }
             """);
     }
@@ -69,20 +69,20 @@ public class LazyActivationTests
     [TestMethod]
     public async Task LazyPlugin_StaysDiscovered_UntilPlaceholderCommandTriggersActivation()
     {
-        StageHelloWorld(""", "activationEvents": ["onCommand:velashell.hello-world.list-sessions"]""");
+        StageFixture(""", "activationEvents": ["onCommand:velashell.test-fixture.list-sessions"]""");
         PluginManager manager = CreateManager();
         await manager.StartAsync();
 
         // 发现期:不装载程序集,只有清单声明的占位命令。
         Assert.AreEqual(PluginState.Discovered, manager.Plugins.Single().State);
-        Assert.IsFalse(File.Exists(Path.Combine(_dataRoot, "velashell.hello-world", "storage.json")),
+        Assert.IsFalse(File.Exists(Path.Combine(_dataRoot, "velashell.test-fixture", "storage.json")),
             "惰性插件在触发前不应有任何激活痕迹");
         Assert.HasCount(1, _commands.Registered);
 
         // 触发占位命令 → 激活 → 真实命令替换占位并补齐其余注册。
-        await _commands.RunAsync("velashell.hello-world.list-sessions");
+        await _commands.RunAsync("velashell.test-fixture.list-sessions");
         Assert.AreEqual(PluginState.Active, manager.Plugins.Single().State, manager.Plugins.Single().Error);
-        Assert.IsTrue(File.Exists(Path.Combine(_dataRoot, "velashell.hello-world", "storage.json")));
+        Assert.IsTrue(File.Exists(Path.Combine(_dataRoot, "velashell.test-fixture", "storage.json")));
         Assert.IsGreaterThan(1, _commands.Registered.Count, "激活后应出现插件注册的全部真实命令");
 
         await manager.DisposeAsync();
@@ -91,21 +91,21 @@ public class LazyActivationTests
     [TestMethod]
     public async Task IsolatedRecyclablePlugin_IdleRecycles_ThenReactivatesOnTrigger()
     {
-        StageHelloWorld(""", "hostMode": "isolated", "idlePolicy": "recyclable" """);
+        StageFixture(""", "hostMode": "isolated", "idlePolicy": "recyclable" """);
         PluginManager manager = CreateManager(idleTimeout: TimeSpan.FromSeconds(2));
         await manager.StartAsync();
         Assert.AreEqual(PluginState.Active, manager.Plugins.Single().State, manager.Plugins.Single().Error);
-        int firstPid = manager.GetIsolatedProcessId("velashell.hello-world")!.Value;
+        int firstPid = manager.GetIsolatedProcessId("velashell.test-fixture")!.Value;
 
         // 静默等待:超过空闲阈值后应被回收(进程消失、状态回到 Discovered、占位命令回挂)。
         await WaitForAsync(() => manager.Plugins.Single().State == PluginState.Discovered
-                                 && manager.GetIsolatedProcessId("velashell.hello-world") is null,
+                                 && manager.GetIsolatedProcessId("velashell.test-fixture") is null,
             TimeSpan.FromSeconds(30), "空闲的可回收插件应被停用并回收进程");
 
         // 再次触发 → 重新拉起新进程。
-        await _commands.RunAsync("velashell.hello-world.list-sessions");
+        await _commands.RunAsync("velashell.test-fixture.list-sessions");
         Assert.AreEqual(PluginState.Active, manager.Plugins.Single().State, manager.Plugins.Single().Error);
-        int secondPid = manager.GetIsolatedProcessId("velashell.hello-world")!.Value;
+        int secondPid = manager.GetIsolatedProcessId("velashell.test-fixture")!.Value;
         Assert.AreNotEqual(firstPid, secondPid);
 
         await manager.DisposeAsync();
@@ -133,7 +133,7 @@ public class LazyActivationTests
     [TestMethod]
     public async Task Start_PurgesDataOfUninstalledPlugins_KeepsInstalledAndDisabled()
     {
-        StageHelloWorld("");
+        StageFixture("");
         // 盘上还有一个被禁用的插件(数据必须保留)。
         string disabledDir = Path.Combine(_root, "disabled-one");
         Directory.CreateDirectory(disabledDir);
@@ -143,7 +143,7 @@ public class LazyActivationTests
 
         // 数据侧:已卸载的 ghost 在 DB 与数据目录都留有数据。
         var dataStore = new RecordingDataStore();
-        dataStore.Present.AddRange(["velashell.hello-world", "acme.disabled", "ghost.plugin"]);
+        dataStore.Present.AddRange(["velashell.test-fixture", "acme.disabled", "ghost.plugin"]);
         Directory.CreateDirectory(Path.Combine(_dataRoot, "ghost.plugin"));
         File.WriteAllText(Path.Combine(_dataRoot, "ghost.plugin", "leftover.txt"), "x");
         Directory.CreateDirectory(Path.Combine(_dataRoot, "acme.disabled"));

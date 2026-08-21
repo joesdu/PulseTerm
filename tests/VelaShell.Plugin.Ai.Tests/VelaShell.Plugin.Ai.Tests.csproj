@@ -31,7 +31,8 @@
   <ItemGroup>
     <!-- 被测插件(Agent 工具箱/配置存储为纯逻辑,不触碰 Avalonia 类型)。 -->
     <ProjectReference Include="..\..\plugins\VelaShell.Plugin.Ai\VelaShell.Plugin.Ai.csproj" />
-    <ProjectReference Include="..\..\plugin-sdk\VelaShell.PluginSdk.Testing\VelaShell.PluginSdk.Testing.csproj" />
+    <!-- SDK 测试替身:与全仓一致走 nuget.org 上的正式包。 -->
+    <PackageReference Include="VelaShell.PluginSdk.Testing" />
   </ItemGroup>
 
 </Project>

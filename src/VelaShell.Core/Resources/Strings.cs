@@ -103,9 +103,6 @@ public static class Strings
     /// <summary>“Docker”分类/面板标题文案。</summary>
     public static string Docker => ResourceManager.GetString(nameof(Docker), CultureInfo.CurrentUICulture) ?? nameof(Docker);
 
-    /// <summary>“自定义”分类文案。</summary>
-    public static string Custom => ResourceManager.GetString(nameof(Custom), CultureInfo.CurrentUICulture) ?? nameof(Custom);
-
     /// <summary>“快捷命令”面板标题文案。</summary>
     public static string QuickCommands => ResourceManager.GetString(nameof(QuickCommands), CultureInfo.CurrentUICulture) ?? nameof(QuickCommands);
 

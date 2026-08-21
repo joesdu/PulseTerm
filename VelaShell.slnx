@@ -1,4 +1,4 @@
-﻿<Solution>
+<Solution>
   <Folder Name="/.github/">
     <File Path=".github/dependabot.yml" />
   </Folder>
@@ -25,32 +25,11 @@
     <File Path="README.en.md" />
     <File Path="README.md" />
     <File Path="Directory.Build.targets" />
-  </Folder>
-  <Folder Name="/plugin-sdk/">
-    <File Path="plugin-sdk/Directory.Build.props" />
-    <Project Path="plugin-sdk/VelaShell.PluginSdk/VelaShell.PluginSdk.csproj" />
-    <Project Path="plugin-sdk/VelaShell.PluginSdk.Testing/VelaShell.PluginSdk.Testing.csproj" />
-    <Project Path="plugin-sdk/VelaShell.PluginSdk.Build/VelaShell.PluginSdk.Build.csproj" />
-  </Folder>
-  <Folder Name="/tools/">
-    <Project Path="tools/VelaShell.Plugin.Cli/VelaShell.Plugin.Cli.csproj" />
-  </Folder>
-  <Folder Name="/templates/">
-    <File Path="templates/README.md" />
-    <Project Path="templates/VelaShell.Plugin.Templates.csproj" />
-  </Folder>
-  <Folder Name="/plugins/">
-    <File Path="plugins/Directory.Build.props" />
-    <File Path="plugins/Directory.Build.targets" />
-    <File Path="plugins/README.md" />
-    <Project Path="plugins/VelaShell.Plugin.Ai/VelaShell.Plugin.Ai.csproj" />
-    <Project Path="plugins/VelaShell.Plugin.HelloWorld/VelaShell.Plugin.HelloWorld.csproj" />
-    <Project Path="plugins/VelaShell.Plugin.Redis/VelaShell.Plugin.Redis.csproj" />
-    <Project Path="plugins/VelaShell.Plugin.S3/VelaShell.Plugin.S3.csproj" />
-    <Project Path="plugins/VelaShell.Plugin.Telnet/VelaShell.Plugin.Telnet.csproj" />
+    <File Path="scripts/Fetch-Plugins.ps1" />
   </Folder>
   <Folder Name="/src/">
     <File Path="src/Directory.Build.props" />
+    <File Path="src/Directory.Build.targets" />
 	<File Path="src/Directory.Packages.props" />
     <Project Path="src/VelaShell.Controls/VelaShell.Controls.csproj" />
     <Project Path="src/VelaShell.Core/VelaShell.Core.csproj" />
@@ -58,7 +37,13 @@
     <Project Path="src/VelaShell.PluginHost/VelaShell.PluginHost.csproj" />
     <Project Path="src/VelaShell.Presentation/VelaShell.Presentation.csproj" />
     <Project Path="src/VelaShell.Terminal/VelaShell.Terminal.csproj" />
-    <Project Path="src/VelaShell/VelaShell.csproj" /> 
+    <Project Path="src/VelaShell/VelaShell.csproj" />
+  </Folder>
+  <Folder Name="/plugins/">
+    <File Path="plugins/Directory.Build.props" />
+    <File Path="plugins/Directory.Build.targets" />
+    <File Path="plugins/README.md" />
+    <Project Path="plugins/VelaShell.Plugin.Ai/VelaShell.Plugin.Ai.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <File Path="tests/Directory.Build.props" />
@@ -67,11 +52,11 @@
     <Project Path="tests/VelaShell.Core.Tests/VelaShell.Core.Tests.csproj" />
     <Project Path="tests/VelaShell.Infrastructure.Tests/VelaShell.Infrastructure.Tests.csproj" />
     <Project Path="tests/VelaShell.Plugin.Ai.Tests/VelaShell.Plugin.Ai.Tests.csproj" />
-    <Project Path="tests/VelaShell.Plugin.Redis.Tests/VelaShell.Plugin.Redis.Tests.csproj" />
-    <Project Path="tests/VelaShell.Plugin.S3.Tests/VelaShell.Plugin.S3.Tests.csproj" />
-    <Project Path="tests/VelaShell.Plugin.Telnet.Tests/VelaShell.Plugin.Telnet.Tests.csproj" />
     <Project Path="tests/VelaShell.Presentation.Tests/VelaShell.Presentation.Tests.csproj" />
     <Project Path="tests/VelaShell.Terminal.Tests/VelaShell.Terminal.Tests.csproj" />
-    <Project Path="tests/VelaShell.Tests/VelaShell.Tests.csproj" /> 
+    <Project Path="tests/VelaShell.Tests/VelaShell.Tests.csproj" />
+    <File Path="tests/fixtures/README.md" />
+    <Project Path="tests/fixtures/VelaShell.TestPlugin/VelaShell.TestPlugin.csproj" />
+    <Project Path="tests/fixtures/VelaShell.TestPlugin.Terminal/VelaShell.TestPlugin.Terminal.csproj" />
   </Folder>
 </Solution>
