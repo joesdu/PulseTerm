@@ -4,18 +4,15 @@
 #   macOS   x64/arm64 → tar.gz + dmg(未签名/未公证;Unix 可执行位在原生 runner 上保留)
 #   Linux   x64/arm64 → tar.gz
 # 随包分发的插件(plugins/<目录名>/,目录名 = id 把点换成短横,原因见 macOS job 的签名一步)
-# 有两个来源,发行包里的 plugins/ 是它们的并集:
-#   ① AI 插件(velashell.ai)在本仓库 plugins/ 下,随 publish 一起构建;
-#   ② Redis / S3 / Telnet 在第一方插件仓库 joesdu/velashell-plugins,以 Release 资产
-#      velashell-plugins-<版本>.zip 交付,包内布局就是安装包 plugins/ 那一层。
-# 各 job 在 publish 前跑 scripts/Fetch-Plugins.ps1 按根 Directory.Build.props 的
-# VelaPluginsBundleVersion 取回 ② 并校验 sha256,解到 artifacts/plugins/(脚本会丢掉包里
-# 与 ① 重名的目录);publish 期由 src/VelaShell/VelaShell.csproj 的 AddVelaPluginsToPublish
-# 把两边一起登记入包。
-# 哪个插件进包由各插件的 <VelaPluginShip> 把关(示例插件 velashell.hello-world 设为 false,
-# 只作开发范例不进产物)。两个来源都空时发布会直接失败,不会悄悄出一个没插件的包。
-# ⚠️ 发布顺序:**先发工具链的 Release,再发本仓库** —— 反过来的话 ② 取不到资产。
-# 插件是纯托管、无 RID 的产物,一个 zip 吃遍五个平台,各 job 取的是同一份。
+# **只有本仓库 plugins/ 下自建的那些**(当前是 AI 插件 velashell.ai),随 publish 一起构建、
+# 由 src/VelaShell/VelaShell.csproj 的 AddVelaPluginsToPublish 登记入包。
+# 哪个进包由各插件的 <VelaPluginShip> 把关(示例插件 velashell.hello-world 设为 false,
+# 只作开发范例不进产物)。
+# 2026-08-22 起**不再**从第一方插件仓库 joesdu/velashell-plugins 取 Redis / S3 / Telnet 预装:
+# 不是每个人都要连 Redis、开 S3、拨 Telnet,预装等于给所有人塞三份用不上的依赖(光 Redis 与
+# S3 的 SDK 就近 5 MB),还把发布节奏绑在另一个仓库的发版顺序上。它们改由用户按需从插件商店
+# (https://market.easilynet.top)自行安装 —— 插件管理页的安装入口旁就有链接。
+# 联调/本机想要那几个插件时仍可手动跑 scripts/Fetch-Plugins.ps1(见该脚本),流水线不跑它。
 # 另有 build-msix 任务产出商店版 .msixbundle,但它不附加到 Release —— 作为工作流
 # artifact(store-msix)留存,由人工下载后提交 Partner Center。便携版与商店版是同一份二进制,
 # 只是容器不同;应用内自更新在商店版会自动关闭(运行时判定包身份,见 Services/AppPackaging.cs)。
@@ -87,14 +84,6 @@ jobs:
             [Convert]::FromBase64String($env:SNK_B64))
         env:
           SNK_B64: ${{ secrets.STRONG_NAME_KEY }}
-      # 插件仓库侧的第一方插件(Redis / S3 / Telnet)。按根 Directory.Build.props 的
-      # VelaPluginsBundleVersion 取那一版解到 artifacts/plugins/;AI 插件不在其中,
-      # 它在本仓库 plugins/ 下随 publish 一起构建。两边都由 AddVelaPluginsToPublish 登记进 plugins/。
-      # 取不到就直接失败 —— 发行包不接受"插件系统看着在、实则没插件"。
-      - name: Fetch first-party plugins
-        shell: pwsh
-        run: ./scripts/Fetch-Plugins.ps1
-
       - name: Publish (win-x64 / win-arm64)
         shell: pwsh
         run: |
@@ -139,14 +128,6 @@ jobs:
             [Convert]::FromBase64String($env:SNK_B64))
         env:
           SNK_B64: ${{ secrets.STRONG_NAME_KEY }}
-      # 插件仓库侧的第一方插件(Redis / S3 / Telnet)。按根 Directory.Build.props 的
-      # VelaPluginsBundleVersion 取那一版解到 artifacts/plugins/;AI 插件不在其中,
-      # 它在本仓库 plugins/ 下随 publish 一起构建。两边都由 AddVelaPluginsToPublish 登记进 plugins/。
-      # 取不到就直接失败 —— 发行包不接受"插件系统看着在、实则没插件"。
-      - name: Fetch first-party plugins
-        shell: pwsh
-        run: ./scripts/Fetch-Plugins.ps1
-
       - name: Build MSIX bundle (win-x64 + win-arm64)
         shell: pwsh
         run: |
@@ -198,14 +179,6 @@ jobs:
           sudo rm -rf "$HOME/Library/Android" /usr/local/share/boost
           sudo rm -rf "$HOME/.rustup" "$HOME/.cargo"
           echo "== after =="; df -h /System/Volumes/Data | tail -1
-      # 插件仓库侧的第一方插件(Redis / S3 / Telnet)。按根 Directory.Build.props 的
-      # VelaPluginsBundleVersion 取那一版解到 artifacts/plugins/;AI 插件不在其中,
-      # 它在本仓库 plugins/ 下随 publish 一起构建。两边都由 AddVelaPluginsToPublish 登记进 plugins/。
-      # 取不到就直接失败 —— 发行包不接受"插件系统看着在、实则没插件"。
-      - name: Fetch first-party plugins
-        shell: pwsh
-        run: ./scripts/Fetch-Plugins.ps1
-
       - name: Publish (osx-x64 / osx-arm64)
         run: |
           set -euo pipefail
@@ -285,14 +258,6 @@ jobs:
         run: echo "$SNK_B64" | openssl base64 -A -d > src/VelaShell.snk
         env:
           SNK_B64: ${{ secrets.STRONG_NAME_KEY }}
-      # 插件仓库侧的第一方插件(Redis / S3 / Telnet)。按根 Directory.Build.props 的
-      # VelaPluginsBundleVersion 取那一版解到 artifacts/plugins/;AI 插件不在其中,
-      # 它在本仓库 plugins/ 下随 publish 一起构建。两边都由 AddVelaPluginsToPublish 登记进 plugins/。
-      # 取不到就直接失败 —— 发行包不接受"插件系统看着在、实则没插件"。
-      - name: Fetch first-party plugins
-        shell: pwsh
-        run: ./scripts/Fetch-Plugins.ps1
-
       - name: Publish (linux-x64 / linux-arm64)
         run: |
           set -euo pipefail
