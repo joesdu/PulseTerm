@@ -87,7 +87,6 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
     private readonly CancellationTokenSource _shutdown = new();
     private readonly List<FileSystemWatcher> _devWatchers = [];
     private readonly Lock _devDisabledGate = new();
-    private HashSet<string>? _devDisabled;
     private Timer? _devWatchDebounce;
     private bool _started;
     private bool _disposed;
@@ -890,9 +889,9 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         {
             lock (_devDisabledGate)
             {
-                if (_devDisabled is not null)
+                if (field is not null)
                 {
-                    return _devDisabled;
+                    return field;
                 }
                 var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 try
@@ -913,7 +912,7 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
                 {
                     Log($"Could not read the development disable list: {ex.Message}");
                 }
-                return _devDisabled = set;
+                return field = set;
             }
         }
     }
