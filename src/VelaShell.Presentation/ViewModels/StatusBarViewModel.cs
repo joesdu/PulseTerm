@@ -5,8 +5,26 @@ using ReactiveUI.Primitives.Concurrency;
 using ReactiveUI.Primitives.Disposables;
 using ReactiveUI.Primitives.Signals;
 using VelaShell.Core.Resources;
+using VelaShell.Core.Services;
 
 namespace VelaShell.Presentation.ViewModels;
+
+/// <summary>
+/// 后台活动清单里的一行(圆环的悬停提示与弹出清单共用)。
+/// 可见性判定预先算成 bool 而不是在 axaml 里挂转换器:这份清单每秒会重建好几次,
+/// 每行再走两趟转换器纯属白烧。
+/// </summary>
+/// <param name="Title">活动名称。</param>
+/// <param name="Detail">当前处理对象;无则为空串。</param>
+/// <param name="HasDetail">是否有 <paramref name="Detail" />。</param>
+/// <param name="Progress">百分比文本(如 "42%");进度不可知时为空串。</param>
+/// <param name="HasProgress">是否有确定进度。</param>
+public sealed record BackgroundActivityItem(
+    string Title,
+    string Detail,
+    bool HasDetail,
+    string Progress,
+    bool HasProgress);
 
 /// <summary>状态栏视图模型:维护连接状态、终端信息与 CPU/内存/磁盘/网络等实时指标,并驱动运行时长计时。</summary>
 public sealed class StatusBarViewModel(ISequencer scheduler) : ReactiveObject, IDisposable
@@ -204,6 +222,99 @@ public sealed class StatusBarViewModel(ISequencer scheduler) : ReactiveObject, I
     {
         get;
         private set => this.RaiseAndSetIfChanged(ref field, value);
+    }
+
+    // ---- 后台活动指示器(状态栏右下角的圆环) ----
+
+    /// <summary>是否有后台活动进行中;为假时整个指示器隐藏,状态栏回到干净状态。</summary>
+    public bool HasBackgroundActivity
+    {
+        get;
+        private set => this.RaiseAndSetIfChanged(ref field, value);
+    }
+
+    /// <summary>圆环是否走不确定动画(存在进度不可知的活动,或只有一条无进度活动时)。</summary>
+    public bool IsBackgroundIndeterminate
+    {
+        get;
+        private set => this.RaiseAndSetIfChanged(ref field, value);
+    } = true;
+
+    /// <summary>聚合后的确定进度,取值 0~1(<see cref="IsBackgroundIndeterminate"/> 为真时无意义)。</summary>
+    public double BackgroundProgress
+    {
+        get;
+        private set => this.RaiseAndSetIfChanged(ref field, value);
+    }
+
+    /// <summary>圆环右侧的一行摘要:单条活动显示其名称,多条时显示"N 项后台任务"。</summary>
+    public string BackgroundSummary
+    {
+        get;
+        private set => this.RaiseAndSetIfChanged(ref field, value);
+    } = string.Empty;
+
+    /// <summary>悬停提示:逐条列出进行中的活动(带百分比)。</summary>
+    public string BackgroundTooltip
+    {
+        get;
+        private set => this.RaiseAndSetIfChanged(ref field, value);
+    } = Strings.Get("BackgroundTasksIdle");
+
+    /// <summary>进行中的活动明细,供点击圆环后弹出的清单绑定。</summary>
+    public IReadOnlyList<BackgroundActivityItem> BackgroundActivities
+    {
+        get;
+        private set => this.RaiseAndSetIfChanged(ref field, value);
+    } = [];
+
+    /// <summary>
+    /// 用一份后台活动快照刷新指示器。
+    /// <para>
+    /// **必须在 UI 线程调用** —— 本类型不知道调度器是谁(表现层不引 Avalonia),
+    /// 由持有它的窗口视图模型负责把账本的变更通知切到 UI 线程再送进来。
+    /// </para>
+    /// <para>
+    /// 聚合规则:全部活动都报了确定进度时取算术平均并显示确定圆环;
+    /// 只要有一条说不出进度,整个圆环就走不确定动画 —— 把"不知道"混进平均值里
+    /// 算出来的百分比是假的,而进度条一旦骗过人一次就再也不会被相信。
+    /// </para>
+    /// </summary>
+    /// <param name="activities">当前进行中的活动快照。</param>
+    public void ApplyBackgroundActivities(IReadOnlyList<BackgroundActivitySnapshot> activities)
+    {
+        ArgumentNullException.ThrowIfNull(activities);
+        HasBackgroundActivity = activities.Count > 0;
+        if (activities.Count == 0)
+        {
+            IsBackgroundIndeterminate = true;
+            BackgroundProgress = 0;
+            BackgroundSummary = string.Empty;
+            BackgroundTooltip = Strings.Get("BackgroundTasksIdle");
+            BackgroundActivities = [];
+            return;
+        }
+
+        BackgroundActivities = [.. activities.Select(a => new BackgroundActivityItem(
+            a.Title,
+            a.Detail ?? string.Empty,
+            !string.IsNullOrEmpty(a.Detail),
+            a.Progress is { } p ? $"{p * 100:F0}%" : string.Empty,
+            a.Progress is not null))];
+
+        bool allDeterminate = activities.All(a => a.Progress is not null);
+        IsBackgroundIndeterminate = !allDeterminate;
+        BackgroundProgress = allDeterminate ? activities.Average(a => a.Progress!.Value) : 0;
+        BackgroundSummary = activities.Count == 1
+            ? activities[0].Title
+            : Strings.Format("BackgroundTasksCount", activities.Count);
+        BackgroundTooltip = string.Join('\n', BackgroundActivities.Select(item =>
+            string.Join(" ", new[]
+            {
+                item.Title,
+                item.HasDetail ? $"— {item.Detail}" : string.Empty,
+                item.HasProgress ? $"({item.Progress})" : string.Empty
+            }.Where(part => part.Length > 0))));
     }
 
     /// <summary>释放内部订阅资源并停止运行时长计时。</summary>

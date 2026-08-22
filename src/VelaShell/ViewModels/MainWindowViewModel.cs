@@ -187,7 +187,8 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
         IPluginProtocolSessionService? pluginProtocolService = null,
         PluginProtocolRegistry? protocolRegistry = null,
         PluginWorkspaceLauncher? workspaceLauncher = null,
-        IGistSyncService? gistSyncService = null
+        IGistSyncService? gistSyncService = null,
+        IBackgroundActivityService? backgroundActivity = null
     )
     {
         // 注册表可注入(DI 里与插件命令桥共享同一单例);无 UI 单测传 null 时自建。
@@ -257,6 +258,7 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
         _tabBar = new();
         _tabBar.Tabs.CollectionChanged += OnTabsCollectionChanged;
         _statusBar = new();
+        WireBackgroundActivity(backgroundActivity);
         _fileBrowser = new(null, Guid.Empty);
         _fileTransfer = new(transferManager, appDataStore);
         _tabBar
@@ -3907,6 +3909,28 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
     /// <summary>
     /// 将当前活动终端标签的连接详情投射到状态栏中,使左下角的指示器始终反映用户正在看的标签。
     /// </summary>
+    /// <summary>
+    /// 把后台活动账本接到状态栏的圆环上。
+    /// <para>
+    /// 账本在后台线程上报(插件装载、内容校验、预读都不在 UI 线程),而状态栏属性是给绑定读的,
+    /// 因此这里是唯一的切线程点。<c>Post</c> 而不是 <c>InvokeAsync</c>:圆环晚一帧更新
+    /// 没有任何影响,但让一条后台链去等 UI 线程就有卡住它的可能。
+    /// </para>
+    /// <para>本视图模型与账本同为应用级单例、同生共死,故不解挂事件。</para>
+    /// </summary>
+    /// <param name="activity">后台活动账本;无界面单测传 null 时整块跳过。</param>
+    private void WireBackgroundActivity(IBackgroundActivityService? activity)
+    {
+        if (activity is null)
+        {
+            return;
+        }
+        activity.Changed += () =>
+            Dispatcher.UIThread.Post(() => StatusBar.ApplyBackgroundActivities(activity.Activities),
+                DispatcherPriority.Background);
+        StatusBar.ApplyBackgroundActivities(activity.Activities);
+    }
+
     private void UpdateStatusBarForActiveTab()
     {
         TerminalTabViewModel? tab = ActiveTerminalTab;

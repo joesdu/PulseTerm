@@ -182,6 +182,28 @@ public sealed class PluginManagerOptions
     /// <summary>单插件激活时限;超时判 Failed 并卸载。</summary>
     public TimeSpan ActivationTimeout { get; init; } = TimeSpan.FromSeconds(10);
 
+    /// <summary>
+    /// 后台活动账本(状态栏右下角的圆环据此显示)。缺席时插件加载静默进行,
+    /// 行为与引入指示器之前完全一致 —— headless 测试与无界面宿主不受影响。
+    /// </summary>
+    public Core.Services.IBackgroundActivityService? Activity { get; init; }
+
+    /// <summary>
+    /// 是否对惰性等待中的插件做冷启动预读(把程序集抬进操作系统文件缓存)。
+    /// <para>
+    /// **只读文件,不装载程序集、不跑 <c>ActivateAsync</c>** —— 惰性激活的语义分毫不动,
+    /// 省下的是用户点击那一刻的磁盘时间。默认开;
+    /// 环境变量 <c>VELASHELL_DISABLE_PLUGIN_PREWARM=1</c> 为排障急停开关。
+    /// </para>
+    /// </summary>
+    public bool PrewarmLazyPlugins { get; init; } = true;
+
+    /// <summary>预读的起始延时:让主窗口先把首帧画完,预读绝不与启动争磁盘。</summary>
+    public TimeSpan PrewarmDelay { get; init; } = TimeSpan.FromSeconds(5);
+
+    /// <summary>预读的总字节上限:超过即停,避免为一个巨型插件把文件缓存整个冲掉。</summary>
+    public long PrewarmByteBudget { get; init; } = 128L * 1024 * 1024;
+
     /// <summary>单插件停用时限;应用退出路径上超时即放弃等待。</summary>
     public TimeSpan DeactivationTimeout { get; init; } = TimeSpan.FromSeconds(2);
 }
