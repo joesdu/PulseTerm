@@ -290,3 +290,55 @@ each one always cleared).
   protocol. The cost is 30–50% larger R2R'd assemblies (noticeable under self-contained). **The
   benefit must be measured**, so it gets its own round: change the configuration, measure cold start
   on all three platforms, then decide whether the size is worth it.
+
+## 2026-08-23 (3): ReadyToRun enabled (with measurements)
+
+One line added to the Release property group in `src/VelaShell/VelaShell.csproj`:
+
+```xml
+<PublishReadyToRun Condition="'$(RuntimeIdentifier)' != ''">true</PublishReadyToRun>
+```
+
+**Only when a RID is supplied**: R2R compiles against a specific target runtime, and a publish
+without a RID fails outright with NETSDK1095. The release pipeline passes `-r` on all three
+platforms (each on a matching-OS runner — cross-architecture is fine, cross-OS is not), while a
+local RID-less publish quietly falls back to an ordinary one. Plugin projects are unaffected: their
+`ProjectReference` has listed `PublishReadyToRun` under `UndefineProperties` all along.
+
+`PublishReadyToRunComposite` stays off: composite mode starts faster but fuses the whole
+self-contained runtime into one enormous image, and neither the size nor the build-time increase is
+what this round wanted to pay.
+
+### Measured (win-x64, self-contained)
+
+| | Baseline | R2R on | Change |
+|---|---|---|---|
+| Publish directory total | 277 MB | 318 MB | **+41 MB (+15%)** |
+| `VelaShell.dll` | 4.2 MB | 9.3 MB | ×2.2 |
+| `VelaShell.PluginHost.dll` | 61 KB | 184 KB | ×3.0 |
+| PluginHost bootstrap + Avalonia init (median) | 387 ms | **355 ms** | −32 ms (−8%) |
+
+The package grows only 15% rather than the 2–3× seen on individual assemblies because most of those
+277 MB are the self-contained runtime, and **the framework assemblies in the runtime pack are
+already R2R**. Only this repository's own assemblies and third-party libraries such as Avalonia grow.
+
+The startup row needs its method stated: PluginHost is given a pipe name that does not exist, so it
+runs bootstrap → `AppBuilder.SetupWithoutStarting()` → 10-second connect timeout → exit, and the
+fixed 10 seconds is subtracted. Beyond the faster median, **the tail variance collapses**
+(baseline 373–1348 ms, R2R 348–385 ms).
+
+> A wrong turn worth recording so nobody repeats it: the first attempt measured "run PluginHost with
+> no environment variables at all", and R2R came out 52 ms *slower*. On that path `Require()` throws
+> immediately, so **no JIT ever happens** — the measurement captured R2R's file-size cost and none of
+> its benefit. Measuring R2R requires the path under test to actually execute a meaningful amount of
+> code.
+
+### Not yet verified
+
+The main application's own cold start is **not measured**: it is a GUI app with no "exit without
+opening a window" entry point, so measuring it means actually raising the window. The main app should
+benefit considerably more than PluginHost (ReactiveUI, AvaloniaEdit, SonnetDB and the entire shell
+live on that side), but that is inference, not data. By the same token, "the R2R output runs
+correctly" currently rests only on the PluginHost side of the evidence (it did start, initialize
+Avalonia and wait for the timeout). **Before shipping, launch the main app once on each of the three
+platforms** to confirm R2R + Avalonia + the plugin ALC hold together.

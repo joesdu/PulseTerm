@@ -242,3 +242,49 @@ MSBuild 自己的增量清理机制免费提供。另加一道扫尾:`Incrementa
   且能顺带吃掉一部分隔离宿主的冷启动、不用动 IPC 协议。代价是 R2R'd 程序集大 30~50%
   (self-contained 下包体增长可观)。**收益必须实测**,单独开一轮:改配置 → 三平台各测冷启动
   → 拿数据决定包体值不值。
+
+## 2026-08-23(三):ReadyToRun 开启(附实测)
+
+`src/VelaShell/VelaShell.csproj` 的 Release 属性组加一句:
+
+```xml
+<PublishReadyToRun Condition="'$(RuntimeIdentifier)' != ''">true</PublishReadyToRun>
+```
+
+**只在给了 RID 时打开**:R2R 必须按目标运行时编译,没有 RID 的 publish 会直接报 NETSDK1095。
+发布流水线三个平台都传 `-r`(且各自跑在对应 OS 的 runner 上 —— 跨架构可以,跨 OS 不行),
+本机不带 RID 的 publish 则安静地退回普通发布。插件工程不受影响:它们的 ProjectReference
+早就在 `UndefineProperties` 里摘掉了 `PublishReadyToRun`。
+
+不开 `PublishReadyToRunComposite`:复合模式启动更快,但把整个自包含运行时熔成一个巨大镜像,
+包体与构建时间的涨幅都不是这一轮想付的。
+
+### 实测(win-x64,自包含)
+
+| | 基线 | 开 R2R | 变化 |
+|---|---|---|---|
+| 发布目录总大小 | 277 MB | 318 MB | **+41 MB(+15%)** |
+| `VelaShell.dll` | 4.2 MB | 9.3 MB | ×2.2 |
+| `VelaShell.PluginHost.dll` | 61 KB | 184 KB | ×3.0 |
+| PluginHost 启动 + Avalonia 初始化(中位) | 387 ms | **355 ms** | −32 ms(−8%) |
+
+包体只涨 15% 而不是单个程序集的 2~3 倍,是因为 277 MB 里绝大部分是自包含运行时,
+而运行时包里的框架程序集**本来就是 R2R 的** —— 涨的只有本仓库自己的程序集与
+Avalonia 这类第三方库。
+
+启动那一栏的测法要说清楚:给 PluginHost 喂一个不存在的管道名,让它走完
+"运行时引导 → `AppBuilder.SetupWithoutStarting()` → 10 秒连接超时 → 退出",
+总耗时扣掉那个固定的 10 秒。除了中位数变快,**尾部抖动收敛得更明显**
+(基线 373–1348 ms,开启后 348–385 ms)。
+
+> 走过一次弯路,记下来免得再踩:第一次测的是"不给任何环境变量直接跑 PluginHost",
+> 结果 R2R 反而慢 52 ms。原因是那条路径上 `Require()` 立刻抛异常退出,**根本没走到 JIT** ——
+> 只吃到了 R2R 把文件撑大的代价,吃不到收益。测 R2R 必须让被测路径真的执行到有量的代码。
+
+### 尚未验证
+
+主程序自身的冷启动**没有实测**:它是 GUI 应用,没有"不开窗就退出"的启动路径,
+量它必须真的把窗口拉起来。按理说主程序受益应当明显大于 PluginHost
+(ReactiveUI、AvaloniaEdit、SonnetDB、整个 Shell 的代码量都在它这边),但这是推断不是数据。
+同理,R2R 产物"能正常跑"目前只有 PluginHost 那一侧的旁证(它确实起来了、初始化了 Avalonia、
+等到超时才退)。**发版前需要在三平台各拉起一次主程序**,确认 R2R + Avalonia + 插件 ALC 组合无恙。
