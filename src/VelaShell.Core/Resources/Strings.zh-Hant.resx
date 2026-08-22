@@ -3771,4 +3771,5 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   <data name="BackgroundTasks" xml:space="preserve"><value>背景工作</value></data>
   <data name="BackgroundTasksIdle" xml:space="preserve"><value>目前沒有背景工作</value></data>
   <data name="BackgroundTasksCount" xml:space="preserve"><value>{0} 項背景工作</value></data>
+  <data name="Msg_PluginInstalling" xml:space="preserve"><value>正在安裝外掛</value></data>
 </root>

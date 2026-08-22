@@ -12,7 +12,7 @@ namespace VelaShell.Plugin.Ai.Ui;
 /// <summary>
 /// 聊天面板的 <c>@</c> 文件引用部分:在输入框里键入 <c>@</c> 即列出所选会话的远端目录,
 /// 上下键选择、回车/Tab 确认、目录可继续下钻;发送时把被引用文件的内容随消息一并送给模型。
-/// 读取走 SFTP(<see cref="VelaShell.PluginSdk.RemoteFs.IRemoteFsApi" />),
+/// 读取走 SFTP(<see cref="IRemoteFsApi" />),
 /// 写回/编辑由 Agent 模式的 <c>write_remote_file</c> 工具负责(需审批)。
 /// </summary>
 public partial class ChatPanelView

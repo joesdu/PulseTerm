@@ -301,16 +301,26 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         string staging = Path.Combine(Path.GetTempPath(), "velashell-vpx", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(staging);
         PluginManifest? manifest = null;
+        // 安装是纯等待的几秒:验签 → 解压 → 对整个目录算哈希落安装凭据。
+        // 用户从商店下完包点"安装"之后,这段时间界面上必须有东西在动。
+        // 进度是按阶段给的粗刻度 —— 每一步内部都拿不到细粒度回调,与其编一个平滑的假进度,
+        // 不如让弧一段一段地跳:它至少每一跳都对应真的完成了一件事。
+        using IBackgroundActivityScope? activity = options.Activity?.Begin(
+            Strings.Get("Msg_PluginInstalling"), Path.GetFileName(vpxPath), progress: 0);
         try
         {
             await EnsureTrustInitializedAsync(cancellationToken).ConfigureAwait(false);
+            activity?.Report(0.1);
             VpxPackageInfo packageInfo = ExtractPackage(vpxPath, staging, allowUntrustedPackage);
+            activity?.Report(0.5);
             string manifestPath = Path.Combine(staging, PluginManifestReader.FileName);
             if (!File.Exists(manifestPath))
             {
                 throw new InvalidOperationException("Package has no plugin.json at its root.");
             }
             manifest = PluginManifestReader.Load(manifestPath); // 坏清单在此抛 PluginManifestException
+            // 清单读出来了,副标题就从包文件名换成插件的显示名 —— 那才是用户认得的东西。
+            activity?.Report(0.55, DisplayNameOf(manifest));
             string entryPath = Path.Combine(staging, manifest.Entry);
             if (!File.Exists(entryPath))
             {
@@ -337,6 +347,7 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
             TryDeleteDirectory(target);
             Directory.Move(staging, target);
             staging = target; // 已搬走,finally 不再删
+            activity?.Report(0.7);
 
             try
             {
@@ -349,8 +360,13 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
                 throw;
             }
 
+            activity?.Report(0.9);
             PluginDescriptor installed = Describe(target, Path.Combine(target, PluginManifestReader.FileName), [], false,
                 out bool needsVerification);
+            // 装完随即激活会把 SaveInstallReceiptAsync 刚算过的目录哈希再算一遍。看着是浪费,
+            // 但**不要**在这里预置校验结果去省它:那等于把"落凭据 → 首次装载"之间的窗口
+            // 排除在校验之外,而省下的只是一次热缓存目录的哈希(几十毫秒)。
+            // 这个仓库对插件信任面的态度一贯是宁可多算一遍,别为这点时间换窗口。
             var runtime = new PluginRuntime { Descriptor = installed, NeedsVerification = needsVerification };
             lock (_gate)
             {
@@ -368,6 +384,7 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
                     RegisterActivationTriggers(runtime);
                 }
             }
+            activity?.Report(1);
             Log($"Installed plugin '{manifest.Id}' v{manifest.Version} from package.");
         }
         finally
@@ -1318,7 +1335,11 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
 
     /// <summary>面向用户的插件名:清单里的显示名,缺失时退回插件 id。</summary>
     private static string DisplayNameOf(PluginDescriptor descriptor) =>
-        descriptor.Manifest is { DisplayName: { Length: > 0 } name } ? name : descriptor.Id;
+        descriptor.Manifest is { } manifest ? DisplayNameOf(manifest) : descriptor.Id;
+
+    /// <inheritdoc cref="DisplayNameOf(PluginDescriptor)" />
+    private static string DisplayNameOf(PluginManifest manifest) =>
+        manifest is { DisplayName: { Length: > 0 } name } ? name : manifest.Id;
 
     /// <summary>
     /// 空闲巡检(蓝图 04 §资源控制,仅隔离模式):可回收插件连续空闲

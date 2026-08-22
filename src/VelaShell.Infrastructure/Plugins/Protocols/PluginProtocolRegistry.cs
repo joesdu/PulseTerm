@@ -132,12 +132,12 @@ public sealed class PluginProtocolRegistry
     /// 一扇窗口是反过来的依赖方向。
     /// </para>
     /// </summary>
-    public Func<VelaShell.PluginSdk.Workspaces.WorkspaceConnectionProposal, Task<bool>>? ConnectionProposalHandler { get; set; }
+    public Func<WorkspaceConnectionProposal, Task<bool>>? ConnectionProposalHandler { get; set; }
 
     /// <summary>把一条连接提议转交界面层;没有处理器时返回 false。</summary>
     /// <param name="proposal">提议。</param>
     /// <returns>用户是否保存。</returns>
-    public async Task<bool> ProposeConnectionAsync(VelaShell.PluginSdk.Workspaces.WorkspaceConnectionProposal proposal)
+    public async Task<bool> ProposeConnectionAsync(WorkspaceConnectionProposal proposal)
     {
         ArgumentNullException.ThrowIfNull(proposal);
         if (ConnectionProposalHandler is not { } handler)
@@ -190,13 +190,13 @@ public sealed class PluginProtocolRegistry
     /// <summary>登记某插件在清单里声明的协议页签(发现期调用,不碰程序集)。</summary>
     /// <param name="pluginId">插件 id。</param>
     /// <param name="protocols">清单里的协议贡献。</param>
-    public void Declare(string pluginId, IEnumerable<VelaShell.PluginSdk.ProtocolContribution> protocols)
+    public void Declare(string pluginId, IEnumerable<PluginSdk.ProtocolContribution> protocols)
     {
         ArgumentNullException.ThrowIfNull(protocols);
         bool changed = false;
         lock (_gate)
         {
-            foreach (VelaShell.PluginSdk.ProtocolContribution protocol in protocols)
+            foreach (PluginSdk.ProtocolContribution protocol in protocols)
             {
                 // 同 id 先到先得,与插件 id 冲突处置一致:后来者不覆盖已在表里的声明。
                 changed |= _declared.TryAdd(protocol.Id,
@@ -213,7 +213,7 @@ public sealed class PluginProtocolRegistry
     /// <summary>
     /// 把某插件清单里声明的工作台页签登记进注册表(发现期调用,不碰程序集)。
     /// <para>
-    /// 刻意**不**与 <see cref="Declare(string, IEnumerable{VelaShell.PluginSdk.ProtocolContribution})" />
+    /// 刻意**不**与 <see cref="Declare(string, IEnumerable{PluginSdk.ProtocolContribution})" />
     /// 重载同名:两个重载只在集合元素类型上有别,而调用方普遍写
     /// <c>Declare(id, [new() { … }])</c> —— 目标类型化的 <c>new()</c> 在两个候选之间无从推断,
     /// 编译期就是一句二义调用。名字分开,调用点一眼看得出登记的是哪一种。
@@ -221,13 +221,13 @@ public sealed class PluginProtocolRegistry
     /// </summary>
     /// <param name="pluginId">插件 id。</param>
     /// <param name="workspaces">清单里的工作台贡献。</param>
-    public void DeclareWorkspaces(string pluginId, IEnumerable<VelaShell.PluginSdk.WorkspaceContribution> workspaces)
+    public void DeclareWorkspaces(string pluginId, IEnumerable<PluginSdk.WorkspaceContribution> workspaces)
     {
         ArgumentNullException.ThrowIfNull(workspaces);
         bool changed = false;
         lock (_gate)
         {
-            foreach (VelaShell.PluginSdk.WorkspaceContribution workspace in workspaces)
+            foreach (PluginSdk.WorkspaceContribution workspace in workspaces)
             {
                 changed |= _declared.TryAdd(workspace.Id,
                     new(workspace.Id, workspace.DisplayName, workspace.DefaultPort, pluginId, IsReady: false,

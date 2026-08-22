@@ -294,7 +294,7 @@ public sealed class TmdsSftpClientWrapper(Func<Task<SftpClient>> clientFactory) 
     public Task<SftpEntry?> GetEntryAsync(string path, CancellationToken ct = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        return GuardedAsync<SftpEntry?>(async () =>
+        return GuardedAsync(async () =>
         {
             FileEntryAttributes? attrs = await EnsureClient()
                 .GetAttributesAsync(path, true, null, ct).ConfigureAwait(false);

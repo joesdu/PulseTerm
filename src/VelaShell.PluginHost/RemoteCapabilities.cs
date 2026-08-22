@@ -325,7 +325,7 @@ internal sealed class RemoteEventHub(IPluginLogger log) : IHostEvents
 }
 
 /// <summary>机密能力的 RPC 代理:机密只存宿主侧,值仅在本机管道上瞬时传输。</summary>
-internal sealed class RpcSecrets(RpcConnection rpc) : VelaShell.PluginSdk.Secrets.ISecretsApi
+internal sealed class RpcSecrets(RpcConnection rpc) : PluginSdk.Secrets.ISecretsApi
 {
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(30);
 
@@ -341,7 +341,7 @@ internal sealed class RpcSecrets(RpcConnection rpc) : VelaShell.PluginSdk.Secret
 }
 
 /// <summary>剪贴板能力的 RPC 代理:经宿主主窗口执行,与进程内语义一致。</summary>
-internal sealed class RpcClipboard(RpcConnection rpc) : VelaShell.PluginSdk.Clipboard.IClipboardApi
+internal sealed class RpcClipboard(RpcConnection rpc) : PluginSdk.Clipboard.IClipboardApi
 {
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(30);
 
@@ -356,14 +356,14 @@ internal sealed class RpcClipboard(RpcConnection rpc) : VelaShell.PluginSdk.Clip
 /// KV 存储的 RPC 代理:数据落宿主 SonnetDB(按插件 id 命名空间隔离,卸载整体清除),
 /// 隔离进程不落本地文件。
 /// </summary>
-internal sealed class RpcStorage(RpcConnection rpc) : VelaShell.PluginSdk.Storage.IPluginStorage
+internal sealed class RpcStorage(RpcConnection rpc) : PluginSdk.Storage.IPluginStorage
 {
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(30);
 
     public async Task<T?> GetAsync<T>(string key, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrEmpty(key);
-        System.Text.Json.JsonElement? value = await rpc.RequestAsync<System.Text.Json.JsonElement?>(
+        JsonElement? value = await rpc.RequestAsync<JsonElement?>(
             PluginRpc.StorageGet, new StorageKeyRef(key), Timeout, cancellationToken).ConfigureAwait(false);
         return value is { ValueKind: not System.Text.Json.JsonValueKind.Null and not System.Text.Json.JsonValueKind.Undefined } element
             ? element.Deserialize<T>()
@@ -393,12 +393,12 @@ internal sealed class RpcStorage(RpcConnection rpc) : VelaShell.PluginSdk.Storag
 /// 时序能力的 RPC 代理:句柄按 measurement 短名寻址(宿主侧记住已打开的实例),
 /// 数据落宿主 SonnetDB,隔离进程不落本地文件。
 /// </summary>
-internal sealed class RpcTimeSeries(RpcConnection rpc) : VelaShell.PluginSdk.TimeSeries.ITimeSeriesApi
+internal sealed class RpcTimeSeries(RpcConnection rpc) : PluginSdk.TimeSeries.ITimeSeriesApi
 {
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(60);
 
-    public async Task<VelaShell.PluginSdk.TimeSeries.ITimeSeries> OpenAsync(
-        VelaShell.PluginSdk.TimeSeries.TimeSeriesDefinition definition, CancellationToken cancellationToken = default)
+    public async Task<PluginSdk.TimeSeries.ITimeSeries> OpenAsync(
+        PluginSdk.TimeSeries.TimeSeriesDefinition definition, CancellationToken cancellationToken = default)
     {
         VelaShell.PluginSdk.TimeSeries.TimeSeriesValidation.RequireDefinition(definition);
         TimeSeriesNameRef? response = await rpc.RequestAsync<TimeSeriesNameRef>(PluginRpc.TimeSeriesOpen,
@@ -415,24 +415,24 @@ internal sealed class RpcTimeSeries(RpcConnection rpc) : VelaShell.PluginSdk.Tim
             .ConfigureAwait(false);
 
     /// <summary>单个 measurement 的 RPC 句柄。</summary>
-    private sealed class RpcSeries(RpcConnection rpc, string name) : VelaShell.PluginSdk.TimeSeries.ITimeSeries
+    private sealed class RpcSeries(RpcConnection rpc, string name) : PluginSdk.TimeSeries.ITimeSeries
     {
         public string Name => name;
 
-        public Task WriteAsync(VelaShell.PluginSdk.TimeSeries.TimeSeriesPoint point, CancellationToken cancellationToken = default)
+        public Task WriteAsync(PluginSdk.TimeSeries.TimeSeriesPoint point, CancellationToken cancellationToken = default)
             => WriteManyAsync([point], cancellationToken);
 
-        public Task WriteManyAsync(IEnumerable<VelaShell.PluginSdk.TimeSeries.TimeSeriesPoint> points,
+        public Task WriteManyAsync(IEnumerable<PluginSdk.TimeSeries.TimeSeriesPoint> points,
             CancellationToken cancellationToken = default)
             => rpc.RequestAsync<object>(PluginRpc.TimeSeriesWrite,
                 new TimeSeriesWriteRequest(name, [.. points]), Timeout, cancellationToken);
 
-        public async Task<IReadOnlyList<VelaShell.PluginSdk.TimeSeries.TimeSeriesPoint>> QueryAsync(
-            VelaShell.PluginSdk.TimeSeries.TimeSeriesQuery query, CancellationToken cancellationToken = default)
-            => await rpc.RequestAsync<VelaShell.PluginSdk.TimeSeries.TimeSeriesPoint[]>(PluginRpc.TimeSeriesQuery,
+        public async Task<IReadOnlyList<PluginSdk.TimeSeries.TimeSeriesPoint>> QueryAsync(
+            PluginSdk.TimeSeries.TimeSeriesQuery query, CancellationToken cancellationToken = default)
+            => await rpc.RequestAsync<PluginSdk.TimeSeries.TimeSeriesPoint[]>(PluginRpc.TimeSeriesQuery,
                    new TimeSeriesQueryRequest(name, query), Timeout, cancellationToken).ConfigureAwait(false) ?? [];
 
-        public async Task<long> CountAsync(string field, VelaShell.PluginSdk.TimeSeries.TimeSeriesQuery query,
+        public async Task<long> CountAsync(string field, PluginSdk.TimeSeries.TimeSeriesQuery query,
             CancellationToken cancellationToken = default)
             => await rpc.RequestAsync<long>(PluginRpc.TimeSeriesCount,
                 new TimeSeriesCountRequest(name, field, query), Timeout, cancellationToken).ConfigureAwait(false);
@@ -517,7 +517,7 @@ internal sealed class RemoteReadStream(RpcConnection rpc, string streamId, long 
 }
 
 /// <summary>终端能力的 RPC 代理:读取/搜索/回写全部路由到宿主(授权对话框在宿主弹)。</summary>
-internal sealed class RpcTerminal(RpcConnection rpc) : VelaShell.PluginSdk.Terminal.ITerminalApi
+internal sealed class RpcTerminal(RpcConnection rpc) : PluginSdk.Terminal.ITerminalApi
 {
     // 回写可能等用户在对话框上做选择,给足时间。
     private static readonly TimeSpan ReadTimeout = TimeSpan.FromSeconds(30);
@@ -527,13 +527,13 @@ internal sealed class RpcTerminal(RpcConnection rpc) : VelaShell.PluginSdk.Termi
         => await rpc.RequestAsync<string>(PluginRpc.TerminalGetOutput,
                new TerminalGetOutputRequest(sessionId, maxLines), ReadTimeout, cancellationToken).ConfigureAwait(false) ?? "";
 
-    public async Task<IReadOnlyList<VelaShell.PluginSdk.Terminal.TerminalMatch>> SearchOutputAsync(string sessionId,
+    public async Task<IReadOnlyList<PluginSdk.Terminal.TerminalMatch>> SearchOutputAsync(string sessionId,
         string pattern, bool isRegex = false, int maxMatches = 100, CancellationToken cancellationToken = default)
     {
         TerminalMatchDto[] hits = await rpc.RequestAsync<TerminalMatchDto[]>(PluginRpc.TerminalSearch,
             new TerminalSearchRequest(sessionId, pattern, isRegex, maxMatches), ReadTimeout, cancellationToken)
             .ConfigureAwait(false) ?? [];
-        return [.. hits.Select(h => new VelaShell.PluginSdk.Terminal.TerminalMatch(h.Line, h.Text))];
+        return [.. hits.Select(h => new PluginSdk.Terminal.TerminalMatch(h.Line, h.Text))];
     }
 
     public Task WriteAsync(string sessionId, string input, CancellationToken cancellationToken = default)

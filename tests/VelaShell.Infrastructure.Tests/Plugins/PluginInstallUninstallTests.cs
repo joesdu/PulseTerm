@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using System.Security.Cryptography;
+using VelaShell.Core.Resources;
 using VelaShell.Infrastructure.Persistence;
 using VelaShell.Infrastructure.Plugins;
 using VelaShell.PluginSdk.Packaging;
@@ -18,12 +19,12 @@ public class PluginInstallUninstallTests
     private string _dataRoot = null!;
     private RecordingDataStore _dataStore = null!;
 
-    private sealed class RecordingDataStore : VelaShell.Infrastructure.Plugins.IPluginDataStore
+    private sealed class RecordingDataStore : IPluginDataStore
     {
         public List<string> Purged { get; } = [];
-        public VelaShell.PluginSdk.Storage.IPluginStorage CreateStorage(string pluginId) => new InMemoryStorage();
-        public VelaShell.PluginSdk.Secrets.ISecretsApi CreateSecrets(string pluginId) => new FakeSecrets();
-        public VelaShell.PluginSdk.TimeSeries.ITimeSeriesApi CreateTimeSeries(string pluginId) => new InMemoryTimeSeries();
+        public PluginSdk.Storage.IPluginStorage CreateStorage(string pluginId) => new InMemoryStorage();
+        public PluginSdk.Secrets.ISecretsApi CreateSecrets(string pluginId) => new FakeSecrets();
+        public PluginSdk.TimeSeries.ITimeSeriesApi CreateTimeSeries(string pluginId) => new InMemoryTimeSeries();
         public Task<IReadOnlyList<string>> ListPluginIdsAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<string>>([]);
         public Task PurgeAsync(string pluginId, CancellationToken cancellationToken = default)
         {
@@ -58,7 +59,8 @@ public class PluginInstallUninstallTests
     }
 
     private PluginManager CreateManager(PluginTrustRepository? trustRepository = null,
-        VelaShell.Infrastructure.Plugins.Protocols.PluginProtocolRegistry? protocolRegistry = null) => new(new()
+        Infrastructure.Plugins.Protocols.PluginProtocolRegistry? protocolRegistry = null,
+        Core.Services.IBackgroundActivityService? activity = null) => new(new()
         {
             PluginRoots = [_appRoot, _userRoot],
             DataRootDirectory = _dataRoot,
@@ -67,7 +69,8 @@ public class PluginInstallUninstallTests
             HostVersion = "1.0.0",
             CommandsFactory = (_, _) => new RecordingCommands(),
             DataStore = _dataStore,
-            ProtocolRegistry = protocolRegistry
+            ProtocolRegistry = protocolRegistry,
+            Activity = activity
         });
 
     /// <summary>把夹具插件摊成一个待打包目录(plugin.json + dll)。</summary>
@@ -114,6 +117,57 @@ public class PluginInstallUninstallTests
         Assert.AreEqual(PluginState.Active, descriptor.State, descriptor.Error);
         Assert.IsTrue(File.Exists(Path.Combine(_userRoot, id, "plugin.json")), "应解包进用户插件目录");
         Assert.IsTrue(manager.IsUninstallable(id));
+
+        await manager.DisposeAsync();
+    }
+
+    [TestMethod]
+    public async Task InstallFromVpx_ReportsProgressToTheBackgroundLedger_AndClearsIt()
+    {
+        // 安装是纯等待的几秒(验签 → 解压 → 全目录哈希落凭据),这段时间状态栏的圆环
+        // 必须转起来;更要紧的是**转完必须停**,否则一次安装会让它一直转到关程序。
+        using var activity = new Core.Services.BackgroundActivityService();
+        var progress = new List<double?>();
+        string? title = null;
+        activity.Changed += () =>
+        {
+            foreach (Core.Services.BackgroundActivitySnapshot snapshot in activity.Activities)
+            {
+                if (snapshot.Title == Strings.Get("Msg_PluginInstalling"))
+                {
+                    title = snapshot.Title;
+                    lock (progress)
+                    {
+                        progress.Add(snapshot.Progress);
+                    }
+                }
+            }
+        };
+        PluginManager manager = CreateManager(activity: activity);
+        await manager.StartAsync();
+
+        await manager.InstallFromVpxAsync(BuildVpx(), allowUntrustedPackage: true);
+
+        Assert.AreEqual(Strings.Get("Msg_PluginInstalling"), title, "安装过程必须在账本上露过面。");
+        Assert.IsGreaterThan(1, progress.Count, "安装应分阶段上报进度,而不是从头到尾一个 0%。");
+        Assert.IsEmpty(activity.Activities, "安装结束后账本必须归零。");
+
+        await manager.DisposeAsync();
+    }
+
+    [TestMethod]
+    public async Task InstallFromVpx_WhenRejected_StillClearsTheBackgroundLedger()
+    {
+        // 失败路径同样要收干净:装坏包比装好包常见,而"装失败之后圆环永远在转"
+        // 比没有圆环更糟 —— 它会让人以为后台还有什么没做完。
+        using var activity = new Core.Services.BackgroundActivityService();
+        PluginManager manager = CreateManager(activity: activity);
+        await manager.StartAsync();
+
+        await Assert.ThrowsExactlyAsync<VpxFormatException>(
+            () => manager.InstallFromVpxAsync(BuildRenamedZip()));
+
+        Assert.IsEmpty(activity.Activities);
 
         await manager.DisposeAsync();
     }
@@ -252,7 +306,7 @@ public class PluginInstallUninstallTests
         const string id = "acme.tab-tamper";
         const string workspace = """, "contributes": { "workspaces": [ { "id": "acme.tab-tamper.cache", "displayName": "Cache", "defaultPort": 6379 } ] }, "activationEvents": ["onWorkspace:acme.tab-tamper.cache"]""";
 
-        var firstRegistry = new VelaShell.Infrastructure.Plugins.Protocols.PluginProtocolRegistry();
+        var firstRegistry = new Infrastructure.Plugins.Protocols.PluginProtocolRegistry();
         PluginManager manager = CreateManager(repository, firstRegistry);
         await manager.StartAsync();
         await manager.InstallFromVpxAsync(BuildVpx(id, workspace), allowUntrustedPackage: true);
@@ -260,7 +314,7 @@ public class PluginInstallUninstallTests
         await manager.DisposeAsync();
 
         await File.AppendAllTextAsync(Path.Combine(_userRoot, id, "plugin.json"), " ");
-        var registry = new VelaShell.Infrastructure.Plugins.Protocols.PluginProtocolRegistry();
+        var registry = new Infrastructure.Plugins.Protocols.PluginProtocolRegistry();
         PluginManager restarted = CreateManager(repository, registry);
         await restarted.StartAsync();
 

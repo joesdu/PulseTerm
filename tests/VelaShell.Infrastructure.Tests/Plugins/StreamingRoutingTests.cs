@@ -1,4 +1,4 @@
-﻿using System.IO.Pipes;
+using System.IO.Pipes;
 using VelaShell.Infrastructure.Plugins;
 using VelaShell.Infrastructure.Plugins.Capabilities;
 using VelaShell.PluginSdk;
@@ -43,7 +43,7 @@ public class StreamingRoutingTests
             RemoteFs = remoteFs,
             RemoteExec = new FakeRemoteExec(),
             RemoteTunnel = new FakeRemoteTunnel(),
-            TerminalView = new VelaShell.PluginSdk.Testing.FakeTerminalViewApi(),
+            TerminalView = new FakeTerminalViewApi(),
             Commands = new RecordingCommands(),
             Events = new PluginEventHub(new CollectingLogger(), null, null, null),
             Ui = new FakeUi(),
@@ -56,7 +56,7 @@ public class StreamingRoutingTests
             Shutdown = CancellationToken.None
         };
         var hostConnection = new RpcConnection(serverPipe);
-        var router = new VelaShell.Infrastructure.Plugins.Isolated.PluginCapabilityRouter(context, hostConnection, "token", "1.0.0");
+        var router = new Infrastructure.Plugins.Isolated.PluginCapabilityRouter(context, hostConnection, "token", "1.0.0");
         hostConnection.SetRequestHandler(router.HandleRequestAsync);
         hostConnection.SetNotificationHandler(router.HandleNotification);
         hostConnection.Start();

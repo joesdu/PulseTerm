@@ -3771,4 +3771,5 @@ Windows는 exe 전체 경로 또는 명령 이름(예: notepad), Linux는 명령
   <data name="BackgroundTasks" xml:space="preserve"><value>백그라운드 작업</value></data>
   <data name="BackgroundTasksIdle" xml:space="preserve"><value>백그라운드 작업 없음</value></data>
   <data name="BackgroundTasksCount" xml:space="preserve"><value>백그라운드 작업 {0}개</value></data>
+  <data name="Msg_PluginInstalling" xml:space="preserve"><value>플러그인 설치 중</value></data>
 </root>

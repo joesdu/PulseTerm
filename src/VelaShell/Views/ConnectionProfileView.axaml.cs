@@ -123,7 +123,7 @@ public partial class ConnectionProfileView : Window
         {
             return;
         }
-        Avalonia.Point origin = target.TranslatePoint(default, ProtoTabsPanel) ?? default;
+        Point origin = target.TranslatePoint(default, ProtoTabsPanel) ?? default;
         (double X, double W) geometry = (Math.Round(origin.X), Math.Round(target.Bounds.Width));
         if (geometry == _protoIndicatorGeometry && ProtoTabIndicator.IsVisible)
         {
@@ -203,7 +203,7 @@ public partial class ConnectionProfileView : Window
         {
             Background = this.FindResource("VelaAccentDim") as IBrush,
             BorderBrush = this.FindResource("VelaAccent") as IBrush,
-            BorderThickness = new Avalonia.Thickness(1),
+            BorderThickness = new Thickness(1),
             IsHitTestVisible = false
         };
         return border;

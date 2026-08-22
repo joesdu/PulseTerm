@@ -129,14 +129,40 @@
   <!-- 开发内环:把暂存目录镜像进本项目输出的 plugins/,F5 即可装载(自建插件走的是
        plugins/Directory.Build.targets 的 CopyVelaPluginToAppOutput,不经过这里)。
        暂存目录不存在就静默跳过 —— 没取过插件的干净克隆照样能构建、能跑,
-       只是启动后只有自建的那几个插件。发布路径不接受一个插件都没有,见 AddVelaPluginsToPublish。 -->
-  <Target Name="CopyVelaPluginsToOutput" AfterTargets="Build" Condition="Exists('$(VelaPluginsStageDir)')">
+       只是启动后只有自建的那几个插件。发布路径不接受一个插件都没有,见 AddVelaPluginsToPublish。
+
+       挂 CopyFilesToOutputDirectory 而不是 Build,是为了赶在 IncrementalClean 之前 ——
+       下面把复制出去的文件登记进 FileWrites,于是:
+         · `dotnet clean` 能把它们清干净(此前清不掉:Copy 不登记就等于没在清理台账上留名,
+           表现是"clean 完插件还在",很难往构建产物残留上想);
+         · 从暂存目录里删掉一个插件后,下次构建 IncrementalClean 会按上一轮的台账
+           把它从输出里剪掉 —— 此前只增不减,删了源头输出里那份能一直留到手动删为止。
+       只登记本目标复制的文件:自建插件(velashell-ai)由插件工程自己铺进同一个 plugins/,
+       不在这份台账里,因此绝不会被误剪。 -->
+  <Target Name="CopyVelaPluginsToOutput" AfterTargets="CopyFilesToOutputDirectory"
+          Condition="Exists('$(VelaPluginsStageDir)')">
     <ItemGroup>
       <_VelaStagedPluginFile Include="$(VelaPluginsStageDir)\**\*" />
+      <_VelaStagedPluginOutput Include="@(_VelaStagedPluginFile->'$(OutDir)plugins\%(RecursiveDir)%(Filename)%(Extension)')" />
     </ItemGroup>
     <Copy SourceFiles="@(_VelaStagedPluginFile)"
-          DestinationFiles="@(_VelaStagedPluginFile->'$(OutDir)plugins\%(RecursiveDir)%(Filename)%(Extension)')"
+          DestinationFiles="@(_VelaStagedPluginOutput)"
           SkipUnchangedFiles="true" />
+    <ItemGroup>
+      <FileWrites Include="@(_VelaStagedPluginOutput)" />
+    </ItemGroup>
+    <!-- IncrementalClean 剪的是文件,剪空的目录会原地留下来。留着不影响运行
+         (宿主发现插件要求目录里有 plugin.json,没有就跳过),但 `ls plugins` 看到一个
+         早该消失的插件名会让人以为它还装着 —— 那正是这轮要消灭的困惑。
+         判据用"没有 plugin.json"而不是"目录为空":对宿主而言这两者等价,
+         而前者顺带也清掉了剪剩半截的残骸。 -->
+    <ItemGroup>
+      <_VelaOutputPluginDir Include="$([System.IO.Directory]::GetDirectories('$(OutDir)plugins'))"
+                            Condition="Exists('$(OutDir)plugins')" />
+      <_VelaOrphanPluginDir Include="@(_VelaOutputPluginDir)"
+                            Condition="!Exists('%(Identity)\plugin.json')" />
+    </ItemGroup>
+    <RemoveDir Directories="@(_VelaOrphanPluginDir)" />
   </Target>
 
   <!--

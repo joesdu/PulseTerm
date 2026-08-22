@@ -1,4 +1,4 @@
-﻿using System.IO.Pipes;
+using System.IO.Pipes;
 using System.Text.Json;
 using VelaShell.Infrastructure.Plugins;
 using VelaShell.Infrastructure.Plugins.Capabilities;
@@ -70,7 +70,7 @@ public class EmbedRoutingTests
         RemoteFs = new FakeRemoteFs(),
         RemoteExec = new FakeRemoteExec(),
         RemoteTunnel = new FakeRemoteTunnel(),
-        TerminalView = new VelaShell.PluginSdk.Testing.FakeTerminalViewApi(),
+        TerminalView = new FakeTerminalViewApi(),
         Commands = new RecordingCommands(),
         Events = new PluginEventHub(new CollectingLogger(), null, null, null),
         Ui = new FakeUi(),

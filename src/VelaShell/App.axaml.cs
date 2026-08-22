@@ -63,23 +63,23 @@ public class App : Application
             .AddSingleton<Func<Task<IReadOnlyList<PluginSdk.Rpc.ThemeTokenDto>>>>(_ =>
                 VelaShell.Services.Plugins.PluginThemeTokens.CollectAsync)
             // 插件剪贴板能力:经主窗口系统剪贴板(隔离插件经 RPC 路由到同一实现)。
-            .AddSingleton<PluginSdk.Clipboard.IClipboardApi>(new VelaShell.Services.Plugins.HostClipboard())
+            .AddSingleton<PluginSdk.Clipboard.IClipboardApi>(new Services.Plugins.HostClipboard())
             // 隔离插件的停靠请求默认回退为独立卡片窗口(跨进程 dock 嵌入与 dock reparenting
             // 有根本张力,已弃用;真·dock 标签页请用 inProcess 模式),故不注册 IPluginEmbedHost。
             // 终端回写授权闸(始终允许持久化到 SonnetDB app_config)+ 授权对话框。
-            .AddSingleton<Infrastructure.Plugins.IPluginPermissionPrompt>(new VelaShell.Services.Plugins.DialogPermissionPrompt())
+            .AddSingleton<Infrastructure.Plugins.IPluginPermissionPrompt>(new Services.Plugins.DialogPermissionPrompt())
             .AddSingleton(sp => new Infrastructure.Plugins.PluginPermissionGate(
                 sp.GetService<IAppDataStore>(),
                 sp.GetService<Infrastructure.Plugins.IPluginPermissionPrompt>()))
             // 插件终端能力:读取/搜索终端缓冲 + 授权回写(经主窗口视图模型解析会话仿真器)。
             .AddSingleton<Func<string, IPluginLogger, PluginSdk.Terminal.ITerminalApi>>(sp =>
-                (pluginId, log) => new VelaShell.Services.Plugins.HostTerminal(pluginId, log,
+                (pluginId, log) => new Services.Plugins.HostTerminal(pluginId, log,
                     () => sp.GetService<MainWindowViewModel>(),
                     sp.GetRequiredService<Infrastructure.Plugins.PluginPermissionGate>()))
             // 插件终端视图能力:出借宿主的终端仿真器(VT 解析 + 屏幕缓冲 + 输入编码),
             // 外观跟随宿主当前的终端设置。仅进程内插件可用 —— 交出去的是活的原生控件。
             .AddSingleton<PluginSdk.TerminalView.ITerminalViewApi>(sp =>
-                new VelaShell.Services.Plugins.PluginTerminalViewApi(
+                new Services.Plugins.PluginTerminalViewApi(
                     () => sp.GetService<MainWindowViewModel>()))
             // 进程内插件运行时(docs/plugins/dev-guide.md)。注册零开销:
             // 发现与激活在主窗口显示后的后台线程进行,不占启动路径。
@@ -110,7 +110,7 @@ public class App : Application
         // 头像、插件)的出站请求;每次请求动态取当前代理设置,保存即生效。
         // SSH / FTP 的代理走各自适配层,同样消费这一个 IProxyResolver。
         VelaShell.Infrastructure.Net.VelaWebProxy.Install(
-            _serviceProvider.GetRequiredService<VelaShell.Core.Net.IProxyResolver>());
+            _serviceProvider.GetRequiredService<Core.Net.IProxyResolver>());
 
         // 本地化字符串的实时重绑定({loc:Localize})跟随 DI 服务(#4)。
         ILocalizationService localization =
@@ -215,7 +215,7 @@ public class App : Application
 
             // 宿主自我登记(~/.velashell/host.json):插件工具链据此找到本机安装、核对版本。
             // 一次文件写入,放后台线程,不占启动路径。
-            if (_serviceProvider?.GetService<VelaShell.Infrastructure.Persistence.VelaShellStoragePaths>() is { } storagePaths)
+            if (_serviceProvider?.GetService<Infrastructure.Persistence.VelaShellStoragePaths>() is { } storagePaths)
             {
                 _ = Task.Run(() => HostRegistrationService.Register(storagePaths));
             }
@@ -223,7 +223,7 @@ public class App : Application
             // 插件运行时:主窗口就绪后在后台线程发现并激活插件(启动路径零阻塞)。
             // VELASHELL_DISABLE_PLUGINS=1 为排障急停开关;停用随 DI 容器释放执行。
             if (Environment.GetEnvironmentVariable("VELASHELL_DISABLE_PLUGINS") != "1"
-                && _serviceProvider?.GetService<VelaShell.Infrastructure.Plugins.PluginManager>() is { } pluginManager)
+                && _serviceProvider?.GetService<Infrastructure.Plugins.PluginManager>() is { } pluginManager)
             {
                 _ = Task.Run(async () =>
                 {

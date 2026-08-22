@@ -4,7 +4,7 @@ namespace VelaShell.Core.Processes;
 
 /// <summary>
 /// 远端进程列表探针:一条命令取回任务管理器需要的全部数据,以及把输出解析成快照。
-/// 面向 Linux(/proc + procps 的 ps),与 <see cref="Core.Services.SessionMetrics" /> 同样
+/// 面向 Linux(/proc + procps 的 ps),与 <see cref="Services.SessionMetrics" /> 同样
 /// 采用分段标记,任一段探测失败只丢该段,不拖垮整次采样。
 /// </summary>
 public static class RemoteProcessProbe

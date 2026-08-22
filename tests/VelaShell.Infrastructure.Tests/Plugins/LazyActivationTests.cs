@@ -111,14 +111,14 @@ public class LazyActivationTests
         await manager.DisposeAsync();
     }
 
-    private sealed class RecordingDataStore : VelaShell.Infrastructure.Plugins.IPluginDataStore
+    private sealed class RecordingDataStore : IPluginDataStore
     {
         public List<string> Present { get; } = [];
         public List<string> Purged { get; } = [];
 
-        public VelaShell.PluginSdk.Storage.IPluginStorage CreateStorage(string pluginId) => new InMemoryStorage();
-        public VelaShell.PluginSdk.Secrets.ISecretsApi CreateSecrets(string pluginId) => new FakeSecrets();
-        public VelaShell.PluginSdk.TimeSeries.ITimeSeriesApi CreateTimeSeries(string pluginId) => new InMemoryTimeSeries();
+        public PluginSdk.Storage.IPluginStorage CreateStorage(string pluginId) => new InMemoryStorage();
+        public PluginSdk.Secrets.ISecretsApi CreateSecrets(string pluginId) => new FakeSecrets();
+        public PluginSdk.TimeSeries.ITimeSeriesApi CreateTimeSeries(string pluginId) => new InMemoryTimeSeries();
 
         public Task<IReadOnlyList<string>> ListPluginIdsAsync(CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<string>>([.. Present]);

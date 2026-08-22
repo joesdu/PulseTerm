@@ -207,3 +207,86 @@ active, prefetch reads files but never activates, prefetch off leaves no trace;
 `BackgroundActivityServiceTests` (8, including 64 concurrent activities settling back to empty — the
 ring must not spin forever); `StatusBarBackgroundActivityTests` (6, aggregation rules); and one UI
 test, `StatusBar_BackgroundRing_*` (hidden → visible → solid arc → hidden).
+
+## 2026-08-23 (2): more producers on the indicator, build hygiene closed out
+
+The first round of making the ring pay for itself: wire it to the places users actually wait on,
+and turn the plugin-mirroring build target into a real mirror.
+
+### Plugin installation on the ring
+
+`InstallFromVpxAsync` is several seconds of pure waiting — verify signature → extract → SHA-256 the
+whole directory for the install receipt — and until now the UI sat perfectly still
+(`PluginManagerViewModel` only posted a notice once it was over). It now reports per phase: the
+package filename is the subtitle first, swapped for the plugin's display name once the manifest is
+readable. Progress is a coarse ladder rather than a smooth curve: none of these steps offers
+fine-grained callbacks, and rather than invent a smooth fake, the arc jumps a step at a time — every
+jump corresponds to something genuinely finished.
+
+> Note: the plugin store (market.easilynet.top) is a link opened in the browser; the download does
+> not happen in-app. The slow seconds are entirely local — verification, extraction, hashing.
+
+**One thing deliberately not done**: activating right after install re-computes the directory hash
+that `SaveInstallReceiptAsync` just computed. It looks wasteful, but do not pre-seed the verification
+result to skip it — that would carve the window between "receipt written" and "first load" out of
+verification, and all it buys is one hash of a directory that is already in page cache (tens of
+milliseconds). This repository's posture on the plugin trust surface has consistently been to hash
+twice rather than trade a window for that. A comment in the code holds the line against the next
+person who wants to "just optimize this".
+
+### Cloud sync on the ring
+
+The four entry points of `GistSyncService` (sync now / push only / pull only / restore revision) each
+open an indeterminate activity, with the subtitle reusing the label of the identically-named button
+on the settings page (`SetSync_*`, already present in all five languages, nothing new added) — the
+wording a user sees matches the button they pressed. Indeterminate because the whole span is a
+network round trip: there is no meaningful percentage, and the question this activity answers is
+only ever "is it syncing right now?".
+
+Automatic sync has always been silent (startup pull, debounced push after a save, failures never
+interrupt). **"Not interrupting" should not mean "invisible"**: the user's connection profiles are
+being uploaded or overwritten, and that deserves somewhere to show up.
+
+### Build hygiene: the mirroring target actually mirrors now
+
+`CopyVelaPluginsToOutput` (which lays the `artifacts/plugins/` staging directory into the host's
+output) only ever added, never removed, and the files it copied were never recorded in MSBuild's
+clean ledger. Both consequences have genuinely bitten:
+
+- delete a plugin from staging and the copy in the output stays until someone removes it by hand;
+- `dotnet clean` could not remove them (their names were not on the ledger), which shows up as
+  "I cleaned and the plugins are still there".
+
+The fix: the target moved from `AfterTargets="Build"` to `AfterTargets="CopyFilesToOutputDirectory"`
+(ahead of `IncrementalClean`), and its copies are registered as `FileWrites`. Pruning and clean then
+come free from MSBuild's own incremental-clean machinery. One sweep is added on top:
+`IncrementalClean` removes files, so a pruned directory is left behind empty — the sweep removes
+directories with no `plugin.json` (equivalent to empty as far as the host is concerned) so that
+`ls plugins` never shows a plugin name that should have disappeared.
+
+Only this target's copies are registered: the self-built plugin (`velashell-ai`) is laid into the
+same `plugins/` by its own project and is not on this ledger, so it can never be pruned by mistake —
+verified by test.
+
+Evidence (four scenarios, measured): staging mirrors into the output; removing a plugin from staging
+prunes it on the next build; the emptied directory is swept; `dotnet clean` removes the mirrored
+plugins and leaves `velashell-ai` alone. New regressions:
+`InstallFromVpx_ReportsProgressToTheBackgroundLedger_AndClearsIt`,
+`InstallFromVpx_WhenRejected_StillClearsTheBackgroundLedger`,
+`SyncEntryPoints_ReportToTheBackgroundLedger_AndAlwaysClearIt` (all four exits distinguishable and
+each one always cleared).
+
+### Reviewed, and deliberately deferred
+
+- **Warm process pool for isolated plugin hosts**: a full activation cycle measures at roughly one
+  second (process launch plus Avalonia initialization dominate), so the number is real. But
+  `velashell.ai` and `velashell.redis` must both run `inProcess` (the former borrows the host's
+  AvaloniaEdit, the latter hands the host an Avalonia control to dock), so **there is not a single
+  isolated plugin today** — the pool would help nobody. Revisit when third-party isolated plugins
+  actually appear.
+- **ReadyToRun**: publishing uses `-p:SelfContained=true` with **no** `PublishReadyToRun`, so both
+  the app and `VelaShell.PluginHost` JIT cold on the user's machine. Enabling it benefits every user
+  on every launch and would absorb part of the isolated host's cold start without touching the IPC
+  protocol. The cost is 30–50% larger R2R'd assemblies (noticeable under self-contained). **The
+  benefit must be measured**, so it gets its own round: change the configuration, measure cold start
+  on all three platforms, then decide whether the size is worth it.

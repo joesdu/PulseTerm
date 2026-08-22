@@ -24,8 +24,8 @@ public static class PluginServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         // 插件数据后端:SonnetDB 单集合、按插件 id 命名空间隔离(KV + 机密),卸载整体清除。
-        services.AddSingleton<Plugins.IPluginDataStore>(sp => new Persistence.SonnetDbPluginDataStore(
-            sp.GetRequiredService<Persistence.SonnetDbEngine>(),
+        services.AddSingleton<IPluginDataStore>(sp => new SonnetDbPluginDataStore(
+            sp.GetRequiredService<SonnetDbEngine>(),
             sp.GetService<Core.Data.ISecretProtector>()));
         services.AddSingleton(sp =>
         {
@@ -69,7 +69,7 @@ public static class PluginServiceCollectionExtensions
                 CommandsFactory = sp.GetService<Func<string, IPluginLogger, ICommandsApi>>(),
                 UiFactory = sp.GetService<Func<string, IPluginLogger, IUiApi>>(),
                 ThemeTokensProvider = sp.GetService<Func<Task<IReadOnlyList<PluginSdk.Rpc.ThemeTokenDto>>>>(),
-                DataStore = sp.GetService<Plugins.IPluginDataStore>(),
+                DataStore = sp.GetService<IPluginDataStore>(),
                 SecretProtector = sp.GetService<Core.Data.ISecretProtector>(),
                 Clipboard = sp.GetService<PluginSdk.Clipboard.IClipboardApi>(),
                 EmbedHost = sp.GetService<Plugins.Isolated.IPluginEmbedHost>(),

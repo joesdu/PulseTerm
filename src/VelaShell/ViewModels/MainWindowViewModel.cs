@@ -45,7 +45,7 @@ namespace VelaShell.ViewModels;
 /// 主窗口视图模型:应用外壳的中枢,统筹终端标签、SSH/本地会话生命周期、停靠工作区、
 /// 侧边栏、状态栏、命令面板、SFTP 文件面板与隧道面板,并串联设置、连接工作流与各项服务。
 /// </summary>
-public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.ITerminalResolver
+public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalResolver
 {
     /// <summary>
     /// bash 提示符目录上报钩子(内置、静默注入):每次提示符出现时发送 OSC 7,
@@ -487,7 +487,7 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
     /// <summary>
     /// 插件终端能力经此按会话 id 解析到仿真器与人类可读标签(<see cref="Services.Plugins.ITerminalResolver" />)。
     /// </summary>
-    (VelaShell.Terminal.ITerminalEmulator Emulator, string Label)? Services.Plugins.ITerminalResolver.Resolve(Guid sessionId)
+    (ITerminalEmulator Emulator, string Label)? Services.Plugins.ITerminalResolver.Resolve(Guid sessionId)
     {
         foreach (TerminalTabViewModel tab in _tabBar.Tabs.OfType<TerminalTabViewModel>())
         {
@@ -3256,7 +3256,7 @@ public class MainWindowViewModel : ReactiveObject, VelaShell.Services.Plugins.IT
     /// <summary>借一个空闲的本地端口号(bind 0 → 读端口 → 放掉)。</summary>
     private static int ReserveLocalPort()
     {
-        var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+        var listener = new TcpListener(System.Net.IPAddress.Loopback, 0);
         listener.Start();
         try
         {

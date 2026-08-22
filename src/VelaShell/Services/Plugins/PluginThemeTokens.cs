@@ -18,7 +18,7 @@ internal static class PluginThemeTokens
 {
     /// <summary>在 UI 线程枚举并解析全部 Vela* 令牌(画刷/颜色/数值/字体)。</summary>
     public static Task<IReadOnlyList<ThemeTokenDto>> CollectAsync() =>
-        Dispatcher.UIThread.InvokeAsync<IReadOnlyList<ThemeTokenDto>>(CollectOnUiThread).GetTask();
+        Dispatcher.UIThread.InvokeAsync(CollectOnUiThread).GetTask();
 
     private static IReadOnlyList<ThemeTokenDto> CollectOnUiThread()
     {
@@ -57,7 +57,7 @@ internal static class PluginThemeTokens
                 {
                     CollectKeys(merged, keys);
                 }
-                foreach (KeyValuePair<Avalonia.Styling.ThemeVariant, Avalonia.Controls.IThemeVariantProvider> theme in dictionary.ThemeDictionaries)
+                foreach (KeyValuePair<Avalonia.Styling.ThemeVariant, IThemeVariantProvider> theme in dictionary.ThemeDictionaries)
                 {
                     CollectKeys(theme.Value, keys);
                 }

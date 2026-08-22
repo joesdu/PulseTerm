@@ -321,7 +321,7 @@ public sealed class PluginProtocolTests
         public Task<bool> ExistsAsync(string sessionId, string path, CancellationToken cancellationToken = default) => Task.FromResult(false);
 
         public Task<Stream> OpenReadAsync(string sessionId, string path, CancellationToken cancellationToken = default) =>
-            Task.FromResult<Stream>(Stream.Null);
+            Task.FromResult(Stream.Null);
 
         public Task UploadFileAsync(string sessionId, string localPath, string remotePath, IProgress<RemoteTransferProgress>? progress = null, long resumeOffset = 0, CancellationToken cancellationToken = default) => Task.CompletedTask;
 

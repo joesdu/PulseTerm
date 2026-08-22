@@ -1284,7 +1284,7 @@ public partial class ChatPanelView : UserControl
     /// <summary>套用宿主 ControlTheme(进程内可查;隔离进程缺失时保持默认外观)。</summary>
     private void ApplyThemeResource(Avalonia.Controls.Primitives.TemplatedControl control, string themeKey)
     {
-        if (this.TryFindResource(themeKey, out object? value) && value is Avalonia.Styling.ControlTheme theme)
+        if (this.TryFindResource(themeKey, out object? value) && value is ControlTheme theme)
         {
             control.Theme = theme;
         }
