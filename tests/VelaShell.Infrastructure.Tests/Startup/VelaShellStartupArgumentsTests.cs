@@ -13,7 +13,7 @@ public class VelaShellStartupArgumentsTests
     [TestMethod]
     public void Parse_Empty_IsAllDefaults()
     {
-        VelaShellStartupArguments args = VelaShellStartupArguments.Parse([]);
+        var args = VelaShellStartupArguments.Parse([]);
         Assert.IsEmpty(args.DevPluginRoots);
         Assert.IsEmpty(args.DebugPluginIds);
         Assert.IsNull(args.DataRoot);
@@ -23,7 +23,7 @@ public class VelaShellStartupArgumentsTests
     [TestMethod]
     public void Parse_SpaceAndEqualsForms_BothWork()
     {
-        VelaShellStartupArguments args = VelaShellStartupArguments.Parse(
+        var args = VelaShellStartupArguments.Parse(
             ["--dev-root", @"C:\work\a\bin\Debug", "--data-root=C:\\Users\\joe\\.velashell-dev"]);
 
         Assert.AreEqual(@"C:\work\a\bin\Debug", args.DevPluginRoots.Single());
@@ -33,7 +33,7 @@ public class VelaShellStartupArgumentsTests
     [TestMethod]
     public void Parse_RepeatedDevRoot_Accumulates()
     {
-        VelaShellStartupArguments args = VelaShellStartupArguments.Parse(
+        var args = VelaShellStartupArguments.Parse(
             ["--dev-root", "/a", "--dev-root", "/b"]);
         Assert.HasCount(2, args.DevPluginRoots);
     }
@@ -49,7 +49,7 @@ public class VelaShellStartupArgumentsTests
     [TestMethod]
     public void Parse_WaitDebuggerWithIds_SplitsOnCommaAndSemicolon()
     {
-        VelaShellStartupArguments args = VelaShellStartupArguments.Parse(["--wait-debugger", "acme.one,acme.two;acme.three"]);
+        var args = VelaShellStartupArguments.Parse(["--wait-debugger", "acme.one,acme.two;acme.three"]);
         Assert.HasCount(3, args.DebugPluginIds);
         Assert.Contains("acme.two", args.DebugPluginIds);
     }
@@ -58,7 +58,7 @@ public class VelaShellStartupArgumentsTests
     public void Parse_UnknownArguments_AreIgnored()
     {
         // argv 是与 Avalonia 共用的,认不出的参数必须原样放过。
-        VelaShellStartupArguments args = VelaShellStartupArguments.Parse(
+        var args = VelaShellStartupArguments.Parse(
             ["--after-update", "--some-avalonia-flag", "value", "--dev-watch"]);
         Assert.IsTrue(args.DevWatch);
         Assert.IsEmpty(args.DevPluginRoots);
@@ -67,7 +67,7 @@ public class VelaShellStartupArgumentsTests
     [TestMethod]
     public void Parse_FlagWithMissingValue_DoesNotSwallowTheNextFlag()
     {
-        VelaShellStartupArguments args = VelaShellStartupArguments.Parse(["--dev-root", "--data-root", "/tmp/x"]);
+        var args = VelaShellStartupArguments.Parse(["--dev-root", "--data-root", "/tmp/x"]);
         Assert.IsEmpty(args.DevPluginRoots);
         Assert.AreEqual("/tmp/x", args.DataRoot);
     }

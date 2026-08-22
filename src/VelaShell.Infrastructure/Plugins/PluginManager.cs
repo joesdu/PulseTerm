@@ -87,7 +87,6 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
     private readonly CancellationTokenSource _shutdown = new();
     private readonly List<FileSystemWatcher> _devWatchers = [];
     private readonly Lock _devDisabledGate = new();
-    private HashSet<string>? _devDisabled;
     private Timer? _devWatchDebounce;
     private bool _started;
     private bool _disposed;
@@ -726,7 +725,7 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
             }
         }
 
-        using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         Span<byte> frame = stackalloc byte[8];
         foreach (string file in files.OrderBy(f => Path.GetRelativePath(fullRoot, f).Replace('\\', '/'), StringComparer.Ordinal))
         {
@@ -890,9 +889,9 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         {
             lock (_devDisabledGate)
             {
-                if (_devDisabled is not null)
+                if (field is not null)
                 {
-                    return _devDisabled;
+                    return field;
                 }
                 var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 try
@@ -913,7 +912,7 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
                 {
                     Log($"Could not read the development disable list: {ex.Message}");
                 }
-                return _devDisabled = set;
+                return field = set;
             }
         }
     }
@@ -1600,10 +1599,7 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
             return false;
         }
         InstalledPluginReceipt? receipt = null;
-        if (_trustState is not null)
-        {
-            _trustState.Receipts.TryGetValue(pluginId, out receipt);
-        }
+        _trustState?.Receipts.TryGetValue(pluginId, out receipt);
         if (receipt is null)
         {
             error = "Protected installation receipt is missing. Reinstall this plugin through the plugin manager.";

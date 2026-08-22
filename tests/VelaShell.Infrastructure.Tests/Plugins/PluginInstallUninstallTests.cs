@@ -2,9 +2,9 @@ using System.IO.Compression;
 using System.Security.Cryptography;
 using VelaShell.Infrastructure.Persistence;
 using VelaShell.Infrastructure.Plugins;
-using VelaShell.TestPlugin;
 using VelaShell.PluginSdk.Packaging;
 using VelaShell.PluginSdk.Testing;
+using VelaShell.TestPlugin;
 
 namespace VelaShell.Infrastructure.Tests.Plugins;
 
@@ -59,16 +59,16 @@ public class PluginInstallUninstallTests
 
     private PluginManager CreateManager(PluginTrustRepository? trustRepository = null,
         VelaShell.Infrastructure.Plugins.Protocols.PluginProtocolRegistry? protocolRegistry = null) => new(new()
-    {
-        PluginRoots = [_appRoot, _userRoot],
-        DataRootDirectory = _dataRoot,
-        UserPluginRoot = _userRoot,
-        TrustRepository = trustRepository,
-        HostVersion = "1.0.0",
-        CommandsFactory = (_, _) => new RecordingCommands(),
-        DataStore = _dataStore,
-        ProtocolRegistry = protocolRegistry
-    });
+        {
+            PluginRoots = [_appRoot, _userRoot],
+            DataRootDirectory = _dataRoot,
+            UserPluginRoot = _userRoot,
+            TrustRepository = trustRepository,
+            HostVersion = "1.0.0",
+            CommandsFactory = (_, _) => new RecordingCommands(),
+            DataStore = _dataStore,
+            ProtocolRegistry = protocolRegistry
+        });
 
     /// <summary>把夹具插件摊成一个待打包目录(plugin.json + dll)。</summary>
     private static string StagePlugin(string id, string manifestExtras = "")
