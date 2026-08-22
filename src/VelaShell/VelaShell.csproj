@@ -31,6 +31,22 @@
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <SelfContained>true</SelfContained>
     <PublishTrimmed>false</PublishTrimmed>
+    <!--
+      ReadyToRun:把托管程序集预编译成本机代码随包分发,用户机器上不必再从零 JIT。
+      受益的是**每一次冷启动**,而且这里有两个可执行体都吃到:主程序,以及隔离插件的宿主
+      VelaShell.PluginHost(它是 ProjectReference,同一次 publish 一并 R2R)——
+      后者的冷启动此前实测约 1 秒,大头正是运行时 + Avalonia 初始化。
+
+      代价是包体:R2R 的程序集里 IL 与本机代码并存,自包含发布下增长可观。这是已知取舍。
+
+      只在给了 RID 时打开:R2R 必须按目标运行时编译,没有 RID 的 publish 会直接报
+      NETSDK1095。发布流水线三个平台都传 -r(且各自跑在对应 OS 的 runner 上 ——
+      跨架构可以,跨 OS 不行),本机不带 RID 的 publish 则安静地退回普通发布。
+
+      不开 PublishReadyToRunComposite:复合模式启动更快,但把整个自包含运行时熔成一个
+      巨大镜像,包体与构建时间的涨幅都不是这一轮想付的。
+    -->
+    <PublishReadyToRun Condition="'$(RuntimeIdentifier)' != ''">true</PublishReadyToRun>
   </PropertyGroup>
 
   <ItemGroup>
