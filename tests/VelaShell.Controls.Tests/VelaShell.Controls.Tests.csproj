@@ -22,4 +22,13 @@
     <ProjectReference Include="..\..\src\VelaShell.Controls\VelaShell.Controls.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- 调色板令牌以纯文本读入做静态校验(通道顺序 / 对比度,见 ThemeTokenContrastTests):
+         只看颜色字面量,不需要起 Avalonia 运行时。 -->
+    <Content Include="..\..\src\VelaShell.Controls\Themes\VelaTokens.axaml"
+             Link="Themes\VelaTokens.axaml" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\src\VelaShell.Controls\Themes\VelaShellTokens.axaml"
+             Link="Themes\VelaShellTokens.axaml" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

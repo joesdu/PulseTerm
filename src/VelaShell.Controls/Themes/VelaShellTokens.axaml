@@ -34,7 +34,9 @@
       <SolidColorBrush x:Key="VelaBgDockDocument" Color="#FFFBEB" />
       <SolidColorBrush x:Key="VelaBgSurface" Color="#FFFBEB" />
       <SolidColorBrush x:Key="VelaBgContentHeader" Color="#FFFBEB" />
-      <SolidColorBrush x:Key="VelaBgActive" Color="#644AC922" />
+      <!-- 强调色 13% 的淡底。通道顺序是 #AARRGGBB:原先写成 #644AC922 会被解析成
+           「39% 不透明度的 #4AC922」——一片绿色,与 Alucard 的紫强调毫无关系。 -->
+      <SolidColorBrush x:Key="VelaBgActive" Color="#22644AC9" />
       <SolidColorBrush x:Key="VelaBgHover" Color="#EDE7D0" />
       <SolidColorBrush x:Key="VelaBgInput" Color="#F7F2DF" />
       <SolidColorBrush x:Key="VelaTabActiveBg" Color="#FFFBEB" />
