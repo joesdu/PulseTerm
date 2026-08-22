@@ -147,3 +147,63 @@ leaked into the plugin output). That step is not ceremony: it is what caught "th
 `RequiresPreviewFeatures`, so plugin projects that do not opt into preview features fail with
 CA2252 everywhere" and "NuGet does not flow build assets transitively, so Avalonia's AXAML compiler
 never reached the plugin project" — both invisible from inside the repository.
+
+## 2026-08-23: faster load path and a background-activity indicator
+
+Two user-visible problems, handled together: plugin loading is slow (especially the first trigger of
+a lazily-waiting plugin), and **while it is slow the UI says nothing at all** — the click just looks
+like it did not register.
+
+### Background-activity indicator (bottom-right of the status bar)
+
+- New `Core/Services/BackgroundActivityService`: a global ledger of background work (begin → report
+  progress → dispose). It only records; it schedules nothing. Structural changes (begin/end) notify
+  immediately, while pure progress updates are coalesced into a 120 ms window — a tight per-file
+  reporting loop must not flood the UI dispatcher (the same trap large-file transfers fell into).
+- New `Controls/CircularProgressRing`: a hand-drawn ring (JetBrains style). Indeterminate mode spins
+  a fixed-length arc; determinate mode sweeps clockwise from 12 o'clock. A `DispatcherTimer` drives
+  the spin, and **only while it is genuinely spinning and genuinely visible** — the tick rechecks
+  `IsEffectivelyVisible`, which in Avalonia 12 is not an AvaloniaProperty and therefore cannot be
+  observed.
+- It sits at the leading edge of the status bar's right-hand group, so the fixed-width fields to its
+  right do not shift relative to the window edge as it appears and disappears. Hovering lists every
+  activity; clicking opens the same list as a flyout. Aggregation rule: **if any one activity cannot
+  state its progress, the whole ring goes indeterminate** — folding "unknown" into an average as
+  zero produces a percentage that is simply a lie.
+- The only producer today is the plugin runtime (loading / verifying / prewarming). The ledger is
+  generic: cloud sync, SFTP transfers and the GeoIP download can all be attached to it.
+
+### Load-path speedups
+
+1. **Discovery no longer hashes plugin contents.** `ValidateInstallReceipt` reads every byte of every
+   installed plugin; hanging that off `Describe` parked startup on the disk. Now:
+   - discovery reads manifests only, so protocol tabs and placeholder commands are available
+     **immediately**;
+   - verification runs in the background **in parallel** (degree 4 — this is disk-bound work, and more
+     threads only make the IO queue fight itself), and `StartAsync` still awaits it, so the external
+     contract "a modified plugin is already flagged by the time StartAsync returns" is unchanged;
+   - **the security boundary did not move**: `EnsureActivatedAsync` gained a gate that every load path
+     must pass. The result is memoized per plugin, so reactivating after idle recycling does not pay
+     the cost again.
+2. **onStartup plugins activate in parallel**, instead of queueing up behind the slowest one.
+3. **Housekeeping moved to the end**: `PurgeOrphanShadows` / `PurgeUninstalledDataAsync` have nothing
+   to do with whether a plugin is usable, so they run on a background chore chain.
+4. **Cold-start prefetch** (`PrewarmLazyPlugins`, on by default, `VELASHELL_DISABLE_PLUGIN_PREWARM=1`
+   to stop it): five seconds after the main window has painted its first frame, the top-level DLLs of
+   every lazily-waiting plugin are read once, purely to lift them into the OS file cache. It **does
+   not load assemblies, create an ALC, or run `ActivateAsync`** — lazy activation's semantics are
+   untouched and memory does not grow (what is read lands in kernel page cache). Plugins whose
+   directories verification just read are skipped: for installed plugins the prefetch rides along
+   with that hashing pass for free.
+
+> Deliberately **not** done: a warm process pool for isolated plugin hosts. The bulk of isolated
+> start-up cost is the .NET runtime plus Avalonia initialization (300–800 ms); removing it means
+> moving PluginHost's plugin identity from environment variables to a post-handshake RPC push, which
+> is a wide protocol change. Left for the next round.
+
+Evidence: `PluginLoadingPipelineTests` (5, under `TestCategory=Plugins`) — loading leaves a trace on
+the ledger and always clears it, the failure path clears it too, several onStartup plugins all end up
+active, prefetch reads files but never activates, prefetch off leaves no trace;
+`BackgroundActivityServiceTests` (8, including 64 concurrent activities settling back to empty — the
+ring must not spin forever); `StatusBarBackgroundActivityTests` (6, aggregation rules); and one UI
+test, `StatusBar_BackgroundRing_*` (hidden → visible → solid arc → hidden).

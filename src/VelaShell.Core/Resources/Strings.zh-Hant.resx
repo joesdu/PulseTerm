@@ -3764,4 +3764,11 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   <data name="PluginManager_SecurityTip" xml:space="preserve"><value>外掛以你的帳戶權限執行，可讀寫本機檔案、工作階段與網路。安裝前請核實外掛來源並核對簽章指紋，只安裝來自可信發行者的外掛，以免惡意外掛竊取資料或破壞系統。</value></data>
   <data name="PluginManager_Market" xml:space="preserve"><value>外掛商店</value></data>
   <data name="PluginManager_MarketTip" xml:space="preserve"><value>前往 market.easilynet.top 瀏覽已審核的外掛</value></data>
+  <data name="Msg_PluginLoading" xml:space="preserve"><value>正在載入外掛</value></data>
+  <data name="Msg_PluginActivating" xml:space="preserve"><value>正在啟動外掛</value></data>
+  <data name="Msg_PluginVerifying" xml:space="preserve"><value>正在驗證外掛</value></data>
+  <data name="Msg_PluginPrewarming" xml:space="preserve"><value>正在預熱外掛</value></data>
+  <data name="BackgroundTasks" xml:space="preserve"><value>背景工作</value></data>
+  <data name="BackgroundTasksIdle" xml:space="preserve"><value>目前沒有背景工作</value></data>
+  <data name="BackgroundTasksCount" xml:space="preserve"><value>{0} 項背景工作</value></data>
 </root>

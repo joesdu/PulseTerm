@@ -3764,4 +3764,11 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   <data name="PluginManager_SecurityTip" xml:space="preserve"><value>プラグインはユーザー権限で実行され、ローカルファイル・セッション・ネットワークにアクセスできます。インストール前に配布元を確認し、署名のフィンガープリントを照合したうえで、信頼できる発行元のプラグインのみをインストールしてください。</value></data>
   <data name="PluginManager_Market" xml:space="preserve"><value>プラグインストア</value></data>
   <data name="PluginManager_MarketTip" xml:space="preserve"><value>market.easilynet.top で審査済みプラグインを見る</value></data>
+  <data name="Msg_PluginLoading" xml:space="preserve"><value>プラグインを読み込み中</value></data>
+  <data name="Msg_PluginActivating" xml:space="preserve"><value>プラグインを起動中</value></data>
+  <data name="Msg_PluginVerifying" xml:space="preserve"><value>プラグインを検証中</value></data>
+  <data name="Msg_PluginPrewarming" xml:space="preserve"><value>プラグインを事前読み込み中</value></data>
+  <data name="BackgroundTasks" xml:space="preserve"><value>バックグラウンドタスク</value></data>
+  <data name="BackgroundTasksIdle" xml:space="preserve"><value>バックグラウンドタスクはありません</value></data>
+  <data name="BackgroundTasksCount" xml:space="preserve"><value>バックグラウンドタスク {0} 件</value></data>
 </root>

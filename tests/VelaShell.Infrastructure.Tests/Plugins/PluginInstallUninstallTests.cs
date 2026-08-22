@@ -57,7 +57,8 @@ public class PluginInstallUninstallTests
         }
     }
 
-    private PluginManager CreateManager(PluginTrustRepository? trustRepository = null) => new(new()
+    private PluginManager CreateManager(PluginTrustRepository? trustRepository = null,
+        VelaShell.Infrastructure.Plugins.Protocols.PluginProtocolRegistry? protocolRegistry = null) => new(new()
     {
         PluginRoots = [_appRoot, _userRoot],
         DataRootDirectory = _dataRoot,
@@ -65,26 +66,27 @@ public class PluginInstallUninstallTests
         TrustRepository = trustRepository,
         HostVersion = "1.0.0",
         CommandsFactory = (_, _) => new RecordingCommands(),
-        DataStore = _dataStore
+        DataStore = _dataStore,
+        ProtocolRegistry = protocolRegistry
     });
 
     /// <summary>把夹具插件摊成一个待打包目录(plugin.json + dll)。</summary>
-    private static string StagePlugin(string id)
+    private static string StagePlugin(string id, string manifestExtras = "")
     {
         string stage = Path.Combine(Path.GetTempPath(), "velashell-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(stage);
         File.Copy(typeof(TestFixturePlugin).Assembly.Location, Path.Combine(stage, "VelaShell.TestPlugin.dll"));
         File.WriteAllText(Path.Combine(stage, "plugin.json"), $$"""
             { "id": "{{id}}", "version": "1.0.0", "displayName": "Packaged", "author": "Test Author",
-              "entry": "VelaShell.TestPlugin.dll" }
+              "entry": "VelaShell.TestPlugin.dll"{{manifestExtras}} }
             """);
         return stage;
     }
 
     /// <summary>打一个真正的 .vpx(专属容器:魔数 + 摘要 + 掩码)。</summary>
-    private static string BuildVpx(string id = "acme.packaged")
+    private static string BuildVpx(string id = "acme.packaged", string manifestExtras = "")
     {
-        string stage = StagePlugin(id);
+        string stage = StagePlugin(id, manifestExtras);
         string vpx = stage + ".vpx";
         VpxContainer.Pack(stage, vpx);
         return vpx;
@@ -237,6 +239,34 @@ public class PluginInstallUninstallTests
         PluginDescriptor descriptor = Assert.ContainsSingle(plugin => plugin.Id == id, restarted.Plugins);
         Assert.AreEqual(PluginState.Invalid, descriptor.State);
         Assert.Contains("changed after installation", descriptor.Error);
+        await restarted.DisposeAsync();
+    }
+
+    [TestMethod]
+    public async Task Restart_ModifiedInstalledPlugin_WithdrawsItsConnectionTabs()
+    {
+        // 内容校验推迟到发现之后:页签在校验有结论之前就已经挂出去了。
+        // 校验判负时必须把它撤下来 —— 留着的话用户点下去只会得到一次静默的无反应。
+        using var engine = new SonnetDbEngine(Path.Combine(_dataRoot, "tab-withdraw-db"));
+        var repository = new PluginTrustRepository(engine, new TestSecretProtector());
+        const string id = "acme.tab-tamper";
+        const string workspace = """, "contributes": { "workspaces": [ { "id": "acme.tab-tamper.cache", "displayName": "Cache", "defaultPort": 6379 } ] }, "activationEvents": ["onWorkspace:acme.tab-tamper.cache"]""";
+
+        var firstRegistry = new VelaShell.Infrastructure.Plugins.Protocols.PluginProtocolRegistry();
+        PluginManager manager = CreateManager(repository, firstRegistry);
+        await manager.StartAsync();
+        await manager.InstallFromVpxAsync(BuildVpx(id, workspace), allowUntrustedPackage: true);
+        Assert.HasCount(1, firstRegistry.Tabs, "装上之后连接页应出现这个工作台页签。");
+        await manager.DisposeAsync();
+
+        await File.AppendAllTextAsync(Path.Combine(_userRoot, id, "plugin.json"), " ");
+        var registry = new VelaShell.Infrastructure.Plugins.Protocols.PluginProtocolRegistry();
+        PluginManager restarted = CreateManager(repository, registry);
+        await restarted.StartAsync();
+
+        Assert.AreEqual(PluginState.Invalid, restarted.Plugins.Single(p => p.Id == id).State);
+        Assert.IsEmpty(registry.Tabs, "被改动过的插件不该在连接页上留下页签。");
+
         await restarted.DisposeAsync();
     }
 

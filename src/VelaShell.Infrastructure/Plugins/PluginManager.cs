@@ -4,6 +4,8 @@ using System.IO.Compression;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
+using VelaShell.Core.Resources;
+using VelaShell.Core.Services;
 using VelaShell.Infrastructure.Plugins.Capabilities;
 using VelaShell.Infrastructure.Plugins.Isolated;
 using VelaShell.PluginSdk;
@@ -63,6 +65,21 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
 
         /// <summary>插件进程当前打开的面板数(插件上报);非零时不回收。</summary>
         public int OpenSurfaces { get; set; }
+
+        /// <summary>
+        /// 是否需要安装凭据校验(用户目录下的已安装插件)。自带插件与开发期插件不在此列。
+        /// </summary>
+        public bool NeedsVerification { get; set; }
+
+        /// <summary>
+        /// 安装凭据校验的记忆化结果:<see langword="null" /> 结果表示通过,非空字符串是拒绝原因。
+        /// 一次进程生命周期内只算一遍 —— 它要读遍插件目录的每个字节,
+        /// 而"回收后再激活"这种循环里重复付这个代价是纯浪费。
+        /// </summary>
+        public Task<string?>? Verification { get; set; }
+
+        /// <summary>校验过程是否已把该插件的文件读了一遍(读过就等于预读过,不必再预热)。</summary>
+        public bool ContentRead { get; set; }
     }
 
     private readonly List<PluginRuntime> _plugins = [];
@@ -167,12 +184,9 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         await runtime.ActivationGate.WaitAsync().ConfigureAwait(false);
         try
         {
-            if (options.TrustRepository is not null && IsUserPluginDirectory(runtime.Descriptor.Directory)
-                && !ValidateInstallReceipt(pluginId, runtime.Descriptor.Directory, out string? receiptError))
+            if (await EnsureVerifiedAsync(runtime).ConfigureAwait(false) is { } rejection)
             {
-                runtime.Descriptor.State = PluginState.Invalid;
-                runtime.Descriptor.Error = receiptError;
-                RaiseChanged();
+                RejectAsTampered(runtime, rejection);
                 return;
             }
             SetDisabledMarker(runtime.Descriptor, disabled: false);
@@ -336,7 +350,9 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
                 throw;
             }
 
-            var runtime = new PluginRuntime { Descriptor = Describe(target, Path.Combine(target, PluginManifestReader.FileName), [], false) };
+            PluginDescriptor installed = Describe(target, Path.Combine(target, PluginManifestReader.FileName), [], false,
+                out bool needsVerification);
+            var runtime = new PluginRuntime { Descriptor = installed, NeedsVerification = needsVerification };
             lock (_gate)
             {
                 _plugins.Add(runtime);
@@ -949,33 +965,75 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         }
         await EnsureTrustInitializedAsync(cancellationToken).ConfigureAwait(false);
         Discover();
-        PurgeOrphanShadows();
-        await PurgeUninstalledDataAsync().ConfigureAwait(false);
         List<PluginRuntime> discovered;
         lock (_gate)
         {
             discovered = [.. _plugins.Where(p => p.Descriptor.State == PluginState.Discovered)];
         }
-        foreach (PluginRuntime runtime in discovered)
+
+        // 惰性触发器先挂:注册占位命令是纯内存操作,把它排在启动激活之前,
+        // 命令面板与协议页签就在最慢那个 onStartup 插件还在装载时已经可用了。
+        PluginRuntime[] startup = [.. discovered.Where(r => r.Descriptor.Manifest!.ActivatesOnStartup)];
+        foreach (PluginRuntime runtime in discovered.Except(startup))
         {
-            if (_shutdown.IsCancellationRequested || cancellationToken.IsCancellationRequested)
-            {
-                return;
-            }
-            if (runtime.Descriptor.Manifest!.ActivatesOnStartup)
+            // 惰性激活(蓝图 D7):只注册清单声明的占位命令,不碰程序集/不拉进程。
+            RegisterActivationTriggers(runtime);
+        }
+
+        // 内容校验并行开跑,但**不在这里等** —— 它要读遍每个已安装插件的每个字节,
+        // 而下面的 onStartup 激活只关心自己那一个插件校验完没有(经同一份记忆化结果,
+        // 见 EnsureVerifiedAsync,不会重复算)。等在 StartAsync 末尾即可。
+        Task verification = VerifyDiscoveredAsync(discovered);
+
+        // onStartup 插件并行激活:它们互不相干(每个都有自己的 ALC / 进程与激活闸),
+        // 串行只是让最慢的那一个决定所有人的等待。共享的命令注册表是线程安全的。
+        if (startup.Length > 0 && !cancellationToken.IsCancellationRequested)
+        {
+            using IBackgroundActivityScope? activity = options.Activity?.Begin(
+                Strings.Get("Msg_PluginActivating"), progress: startup.Length > 1 ? 0 : null);
+            int done = 0;
+            await Task.WhenAll(startup.Select(async runtime =>
             {
                 // 走激活闸而不是直调:启动激活跑在后台线程上、耗时可达数秒,
                 // 这期间用户完全来得及在管理页把它禁用掉。
                 await EnsureActivatedAsync(runtime, cancellationToken).ConfigureAwait(false);
-            }
-            else
-            {
-                // 惰性激活(蓝图 D7):只注册清单声明的占位命令,不碰程序集/不拉进程。
-                RegisterActivationTriggers(runtime);
-            }
+                if (startup.Length > 1)
+                {
+                    activity?.Report((double)Interlocked.Increment(ref done) / startup.Length);
+                }
+            })).ConfigureAwait(false);
         }
+
         StartDevWatchers();
         _ = IdleMonitorAsync();
+        // 陈旧数据清理与冷启动预读都与"插件现在能不能用"无关,排到后台链上 ——
+        // 尤其预读,它得等主窗口把首帧画完才开始,绝不与启动争磁盘。
+        _ = HousekeepAsync(discovered);
+        // 校验在这里收口:StartAsync 返回即意味着"被改动过的插件已经标红了"。
+        // 它全程跑在后台线程上(见 App 的 Task.Run),等它不占用户任何可见时间。
+        await verification.ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// 启动后的后台家务:清理孤儿影子副本与已卸载插件的残留数据,随后做冷启动预读。
+    /// 全程失败不上抛:家务做不成不该把插件运行时拖下水。
+    /// </summary>
+    private async Task HousekeepAsync(IReadOnlyList<PluginRuntime> discovered)
+    {
+        try
+        {
+            PurgeOrphanShadows();
+            await PurgeUninstalledDataAsync().ConfigureAwait(false);
+            await PrewarmAsync(discovered).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // 停机,正常路径。
+        }
+        catch (Exception ex)
+        {
+            Log($"Plugin housekeeping failed: {ex.Message}");
+        }
     }
 
     /// <summary>把清单声明的命令注册为占位:首次触发即激活插件并转交真实处理器。</summary>
@@ -1053,6 +1111,12 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
             {
                 return false;
             }
+            // 安全边界就在这一句:发现期不再做内容校验,但**任何**装载路径都得先过这道闸。
+            if (await EnsureVerifiedAsync(runtime).ConfigureAwait(false) is { } rejection)
+            {
+                RejectAsTampered(runtime, rejection);
+                return false;
+            }
             await ActivateAsync(runtime, cancellationToken).ConfigureAwait(false);
             return runtime.Descriptor.State == PluginState.Active;
         }
@@ -1061,6 +1125,201 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
             runtime.ActivationGate.Release();
         }
     }
+
+    /// <summary>
+    /// 已安装插件的内容校验(记忆化):比对目录内容 SHA256 与安装凭据。
+    /// 通过返回 <see langword="null" />,否则返回面向用户的拒绝原因。
+    /// <para>
+    /// 一次进程生命周期内每个插件只算一遍 —— 校验要读遍插件目录的每个字节,
+    /// 而"空闲回收 → 再触发激活"这种循环会反复走到这里。
+    /// 目录内容中途被改的场景由重载路径负责(见 <see cref="ReloadAsync" />,它清掉记忆)。
+    /// </para>
+    /// </summary>
+    private Task<string?> EnsureVerifiedAsync(PluginRuntime runtime)
+    {
+        if (!runtime.NeedsVerification)
+        {
+            return Task.FromResult<string?>(null);
+        }
+        lock (_gate)
+        {
+            return runtime.Verification ??= Task.Run(async () =>
+            {
+                // 校验读的是信任仓储里的凭据,仓储没初始化就无从比对。
+                await EnsureTrustInitializedAsync(_shutdown.Token).ConfigureAwait(false);
+                bool ok = ValidateInstallReceipt(runtime.Descriptor.Id, runtime.Descriptor.Directory,
+                    out string? error);
+                runtime.ContentRead = true; // 刚把整个目录读了一遍 —— 预热不必再来一次。
+                return ok ? null : error;
+            });
+        }
+    }
+
+    /// <summary>
+    /// 把校验未通过的插件打成 Invalid,并撤下发现期已经挂出去的协议页签与占位命令。
+    /// <para>
+    /// 撤注册这一步不能省:校验推迟到发现之后,意味着页签与占位命令在校验有结论之前
+    /// 就已经摆在用户面前了。留着它们,用户点下去只会得到一次静默的无反应
+    /// (激活闸看到 Invalid 直接返回 false),而真正的原因写在管理页上没人会去看。
+    /// </para>
+    /// </summary>
+    private void RejectAsTampered(PluginRuntime runtime, string rejection)
+    {
+        // 先写终态再撤注册(与 DisableAsync 同一顺序):反过来的话,两步之间的窗口里
+        // 若有激活线程完成,它会把 State 覆盖回 Active 并重新注册协议。
+        runtime.Descriptor.State = PluginState.Invalid;
+        runtime.Descriptor.Error = rejection;
+        (runtime.CommandsApi as IDisposable)?.Dispose();
+        runtime.CommandsApi = null;
+        options.ProtocolRegistry?.RemovePlugin(runtime.Descriptor.Id);
+        Log($"Refusing to load '{runtime.Descriptor.Id}': {rejection}");
+        RaiseChanged();
+    }
+
+    /// <summary>
+    /// 后台内容校验巡检:把发现期省下的那遍全量哈希并行补上,发现被改动的插件即刻标红。
+    /// <para>
+    /// 这不是安全边界(边界在 <see cref="EnsureActivatedAsync" /> 的闸上),而是"提前告知" ——
+    /// 让管理页在用户点开它之前就把问题摆出来。并行度按 CPU 收敛:这活儿是磁盘密集型,
+    /// 开太多线程只会让磁头/队列互相打架。
+    /// </para>
+    /// </summary>
+    private async Task VerifyDiscoveredAsync(IReadOnlyList<PluginRuntime> candidates)
+    {
+        PluginRuntime[] pending = [.. candidates.Where(r =>
+            r.NeedsVerification && r.Descriptor.State == PluginState.Discovered)];
+        if (pending.Length == 0)
+        {
+            return;
+        }
+        using IBackgroundActivityScope? activity = options.Activity?.Begin(
+            Strings.Get("Msg_PluginVerifying"), progress: 0);
+        int done = 0;
+        try
+        {
+            await Parallel.ForEachAsync(
+                pending,
+                new ParallelOptions
+                {
+                    // 这活儿是磁盘密集型:线程开多了只会让 IO 队列互相打架,4 条足够压住 SSD。
+                    MaxDegreeOfParallelism = Math.Min(4, Environment.ProcessorCount),
+                    CancellationToken = _shutdown.Token
+                },
+                async (runtime, _) =>
+                {
+                    string? rejection = await EnsureVerifiedAsync(runtime).ConfigureAwait(false);
+                    // 状态复核:校验期间用户完全来得及禁用/卸载它,别把终态覆盖回去。
+                    if (rejection is not null && runtime.Descriptor.State == PluginState.Discovered)
+                    {
+                        RejectAsTampered(runtime, rejection);
+                    }
+                    activity?.Report((double)Interlocked.Increment(ref done) / pending.Length,
+                        DisplayNameOf(runtime.Descriptor));
+                }).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // 停机:未校验完的插件保持 Discovered,下次启动重来 ——
+            // 装载路径上另有一道同样的闸,漏掉这一遍不构成放行。
+        }
+    }
+
+    /// <summary>
+    /// 惰性插件的冷启动预读:把插件目录里的程序集顺序读一遍,只为把它们抬进操作系统的文件缓存。
+    /// <para>
+    /// **不装载程序集、不创建 ALC、不跑 <c>ActivateAsync</c>** —— 惰性激活的语义分毫不动,
+    /// 内存也不多占一个字节(读进去的是内核页缓存,吃紧时系统自己会回收)。
+    /// 省掉的是用户按下命令那一刻的磁盘时间:那是首次激活里唯一一段与插件代码无关、
+    /// 却又完全可以提前付掉的成本。
+    /// </para>
+    /// <para>
+    /// 内容校验刚刚读过整个目录的插件直接跳过(<see cref="PluginRuntime.ContentRead" />) ——
+    /// 已安装插件的预读实际上是免费搭了那遍哈希的车。
+    /// </para>
+    /// </summary>
+    private async Task PrewarmAsync(IReadOnlyList<PluginRuntime> discovered)
+    {
+        if (!options.PrewarmLazyPlugins)
+        {
+            return;
+        }
+        // 起手先让路:主窗口的首帧、会话恢复与自动连接都排在预读前面。
+        if (await DelayObservedAsync(options.PrewarmDelay).ConfigureAwait(false))
+        {
+            return;
+        }
+        PluginRuntime[] targets = [.. discovered.Where(r =>
+            !r.ContentRead && r.Descriptor.State == PluginState.Discovered)];
+        if (targets.Length == 0)
+        {
+            return;
+        }
+        using IBackgroundActivityScope? activity = options.Activity?.Begin(
+            Strings.Get("Msg_PluginPrewarming"), progress: 0);
+        long budget = options.PrewarmByteBudget;
+        var stopwatch = Stopwatch.StartNew();
+        for (int i = 0; i < targets.Length && budget > 0; i++)
+        {
+            PluginRuntime runtime = targets[i];
+            if (_shutdown.IsCancellationRequested)
+            {
+                return;
+            }
+            // 逐个复核而不是一次性快照:预读期间插件完全可能已被触发激活,那就没必要再读了。
+            if (runtime.Descriptor.State != PluginState.Discovered)
+            {
+                continue;
+            }
+            activity?.Report((double)i / targets.Length, DisplayNameOf(runtime.Descriptor));
+            budget -= await PrewarmDirectoryAsync(runtime.Descriptor.Directory, budget).ConfigureAwait(false);
+        }
+        Log($"Prewarmed {targets.Length} lazily waiting plugin(s) in {stopwatch.ElapsedMilliseconds}ms " +
+            $"({(options.PrewarmByteBudget - budget) / 1024}KB read into the file cache).");
+    }
+
+    /// <summary>顺序读一个插件目录下的程序集(只读不留);返回实际读取的字节数。</summary>
+    private async Task<long> PrewarmDirectoryAsync(string directory, long budget)
+    {
+        long read = 0;
+        byte[] buffer = System.Buffers.ArrayPool<byte>.Shared.Rent(256 * 1024);
+        try
+        {
+            // 只读顶层 dll:runtimes/ 下是按 RID 分叉的原生库,当前平台用得上的那几个
+            // 会随首次 P/Invoke 自己进缓存,提前把所有平台的都读一遍纯属浪费。
+            foreach (string file in Directory.EnumerateFiles(directory, "*.dll", SearchOption.TopDirectoryOnly))
+            {
+                if (_shutdown.IsCancellationRequested || read >= budget)
+                {
+                    break;
+                }
+                try
+                {
+                    // SequentialScan 明确告诉内核这是"读一遍就走"的顺序访问;
+                    // Asynchronous 让这条链不占线程池线程(预读是背景工作,不该挤占前台)。
+                    await using var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite,
+                        buffer.Length, FileOptions.SequentialScan | FileOptions.Asynchronous);
+                    int chunk;
+                    while ((chunk = await stream.ReadAsync(buffer, _shutdown.Token).ConfigureAwait(false)) > 0)
+                    {
+                        read += chunk;
+                    }
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // 预读失败没有任何后果:该文件在真正装载时照常会被打开。
+                }
+            }
+        }
+        finally
+        {
+            System.Buffers.ArrayPool<byte>.Shared.Return(buffer);
+        }
+        return read;
+    }
+
+    /// <summary>面向用户的插件名:清单里的显示名,缺失时退回插件 id。</summary>
+    private static string DisplayNameOf(PluginDescriptor descriptor) =>
+        descriptor.Manifest is { DisplayName: { Length: > 0 } name } ? name : descriptor.Id;
 
     /// <summary>
     /// 空闲巡检(蓝图 04 §资源控制,仅隔离模式):可回收插件连续空闲
@@ -1217,9 +1476,9 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
                 {
                     continue;
                 }
-                PluginDescriptor descriptor = Describe(dir, manifestPath, seenIds, isDev);
+                PluginDescriptor descriptor = Describe(dir, manifestPath, seenIds, isDev, out bool needsVerification);
                 descriptor.IsDevelopment = isDev;
-                found.Add(new() { Descriptor = descriptor });
+                found.Add(new() { Descriptor = descriptor, NeedsVerification = needsVerification });
             }
         }
         lock (_gate)
@@ -1270,8 +1529,21 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         return runtime is not null && await EnsureActivatedAsync(runtime).ConfigureAwait(false);
     }
 
-    private PluginDescriptor Describe(string dir, string manifestPath, HashSet<string> seenIds, bool isDevelopment)
+    /// <summary>
+    /// 读一份清单并给出描述。**不做安装凭据校验** —— 那要读遍插件目录的每个字节,
+    /// 挂在发现路径上就是把启动堵在磁盘上。校验推迟到后台巡检与激活闸
+    /// (见 <see cref="EnsureVerifiedAsync" />),安全边界不变:仍是"不校验不装载"。
+    /// </summary>
+    /// <param name="dir">插件目录。</param>
+    /// <param name="manifestPath">清单文件路径。</param>
+    /// <param name="seenIds">已见过的插件 id(用于查重)。</param>
+    /// <param name="isDevelopment">是否来自开发期插件根。</param>
+    /// <param name="needsVerification">输出:该插件是否仍待安装凭据校验。</param>
+    /// <returns>插件描述。</returns>
+    private PluginDescriptor Describe(string dir, string manifestPath, HashSet<string> seenIds, bool isDevelopment,
+        out bool needsVerification)
     {
+        needsVerification = false;
         PluginManifest manifest;
         try
         {
@@ -1283,17 +1555,11 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
             return new() { Directory = dir, State = PluginState.Invalid, Error = ex.Message };
         }
         var descriptor = new PluginDescriptor { Manifest = manifest, Directory = dir };
+        needsVerification = !isDevelopment && options.TrustRepository is not null && IsUserPluginDirectory(dir);
         if (!seenIds.Add(manifest.Id))
         {
             descriptor.State = PluginState.Invalid;
             descriptor.Error = $"Duplicate plugin id '{manifest.Id}' (already provided by an earlier plugin root).";
-        }
-        else if (!isDevelopment && options.TrustRepository is not null
-                 && IsUserPluginDirectory(dir)
-                 && !ValidateInstallReceipt(manifest.Id, dir, out string? receiptError))
-        {
-            descriptor.State = PluginState.Invalid;
-            descriptor.Error = receiptError;
         }
         else if (isDevelopment
                      ? DevDisabled.Contains(manifest.Id)
@@ -1393,6 +1659,10 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         PluginDescriptor descriptor = runtime.Descriptor;
         PluginManifest manifest = descriptor.Manifest!;
         var stopwatch = Stopwatch.StartNew();
+        // 用户按下命令到插件真正就绪之间可以有好几秒(装载 + JIT,隔离模式还要拉进程),
+        // 这段时间界面上必须有东西在转 —— 否则那次点击看起来就是没反应。
+        using IBackgroundActivityScope? activity = options.Activity?.Begin(
+            Strings.Get("Msg_PluginLoading"), DisplayNameOf(descriptor));
         try
         {
             // 开发期插件先落一份影子副本再装载:否则运行中的插件锁住工程 bin 里的 dll,
@@ -1937,8 +2207,9 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
             seenIds = [.. _plugins.Where(p => !ReferenceEquals(p, old)).Select(p => p.Descriptor.Id)];
         }
         string manifestPath = Path.Combine(directory, PluginManifestReader.FileName);
+        bool needsVerification = false;
         PluginDescriptor descriptor = File.Exists(manifestPath)
-            ? Describe(directory, manifestPath, seenIds, isDevelopment)
+            ? Describe(directory, manifestPath, seenIds, isDevelopment, out needsVerification)
             : new()
             {
                 Directory = directory,
@@ -1946,7 +2217,9 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
                 Error = $"{PluginManifestReader.FileName} is no longer present in '{directory}'."
             };
         descriptor.IsDevelopment = isDevelopment;
-        var fresh = new PluginRuntime { Descriptor = descriptor };
+        // 全新的运行时 = 全新的校验记忆:重载正是"目录内容可能变了"的那个场景,
+        // 沿用旧的记忆化结果等于把改动过的插件放行。
+        var fresh = new PluginRuntime { Descriptor = descriptor, NeedsVerification = needsVerification };
         lock (_gate)
         {
             int index = _plugins.IndexOf(old);

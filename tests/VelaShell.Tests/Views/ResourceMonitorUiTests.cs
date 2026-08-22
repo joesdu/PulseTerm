@@ -703,9 +703,10 @@ public sealed partial class ResourceMonitorUiTests
             // 视图加载早于窗口 DataContext 赋值,启动时就会刷一条绑定错误。
             Assert.IsEmpty(sink.Errors, $"状态栏出现绑定错误:{sink.Errors.FirstOrDefault()}");
 
-            // 指标读数已收进弹窗:状态栏右侧只剩这一个按钮。
-            Button[] buttons = [.. window.GetVisualDescendants().OfType<Button>()];
-            Assert.HasCount(1, buttons, "状态栏应只剩资源监视这一个按钮。");
+            // 指标读数已收进弹窗:无后台活动时状态栏右侧只剩这一个可见按钮
+            // (后台活动圆环按钮此刻 IsVisible=false,但仍留在视觉树上,故按可见性筛)。
+            Button[] buttons = [.. window.GetVisualDescendants().OfType<Button>().Where(b => b.IsVisible)];
+            Assert.HasCount(1, buttons, "状态栏应只剩资源监视这一个可见按钮。");
             Assert.IsNotNull(buttons[0].Command, "按钮没绑到主窗口的打开命令($parent[Window] 没解析)。");
             Assert.IsEmpty(
                 window.GetVisualDescendants().OfType<TextBlock>().Where(t => t.Text == "36%"),
@@ -713,6 +714,59 @@ public sealed partial class ResourceMonitorUiTests
 
             // 悬停仍能看到完整详情。
             Assert.Contains("CPU", main.StatusBar.MetricsTooltip);
+
+            window.Close();
+            main.StatusBar.Dispose();
+        });
+    }
+
+    /// <summary>
+    /// 后台活动圆环:无活动时整块收起,有活动时出现并给出摘要。
+    /// 这条守的是这个功能的全部意义 —— 插件装载那几秒界面上必须有东西在转。
+    /// </summary>
+    [TestMethod]
+    public void StatusBar_BackgroundRing_AppearsOnlyWhileSomethingIsRunning()
+    {
+        OnUi(() =>
+        {
+            UseChinese();
+            var main = new MainWindowViewModel();
+            var status = new StatusBarView { DataContext = main.StatusBar };
+            var window = new Window { Width = 1200, Height = 40, Content = status };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            window.DataContext = main;
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            // 收起时按钮不参与布局,其模板尚未展开 —— 此刻视觉树里连圆环都还没有。
+            Assert.IsEmpty(window.GetVisualDescendants().OfType<CircularProgressRing>(),
+                "没有后台活动时圆环不该出现在状态栏上。");
+
+            main.StatusBar.ApplyBackgroundActivities([new(1, "正在加载插件", "Redis Client", null)]);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            CircularProgressRing ring = Assert.ContainsSingle(
+                window.GetVisualDescendants().OfType<CircularProgressRing>());
+            Assert.IsTrue(ring.IsEffectivelyVisible, "有后台活动时圆环必须出现。");
+            Assert.IsTrue(ring.IsIndeterminate, "进度不可知的活动应让圆环走不确定动画。");
+            Assert.Contains(
+                t => t.Text == "正在加载插件",
+                window.GetVisualDescendants().OfType<TextBlock>(),
+                "圆环旁应显示当前活动的摘要。");
+
+            // 确定进度的活动改画实心弧,并按比例填充。
+            main.StatusBar.ApplyBackgroundActivities([new(2, "正在校验插件", "Redis Client", 0.4)]);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            Assert.IsFalse(ring.IsIndeterminate);
+            Assert.AreEqual(0.4, ring.Value);
+
+            main.StatusBar.ApplyBackgroundActivities([]);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            Assert.IsFalse(ring.IsEffectivelyVisible, "活动结束后圆环必须收起,不能一直转。");
 
             window.Close();
             main.StatusBar.Dispose();

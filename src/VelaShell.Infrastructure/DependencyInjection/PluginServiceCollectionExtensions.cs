@@ -76,7 +76,11 @@ public static class PluginServiceCollectionExtensions
                 TerminalFactory = sp.GetService<Func<string, IPluginLogger, PluginSdk.Terminal.ITerminalApi>>(),
                 TerminalView = sp.GetService<PluginSdk.TerminalView.ITerminalViewApi>(),
                 // 协议注册表:清单声明的协议页签在发现期登记于此,插件激活后补上实现。
-                ProtocolRegistry = sp.GetService<Plugins.Protocols.PluginProtocolRegistry>()
+                ProtocolRegistry = sp.GetService<Plugins.Protocols.PluginProtocolRegistry>(),
+                // 后台活动账本:插件的校验/激活/预读都在状态栏右下角的圆环上有交代。
+                Activity = sp.GetService<IBackgroundActivityService>(),
+                // 冷启动预读的排障急停开关(与 VELASHELL_DISABLE_PLUGINS 同一体例)。
+                PrewarmLazyPlugins = Environment.GetEnvironmentVariable("VELASHELL_DISABLE_PLUGIN_PREWARM") != "1"
             };
             return new(options);
         });

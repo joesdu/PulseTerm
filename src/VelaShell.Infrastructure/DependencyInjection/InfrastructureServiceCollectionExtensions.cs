@@ -43,6 +43,9 @@ public static class InfrastructureServiceCollectionExtensions
     public static IServiceCollection AddVelaShellInfrastructure(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
+        // 后台活动账本(状态栏右下角的圆环)。注册在最前面:插件运行时等生产者都要它,
+        // 而它自己不依赖任何东西。
+        services.AddSingleton<Core.Services.IBackgroundActivityService, Core.Services.BackgroundActivityService>();
         services.AddSingleton<VelaShellStoragePaths>();
         services.AddSingleton<SonnetDbEngine>(sp => new(sp.GetRequiredService<VelaShellStoragePaths>()));
         services.AddSingleton<ISecretProtector>(sp => new AesSecretProtector(sp.GetRequiredService<VelaShellStoragePaths>()));

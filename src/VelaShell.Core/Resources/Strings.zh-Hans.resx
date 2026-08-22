@@ -3856,4 +3856,11 @@ Windows 填 exe 完整路径或命令名(如 notepad);Linux 填命令名(如 ged
   <data name="PluginManager_SecurityTip" xml:space="preserve"><value>插件以你的账户权限运行，可读写本地文件、会话与网络。安装前请核实插件来源并核对签名指纹，只安装来自可信发布者的插件，以免恶意插件窃取数据或破坏系统。</value></data>
   <data name="PluginManager_Market" xml:space="preserve"><value>插件商店</value></data>
   <data name="PluginManager_MarketTip" xml:space="preserve"><value>前往 market.easilynet.top 浏览已审核的插件</value></data>
+  <data name="Msg_PluginLoading" xml:space="preserve"><value>正在加载插件</value></data>
+  <data name="Msg_PluginActivating" xml:space="preserve"><value>正在启动插件</value></data>
+  <data name="Msg_PluginVerifying" xml:space="preserve"><value>正在校验插件</value></data>
+  <data name="Msg_PluginPrewarming" xml:space="preserve"><value>正在预热插件</value></data>
+  <data name="BackgroundTasks" xml:space="preserve"><value>后台任务</value></data>
+  <data name="BackgroundTasksIdle" xml:space="preserve"><value>暂无后台任务</value></data>
+  <data name="BackgroundTasksCount" xml:space="preserve"><value>{0} 项后台任务</value></data>
 </root>

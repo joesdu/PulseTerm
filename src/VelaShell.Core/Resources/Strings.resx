@@ -3765,4 +3765,11 @@ Trusting it will also trust future packages signed by the same key. Plugins can 
   <data name="PluginManager_SecurityTip" xml:space="preserve"><value>Plugins run with your account permissions and can reach your files, sessions and network. Before installing, confirm where the package came from and check its signature fingerprint — install only from publishers you trust.</value></data>
   <data name="PluginManager_Market" xml:space="preserve"><value>Plugin store</value></data>
   <data name="PluginManager_MarketTip" xml:space="preserve"><value>Browse reviewed plugins at market.easilynet.top</value></data>
+  <data name="Msg_PluginLoading" xml:space="preserve"><value>Loading plugin</value></data>
+  <data name="Msg_PluginActivating" xml:space="preserve"><value>Starting plugins</value></data>
+  <data name="Msg_PluginVerifying" xml:space="preserve"><value>Verifying plugins</value></data>
+  <data name="Msg_PluginPrewarming" xml:space="preserve"><value>Prewarming plugins</value></data>
+  <data name="BackgroundTasks" xml:space="preserve"><value>Background tasks</value></data>
+  <data name="BackgroundTasksIdle" xml:space="preserve"><value>No background tasks</value></data>
+  <data name="BackgroundTasksCount" xml:space="preserve"><value>{0} background tasks</value></data>
 </root>
