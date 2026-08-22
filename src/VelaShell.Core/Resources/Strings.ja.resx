@@ -3771,4 +3771,5 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   <data name="BackgroundTasks" xml:space="preserve"><value>バックグラウンドタスク</value></data>
   <data name="BackgroundTasksIdle" xml:space="preserve"><value>バックグラウンドタスクはありません</value></data>
   <data name="BackgroundTasksCount" xml:space="preserve"><value>バックグラウンドタスク {0} 件</value></data>
+  <data name="Msg_PluginInstalling" xml:space="preserve"><value>プラグインをインストール中</value></data>
 </root>

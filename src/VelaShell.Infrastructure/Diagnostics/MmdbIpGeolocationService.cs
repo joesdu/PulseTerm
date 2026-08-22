@@ -192,9 +192,9 @@ public sealed class MmdbIpGeolocationService : IIpGeolocationService, IDisposabl
     [method: Constructor]
     // MMDB 记录的最小映射:只取落点与名称,不引入厂商专有字段。
     private sealed class MmdbRecord(
-        [MapKey("city")] MmdbIpGeolocationService.MmdbNamed? city,
-        [MapKey("country")] MmdbIpGeolocationService.MmdbCountry? country,
-        [MapKey("location")] MmdbIpGeolocationService.MmdbLocation? location
+        [MapKey("city")] MmdbNamed? city,
+        [MapKey("country")] MmdbCountry? country,
+        [MapKey("location")] MmdbLocation? location
         )
     {
         public MmdbNamed? City { get; } = city;

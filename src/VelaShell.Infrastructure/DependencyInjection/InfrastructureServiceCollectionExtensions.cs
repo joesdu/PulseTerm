@@ -45,7 +45,7 @@ public static class InfrastructureServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         // 后台活动账本(状态栏右下角的圆环)。注册在最前面:插件运行时等生产者都要它,
         // 而它自己不依赖任何东西。
-        services.AddSingleton<Core.Services.IBackgroundActivityService, Core.Services.BackgroundActivityService>();
+        services.AddSingleton<IBackgroundActivityService, BackgroundActivityService>();
         services.AddSingleton<VelaShellStoragePaths>();
         services.AddSingleton<SonnetDbEngine>(sp => new(sp.GetRequiredService<VelaShellStoragePaths>()));
         services.AddSingleton<ISecretProtector>(sp => new AesSecretProtector(sp.GetRequiredService<VelaShellStoragePaths>()));
@@ -133,7 +133,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IPluginProtocolSessionService>(sp => sp.GetRequiredService<PluginProtocolFileService>());
         // 工作台连接类型(Redis、MySQL… 由插件提供):界面是插件自己的,所以这里没有数据面要翻译,
         // 只有"解析注册表 → 组装请求 → 翻译异常 → 会话登记"这几件宿主该做的事。
-        services.AddSingleton<PluginWorkspaceLauncher>(sp =>
+        services.AddSingleton(sp =>
         {
             PluginProtocolRegistry registry = sp.GetRequiredService<PluginProtocolRegistry>();
             var launcher = new PluginWorkspaceLauncher(registry);
@@ -151,7 +151,7 @@ public static class InfrastructureServiceCollectionExtensions
             sp.GetRequiredService<FtpFileService>(),
             sp.GetRequiredService<PluginProtocolFileService>(),
             sp.GetRequiredService<PluginProtocolFileService>()));
-        services.AddSingleton<SftpService>(sp =>
+        services.AddSingleton(sp =>
         {
             ISshConnectionService connSvc = sp.GetRequiredService<ISshConnectionService>();
             ISettingsService settings = sp.GetRequiredService<ISettingsService>();
@@ -175,7 +175,9 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IGistSyncService>(sp => new Sync.GistSyncService(
             sp.GetRequiredService<ISettingsService>(), sp.GetRequiredService<ISessionRepository>(),
             sp.GetRequiredService<IAppDataStore>(), sp.GetRequiredService<IQuickCommandRepository>(),
-            sp.GetRequiredService<ISecretProtector>()));
+            sp.GetRequiredService<ISecretProtector>(),
+            // 后台活动账本:自动同步是静默的,至少让状态栏的圆环交代一句"正在同步"。
+            sp.GetService<IBackgroundActivityService>()));
         services.AddSingleton<ISessionMetricsService>(sp =>
             new SessionMetricsService(sp.GetRequiredService<ISshConnectionService>()));
         services.AddSingleton<IRemoteProcessService>(sp =>

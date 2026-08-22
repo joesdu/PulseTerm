@@ -176,3 +176,69 @@ AI / Redis 面板另有 headless 装载与交互测试。
 `BackgroundActivityServiceTests` 8 项(含并发 64 条活动后账本归零 —— 圆环不得一直转);
 `StatusBarBackgroundActivityTests` 6 项(聚合规则);UI 侧 `StatusBar_BackgroundRing_*` 1 项
 (收起 → 出现 → 确定弧 → 收起)。
+
+## 2026-08-23(二):后台活动指示器接入更多生产者,构建卫生收口
+
+圆环落地之后的第一轮"还本":把它接到用户真正会等的地方,并把镜像插件的构建目标改成
+真正的镜像语义。
+
+### 插件安装接入圆环
+
+`InstallFromVpxAsync` 全程是纯等待的几秒 —— 验签 → 解压 → 对整个目录算 SHA256 落安装凭据
+——此前界面上一动不动(`PluginManagerViewModel` 里只有一个"完了给条通知")。现在按阶段上报:
+包文件名先做副标题,清单读出来后换成插件显示名。进度是粗刻度而非平滑曲线:每一步内部
+都拿不到细粒度回调,与其编一个平滑的假进度,不如让弧一段一段地跳 —— 它至少每一跳都对应
+真的完成了一件事。
+
+> 注:插件商店(market.easilynet.top)是浏览器里开的链接,下载不在应用内 ——
+> 慢的那几秒全在本地的验签/解压/哈希上。
+
+**没有做的一件事**:装完随即激活会把 `SaveInstallReceiptAsync` 刚算过的目录哈希再算一遍,
+看着是浪费。但不要预置校验结果去省它 —— 那等于把"落凭据 → 首次装载"之间的窗口排除在
+校验之外,而省下的只是一次热缓存目录的哈希(几十毫秒)。这个仓库对插件信任面的态度一贯是
+宁可多算一遍。代码里留了注释挡住下一个想"顺手优化"的人。
+
+### 云同步接入圆环
+
+`GistSyncService` 的四条出口(立即同步 / 仅推送 / 仅拉取 / 恢复到此版本)各开一条不确定态
+活动,副标题直接复用设置页上同名按钮的文案(`SetSync_*`,五语已有,零新增)——
+用户看到的措辞与他点下去的那个按钮一致。走不确定态是因为整段是网络往返,给不出有意义的
+百分比,而这条活动要回答的问题本来也只有一个:"现在到底有没有在同步"。
+
+自动同步一向静默(启动拉取、保存后防抖推送,失败都不打扰用户)。**"不打扰"不该等于
+"什么都看不见"**:用户的连接配置正在被上传或覆盖,这件事值得有个去处。
+
+### 构建卫生:镜像插件的目标改成真正的镜像
+
+`CopyVelaPluginsToOutput`(把 `artifacts/plugins/` 暂存目录铺进宿主输出)此前只增不减,
+且复制出去的文件没登记进 MSBuild 的清理台账。两个后果都真实咬过人:
+
+- 从暂存目录删掉一个插件,输出里那份能一直留到手动删为止;
+- `dotnet clean` 清不掉它们(台账上没名字),表现是"clean 完插件还在"。
+
+改动:目标从 `AfterTargets="Build"` 挪到 `AfterTargets="CopyFilesToOutputDirectory"`
+(赶在 `IncrementalClean` 之前),并把复制产物登记进 `FileWrites`。于是剪枝与 clean 都由
+MSBuild 自己的增量清理机制免费提供。另加一道扫尾:`IncrementalClean` 剪的是文件,剪空的
+目录会原地留下来 —— 判据用"没有 `plugin.json`"(对宿主而言与空目录等价)把它们一并清掉,
+免得 `ls plugins` 看到一个早该消失的插件名。
+
+只登记本目标复制的文件:自建插件(`velashell-ai`)由插件工程自己铺进同一个 `plugins/`,
+不在这份台账里,因此绝不会被误剪 —— 这一条已实测。
+
+验收(四个场景实测):暂存目录 → 输出的镜像;从暂存目录删掉插件后重建即从输出剪掉;
+剪空的目录被扫掉;`dotnet clean` 能清动镜像出去的插件且不碰 `velashell-ai`。
+新增回归:`InstallFromVpx_ReportsProgressToTheBackgroundLedger_AndClearsIt`、
+`InstallFromVpx_WhenRejected_StillClearsTheBackgroundLedger`、
+`SyncEntryPoints_ReportToTheBackgroundLedger_AndAlwaysClearIt`(四条出口各自可辨且必收干净)。
+
+### 复核过、结论是暂不做的
+
+- **隔离插件的宿主进程预热池**:实测一次完整激活周期约 1 秒(进程拉起 + Avalonia 初始化
+  占大头),数字是真的。但当前 `velashell.ai` 与 `velashell.redis` 都必须 `inProcess`
+  (前者借宿主的 AvaloniaEdit,后者要向宿主交 Avalonia 控件挂进停靠区),**一个隔离插件都没有**
+  —— 这个池子今天谁也帮不上。等生态里真出现第三方隔离插件再做。
+- **ReadyToRun**:发布是 `-p:SelfContained=true` 且**没有** `PublishReadyToRun`,
+  主程序与 `VelaShell.PluginHost` 到用户机器上全靠 JIT 冷启。开了是所有人每次启动都受益,
+  且能顺带吃掉一部分隔离宿主的冷启动、不用动 IPC 协议。代价是 R2R'd 程序集大 30~50%
+  (self-contained 下包体增长可观)。**收益必须实测**,单独开一轮:改配置 → 三平台各测冷启动
+  → 拿数据决定包体值不值。

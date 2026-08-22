@@ -214,7 +214,7 @@ public partial class MainWindow : Window
             // 打开宿主自己的「新建连接」对话框并预填。**插件不能自己写会话库** ——
             // 那是用户数据、凭据也在里面;它只能提议,由用户过一眼再按保存。
             if (Application.Current is App proposalApp
-                && proposalApp.Services?.GetService<VelaShell.Infrastructure.Plugins.Protocols.PluginProtocolRegistry>()
+                && proposalApp.Services?.GetService<Infrastructure.Plugins.Protocols.PluginProtocolRegistry>()
                     is { } proposalRegistry)
             {
                 proposalRegistry.ConnectionProposalHandler = ProposeConnectionAsync;
@@ -897,7 +897,7 @@ public partial class MainWindow : Window
     /// <param name="proposal">插件的提议。</param>
     /// <returns>用户是否保存了这条连接。</returns>
     private async Task<bool> ProposeConnectionAsync(
-        VelaShell.PluginSdk.Workspaces.WorkspaceConnectionProposal proposal)
+        PluginSdk.Workspaces.WorkspaceConnectionProposal proposal)
     {
         var profile = new SessionProfile
         {
@@ -964,7 +964,7 @@ public partial class MainWindow : Window
             defaultKeyPath,
             // 协议注册表:连接页据此画出插件协议页签(不装载任何插件程序集),
             // 用户点到某个页签才触发它的惰性激活。
-            app.Services.GetService<VelaShell.Infrastructure.Plugins.Protocols.PluginProtocolRegistry>()
+            app.Services.GetService<Infrastructure.Plugins.Protocols.PluginProtocolRegistry>()
         );
         var dialog = new ConnectionProfileView { DataContext = connectionProfileViewModel };
         SessionProfile? profile = await dialog.ShowDialog<SessionProfile?>(this);
@@ -1060,7 +1060,7 @@ public partial class MainWindow : Window
             return;
         }
         IServiceProvider? services = (Application.Current as App)?.Services;
-        IIpGeolocationService? geo = services?.GetService<Core.Diagnostics.IIpGeolocationService>();
+        IIpGeolocationService? geo = services?.GetService<IIpGeolocationService>();
         ISettingsService? settings = services?.GetService<ISettingsService>();
         var viewModel = new TraceRouteViewModel(
             vm.TraceRouteService,

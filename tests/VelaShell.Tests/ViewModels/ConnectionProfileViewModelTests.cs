@@ -1,4 +1,4 @@
-﻿using NSubstitute;
+using NSubstitute;
 using ReactiveUI.Primitives;
 using VelaShell.Behaviors;
 using VelaShell.Core.Data;
@@ -46,11 +46,11 @@ public sealed class ConnectionProfileViewModelTests
     }
 
     /// <summary>没有协议级凭据的终端协议(Telnet)替身:只用来把描述符送进视图模型。</summary>
-    private sealed class NoCredentialTerminal : VelaShell.PluginSdk.Protocols.IProtocolTerminal
+    private sealed class NoCredentialTerminal : PluginSdk.Protocols.IProtocolTerminal
     {
-        public Task<VelaShell.PluginSdk.Protocols.IProtocolTerminalSession> ConnectAsync(
-            VelaShell.PluginSdk.Protocols.ProtocolConnectRequest request,
-            VelaShell.PluginSdk.Protocols.ProtocolTerminalOptions options,
+        public Task<PluginSdk.Protocols.IProtocolTerminalSession> ConnectAsync(
+            PluginSdk.Protocols.ProtocolConnectRequest request,
+            PluginSdk.Protocols.ProtocolTerminalOptions options,
             CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 
@@ -59,7 +59,7 @@ public sealed class ConnectionProfileViewModelTests
     {
         // Telnet 的登录发生在带内(对端打印 login:)。摆着两个填了也发不出去的框会误导用户,
         // 而"用户名不能为空"这条更会把保存/连接按钮永久灰死 —— 无凭据协议必须两条都免掉。
-        var registry = new VelaShell.Infrastructure.Plugins.Protocols.PluginProtocolRegistry();
+        var registry = new Infrastructure.Plugins.Protocols.PluginProtocolRegistry();
         using IDisposable handle = registry.Register("test.telnet", new()
         {
             Id = "test.telnet",

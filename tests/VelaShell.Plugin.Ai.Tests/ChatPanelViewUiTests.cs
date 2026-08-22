@@ -221,7 +221,7 @@ public sealed partial class ChatPanelViewUiTests
         OnUi(async () =>
         {
             using var context = new TestPluginContext();
-            VelaShell.PluginSdk.Sessions.SessionInfo session = context.FakeSessions.AddConnected();
+            PluginSdk.Sessions.SessionInfo session = context.FakeSessions.AddConnected();
             context.FakeRemoteFs.AddFile(session.SessionId, "/etc/hosts", "127.0.0.1 localhost"u8.ToArray());
             context.FakeRemoteFs.AddFile(session.SessionId, "/etc/hostname", "web-01"u8.ToArray());
             context.FakeRemoteFs.AddDirectory(session.SessionId, "/etc/nginx");
@@ -309,7 +309,7 @@ public sealed partial class ChatPanelViewUiTests
         OnUi(async () =>
         {
             using var context = new TestPluginContext();
-            VelaShell.PluginSdk.Sessions.SessionInfo session = context.FakeSessions.AddConnected();
+            PluginSdk.Sessions.SessionInfo session = context.FakeSessions.AddConnected();
             context.FakeRemoteFs.AddFile(session.SessionId, "/etc/hosts", "127.0.0.1"u8.ToArray());
             context.FakeRemoteFs.AddFile(session.SessionId, "/etc/hostname", "web-01"u8.ToArray());
             context.FakeRemoteFs.AddFile(session.SessionId, "/etc/passwd", "root:x:0:0"u8.ToArray());
@@ -357,7 +357,7 @@ public sealed partial class ChatPanelViewUiTests
         OnUi(async () =>
         {
             using var context = new TestPluginContext();
-            VelaShell.PluginSdk.Sessions.SessionInfo session = context.FakeSessions.AddConnected();
+            PluginSdk.Sessions.SessionInfo session = context.FakeSessions.AddConnected();
             context.FakeRemoteFs.AddFile(session.SessionId, "/etc/hostname", "web-01"u8.ToArray());
 
             (Window window, ChatPanelView panel) = await ShowAsync(context);
@@ -403,7 +403,7 @@ public sealed partial class ChatPanelViewUiTests
         OnUi(async () =>
         {
             using var context = new TestPluginContext();
-            VelaShell.PluginSdk.Sessions.SessionInfo session = context.FakeSessions.AddConnected();
+            PluginSdk.Sessions.SessionInfo session = context.FakeSessions.AddConnected();
             context.FakeRemoteFs.AddFile(session.SessionId, "/root/abc.txt", "x"u8.ToArray());
 
             (Window window, ChatPanelView panel) = await ShowAsync(context);
@@ -446,7 +446,7 @@ public sealed partial class ChatPanelViewUiTests
         OnUi(async () =>
         {
             using var context = new TestPluginContext();
-            VelaShell.PluginSdk.Sessions.SessionInfo session = context.FakeSessions.AddConnected();
+            PluginSdk.Sessions.SessionInfo session = context.FakeSessions.AddConnected();
             context.FakeRemoteFs.AddFile(session.SessionId, "/root/.bashrc", "x"u8.ToArray());
 
             (Window window, ChatPanelView panel) = await ShowAsync(context);
@@ -488,7 +488,7 @@ public sealed partial class ChatPanelViewUiTests
         OnUi(async () =>
         {
             using var context = new TestPluginContext();
-            VelaShell.PluginSdk.Sessions.SessionInfo session = context.FakeSessions.AddConnected();
+            PluginSdk.Sessions.SessionInfo session = context.FakeSessions.AddConnected();
             context.FakeRemoteFs.AddFile(session.SessionId, "/root/.bashrc", "export PATH=/usr/bin"u8.ToArray());
             // 没有供应商时 SendAsync 会直接引导到设置页、不发消息,所以先配一个(不会真去连它:
             // 本用例只看用户气泡长什么样,后面那半轮请求失败与否都不影响断言)。
@@ -1188,7 +1188,7 @@ public sealed partial class ChatPanelViewUiTests
                 // 全局设置搬走了:这页不再有系统提示词/压缩/后续提问,入口是窗口标题栏上的一枚 ⚙
                 Assert.IsEmpty(settings.GetVisualDescendants().OfType<TextBox>().Where(t => t.Name == "SystemPromptBox"));
                 Assert.IsEmpty(settings.GetVisualDescendants().OfType<CheckBox>().Where(c => c.Name == "SuggestFollowUpsCheck"));
-                VelaShell.PluginSdk.Ui.PanelTitleAction gear = context.FakeUi.LastPanel.Options.TitleActions.Single();
+                PluginSdk.Ui.PanelTitleAction gear = context.FakeUi.LastPanel.Options.TitleActions.Single();
                 Assert.IsFalse(string.IsNullOrWhiteSpace(gear.IconPathData));
                 int before = context.FakeUi.Panels.Count;
                 gear.OnClick();
@@ -1285,7 +1285,7 @@ public sealed partial class ChatPanelViewUiTests
             => group.GetVisualDescendants().OfType<StackPanel>().First(s => s.Classes.Contains("toolRows"));
 
         static void Press(Border toggle)
-            => toggle.RaiseEvent(new PointerPressedEventArgs(toggle, new Avalonia.Input.Pointer(0, PointerType.Mouse, true),
+            => toggle.RaiseEvent(new PointerPressedEventArgs(toggle, new Pointer(0, PointerType.Mouse, true),
                 toggle, new Point(1, 1), 0, new PointerPointProperties(RawInputModifiers.LeftMouseButton, PointerUpdateKind.LeftButtonPressed), KeyModifiers.None));
     }
 

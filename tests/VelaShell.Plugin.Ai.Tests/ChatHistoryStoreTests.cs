@@ -142,11 +142,11 @@ public sealed class ChatHistoryStoreTests
     }
 
     /// <summary>没有数据库的宿主上的时序能力(与 PluginManager 的退化实现同语义)。</summary>
-    private sealed class UnavailableTimeSeries : VelaShell.PluginSdk.TimeSeries.ITimeSeriesApi
+    private sealed class UnavailableTimeSeries : PluginSdk.TimeSeries.ITimeSeriesApi
     {
-        public Task<VelaShell.PluginSdk.TimeSeries.ITimeSeries> OpenAsync(
-            VelaShell.PluginSdk.TimeSeries.TimeSeriesDefinition definition, CancellationToken cancellationToken = default)
-            => Task.FromException<VelaShell.PluginSdk.TimeSeries.ITimeSeries>(
+        public Task<PluginSdk.TimeSeries.ITimeSeries> OpenAsync(
+            PluginSdk.TimeSeries.TimeSeriesDefinition definition, CancellationToken cancellationToken = default)
+            => Task.FromException<PluginSdk.TimeSeries.ITimeSeries>(
                 new InvalidOperationException("Time series capability is unavailable in this host."));
 
         public Task<IReadOnlyList<string>> ListAsync(CancellationToken cancellationToken = default)

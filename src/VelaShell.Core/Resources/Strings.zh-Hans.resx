@@ -3863,4 +3863,5 @@ Windows 填 exe 完整路径或命令名(如 notepad);Linux 填命令名(如 ged
   <data name="BackgroundTasks" xml:space="preserve"><value>后台任务</value></data>
   <data name="BackgroundTasksIdle" xml:space="preserve"><value>暂无后台任务</value></data>
   <data name="BackgroundTasksCount" xml:space="preserve"><value>{0} 项后台任务</value></data>
+  <data name="Msg_PluginInstalling" xml:space="preserve"><value>正在安装插件</value></data>
 </root>

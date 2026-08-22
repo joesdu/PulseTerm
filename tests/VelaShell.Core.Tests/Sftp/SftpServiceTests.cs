@@ -68,7 +68,7 @@ public class SftpServiceTests
     [TestMethod]
     public async Task UploadFileAsync_PreserveTimestampsOff_DoesNotTouchRemoteMtime()
     {
-        ISettingsService settings = Substitute.For<VelaShell.Core.Data.ISettingsService>();
+        ISettingsService settings = Substitute.For<ISettingsService>();
         settings.GetSettingsAsync().Returns(new AppSettings { Transfer = { PreserveTimestamps = false } });
         var service = new SftpService(_connectionService, _ => _sftpClient, settings);
         string localPath = Path.Combine(Path.GetTempPath(), $"vela-mtime-{Guid.NewGuid():N}.txt");

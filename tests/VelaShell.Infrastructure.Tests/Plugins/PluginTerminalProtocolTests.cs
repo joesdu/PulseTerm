@@ -144,7 +144,7 @@ public sealed class PluginTerminalProtocolTests
     {
         // 宿主的重试/弹框逻辑认的是 Core 的异常族;漏翻的表现是"密码错了却当成网络故障"。
         var registration = new PluginProtocolRegistration("test", Descriptor(), FileSystem: null, new ThrowingTerminal());
-        await Assert.ThrowsExactlyAsync<VelaShell.Core.Protocols.PluginProtocolAuthenticationException>(
+        await Assert.ThrowsExactlyAsync<Core.Protocols.PluginProtocolAuthenticationException>(
             () => PluginProtocolTerminalConnector.OpenAsync(registration, Profile(), new("xterm", 80, 24)));
     }
 

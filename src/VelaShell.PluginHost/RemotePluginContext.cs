@@ -1,4 +1,4 @@
-﻿using VelaShell.PluginSdk;
+using VelaShell.PluginSdk;
 using VelaShell.PluginSdk.Commands;
 using VelaShell.PluginSdk.Events;
 using VelaShell.PluginSdk.Logging;
@@ -60,16 +60,16 @@ internal sealed class RemotePluginContext : IPluginContext, IDisposable
     public IHostInfo Host => HostInfo;
     public IPluginLogger Log { get; }
     public IPluginStorage Storage { get; }
-    public VelaShell.PluginSdk.TimeSeries.ITimeSeriesApi TimeSeries { get; }
+    public PluginSdk.TimeSeries.ITimeSeriesApi TimeSeries { get; }
     public ISessionsApi Sessions { get; }
     public IRemoteFsApi RemoteFs => RemoteFsProxy;
     public IRemoteExecApi RemoteExec { get; }
     public ICommandsApi Commands => CommandsProxy;
     public IHostEvents Events => EventsHub;
     public IUiApi Ui => UiLocal;
-    public VelaShell.PluginSdk.Secrets.ISecretsApi Secrets { get; }
-    public VelaShell.PluginSdk.Clipboard.IClipboardApi Clipboard { get; }
-    public VelaShell.PluginSdk.Terminal.ITerminalApi Terminal { get; }
+    public PluginSdk.Secrets.ISecretsApi Secrets { get; }
+    public PluginSdk.Clipboard.IClipboardApi Clipboard { get; }
+    public PluginSdk.Terminal.ITerminalApi Terminal { get; }
 
     /// <summary>
     /// 协议能力在隔离进程里**不可用**:协议是宿主反向调用插件的高频通道(列目录、流式读、

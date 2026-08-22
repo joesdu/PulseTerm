@@ -186,7 +186,7 @@ public sealed class PluginManagerOptions
     /// 后台活动账本(状态栏右下角的圆环据此显示)。缺席时插件加载静默进行,
     /// 行为与引入指示器之前完全一致 —— headless 测试与无界面宿主不受影响。
     /// </summary>
-    public Core.Services.IBackgroundActivityService? Activity { get; init; }
+    public IBackgroundActivityService? Activity { get; init; }
 
     /// <summary>
     /// 是否对惰性等待中的插件做冷启动预读(把程序集抬进操作系统文件缓存)。

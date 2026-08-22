@@ -18,7 +18,8 @@ public sealed class GistSyncService(
     ISessionRepository sessionRepository,
     IAppDataStore appDataStore,
     IQuickCommandRepository quickCommandRepository,
-    ISecretProtector secretProtector
+    ISecretProtector secretProtector,
+    Core.Services.IBackgroundActivityService? backgroundActivity = null
 ) : IGistSyncService
 {
     private const int CurrentSchemaVersion = 2;
@@ -39,6 +40,23 @@ public sealed class GistSyncService(
 
     /// <summary>同步操作串行化:防止自动推送与手动同步并发互踩。</summary>
     private readonly SemaphoreSlim _gate = new(1, 1);
+
+    /// <summary>
+    /// 在状态栏右下角的圆环上开一条"同步中"的活动;副标题用设置页上同名按钮的文案
+    /// (仅推送 / 仅拉取 / 立即同步),用户看到的措辞与他点下去的那个按钮一致。
+    /// <para>
+    /// 走不确定态:整段是网络往返,给不出有意义的百分比,而这条活动要回答的问题
+    /// 本来也只有一个 —— "现在到底有没有在同步"。
+    /// </para>
+    /// <para>
+    /// 自动同步一向静默(启动拉取、保存后防抖推送,失败都不打扰用户),但"不打扰"
+    /// 不该等于"什么都看不见":用户的连接配置正在被上传或覆盖,这件事值得有个去处。
+    /// </para>
+    /// </summary>
+    /// <param name="actionKey">设置页动作按钮的资源键。</param>
+    /// <returns>活动句柄;未注入账本时为 <see langword="null" />。</returns>
+    private Core.Services.IBackgroundActivityScope? BeginSyncActivity(string actionKey) =>
+        backgroundActivity?.Begin(Strings.Get("Msg_Syncing"), Strings.Get(actionKey));
 
     /// <summary>是否正在应用远端数据;为 true 时忽略由此触发的本地保存事件,避免拉取后被误判为本地改动而立即回推。</summary>
     public bool IsApplyingRemote { get; private set; }
@@ -109,6 +127,7 @@ public sealed class GistSyncService(
     public async Task<SyncResult> SyncNowAsync(CancellationToken cancellationToken = default)
     {
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        using Core.Services.IBackgroundActivityScope? activity = BeginSyncActivity("SetSync_SyncNow");
         try
         {
             SyncSettings config = await GetSyncSettingsAsync(cancellationToken)
@@ -197,6 +216,7 @@ public sealed class GistSyncService(
     public async Task<SyncResult> PushAsync(CancellationToken cancellationToken = default)
     {
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        using Core.Services.IBackgroundActivityScope? activity = BeginSyncActivity("SetSync_PushOnly");
         try
         {
             SyncSettings config = await GetSyncSettingsAsync(cancellationToken)
@@ -226,6 +246,7 @@ public sealed class GistSyncService(
     public async Task<SyncResult> PullAsync(CancellationToken cancellationToken = default)
     {
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        using Core.Services.IBackgroundActivityScope? activity = BeginSyncActivity("SetSync_PullOnly");
         try
         {
             SyncSettings config = await GetSyncSettingsAsync(cancellationToken)
@@ -345,6 +366,7 @@ public sealed class GistSyncService(
     {
         ArgumentException.ThrowIfNullOrEmpty(version);
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        using Core.Services.IBackgroundActivityScope? activity = BeginSyncActivity("SetSync_RestoreRevision");
         try
         {
             SyncSettings config = await GetSyncSettingsAsync(cancellationToken)

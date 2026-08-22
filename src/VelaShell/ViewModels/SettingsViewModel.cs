@@ -1230,7 +1230,7 @@ public class SettingsViewModel : ReactiveObject
     private ProxyOptions? _hookedProxy;
 
     /// <summary>Proxy.Type 被直接改动时,同步派生的下拉索引与「参数可编辑」标志。</summary>
-    private void OnProxyItemChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    private void OnProxyItemChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(ProxyOptions.Type))
         {

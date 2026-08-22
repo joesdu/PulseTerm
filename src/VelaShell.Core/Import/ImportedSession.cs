@@ -43,13 +43,13 @@ public sealed class ImportedSession
 
     /// <summary>
     /// FTP / FTPS 的协议专属设置(加密方式等);仅当 <see cref="ConnectionType" /> 为
-    /// <see cref="Models.ConnectionType.FTP" /> 时非空。
+    /// <see cref="ConnectionType.FTP" /> 时非空。
     /// </summary>
     public FtpSettings? FtpSettings { get; init; }
 
     /// <summary>
     /// 插件协议 id;仅当 <see cref="ConnectionType" /> 为
-    /// <see cref="Models.ConnectionType.Plugin" /> 时非空。
+    /// <see cref="ConnectionType.Plugin" /> 时非空。
     /// <para>
     /// 导入器天生就认识外部工具的格式,因此由它把「WinSCP 的 S3 会话」映射到
     /// <c>velashell.s3</c> 这个协议 id;插件没装也照常导入 —— 配置留着,
