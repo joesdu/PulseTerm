@@ -1367,6 +1367,31 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
 
     // ---- Rendering ----------------------------------------------------------
 
+    // 本帧的设备像素栅格。整数 DIP 的格子尺寸在 125%/150% 这类分数缩放下不落在整数设备像素上,
+    // 相邻格子的背景各自抗锯齿、叠加后凑不回满覆盖,于是每条格线上留下一道浅缝(issue #245)。
+    private DevicePixelGrid _pixels = new(0, 0, 1);
+
+    /// <summary>
+    /// 刷新本帧的设备像素栅格。原点取「控件在渲染根中的位置 + 正文平移(内边距 + 侧栏)」:
+    /// 吸附必须以渲染根的像素格为准,控件本身若停在半个像素上,只按控件内坐标取整照样错位。
+    /// </summary>
+    private void RefreshPixelGrid()
+    {
+        var top = TopLevel.GetTopLevel(this);
+        double scale = RenderScalingOverrideForTest > 0 ? RenderScalingOverrideForTest : top?.RenderScaling ?? 1;
+        Point offset = top is null ? default : this.TranslatePoint(default, top) ?? default;
+        _pixels = new(offset.X + ContentPadding + GutterWidth(), offset.Y + ContentPadding, scale);
+    }
+
+    /// <summary>
+    /// 单元格背景矩形(正文坐标系),四边已吸附到设备像素 —— 相邻格子因此严丝合缝。
+    /// 字形位置<b>不</b>吸附:那会让字距忽宽忽窄,而背景带宽度浮动 ±1 设备像素肉眼不可见。
+    /// </summary>
+    private Rect CellRect(int col, int width, double y) =>
+        _pixels.Snap(
+            new(col * CellWidthForTest, y, CellWidthForTest * width, CellHeightForTest)
+        );
+
     /// <summary>
     /// 视觉 BEL:整个终端上的一次短暂半透明闪烁(§终端 → 视觉闪烁)
     /// </summary>
@@ -1375,6 +1400,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     {
         TerminalScreen screen = Emulator.Screen;
         TerminalPalette palette = Emulator.Palette;
+        RefreshPixelGrid();
         context.FillRectangle(DefaultBackgroundBrush(palette.DefaultBackground), new(Bounds.Size));
         int rows = screen.Rows;
         int cols = screen.Columns;
@@ -1497,6 +1523,22 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     internal double CellWidthForTest { get; private set; } = 8;
     internal double CellHeightForTest { get; private set; } = 16;
     internal GutterLayout GutterForTest => Gutter;
+
+    /// <summary>
+    /// 测试用的 <c>RenderScaling</c> 覆盖(&gt;0 生效)。headless 平台的窗口恒为 1.0 缩放,
+    /// 而"方块网格"只在分数缩放下出现,故只能由测试注入(见 TerminalSeamSnapUiTests)。
+    /// </summary>
+    internal double RenderScalingOverrideForTest { get; set; }
+
+    /// <summary>
+    /// 按当前设备像素栅格算出某个单元格的背景矩形(坐标系与正文绘制一致:已减去内边距与侧栏平移)。
+    /// 与 <see cref="RenderLine" /> 走同一个 <see cref="CellRect" />,测试因此锁住的是真实绘制路径。
+    /// </summary>
+    internal Rect CellRectForTest(int col, int screenRow, int width = 1)
+    {
+        RefreshPixelGrid();
+        return CellRect(col, width, screenRow * CellHeightForTest);
+    }
 
     /// <summary>
     /// 该行是否显示侧栏(行号/时间戳),并计入折叠导引线的下端。
@@ -1868,15 +1910,9 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
                 fg = SemanticColor(palette, kind);
                 semanticUnderline = kind is SemanticKind.Url or SemanticKind.IpAddress;
             }
-            var cellRect = new Rect(
-                col * CellWidthForTest,
-                y,
-                CellWidthForTest * width,
-                CellHeightForTest
-            );
             if (!bg.Equals(palette.DefaultBackground))
             {
-                context.FillRectangle(BrushFor(bg), cellRect);
+                context.FillRectangle(BrushFor(bg), CellRect(col, width, y));
             }
 
             // 空白/空格/不可见单元不绘制字形;它只留出一段空隙由下一运行的
@@ -2044,7 +2080,8 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         }
         double x = screen.CursorX * CellWidthForTest;
         double y = screenRow * CellHeightForTest;
-        var rect = new Rect(x, y, CellWidthForTest, CellHeightForTest);
+        // 光标块与格子背景共用吸附后的矩形,否则分数缩放下它会比背景带错开半个像素。
+        Rect rect = CellRect(screen.CursorX, 1, y);
         ImmutableSolidColorBrush cursorBrush = BrushFor(palette.CursorColor);
         if (!_hasFocus)
         {
@@ -2063,13 +2100,13 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
             case "bar":
                 context.FillRectangle(
                     cursorBrush,
-                    new(x, y, Math.Max(1.5, CellWidthForTest * 0.15), CellHeightForTest)
+                    _pixels.Snap(rect.WithWidth(Math.Max(1.5, CellWidthForTest * 0.15)))
                 );
                 break;
             case "underline":
                 context.FillRectangle(
                     cursorBrush,
-                    new(x, y + CellHeightForTest - 2, CellWidthForTest, 2)
+                    _pixels.Snap(new(rect.X, rect.Bottom - 2, rect.Width, 2))
                 );
                 break;
             default: // block
