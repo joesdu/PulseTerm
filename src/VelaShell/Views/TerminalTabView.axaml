@@ -197,6 +197,26 @@
                      的守卫会在鼠标插入前把弹层关掉。 -->
                 <Setter Property="Focusable" Value="False" />
               </Style>
+              <!-- 规范 §6:选中/悬停行走 bg-active / bg-hover,替换 Fluent 默认的系统强调色底
+                   (#246)。默认那层是【系统强调色 60% 压在弹层底色上】,亮度完全由用户的
+                   系统主题色决定 —— 浅色强调色下,行内那几段本就偏暗的说明文字直接糊没
+                   (实测默认蓝底 1.01:1、粉底 1.59:1)。换成主题令牌后底色可控,文字对比度才有下限。 -->
+              <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+                <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+              </Style>
+              <!-- bg-active 与弹层底色只差一档,而这个弹层是纯键盘驱动的(↑↓ 选择),
+                   选中行必须一眼看见:补一条 2px 强调色左边条。边条不承载文字,
+                   用什么主题色都不影响可读性。 -->
+              <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+                <Setter Property="Background" Value="{DynamicResource VelaBgActive}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource VelaAccent}" />
+                <Setter Property="BorderThickness" Value="2,0,0,0" />
+              </Style>
+              <Style Selector="ListBoxItem:selected:pointerover /template/ ContentPresenter">
+                <Setter Property="Background" Value="{DynamicResource VelaBgActive}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource VelaAccent}" />
+                <Setter Property="BorderThickness" Value="2,0,0,0" />
+              </Style>
             </ListBox.Styles>
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="services:CommandSuggestion">
@@ -207,13 +227,19 @@
                                FontSize="{DynamicResource VelaFontSize12}"
                                Foreground="{DynamicResource VelaTextPrimary}"
                                TextTrimming="CharacterEllipsis" />
+                    <!-- 说明文字用 text-secondary 而非 text-muted:muted 在弹层底色上只有
+                         1.76:1,小字号 + CJK 基本读不出来(#246)。 -->
                     <TextBlock Text="{Binding Detail}"
                                FontSize="{DynamicResource VelaFontSize11}"
-                               Foreground="{DynamicResource VelaTextMuted}"
+                               Foreground="{DynamicResource VelaTextSecondary}"
                                VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis"
                                IsVisible="{Binding Detail, Converter={x:Static ObjectConverters.IsNotNull}}" />
                   </StackPanel>
+                  <!-- 来源徽标("快捷命令"/"历史"):暗色主题下 text-tertiary(#6272A4)压在
+                       bg-input(#282A36)上只有 3.03:1 —— 而这个色号即便配纯黑也只有 4.46:1,
+                       靠调底色救不回来,只能提一档到 text-secondary(#246)。层级仍在:
+                       10px 小字 + 深色胶囊,不会盖过主命令。 -->
                   <Border Grid.Column="2"
                           Background="{DynamicResource VelaBgInput}"
                           CornerRadius="3"
@@ -221,7 +247,7 @@
                           VerticalAlignment="Center">
                     <TextBlock Text="{Binding Source}"
                                FontSize="{DynamicResource VelaFontSize10}"
-                               Foreground="{DynamicResource VelaTextTertiary}" />
+                               Foreground="{DynamicResource VelaTextSecondary}" />
                   </Border>
                 </Grid>
               </DataTemplate>

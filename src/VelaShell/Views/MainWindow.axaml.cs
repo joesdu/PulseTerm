@@ -495,7 +495,8 @@ public partial class MainWindow : Window
     [
         ("VelaTabActiveBg", Color.Parse("#282A36"), Color.Parse("#FFFBEB"), 0.75),
         ("VelaTabInactiveBg", Color.Parse("#191A21"), Color.Parse("#EBE5CC"), 0.45),
-        ("VelaBgActive", Color.Parse("#44475A"), Color.Parse("#644AC922"), 0.65),
+        // 亮色是 #AARRGGBB:强调色 13% 淡底。写成 #644AC922 会解析成一片绿(见 VelaShellTokens)。
+        ("VelaBgActive", Color.Parse("#44475A"), Color.Parse("#22644AC9"), 0.65),
         ("VelaBgHover", Color.Parse("#363948"), Color.Parse("#EDE7D0"), 0.5),
         ("VelaBgInput", Color.Parse("#282A36"), Color.Parse("#F7F2DF"), 0.7),
         ("VelaBgContentHeader", Color.Parse("#343746"), Color.Parse("#FFFBEB"), 0.6),
