@@ -1,5 +1,4 @@
 using NSubstitute;
-using NSubstitute.ExceptionExtensions;
 using VelaShell.Core.Ssh;
 using VelaShell.Infrastructure.Plugins.Capabilities;
 using VelaShell.PluginSdk;

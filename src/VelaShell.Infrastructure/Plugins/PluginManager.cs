@@ -726,7 +726,7 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
             }
         }
 
-        using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         Span<byte> frame = stackalloc byte[8];
         foreach (string file in files.OrderBy(f => Path.GetRelativePath(fullRoot, f).Replace('\\', '/'), StringComparer.Ordinal))
         {
@@ -1600,10 +1600,7 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
             return false;
         }
         InstalledPluginReceipt? receipt = null;
-        if (_trustState is not null)
-        {
-            _trustState.Receipts.TryGetValue(pluginId, out receipt);
-        }
+        _trustState?.Receipts.TryGetValue(pluginId, out receipt);
         if (receipt is null)
         {
             error = "Protected installation receipt is missing. Reinstall this plugin through the plugin manager.";

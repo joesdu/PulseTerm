@@ -157,7 +157,7 @@ public class RemoteTunnelCapabilityTests
         client.OpenUnixConnectionAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
               .Returns(async call =>
               {
-                  var ct = call.Arg<CancellationToken>();
+                  CancellationToken ct = call.Arg<CancellationToken>();
                   await Task.Delay(Timeout.Infinite, ct);
                   return NewStream();
               });
@@ -176,7 +176,7 @@ public class RemoteTunnelCapabilityTests
         client.OpenUnixConnectionAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
               .Returns(async call =>
               {
-                  var ct = call.Arg<CancellationToken>();
+                  CancellationToken ct = call.Arg<CancellationToken>();
                   await Task.Delay(Timeout.Infinite, ct);
                   return NewStream();
               });

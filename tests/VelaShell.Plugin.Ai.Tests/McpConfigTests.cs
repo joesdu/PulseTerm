@@ -1,5 +1,5 @@
-using VelaShell.Plugin.Ai.Configuration;
 using VelaShell.Plugin.Ai.Agent;
+using VelaShell.Plugin.Ai.Configuration;
 using VelaShell.PluginSdk.Testing;
 
 namespace VelaShell.Plugin.Ai.Tests;

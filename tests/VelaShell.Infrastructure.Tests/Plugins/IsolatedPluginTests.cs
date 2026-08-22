@@ -1,6 +1,6 @@
 using VelaShell.Infrastructure.Plugins;
-using VelaShell.TestPlugin;
 using VelaShell.PluginSdk;
+using VelaShell.TestPlugin;
 
 namespace VelaShell.Infrastructure.Tests.Plugins;
 

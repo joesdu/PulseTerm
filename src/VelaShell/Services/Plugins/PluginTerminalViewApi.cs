@@ -2,7 +2,6 @@ using System.Text;
 using System.Threading.Channels;
 using Avalonia.Threading;
 using VelaShell.PluginSdk.TerminalView;
-using VelaShell.Terminal;
 using VelaShell.Terminal.Emulation;
 using VelaShell.Terminal.Rendering;
 using VelaShell.ViewModels;
@@ -135,7 +134,7 @@ internal sealed class PluginTerminalView(VelaTerminalControl control) : IPluginT
     {
         ArgumentNullException.ThrowIfNull(stream);
         ObjectDisposedException.ThrowIf(_disposed, this);
-        CancellationTokenSource cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         CancellationTokenSource? previous;
         lock (_gate)
         {
@@ -152,7 +151,7 @@ internal sealed class PluginTerminalView(VelaTerminalControl control) : IPluginT
         CancellationToken token = cts.Token;
         // 用户按键经一个无界通道串行化后再写回:并发写同一条流会把一次按键的多个字节劈开,
         // 而 UTF-8 与转义序列都经不起劈。
-        Channel<byte[]> outbound = Channel.CreateUnbounded<byte[]>(new() { SingleReader = true });
+        var outbound = Channel.CreateUnbounded<byte[]>(new() { SingleReader = true });
         void OnUserInput(byte[] bytes) => outbound.Writer.TryWrite(bytes);
         control.UserInput += OnUserInput;
         try

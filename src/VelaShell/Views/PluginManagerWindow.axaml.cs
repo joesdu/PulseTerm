@@ -6,8 +6,8 @@ using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using VelaShell.Core.Resources;
 using VelaShell.Infrastructure.Plugins;
-using VelaShell.ViewModels;
 using VelaShell.PluginSdk.Packaging;
+using VelaShell.ViewModels;
 
 namespace VelaShell.Views;
 
