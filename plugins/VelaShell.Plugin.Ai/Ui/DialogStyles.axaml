@@ -5,14 +5,17 @@
        以前这些规则写在插件自己的对话框外壳里,窗体换成宿主的自绘卡片之后没了着落 ——
        与其在每个视图里各抄一遍,不如收在这儿,谁用谁 StyleInclude。 -->
 
-  <!-- 弱化文字一律 Tertiary 而不是 DESIGN.md 默认的 Muted:
-       这些"淡字"全是要读的信息(字段说明、状态、工具说明),
-       Muted(#545B76)压在面板底色上只有 ~2.5:1,用户实测反馈看不清。别改回去。 -->
+  <!-- 字段标签换 Secondary(设计图 E/F/G:标签 11 / normal / text-secondary)。
+       它标的是紧挨着那个输入框里该填什么,和"补充说明"不是一档信息;
+       压到 Tertiary 会跟下面的 hint 糊成同一层。 -->
   <Style Selector="TextBlock.label">
     <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
-    <Setter Property="Foreground" Value="{DynamicResource VelaTextTertiary}" />
-    <Setter Property="Margin" Value="0,8,0,3" />
+    <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
+    <Setter Property="Margin" Value="0,8,0,4" />
   </Style>
+  <!-- 弱化文字一律 Tertiary 而不是设计图上的 Muted:
+       这些"淡字"全是要读的信息(字段说明、状态、工具说明),
+       Muted(#545B76)压在面板底色上只有 ~2.5:1,用户实测反馈看不清。别改回去。 -->
   <Style Selector="TextBlock.dim">
     <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
     <Setter Property="Foreground" Value="{DynamicResource VelaTextTertiary}" />
@@ -32,23 +35,28 @@
 
   <!-- 分节标题 / 分隔线 / 左侧导航:照抄宿主设置页(src/VelaShell/Views/SettingsView.axaml)的
        那套,插件窗口用的是同一批 Vela* 令牌,视觉上就该是同一个程序里的东西。 -->
+  <!-- 节标题压成 11/SemiBold/Tertiary(设计图 E/F/G 三张一致):
+       它是"这块卡片叫什么"的索引,不是内容本身。13/Primary 那版比卡片里的字段标签还重,
+       一页扫下来先看见的是四个标题,而不是要填的东西。 -->
   <Style Selector="TextBlock.section-title">
-    <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
-    <Setter Property="FontSize" Value="{DynamicResource VelaFontSize13}" />
+    <Setter Property="Foreground" Value="{DynamicResource VelaTextTertiary}" />
+    <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
     <Setter Property="FontWeight" Value="SemiBold" />
   </Style>
   <Style Selector="Border.sep">
     <Setter Property="Height" Value="1" />
     <Setter Property="Background" Value="{DynamicResource VelaBorderPrimary}" />
   </Style>
+  <!-- 26 高、左右各 8 的行(设计图 E):两层树要在 230 宽的栏里放下七八行还留出底部三个入口,
+       32 高那版滚动条一上来就出现了。 -->
   <Style Selector="ListBox.nav">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
-    <Setter Property="Padding" Value="8" />
+    <Setter Property="Padding" Value="8,0" />
   </Style>
   <Style Selector="ListBox.nav ListBoxItem">
-    <Setter Property="MinHeight" Value="32" />
-    <Setter Property="Padding" Value="10,0" />
+    <Setter Property="MinHeight" Value="26" />
+    <Setter Property="Padding" Value="8,0" />
     <Setter Property="CornerRadius" Value="4" />
     <Setter Property="Margin" Value="0,1" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
@@ -57,15 +65,21 @@
   <Style Selector="ListBox.nav ListBoxItem:pointerover /template/ ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
   </Style>
+  <!-- 选中态用 AccentDim 而不是 BgActive:同一行的文字与图标都转强调色了,
+       灰底配紫字是两套语言;半透明强调底才是这套令牌里"当前项"的写法。 -->
   <Style Selector="ListBox.nav ListBoxItem:selected /template/ ContentPresenter">
-    <Setter Property="Background" Value="{DynamicResource VelaBgActive}" />
+    <Setter Property="Background" Value="{DynamicResource VelaAccentDim}" />
   </Style>
+  <!-- 三档文字:模型行 Secondary、供应商行 Primary(层级靠字重 + 亮度,不靠展开箭头)、
+       选中行 Accent。顺序即优先级 —— 后写的覆盖前面的,选中态必须留在最后。 -->
   <Style Selector="ListBox.nav ListBoxItem TextBlock">
     <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
   </Style>
+  <Style Selector="ListBox.nav ListBoxItem TextBlock.provider">
+    <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
+  </Style>
   <Style Selector="ListBox.nav ListBoxItem:selected TextBlock">
     <Setter Property="Foreground" Value="{DynamicResource VelaAccent}" />
-    <Setter Property="FontWeight" Value="Medium" />
   </Style>
 
   <!-- 一块内容(「配置工具」里每个来源一组 / MCP 那边右侧的表单卡片) -->

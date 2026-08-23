@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Microsoft.Extensions.AI;
 using VelaShell.Plugin.Ai.Configuration;
@@ -18,7 +19,9 @@ public sealed class ProviderNavItem(
     AiProvider provider, AiModelConfig? model, string text, Thickness indent, FontWeight weight)
     : System.ComponentModel.INotifyPropertyChanged
 {
+    private Geometry? _icon;
     private IBrush? _dot;
+    private IBrush? _tint;
     private string _dotTip = "";
 
     /// <summary>这一行所属的供应商(模型行也指向它的父供应商)。</summary>
@@ -36,11 +39,26 @@ public sealed class ProviderNavItem(
     /// <summary>字重:供应商行加粗。</summary>
     public FontWeight Weight { get; } = weight;
 
-    /// <summary>层级图标:供应商 = 云,模型 = 方块(几何在 <c>ReloadList</c> 里解析)。</summary>
-    public Geometry? Icon { get; set; }
+    /// <summary>
+    /// 层级图标:供应商 = 云,模型 = 方块。几何在 <c>RefreshNavVisuals</c> 里解析 ——
+    /// 视图挂进可视树之后还要再解析一次,所以跟 <see cref="Dot" /> 一样走通知。
+    /// </summary>
+    public Geometry? Icon
+    {
+        get => _icon;
+        set => Set(ref _icon, value, nameof(Icon));
+    }
 
-    /// <summary>图标描边色。与 <see cref="Dot" /> 一样,画笔在建项时解析好。</summary>
-    public IBrush? Tint { get; set; }
+    /// <summary>
+    /// 图标描边色:比同一行的文字再暗一档,选中时和文字一起转强调色。
+    /// 文字的三档在样式里(<c>DialogStyles.axaml</c> 的 nav 选择器),图标这一档只能逐项算,
+    /// 所以跟 <see cref="Dot" /> 一样走通知 —— 换选中项时就地改色,不重建列表。
+    /// </summary>
+    public IBrush? Tint
+    {
+        get => _tint;
+        set => Set(ref _tint, value, nameof(Tint));
+    }
 
     /// <summary>是不是供应商行。</summary>
     public bool IsProvider => Model is null;
@@ -59,7 +77,7 @@ public sealed class ProviderNavItem(
         set => Set(ref _dotTip, value, nameof(DotTip));
     }
 
-    /// <summary>状态点变色时通知绑定(<see cref="Dot" /> / <see cref="DotTip" />)。</summary>
+    /// <summary>图标/状态点变化时通知绑定(<see cref="Icon" /> / <see cref="Dot" /> / <see cref="DotTip" /> / <see cref="Tint" />)。</summary>
     public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
 
     private void Set<T>(ref T field, T value, string name)
@@ -100,7 +118,12 @@ public partial class SettingsView : UserControl
     /// <b>不落盘</b>:它说的是"刚才那一次连通",隔天再打开时那句话已经不成立了 ——
     /// 与其显示一个可能过期的绿点,不如老实退回灰点。
     /// </summary>
-    private readonly Dictionary<string, bool> _testResults = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, (bool Ok, DateTime At)> _testResults = new(StringComparer.Ordinal);
+
+    /// <summary>左栏图标的三档描边色(见 <see cref="ApplyTints" />),装载后解析一次。</summary>
+    private IBrush? _providerTint;
+    private IBrush? _modelTint;
+    private IBrush? _selectedTint;
 
     /// <summary>两击确认删供应商:记着第一击是冲着谁的,换了选择就作废。</summary>
     private string? _pendingDeleteProviderId;
@@ -123,6 +146,7 @@ public partial class SettingsView : UserControl
         ProvidersList.SelectionChanged += (_, _) =>
         {
             _pendingDeleteProviderId = null;
+            ApplyTints();
             _ = LoadEditorAsync();
         };
         ProviderProtocolCombo.SelectionChanged += (_, _) => UpdateProtocolOnlyFields();
@@ -160,11 +184,11 @@ public partial class SettingsView : UserControl
         ProviderApiKeyHintText.Text = _loc["ProviderKeyHint"];
         ProviderKeyBadgeText.Text = _loc["KeyEncrypted"];
         ModelKeyBadgeText.Text = _loc["KeyEncrypted"];
-        NameLabel.Text = _loc["Name"];
+        NameLabel.Text = _loc["DisplayName"];
         ProtocolLabel.Text = _loc["Protocol"];
         BaseUrlLabel.Text = _loc["BaseUrlOverride"];
         BaseUrlHintText.Text = _loc["BaseUrlOverrideHint"];
-        ModelLabel.Text = _loc["Model"];
+        ModelLabel.Text = _loc["ModelId"];
         OwnKeyCheck.Content = _loc["OwnApiKey"];
         OwnKeyHintText.Text = _loc["OwnApiKeyHint"];
         MaxTokensLabel.Text = _loc["MaxTokens"];
@@ -190,7 +214,6 @@ public partial class SettingsView : UserControl
         int protocol = ProtocolCombo.SelectedIndex;
         ProtocolCombo.ItemsSource = ProtocolChoices(SelectedProvider);
         ProtocolCombo.SelectedIndex = protocol;
-        ApiKeyLabel.Text = _loc["ApiKey"];
         ApiKeyHintText.Text = _loc["ApiKeyHint"];
         SaveText.Text = _loc["Save"];
         TestText.Text = _loc["Test"];
@@ -223,7 +246,7 @@ public partial class SettingsView : UserControl
     /// <summary>把某一行的状态点刷成它当前该有的颜色(没测过 = 灰)。</summary>
     private void ApplyDot(ProviderNavItem item)
     {
-        bool? result = _testResults.TryGetValue(NavKey(item), out bool ok) ? ok : null;
+        bool? result = _testResults.TryGetValue(NavKey(item), out (bool Ok, DateTime At) r) ? r.Ok : null;
         (string brushKey, string tipKey) = result switch
         {
             true => ("VelaStatusConnected", "DotPassed"),
@@ -234,22 +257,74 @@ public partial class SettingsView : UserControl
         item.DotTip = _loc[tipKey];
     }
 
+    /// <summary>
+    /// 挂进可视树之后把左栏的图标与状态点重解析一次。
+    /// <b>构造期解析不到宿主令牌</b>:那时 <c>TryFindResource</c> 只走得到本控件自己的
+    /// <c>Resources</c>,往上没有父级、也够不着 <c>Application.Resources</c>,
+    /// 于是 Vela* 全落空 —— 图标描边与状态点都是 null 画刷,整列层级标记和连通性点直接不显示。
+    /// </summary>
+    protected override void OnAttachedToLogicalTree(LogicalTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToLogicalTree(e);
+        _providerTint = null;
+        _modelTint = null;
+        _selectedTint = null;
+        RefreshNavVisuals();
+        UpdateTestBadge();
+    }
+
+    /// <summary>左栏每一行的层级图标、连通性点与图标描边色,一起重算。</summary>
+    private void RefreshNavVisuals()
+    {
+        Geometry? cloud = Token<Geometry>("AiIcon.cloud");
+        Geometry? box = Token<Geometry>("AiIcon.box");
+        _providerTint ??= Token<IBrush>("VelaTextSecondary");
+        _modelTint ??= Token<IBrush>("VelaTextMuted");
+        _selectedTint ??= Token<IBrush>("VelaAccent");
+        foreach (ProviderNavItem item in _nav)
+        {
+            item.Icon = item.IsProvider ? cloud : box;
+            ApplyDot(item);
+        }
+        ApplyTints();
+    }
+
+    /// <summary>本视图里解析一个宿主令牌(缺席时回落 null,属性保持默认外观)。</summary>
+    private T? Token<T>(string key) where T : class
+        => this.TryFindResource(key, ActualThemeVariant, out object? value) ? value as T : null;
+
+    /// <summary>
+    /// 左栏图标的描边色:选中行跟着文字一起转强调色,其余比同一行的文字再暗一档
+    /// (供应商行文字 Primary / 图标 Secondary,模型行文字 Secondary / 图标 Muted)。
+    /// 图标是这一行的层级标记,压过文字就成了噪点。
+    /// </summary>
+    private void ApplyTints()
+    {
+        ProviderNavItem? selected = SelectedItem;
+        foreach (ProviderNavItem item in _nav)
+        {
+            item.Tint = ReferenceEquals(item, selected)
+                ? _selectedTint
+                : item.IsProvider ? _providerTint : _modelTint;
+        }
+    }
+
     /// <summary>表单顶上那枚测试结果徽章。没测过就整枚隐掉,不假装知道。</summary>
     private void UpdateTestBadge()
     {
-        if (SelectedItem is not { } item || !_testResults.TryGetValue(NavKey(item), out bool ok))
+        if (SelectedItem is not { } item || !_testResults.TryGetValue(NavKey(item), out (bool Ok, DateTime At) r))
         {
             TestBadge.IsVisible = false;
             return;
         }
         TestBadge.IsVisible = true;
-        TestBadgeText.Text = _loc[ok ? "DotPassed" : "DotFailed"];
-        IBrush? tone = this.TryFindResource(ok ? "VelaStatusConnected" : "VelaError", ActualThemeVariant, out object? brush)
-            ? brush as IBrush
-            : null;
+        // 带上时刻:"通过"是有保质期的一句话,不写清是几点测的,隔半小时看还以为是刚测过
+        TestBadgeText.Text = $"{_loc[r.Ok ? "DotPassed" : "DotFailed"]} · {r.At:HH:mm}";
+        IBrush? tone = Token<IBrush>(r.Ok ? "VelaStatusConnected" : "VelaError");
         TestBadgeText.Foreground = tone;
-        TestBadge.BorderBrush = tone;
-        // 同色淡底(设计图 E):只有描边的话,这枚徽章在面包屑那一行里太轻,扫不到
+        TestBadgeIcon.Data = Token<Geometry>(r.Ok ? "AiIcon.circle-check" : "AiIcon.circle-x");
+        TestBadgeIcon.Stroke = tone;
+        // 同色淡底、不描边(设计图 E):描一圈边会让这枚小标签看起来像个可点的按钮
         TestBadge.Background = tone is ISolidColorBrush solid
             ? new SolidColorBrush(solid.Color, 0.14)
             : null;
@@ -279,19 +354,11 @@ public partial class SettingsView : UserControl
                     new Thickness(14, 0, 0, 0), FontWeight.Normal));
             }
         }
-        // 层级图标与状态点一起在这儿解析:这时视图已经装载过,宿主令牌查得到
-        Geometry? cloud = this.TryFindResource("AiIcon.cloud", ActualThemeVariant, out object? c) ? c as Geometry : null;
-        Geometry? box = this.TryFindResource("AiIcon.box", ActualThemeVariant, out object? b) ? b as Geometry : null;
-        IBrush? providerTint = this.TryFindResource("VelaTextSecondary", ActualThemeVariant, out object? p) ? p as IBrush : null;
-        IBrush? modelTint = this.TryFindResource("VelaTextMuted", ActualThemeVariant, out object? m) ? m as IBrush : null;
-        foreach (ProviderNavItem item in _nav)
-        {
-            item.Icon = item.IsProvider ? cloud : box;
-            item.Tint = item.IsProvider ? providerTint : modelTint;
-            ApplyDot(item);
-        }
         ProvidersList.ItemsSource = _nav;
         ProvidersList.SelectedIndex = selectIndex >= 0 ? selectIndex : Math.Min(0, _nav.Count - 1);
+        // 图标/状态点排在选中项定下来之后:选中那一行的图标要转强调色,得先知道是哪一行。
+        // (SelectedIndex 没变时 SelectionChanged 不会再触发,所以这里必须自己补一次。)
+        RefreshNavVisuals();
         if (ProvidersList.SelectedIndex < 0)
         {
             _ = LoadEditorAsync();
@@ -620,12 +687,12 @@ public partial class SettingsView : UserControl
                 "Reply with exactly: OK", new ChatOptions { MaxOutputTokens = 64 }));
             string text = response.Text.Trim();
             StatusText.Text = _loc.F("TestOk", text.Length > 80 ? text[..80] + "…" : text);
-            _testResults[NavKey(item)] = true;
+            _testResults[NavKey(item)] = (true, DateTime.Now);
         }
         catch (Exception ex)
         {
             StatusText.Text = _loc.F("TestFail", ex.Message);
-            _testResults[NavKey(item)] = false;
+            _testResults[NavKey(item)] = (false, DateTime.Now);
         }
         finally
         {

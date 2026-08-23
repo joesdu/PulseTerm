@@ -184,6 +184,10 @@ public sealed class Loc(string locale)
         ["Protocol"] = ["Protocol", "协议", "協議", "プロトコル", "프로토콜"],
         ["BaseUrl"] = ["Base URL", "基地址", "基底位址", "ベース URL", "베이스 URL"],
         ["Model"] = ["Model", "模型", "模型", "モデル", "모델"],
+        // 模型表单里的这两个字段与供应商那边的"名称"同框,只写"名称/模型"分不清哪个是给人看的、
+        // 哪个是要原样发给服务端的(设计图 E)。
+        ["DisplayName"] = ["Display name", "显示名称", "顯示名稱", "表示名", "표시 이름"],
+        ["ModelId"] = ["Model ID", "模型 ID", "模型 ID", "モデル ID", "모델 ID"],
         ["MaxTokens"] = ["Max output tokens", "最大输出 tokens", "最大輸出 tokens", "最大出力トークン", "최대 출력 토큰"],
         ["MaxInputTokens"] = ["Context window (max input tokens)", "上下文窗口(最大输入 tokens)", "上下文視窗(最大輸入 tokens)", "コンテキスト長(最大入力トークン)", "컨텍스트 창(최대 입력 토큰)"],
         ["MaxInputTokensHint"] = ["Only used for the usage ratio under the input box; 0 = unknown.", "只用于输入框下方的用量占比;填 0 表示未知。", "只用於輸入框下方的用量占比;填 0 表示未知。", "入力欄下の使用率表示にのみ使用します(0 = 不明)。", "입력창 아래 사용률 표시에만 쓰입니다(0 = 알 수 없음)."],
