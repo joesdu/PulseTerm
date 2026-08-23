@@ -111,8 +111,30 @@ internal static partial class HtmlText
         return sb.ToString().Trim();
     }
 
-    // script/style/noscript/svg/head/nav/footer/aside/form:一律不含正文,整块丢
-    [GeneratedRegex(@"<(script|style|noscript|svg|head|nav|footer|aside|form|template)\b[^>]*>.*?</\1\s*>|<(script|style|link|meta)\b[^>]*/?>", RegexOptions.IgnoreCase | RegexOptions.Singleline, TimeoutMs)]
+    /// <summary>
+    /// 成对出现、且整块都不含正文的标签。
+    /// </summary>
+    /// <remarks>
+    /// <b>刻意逐个列出,不用 <c>&lt;(a|b|c)&gt;…&lt;/\1&gt;</c> 的反向引用写法</b>:
+    /// 正则源生成器不支持大小写不敏感的反向引用(SYSLIB1044),碰上就整条退回运行时解释执行,
+    /// 白丢了源生成的那点好处。展开之后既能编译成源码,也省掉了反向引用的匹配开销。
+    /// 加标签就在这串里照样式补一行。
+    /// </remarks>
+    private const string NoisePairs =
+          @"<script\b[^>]*>.*?</script\s*>"
+        + @"|<style\b[^>]*>.*?</style\s*>"
+        + @"|<noscript\b[^>]*>.*?</noscript\s*>"
+        + @"|<svg\b[^>]*>.*?</svg\s*>"
+        + @"|<head\b[^>]*>.*?</head\s*>"
+        + @"|<nav\b[^>]*>.*?</nav\s*>"
+        + @"|<footer\b[^>]*>.*?</footer\s*>"
+        + @"|<aside\b[^>]*>.*?</aside\s*>"
+        + @"|<form\b[^>]*>.*?</form\s*>"
+        + @"|<template\b[^>]*>.*?</template\s*>";
+
+    /// <summary>上面那些成对标签,加上不成对的 <c>link</c> / <c>meta</c> 与自闭合写法。</summary>
+    [GeneratedRegex(NoisePairs + @"|<(?:script|style|link|meta)\b[^>]*/?>",
+        RegexOptions.IgnoreCase | RegexOptions.Singleline, TimeoutMs)]
     private static partial Regex NoiseBlocks();
 
     [GeneratedRegex(@"<!--.*?-->", RegexOptions.Singleline, TimeoutMs)]
