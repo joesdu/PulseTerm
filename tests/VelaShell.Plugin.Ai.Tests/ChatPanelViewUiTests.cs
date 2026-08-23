@@ -758,6 +758,154 @@ public sealed partial class ChatPanelViewUiTests
         });
     }
 
+    /// <summary>
+    /// OpenRouter 一系用 <c>delta.reasoning</c>(不是 DeepSeek 的 <c>reasoning_content</c>)。
+    /// M.E.AI 的 OpenAI 适配器不认这个字段,那一帧解析出来<b>一个 AIContent 都没有</b> ——
+    /// 思考只能靠 <c>ReasoningPeek</c> 从原始报文里捞。这条守的就是那条兜底路真的接住了。
+    /// </summary>
+    [TestMethod]
+    public void Thinking_FromTheOpenRouterStyleReasoningField_StillShowsUp()
+    {
+        OnUi(async () =>
+        {
+            using var stub = new SseStub("""
+            data: {"id":"1","object":"chat.completion.chunk","created":1,"model":"m","choices":[{"index":0,"delta":{"role":"assistant","reasoning":"先看看磁盘"}}]}
+
+            data: {"id":"1","object":"chat.completion.chunk","created":1,"model":"m","choices":[{"index":0,"delta":{"reasoning":",再看看服务"}}]}
+
+            data: {"id":"1","object":"chat.completion.chunk","created":1,"model":"m","choices":[{"index":0,"delta":{"content":"结论是没问题。"},"finish_reason":"stop"}]}
+
+            data: [DONE]
+
+
+            """, chunkDelay: TimeSpan.FromMilliseconds(300));
+
+            using var context = new TestPluginContext();
+            AiProvider provider = StubProvider("stub", stub.BaseUrl, "m");
+            await new AiSettingsStore(context).SaveAsync(new AiSettings
+            {
+                Providers = [provider],
+                ActiveModelId = provider.Models[0].Id,
+                SuggestFollowUps = false,
+                AgentMode = true
+            });
+
+            (Window window, ChatPanelView panel) = await ShowAsync(context);
+            try
+            {
+                StackPanel messages = Find<StackPanel>(panel, "MessagesPanel");
+                panel.SendExternal("这台机器还好吗");
+
+                Assert.IsTrue(await WaitForAsync(() => ThinkingHeader(messages) is not null),
+                    "delta.reasoning 也该长出思考卡片");
+                ClickHeader(messages);
+                Assert.IsTrue(await WaitForAsync(() => ThinkingText(messages).Contains("先看看磁盘")),
+                    $"展开后应看到思考。当前思考区:「{ThinkingText(messages)}」");
+                Assert.IsTrue(await WaitForAsync(() => ThinkingText(messages).Contains("再看看服务")),
+                    "后续思考要继续追加");
+                Assert.IsTrue(await WaitForAsync(() => AnswerRenderers(messages).Count > 0), "正文照常渲染");
+            }
+            finally
+            {
+                panel.Detach();
+                window.Close();
+            }
+        });
+    }
+
+    /// <summary>
+    /// 一轮下来一点思考都没有,而模型的"思考过程"正是「不请求」时,得说明为什么 ——
+    /// 否则用户只看到"思考过程没了",而原因在另一个窗口的一个下拉里。
+    /// (实测:档位为 Default 时请求体里连 thinking / reasoning_effort 都不发。)
+    /// </summary>
+    [TestMethod]
+    public void NoThinking_WithThinkingNotRequested_ExplainsWhy()
+    {
+        OnUi(async () =>
+        {
+            using var stub = new SseStub("""
+            data: {"id":"1","object":"chat.completion.chunk","created":1,"model":"m","choices":[{"index":0,"delta":{"role":"assistant","content":"结论是没问题。"},"finish_reason":"stop"}]}
+
+            data: [DONE]
+
+
+            """);
+
+            using var context = new TestPluginContext();
+            AiProvider provider = StubProvider("stub", stub.BaseUrl, "m");
+            // 出厂档位就是 Default = 不请求思考
+            Assert.AreEqual(ReasoningLevel.Default, provider.Models[0].Reasoning);
+            await new AiSettingsStore(context).SaveAsync(new AiSettings
+            {
+                Providers = [provider],
+                ActiveModelId = provider.Models[0].Id,
+                SuggestFollowUps = false
+            });
+
+            (Window window, ChatPanelView panel) = await ShowAsync(context);
+            try
+            {
+                StackPanel messages = Find<StackPanel>(panel, "MessagesPanel");
+                TextBlock status = Find<TextBlock>(panel, "StatusText");
+                panel.SendExternal("这台机器还好吗");
+
+                Assert.IsTrue(await WaitForAsync(() => AnswerRenderers(messages).Count > 0), "正文该渲染出来");
+                Assert.IsTrue(await WaitForAsync(() => (status.Text ?? "").Length > 0),
+                    "没有思考且档位是「不请求」时,状态行该说明原因");
+                Assert.IsNull(ThinkingHeader(messages), "本来就没有思考,不该凭空长出思考卡片");
+            }
+            finally
+            {
+                panel.Detach();
+                window.Close();
+            }
+        });
+    }
+
+    /// <summary>反过来:思考真的来了,就别再多嘴解释。</summary>
+    [TestMethod]
+    public void WithThinking_TheExplanationStaysQuiet()
+    {
+        OnUi(async () =>
+        {
+            using var stub = new SseStub("""
+            data: {"id":"1","object":"chat.completion.chunk","created":1,"model":"m","choices":[{"index":0,"delta":{"role":"assistant","reasoning_content":"先看看磁盘"}}]}
+
+            data: {"id":"1","object":"chat.completion.chunk","created":1,"model":"m","choices":[{"index":0,"delta":{"content":"结论是没问题。"},"finish_reason":"stop"}]}
+
+            data: [DONE]
+
+
+            """);
+
+            using var context = new TestPluginContext();
+            AiProvider provider = StubProvider("stub", stub.BaseUrl, "m");
+            await new AiSettingsStore(context).SaveAsync(new AiSettings
+            {
+                Providers = [provider],
+                ActiveModelId = provider.Models[0].Id,
+                SuggestFollowUps = false
+            });
+
+            (Window window, ChatPanelView panel) = await ShowAsync(context);
+            try
+            {
+                StackPanel messages = Find<StackPanel>(panel, "MessagesPanel");
+                TextBlock status = Find<TextBlock>(panel, "StatusText");
+                panel.SendExternal("这台机器还好吗");
+
+                Assert.IsTrue(await WaitForAsync(() => AnswerRenderers(messages).Count > 0));
+                await PumpAsync();
+                Assert.IsEmpty(status.Text ?? "", "思考已经显示出来了,状态行不该再解释一遍");
+            }
+            finally
+            {
+                panel.Detach();
+                window.Close();
+            }
+        });
+    }
+
     /// <summary>点一下思考折叠区的头部(开/合)。</summary>
     private static void ClickHeader(StackPanel messages)
     {
