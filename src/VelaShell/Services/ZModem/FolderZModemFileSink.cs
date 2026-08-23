@@ -36,7 +36,7 @@ internal sealed class FolderZModemFileSink(
         // 首个文件:弹目录选择框,结果缓存在本会话 sink 内。
         if (!_folderResolved)
         {
-            string suggested = ExpandHome(settings.Transfer.LocalDownloadDirectory);
+            string suggested = ExpandDownloadDirectory(settings.Transfer.LocalDownloadDirectory);
             var request = new ZModemFolderPromptRequest(suggested, metadata.FileName, metadata.Size);
             _sessionFolder = await _pickFolderAsync(request, cancellationToken).ConfigureAwait(false);
 
@@ -169,9 +169,9 @@ internal sealed class FolderZModemFileSink(
 
     /// <summary>
     /// 把配置的下载目录解析成绝对路径:<c>~</c> 与相对路径一律以用户主目录为基准,
-    /// 空值回退到用户主目录(见 <see cref="UserPathResolver" />)。
+    /// 空值回退到系统"下载"文件夹(见 <see cref="UserPathResolver" />)。
     /// </summary>
-    private static string ExpandHome(string path) => UserPathResolver.ResolveOrHome(path);
+    private static string ExpandDownloadDirectory(string path) => UserPathResolver.ResolveOrDownloads(path);
 
     /// <summary>把远端文件名归一为安全的纯文件名:剥离任何目录成分并替换非法字符。</summary>
     private static string SanitizeFileName(string remoteFileName)

@@ -5,6 +5,8 @@
          无需 en 卫星。中文卫星按脚本中性文化命名(zh-Hans/zh-Hant),使 zh-CN/zh-SG →
          zh-Hans、zh-TW/zh-HK/zh-MO → zh-Hant 沿标准回退链自动命中。 -->
     <NeutralLanguage>en</NeutralLanguage>
+    <!-- LibraryImport 源生成的封送桩是 unsafe 的(Models/SystemFolders.cs 要问 Windows 已知文件夹)。 -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>

@@ -2488,7 +2488,7 @@
     <value>ローカルのダウンロードフォルダー</value>
   </data>
   <data name="SetTransfer_DownloadDirDesc" xml:space="preserve">
-    <value>ダウンロードしたファイルの既定の保存先</value>
+    <value>ダウンロードしたファイルの既定の保存先。空欄の場合はシステムの「ダウンロード」フォルダーに従います</value>
   </data>
   <data name="SetTransfer_DownloadLimit" xml:space="preserve">
     <value>ダウンロード速度制限</value>

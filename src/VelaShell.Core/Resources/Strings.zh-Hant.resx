@@ -2488,7 +2488,7 @@
     <value>本機下載目錄</value>
   </data>
   <data name="SetTransfer_DownloadDirDesc" xml:space="preserve">
-    <value>檔案下載的預設儲存位置</value>
+    <value>檔案下載的預設儲存位置,留空則跟隨系統「下載」資料夾</value>
   </data>
   <data name="SetTransfer_DownloadLimit" xml:space="preserve">
     <value>下載速度限制</value>

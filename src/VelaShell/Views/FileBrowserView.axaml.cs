@@ -431,11 +431,11 @@ public partial class FileBrowserView : UserControl
         {
             return null;
         }
-        // "~" 与相对路径一律以用户主目录为基准(见 UserPathResolver);目录不存在时退回主目录,
-        // 绝不落回进程工作目录 —— 那是外部环境决定的,不是用户想要的落点(#120)。
+        // "~" 与相对路径一律以用户主目录为基准、留空则跟随系统"下载"文件夹(见 UserPathResolver);
+        // 目录不存在时退回主目录,绝不落回进程工作目录 —— 那是外部环境决定的,不是用户想要的落点(#120)。
         return await StorageDefaults.FolderAsync(
                    top,
-                   UserPathResolver.ResolveOrHome(vm.TransferOptions.LocalDownloadDirectory)
+                   UserPathResolver.ResolveOrDownloads(vm.TransferOptions.LocalDownloadDirectory)
                )
                ?? await StorageDefaults.HomeAsync(top);
     }

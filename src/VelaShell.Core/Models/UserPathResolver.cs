@@ -17,6 +17,19 @@ public static class UserPathResolver
     public static string Home => Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
 
     /// <summary>
+    /// 系统"下载"目录:向系统要真实位置(Windows 的已知文件夹 / Linux 的 XDG 用户目录),
+    /// 问不到才回落到 <c>~/Downloads</c>。
+    /// </summary>
+    /// <remarks>
+    /// 不能直接拼 <c>~/Downloads</c>:Windows 上"下载"文件夹可以被改到任意位置(如 D:\Downloads),
+    /// 改过之后 <c>%USERPROFILE%\Downloads</c> 不是用户要的落点(#257)。见 <see cref="SystemFolders" />。
+    /// </remarks>
+    public static string Downloads =>
+        SystemFolders.Downloads() is { Length: > 0 } system
+            ? Normalize(system)
+            : Normalize(Path.Combine(Home, "Downloads"));
+
+    /// <summary>
     /// 把设置里的目录/路径解析成绝对路径:
     /// 空白 → <paramref name="fallback" />;<c>~</c> 开头 → 用户主目录下;
     /// 相对路径 → 用户主目录下;绝对路径 → 规范化后原样返回。
@@ -54,6 +67,12 @@ public static class UserPathResolver
     /// 同 <see cref="Resolve" />,但取值为空时回退到用户主目录。
     /// </summary>
     public static string ResolveOrHome(string? configured) => Resolve(configured, Home);
+
+    /// <summary>
+    /// 同 <see cref="Resolve" />,但取值为空时回退到系统下载目录 —— 下载目录设置留空即
+    /// "跟随系统",这是所有"下载落点"的唯一解析入口。
+    /// </summary>
+    public static string ResolveOrDownloads(string? configured) => Resolve(configured, Downloads);
 
     private static string Combine(string basePath, string relative) =>
         Normalize(Path.Combine(basePath, relative.TrimStart('/', '\\')));

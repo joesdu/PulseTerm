@@ -2585,7 +2585,7 @@ Paste anyway?</value>
     <value>Local download folder</value>
   </data>
   <data name="SetTransfer_DownloadDirDesc" xml:space="preserve">
-    <value>Default save location for downloaded files</value>
+    <value>Default save location for downloaded files; leave empty to follow the system Downloads folder</value>
   </data>
   <data name="SetTransfer_DownloadLimit" xml:space="preserve">
     <value>Download speed limit</value>
