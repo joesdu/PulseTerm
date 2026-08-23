@@ -10,7 +10,7 @@ namespace VelaShell.Plugin.Ai.Agent.Web;
 /// <param name="Snippet">摘要(可能为空)。</param>
 internal sealed record SearchHit(string Title, string Url, string Snippet);
 
-    /// <summary>
+/// <summary>
 /// <c>web_search</c> 的检索后端:SearXNG。
 /// </summary>
 /// <remarks>
