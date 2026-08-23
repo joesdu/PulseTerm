@@ -95,6 +95,12 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     private (int Col, int Row) _lastMouseReportCell = (-1, -1);
     private int _lastScrollbackCount; // 上一次输出更新时的回滚大小
 
+    // 宿主认定的当前网格尺寸:布局下发、公开 Resize、或宿主主动接纳的主机端几何改动都会更新它。
+    // 0 = 尚未下发过任何网格(控件还没拿到真实布局)。模拟器几何一旦与它对不上,就说明有人
+    // 绕过宿主改了网格,ApplyOutputUpdate 的自愈闸会把网格拉回当前布局(见 issue #253)。
+    private int _appliedColumns;
+    private int _appliedRows;
+
     // 向应用上报鼠标(htop/btop/vim/tmux):记录上报按下后保持的按钮,以及
     // 最近上报的单元格,使得拖拽/移动仅在单元格真正变化时才发送。
     private TerminalMouseButton? _mouseButtonDown;
@@ -136,6 +142,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         Emulator.Response += bytes => UserInput?.Invoke(bytes); // 协议自动应答:发往 PTY 但不算用户键入(不进 TypedInput)。
         Emulator.Bell += OnBell;
         Emulator.ClipboardWriteRequested += OnRemoteClipboardWrite;
+        Emulator.HostGeometryChanged += OnHostGeometryChanged;
 
         // 终端配色跟随应用主题(暗=Dracula,亮=Solarized Light);切换主题时重灌调色板并重绘。
         ActualThemeVariantChanged += (_, _) => ApplyThemePalette();
@@ -478,6 +485,8 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     public void Resize(int cols, int rows)
     {
         Emulator.Resize(cols, rows);
+        _appliedColumns = Emulator.Columns; // 宿主自己下发的网格,自愈闸不该把它当成"分家"。
+        _appliedRows = Emulator.Rows;
         _scrollOffset = 0;
         _lastScrollbackCount = Emulator.Screen.ScrollbackCount;
         ClearFolds(); // reflow 会重建行对象,折叠引用失效。
@@ -632,6 +641,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         Emulator.Updated -= OnEmulatorUpdated;
         Emulator.Bell -= OnBell;
         Emulator.ClipboardWriteRequested -= OnRemoteClipboardWrite;
+        Emulator.HostGeometryChanged -= OnHostGeometryChanged;
         _cursorBlinkTimer?.Stop();
         _cursorBlinkTimer = null;
     }
@@ -838,6 +848,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
 
     private void ApplyOutputUpdate()
     {
+        ReconcileGridWithLayout();
         // 仅在已处于底部时才跟随输出;否则保持用户的历史
         // 视图固定不动,以免后台输出把其拽回下方(修复 #15)—— 除非
         // 设置 → 终端 → 有输出时自动滚动已开启,此时会把视图拉回实时底部。
@@ -1325,6 +1336,33 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
 
     private void RelayoutFromBounds() => ApplyLayoutSize(Bounds.Size);
 
+    /// <summary>
+    /// 自愈闸:模拟器网格若与宿主最后下发的尺寸对不上,说明有东西绕过布局改了几何。
+    /// 此时按当前布局重新下发一次网格,顺带把新尺寸通知 PTY。
+    /// <para>
+    /// 为什么需要:<see cref="ApplyLayoutSize" /> 只在 arrange 时跑,而 arrange 只在布局失效时发生。
+    /// 网格被悄悄改小后控件尺寸并没变,于是没有任何 arrange 会来纠正 —— 用户看到的就是
+    /// 「打开 screen 后可选中的区域变小,切一次标签才恢复」(issue #253:切标签重挂控件才触发了 arrange)。
+    /// 这里每次输出更新做两次整型比较,代价可忽略,却让这一类「悄悄分家」自己收敛。
+    /// </para>
+    /// <para>
+    /// <c>_appliedColumns == 0</c> 表示还没拿到真实布局(单测里的裸控件即如此),此时不介入,
+    /// 免得在退化尺寸上空转。
+    /// </para>
+    /// </summary>
+    private void ReconcileGridWithLayout()
+    {
+        if (_appliedColumns <= 0)
+        {
+            return;
+        }
+        if (Emulator.Columns == _appliedColumns && Emulator.Rows == _appliedRows)
+        {
+            return;
+        }
+        RelayoutFromBounds();
+    }
+
     private void ApplyLayoutSize(Size size)
     {
         if (CellWidthForTest <= 0 || CellHeightForTest <= 0)
@@ -1347,6 +1385,10 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         }
         if (cols == Emulator.Columns && rows == Emulator.Rows)
         {
+            // 已经是这个网格了,但仍要记账:自愈闸靠 _applied* 判断"模拟器是否被绕过宿主改过",
+            // 首帧若不记账,它会把每次输出都当成分家、反复空跑重排。
+            _appliedColumns = cols;
+            _appliedRows = rows;
             return;
         }
 
@@ -1355,10 +1397,49 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         // 落后许多次 reflow,导致其相对光标移动与擦除落在错误的行上,逐步破坏缓冲内容。
         // 传输层按顺序串行化发送,将突发合并为最新尺寸。
         Emulator.Resize(cols, rows);
+        _appliedColumns = cols;
+        _appliedRows = rows;
         _scrollOffset = Math.Clamp(_scrollOffset, 0, Emulator.Screen.ScrollbackCount);
         _lastScrollbackCount = Emulator.Screen.ScrollbackCount;
         ClearFolds(); // reflow 会重建行对象,折叠引用失效。
         // reflow 会移动绝对行;陈旧的选区会标记(并复制)错误的文本。
+        ClearSelection();
+        InvalidateVisual();
+        ScrollChanged?.Invoke();
+        PtySizeChanged?.Invoke(cols, rows);
+    }
+
+    /// <summary>
+    /// 主机流(转义序列)改变了模拟器网格。事件来自 feed 线程,先编组回 UI 线程再接纳。
+    /// </summary>
+    private void OnHostGeometryChanged(int cols, int rows)
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            AdoptHostGeometry(cols, rows);
+        }
+        else
+        {
+            Dispatcher.UIThread.Post(() => AdoptHostGeometry(cols, rows));
+        }
+    }
+
+    /// <summary>
+    /// 接纳一次主机端发起的网格改动:把宿主的记账、滚动/折叠/选区状态与新几何对齐,并把新尺寸
+    /// 转告 PTY。关键在最后一步 —— 远端若不知道宽度变了,它的换行与光标数学会继续按旧宽度算,
+    /// 缓冲区会被一点点写花。
+    /// </summary>
+    private void AdoptHostGeometry(int cols, int rows)
+    {
+        if (cols == _appliedColumns && rows == _appliedRows)
+        {
+            return;
+        }
+        _appliedColumns = cols;
+        _appliedRows = rows;
+        _scrollOffset = Math.Clamp(_scrollOffset, 0, Emulator.Screen.ScrollbackCount);
+        _lastScrollbackCount = Emulator.Screen.ScrollbackCount;
+        ClearFolds();
         ClearSelection();
         InvalidateVisual();
         ScrollChanged?.Invoke();
@@ -1529,6 +1610,13 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     /// 而"方块网格"只在分数缩放下出现,故只能由测试注入(见 TerminalSeamSnapUiTests)。
     /// </summary>
     internal double RenderScalingOverrideForTest { get; set; }
+
+    /// <summary>
+    /// 测试钩子(唯一一个会写状态的):绕过宿主直接改模拟器网格,<b>不</b>更新 <c>_applied*</c> 记账 ——
+    /// 也就是造出「有东西改了几何却没通知任何人」的分家状态,用来验证 <see cref="ReconcileGridWithLayout" />
+    /// 的自愈闸(issue #253)。生产代码一律走 <see cref="Resize" /> 或 <see cref="AdoptHostGeometry" />。
+    /// </summary>
+    internal void DesyncGridForTest(int cols, int rows) => Emulator.Resize(cols, rows);
 
     /// <summary>
     /// 按当前设备像素栅格算出某个单元格的背景矩形(坐标系与正文绘制一致:已减去内边距与侧栏平移)。

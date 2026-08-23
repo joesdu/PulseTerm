@@ -561,6 +561,16 @@ public sealed class TerminalEmulator : IVtActions
     /// <summary>在一块输入被应用后触发,以便 UI 重绘。</summary>
     public event Action? Updated;
 
+    /// <summary>
+    /// 主机流里的转义序列改变了网格几何(目前只有获准的 DECCOLM 一条路径)。参数:(columns, rows)。
+    /// 事件来自 feed 线程,消费者需自行编组到 UI 线程。
+    /// <para>
+    /// 宿主<b>必须</b>订阅:模拟器网格一旦不经布局就改动,渲染与命中测试立刻跟着缩,而控件缓存的
+    /// 网格尺寸与远端 PTY 的 winsize 毫不知情 —— 这正是 issue #253 那类「悄悄分家」故障的形状。
+    /// </para>
+    /// </summary>
+    public event Action<int, int>? HostGeometryChanged;
+
     /// <summary>切换所仿真的终端类型,并相应更新 VT52 解析。</summary>
     public void SetTerminalType(TerminalType type)
     {
@@ -768,6 +778,9 @@ public sealed class TerminalEmulator : IVtActions
                 case 25:
                     Modes.CursorVisible = set;
                     break; // DECTCEM
+                case 40:
+                    Modes.AllowColumnMode = set;
+                    break; // 允许 80↔132 切换(xterm c132):DECCOLM 的总闸
                 case 1000:
                     Modes.Mouse = set ? MouseTracking.Normal : MouseTracking.None;
                     break;
@@ -1064,11 +1077,24 @@ public sealed class TerminalEmulator : IVtActions
 
     private void ColumnMode(bool set)
     {
-        // DECCOLM:切换 132/80 列,并清空屏幕。
+        // DECCOLM(?3):切换 132/80 列并清屏。整条动作都受 DECSET ?40 把关(xterm 的 c132 资源),
+        // 默认关闭 = 完全空操作 —— 不改列数、不清屏、不动光标。
+        //
+        // 这不是偷懒:xterm 系 terminfo 的 is2 初始化串里就带 "ESC[?3l",screen / tmux / tput init /
+        // reset 每次启动都会照发一遍。无条件执行会把网格压成 80 列、顺手清掉整屏,而控件布局与
+        // 远端 PTY 都还以为是原来的宽度,于是「选区/命中测试只剩 80 列宽」,要切一次标签触发
+        // 重新布局才恢复(issue #253)。xterm、Windows Terminal、VTE 一律默认忽略 DECCOLM。
+        if (!Modes.AllowColumnMode)
+        {
+            return;
+        }
         int cols = set ? 132 : 80;
         Screen.EraseInDisplay(2, Blank());
         Screen.SetCursor(0, 0);
         Resize(cols, Screen.Rows);
+        // 主机流刚刚改掉了网格几何:必须让宿主知道,否则控件的布局认知与远端 PTY 的 winsize
+        // 会和模拟器分家(见 VelaTerminalControl.OnHostGeometryChanged)。
+        HostGeometryChanged?.Invoke(Screen.Columns, Screen.Rows);
     }
 
     private void SwitchAlternate(bool enable, bool saveCursor = false)

@@ -7,6 +7,21 @@ namespace VelaShell.Terminal.Emulation;
 public sealed class TerminalModes
 {
     // DEC 私有模式
+    /// <summary>
+    /// 允许 80↔132 列切换(DECSET ?40,即 xterm 的 <c>c132</c> 资源),<b>默认关闭</b>。
+    /// 关闭时 DECCOLM(?3)整条是空操作 —— 不改列数、不清屏、不动光标,与 xterm、
+    /// Windows Terminal(<c>EnableDECCOLMSupport</c> 默认 false)、VTE 一致。
+    /// <para>
+    /// 必须默认关闭:xterm 系 terminfo 的初始化串 <c>is2=ESC[!p ESC[?3;4l ESC[4l ESC&gt;</c> 里带着
+    /// <c>ESC[?3l</c>,于是 <c>screen</c>、<c>tmux</c>、<c>tput init</c>、<c>reset</c> 每次启动都会发它。
+    /// 若无条件照做,网格会被悄悄压成 80 列,而控件布局与远端 PTY 都还以为是原宽度 ——
+    /// 表现为「打开 screen 后可选中的区域变小」,切一次标签(触发重新布局)才恢复(issue #253)。
+    /// </para>
+    /// <para>
+    /// 与 xterm 一致:本开关是「资源」语义,DECSTR / RIS <b>不</b>复位它,故不出现在 <see cref="Reset" /> 中。
+    /// </para>
+    /// </summary>
+    public bool AllowColumnMode; // DECSET ?40(xterm c132)
     /// <summary>光标键应用模式(DECCKM ?1):方向键发送应用序列而非普通序列。</summary>
     public bool ApplicationCursorKeys; // DECCKM  ?1
     /// <summary>小键盘应用模式(DECKPAM / DECKPNM):小键盘发送应用序列。</summary>
