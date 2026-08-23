@@ -42,7 +42,7 @@ public partial class ChatPanelView
         // 全局设置(系统提示词/压缩/后续提问)不占这页版面:标题栏上、最小化键左侧一枚 ⚙,
         // 与主窗体标题栏那排工具按钮同一套版式,点开是另一个小窗口。
         _ = OpenAsync(
-            _loc["ModelSettings"], 940, 760,
+            _loc["ModelSettings"], 900, 740,
             [new PanelTitleAction(SettingsIconPath, _loc["GlobalSettings"], OpenGlobalSettingsDialog)],
             () => _settingsView = new SettingsView(_context, _store, _settings, _loc, OnProvidersChanged),
             panel => _settingsPanel = panel,

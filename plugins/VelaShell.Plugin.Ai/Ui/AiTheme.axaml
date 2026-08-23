@@ -14,6 +14,10 @@
   <StreamGeometry x:Key="AiIcon.sparkles">M9.94 14.32a1 1 0 0 0-.66-.66l-4.24-1.32a.5.5 0 0 1 0-.96l4.24-1.32a1 1 0 0 0 .66-.66l1.32-4.24a.5.5 0 0 1 .96 0l1.32 4.24a1 1 0 0 0 .66.66l4.24 1.32a.5.5 0 0 1 0 .96l-4.24 1.32a1 1 0 0 0-.66.66l-1.32 4.24a.5.5 0 0 1-.96 0Z M20 3v4 M22 5h-4 M4 17v2 M5 18H3</StreamGeometry>
   <StreamGeometry x:Key="AiIcon.scissors">M20 4L8.12 15.88 M14.47 14.48L20 20 M8.12 8.12L12 12 M9.5 6.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z M9.5 17.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z</StreamGeometry>
   <StreamGeometry x:Key="AiIcon.chevron-up">M18 15l-6-6-6 6</StreamGeometry>
+  <!-- 模型配置页面包屑右侧那枚测试结果徽章的两个态(lucide circle-check / circle-x) -->
+  <StreamGeometry x:Key="AiIcon.circle-check">M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0Z M9 12l2 2 4-4</StreamGeometry>
+  <StreamGeometry x:Key="AiIcon.circle-x">M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0Z M15 9l-6 6 M9 9l6 6</StreamGeometry>
+
   <!-- 设置页左栏的两层层级:供应商 = 云,模型 = 方块 -->
   <StreamGeometry x:Key="AiIcon.cloud">M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z</StreamGeometry>
   <StreamGeometry x:Key="AiIcon.box">M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z M3.3 7l8.7 5 8.7-5 M12 22V12</StreamGeometry>
