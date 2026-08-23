@@ -1026,6 +1026,7 @@ public partial class ChatPanelView : UserControl
                     bubble.Snapshot(ModelLabel(provider),
                         TimeSpan.FromMilliseconds(Environment.TickCount64 - startedAt)));
             }
+            HintIfThinkingWasNeverRequested(bubble, provider);
             if (response.Usage is { } usage)
             {
                 _lastInputTokens = usage.InputTokenCount ?? _lastInputTokens;
@@ -1198,6 +1199,30 @@ public partial class ChatPanelView : UserControl
         return sequence;
     }
 
+    /// <summary>本次会话是否已经提示过"没请求思考"(一次就够,别每轮都刷)。</summary>
+    private bool _thinkingHintShown;
+
+    /// <summary>
+    /// 一整轮下来一点思考都没有,而模型的"思考过程"正是「不请求」时,说明一下为什么。
+    /// </summary>
+    /// <remarks>
+    /// 这是用户最容易困惑的一刻:本该有思考卡片的位置什么都没有,而原因在另一个窗口的一个下拉里。
+    /// <b>实测(2026-08-24,假端点抓请求体)</b>:档位为 Default 时发出去的请求里
+    /// 连 <c>thinking</c> / <c>reasoning_effort</c> 字段都没有,服务端自然什么都不回 ——
+    /// 光看界面根本推不出这一点。
+    /// 一次会话只说一次,而且下一轮发送时状态行本来就会清空,不会一直挂着。
+    /// </remarks>
+    private void HintIfThinkingWasNeverRequested(AssistantBubble? bubble, ResolvedModel provider)
+    {
+        if (_thinkingHintShown || bubble is null || bubble.HasThinking
+            || provider.Reasoning != ReasoningLevel.Default)
+        {
+            return;
+        }
+        _thinkingHintShown = true;
+        StatusText.Text = _loc["ReasoningOffHint"];
+    }
+
     private void RenderUpdate(AssistantBubble bubble, ChatResponseUpdate update)
     {
         // 这一帧什么都没解析出来 → 可能是"OpenAI 兼容"线上某家自造的思考字段,
@@ -1355,6 +1380,7 @@ public partial class ChatPanelView : UserControl
         _pendingApprovals.Clear(); // 连同卡片一起被清出可视树了,名册不能留着
         ResetUsage();
         _conversationId = ChatHistoryStore.NewConversationId();
+        _thinkingHintShown = false;
         _conversationStartedAt = DateTimeOffset.UtcNow;
         _persistedCount = 0;
         _inputHistoryIndex = -1;
@@ -1812,6 +1838,9 @@ public partial class ChatPanelView : UserControl
 
         /// <summary>目前为止收到的正文(Markdown 源码)。复制整段与"半截回复补进历史"都用它。</summary>
         public string ReplyText => _replyText.ToString();
+
+        /// <summary>这一轮到底有没有收到过思考内容(用来判断"该有却没有")。</summary>
+        public bool HasThinking => _thinkingText.Length > 0;
 
         /// <summary>这一轮除正文以外的东西,用于入库(见 <see cref="ChatTurnMeta" />)。</summary>
         public ChatTurnMeta Snapshot(string model, TimeSpan elapsed) => new(
