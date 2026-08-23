@@ -86,6 +86,26 @@ public sealed class AgentToolboxTests
         Assert.Contains("web_fetch", names);
     }
 
+    /// <summary>
+    /// 用户把实例地址清空了,也只是"搜不了",不是"不能上网" —— web_fetch 跟检索后端毫无关系,
+    /// 给了明确 URL 照样读得到。web_search 也照常注册:让模型调一次、拿到那句"检索已关闭",
+    /// 比让它以为自己没有联网能力、张口就说"我无法访问互联网"有用得多。
+    /// </summary>
+    [TestMethod]
+    public void CreateTools_WithTheInstanceAddressCleared_StillOffersBothWebTools()
+    {
+        using var context = new TestPluginContext();
+        var toolbox = new AgentToolbox(context)
+        {
+            WebSearch = new WebSearchOptions { SearxngBaseUrl = "" }
+        };
+
+        string[] names = [.. toolbox.CreateTools(ChatMode.Agent).OfType<AIFunction>().Select(f => f.Name)];
+
+        Assert.Contains("web_fetch", names);
+        Assert.Contains("web_search", names);
+    }
+
     /// <summary>"配置工具"里取消勾选的工具压根不出现在工具列表里(模型看不到就调不到)。</summary>
     [TestMethod]
     public void CreateTools_SkipsDisabledTools()

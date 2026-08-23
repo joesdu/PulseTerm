@@ -99,11 +99,14 @@ internal sealed class WebSearchEngine(WebAccess access, WebSearchOptions options
         }
     }
 
+    /// <remarks>
+    /// 出厂是带默认实例的,所以走到这里说明用户<b>主动清空</b>了地址 —— 那是"我不要网络检索"
+    /// 的意思,不该再劝他去配一台,说清现状就行。
+    /// </remarks>
     private const string NotConfigured =
-        "No SearXNG instance is configured, so web search is unavailable. The user needs to set its base URL "
-        + "in the AI plugin's global settings (web search) — one is a single command away: "
-        + "docker run -d -p 8080:8080 searxng/searxng — and its settings.yml must list 'json' under "
-        + "search.formats. Tell them that; do not keep retrying.";
+        "Web search is turned off: the user cleared the SearXNG instance address in the AI plugin's global "
+        + "settings. Say so and answer from what you already know; do not keep retrying. "
+        + "(web_fetch still works if you have a specific URL to read.)";
 
     /// <summary>
     /// 把 HTTP 失败翻成用户能照着做的一句话。

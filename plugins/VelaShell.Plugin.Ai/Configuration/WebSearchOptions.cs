@@ -20,11 +20,30 @@ public sealed class WebSearchOptions
     public bool Enabled { get; set; } = true;
 
     /// <summary>
-    /// SearXNG 实例地址(形如 <c>http://127.0.0.1:8080</c>)。
-    /// 实例的 <c>settings.yml</c> 必须把 <c>json</c> 列进 <c>search.formats</c> ——
-    /// 默认只有 <c>html</c>,这时 <c>?format=json</c> 会被回 403。
+    /// VelaShell 提供的公共 SearXNG 实例,出厂默认值。
     /// </summary>
-    public string SearxngBaseUrl { get; set; } = "";
+    /// <remarks>
+    /// <b>这是一个"能用就先用着"的默认,不是承诺。</b> 它让用户装完就有检索能力,
+    /// 不必先自己搭一台 —— 让人为了用个搜索去起 docker 容器,等于把功能藏起来。
+    /// 但代价是所有人的查询都经过同一台机器:
+    /// <list type="bullet">
+    /// <item>查询内容对该实例可见(运维场景里那往往是报错信息、主机名、内网服务名),
+    /// 所以设置页的说明必须把这件事讲明白,不能让它悄悄生效。</item>
+    /// <item>SearXNG 的引擎多数是抓页面的,量一大就会被对端封;它挂掉时所有用户一起没得搜。
+    /// 因此这个框始终可编辑 —— 用户随时能换成自建实例,那条路一天都没堵上。</item>
+    /// </list>
+    /// </remarks>
+    public const string DefaultInstance = "https://searxng.easilynet.top";
+
+    /// <summary>
+    /// SearXNG 实例地址。默认是 <see cref="DefaultInstance" />;填自己的实例即可换掉,
+    /// 清空则关闭检索(<c>web_fetch</c> 不受影响)。
+    /// </summary>
+    /// <remarks>
+    /// 自建时注意:实例的 <c>settings.yml</c> 必须把 <c>json</c> 列进 <c>search.formats</c> ——
+    /// 默认只有 <c>html</c>,这时 <c>?format=json</c> 会被回 403。
+    /// </remarks>
+    public string SearxngBaseUrl { get; set; } = DefaultInstance;
 
     /// <summary>一次检索最多返回几条(1–20)。条数是给模型省 token 的,不是越多越好。</summary>
     public int MaxResults { get; set; } = 5;

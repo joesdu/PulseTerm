@@ -139,16 +139,33 @@ public sealed class WebToolsTests
         Assert.HasCount(2, hits);
     }
 
+    /// <summary>
+    /// 出厂带默认实例:装完就能搜,不用先让用户去起一台 docker。
+    /// 这条钉的是"默认值真的生效",不是钉某个具体域名。
+    /// </summary>
     [TestMethod]
-    public async Task Searxng_WithoutBaseUrl_TellsTheModelHowToGetOne()
+    public void Options_ShipWithAWorkingInstanceOutOfTheBox()
     {
-        var engine = new WebSearchEngine(new StubAccess("{}"), new WebSearchOptions());
+        var options = new WebSearchOptions();
 
-        (bool ok, _, string error) = await engine.SearchAsync("q", 5, CancellationToken.None);
+        Assert.AreEqual(WebSearchOptions.DefaultInstance, options.SearxngBaseUrl);
+        Assert.IsTrue(
+            Uri.TryCreate(options.SearxngBaseUrl, UriKind.Absolute, out Uri? url) && url.Scheme == Uri.UriSchemeHttps,
+            "默认实例必须是个绝对的 https 地址 —— 用户的搜索词要经过它");
+    }
+
+    /// <summary>清空地址 = "我不要网络检索":不该再劝他去配一台,也不能假装还能搜。</summary>
+    [TestMethod]
+    public async Task Searxng_ClearedByTheUser_SaysSearchIsOffRatherThanNagging()
+    {
+        var engine = new WebSearchEngine(new StubAccess("{}"), new WebSearchOptions { SearxngBaseUrl = "" });
+
+        (bool ok, _, string note) = await engine.SearchAsync("q", 5, CancellationToken.None);
 
         Assert.IsFalse(ok);
-        Assert.Contains("docker run", error, StringComparison.Ordinal);
-        Assert.Contains("do not keep retrying", error, StringComparison.Ordinal);
+        Assert.Contains("turned off", note, StringComparison.Ordinal);
+        Assert.Contains("do not keep retrying", note, StringComparison.Ordinal);
+        Assert.Contains("web_fetch", note, StringComparison.Ordinal);
     }
 
     /// <summary>
