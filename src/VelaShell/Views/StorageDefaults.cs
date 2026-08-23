@@ -43,9 +43,11 @@ internal static class StorageDefaults
     public static Task<IStorageFolder?> HomeAsync(TopLevel? top) =>
         FolderAsync(top, UserPathResolver.Home);
 
-    /// <summary>设置 → 文件传输里配置的下载目录;未配置或不存在时退回用户主目录。</summary>
+    /// <summary>
+    /// 设置 → 文件传输里配置的下载目录;未配置时跟随系统"下载"文件夹,两者都不可用时退回用户主目录。
+    /// </summary>
     public static async Task<IStorageFolder?> DownloadsAsync(TopLevel? top) =>
-        await FolderAsync(top, UserPathResolver.ResolveOrHome(await ConfiguredDownloadDirectoryAsync()))
+        await FolderAsync(top, UserPathResolver.ResolveOrDownloads(await ConfiguredDownloadDirectoryAsync()))
         ?? await HomeAsync(top);
 
     /// <summary>密钥目录 <c>~/.ssh</c>;不存在时退回用户主目录。</summary>

@@ -78,6 +78,16 @@ public class AppSettings
             TerminalBehavior.BellMode = "visual";
             TerminalBehavior.VisualBell = false;
         }
+
+        // 旧版把下载目录的默认值硬写成 "~/Downloads",于是 Windows 上把"下载"文件夹改到
+        // 别处的用户,东西照样落在 %USERPROFILE%\Downloads(#257)。默认值已改为空串
+        // (= 跟随系统下载目录),存量配置里残留的这个字面默认值一并迁移过去 —— 它是默认值
+        // 而非用户选择;真要钉死在主目录下,填绝对路径即可。
+        string downloadDirectory = Transfer.LocalDownloadDirectory?.Trim() ?? string.Empty;
+        if (downloadDirectory is "~/Downloads" or "~\\Downloads")
+        {
+            Transfer.LocalDownloadDirectory = string.Empty;
+        }
     }
 }
 
@@ -631,12 +641,19 @@ public class TerminalBehaviorOptions : ObservableOptions
 /// <summary>设置 - 文件传输(设计 HGwa7)。</summary>
 public class TransferOptions : ObservableOptions
 {
-    /// <summary>下载文件保存到的本地默认目录。</summary>
+    /// <summary>
+    /// 下载文件保存到的本地默认目录;<b>留空 = 跟随系统"下载"文件夹</b>
+    /// (由 <see cref="UserPathResolver.ResolveOrDownloads" /> 解析)。
+    /// </summary>
+    /// <remarks>
+    /// 默认值不能写死成 <c>~/Downloads</c>:Windows 上"下载"文件夹可被用户改到别处,
+    /// 写死之后无论用户怎么改都还是往 <c>%USERPROFILE%\Downloads</c> 里放(#257)。
+    /// </remarks>
     public string LocalDownloadDirectory
     {
         get;
         set => Set(ref field, value);
-    } = "~/Downloads";
+    } = string.Empty;
 
     /// <summary>同时进行的最大传输任务数。</summary>
     public int MaxConcurrentTransfers

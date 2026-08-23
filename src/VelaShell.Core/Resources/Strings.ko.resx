@@ -2488,7 +2488,7 @@
     <value>로컬 다운로드 폴더</value>
   </data>
   <data name="SetTransfer_DownloadDirDesc" xml:space="preserve">
-    <value>다운로드한 파일의 기본 저장 위치</value>
+    <value>다운로드한 파일의 기본 저장 위치. 비워 두면 시스템 「다운로드」 폴더를 따릅니다</value>
   </data>
   <data name="SetTransfer_DownloadLimit" xml:space="preserve">
     <value>다운로드 속도 제한</value>

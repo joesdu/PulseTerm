@@ -561,10 +561,10 @@ public sealed class LocalFilePaneViewModel : ReactiveObject
 
     /// <summary>
     /// 解析配置的下载目录:"~" 与相对路径一律以用户主目录为基准(见 <see cref="UserPathResolver" />),
-    /// 空值返回空串,交给调用方回退到用户主目录。
+    /// 空值跟随系统"下载"文件夹;该目录不可用时由调用方回退到用户主目录。
     /// </summary>
     private static string ExpandConfiguredPath(string configured) =>
-        UserPathResolver.Resolve(configured, string.Empty);
+        UserPathResolver.ResolveOrDownloads(configured);
 
     private static bool DirectoryIsAccessible(string path)
     {

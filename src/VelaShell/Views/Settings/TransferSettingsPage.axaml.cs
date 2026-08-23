@@ -14,6 +14,8 @@ public partial class TransferSettingsPage : UserControl
     public TransferSettingsPage()
     {
         InitializeComponent();
+        // 留空 = 跟随系统"下载"文件夹;占位符直接显示它当前指向哪,免得空输入框看着像没配置好。
+        DownloadDirBox.PlaceholderText = UserPathResolver.Downloads;
     }
 
     private async void BrowseDownloadDir_Click(object? sender, RoutedEventArgs e)
@@ -26,10 +28,10 @@ public partial class TransferSettingsPage : UserControl
         {
             Title = Strings.Get("SelectDownloadFolder"),
             AllowMultiple = false,
-            // 起点用当前已配置的下载目录:改目录时从旧值出发比从头翻更顺手。
+            // 起点用当前已配置的下载目录(留空则是系统"下载"文件夹):改目录时从旧值出发比从头翻更顺手。
             SuggestedStartLocation = await StorageDefaults.FolderAsync(
                 top,
-                UserPathResolver.ResolveOrHome(DownloadDirBox.Text)
+                UserPathResolver.ResolveOrDownloads(DownloadDirBox.Text)
             ) ?? await StorageDefaults.HomeAsync(top)
         });
         if (folders.AsParallel().FirstOrDefault()?.TryGetLocalPath() is { Length: > 0 } path)

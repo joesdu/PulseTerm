@@ -79,4 +79,32 @@ public class UserPathResolverTests
     [TestMethod]
     public void ResolveOrHome_FallsBackToHome() =>
         Assert.AreEqual(Home, UserPathResolver.ResolveOrHome(null));
+
+    /// <summary>
+    /// 下载目录留空时跟随系统"下载"文件夹,而不是硬拼 <c>~/Downloads</c> —— 该文件夹在 Windows 上
+    /// 可被用户改到任意位置(#257)。真实位置因机器而异,这里只断言"是规范化过的绝对路径"。
+    /// </summary>
+    [TestMethod]
+    public void Downloads_IsRootedAbsolutePath()
+    {
+        string downloads = UserPathResolver.Downloads;
+
+        Assert.IsFalse(string.IsNullOrWhiteSpace(downloads));
+        Assert.IsTrue(Path.IsPathRooted(downloads), downloads);
+        Assert.AreEqual(Path.GetFullPath(downloads), downloads);
+    }
+
+    [TestMethod]
+    public void ResolveOrDownloads_EmptyValue_FallsBackToSystemDownloads()
+    {
+        Assert.AreEqual(UserPathResolver.Downloads, UserPathResolver.ResolveOrDownloads(null));
+        Assert.AreEqual(UserPathResolver.Downloads, UserPathResolver.ResolveOrDownloads("   "));
+    }
+
+    [TestMethod]
+    public void ResolveOrDownloads_ConfiguredValue_Wins() =>
+        Assert.AreEqual(
+            Path.GetFullPath(Path.Combine(Home, "somewhere")),
+            UserPathResolver.ResolveOrDownloads("~/somewhere")
+        );
 }
