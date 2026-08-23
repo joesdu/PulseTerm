@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -19,6 +20,21 @@ using VelaShell.PluginSdk;
 using VelaShell.PluginSdk.Sessions;
 
 namespace VelaShell.Plugin.Ai.Ui;
+
+/// <summary>顶栏会话下拉的一项:主机标签 + 连接状态点(<c>SessionCombo</c> 的 ItemTemplate 用)。</summary>
+/// <param name="Text">显示文字(<c>用户@主机</c>)。</param>
+/// <param name="Dot">状态点的颜色。画笔在构造项时就解析好,免得为它写一个 bool→Brush 的转换器。</param>
+public sealed record SessionNavItem(string Text, IBrush Dot);
+
+/// <summary>
+/// 审批方式下拉的一项(<c>ApprovalCombo</c> 的 ItemTemplate 用)。
+/// 形状与颜色都挂在数据项上:用户把强调色调成偏红时,"全部自动"的 error 色会和强调色撞在一起,
+/// 光靠颜色分不出挡位 —— 盾牌的三种形状(打勾 / 感叹号 / 划掉)才是那个分得开的信号。
+/// </summary>
+/// <param name="Text">挡位文案。</param>
+/// <param name="Icon">盾牌几何。</param>
+/// <param name="Tone">这一档的语义色(中性 / warn / error)。</param>
+public sealed record ApprovalNavItem(string Text, Geometry? Icon, IBrush? Tone);
 
 /// <summary>
 /// AI 聊天面板:回复以 Markdown 渲染(流式期间节流重渲染,收尾整段定稿),
@@ -37,6 +53,12 @@ public partial class ChatPanelView : UserControl
     private readonly ChatHistoryStore _historyStore;
 
     private AiSettings _settings = new();
+    /// <summary>正在流的那条回复。审批卡与失败卡要挂进它里面(而不是气泡外面),所以得有个把手。</summary>
+    private AssistantBubble? _activeBubble;
+    /// <summary>当前该不该显示空状态(还要再与"中部正显示聊天流"取与,见 <see cref="SetActiveView" />)。</summary>
+    private bool _showEmptyState;
+    /// <summary>已摆出来的是哪一版空状态(true = 引导去配模型那版);null = 还没摆。</summary>
+    private bool? _emptyStateNeedsProvider;
     private SettingsView? _settingsView;
     private GlobalSettingsView? _globalSettingsView;
     private List<ResolvedModel> _providers = [];
@@ -131,6 +153,8 @@ public partial class ChatPanelView : UserControl
                 return;
             }
             _settings.Approval = (ApprovalMode)ApprovalCombo.SelectedIndex;
+            SyncModeUi();        // 挡位换了,芯片的语义色跟着换
+            ApplyApprovalMode(); // 并且当场对这一轮生效(含放行已经挂出来的卡)
             _ = PersistSettingsAsync();
         };
         ProviderCombo.SelectionChanged += (_, _) =>
@@ -195,16 +219,13 @@ public partial class ChatPanelView : UserControl
             SyncModeUi();
             ReloadProviderCombo();
             await RefreshSessionsAsync();
-            if (_providers.Count == 0)
-            {
-                // 只提示,不自动弹窗:面板可能是随宿主启动一起开的,
-                // 冷不丁弹一个设置窗口在用户脸上不合适 —— 点 ⚙ 是他自己的决定。
-                StatusText.Text = _loc["NoProvider"];
-            }
             // 历史能力可选:时序不可用的宿主上按钮直接禁用,聊天照常
             await _historyStore.InitAsync();
             HistoryToggle.IsEnabled = _historyStore.IsAvailable;
-            ShowStarterSuggestions();
+            // 空会话的居中空状态(图标 + 标题 + 说明 + 三条起手示例)。
+            // 不自动弹配置窗:面板可能是随宿主启动一起开的,冷不丁弹一个窗在用户脸上不合适 ——
+            // 点「添加模型接入」是他自己的决定。
+            UpdateEmptyState();
             if (_historyStore.IsAvailable)
             {
                 // ↑↓ 历史不挡首屏:面板先能用,这份在后台补齐(用户不可能在几十毫秒内就按 ↑)
@@ -223,20 +244,22 @@ public partial class ChatPanelView : UserControl
         // 下拉项跟着语言换,选中项按索引留住(枚举值 = 索引,见 ChatMode / ApprovalMode)
         int mode = ModeCombo.SelectedIndex, approval = ApprovalCombo.SelectedIndex;
         ModeCombo.ItemsSource = (string[])[_loc["ModeChat"], _loc["ModePlan"], _loc["ModeAgent"]];
-        ApprovalCombo.ItemsSource = (string[])[_loc["ApprovalAsk"], _loc["ApprovalReadOnly"], _loc["ApprovalBypass"]];
+        ReloadApprovalItems();
         ModeCombo.SelectedIndex = mode;
         ApprovalCombo.SelectedIndex = approval;
         SyncModeUi();
-        NewChatText.Text = _loc["NewChat"];
-        ToolTip.SetTip(NewChatButton, _loc["NewChatTip"]);
+        // 「新会话」也是纯图标钮了(顶栏四枚统一 26×30),文案只剩提示这一处
+        ToolTip.SetTip(NewChatButton, $"{_loc["NewChat"]} — {_loc["NewChatTip"]}");
+        ToolTip.SetTip(UsageMeterTrack, _loc["MeterTip"]);
         ToolTip.SetTip(SettingsButton, _loc["ModelSettings"]);
         ToolTip.SetTip(ToolsButton, _loc["ConfigureTools"]);
         ToolTip.SetTip(HistoryToggle, _loc["History"]);
-        ClearHistoryButton.Content = _loc["ClearHistory"];
+        ClearHistoryText.Text = _loc["ClearHistory"];
         HistoryHeader.Text = _loc["HistoryHeader"];
         HistorySearchBox.PlaceholderText = _loc["SearchHistory"];
         InputPlaceholder.Text = _loc["InputPlaceholder"];
-        // 发送/停止是图标按钮(工具条宽度紧张,文字标签让给模型名):文案走提示
+        SendText.Text = _loc["Send"];
+        StopText.Text = _loc["Stop"];
         ToolTip.SetTip(SendButton, _loc["Send"]);
         ToolTip.SetTip(StopButton, _loc["Stop"]);
         ToolTip.SetTip(ProviderCombo, _loc["Model"]);
@@ -244,6 +267,43 @@ public partial class ChatPanelView : UserControl
         // 代码块头部按钮的提示藏在 LiveMarkdown 的 ControlTemplate 里,只能经 DynamicResource 灌进去
         Resources["AiCopyTip"] = _loc["Copy"];
         Resources["AiWrapTip"] = _loc["ToggleWrap"];
+    }
+
+    /// <summary>
+    /// 审批下拉的三档数据项(盾牌形状 + 语义色都挂在数据项上)。
+    /// </summary>
+    /// <remarks>
+    /// <b>装载到可视树之后必须再建一次。</b>颜色取自宿主令牌(<c>Vela*</c>),而构造期这个控件
+    /// 还没有 TopLevel,<c>TryFindResource</c> 一律返回 null —— 那样建出来的项前景是 null,
+    /// 文字和盾牌<b>全是隐形的</b>,表象就是"下拉框里空空如也、展开也是三行空白"(实测)。
+    /// 兜底画笔同样不能省:headless 测试宿主与隔离进程首帧都可能一个 Vela 令牌都没有。
+    /// </remarks>
+    private void ReloadApprovalItems()
+    {
+        int keep = ApprovalCombo.SelectedIndex;
+        ApprovalCombo.ItemsSource = (ApprovalNavItem[])
+        [
+            new(_loc["ApprovalAsk"], FindIcon("AiIcon.shield-check"),
+                FindBrush("VelaTextSecondary") ?? Brushes.Gainsboro),
+            new(_loc["ApprovalReadOnly"], FindIcon("AiIcon.shield-alert"),
+                FindBrush("VelaWarning") ?? Brushes.Orange),
+            new(_loc["ApprovalBypass"], FindIcon("AiIcon.shield-off"),
+                FindBrush("VelaError") ?? Brushes.IndianRed)
+        ];
+        ApprovalCombo.SelectedIndex = keep;
+    }
+
+    /// <inheritdoc />
+    protected override void OnLoaded(RoutedEventArgs e)
+    {
+        base.OnLoaded(e);
+        // 到这一刻才查得到宿主资源,构造期(以及 InitAsync 续体里)建的东西要重来一遍。
+        // 空状态尤其明显:三条示例的图标取自宿主的 Icon.*,建早了就是三个空 Path ——
+        // 位置占着、图形没有(品牌脑图标反而在,因为它在插件自己的资源字典里)。
+        ReloadApprovalItems();
+        SyncModeUi();
+        _emptyStateNeedsProvider = null;
+        UpdateEmptyState();
     }
 
     // ---------- Markdown 渲染(LiveMarkdown.Avalonia) ----------
@@ -309,14 +369,14 @@ public partial class ChatPanelView : UserControl
 
         void Skin(string key, string velaKey)
         {
-            if (this.TryFindResource(velaKey, out object? value) && value is IBrush brush)
+            if (this.TryFindResource(velaKey, ActualThemeVariant, out object? value) && value is IBrush brush)
             {
                 Resources[key] = brush;
             }
         }
 
         Color? SkinColor(string velaKey)
-            => this.TryFindResource(velaKey, out object? value) && value is ISolidColorBrush brush
+            => this.TryFindResource(velaKey, ActualThemeVariant, out object? value) && value is ISolidColorBrush brush
                 ? brush.Color
                 : null;
     }
@@ -361,7 +421,118 @@ public partial class ChatPanelView : UserControl
         {
             StatusText.Text = "";
         }
+        UpdateEmptyState();
         _ = PersistSettingsAsync();
+    }
+
+    /// <summary>
+    /// 空状态:一个模型都没配的时候,中部给出"下一步该干什么",而不是状态行里一句
+    /// 「尚未配置模型」。第一次打开面板的人要的是一个按钮和几个例子,不是一句陈述。
+    /// </summary>
+    private void UpdateEmptyState()
+    {
+        // 这段对话一个字都还没有 —— 无论模型配没配,中部都不该是一整块空白
+        _showEmptyState = _history.Count == 0 && MessagesPanel.Children.Count == 0;
+        EmptyStateHost.IsVisible = _showEmptyState && ChatScroll.IsVisible;
+        if (!_showEmptyState)
+        {
+            EmptyStateHost.Children.Clear();
+            _emptyStateNeedsProvider = null;
+            return;
+        }
+        bool noProvider = _providers.Count == 0;
+        if (_emptyStateNeedsProvider == noProvider)
+        {
+            return; // 已经是对的那一版了,别每次刷新都重建一遍
+        }
+        _emptyStateNeedsProvider = noProvider;
+        EmptyStateHost.Children.Clear();
+        BuildEmptyState(noProvider);
+        // 起手示例现在长在空状态里,输入框上方那排药丸留给<b>对话开始之后</b>的后续提问。
+        // 两处同时摆着同样的三条,只是重复。
+        ClearSuggestions();
+    }
+
+    /// <summary>
+    /// 摆空状态:图标 + 标题 + 说明 + 三条示例。两版只差"要不要引导去配模型" ——
+    /// 没配的多一枚「添加模型接入」,而且点示例是<b>填进输入框</b>(这会儿还没有模型能答);
+    /// 配好的点一下直接发出去。
+    /// </summary>
+    private void BuildEmptyState(bool noProvider)
+    {
+        EmptyStateHost.Children.Add(new Decorator
+        {
+            Child = MakeIcon("AiIcon.brain", "VelaTextMuted", 34),
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center
+        });
+        EmptyStateHost.Children.Add(new TextBlock
+        {
+            Classes = { "emptyTitle" },
+            Text = _loc[noProvider ? "EmptyTitle" : "ReadyTitle"]
+        });
+        EmptyStateHost.Children.Add(new TextBlock
+        {
+            Classes = { "emptyBody" },
+            Text = _loc[noProvider ? "EmptyBody" : "ReadyBody"]
+        });
+        if (noProvider)
+        {
+            var cta = new Button
+            {
+                Content = _loc["EmptyAction"],
+                Height = 28,
+                Padding = new Thickness(14, 0),
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center
+            };
+            ApplyThemeResource(cta, "VelaAccentPillButtonTheme");
+            cta.Click += (_, _) => OpenSettingsDialog();
+            EmptyStateHost.Children.Add(cta);
+        }
+
+        EmptyStateHost.Children.Add(new TextBlock
+        {
+            Classes = { "dim" },
+            Text = _loc[noProvider ? "EmptyExamples" : "ReadyExamples"],
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+            Margin = new Thickness(0, 8, 0, 0)
+        });
+        foreach ((string icon, string text) in (ReadOnlySpan<(string, string)>)
+                 [("Icon.terminal", _loc["Starter1"]),
+                  ("Icon.hard-drive", _loc["Starter2"]),
+                  ("Icon.network", _loc["Starter3"])])
+        {
+            var grid = new Grid { ColumnDefinitions = [with("Auto,*")] };
+            grid.Children.Add(new Decorator
+            {
+                Child = MakeIcon(icon, "VelaTextTertiary", 12),
+                Margin = new Thickness(0, 0, 7, 0),
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+            });
+            var label = new TextBlock
+            {
+                Text = text,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+            };
+            Grid.SetColumn(label, 1);
+            grid.Children.Add(label);
+            var row = new Border { Classes = { "exampleRow" }, Child = grid };
+            row.PointerPressed += (_, e) =>
+            {
+                e.Handled = true;
+                if (noProvider)
+                {
+                    // 还没有模型能答,直接发只会撞回一句"尚未配置" —— 填进输入框放着,
+                    // 配完接着按回车就行。
+                    InputBox.Text = text;
+                    InputBox.TextArea.Focus();
+                    InputBox.CaretOffset = InputBox.Document.TextLength;
+                    return;
+                }
+                _ = SendAsync(text);
+            };
+            EmptyStateHost.Children.Add(row);
+        }
     }
 
     private void ReloadProviderCombo()
@@ -391,6 +562,7 @@ public partial class ChatPanelView : UserControl
         if (_totalInputTokens == 0 && _totalOutputTokens == 0)
         {
             UsageText.Text = "";
+            UsageMeterTrack.IsVisible = false;
             ToolTip.SetTip(UsageText, _loc["UsageIdle"]);
             return;
         }
@@ -402,10 +574,13 @@ public partial class ChatPanelView : UserControl
             int percent = (int)Math.Min(100, Math.Round(_lastInputTokens * 100.0 / window));
             label.Append($"{Compact(_lastInputTokens)}/{Compact(window)} · {percent}%");
             detail.AppendLine(_loc.F("UsageContextLine", $"{_lastInputTokens:N0}", $"{window:N0}", percent));
+            SetUsageMeter(percent);
         }
         else
         {
             label.Append($"↑{Compact(_totalInputTokens)} ↓{Compact(_totalOutputTokens)}");
+            // 不知道窗口多大就画不出占比,整条隐掉(留一根空槽反而像"用量为零")
+            UsageMeterTrack.IsVisible = false;
         }
 
         // 命中率 = 缓存读取 / 输入。两家口径实测已被适配器抹平:OpenAI 的 prompt_tokens 本就含
@@ -445,6 +620,29 @@ public partial class ChatPanelView : UserControl
                 window > 0 ? $"{window:N0}" : "—"));
         }
         ToolTip.SetTip(UsageText, detail.ToString().TrimEnd());
+    }
+
+    /// <summary>
+    /// 上下文占用条:把"上一轮吃掉了窗口的百分之几"画成一根 56px 的槽。
+    /// 数字仍在文字与悬停提示里,这根条只负责让占比进入余光 —— 逼近上限时颜色先变,
+    /// 用户不必先去读数才知道该开新会话了。
+    /// </summary>
+    /// <param name="percent">0–100。低于 1% 也给 2px,免得"有用量"看上去像"没用量"。</param>
+    private void SetUsageMeter(int percent)
+    {
+        double track = UsageMeterTrack.Width;
+        UsageMeterTrack.IsVisible = true;
+        UsageMeterFill.Width = percent <= 0 ? 0 : Math.Max(2, Math.Round(track * Math.Min(100, percent) / 100.0));
+        string key = percent switch
+        {
+            >= 95 => "VelaError",
+            >= 80 => "VelaWarning",
+            _ => "VelaAccent"
+        };
+        if (FindBrush(key) is { } brush)
+        {
+            UsageMeterFill.Background = brush;
+        }
     }
 
     /// <summary>
@@ -489,9 +687,13 @@ public partial class ChatPanelView : UserControl
             IReadOnlyList<SessionInfo> all = await _context.Sessions.ListAsync();
             string? previous = SelectedSessionId;
             _sessions = [.. all.Where(s => s.State == SessionState.Connected)];
+            // 顶栏的会话行前面带一颗状态点。列表里只有"已连接"的会话,所以点恒为绿;
+            // 一台都没有时那条占位项给灰点 —— 空着不画反而会让整行的对齐跳一下。
+            IBrush online = FindBrush("VelaStatusConnected") ?? Brushes.LimeGreen;
+            IBrush offline = FindBrush("VelaTextMuted") ?? Brushes.Gray;
             SessionCombo.ItemsSource = _sessions.Count == 0
-                ? [_loc["NoSession"]]
-                : _sessions.Select(s => $"{s.Username}@{s.Host}").ToList();
+                ? (IReadOnlyList<SessionNavItem>)[new SessionNavItem(_loc["NoSession"], offline)]
+                : [.. _sessions.Select(s => new SessionNavItem($"{s.Username}@{s.Host}", online))];
             int keep = _sessions.FindIndex(s => s.SessionId == previous);
             SessionCombo.SelectedIndex = keep >= 0 ? keep : 0;
         }
@@ -643,6 +845,7 @@ public partial class ChatPanelView : UserControl
         SetActiveView(PanelView.Chat);
 
         AddUserBubble(text + AttachmentTrace());
+        UpdateEmptyState(); // 消息流有东西了,居中的空状态得让位
         RequestAutoScroll(force: true);
 
         _cts = new CancellationTokenSource();
@@ -666,6 +869,7 @@ public partial class ChatPanelView : UserControl
             await PersistAsync("user", text + AttachmentTrace());
             ClearAttachments();
             bubble = new AssistantBubble(this);
+            _activeBubble = bubble;
             MessagesPanel.Children.Add(bubble.Root);
             TrimMessageWindow(); // 常驻条数封顶,别让可视树越聊越长
             RequestAutoScroll(force: true);
@@ -686,10 +890,9 @@ public partial class ChatPanelView : UserControl
             // 纯对话模式不给任何工具;计划模式只给只读工具(见 AgentToolbox.CreateTools)
             if (mode != ChatMode.Chat)
             {
-                _toolbox.Approval = _settings.Approval;
+                ApplyApprovalMode(); // 挡位推给工具箱与 MCP(中途再改也会经这条路重推)
                 _toolbox.DisabledTools = new HashSet<string>(
                     SplitLines(_settings.DisabledBuiltinTools) ?? [], StringComparer.OrdinalIgnoreCase);
-                _mcp.Approval = _settings.Approval;
                 IList<AITool> tools = _toolbox.CreateTools(mode);
                 // 计划模式下不接 MCP:那些工具的副作用由第三方服务器说了算,插件无从判断,
                 // 而"计划"的承诺是这一步不动任何东西。
@@ -788,10 +991,13 @@ public partial class ChatPanelView : UserControl
                                            && !token.IsCancellationRequested && IsTransient(ex))
                 {
                     _context.Log.Warn($"Stream failed before any content (attempt {attempt + 1}): {ex.Message}");
+                    // 重试是瞬时故障,给 warn 色区别于普通提示;成功后连色带字一起撤掉
+                    StatusText.Classes.Add("retrying");
                     StatusText.Text = _loc.F("Retrying", attempt + 1);
                     await Task.Delay(TimeSpan.FromMilliseconds(400 * (attempt + 1)), token);
                 }
             }
+            StatusText.Classes.Remove("retrying");
             StatusText.Text = "";
             DrainUpdates(); // 兜底清空残留批(此处已回到 UI 线程)
 
@@ -831,13 +1037,17 @@ public partial class ChatPanelView : UserControl
             // 真正说清哪儿不对的那段在 ResponseBody 里(见 ApiErrorText)。
             string detail = ApiErrorText.Describe(ex);
             _context.Log.Error($"AI request failed. — {detail}", ex);
-            bubble?.AppendText($"\n\n**[{_loc["Error"]}]** {detail}");
+            // 失败不再当成一段 Markdown 追加进正文:它不是模型说的话,混排会让人分不清
+            // 哪句是回答、哪句是故障。改成一张 error 卡挂在这条回复里(见 AddErrorCard)。
+            AddErrorCard(bubble, detail);
             await SettleUnfinishedTurnAsync(bubble);
         }
         finally
         {
             _cts?.Dispose();
             _cts = null;
+            _activeBubble = null;
+            StatusText.Classes.Remove("retrying");
             SetBusy(false);
             // 一轮到此为止(成功/取消/出错都算):收起思考区,补上"耗时 · 步数"与"时间 · 模型"
             bubble?.FinishStreaming(
@@ -906,6 +1116,19 @@ public partial class ChatPanelView : UserControl
             ApprovalMode.ReadOnlyAuto => "ApprovalReadOnlyTip",
             _ => "ApprovalAskTip"
         }]);
+        // 审批是安全开关:当前挡位的风险高低要能被余光读到,而不是靠去读那四个字。
+        // 每次询问 = 中性(什么都不会替你按),只读自动 = warn,全部自动 = error。
+        string tone = _settings.Approval switch
+        {
+            ApprovalMode.Bypass => "VelaError",
+            ApprovalMode.ReadOnlyAuto => "VelaWarning",
+            _ => "VelaTextSecondary"
+        };
+        if (FindBrush(tone) is { } brush)
+        {
+            ApprovalCombo.Foreground = brush;
+            ApprovalCombo.BorderBrush = brush;
+        }
     }
 
     /// <summary>用量归零(换会话时用:计数是"这一段对话"的,不是进程级的)。</summary>
@@ -1111,6 +1334,7 @@ public partial class ChatPanelView : UserControl
         ResetEditing();
         ResetCompaction();
         _alwaysApproved.Clear(); // 放行记忆只在同一段对话里有效
+        _pendingApprovals.Clear(); // 连同卡片一起被清出可视树了,名册不能留着
         ResetUsage();
         _conversationId = ChatHistoryStore.NewConversationId();
         _conversationStartedAt = DateTimeOffset.UtcNow;
@@ -1118,8 +1342,8 @@ public partial class ChatPanelView : UserControl
         _inputHistoryIndex = -1;
         StatusText.Text = "";
         ClearSuggestions();
-        ShowStarterSuggestions();
         SetActiveView(PanelView.Chat);
+        UpdateEmptyState();
         InputBox.TextArea.Focus();
     }
 
@@ -1130,6 +1354,20 @@ public partial class ChatPanelView : UserControl
     /// 不写进配置:一次排查里放行 <c>ls</c>,不代表下次打开还想默认放行。
     /// </summary>
     private readonly HashSet<string> _alwaysApproved = [with(StringComparer.Ordinal)];
+
+    /// <summary>一张还悬着的审批卡:它请求的是什么,以及怎么替用户按下去。</summary>
+    /// <param name="Request">这次请求。</param>
+    /// <param name="Resolve">落定回调,参数同 <c>Finish(approved, remember)</c>。</param>
+    private sealed record PendingApproval(ApprovalRequest Request, Action<bool, bool> Resolve);
+
+    /// <summary>
+    /// 悬而未决的审批卡。<b>会同时有好几张</b>:模型一帧里发起多个工具调用时,
+    /// 每个都各自 <c>await</c> 一次审批,卡片是一起挂出来的。
+    /// 有了这份名册,"总是允许"和"把挡位切成全部自动"才能把<b>同批已经挂出来的</b>
+    /// 那几张一并放行 —— 否则用户点完之后还得对着剩下的卡再点一遍,
+    /// 看上去就像"设置根本没生效"。
+    /// </summary>
+    private readonly List<PendingApproval> _pendingApprovals = [];
 
     private async Task<bool> RequestApprovalAsync(ApprovalRequest request)
     {
@@ -1142,11 +1380,156 @@ public partial class ChatPanelView : UserControl
         return await tcs.Task.ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 把还悬着的审批卡按条件批量放行(挡位改成自动、或用户点了"总是允许"时)。
+    /// 先拷一份再遍历:<c>Resolve</c> 会把自己从名册里摘掉。
+    /// </summary>
+    private void ReleasePendingApprovals(Func<ApprovalRequest, bool> match)
+    {
+        foreach (PendingApproval pending in _pendingApprovals.ToArray())
+        {
+            if (match(pending.Request))
+            {
+                pending.Resolve(true, false);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 审批挡位变了:<b>当场</b>推给工具箱与 MCP,并把已经挂出来、按新挡位本就不该问的卡放掉。
+    /// </summary>
+    /// <remarks>
+    /// 以前这两个赋值只在 <c>SendAsync</c> 起手做一次,于是"跑到一半把挡位改成全部自动"
+    /// 对这一轮完全无效 —— 工具箱手里还攥着旧值,照旧一条条问(用户实测反馈)。
+    /// </remarks>
+    private void ApplyApprovalMode()
+    {
+        _toolbox.Approval = _settings.Approval;
+        _mcp.Approval = _settings.Approval;
+        switch (_settings.Approval)
+        {
+            case ApprovalMode.Bypass:
+                ReleasePendingApprovals(_ => true);
+                break;
+            case ApprovalMode.ReadOnlyAuto:
+                // 与 AgentToolbox.ApproveAsync 同一把尺子:只放"确定无副作用"的命令
+                ReleasePendingApprovals(r => r.Kind == "run_command" && ReadOnlyCommand.IsSafe(r.Detail));
+                break;
+        }
+    }
+
+    /// <summary>
+    /// 审批卡上那枚风险标签的文案:只说这次调用<b>会做什么</b>(写远端文件 / 执行命令 / 写入终端),
+    /// 不替用户判断危不危险 —— 同一条命令在不同机器上的分量完全不同,那是他的判断。
+    /// 认不出的工具就把工具名原样摆出来,总好过瞎归类。
+    /// </summary>
+    private string RiskLabel(string kind)
+    {
+        if (kind.StartsWith("mcp", StringComparison.OrdinalIgnoreCase))
+        {
+            return _loc["RiskMcp"];
+        }
+        if (kind.Contains("write", StringComparison.OrdinalIgnoreCase))
+        {
+            return _loc["RiskWrite"];
+        }
+        if (kind.Contains("send", StringComparison.OrdinalIgnoreCase)
+            || kind.Contains("input", StringComparison.OrdinalIgnoreCase)
+            || kind.Contains("terminal", StringComparison.OrdinalIgnoreCase))
+        {
+            return _loc["RiskInput"];
+        }
+        return kind.Contains("command", StringComparison.OrdinalIgnoreCase)
+               || kind.Contains("exec", StringComparison.OrdinalIgnoreCase)
+            ? _loc["RiskExec"]
+            : kind;
+    }
+
+    /// <summary>
+    /// 记忆键去掉工具名前缀,只留人认得出的那半截:<c>run_command:du</c> → <c>du</c>。
+    /// 按钮上要写的是"总是允许什么",写全键反而更绕。
+    /// </summary>
+    private static string RepeatKeyLabel(string repeatKey)
+    {
+        int colon = repeatKey.IndexOf(':');
+        return colon >= 0 && colon + 1 < repeatKey.Length ? repeatKey[(colon + 1)..] : repeatKey;
+    }
+
+    /// <summary>卡片的头行:语义色图标 + 标题占满中间 + 右端一枚小标签(可省)。</summary>
+    private Grid BuildCardHeader(string iconKey, string toneKey, string title, string? badge)
+    {
+        var head = new Grid { ColumnDefinitions = [with("Auto,*,Auto")] };
+        head.Children.Add(new Decorator
+        {
+            Child = MakeIcon(iconKey, toneKey, 12),
+            Margin = new Thickness(0, 0, 6, 0),
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+        });
+        var titleText = new TextBlock
+        {
+            Classes = { "meta" },
+            Text = title,
+            FontWeight = FontWeight.SemiBold,
+            Foreground = FindBrush(toneKey)
+        };
+        Grid.SetColumn(titleText, 1);
+        head.Children.Add(titleText);
+        if (badge is { Length: > 0 })
+        {
+            var chip = new Border
+            {
+                Classes = { "riskBadge" },
+                Child = new TextBlock { Text = badge },
+                BorderBrush = FindBrush(toneKey)
+            };
+            Grid.SetColumn(chip, 2);
+            head.Children.Add(chip);
+        }
+        return head;
+    }
+
+    /// <summary>
+    /// 一轮里出的错(请求失败、服务端拒绝)。挂成一张 error 卡而不是接在正文后面:
+    /// 它不是模型说的话,混排会让人分不清哪句是回答、哪句是故障。
+    /// 没有气泡可挂(还没开口就炸了)时退回状态行,至少别把消息吞掉。
+    /// </summary>
+    private void AddErrorCard(AssistantBubble? bubble, string detail)
+    {
+        if (bubble is null)
+        {
+            StatusText.Text = $"{_loc["Error"]}: {detail}";
+            return;
+        }
+        var stack = new StackPanel { Spacing = 6 };
+        stack.Children.Add(BuildCardHeader("Icon.triangle-alert", "VelaError", _loc["Error"], null));
+        stack.Children.Add(new Border
+        {
+            Classes = { "cardCode" },
+            Child = new SelectableTextBlock { Classes = { "mono" }, Text = Truncate(detail, 1200) }
+        });
+        stack.Children.Add(new TextBlock { Classes = { "dim" }, Text = _loc["ErrorKept"], TextWrapping = TextWrapping.Wrap });
+        bubble.AddCard(new Border { Classes = { "errorCard" }, Child = stack });
+        RequestAutoScroll(force: true);
+    }
+
     private void AddApprovalCard(ApprovalRequest request, TaskCompletionSource<bool> tcs)
     {
+        // 就地抓住"这张卡属于哪条回复":整轮结束后 _activeBubble 会被清掉,
+        // 而卡上的按钮此刻可能还活着(用户按了停止、审批却没落定),那时仍要能把芯片撤回去。
+        AssistantBubble? host = _activeBubble;
         var stack = new StackPanel { Spacing = 6 };
-        stack.Children.Add(new TextBlock { Classes = { "dim" }, Text = _loc["ApprovalTitle"] });
-        stack.Children.Add(new SelectableTextBlock { Classes = { "mono" }, Text = Truncate(request.Summary, 600) });
+        // 头行的盾牌与标题在落定时要换成绿/红,所以两者都留个把手
+        Grid header = BuildCardHeader("AiIcon.shield-alert", "VelaWarning",
+            _loc["ApprovalTitle"], RiskLabel(request.Kind));
+        var headerIcon = (Decorator)header.Children[0];
+        var headerTitle = (TextBlock)header.Children[1];
+        stack.Children.Add(header);
+        // 命令原文压在输入底色上:它是要被逐字读的东西,不该和说明文字一个背景
+        stack.Children.Add(new Border
+        {
+            Classes = { "cardCode" },
+            Child = new SelectableTextBlock { Classes = { "mono" }, Text = Truncate(request.Summary, 600) }
+        });
         // 主/次操作对齐宿主按钮方案:批准 = 强调药丸,拒绝 = 描边换危险色
         var approveButton = new Button { Content = _loc["Approve"], Height = 24, Padding = new Thickness(12, 0) };
         var denyButton = new Button { Content = _loc["Deny"], Height = 24, Padding = new Thickness(12, 0) };
@@ -1164,38 +1547,87 @@ public partial class ChatPanelView : UserControl
         Button? alwaysButton = null;
         if (request.RepeatKey is { } repeatKey)
         {
-            alwaysButton = new Button { Content = _loc["ApproveAlways"], Height = 24, Padding = new Thickness(12, 0) };
+            // 按钮上写清"总是允许的到底是什么"。原来只写「本次会话总是允许」,
+            // 读起来像"这一整段对话里什么都别再问了",实际只对同名命令生效
+            // (键是 run_command:du 这种)—— 用户点完 du 又被 journalctl 拦住,
+            // 以为是功能坏了。把键摆到脸上,歧义就没了。
+            alwaysButton = new Button
+            {
+                Content = _loc.F("ApproveAlwaysKey", RepeatKeyLabel(repeatKey)),
+                Height = 24,
+                Padding = new Thickness(12, 0)
+            };
             ApplyThemeResource(alwaysButton, "VelaOutlineButtonTheme");
             ToolTip.SetTip(alwaysButton, _loc.F("ApproveAlwaysTip", repeatKey));
             buttons.Children.Add(alwaysButton);
         }
         buttons.Children.Add(denyButton);
         stack.Children.Add(buttons);
-        var card = new Border { Classes = { "toolCard" }, Child = stack };
+        // 这一轮此刻是停着的 —— 说出来,免得用户以为是卡住了(落定后这句就撤掉)
+        var paused = new TextBlock
+        {
+            Classes = { "dim" },
+            Text = _loc["ApprovalPaused"],
+            TextWrapping = TextWrapping.Wrap
+        };
+        stack.Children.Add(paused);
+        var card = new Border { Classes = { "approvalCard" }, Child = stack };
+        // 名册项要引用 Finish、Finish 又要引用名册项,先留个空位再回填
+        PendingApproval? pending = null;
 
         void Finish(bool approved, bool remember)
         {
-            approveButton.IsEnabled = false;
-            denyButton.IsEnabled = false;
-            alwaysButton?.IsEnabled = false;
+            // 先摘名册再干别的:下面放行同键的其它卡时会重入这里
+            if (pending is null || !_pendingApprovals.Remove(pending))
+            {
+                return; // 已经落定过了(比如刚被批量放行)
+            }
+            buttons.IsVisible = false;
+            host?.SetWaitingForApproval(false);
             if (remember && request.RepeatKey is { } key)
             {
                 _alwaysApproved.Add(key);
             }
-            stack.Children.Add(new TextBlock
-            {
-                Classes = { "dim" },
-                Text = approved
-                    ? (remember ? _loc["ApproveAlways"] : _loc["Approve"]) + " ✓"
-                    : _loc["Deny"] + " ✕"
-            });
+
+            // 落定之后整张卡换成结果态:左边条、盾牌、标题一起转绿(批准)或转红(拒绝)。
+            // 只在末尾补一行小字是不够的 —— 一屏堆着五六张卡时,得能一眼扫出哪些已经过了。
+            string toneKey = approved ? "VelaStatusConnected" : "VelaError";
+            IBrush? tone = FindBrush(toneKey);
+            card.Classes.Remove("approvalCard");
+            card.Classes.Add(approved ? "approvedCard" : "deniedCard");
+            headerIcon.Child = MakeIcon(approved ? "AiIcon.shield-check" : "AiIcon.shield-off", toneKey, 12);
+            headerTitle.Foreground = tone;
+            headerTitle.Text = approved
+                ? (remember ? _loc.F("ApproveAlwaysKey", RepeatKeyLabel(request.RepeatKey ?? "")) : _loc["Approve"])
+                : _loc["Deny"];
+            paused.IsVisible = false;
             tcs.TrySetResult(approved);
+
+            // 同一帧里模型常常一次发好几个同名命令,卡是一起挂出来的。
+            // 点了"总是允许"却还要对着剩下那几张再点一遍,看上去就像设置没生效。
+            if (remember && request.RepeatKey is { } sameKey)
+            {
+                ReleasePendingApprovals(other => other.RepeatKey == sameKey);
+            }
         }
+
+        pending = new PendingApproval(request, Finish);
+        _pendingApprovals.Add(pending);
 
         approveButton.Click += (_, _) => Finish(true, remember: false);
         denyButton.Click += (_, _) => Finish(false, remember: false);
         alwaysButton?.Click += (_, _) => Finish(true, remember: true);
-        MessagesPanel.Children.Add(card);
+        // 挂进正在流的那条回复里(而不是气泡外面):后续正文还会继续往气泡里长,
+        // 卡片摆在外头就会排到正文<b>前面</b>去,前后颠倒。
+        if (host is not null)
+        {
+            host.AddCard(card);
+            host.SetWaitingForApproval(true);
+        }
+        else
+        {
+            MessagesPanel.Children.Add(card);
+        }
         // 审批卡阻塞整轮对话,必须让用户看见
         RequestAutoScroll(force: true);
     }
@@ -1284,31 +1716,53 @@ public partial class ChatPanelView : UserControl
     /// <summary>套用宿主 ControlTheme(进程内可查;隔离进程缺失时保持默认外观)。</summary>
     private void ApplyThemeResource(Avalonia.Controls.Primitives.TemplatedControl control, string themeKey)
     {
-        if (this.TryFindResource(themeKey, out object? value) && value is ControlTheme theme)
+        if (this.TryFindResource(themeKey, ActualThemeVariant, out object? value) && value is ControlTheme theme)
         {
             control.Theme = theme;
         }
     }
 
+    /// <summary>
+    /// 按当前主题变体查资源。<b>必须带 <see cref="StyledElement.ActualThemeVariant" /></b>:
+    /// 宿主把大半令牌(<c>VelaAccent</c> / <c>VelaStatusConnected</c> / <c>VelaText*</c> …)放在
+    /// <c>ResourceDictionary.ThemeDictionaries</c> 的 Dark/Light 块里,不带变体的那个重载查不到,
+    /// 一律返回 null —— 于是 <c>MakeIcon</c> 退回灰色、<c>Foreground = null</c> 的文字直接隐形。
+    /// XAML 里的 <c>{DynamicResource}</c> 自己是主题感知的,所以毛病只出在代码后置这一侧:
+    /// 表象就是"工具卡完成了图标还是灰的""审批卡的标题看不见"。
+    /// </summary>
     private Geometry? FindIcon(string key)
-        => this.TryFindResource(key, out object? value) && value is Geometry geometry ? geometry : null;
+        => this.TryFindResource(key, ActualThemeVariant, out object? value) && value is Geometry geometry
+            ? geometry
+            : null;
 
+    /// <inheritdoc cref="FindIcon" />
     private IBrush? FindBrush(string key)
-        => this.TryFindResource(key, out object? value) && value is IBrush brush ? brush : null;
+        => this.TryFindResource(key, ActualThemeVariant, out object? value) && value is IBrush brush
+            ? brush
+            : null;
 
-    /// <summary>lucide 描边图标(24 视图框经 Viewbox 等比缩放)。</summary>
+    /// <summary>
+    /// lucide 描边图标(24 视图框经 Viewbox 等比缩放)。
+    /// </summary>
+    /// <remarks>
+    /// 几何与描边都用 <see cref="DynamicResourceExtension" /> <b>绑</b>,不要一次性取值:
+    /// ① 宿主的 <c>Icon.*</c> 与 <c>Vela*</c> 令牌要面板装载之后才查得到,建早了(构造期、
+    /// <c>InitAsync</c> 的续体里)取到的是 null,结果是"位置占着、图形不见了";
+    /// ② 一次性取值扛不住主题切换 —— 绑上去才会跟着 Dark/Light 变。
+    /// 同一条经验在 <see cref="ToolPickerView" /> 里也写着,这里是它的统一版本。
+    /// </remarks>
     private Viewbox MakeIcon(string geometryKey, string brushKey, double size)
     {
         var path = new Avalonia.Controls.Shapes.Path
         {
             Width = 24,
             Height = 24,
-            Data = FindIcon(geometryKey),
-            Stroke = FindBrush(brushKey) ?? Brushes.Gray,
             StrokeThickness = 2,
             StrokeLineCap = PenLineCap.Round,
             StrokeJoin = PenLineJoin.Round
         };
+        path[!Avalonia.Controls.Shapes.Path.DataProperty] = new DynamicResourceExtension(geometryKey);
+        path[!Avalonia.Controls.Shapes.Shape.StrokeProperty] = new DynamicResourceExtension(brushKey);
         return new Viewbox { Width = size, Height = size, Child = path };
     }
 
@@ -1322,6 +1776,8 @@ public partial class ChatPanelView : UserControl
         private readonly ChatPanelView _owner;
         private readonly StackPanel _stack;
         private readonly TextBlock _header;
+        private readonly TextBlock _phaseText;
+        private readonly Border _phaseChip;
         private readonly Dictionary<string, ToolCard> _toolCards = [];
         private readonly StringBuilder _thinkingText = new();
         // 复制整段回复用的原文:正文按到达顺序原样攒着(Markdown 源码,不是渲染后的可视树)
@@ -1329,6 +1785,7 @@ public partial class ChatPanelView : UserControl
         private MarkdownSegment? _currentSegment;
         private Collapsible? _thinking;
         private bool _thinkingRenderScheduled;
+        private string _phaseKey = "";
         private long _thinkingStartedAt;
         private TimeSpan? _thinkingElapsed;
         private int _steps;
@@ -1353,7 +1810,7 @@ public partial class ChatPanelView : UserControl
             {
                 _thinkingText.Append(meta.Thinking);
                 _thinking = new Collapsible(_owner, _owner._loc.F("ThinkingDone",
-                    FormatDuration(TimeSpan.FromMilliseconds(meta.ThinkingMs))));
+                    FormatDuration(TimeSpan.FromMilliseconds(meta.ThinkingMs))), trailingIconKey: "AiIcon.sparkles");
                 _stack.Children.Insert(1, _thinking.Root);
                 _thinking.SetBody(meta.Thinking);
                 // 时长已经是存下来的,别让后面的 AppendText 再去按"现在"算一遍
@@ -1371,9 +1828,63 @@ public partial class ChatPanelView : UserControl
         {
             _owner = owner;
             _stack = new StackPanel { Spacing = 4 };
-            _header = new TextBlock { Classes = { "roleHeader" }, Text = owner._loc["AssistantRole"] };
-            _stack.Children.Add(_header);
+            _header = new TextBlock
+            {
+                Classes = { "roleHeader" },
+                Text = owner._loc["AssistantRole"],
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+            };
+            // 阶段芯片:输入框那圈流光只说明"在动",这几个字说明"在干什么"。
+            // 与角色行同处一行,读完"助手 · 3 步"顺势就读到了当前阶段。
+            _phaseText = new TextBlock();
+            _phaseChip = new Border
+            {
+                Classes = { "phaseChip" },
+                Child = _phaseText,
+                Margin = new Thickness(0, 0, 0, 4)
+            };
+            var headerRow = new StackPanel
+            {
+                Orientation = Avalonia.Layout.Orientation.Horizontal,
+                Spacing = 6
+            };
+            headerRow.Children.Add(_header);
+            headerRow.Children.Add(_phaseChip);
+            _stack.Children.Add(headerRow);
             Root = new Border { Classes = { "msg" }, Child = _stack };
+            // 第一个 token 到达之前,模型确实在"想这道题",即便它不吐 reasoning
+            SetPhase("PhaseThinking");
+        }
+
+        /// <summary>
+        /// 换阶段芯片的文案。<paramref name="waiting" /> 会把芯片换成实心 warn ——
+        /// 那一档意味着界面此刻是<b>停着的</b>,分量得比"在动"更重。
+        /// </summary>
+        private void SetPhase(string key, bool waiting = false)
+        {
+            // AppendText 是逐块调的,同一档反复写会白白触发排版
+            if (_phaseKey == key)
+            {
+                return;
+            }
+            _phaseKey = key;
+            _phaseText.Text = _owner._loc[key];
+            _phaseChip.Classes.Set("waiting", waiting);
+            _phaseChip.IsVisible = true;
+        }
+
+        /// <summary>审批卡出现/落定时切换"等待你确认"这一档(由 <see cref="AddApprovalCard" /> 调)。</summary>
+        public void SetWaitingForApproval(bool waiting) => SetPhase(waiting ? "PhaseWaiting" : "PhaseTool", waiting);
+
+        /// <summary>
+        /// 把一张卡(审批 / 失败)挂进这条回复里。
+        /// 以前审批卡是直接扔进 <c>MessagesPanel</c> 的 —— 那样它排在整个气泡<b>下面</b>,
+        /// 而后续正文还在气泡里继续往下长,读起来前后颠倒。
+        /// </summary>
+        public void AddCard(Control card)
+        {
+            _stack.Children.Add(card);
+            _currentSegment = null; // 卡之后的新文本另起一个 Markdown 段
         }
 
         public void AppendText(string text)
@@ -1386,6 +1897,7 @@ public partial class ChatPanelView : UserControl
             // 思考往往刚吐完正文就跟上,立刻折叠等于让人根本没机会读(用户反馈的
             // "思考和正文一起冒出来"就是这么来的)。留到整轮结束再收。
             MarkThinkingDone();
+            SetPhase("PhaseWriting");
             _replyText.Append(text);
             // 工具卡片之后的新一轮文本另起 Markdown 段
             if (_currentSegment is null || !ReferenceEquals(_stack.Children[^1], _currentSegment.Host))
@@ -1403,12 +1915,13 @@ public partial class ChatPanelView : UserControl
                 return;
             }
             _thinkingText.Append(text);
+            SetPhase("PhaseThinking");
             if (_thinking is null)
             {
                 // 默认收起(用户决策):标题一行就够说明"在想",要看内容自己点开。
                 // 展开过就一路留着,标题从"正在思考…"变成"已思考 N 秒",正文照样往里灌。
                 _thinkingStartedAt = Environment.TickCount64;
-                _thinking = new Collapsible(_owner, _owner._loc["ThinkingActive"]);
+                _thinking = new Collapsible(_owner, _owner._loc["ThinkingActive"], trailingIconKey: "AiIcon.sparkles");
                 _stack.Children.Insert(1, _thinking.Root);
             }
             // 逐 token 全量刷文本是 O(n²) 的字符串与排版开销,所以节流;但别压太狠 ——
@@ -1431,6 +1944,7 @@ public partial class ChatPanelView : UserControl
                 return;
             }
             MarkThinkingDone();
+            SetPhase("PhaseTool");
             _steps++;
             var card = new ToolCard(_owner, name, argumentsJson);
             _toolCards[callId] = card;
@@ -1461,17 +1975,15 @@ public partial class ChatPanelView : UserControl
             // Markdown 段不需要收口:LiveMarkdown 自己会把最后一次追加渲染完
             _thinking?.SetBody(_thinkingText.ToString());
             MarkThinkingDone();
+            _phaseChip.IsVisible = false; // 一轮到此为止,阶段芯片退场(历史回放也走这里)
             // 默认本来就是收起的;这里不再强制折叠 —— 用户中途点开了就让它开着,
             // 别在他正读的时候把内容抽走。
 
+            // 头部只留"这条回复是谁、走了几步、是不是被停掉的";时刻 / 模型 / 耗时归底部元信息条
             var head = new StringBuilder(_owner._loc["AssistantRole"]);
             if (_steps > 0)
             {
                 head.Append(" · ").Append(_owner._loc.F("Steps", _steps));
-            }
-            if (elapsed is { } span)
-            {
-                head.Append(" · ").Append(FormatDuration(span));
             }
             if (cancelled)
             {
@@ -1479,9 +1991,9 @@ public partial class ChatPanelView : UserControl
             }
             _header.Text = head.ToString();
 
-            if (at is not null || modelLabel is not null)
+            if (at is not null || modelLabel is not null || elapsed is not null)
             {
-                _stack.Children.Add(BuildFooter(modelLabel, at));
+                _stack.Children.Add(BuildFooter(modelLabel, at, elapsed));
             }
         }
 
@@ -1499,12 +2011,20 @@ public partial class ChatPanelView : UserControl
             _thinking.SetTitle(_owner._loc.F("ThinkingDone", FormatDuration(_thinkingElapsed.Value)));
         }
 
-        /// <summary>底部元信息条:左边"复制整段回复",右边"时间 · 模型"(不显示积分/评价)。</summary>
-        private Border BuildFooter(string? modelLabel, DateTimeOffset? at)
+        /// <summary>
+        /// 底部元信息条:<b>左边"时刻 · 模型 · 耗时",右边两枚动作</b>(复制整段 / 重新生成)。
+        /// 要读的信息排在起手位置,次要动作靠右让位 —— 与设计图一致。
+        /// </summary>
+        private Border BuildFooter(string? modelLabel, DateTimeOffset? at, TimeSpan? elapsed)
         {
-            var grid = new Grid { ColumnDefinitions = [with("Auto,*,Auto")] };
+            var grid = new Grid { ColumnDefinitions = [with("*,Auto")] };
 
-            var buttons = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 2 };
+            var buttons = new StackPanel
+            {
+                Orientation = Avalonia.Layout.Orientation.Horizontal,
+                Spacing = 2,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+            };
             var copyIcon = new Decorator { Child = _owner.MakeIcon("Icon.copy", "VelaTextMuted", 12) };
             var copy = new Button { Content = copyIcon };
             _owner.ApplyThemeResource(copy, "AiGhostIconButtonTheme");
@@ -1515,10 +2035,11 @@ public partial class ChatPanelView : UserControl
             // 与其悄悄连坐,不如让用户走"编辑上一条"这条明确的路。
             buttons.Children.Add(_owner.IconAction("Icon.refresh-cw", _owner._loc["Regenerate"],
                 () => _ = _owner.RegenerateIfLastAsync(Root)));
+            Grid.SetColumn(buttons, 1);
             grid.Children.Add(buttons);
 
             var meta = new TextBlock { Classes = { "meta" } };
-            var parts = new List<string>(2);
+            var parts = new List<string>(3);
             if (at is { } stamp)
             {
                 parts.Add(stamp.ToString("HH:mm"));
@@ -1527,9 +2048,12 @@ public partial class ChatPanelView : UserControl
             {
                 parts.Add(modelLabel);
             }
+            if (elapsed is { } span)
+            {
+                parts.Add(FormatDuration(span));
+            }
             meta.Text = string.Join(" · ", parts);
             ToolTip.SetTip(meta, meta.Text);
-            Grid.SetColumn(meta, 2);
             grid.Children.Add(meta);
 
             return new Border { Classes = { "replyFooter" }, Child = grid };
@@ -1606,11 +2130,19 @@ public partial class ChatPanelView : UserControl
         /// <param name="owner">宿主面板(取图标与令牌)。</param>
         /// <param name="title">头部文案。</param>
         /// <param name="expanded">初始是否展开。</param>
-        public Collapsible(ChatPanelView owner, string title, bool expanded = false)
+        /// <param name="iconKey">
+        /// 折叠箭头后面那枚小图标(压缩分隔条 = 剪刀)。
+        /// 省略就只有箭头 —— 那一列是 Auto,不给东西就是 0 宽,不占位。
+        /// </param>
+        /// <param name="iconBrushKey">图标颜色令牌;省略走弱化色。</param>
+        /// <param name="trailingIconKey">贴在行尾的图标(思考 = 星火,见设计图)。</param>
+        public Collapsible(ChatPanelView owner, string title, bool expanded = false,
+            string? iconKey = null, string? iconBrushKey = null, string? trailingIconKey = null)
         {
             var header = new Grid
             {
-                ColumnDefinitions = [with("Auto,Auto,*")],
+                // 箭头 | 前置图标 | 标题 | 行尾图标 —— 两个图标位都是 Auto,不给就 0 宽
+                ColumnDefinitions = [with("Auto,Auto,*,Auto")],
                 Background = Brushes.Transparent,
                 Cursor = new Cursor(StandardCursorType.Hand)
             };
@@ -1618,17 +2150,41 @@ public partial class ChatPanelView : UserControl
             {
                 Width = 24,
                 Height = 24,
-                Data = owner.FindIcon("Icon.chevron-right"),
-                Stroke = owner.FindBrush("VelaTextMuted") ?? Brushes.Gray,
                 StrokeThickness = 2,
                 StrokeLineCap = PenLineCap.Round,
                 StrokeJoin = PenLineJoin.Round
             };
+            // 同 MakeIcon:绑而不是取一次,否则建早了没图形、换主题也不跟着变
+            _chevron[!Avalonia.Controls.Shapes.Path.DataProperty] =
+                new DynamicResourceExtension("Icon.chevron-right");
+            _chevron[!Avalonia.Controls.Shapes.Shape.StrokeProperty] =
+                new DynamicResourceExtension("VelaTextMuted");
             var chevronBox = new Viewbox { Width = 10, Height = 10, Child = _chevron, Margin = new Thickness(0, 0, 5, 0), VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center };
             header.Children.Add(chevronBox);
+            if (iconKey is { Length: > 0 })
+            {
+                var iconBox = new Decorator
+                {
+                    Child = owner.MakeIcon(iconKey, iconBrushKey ?? "VelaTextMuted", 11),
+                    Margin = new Thickness(0, 0, 5, 0),
+                    VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+                };
+                Grid.SetColumn(iconBox, 1);
+                header.Children.Add(iconBox);
+            }
             _title = new TextBlock { Classes = { "dim" }, Text = title, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center };
-            Grid.SetColumn(_title, 1);
+            Grid.SetColumn(_title, 2);
             header.Children.Add(_title);
+            if (trailingIconKey is { Length: > 0 })
+            {
+                var trailing = new Decorator
+                {
+                    Child = owner.MakeIcon(trailingIconKey, "VelaTextMuted", 11),
+                    VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+                };
+                Grid.SetColumn(trailing, 3);
+                header.Children.Add(trailing);
+            }
 
             _body = new SelectableTextBlock { Classes = { "mono" } };
             _details = new ScrollViewer
@@ -1748,12 +2304,15 @@ public partial class ChatPanelView : UserControl
             {
                 Width = 24,
                 Height = 24,
-                Data = owner.FindIcon("Icon.chevron-right"),
-                Stroke = owner.FindBrush("VelaTextMuted") ?? Brushes.Gray,
                 StrokeThickness = 2,
                 StrokeLineCap = PenLineCap.Round,
                 StrokeJoin = PenLineJoin.Round
             };
+            // 同 MakeIcon:绑而不是取一次,否则建早了没图形、换主题也不跟着变
+            _chevron[!Avalonia.Controls.Shapes.Path.DataProperty] =
+                new DynamicResourceExtension("Icon.chevron-right");
+            _chevron[!Avalonia.Controls.Shapes.Shape.StrokeProperty] =
+                new DynamicResourceExtension("VelaTextMuted");
             var chevronBox = new Viewbox { Width = 10, Height = 10, Child = _chevron, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center };
             Grid.SetColumn(chevronBox, 3);
             header.Children.Add(chevronBox);

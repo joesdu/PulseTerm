@@ -20,9 +20,11 @@ namespace VelaShell.Plugin.Ai.Ui;
 /// <see cref="AiSettings.DisabledBuiltinTools" />):服务器以后新增了工具,默认就是可用的,
 /// 而不是因为"不在已保存的白名单里"被静默屏蔽掉。
 ///
-/// <para>服务器本身怎么配在<see cref="McpServersView" />(窗口标题栏的 ⚙ 另开一个窗口,见 <c>ChatPanelView.OpenToolsDialog</c>)——
-/// 那是一整套左列表右表单,压在勾选列表上面会把这一页挤得没法看;
-/// 改完它会回调 <see cref="Rebuild" />,这边的分组当场跟着变。</para>
+/// <para>版式是"左栏服务器概览 + 右栏工具清单"(设计图 G):配完一台服务器紧接着就在同一屏勾选它的工具,
+/// 不用在两个窗口之间来回切。左栏只摆概览(状态点 + 名字 + 传输 · 工具库状态);
+/// 服务器<b>本身怎么配</b>仍在 <see cref="McpServersView" /> —— 它自己就是一整套左列表右表单,
+/// 塞不进 270 宽的左栏,所以另开一个窗口,点概览行或「新增服务器」进去。
+/// 改完它会回调 <see cref="Rebuild" />,这边的左栏与分组当场跟着变。</para>
 /// </remarks>
 public sealed class ToolPickerView : UserControl
 {
@@ -32,6 +34,15 @@ public sealed class ToolPickerView : UserControl
     private readonly Func<Task> _persist;
     private readonly StackPanel _groups = new() { Spacing = 14 };
     private readonly TextBlock _status = new() { Classes = { "dim" }, TextWrapping = TextWrapping.Wrap };
+
+    /// <summary>左栏的服务器概览行容器。</summary>
+    private readonly StackPanel _servers = new();
+
+    /// <summary>一台服务器都没有时左栏摆的那句话。</summary>
+    private readonly TextBlock _serversEmpty = new() { Classes = { "dim" }, TextWrapping = TextWrapping.Wrap, IsVisible = false };
+
+    /// <summary>点某台服务器(或「新增」,此时参数为 null)时打开那张配置表单。</summary>
+    private readonly Action<string?> _openServerEditor;
 
     /// <summary>
     /// 各组的折叠状态,键 = 组 id(内置 = 空串,MCP = 服务器 id)。只活在这个视图里,不落盘:
@@ -45,12 +56,19 @@ public sealed class ToolPickerView : UserControl
     /// <param name="settings">面板共享的设置实例;勾选直接改它。</param>
     /// <param name="loc">多语言文案。</param>
     /// <param name="persist">把设置落盘(勾一下就存一次,没有"保存"按钮)。</param>
-    public ToolPickerView(IPluginContext context, AiSettings settings, Loc loc, Func<Task> persist)
+    /// <param name="openServerEditor">
+    /// 打开某台服务器的配置表单;参数为 null 表示"新增一台"。
+    /// 左栏只摆概览,表单仍在 <see cref="McpServersView" />(它自己就是左列表右表单,塞不进 270 宽)。
+    /// </param>
+    public ToolPickerView(IPluginContext context, AiSettings settings, Loc loc, Func<Task> persist,
+        Action<string?> openServerEditor)
     {
         _context = context;
         _settings = settings;
         _loc = loc;
         _persist = persist;
+        _openServerEditor = openServerEditor;
+        _serversEmpty.Text = _loc["McpNoServers"];
         // 这套版式规则原先由插件自己的对话框外壳下发;窗体换成宿主的自绘卡片之后自己带上
         Styles.Add(new StyleInclude(new Uri("avares://VelaShell.Plugin.Ai/"))
         {
@@ -68,10 +86,9 @@ public sealed class ToolPickerView : UserControl
         // 全放根上的话它就飘在卡片边上了;拆开之后滚动区比卡片宽出 10,条子正好落在空档里。
         // 卡片左右仍旧各离窗口 20(离屏渲染量过:左 20 / 右 20)。
         const double Gutter = 10;
-        var root = new DockPanel { Margin = new Avalonia.Thickness(20, 16, 20 - Gutter, 16) };
+        var right = new DockPanel { Margin = new Avalonia.Thickness(20, 16, 20 - Gutter, 16) };
         _status.Margin = new Avalonia.Thickness(0, 10, Gutter, 0);
         DockPanel.SetDock(_status, Dock.Bottom);
-        // 顶上一句说明。MCP 服务器配置的入口在窗口标题栏(⚙,PanelOptions.TitleActions),不再占内容区
         var hint = new TextBlock
         {
             Classes = { "dim" },
@@ -80,16 +97,148 @@ public sealed class ToolPickerView : UserControl
             Margin = new Avalonia.Thickness(0, 0, Gutter, 10)
         };
         DockPanel.SetDock(hint, Dock.Top);
-        root.Children.Add(hint);
-        root.Children.Add(_status);
-        root.Children.Add(new ScrollViewer
+        right.Children.Add(hint);
+        right.Children.Add(_status);
+        right.Children.Add(new ScrollViewer
         {
             HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
             // 覆盖式滚动条会压住右缘,留白放在内容上而不是 ScrollViewer.Padding
             Content = new Border { Padding = new Avalonia.Thickness(0, 0, Gutter, 0), Child = _groups }
         });
+
+        // 左栏:MCP 服务器概览。配好一台服务器紧接着就要挑它的工具,那份勾选列表就在右边 ——
+        // 原先两者隔着两个窗口来回切。这里只摆概览(状态点 + 名字 + 传输),
+        // 真要改仍旧回到 McpServersView 那张"左列表右表单" —— 它塞不进 270 宽。
+        var left = new Grid { RowDefinitions = [with("Auto,Auto,*,Auto")], Margin = new Avalonia.Thickness(16, 16, 16, 16) };
+        left.Children.Add(new TextBlock
+        {
+            Classes = { "section-title" },
+            Text = _loc["McpServers"],
+            FontSize = 12
+        });
+        var paneHint = new TextBlock
+        {
+            Classes = { "dim" },
+            Text = _loc["McpPaneHint"],
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Avalonia.Thickness(0, 6, 0, 10)
+        };
+        Grid.SetRow(paneHint, 1);
+        left.Children.Add(paneHint);
+        var serverScroll = new ScrollViewer
+        {
+            HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+            Content = _servers
+        };
+        Grid.SetRow(serverScroll, 2);
+        left.Children.Add(serverScroll);
+        Button add = OutlineButton("Icon.plus", _loc["McpAdd"], () => _openServerEditor(null));
+        add.Name = "McpRailAddButton"; // 用例按名字找它(文案随语言变,不能按文字找)
+        add.Margin = new Avalonia.Thickness(0, 10, 0, 0);
+        add.HorizontalAlignment = HorizontalAlignment.Stretch;
+        Grid.SetRow(add, 3);
+        left.Children.Add(add);
+
+        var rail = new Border
+        {
+            Width = 270,
+            Child = left,
+            BorderThickness = new Avalonia.Thickness(0, 0, 1, 0)
+        };
+        rail[!BackgroundProperty] = new DynamicResourceExtension("VelaBgSidebar");
+        rail[!BorderBrushProperty] = new DynamicResourceExtension("VelaBorderPrimary");
+
+        var root = new Grid { ColumnDefinitions = [with("Auto,*")] };
+        root.Children.Add(rail);
+        Grid.SetColumn(right, 1);
+        root.Children.Add(right);
         Content = root;
         Rebuild();
+    }
+
+    /// <summary>描边小按钮(图标 + 文字),供左栏的「新增服务器」与组里的「更新工具库」共用。</summary>
+    private Button OutlineButton(string icon, string text, Action onClick)
+    {
+        var content = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 5,
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center
+        };
+        content.Children.Add(new Viewbox { Width = 11, Height = 11, Child = Glyph(icon), VerticalAlignment = VerticalAlignment.Center });
+        content.Children.Add(new TextBlock { Text = text, VerticalAlignment = VerticalAlignment.Center, FontSize = 11 });
+        var button = new Button { Content = content, Height = 26, Padding = new Avalonia.Thickness(10, 0) };
+        button[!ThemeProperty] = new DynamicResourceExtension("VelaOutlineButtonTheme");
+        button.Click += (_, _) => onClick();
+        return button;
+    }
+
+    /// <summary>左栏的服务器概览行:状态点 + 名字 + "传输 · 工具库状态"。点一下回到那张表单去改。</summary>
+    private void RebuildServerRail()
+    {
+        _servers.Children.Clear();
+        foreach (McpServerConfig server in _settings.McpServers)
+        {
+            string id = server.Id;
+            var row = new Grid { ColumnDefinitions = [with("Auto,*")] };
+            // 绿点 = 启用且工具库已拉过;其余一律灰点。没探过活就别拿颜色替用户下结论。
+            bool live = server.Enabled && server.KnownTools.Count > 0;
+            var dot = new Ellipse { Width = 6, Height = 6, Margin = new Avalonia.Thickness(0, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center };
+            dot[!Shape.FillProperty] = new DynamicResourceExtension(live ? "VelaStatusConnected" : "VelaTextMuted");
+            row.Children.Add(dot);
+
+            var text = new StackPanel { Spacing = 2 };
+            var name = new TextBlock
+            {
+                Text = string.IsNullOrWhiteSpace(server.Name) ? _loc["Unnamed"] : server.Name,
+                FontWeight = FontWeight.Medium,
+                FontSize = 12,
+                TextTrimming = TextTrimming.CharacterEllipsis
+            };
+            name[!ForegroundProperty] = new DynamicResourceExtension("VelaTextPrimary");
+            text.Children.Add(name);
+            text.Children.Add(new TextBlock
+            {
+                Classes = { "dim" },
+                Text = ServerDetail(server),
+                FontSize = 10,
+                TextTrimming = TextTrimming.CharacterEllipsis
+            });
+            Grid.SetColumn(text, 1);
+            row.Children.Add(text);
+
+            var card = new Border
+            {
+                Classes = { "card" },
+                Padding = new Avalonia.Thickness(9, 7),
+                Margin = new Avalonia.Thickness(0, 0, 0, 5),
+                Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand),
+                Child = row
+            };
+            card.PointerPressed += (_, e) =>
+            {
+                e.Handled = true;
+                _openServerEditor(id);
+            };
+            _servers.Children.Add(card);
+        }
+        _serversEmpty.IsVisible = _settings.McpServers.Count == 0;
+        if (_serversEmpty.IsVisible)
+        {
+            _servers.Children.Add(_serversEmpty);
+        }
+    }
+
+    /// <summary>概览行的第二行文字:传输方式 · 工具库状态 [· 已停用]。</summary>
+    private string ServerDetail(McpServerConfig server)
+    {
+        string transport = server.Transport == McpTransportType.Http ? "HTTP" : "Stdio";
+        string tools = server.KnownTools.Count > 0
+            ? _loc.F("McpToolCount", server.KnownTools.Count)
+            : _loc["McpToolsNotLoaded"];
+        string detail = $"{transport} · {tools}";
+        return server.Enabled ? detail : $"{detail} · {_loc["McpDisabledMark"]}";
     }
 
     /// <summary>
@@ -115,6 +264,7 @@ public sealed class ToolPickerView : UserControl
     /// <summary>整页重建(改完 MCP 服务器、刷新工具库之后都走这里)。</summary>
     public void Rebuild()
     {
+        RebuildServerRail();
         _groups.Children.Clear();
         _groups.Children.Add(BuildBuiltinGroup());
         foreach (McpServerConfig server in _settings.McpServers)

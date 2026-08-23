@@ -47,6 +47,8 @@ public partial class ChatPanelView
         {
             ChatScroll.IsVisible = view == PanelView.Chat;
             HistoryHost.IsVisible = view == PanelView.History;
+            // 空状态与聊天流叠在同一个 Panel 里,切到历史时得跟着一起让位
+            EmptyStateHost.IsVisible = _showEmptyState && view == PanelView.Chat;
             HistoryToggle.IsChecked = view == PanelView.History;
         }
         finally
@@ -78,10 +80,13 @@ public partial class ChatPanelView
             Text = session.Title.Length > 0 ? session.Title : _loc["Untitled"]
         };
         text.Children.Add(titleText);
+        // 日期已经由组标题说了,行里只留必要的那部分:今天/昨天给时刻,更早的补上月日
+        DateTimeOffset stamp = session.UpdatedAt.ToLocalTime();
+        bool nearby = stamp.Date == DateTime.Today || stamp.Date == DateTime.Today.AddDays(-1);
         text.Children.Add(new TextBlock
         {
             Classes = { "dim" },
-            Text = $"{session.UpdatedAt.ToLocalTime():yyyy-MM-dd HH:mm} · {_loc.F("MessageCount", session.MessageCount)}"
+            Text = $"{stamp.ToString(nearby ? "HH:mm" : "MM-dd HH:mm")} · {_loc.F("MessageCount", session.MessageCount)}"
         });
         grid.Children.Add(text);
 
@@ -140,7 +145,7 @@ public partial class ChatPanelView
         if (!_clearHistoryArmed)
         {
             _clearHistoryArmed = true;
-            ClearHistoryButton.Content = _loc["ConfirmClear"];
+            ClearHistoryText.Text = _loc["ConfirmClear"];
             if (FindBrush("VelaError") is { } warn)
             {
                 ClearHistoryButton.Foreground = warn;
@@ -159,7 +164,7 @@ public partial class ChatPanelView
     private void ResetClearHistoryButton()
     {
         _clearHistoryArmed = false;
-        ClearHistoryButton.Content = _loc["ClearHistory"];
+        ClearHistoryText.Text = _loc["ClearHistory"];
         ClearHistoryButton.ClearValue(ForegroundProperty);
         ClearHistoryButton.ClearValue(Avalonia.Controls.Primitives.TemplatedControl.BorderBrushProperty);
     }
@@ -221,6 +226,8 @@ public partial class ChatPanelView
             await RestoreSummaryAsync();
             StatusText.Text = _loc.F("HistoryLoaded", entries.Count);
             SetActiveView(PanelView.Chat);
+            // 载进来的会话把消息流填上了,空状态得退场(一个模型都没配时也照样能翻旧会话)
+            UpdateEmptyState();
             RequestAutoScroll(force: true);
         }
         catch (Exception ex)

@@ -82,17 +82,19 @@
     <Setter Property="Background" Value="{DynamicResource VelaBgSurface}" />
     <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="6" />
-    <Setter Property="Padding" Value="16,12,16,16" />
+    <Setter Property="CornerRadius" Value="5" />
+    <Setter Property="Padding" Value="14" />
   </Style>
 
+  <!-- 28 高(设计图):表单排成两列 / 三列之后,30 高的框把每一节都撑得比该有的高一截 -->
   <Style Selector="TextBox">
     <Setter Property="FontSize" Value="{DynamicResource VelaFontSize12}" />
-    <Setter Property="MinHeight" Value="30" />
+    <Setter Property="MinHeight" Value="28" />
   </Style>
   <Style Selector="ComboBox">
     <Setter Property="FontSize" Value="{DynamicResource VelaFontSize12}" />
-    <Setter Property="MinHeight" Value="30" />
+    <Setter Property="MinHeight" Value="28" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
   </Style>
   <Style Selector="ListBox">
     <Setter Property="Background" Value="{DynamicResource VelaBgInput}" />

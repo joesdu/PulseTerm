@@ -5,6 +5,19 @@
        与设置窗口标题栏上的"全局设置"齿轮撞了含义)。几何内联,不依赖宿主 Icon.* 资源。 -->
   <StreamGeometry x:Key="AiIcon.brain">M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4 M17.599 6.5a3 3 0 0 0 .399-1.375 M6.003 5.125A3 3 0 0 0 6.401 6.5 M3.477 10.896a4 4 0 0 1 .585-.396 M19.938 10.5a4 4 0 0 1 .585.396 M6 18a4 4 0 0 1-1.967-.516 M19.967 17.484A4 4 0 0 1 18 18</StreamGeometry>
 
+  <!-- 以下几何在宿主 Icon.* 里没有(lucide 原样内联,与 AiIcon.brain 同一个理由:
+       隔离进程只下发 Vela* 令牌,不能假定宿主的 Icon.* 一定在)。全部按描边渲染,勿填充。 -->
+  <StreamGeometry x:Key="AiIcon.shield-alert">M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1 1 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1Z M12 8v4 M12 16h.01</StreamGeometry>
+  <StreamGeometry x:Key="AiIcon.shield-check">M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1 1 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1Z M9 12l2 2 4-4</StreamGeometry>
+  <StreamGeometry x:Key="AiIcon.shield-off">M19.7 14a6.9 6.9 0 0 0 .3-2V5a1 1 0 0 0-1-1c-2 0-4.5-1.2-6.24-2.72a1 1 0 0 0-1.52 0C9.6 2.71 8.4 3.5 7 4.1 M4 4v8c0 5 3.5 7.5 7.67 8.94a1 1 0 0 0 .67 0c1.2-.42 2.36-.99 3.4-1.76 M2 2l20 20</StreamGeometry>
+  <StreamGeometry x:Key="AiIcon.lock">M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2Z M7 11V7a5 5 0 0 1 10 0v4</StreamGeometry>
+  <StreamGeometry x:Key="AiIcon.sparkles">M9.94 14.32a1 1 0 0 0-.66-.66l-4.24-1.32a.5.5 0 0 1 0-.96l4.24-1.32a1 1 0 0 0 .66-.66l1.32-4.24a.5.5 0 0 1 .96 0l1.32 4.24a1 1 0 0 0 .66.66l4.24 1.32a.5.5 0 0 1 0 .96l-4.24 1.32a1 1 0 0 0-.66.66l-1.32 4.24a.5.5 0 0 1-.96 0Z M20 3v4 M22 5h-4 M4 17v2 M5 18H3</StreamGeometry>
+  <StreamGeometry x:Key="AiIcon.scissors">M20 4L8.12 15.88 M14.47 14.48L20 20 M8.12 8.12L12 12 M9.5 6.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z M9.5 17.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z</StreamGeometry>
+  <StreamGeometry x:Key="AiIcon.chevron-up">M18 15l-6-6-6 6</StreamGeometry>
+  <!-- 设置页左栏的两层层级:供应商 = 云,模型 = 方块 -->
+  <StreamGeometry x:Key="AiIcon.cloud">M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z</StreamGeometry>
+  <StreamGeometry x:Key="AiIcon.box">M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z M3.3 7l8.7 5 8.7-5 M12 22V12</StreamGeometry>
+
   <!-- 芯片式开关(Agent / 设置等):对齐宿主 VelaOutlineButtonTheme 的描边语言,
        选中态换 VelaAccentDim 半透明底 + 强调色描边(与宿主"强调药丸"同一配方)。
        之所以自带 ControlTheme 而不是依赖宿主资源:隔离进程宿主只下发 Vela* 令牌,

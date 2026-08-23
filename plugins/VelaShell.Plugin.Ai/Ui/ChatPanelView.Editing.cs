@@ -140,7 +140,8 @@ public partial class ChatPanelView
         ResetCompaction();
 
         ClearSuggestions();
-        ShowStarterSuggestions();
+        // 删到一条不剩就退回空状态(起手示例在那儿,不再是输入框上方的药丸)
+        UpdateEmptyState();
         UpdateUsageText();
         return true;
     }

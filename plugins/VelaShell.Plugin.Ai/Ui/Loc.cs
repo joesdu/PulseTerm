@@ -45,7 +45,9 @@ public sealed class Loc(string locale)
     private static readonly Dictionary<string, string[]> Table = new()
     {
         ["Title"] = ["AI Assistant", "AI 助手", "AI 助手", "AI アシスタント", "AI 어시스턴트"],
-        ["NoProvider"] = ["No provider configured — open Settings (⚙) to add one.", "尚未配置模型接入 —— 点右上角 ⚙ 添加。", "尚未設定模型接入 —— 點右上角 ⚙ 新增。", "プロバイダー未設定 — 右上の ⚙ から追加してください。", "프로바이더가 없습니다 — 오른쪽 위 ⚙에서 추가하세요."],
+        // 只在"用户按了发送、却一个模型都没配"时出现,紧接着就会把配置窗口开出来 ——
+        // 所以这句是在交代"接下来发生了什么",不再指路去点哪个按钮(空状态那边有按钮)。
+        ["NoProvider"] = ["No model configured — opening the model settings.", "尚未配置模型 —— 已为你打开模型配置。", "尚未設定模型 —— 已為你開啟模型設定。", "モデル未設定 — モデル設定を開きました。", "모델이 없습니다 — 모델 설정을 열었습니다."],
         ["Agent"] = ["Agent", "Agent", "Agent", "Agent", "Agent"],
         ["AgentTip"] = ["Agent mode: the model may call tools (read terminal, run commands…).", "Agent 模式:模型可调用工具(读终端、执行命令等)。", "Agent 模式:模型可呼叫工具(讀終端、執行命令等)。", "Agent モード:モデルがツールを呼び出せます(端末読取・コマンド実行など)。", "Agent 모드: 모델이 도구를 호출할 수 있습니다(터미널 읽기, 명령 실행 등)."],
         // 对话模式(顺序 = ChatMode 的枚举值)
@@ -140,6 +142,9 @@ public sealed class Loc(string locale)
         ["ApprovalTitle"] = ["The agent wants to run:", "Agent 请求执行:", "Agent 請求執行:", "エージェントが実行を要求:", "에이전트가 실행을 요청:"],
         ["Approve"] = ["Approve", "批准", "批准", "承認", "승인"],
         ["ApproveAlways"] = ["Always in this chat", "本次会话总是允许", "本次會話總是允許", "この会話では常に許可", "이 대화에서는 항상 허용"],
+        // 按钮上必须写清"总是允许的到底是什么":记忆键是按命令名分的(run_command:du),
+        // 只写「本次会话总是允许」会被读成"这段对话里什么都别再问了" —— 用户实测就是这么理解的。
+        ["ApproveAlwaysKey"] = ["Always allow “{0}”", "总是允许「{0}」", "總是允許「{0}」", "「{0}」を常に許可", "「{0}」 항상 허용"],
         ["ApproveAlwaysTip"] = ["Stop asking for “{0}” until this chat ends (not saved to settings).", "本次会话内不再询问「{0}」(不写入设置,换会话即失效)。", "本次會話內不再詢問「{0}」(不寫入設定,換會話即失效)。", "この会話が終わるまで「{0}」は確認しません(設定には保存されません)。", "이 대화가 끝날 때까지 「{0}」은(는) 묻지 않습니다(설정에 저장되지 않음)."],
         ["Retrying"] = ["Connection failed, retrying ({0})…", "连接失败,正在重试({0})…", "連線失敗,正在重試({0})…", "接続に失敗、再試行中({0})…", "연결 실패, 재시도 중({0})…"],
         ["Deny"] = ["Deny", "拒绝", "拒絕", "拒否", "거부"],
@@ -217,10 +222,14 @@ public sealed class Loc(string locale)
         ["McpServers"] = ["MCP servers", "MCP 服务器", "MCP 伺服器", "MCP サーバー", "MCP 서버"],
         ["McpHint"] = ["Model Context Protocol servers add extra tools to Agent mode. Tools that may modify state ask for approval before running.", "MCP(Model Context Protocol)服务器为 Agent 模式提供额外工具;可能修改状态的工具执行前会请求审批。", "MCP(Model Context Protocol)伺服器為 Agent 模式提供額外工具;可能修改狀態的工具執行前會請求審批。", "MCP(Model Context Protocol)サーバーは Agent モードにツールを追加します。状態を変更しうるツールは実行前に承認を求めます。", "MCP(Model Context Protocol) 서버는 Agent 모드에 도구를 추가합니다. 상태를 변경할 수 있는 도구는 실행 전 승인을 요청합니다."],
         ["McpEnabled"] = ["Enabled", "启用", "啟用", "有効", "사용"],
+        // 「配置工具」左栏的一句话:说清左右两边是什么关系
+        ["McpPaneHint"] = ["Once a server is set up, its tools show up on the right for you to check.", "配好服务器后,它带来的工具直接在右侧勾选。", "設定好伺服器後,它帶來的工具直接在右側勾選。", "サーバーを設定すると、そのツールが右側に並んで選べます。", "서버를 설정하면 그 도구가 오른쪽에 나와 선택할 수 있습니다."],
+        ["McpAdd"] = ["New server", "新增服务器", "新增伺服器", "サーバーを追加", "서버 추가"],
         ["ToolsChecked"] = ["{0}/{1} checked", "已勾 {0}/{1}", "已勾 {0}/{1}", "{0}/{1} 選択", "{0}/{1} 선택"],
         // 设置页的分节标题(版式对齐宿主设置页:节标题 + 一张描边卡片)
-        ["SecEndpoint"] = ["Model", "模型", "模型", "モデル", "모델"],
-        ["SecCapacity"] = ["Model capacity", "模型能力", "模型能力", "モデルの上限", "모델 용량"],
+        // 这一节装的是名称 / 模型 id / 协议 / Key / 基地址 —— 叫「模型」太窄了,它整体是"怎么接上去"
+        ["SecEndpoint"] = ["Endpoint", "接入端点", "接入端點", "接続エンドポイント", "접속 엔드포인트"],
+        ["SecCapacity"] = ["Capacity & thinking", "容量与思考", "容量與思考", "上限と思考", "용량과 사고"],
         ["SecSampling"] = ["Sampling, pricing & prompt", "采样、计费与提示词", "採樣、計費與提示詞", "サンプリング・料金・プロンプト", "샘플링·요금·프롬프트"],
         ["SecGlobal"] = ["Global", "全局", "全域", "全体設定", "전역"],
         // 回复正文里的链接(远端路径 = 下载下来)
@@ -255,6 +264,39 @@ public sealed class Loc(string locale)
         ["NoConnectedSession"] = ["No connected session.", "没有已连接的会话。", "沒有已連接的會話。", "接続中のセッションがありません。", "연결된 세션이 없습니다."],
         ["CmdChat"] = ["AI: Open Chat (Tab)", "AI:打开聊天(标签页)", "AI:開啟聊天(標籤頁)", "AI:チャットを開く(タブ)", "AI: 채팅 열기(탭)"],
         ["CmdChatWindow"] = ["AI: Open Chat (Window)", "AI:打开聊天(窗口)", "AI:開啟聊天(視窗)", "AI:チャットを開く(ウィンドウ)", "AI: 채팅 열기(창)"],
-        ["CmdExplain"] = ["AI: Explain Terminal Output", "AI:解释终端输出", "AI:解釋終端輸出", "AI:ターミナル出力を説明", "AI: 터미널 출력 설명"]
+        ["CmdExplain"] = ["AI: Explain Terminal Output", "AI:解释终端输出", "AI:解釋終端輸出", "AI:ターミナル出力を説明", "AI: 터미널 출력 설명"],
+        // 回复头部的阶段芯片:辉光只说明"在动",这几个字说明"在干什么"
+        ["PhaseThinking"] = ["thinking", "正在思考", "正在思考", "思考中", "생각 중"],
+        ["PhaseTool"] = ["running tools", "调用工具", "呼叫工具", "ツール実行中", "도구 실행 중"],
+        ["PhaseWriting"] = ["writing", "正在生成", "正在生成", "生成中", "생성 중"],
+        ["PhaseWaiting"] = ["waiting for you", "等待你确认", "等待你確認", "確認待ち", "확인 대기"],
+        // 审批卡上的风险标签(按工具名归类,只说"会做什么",不做价值判断)
+        ["RiskWrite"] = ["writes a remote file", "写远端文件", "寫遠端檔案", "リモートファイルに書き込み", "원격 파일 쓰기"],
+        ["RiskExec"] = ["runs a command", "执行命令", "執行命令", "コマンド実行", "명령 실행"],
+        ["RiskInput"] = ["types into the terminal", "写入终端", "寫入終端", "端末へ入力", "터미널 입력"],
+        ["RiskMcp"] = ["external MCP tool", "外部 MCP 工具", "外部 MCP 工具", "外部 MCP ツール", "외부 MCP 도구"],
+        ["ApprovalPaused"] = ["This turn stays paused until you decide.", "在你做出选择之前,这一轮是暂停的。", "在你做出選擇之前,這一輪是暫停的。", "選択するまでこのターンは停止しています。", "선택하기 전까지 이번 턴은 멈춰 있습니다."],
+        // 失败卡:错误不该混在正文里当一段 Markdown
+        ["ErrorKept"] = ["Whatever this turn already produced is kept.", "本轮已产生的内容保留。", "本輪已產生的內容保留。", "このターンで既に生成された内容は保持されます。", "이번 턴에서 이미 생성된 내용은 유지됩니다."],
+        // 空状态(一个模型都没配):给下一步动作,而不是一句陈述
+        ["EmptyTitle"] = ["No model available yet", "还没有可用的模型", "還沒有可用的模型", "利用できるモデルがありません", "사용할 수 있는 모델이 없습니다"],
+        ["EmptyBody"] = ["Add a provider and a model, and you can ask this server anything right here.", "添加一个供应商和模型之后,就能直接对着当前这台服务器提问。", "新增一個供應商和模型之後,就能直接對著目前這台伺服器提問。", "プロバイダーとモデルを追加すれば、このサーバーについてそのまま質問できます。", "프로바이더와 모델을 추가하면 이 서버에 대해 바로 물어볼 수 있습니다."],
+        ["EmptyAction"] = ["Add a model", "添加模型接入", "新增模型接入", "モデルを追加", "모델 추가"],
+        ["EmptyExamples"] = ["Once it's set up, you can ask", "配好之后可以这样问", "設定好之後可以這樣問", "設定後はこんなふうに聞けます", "설정한 뒤에는 이렇게 물어볼 수 있습니다"],
+        // 配好了、但这段对话还一个字都没有:中部别留一整块空白,说清它能替你看什么
+        ["ReadyExamples"] = ["Try one of these", "可以这样问", "可以這樣問", "こんなふうに聞けます", "이렇게 물어볼 수 있습니다"],
+        ["ReadyTitle"] = ["Ask this server anything", "问这台服务器点什么", "問這台伺服器點什麼", "このサーバーについて聞いてみましょう", "이 서버에 대해 물어보세요"],
+        ["ReadyBody"] = ["The model can read this session's terminal output, and files on the server when you ask it to.", "模型能读到这个会话的终端输出,你让它看时也能读服务器上的文件。", "模型能讀到這個工作階段的終端輸出,你讓它看時也能讀伺服器上的檔案。", "モデルはこのセッションの端末出力を読めます。指示すればサーバー上のファイルも読みます。", "모델은 이 세션의 터미널 출력을 읽을 수 있고, 요청하면 서버의 파일도 읽습니다."],
+        // 历史会话按日期分组
+        ["HistToday"] = ["Today", "今天", "今天", "今日", "오늘"],
+        ["HistYesterday"] = ["Yesterday", "昨天", "昨天", "昨日", "어제"],
+        ["HistEarlier"] = ["Earlier", "更早", "更早", "それ以前", "이전"],
+        // 设置页:密钥去向徽章 + 左栏的连通性状态点(本次窗口内测出来的)
+        ["KeyEncrypted"] = ["encrypted by the host", "由宿主加密存储", "由宿主加密儲存", "ホストが暗号化して保存", "호스트가 암호화 저장"],
+        ["DotUntested"] = ["Not tested in this window", "本次窗口内未测试", "本次視窗內未測試", "このウィンドウでは未テスト", "이 창에서 테스트하지 않음"],
+        ["DotPassed"] = ["Test passed", "测试通过", "測試通過", "テスト成功", "테스트 통과"],
+        ["DotFailed"] = ["Test failed", "测试失败", "測試失敗", "テスト失敗", "테스트 실패"],
+        // 上下文占用条的悬停说明(条只给量感,数字仍在用量提示里)
+        ["MeterTip"] = ["Share of the context window taken by the last turn.", "上一轮占掉了多大比例的上下文窗口。", "上一輪佔掉了多大比例的上下文視窗。", "直近のターンがコンテキスト長のどれだけを占めたか。", "직전 턴이 컨텍스트 창을 얼마나 차지했는지."]
     };
 }
