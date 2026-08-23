@@ -14,7 +14,8 @@ public sealed class AgentToolboxTests
     private static readonly string[] ExpectedToolNames =
     [
         "list_sessions", "read_terminal", "run_command", "read_remote_file",
-        "list_remote_directory", "write_remote_file", "upload_local_file", "write_terminal"
+        "list_remote_directory", "write_remote_file", "upload_local_file", "write_terminal",
+        "web_search", "web_fetch"
     ];
 
     private static async Task<string> InvokeAsync(AgentToolbox toolbox, string name, Dictionary<string, object?>? args = null)
@@ -53,6 +54,56 @@ public sealed class AgentToolboxTests
             Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
         Assert.DoesNotContain("run_command", names, "计划模式不该能执行命令");
         Assert.DoesNotContain("write_remote_file", names, "计划模式不该能写文件");
+    }
+
+    /// <summary>网络检索的总闸关掉时,两个网络工具压根不注册。</summary>
+    [TestMethod]
+    public void CreateTools_WithoutWebSearch_OmitsBothWebTools()
+    {
+        using var context = new TestPluginContext();
+        var toolbox = new AgentToolbox(context) { WebSearch = new WebSearchOptions { Enabled = false } };
+
+        string[] names = [.. toolbox.CreateTools(ChatMode.Agent).OfType<AIFunction>().Select(f => f.Name)];
+
+        Assert.DoesNotContain("web_search", names);
+        Assert.DoesNotContain("web_fetch", names);
+    }
+
+    /// <summary>
+    /// 供应商的服务端检索接管这一轮时,插件自带的 web_search 不再注册 ——
+    /// 两个用途一样的检索工具摆在一起,模型会来回换着试。web_fetch 照给:
+    /// 用户点名要读某个 URL 时还得靠它。
+    /// </summary>
+    [TestMethod]
+    public void CreateTools_WithNativeWebSearch_KeepsFetchButDropsSearch()
+    {
+        using var context = new TestPluginContext();
+        var toolbox = new AgentToolbox(context);
+
+        string[] names = [.. toolbox.CreateTools(ChatMode.Agent, nativeWebSearch: true).OfType<AIFunction>().Select(f => f.Name)];
+
+        Assert.DoesNotContain("web_search", names);
+        Assert.Contains("web_fetch", names);
+    }
+
+    /// <summary>
+    /// 用户把实例地址清空了,也只是"搜不了",不是"不能上网" —— web_fetch 跟检索后端毫无关系,
+    /// 给了明确 URL 照样读得到。web_search 也照常注册:让模型调一次、拿到那句"检索已关闭",
+    /// 比让它以为自己没有联网能力、张口就说"我无法访问互联网"有用得多。
+    /// </summary>
+    [TestMethod]
+    public void CreateTools_WithTheInstanceAddressCleared_StillOffersBothWebTools()
+    {
+        using var context = new TestPluginContext();
+        var toolbox = new AgentToolbox(context)
+        {
+            WebSearch = new WebSearchOptions { SearxngBaseUrl = "" }
+        };
+
+        string[] names = [.. toolbox.CreateTools(ChatMode.Agent).OfType<AIFunction>().Select(f => f.Name)];
+
+        Assert.Contains("web_fetch", names);
+        Assert.Contains("web_search", names);
     }
 
     /// <summary>"配置工具"里取消勾选的工具压根不出现在工具列表里(模型看不到就调不到)。</summary>

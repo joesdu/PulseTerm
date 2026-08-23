@@ -36,7 +36,7 @@ public class RemoteExecCapabilityTests
 
         Assert.IsFalse(result.IsSuccess);
         Assert.AreEqual(1, result.ExitCode);
-        StringAssert.Contains(result.Error, "no such container");
+        Assert.Contains("no such container", result.Error);
         // 标准错误**不并进**标准输出:解析 --format json 的插件会被一行警告噎死。
         Assert.AreEqual("", result.Output);
     }

@@ -14,6 +14,7 @@ using LiveMarkdown.Avalonia;
 using Microsoft.Extensions.AI;
 using TextMateSharp.Grammars;
 using VelaShell.Plugin.Ai.Agent;
+using VelaShell.Plugin.Ai.Agent.Web;
 using VelaShell.Plugin.Ai.Chat;
 using VelaShell.Plugin.Ai.Configuration;
 using VelaShell.PluginSdk;
@@ -887,13 +888,21 @@ public partial class ChatPanelView : UserControl
             // 差异全收在 AiSettingsStore.ApplyReasoning 里。
             AiSettingsStore.ApplyReasoning(options, provider);
             ChatMode mode = _settings.Mode;
+            // 检索优先走供应商自带的服务端工具:它跑在模型那一侧,不经本机,结果自带引用。
+            // 但只有 Anthropic Messages 与 OpenAI Responses 认这套,其余协议(Chat Completions、
+            // Ollama、多数中转站)解不出来,回落到插件自带的 web_search。用户可以在全局设置里关掉。
+            bool nativeSearch = mode != ChatMode.Chat
+                                && _settings.WebSearch.Enabled
+                                && _settings.WebSearch.PreferProviderNative
+                                && NativeWebSearch.IsSupported(provider.Protocol);
             // 纯对话模式不给任何工具;计划模式只给只读工具(见 AgentToolbox.CreateTools)
             if (mode != ChatMode.Chat)
             {
                 ApplyApprovalMode(); // 挡位推给工具箱与 MCP(中途再改也会经这条路重推)
                 _toolbox.DisabledTools = new HashSet<string>(
                     SplitLines(_settings.DisabledBuiltinTools) ?? [], StringComparer.OrdinalIgnoreCase);
-                IList<AITool> tools = _toolbox.CreateTools(mode);
+                _toolbox.WebSearch = _settings.WebSearch;
+                IList<AITool> tools = _toolbox.CreateTools(mode, nativeSearch);
                 // 计划模式下不接 MCP:那些工具的副作用由第三方服务器说了算,插件无从判断,
                 // 而"计划"的承诺是这一步不动任何东西。
                 if (mode == ChatMode.Agent && _settings.McpServers.Any(s => s.Enabled))
@@ -908,6 +917,12 @@ public partial class ChatPanelView : UserControl
                         ? $"{_loc["Error"]} (MCP): {string.Join("; ", mcpErrors)}"
                         : "";
                 }
+                if (nativeSearch)
+                {
+                    // 必须排在 ApplyReasoning 之后:Anthropic 那条路是在思考配置留下的
+                    // RawRepresentationFactory 上叠一层,先叠会被后设的整个盖掉。
+                    NativeWebSearch.Apply(options, provider, tools, _settings.WebSearch.MaxResults);
+                }
                 options.Tools = tools;
                 client = client.AsBuilder()
                     .UseFunctionInvocation(configure: c => c.MaximumIterationsPerRequest = 25)
@@ -918,7 +933,7 @@ public partial class ChatPanelView : UserControl
             await CompactIfNeededAsync(provider, token);
             // 装配上下文:摘要 + 近几轮原文,按窗口裁剪并把相邻同角色的消息并起来(见 ContextBuilder)
             RequestContext request = ContextBuilder.Build(
-                BuildSystemPrompt(mode), _history, provider.MaxInputTokens, provider.MaxTokens,
+                BuildSystemPrompt(mode, nativeSearch), _history, provider.MaxInputTokens, provider.MaxTokens,
                 _contextSummary, _summarizedThrough);
             List<ChatMessage> requestMessages = request.Messages;
             _droppedFromContext = request.DroppedMessages;
@@ -1251,7 +1266,7 @@ public partial class ChatPanelView : UserControl
     /// 用户自定义的提示词<b>不追加模式说明</b>:他既然自己写了,就该完全由他说了算。
     /// 模式的实际约束靠"给不给工具"来兜底(计划模式根本拿不到写工具),不依赖提示词自觉。
     /// </remarks>
-    private string BuildSystemPrompt(ChatMode mode)
+    private string BuildSystemPrompt(ChatMode mode, bool nativeWebSearch = false)
     {
         if (ActiveProvider is { SystemPrompt: { } own } && !string.IsNullOrWhiteSpace(own))
         {
@@ -1267,6 +1282,9 @@ public partial class ChatPanelView : UserControl
             "Format responses in Markdown. " +
             $"Respond in the user's language (UI locale: {_context.Host.Locale}). " +
             "The user can attach remote files to a message with @path; their content is included verbatim after the message.";
+        // 服务端检索没有工具声明摆在模型面前,不点破它就以为自己不能联网,
+        // 张口就是"我无法访问互联网"。自定义提示词那两条路上不加 —— 与本方法的既有约定一致。
+        prompt += nativeWebSearch ? " " + NativeWebSearch.SystemHint : "";
         return prompt + mode switch
         {
             ChatMode.Agent =>
