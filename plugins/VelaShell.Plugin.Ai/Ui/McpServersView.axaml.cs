@@ -85,6 +85,23 @@ public partial class McpServersView : UserControl
             ? _settings.McpServers[McpList.SelectedIndex]
             : null;
 
+    /// <summary>
+    /// 选中某台服务器。「配置工具」左栏点某一行时会带着 id 进来 ——
+    /// 那边只摆一份概览,真要改还是回到这张表单。
+    /// </summary>
+    /// <param name="serverId">服务器 id;找不到就保持当前选中不动。</param>
+    public void Select(string serverId)
+    {
+        int index = _settings.McpServers.FindIndex(s => s.Id == serverId);
+        if (index >= 0)
+        {
+            McpList.SelectedIndex = index;
+        }
+    }
+
+    /// <summary>直接进入"新增一台"的状态(「配置工具」左栏的「新增服务器」走这里)。</summary>
+    public void BeginAdd() => OnAddClick(null, new RoutedEventArgs());
+
     private void ReloadList(int selectIndex)
     {
         McpList.ItemsSource = _settings.McpServers.Select(ToListItem).ToList();

@@ -103,20 +103,31 @@ public sealed partial class ChatPanelViewUiTests
                 Assert.IsNotNull(Find<Popup>(panel, "FilePopup"));
                 Assert.IsFalse(Find<Popup>(panel, "FilePopup").IsOpen, "没输入 @ 时文件选择器不该弹出");
                 Assert.IsFalse(Find<DockPanel>(panel, "HistoryHost").IsVisible);
-                Assert.IsTrue(Find<ToggleButton>(panel, "HistoryToggle").IsEnabled,
-                    "时序能力可用时历史按钮应可点");
-                // 裸测试宿主里一个供应商都没配。设置改成独立窗口之后就不再抢版面了:
-                // 聊天流照常在,只在状态行留一句"去 ⚙ 配一个"(见 InitAsync 的 NoProvider 分支)。
-                // 面板可能是随宿主启动一起开的,冷不丁弹一个窗口在用户脸上不合适。
+                Assert.IsTrue(Find<ToggleButton>(panel, "HistoryToggle").IsEnabled, "时序能力可用时历史按钮应可点");
+                // 裸测试宿主里一个供应商都没配。这时中部摆的是空状态(图标 + 标题 + 说明 +
+                // 「添加模型接入」按钮 + 三条示例),而不是状态行里一句陈述 —— 第一次打开面板的人
+                // 需要的是下一步动作。面板仍不自动弹窗:它可能是随宿主启动一起开的。
                 Assert.IsTrue(Find<ScrollViewer>(panel, "ChatScroll").IsVisible);
-                Assert.Contains("⚙", Find<TextBlock>(panel, "StatusText").Text ?? "",
-                    "没配接入时状态行要指路(五种语言的这句文案里都有 ⚙)");
+                StackPanel empty = Find<StackPanel>(panel, "EmptyStateHost");
+                Assert.IsTrue(empty.IsVisible, "没配模型时中部要摆空状态");
+                Assert.IsNotEmpty(empty.Children.OfType<Button>().ToList(), "空状态得给一个可点的主按钮");
+                Assert.IsEmpty(Find<TextBlock>(panel, "StatusText").Text ?? "", "空状态接手之后,状态行不再重复说一遍");
+                // 审批下拉的三档:形状与颜色挂在数据项上,而这些颜色取自宿主令牌 ——
+                // 这个测试宿主一个 Vela 令牌都不给,正是"画笔解析不出来"的那种环境。
+                // 曾经把项建在构造期,那时控件还没 TopLevel,TryFindResource 全返回 null,
+                // 结果文字与盾牌一起变成隐形的,表象是"下拉框空空如也"。兜底画笔与
+                // OnLoaded 里的重建就是钉这个的。
+                List<ApprovalNavItem> approvals = [.. Find<ComboBox>(panel, "ApprovalCombo").ItemsSource!.Cast<ApprovalNavItem>()];
+                Assert.HasCount(3, approvals);
+                foreach (ApprovalNavItem item in approvals)
+                {
+                    Assert.IsNotEmpty(item.Text);
+                    Assert.IsNotNull(item.Tone, $"「{item.Text}」没有前景画笔,文字会是隐形的");
+                }
                 // 输入框是 AvaloniaEdit(要 Markdown 着色与 @ 芯片),不是 TextBox
                 Assert.IsNotNull(Find<TextEditor>(panel, "InputBox"));
-                Assert.IsNotNull(Find<TextEditor>(panel, "InputBox").SyntaxHighlighting,
-                    "输入框应挂上 Markdown 着色");
-                Assert.IsTrue(Find<TextBlock>(panel, "InputPlaceholder").IsVisible,
-                    "空输入框要显示占位提示");
+                Assert.IsNotNull(Find<TextEditor>(panel, "InputBox").SyntaxHighlighting, "输入框应挂上 Markdown 着色");
+                Assert.IsTrue(Find<TextBlock>(panel, "InputPlaceholder").IsVisible, "空输入框要显示占位提示");
             }
             finally
             {
@@ -158,9 +169,11 @@ public sealed partial class ChatPanelViewUiTests
                 Find<ToggleButton>(panel, "HistoryToggle").IsChecked = true;
                 await PumpAsync();
                 StackPanel list = Find<StackPanel>(panel, "HistoryList");
-                Assert.HasCount(1, list.Children);
+                // 列表按日期分组,所以行前面还有一条组标题(今天 / 昨天 / 更早);会话行是那些 Border
+                List<Border> rows = [.. list.Children.OfType<Border>()];
+                Assert.HasCount(1, rows);
 
-                List<Button> tools = [.. list.Children[0].GetVisualDescendants().OfType<Button>()];
+                List<Button> tools = [.. rows[0].GetVisualDescendants().OfType<Button>()];
                 Assert.HasCount(3, tools, "行尾是 重命名 / 导出 / 删除 三枚");
 
                 tools[2].RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
@@ -198,9 +211,14 @@ public sealed partial class ChatPanelViewUiTests
                 Assert.IsTrue(Find<DockPanel>(panel, "HistoryHost").IsVisible);
                 Assert.IsFalse(Find<ScrollViewer>(panel, "ChatScroll").IsVisible, "历史与聊天流是二选一");
                 StackPanel list = Find<StackPanel>(panel, "HistoryList");
-                Assert.HasCount(1, list.Children);
+                // 会话行前面先有一条日期组标题(刚写进去的会话必然落在"今天"这一组)
+                Assert.IsInstanceOfType<TextBlock>(list.Children[0]);
+                Assert.Contains("histGroup", ((TextBlock)list.Children[0]).Classes,
+                    "分组标题用 histGroup 这个类");
+                List<Border> rows = [.. list.Children.OfType<Border>()];
+                Assert.HasCount(1, rows);
                 Assert.Contains("磁盘满了怎么查?",
-                    [.. list.Children[0].GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text ?? "")]);
+                    [.. rows[0].GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text ?? "")]);
 
                 // 再点一次回到聊天流
                 Find<ToggleButton>(panel, "HistoryToggle").IsChecked = false;
@@ -776,10 +794,12 @@ public sealed partial class ChatPanelViewUiTests
             .SelectMany(b => b.GetVisualDescendants().OfType<MarkdownRenderer>())];
 
     /// <summary>
-    /// 空会话在输入框上方给几条起手提示(本地文案,不请求模型),点一下就发出去。
+    /// 空会话的起手提示长在<b>居中的空状态里</b>(本地文案,不请求模型),点一下就发出去。
+    /// 输入框上方那排药丸只留给对话开始<b>之后</b>由模型给的后续提问 ——
+    /// 两处同时摆着同样三条只是重复(用户实测反馈)。
     /// </summary>
     [TestMethod]
-    public void Suggestions_OfferStarterPrompts_AndClickingOneSendsIt()
+    public void EmptyState_OffersStarterPrompts_AndClickingOneSendsIt()
     {
         OnUi(async () =>
         {
@@ -803,17 +823,20 @@ public sealed partial class ChatPanelViewUiTests
             (Window window, ChatPanelView panel) = await ShowAsync(context);
             try
             {
-                WrapPanel bar = Find<WrapPanel>(panel, "SuggestionBar");
-                Assert.IsTrue(bar.IsVisible, "空会话该给点起手提示");
-                Assert.HasCount(3, bar.Children);
+                StackPanel empty = Find<StackPanel>(panel, "EmptyStateHost");
+                Assert.IsTrue(empty.IsVisible, "空会话该摆空状态");
+                Assert.IsFalse(Find<WrapPanel>(panel, "SuggestionBar").IsVisible,
+                    "起手示例在空状态里了,输入框上方不该再重复一排");
+                List<Border> examples = [.. empty.Children.OfType<Border>()];
+                Assert.HasCount(3, examples);
 
-                var chip = (Border)bar.Children[0];
+                Border chip = examples[0];
                 string prompt = chip.GetVisualDescendants().OfType<TextBlock>().First().Text!;
                 chip.RaiseEvent(new PointerPressedEventArgs(chip, new Pointer(0, PointerType.Mouse, true),
                     chip, default, 0, new PointerPointProperties(), KeyModifiers.None));
                 await PumpAsync(10);
 
-                Assert.IsFalse(bar.IsVisible, "发出去之后建议就该收起");
+                Assert.IsFalse(empty.IsVisible, "发出去之后消息流接手,空状态该退场");
                 // 气泡正文是 Markdown 渲染的,拿不到平整的 TextBlock.Text —— 直接看发给模型的是什么
                 string body = await stub.RequestBodyAsync.WaitAsync(TimeSpan.FromSeconds(10));
                 using var request = JsonDocument.Parse(body);
@@ -1054,8 +1077,21 @@ public sealed partial class ChatPanelViewUiTests
     /// 这几个配置窗口要能按 Esc 关掉,和宿主其它窗口一致。
     /// </summary>
     /// <remarks>
-    /// Esc 挂在<b>内容</b>上而不是让宿主对所有插件面板统一处理:聊天面板也能以窗口形态打开,
+    /// <para>
+    /// Esc 挂在<b>窗口(TopLevel)</b>上,不是挂在内容控件上:冒泡是从焦点所在的元素往上走的,
+    /// 而窗口刚开出来时焦点还在窗体铬色那一侧 —— 挂内容上的处理器一次都收不到,
+    /// 表象就是"按 Esc 没反应"。
+    /// </para>
+    /// <para>
+    /// 所以这个用例<b>必须把内容真的装进窗口</b>,并且分两种来源各打一次:
+    /// 从窗口自己发(焦点没进内容)和从内容里发(用户点过某个字段)。
+    /// 此前这里是直接对着一个<b>没有装进任何窗口</b>的控件打 Esc —— 那是旧实现唯一能通过的姿势,
+    /// 于是功能坏了一路而用例一直是绿的。
+    /// </para>
+    /// <para>
+    /// 也不把这件事推给宿主对所有插件面板统一处理:聊天面板也能以窗口形态打开,
     /// 那里 Esc 必须留给输入框 —— 正打着字被关掉窗口很糟。
+    /// </para>
     /// </remarks>
     [TestMethod]
     public void ConfigWindows_CloseOnEscape()
@@ -1066,33 +1102,54 @@ public sealed partial class ChatPanelViewUiTests
             (Window window, ChatPanelView panel) = await ShowAsync(context);
             try
             {
-                Click(panel, "SettingsButton");
-                await PumpAsync(5);
-                FakePanel opened = context.FakeUi.LastPanel;
-                var content = (Control)opened.CreateContent();
-
-                content.RaiseEvent(new KeyEventArgs
-                {
-                    RoutedEvent = InputElement.KeyDownEvent,
-                    Key = Key.Escape,
-                    Source = content
-                });
-                await PumpAsync(3);
-
-                Assert.IsFalse(opened.IsOpen, "Esc 要关掉设置窗口");
+                // ① 焦点还没进内容:按键从窗口自己发出
+                await OpenAndEscapeAsync(fromWindow: true);
+                // ② 用户点过内容里的某个字段:按键从内容发出,冒泡到窗口
+                await OpenAndEscapeAsync(fromWindow: false);
             }
             finally
             {
                 panel.Detach();
                 window.Close();
             }
+
+            async Task OpenAndEscapeAsync(bool fromWindow)
+            {
+                Click(panel, "SettingsButton");
+                await PumpAsync(5);
+                FakePanel opened = context.FakeUi.LastPanel;
+                var content = (Control)opened.CreateContent();
+                Window host = Host(content);
+                try
+                {
+                    await PumpAsync(3);
+                    Assert.IsTrue(opened.IsOpen);
+
+                    Control source = fromWindow ? host : content;
+                    source.RaiseEvent(new KeyEventArgs
+                    {
+                        RoutedEvent = InputElement.KeyDownEvent,
+                        Key = Key.Escape,
+                        Source = source
+                    });
+                    await PumpAsync(5);
+
+                    Assert.IsFalse(opened.IsOpen,
+                        fromWindow ? "焦点在窗体上时 Esc 也要关窗" : "焦点在内容里时 Esc 要关窗");
+                }
+                finally
+                {
+                    host.Close();
+                }
+            }
         });
     }
 
     /// <summary>
-    /// MCP 服务器配置<b>自己占一个窗口</b>,由「配置工具」右上角的 ⚙ 打开 ——
-    /// 它是一整套左列表右表单,压在勾选列表上面会把那一页挤得没法看。
-    /// 加完服务器,勾选窗口里的分组要<b>当场</b>多出一块,不用关掉重开。
+    /// 「配置工具」左栏是 MCP 服务器概览、右栏是它们带来的工具(设计图 G):
+    /// 配完一台紧接着就能在同一屏勾选。服务器<b>表单</b>仍旧自己占一个窗口 ——
+    /// 它是一整套左列表右表单,塞不进 270 宽的左栏;入口从原来的标题栏 ⚙ 挪到了左栏。
+    /// 加完服务器,右栏的分组要<b>当场</b>多出一块,不用关掉重开。
     /// </summary>
     [TestMethod]
     public void McpServers_LiveInTheirOwnWindow_AndAddingOneRebuildsTheToolGroups()
@@ -1110,25 +1167,26 @@ public sealed partial class ChatPanelViewUiTests
                 var picker = (ToolPickerView)tools.CreateContent();
                 toolsHost = Host(picker);
                 Assert.IsEmpty(picker.GetVisualDescendants().OfType<McpServersView>(),
-                    "服务器编辑不该再挤在勾选列表上面");
+                    "服务器表单不该挤在勾选列表上面");
+                Assert.IsEmpty(tools.Options.TitleActions,
+                    "入口从标题栏 ⚙ 挪到左栏了,标题栏不该再挂动作");
                 List<Border> groups = ToolGroups(picker);
                 Assert.IsNotEmpty(groups, "至少有内置工具那一组");
 
-                // 标题栏那枚 ⚙(PanelOptions.TitleActions)—— 就是它开出服务器配置窗口
-                tools.Options.TitleActions.Single().OnClick();
+                // 左栏底部的「新增服务器」—— 现在的入口
+                picker.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "McpRailAddButton")
+                      .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
                 await PumpAsync(5);
 
                 FakePanel mcp = context.FakeUi.LastPanel;
-                Assert.AreNotSame(tools, mcp, "⚙ 要开出第二个窗口");
+                Assert.AreNotSame(tools, mcp, "服务器表单要开在第二个窗口里");
+                // 内容工厂跑起来的同时就进了"新增一台"的状态(见 OpenMcpDialog 的 ApplySelection)
                 var servers = (McpServersView)mcp.CreateContent();
                 mcpHost = Host(servers);
-
-                servers.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "McpAddButton")
-                       .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
                 await PumpAsync(5);
 
                 Assert.HasCount(groups.Count + 1, ToolGroups(picker),
-                    "新服务器要当场在勾选窗口里出现一块自己的分组");
+                    "新服务器要当场在右栏出现一块自己的分组");
 
                 // 勾选列表都没了,单剩一个服务器配置窗口飘着没有意义
                 await tools.CloseAsync();

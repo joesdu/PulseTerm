@@ -86,7 +86,8 @@ public partial class ChatPanelView
     /// </summary>
     private void ShowCompactionMarker(int foldedMessages)
     {
-        var collapsible = new Collapsible(this, _loc.F("Compacted", foldedMessages));
+        var collapsible = new Collapsible(this, _loc.F("Compacted", foldedMessages),
+            iconKey: "AiIcon.scissors", iconBrushKey: "VelaAccent");
         collapsible.SetBody(_contextSummary);
         var host = new Border { Classes = { "compactionMarker" }, Child = collapsible.Root };
         MessagesPanel.Children.Add(host);

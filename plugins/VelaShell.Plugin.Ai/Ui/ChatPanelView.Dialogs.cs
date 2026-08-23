@@ -28,6 +28,9 @@ public partial class ChatPanelView
     private IPluginPanel? _toolsPanel;
     private IPluginPanel? _mcpPanel;
 
+    /// <summary>MCP 表单视图本体。窗口已经开着时要把选中项挪到用户刚点的那台上,得有个把手。</summary>
+    private McpServersView? _mcpView;
+
     /// <summary>打开设置窗口(已开着就带到前面,不重复开)。</summary>
     private void OpenSettingsDialog()
     {
@@ -82,14 +85,15 @@ public partial class ChatPanelView
             return;
         }
         ToolPickerView? picker = null;
-        // 标题栏的 ⚙ 通向 MCP 服务器配置。它是一整套左列表右表单,
-        // 压在勾选列表上面会把这一页挤得没法看,所以自己占一个窗口;
-        // 入口放标题栏而不是内容区右上角,和模型配置窗口的全局设置一个位置。
+        // 左栏是 MCP 服务器概览、右栏是它们带来的工具:配完一台紧接着就能在同一屏勾选,
+        // 不用在两个窗口之间来回切(设计图 G)。
+        // 但服务器<b>表单</b>仍旧独占一个窗口 —— 它自己就是"左列表右表单",
+        // 塞不进 270 宽的左栏;点概览行或「新增服务器」把它开出来。
         // (picker 在工厂里才造出来,回调只在用户点的时候跑,那时它早就有了。)
         _ = OpenAsync(
-            _loc["ConfigureTools"], 720, 680,
-            [new PanelTitleAction(SettingsIconPath, _loc["McpServers"], () => OpenMcpDialog(picker!))],
-            () => picker = new ToolPickerView(_context, _settings, _loc, PersistSettingsAsync),
+            _loc["ConfigureTools"], 940, 680, [],
+            () => picker = new ToolPickerView(_context, _settings, _loc, PersistSettingsAsync,
+                serverId => OpenMcpDialog(picker!, serverId)),
             panel => _toolsPanel = panel,
             () =>
             {
@@ -100,10 +104,16 @@ public partial class ChatPanelView
     }
 
     /// <summary>打开 MCP 服务器配置窗口;改完当场重建工具勾选列表。</summary>
-    private void OpenMcpDialog(ToolPickerView picker)
+    /// <param name="picker">改完服务器要回头刷新的那份勾选列表。</param>
+    /// <param name="serverId">
+    /// 要选中的服务器;null 表示直接进入"新增一台"。
+    /// 窗口已经开着时不重开,只把选中项挪过去 —— 用户点的是左栏某一行,期待的是"看到它"。
+    /// </param>
+    private void OpenMcpDialog(ToolPickerView picker, string? serverId = null)
     {
         if (Activate(_mcpPanel))
         {
+            ApplySelection(_mcpView);
             return;
         }
         _ = OpenAsync(
@@ -112,10 +122,32 @@ public partial class ChatPanelView
             {
                 var servers = new McpServersView(_context, _settings, _loc, PersistSettingsAsync);
                 servers.ServersChanged += picker.Rebuild;
+                _mcpView = servers;
+                ApplySelection(servers);
                 return servers;
             },
             panel => _mcpPanel = panel,
-            () => _mcpPanel = null);
+            () =>
+            {
+                _mcpPanel = null;
+                _mcpView = null;
+            });
+
+        void ApplySelection(McpServersView? view)
+        {
+            if (view is null)
+            {
+                return;
+            }
+            if (serverId is { Length: > 0 })
+            {
+                view.Select(serverId);
+            }
+            else
+            {
+                view.BeginAdd();
+            }
+        }
     }
 
     /// <summary>已经开着就带到前面并返回 true —— 什么都不做会像是按钮坏了。</summary>
@@ -157,16 +189,7 @@ public partial class ChatPanelView
                 TitleActions = titleActions
             }, () => view);
             onOpened(panel);
-            // Esc 关窗,与宿主其它窗口一致。挂在内容上而不是让宿主对所有插件面板统一处理:
-            // 聊天面板也能以窗口形态打开,那里 Esc 必须留给输入框(正打着字被关掉窗口很糟)。
-            view.AddHandler(InputElement.KeyDownEvent, (_, e) =>
-            {
-                if (e.Key == Key.Escape)
-                {
-                    e.Handled = true;
-                    _ = panel.CloseAsync();
-                }
-            }, RoutingStrategies.Bubble);
+            HookEscape(view, panel);
             // Closed 是宿主在线程池上回调的(见 PluginPanel.NotifyClosed),清账要回 UI 线程。
             // 注意用类型名限定:Avalonia 的 AvaloniaObject 上也有个实例属性叫 Dispatcher。
             panel.Closed += () => Avalonia.Threading.Dispatcher.UIThread.Post(onClosed);
@@ -176,6 +199,62 @@ public partial class ChatPanelView
             _context.Log.Error($"Opening the '{title}' window failed.", ex);
             onClosed();
         }
+    }
+
+    /// <summary>
+    /// 让 Esc 关掉这个窗口,效果与点标题栏的 ✕ 一致。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>处理器必须挂在窗口(TopLevel)上,不能挂在内容控件上。</b>冒泡是从<b>焦点所在的元素</b>
+    /// 往上走的:窗口刚开出来时焦点还在窗体自己身上(自绘标题栏那一侧),按键压根不经过
+    /// 插件内容这条链路 —— 挂在内容上的处理器于是一次都不触发。这正是之前"按 Esc 没反应"的原因。
+    /// </para>
+    /// <para>
+    /// 用<b>冒泡</b>而不是隧道,且不收已处理的事件:这样 Esc 会先归还给需要它的控件 ——
+    /// 下拉展开时先收起下拉、弹层开着时先关弹层,都轮不到关窗。隧道会把这些统统抢掉。
+    /// </para>
+    /// <para>
+    /// 也不把这件事推给宿主对所有插件面板统一处理:聊天面板本身也能以窗口形态打开
+    /// (<c>AI:打开聊天(窗口)</c>),那里的 Esc 必须留给输入框 —— 正打着字被关掉窗口很糟。
+    /// 只有经这个工厂开出来的二级窗口才挂。
+    /// </para>
+    /// </remarks>
+    private static void HookEscape(Control view, IPluginPanel panel)
+    {
+        void OnKeyDown(object? _, KeyEventArgs e)
+        {
+            if (e.Key != Key.Escape || e.Handled)
+            {
+                return;
+            }
+            e.Handled = true;
+            _ = panel.CloseAsync();
+        }
+
+        void Attach()
+        {
+            if (TopLevel.GetTopLevel(view) is not { } top)
+            {
+                return;
+            }
+            top.AddHandler(InputElement.KeyDownEvent, OnKeyDown, RoutingStrategies.Bubble);
+            view.DetachedFromVisualTree += (_, _) =>
+                top.RemoveHandler(InputElement.KeyDownEvent, OnKeyDown);
+        }
+
+        // ShowPanelAsync 返回时内容可能已经装进窗口了(那就直接挂),也可能还没(等装上再挂)
+        if (TopLevel.GetTopLevel(view) is not null)
+        {
+            Attach();
+            return;
+        }
+        void OnAttached(object? _, Avalonia.VisualTreeAttachmentEventArgs __)
+        {
+            view.AttachedToVisualTree -= OnAttached;
+            Attach();
+        }
+        view.AttachedToVisualTree += OnAttached;
     }
 
     /// <summary>面板关闭时把这几个窗口一并带走,别留在屏幕上。</summary>

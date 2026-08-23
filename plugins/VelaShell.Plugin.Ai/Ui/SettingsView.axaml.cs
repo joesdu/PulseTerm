@@ -9,10 +9,68 @@ using VelaShell.PluginSdk;
 namespace VelaShell.Plugin.Ai.Ui;
 
 /// <summary>左栏一行:供应商行(<see cref="Model" /> 为 null)或其下的模型行。</summary>
-public sealed record ProviderNavItem(AiProvider Provider, AiModelConfig? Model, string Text, Thickness Indent, FontWeight Weight)
+/// <remarks>
+/// 是<b>类</b>不是 record:行尾那颗连通性状态点要在"测试"跑完的那一刻就地变色。
+/// record 是不可变的,只能靠重建整个列表来刷新 —— 而重建会重置选中项、
+/// 进而触发 <c>LoadEditorAsync</c> 把用户表单里还没保存的改动冲掉。
+/// </remarks>
+public sealed class ProviderNavItem(
+    AiProvider provider, AiModelConfig? model, string text, Thickness indent, FontWeight weight)
+    : System.ComponentModel.INotifyPropertyChanged
 {
+    private IBrush? _dot;
+    private string _dotTip = "";
+
+    /// <summary>这一行所属的供应商(模型行也指向它的父供应商)。</summary>
+    public AiProvider Provider { get; } = provider;
+
+    /// <summary>模型行指向的模型;供应商行为 null。</summary>
+    public AiModelConfig? Model { get; } = model;
+
+    /// <summary>行上显示的名字。</summary>
+    public string Text { get; } = text;
+
+    /// <summary>左缩进:模型行比供应商行进一档。</summary>
+    public Thickness Indent { get; } = indent;
+
+    /// <summary>字重:供应商行加粗。</summary>
+    public FontWeight Weight { get; } = weight;
+
+    /// <summary>层级图标:供应商 = 云,模型 = 方块(几何在 <c>ReloadList</c> 里解析)。</summary>
+    public Geometry? Icon { get; set; }
+
+    /// <summary>图标描边色。与 <see cref="Dot" /> 一样,画笔在建项时解析好。</summary>
+    public IBrush? Tint { get; set; }
+
     /// <summary>是不是供应商行。</summary>
     public bool IsProvider => Model is null;
+
+    /// <summary>状态点的颜色:灰 = 本次窗口内没测过,绿 = 通过,红 = 失败。</summary>
+    public IBrush? Dot
+    {
+        get => _dot;
+        set => Set(ref _dot, value, nameof(Dot));
+    }
+
+    /// <summary>状态点的悬停说明。</summary>
+    public string DotTip
+    {
+        get => _dotTip;
+        set => Set(ref _dotTip, value, nameof(DotTip));
+    }
+
+    /// <summary>状态点变色时通知绑定(<see cref="Dot" /> / <see cref="DotTip" />)。</summary>
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+
+    private void Set<T>(ref T field, T value, string name)
+    {
+        if (EqualityComparer<T>.Default.Equals(field, value))
+        {
+            return;
+        }
+        field = value;
+        PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(name));
+    }
 }
 
 /// <summary>
@@ -36,6 +94,13 @@ public partial class SettingsView : UserControl
     private readonly Action _onProvidersChanged;
     private List<ProviderNavItem> _nav = [];
     private bool _loadingEditor;
+
+    /// <summary>
+    /// 本次窗口内"测试"跑出来的结果(键 = 模型 id,供应商行用供应商 id)。
+    /// <b>不落盘</b>:它说的是"刚才那一次连通",隔天再打开时那句话已经不成立了 ——
+    /// 与其显示一个可能过期的绿点,不如老实退回灰点。
+    /// </summary>
+    private readonly Dictionary<string, bool> _testResults = new(StringComparer.Ordinal);
 
     /// <summary>两击确认删供应商:记着第一击是冲着谁的,换了选择就作废。</summary>
     private string? _pendingDeleteProviderId;
@@ -93,6 +158,8 @@ public partial class SettingsView : UserControl
         ProviderProtocolHintText.Text = _loc["DefaultProtocolHint"];
         ProviderApiKeyLabel.Text = _loc["ApiKey"];
         ProviderApiKeyHintText.Text = _loc["ProviderKeyHint"];
+        ProviderKeyBadgeText.Text = _loc["KeyEncrypted"];
+        ModelKeyBadgeText.Text = _loc["KeyEncrypted"];
         NameLabel.Text = _loc["Name"];
         ProtocolLabel.Text = _loc["Protocol"];
         BaseUrlLabel.Text = _loc["BaseUrlOverride"];
@@ -150,6 +217,44 @@ public partial class SettingsView : UserControl
         return [_loc.F("InheritProtocol", inherited), .. ProtocolLabels];
     }
 
+    /// <summary>状态点/徽章的记忆键:模型行按模型 id,供应商行按供应商 id。</summary>
+    private static string NavKey(ProviderNavItem item) => item.Model?.Id ?? item.Provider.Id;
+
+    /// <summary>把某一行的状态点刷成它当前该有的颜色(没测过 = 灰)。</summary>
+    private void ApplyDot(ProviderNavItem item)
+    {
+        bool? result = _testResults.TryGetValue(NavKey(item), out bool ok) ? ok : null;
+        (string brushKey, string tipKey) = result switch
+        {
+            true => ("VelaStatusConnected", "DotPassed"),
+            false => ("VelaError", "DotFailed"),
+            _ => ("VelaTextMuted", "DotUntested")
+        };
+        item.Dot = this.TryFindResource(brushKey, ActualThemeVariant, out object? brush) ? brush as IBrush : null;
+        item.DotTip = _loc[tipKey];
+    }
+
+    /// <summary>表单顶上那枚测试结果徽章。没测过就整枚隐掉,不假装知道。</summary>
+    private void UpdateTestBadge()
+    {
+        if (SelectedItem is not { } item || !_testResults.TryGetValue(NavKey(item), out bool ok))
+        {
+            TestBadge.IsVisible = false;
+            return;
+        }
+        TestBadge.IsVisible = true;
+        TestBadgeText.Text = _loc[ok ? "DotPassed" : "DotFailed"];
+        IBrush? tone = this.TryFindResource(ok ? "VelaStatusConnected" : "VelaError", ActualThemeVariant, out object? brush)
+            ? brush as IBrush
+            : null;
+        TestBadgeText.Foreground = tone;
+        TestBadge.BorderBrush = tone;
+        // 同色淡底(设计图 E):只有描边的话,这枚徽章在面包屑那一行里太轻,扫不到
+        TestBadge.Background = tone is ISolidColorBrush solid
+            ? new SolidColorBrush(solid.Color, 0.14)
+            : null;
+    }
+
     private void ReloadList(string? selectId)
     {
         _nav = [];
@@ -174,6 +279,17 @@ public partial class SettingsView : UserControl
                     new Thickness(14, 0, 0, 0), FontWeight.Normal));
             }
         }
+        // 层级图标与状态点一起在这儿解析:这时视图已经装载过,宿主令牌查得到
+        Geometry? cloud = this.TryFindResource("AiIcon.cloud", ActualThemeVariant, out object? c) ? c as Geometry : null;
+        Geometry? box = this.TryFindResource("AiIcon.box", ActualThemeVariant, out object? b) ? b as Geometry : null;
+        IBrush? providerTint = this.TryFindResource("VelaTextSecondary", ActualThemeVariant, out object? p) ? p as IBrush : null;
+        IBrush? modelTint = this.TryFindResource("VelaTextMuted", ActualThemeVariant, out object? m) ? m as IBrush : null;
+        foreach (ProviderNavItem item in _nav)
+        {
+            item.Icon = item.IsProvider ? cloud : box;
+            item.Tint = item.IsProvider ? providerTint : modelTint;
+            ApplyDot(item);
+        }
         ProvidersList.ItemsSource = _nav;
         ProvidersList.SelectedIndex = selectIndex >= 0 ? selectIndex : Math.Min(0, _nav.Count - 1);
         if (ProvidersList.SelectedIndex < 0)
@@ -197,6 +313,15 @@ public partial class SettingsView : UserControl
             DeleteButton.IsEnabled = hasSelection;
             AddModelButton.IsEnabled = hasSelection;
             StatusText.Text = "";
+            // 面包屑:左栏的模型行只写模型名,滚到表单中段时"这是哪家的"就没了着落
+            string providerName = provider is null
+                ? ""
+                : string.IsNullOrWhiteSpace(provider.Name) ? _loc["Unnamed"] : provider.Name;
+            string modelName = model is null
+                ? ""
+                : string.IsNullOrWhiteSpace(model.DisplayName) ? _loc["Unnamed"] : model.DisplayName;
+            BreadcrumbText.Text = model is null ? providerName : $"{providerName}  ›  {modelName}";
+            UpdateTestBadge();
 
             // 供应商表单
             ProviderNameBox.Text = provider?.Name ?? "";
@@ -495,13 +620,19 @@ public partial class SettingsView : UserControl
                 "Reply with exactly: OK", new ChatOptions { MaxOutputTokens = 64 }));
             string text = response.Text.Trim();
             StatusText.Text = _loc.F("TestOk", text.Length > 80 ? text[..80] + "…" : text);
+            _testResults[NavKey(item)] = true;
         }
         catch (Exception ex)
         {
             StatusText.Text = _loc.F("TestFail", ex.Message);
+            _testResults[NavKey(item)] = false;
         }
         finally
         {
+            // 就地改这一行的点(item 是同一个实例,绑定自己会跟上),不重建列表 ——
+            // 重建会连带重置选中项并触发 LoadEditorAsync,把用户还没保存的编辑冲掉。
+            ApplyDot(item);
+            UpdateTestBadge();
             TestButton.IsEnabled = SelectedItem is not null;
         }
     }

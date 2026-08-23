@@ -23,16 +23,6 @@ public partial class ChatPanelView
 
     private CancellationTokenSource? _suggestCts;
 
-    /// <summary>空会话的起手提示(本地文案,不请求模型)。</summary>
-    private void ShowStarterSuggestions()
-    {
-        if (_history.Count > 0)
-        {
-            return;
-        }
-        RenderSuggestions([_loc["Starter1"], _loc["Starter2"], _loc["Starter3"]]);
-    }
-
     private void ClearSuggestions()
     {
         _suggestCts?.Cancel();
@@ -182,12 +172,14 @@ public partial class ChatPanelView
         _suggestCts = null;
     }
 
-    /// <summary>语言切换时,若当前显示的是起手提示就换成新语言的。</summary>
+    /// <summary>
+    /// 语言切换时把空状态整块重建(标题 / 说明 / 三条起手示例都是文案)。
+    /// 起手示例已经从输入框上方的药丸挪进空状态了 —— 药丸只留给对话开始<b>之后</b>
+    /// 由模型给的后续提问,那些是上一轮的产物,换语言不该也不能就地翻译。
+    /// </summary>
     private void RefreshStarterSuggestions()
     {
-        if (_history.Count == 0 && SuggestionBar.IsVisible)
-        {
-            ShowStarterSuggestions();
-        }
+        _emptyStateNeedsProvider = null; // 作废缓存,强制按新语言重建
+        UpdateEmptyState();
     }
 }

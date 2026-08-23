@@ -26,10 +26,31 @@ public partial class ChatPanelView
                 ? _loc.F("HistoryFiltered", shown.Count, _historySessions.Count)
                 : _loc.F("HistoryCount", _historySessions.Count);
         ClearHistoryButton.IsVisible = _historySessions.Count > 0;
+        // 按日期分组(今天 / 昨天 / 更早)。列表是按更新时间倒序取回来的,所以顺着走一遍
+        // 就能在跨天处插一条组标题 —— 一整列平铺时,"昨天那条"只能一行行读时间戳去找。
+        string? currentGroup = null;
         foreach (ChatSessionSummary session in shown)
         {
+            string group = HistoryGroupLabel(session.UpdatedAt.ToLocalTime());
+            if (!string.Equals(group, currentGroup, StringComparison.Ordinal))
+            {
+                currentGroup = group;
+                HistoryList.Children.Add(new TextBlock { Classes = { "histGroup" }, Text = group });
+            }
             HistoryList.Children.Add(BuildHistoryRow(session));
         }
+    }
+
+    /// <summary>这条会话该归到哪一组。按<b>本地日历日</b>比,不是按"距今 24 小时"。</summary>
+    private string HistoryGroupLabel(DateTimeOffset stamp)
+    {
+        DateTime today = DateTime.Today;
+        DateTime day = stamp.Date;
+        return day == today
+            ? _loc["HistToday"]
+            : day == today.AddDays(-1)
+                ? _loc["HistYesterday"]
+                : _loc["HistEarlier"];
     }
 
     /// <summary>把某个会话改名:标题就地变成输入框,回车确认、失焦或 Esc 取消。</summary>
