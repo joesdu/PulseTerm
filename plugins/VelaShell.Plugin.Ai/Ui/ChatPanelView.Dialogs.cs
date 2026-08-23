@@ -67,7 +67,7 @@ public partial class ChatPanelView
             return;
         }
         _ = OpenAsync(
-            _loc["GlobalSettings"], 620, 480, [],
+            _loc["GlobalSettings"], 640, 680, [],
             () => _globalSettingsView = new GlobalSettingsView(_context, _settings, _loc, PersistSettingsAsync),
             panel => _globalSettingsPanel = panel,
             () =>

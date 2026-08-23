@@ -2,7 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="VelaShell.Plugin.Ai.Ui.GlobalSettingsView">
 
-  <!-- 全局设置:不属于某一个供应商/模型的那些(系统提示词 / 上下文压缩 / 后续提问)。
+  <!-- 全局设置:不属于某一个供应商/模型的那些(系统提示词 / 上下文压缩 / 后续提问 / 网络检索)。
        原本是模型配置页最下面的一节,跟着长表单一起滚很难找;现在从模型配置窗口标题栏的 ⚙ 进来,
        自己一个小窗口。版式与模型配置页同一套:节标题 + 描边卡片 + 末行操作。 -->
 
@@ -18,44 +18,104 @@
     <StyleInclude Source="avares://VelaShell.Plugin.Ai/Ui/DialogStyles.axaml" />
   </UserControl.Styles>
 
-  <!-- 不用 ScrollViewer + StackPanel:那样内容按自然高度排,窗口余下的高度全变成卡片下面的空白。
-       改成 Grid,提示词框占 * 行 —— 窗口多高它就多高,留白落进最有用的那个框里。 -->
-  <Grid Margin="24,20,24,20" RowDefinitions="Auto,8,*,Auto">
-      <TextBlock x:Name="SectionGlobalTitle" Classes="section-title" />
-      <Border Grid.Row="2" Classes="section">
-        <Grid RowDefinitions="Auto,*,Auto,Auto,Auto,Auto">
-          <TextBlock x:Name="SystemPromptLabel" Classes="label" Margin="0,0,0,3" />
-          <TextBox Grid.Row="1" x:Name="SystemPromptBox" AcceptsReturn="True" MinHeight="96" TextWrapping="Wrap"
-                   VerticalAlignment="Stretch" VerticalContentAlignment="Top" />
+  <!-- 底色压到 VelaBgTerminal:宿主的插件窗体本体是 VelaBgSurface,卡片也是 —— 不垫这一层
+       就只剩一圈 1px 描边,分不出块(与模型配置页同一处置)。 -->
+  <Border Background="{DynamicResource VelaBgTerminal}" CornerRadius="0,0,7,7">
+    <!-- 两节之后改回滚动式。之前是 Grid + 提示词框占 * 行(让留白落进最有用的那个框里),
+         那是只有一张卡时的算法;第二节进来之后两张卡的自然高度已经超过窗口,* 行会被压成 0,
+         结果是上面那张卡自己把内容裁掉。现在提示词框给固定的 MinHeight,整页可滚。 -->
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+      <StackPanel Margin="24,18" Spacing="8">
+        <TextBlock x:Name="SectionGlobalTitle" Classes="section-title" />
+        <Border Classes="section">
+          <StackPanel>
+            <TextBlock x:Name="SystemPromptLabel" Classes="label" Margin="0,0,0,4" />
+            <TextBox x:Name="SystemPromptBox" AcceptsReturn="True" MinHeight="120" TextWrapping="Wrap"
+                     VerticalContentAlignment="Top" />
 
-          <CheckBox Grid.Row="2" x:Name="CompactContextCheck" Theme="{StaticResource AiCheckBoxTheme}"
-                    FontSize="{DynamicResource VelaFontSize12}" Margin="0,14,0,0" />
-          <TextBlock Grid.Row="3" x:Name="CompactContextHintText" Classes="hint" />
+            <CheckBox x:Name="CompactContextCheck" Theme="{StaticResource AiCheckBoxTheme}"
+                      FontSize="{DynamicResource VelaFontSize12}"
+                      Foreground="{DynamicResource VelaTextPrimary}" Margin="0,14,0,0" />
+            <TextBlock x:Name="CompactContextHintText" Classes="hint" />
 
-          <CheckBox Grid.Row="4" x:Name="SuggestFollowUpsCheck" Theme="{StaticResource AiCheckBoxTheme}"
-                    FontSize="{DynamicResource VelaFontSize12}" Margin="0,14,0,0" />
-          <TextBlock Grid.Row="5" x:Name="SuggestFollowUpsHintText" Classes="hint" />
-        </Grid>
-      </Border>
+            <CheckBox x:Name="SuggestFollowUpsCheck" Theme="{StaticResource AiCheckBoxTheme}"
+                      FontSize="{DynamicResource VelaFontSize12}"
+                      Foreground="{DynamicResource VelaTextPrimary}" Margin="0,14,0,0" />
+            <TextBlock x:Name="SuggestFollowUpsHintText" Classes="hint" />
+          </StackPanel>
+        </Border>
 
-      <Border Grid.Row="3" BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,1,0,0"
-              Padding="0,14,0,0" Margin="0,4,0,0">
-        <Grid ColumnDefinitions="*,Auto">
-          <TextBlock x:Name="StatusText" Classes="dim" TextWrapping="Wrap"
-                     Margin="0,0,12,0" VerticalAlignment="Center" />
-          <Button x:Name="SaveButton" Grid.Column="1" Theme="{DynamicResource VelaAccentPillButtonTheme}" Height="26" Padding="12,0">
-            <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
-              <Viewbox Width="11" Height="11" VerticalAlignment="Center">
-                <Path Width="24" Height="24" Data="{DynamicResource Icon.save}"
-                      Stroke="{DynamicResource VelaAccent}" StrokeThickness="2"
-                      StrokeLineCap="Round" StrokeJoin="Round" />
-              </Viewbox>
-              <TextBlock x:Name="SaveText" VerticalAlignment="Center"
-                         FontSize="{DynamicResource VelaFontSize11}" FontWeight="Medium" />
+        <!-- ═══ 网络检索 ═══ -->
+        <TextBlock x:Name="SectionWebTitle" Classes="section-title" Margin="0,6,0,0" />
+        <Border Classes="section">
+          <StackPanel Spacing="10">
+            <StackPanel>
+              <CheckBox x:Name="WebEnabledCheck" Theme="{StaticResource AiCheckBoxTheme}"
+                        FontSize="{DynamicResource VelaFontSize12}"
+                        Foreground="{DynamicResource VelaTextPrimary}" />
+              <TextBlock x:Name="WebEnabledHintText" Classes="hint" />
             </StackPanel>
-          </Button>
-        </Grid>
-      </Border>
 
-  </Grid>
+            <!-- 总闸关掉时整块细节收起来:那些字段一条都用不上,留着只是噪音 -->
+            <StackPanel x:Name="WebDetailPanel" Spacing="10">
+              <!-- 实例地址与条数并排:一个 URL 一个数字,各自独占一行是浪费 -->
+              <StackPanel>
+                <Grid ColumnDefinitions="*,12,120">
+                  <StackPanel>
+                    <TextBlock x:Name="WebSearxUrlLabel" Classes="label" Margin="0,0,0,4" />
+                    <TextBox x:Name="WebSearxUrlBox" FontFamily="{DynamicResource VelaUiMonoFont}" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="2">
+                    <TextBlock x:Name="WebMaxResultsLabel" Classes="label" Margin="0,0,0,4" />
+                    <TextBox x:Name="WebMaxResultsBox" />
+                  </StackPanel>
+                </Grid>
+                <TextBlock x:Name="WebSearxHintText" Classes="hint" />
+              </StackPanel>
+
+              <StackPanel>
+                <CheckBox x:Name="WebNativeCheck" Theme="{StaticResource AiCheckBoxTheme}"
+                          FontSize="{DynamicResource VelaFontSize12}"
+                          Foreground="{DynamicResource VelaTextPrimary}" />
+                <TextBlock x:Name="WebNativeHintText" Classes="hint" />
+              </StackPanel>
+
+              <StackPanel>
+                <CheckBox x:Name="WebPrivateCheck" Theme="{StaticResource AiCheckBoxTheme}"
+                          FontSize="{DynamicResource VelaFontSize12}"
+                          Foreground="{DynamicResource VelaTextPrimary}" />
+                <TextBlock x:Name="WebPrivateHintText" Classes="hint" />
+              </StackPanel>
+
+              <StackPanel>
+                <TextBlock x:Name="WebAllowedHostsLabel" Classes="label" Margin="0,0,0,4" />
+                <TextBox x:Name="WebAllowedHostsBox" AcceptsReturn="True" MinHeight="46" TextWrapping="NoWrap"
+                         FontFamily="{DynamicResource VelaUiMonoFont}" />
+                <TextBlock x:Name="WebAllowedHostsHintText" Classes="hint" />
+              </StackPanel>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <Border BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,1,0,0"
+                Padding="0,12,0,0" Margin="0,6,0,0">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock x:Name="StatusText" Classes="dim" TextWrapping="Wrap"
+                       Margin="0,0,12,0" VerticalAlignment="Center" />
+            <Button x:Name="SaveButton" Grid.Column="1" Theme="{DynamicResource VelaAccentPillButtonTheme}" Height="26" Padding="12,0">
+              <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                <Viewbox Width="11" Height="11" VerticalAlignment="Center">
+                  <Path Width="24" Height="24" Data="{DynamicResource Icon.save}"
+                        Stroke="{DynamicResource VelaAccent}" StrokeThickness="2"
+                        StrokeLineCap="Round" StrokeJoin="Round" />
+                </Viewbox>
+                <TextBlock x:Name="SaveText" VerticalAlignment="Center"
+                           FontSize="{DynamicResource VelaFontSize11}" FontWeight="Medium" />
+              </StackPanel>
+            </Button>
+          </Grid>
+        </Border>
+      </StackPanel>
+    </ScrollViewer>
+  </Border>
 </UserControl>

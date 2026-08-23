@@ -344,6 +344,9 @@ public sealed class AiSettings
     /// <summary>用户自定义的 MCP 服务器(Agent 模式下启用项的工具并入工具箱)。</summary>
     public List<McpServerConfig> McpServers { get; set; } = [];
 
+    /// <summary>网络检索(web_search / web_fetch)。</summary>
+    public WebSearchOptions WebSearch { get; set; } = new();
+
     /// <summary>把两层结构摊平:按供应商顺序、供应商内按模型顺序。</summary>
     public List<ResolvedModel> ResolveModels()
     {

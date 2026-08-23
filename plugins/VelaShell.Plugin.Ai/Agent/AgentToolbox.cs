@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.AI;
+using VelaShell.Plugin.Ai.Agent.Web;
 using VelaShell.Plugin.Ai.Configuration;
 using VelaShell.PluginSdk;
 using VelaShell.PluginSdk.RemoteExec;
@@ -11,7 +12,7 @@ using VelaShell.PluginSdk.Sessions;
 namespace VelaShell.Plugin.Ai.Agent;
 
 /// <summary>
-/// Agent 模式的工具箱:把插件能力(会话枚举/终端读取/远程执行/远程读文件/终端回写)
+/// Agent 模式的工具箱:把插件能力(会话枚举/终端读取/远程执行/远程读文件/终端回写/网络检索)
 /// 包装为 <see cref="AIFunction" />,由 FunctionInvokingChatClient 自动循环调用。
 /// 危险操作(run_command / write_terminal)先过 <see cref="ApprovalHandler" /> 审批;
 /// write_terminal 之上还有宿主自己的授权弹窗。
@@ -34,6 +35,9 @@ public sealed class AgentToolbox(IPluginContext context)
     /// <summary>用户在"配置工具"里取消勾选的内置工具名(不暴露给模型)。</summary>
     public IReadOnlySet<string> DisabledTools { get; set; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>网络检索设置(SearXNG 地址、私网闸、截断上限)。由聊天面板每轮推过来。</summary>
+    public WebSearchOptions WebSearch { get; set; } = new();
+
     /// <summary>全部内置工具的名称与一句说明,供"配置工具"窗口列出勾选项。</summary>
     public static IReadOnlyList<(string Name, string Description, bool ReadOnly)> Catalog { get; } =
     [
@@ -44,14 +48,22 @@ public sealed class AgentToolbox(IPluginContext context)
         ("run_command", "在所选会话上执行一次性命令(独立通道,不进用户终端)", false),
         ("write_remote_file", "经 SFTP 覆盖写入远端文本文件", false),
         ("upload_local_file", "把本机文件(如 MCP 工具刚生成的)经 SFTP 传到服务器", false),
-        ("write_terminal", "把文本敲进用户可见的终端", false)
+        ("write_terminal", "把文本敲进用户可见的终端", false),
+        ("web_search", "检索网络,返回标题/链接/摘要清单(不含正文)", true),
+        ("web_fetch", "取一个网页并转成文本", true)
     ];
 
     /// <summary>
     /// 构建暴露给模型的工具列表。<see cref="ChatMode.Plan" /> 下<b>只给只读工具</b> ——
     /// 计划模式的约定就是"先说怎么做",不该在这一步动任何东西。
     /// </summary>
-    public IList<AITool> CreateTools(ChatMode mode)
+    /// <param name="mode">当前对话模式。</param>
+    /// <param name="nativeWebSearch">
+    /// 这一轮的检索由供应商的服务端工具接管。此时<b>不再注册插件自带的 web_search</b> ——
+    /// 两个名字不同、用途一样的检索工具摆在一起,模型会来回换着试,既慢又乱。
+    /// web_fetch 照给:原生检索给的是它自己挑好的结果,用户点名要读某个 URL 时还得靠它。
+    /// </param>
+    public IList<AITool> CreateTools(ChatMode mode, bool nativeWebSearch = false)
     {
         var all = new List<(string Name, AITool Tool, bool ReadOnly)>
         {
@@ -74,6 +86,23 @@ public sealed class AgentToolbox(IPluginContext context)
             ("write_terminal", AIFunctionFactory.Create(WriteTerminalAsync, "write_terminal",
                 "Type text into the user's visible terminal of the selected SSH session, as if the user typed it. A trailing newline executes the command. The host will additionally ask the user for permission. Use only when the user explicitly wants something typed into their terminal."), false)
         };
+        // 两个网络工具受"网络检索"总闸控制;开着才注册。都是只读的,所以计划模式也给 ——
+        // "先查清楚再说怎么做"本来就是计划该干的事。
+        if (WebSearch.Enabled && !nativeWebSearch)
+        {
+            all.Add(("web_search", AIFunctionFactory.Create(WebSearchAsync, "web_search",
+                "Search the web. Returns a numbered list of results (title, URL, snippet) — it does NOT return page contents. "
+                + "Pick the results that look relevant and read them with web_fetch. "
+                + "Use it whenever the answer may have moved since training: package versions, CVE details, changelogs, "
+                + "vendor documentation, or an error message you do not recognise."), true));
+        }
+        if (WebSearch.Enabled)
+        {
+            all.Add(("web_fetch", AIFunctionFactory.Create(WebFetchAsync, "web_fetch",
+                "Fetch one web page (or a raw text/JSON URL) and return it as text. "
+                + "Same-host redirects are followed; a cross-host redirect is reported back instead of followed, "
+                + "so call web_fetch again with the new URL if that is where you want to go."), true));
+        }
         return
         [
             .. all.Where(t => (mode != ChatMode.Plan || t.ReadOnly) && !DisabledTools.Contains(t.Name))
@@ -332,6 +361,76 @@ public sealed class AgentToolbox(IPluginContext context)
             return $"Failed to write terminal: {ex.Message}";
         }
     }
+
+    // ---- 网络检索 ----
+
+    /// <summary>按当前设置现造一套检索件。</summary>
+    /// <remarks>
+    /// 每次调用都新建:<see cref="WebAccess" /> 本身没有状态(HttpClient 与页面缓存都是静态的),
+    /// 而设置随时可能在设置窗口里被改掉 —— 缓存一个实例只会让改完的设置这一轮不生效。
+    /// </remarks>
+    private (WebAccess Access, WebSearchOptions Options) Web()
+    {
+        WebSearchOptions options = WebSearch;
+        options.Clamp();
+        return (new WebAccess(options), options);
+    }
+
+    private async Task<string> WebSearchAsync(
+        [Description("The search query. Plain keywords work best — write it the way you would type it into a search engine.")] string query,
+        [Description("How many results to return. 0 (the default) uses the user's configured count; maximum 20.")] int count = 0,
+        CancellationToken cancellationToken = default)
+    {
+        (WebAccess access, WebSearchOptions options) = Web();
+        var engine = new WebSearchEngine(access, options);
+        (bool ok, IReadOnlyList<SearchHit> hits, string note) = await engine
+            .SearchAsync(query ?? "", count > 0 ? count : options.MaxResults, cancellationToken).ConfigureAwait(false);
+        if (!ok)
+        {
+            return $"Search failed: {note}";
+        }
+        if (hits.Count == 0)
+        {
+            return note.Length > 0
+                ? $"No results for '{query}'. {note}"
+                : $"No results for '{query}'. Try different keywords.";
+        }
+        var sb = new StringBuilder();
+        sb.Append("Results for '").Append(query).Append("':").Append('\n');
+        int n = 0;
+        foreach (SearchHit hit in hits)
+        {
+            sb.Append('\n').Append(++n).Append(". ").Append(hit.Title).Append('\n');
+            sb.Append("   ").Append(hit.Url).Append('\n');
+            if (hit.Snippet.Length > 0)
+            {
+                sb.Append("   ").Append(Clip(hit.Snippet, 400)).Append('\n');
+            }
+        }
+        sb.Append('\n').Append("Snippets are not the page. Read the promising ones with web_fetch(url) before answering.");
+        return sb.ToString();
+    }
+
+    private async Task<string> WebFetchAsync(
+        [Description("Absolute http(s) URL of the page to read.")] string url,
+        CancellationToken cancellationToken = default)
+    {
+        if (!Uri.TryCreate((url ?? "").Trim(), UriKind.Absolute, out Uri? target))
+        {
+            return $"'{url}' is not an absolute URL — pass a full http(s) address (web_search results already are).";
+        }
+        (WebAccess access, _) = Web();
+        FetchResult result = await access.FetchAsync(target, cancellationToken).ConfigureAwait(false);
+        // 失败时 Body 里装的就是给模型看的说明(跳转去了哪、为什么被拦),照原样回
+        if (!result.Ok || result.FinalUrl == target)
+        {
+            return result.Body;
+        }
+        return $"[followed a same-host redirect to {result.FinalUrl}]\n\n{result.Body}";
+    }
+
+    /// <summary>长文本截断,尾部补省略号。</summary>
+    private static string Clip(string text, int max) => text.Length <= max ? text : text[..max] + "…";
 
     private const string NoSessionMessage =
         "No SSH session is selected/connected. Ask the user to connect and select a session in the AI panel first.";
