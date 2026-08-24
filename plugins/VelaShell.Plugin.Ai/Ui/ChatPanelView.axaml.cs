@@ -66,6 +66,8 @@ public partial class ChatPanelView : UserControl
     private List<SessionInfo> _sessions = [];
     private CancellationTokenSource? _cts;
     private bool _busy;
+    /// <summary>这一轮往 <c>_history</c> 里加的第一条的下标(那之后的全是本轮的东西)。</summary>
+    private int _turnHistoryStart;
 
     // 当前会话在时序库中的身份:摘要点的时间戳恒为 _conversationStartedAt(覆盖式更新),
     // _persistedCount 既是已入库条数,也是下一条消息的序号。
@@ -201,10 +203,14 @@ public partial class ChatPanelView : UserControl
     }
 
     /// <summary>
-    /// 从命令入口外部注入一条消息并直接发送(任意线程可调)。
+    /// 从命令入口外部注入一条消息并发送(任意线程可调)。
     /// 注入的内容(如整段终端输出)不当作用户输入:既不进 ↑↓ 历史,
     /// 里面碰巧出现的 <c>@/path</c> 也不会被当成文件引用去读远端。
     /// </summary>
+    /// <remarks>
+    /// 上一轮还在跑时不会被丢掉,而是排进插话队列(见 ChatPanelView.Steering.cs)——
+    /// 用户在 Agent 干活时把一段报错扔进来,正是要它照着这段接着往下查。
+    /// </remarks>
     public void SendExternal(string text) => Dispatcher.UIThread.Post(() => _ = SendAsync(text, fromUser: false));
 
     // ---------- 初始化与状态 ----------
@@ -258,10 +264,8 @@ public partial class ChatPanelView : UserControl
         ClearHistoryText.Text = _loc["ClearHistory"];
         HistoryHeader.Text = _loc["HistoryHeader"];
         HistorySearchBox.PlaceholderText = _loc["SearchHistory"];
-        InputPlaceholder.Text = _loc["InputPlaceholder"];
-        SendText.Text = _loc["Send"];
+        SyncSendButton(); // 发送键的文案与输入框提示随"忙不忙"变,取词收在一处
         StopText.Text = _loc["Stop"];
-        ToolTip.SetTip(SendButton, _loc["Send"]);
         ToolTip.SetTip(StopButton, _loc["Stop"]);
         ToolTip.SetTip(ProviderCombo, _loc["Model"]);
         UpdateUsageText();
@@ -765,12 +769,28 @@ public partial class ChatPanelView : UserControl
         }
     }
 
+    /// <summary>
+    /// 切换"这一轮在跑"的界面状态。
+    /// </summary>
+    /// <remarks>
+    /// 发送键<b>不再随忙隐藏</b>:一轮进行中它换成「排队」,再发的消息插进当前这一轮
+    /// (见 ChatPanelView.Steering.cs)。停止键与它并排 —— 两件事此刻都做得了:
+    /// 补一句让它照着改,或者干脆把这一轮掐掉。
+    /// </remarks>
     private void SetBusy(bool busy)
     {
         _busy = busy;
-        SendButton.IsVisible = !busy;
         StopButton.IsVisible = busy;
+        SyncSendButton();
         SetBusyGlow(busy);
+    }
+
+    /// <summary>发送键与输入框提示按"忙不忙"取词(语言切换与忙闲切换都经这里)。</summary>
+    private void SyncSendButton()
+    {
+        SendText.Text = _loc[_busy ? "Queue" : "Send"];
+        ToolTip.SetTip(SendButton, _loc[_busy ? "QueueTip" : "Send"]);
+        InputPlaceholder.Text = _loc[_busy ? "InputPlaceholderBusy" : "InputPlaceholder"];
     }
 
     /// <summary>
@@ -817,12 +837,23 @@ public partial class ChatPanelView : UserControl
     /// <param name="fromUser">
     /// 是否为用户在输入框里键入的内容:只有它才进 ↑↓ 历史、才做 <c>@</c> 文件引用展开。
     /// </param>
-    private async Task SendAsync(string text, bool fromUser = true)
+    /// <param name="prepared">
+    /// 已经备好的那一条(排队时就展开过引用、并过附件)。给了它就不再重新展开 ——
+    /// 排队期间远端文件可能已经变了,发出去的该是用户按下回车那一刻的那份。
+    /// </param>
+    private async Task SendAsync(string text, bool fromUser = true, SteeringMessage? prepared = null)
     {
         text = text.Trim();
         // 只带附件、正文为空也算一次有效发送(比如"看看这张图")
-        if ((text.Length == 0 && _attachments.Count == 0) || _busy)
+        if (text.Length == 0 && _attachments.Count == 0 && prepared is null)
         {
+            return;
+        }
+        // 上一轮还在跑就不抢它:排进队列,由插话通道在模型下一步之前送进去
+        // (见 ChatPanelView.Steering.cs —— 这正是"边跑边补"的入口)。
+        if (_busy)
+        {
+            await QueueWhileBusyAsync(text, fromUser);
             return;
         }
         if (ActiveProvider is not { } provider)
@@ -845,7 +876,9 @@ public partial class ChatPanelView : UserControl
         }
         SetActiveView(PanelView.Chat);
 
-        AddUserBubble(text + AttachmentTrace());
+        // 界面与库里留的是这一份(短名引用 + 附件留痕);送给模型的那份在下面单独装配
+        string display = prepared?.DisplayText ?? text + AttachmentTrace();
+        AddUserBubble(display);
         UpdateEmptyState(); // 消息流有东西了,居中的空状态得让位
         RequestAutoScroll(force: true);
 
@@ -854,20 +887,32 @@ public partial class ChatPanelView : UserControl
         AssistantBubble? bubble = null;
         long startedAt = Environment.TickCount64;
         bool cancelled = false;
+        bool failed = false;
         string replyText = "";
         try
         {
-            // @ 引用的远端文件在这里展开:气泡里显示的是短名芯片,只有送给模型的那份带完整路径与文件内容。
-            (string modelText, IReadOnlyList<string> _, IReadOnlyList<string> unreadable) = fromUser
-                ? await ResolveAttachmentsAsync(text, token)
-                : (text, [], []);
-            if (unreadable.Count > 0)
+            ChatMessage userMessage;
+            if (prepared is { } queued)
             {
-                AddAttachmentFailureNote(unreadable);
+                userMessage = queued.Message;
             }
-            // 本地附件并进这一轮:图片作为视觉输入,文本附件接在正文后面
-            _history.Add(new ChatMessage(ChatRole.User, BuildUserContents(modelText)));
-            await PersistAsync("user", text + AttachmentTrace());
+            else
+            {
+                // @ 引用的远端文件在这里展开:气泡里显示的是短名芯片,只有送给模型的那份带完整路径与文件内容。
+                (string modelText, IReadOnlyList<string> _, IReadOnlyList<string> unreadable) = fromUser
+                    ? await ResolveAttachmentsAsync(text, token)
+                    : (text, [], []);
+                if (unreadable.Count > 0)
+                {
+                    AddAttachmentFailureNote(unreadable);
+                }
+                // 本地附件并进这一轮:图片作为视觉输入,文本附件接在正文后面
+                userMessage = new ChatMessage(ChatRole.User, BuildUserContents(modelText));
+            }
+            // 这一轮往历史里加的第一条 —— 一个字都没换来时要按它整批撤回(见 SettleUnfinishedTurnAsync)
+            _turnHistoryStart = _history.Count;
+            _history.Add(userMessage);
+            await PersistAsync("user", display);
             ClearAttachments();
             bubble = new AssistantBubble(this);
             _activeBubble = bubble;
@@ -875,7 +920,13 @@ public partial class ChatPanelView : UserControl
             TrimMessageWindow(); // 常驻条数封顶,别让可视树越聊越长
             RequestAutoScroll(force: true);
 
-            IChatClient client = await _store.CreateClientAsync(provider, cancellationToken: token);
+            // 插话通道垫在最里层(下面那层函数调用循环<b>之内</b>):循环每跑一步都要经过它,
+            // 排队中的补充说明就能赶在模型下一步之前进上下文(见 SteeringChatClient)。
+            var steering = new SteeringChatClient(
+                await _store.CreateClientAsync(provider, cancellationToken: token),
+                _steeringQueue, OnSteeringDelivered);
+            BeginSteering(steering);
+            IChatClient client = steering;
             var options = new ChatOptions
             {
                 MaxOutputTokens = provider.MaxTokens,
@@ -1017,6 +1068,9 @@ public partial class ChatPanelView : UserControl
             DrainUpdates(); // 兜底清空残留批(此处已回到 UI 线程)
 
             var response = updates.ToChatResponse();
+            // 兜底补齐插话:送达回调的 Post 可能还排在队里没跑到,而它必须排在
+            // 这一轮的回复之前进历史与库(顺序:原消息 → 插话 → 回复)。
+            await CommitSteeringAsync();
             _history.AddMessages(response);
             int sequence = await PersistAsync("assistant", response.Text);
             if (sequence >= 0 && bubble is not null)
@@ -1045,10 +1099,12 @@ public partial class ChatPanelView : UserControl
         {
             // 取消是"这条回复"的属性,记在气泡头部;状态行不留话(留了就一直挂着,见截图反馈)
             cancelled = true;
+            await CommitSteeringAsync(); // 已经送到模型那儿的插话照样算数
             await SettleUnfinishedTurnAsync(bubble);
         }
         catch (Exception ex)
         {
+            failed = true;
             // 带上服务端正文:Anthropic 的异常消息只有一句 "Status Code: BadRequest",
             // 真正说清哪儿不对的那段在 ResponseBody 里(见 ApiErrorText)。
             string detail = ApiErrorText.Describe(ex);
@@ -1056,6 +1112,7 @@ public partial class ChatPanelView : UserControl
             // 失败不再当成一段 Markdown 追加进正文:它不是模型说的话,混排会让人分不清
             // 哪句是回答、哪句是故障。改成一张 error 卡挂在这条回复里(见 AddErrorCard)。
             AddErrorCard(bubble, detail);
+            await CommitSteeringAsync();
             await SettleUnfinishedTurnAsync(bubble);
         }
         finally
@@ -1063,6 +1120,7 @@ public partial class ChatPanelView : UserControl
             _cts?.Dispose();
             _cts = null;
             _activeBubble = null;
+            EndSteering();
             StatusText.Classes.Remove("retrying");
             SetBusy(false);
             // 一轮到此为止(成功/取消/出错都算):收起思考区,补上"耗时 · 步数"与"时间 · 模型"
@@ -1074,8 +1132,23 @@ public partial class ChatPanelView : UserControl
             RequestAutoScroll();
         }
 
+        // 这一轮结束时队里还有货 = 这些插话谁也没赶上(纯对话模式只发一次请求;
+        // 或者是在最后一步之后才排进来的)。答完了就直接当作下一轮发出去;
+        // 被停掉或出错了就原样放回输入框 —— 该重试还是该改写由用户决定。
+        if (cancelled || failed)
+        {
+            RestoreQueuedToInput();
+            return;
+        }
+        if (_steeringQueue.DrainMerged() is { } next)
+        {
+            RenderQueuedChips();
+            await SendAsync(next.DisplayText, fromUser: false, prepared: next);
+            return;
+        }
+
         // 顺利答完才给后续提问:取消/报错时用户要的是重试,不是被塞几条建议
-        if (!cancelled && replyText.Length > 0)
+        if (replyText.Length > 0)
         {
             await SuggestFollowUpsAsync(provider, text, replyText);
         }
@@ -1163,11 +1236,17 @@ public partial class ChatPanelView : UserControl
     /// <summary>
     /// 一轮没能正常收尾(用户按停、或请求出错)时收拾历史:
     /// 已经吐出来的半截回复照样进历史与库(用户看得见,模型下一轮也该知道自己说过什么);
-    /// 一个字都没吐就把刚加进去的那条 user 撤回来 —— 否则历史里会留下一条没有回复的提问。
+    /// 一个字都没吐就把这一轮加进去的 user 消息整批撤回来 —— 否则历史里会留下没有回复的提问。
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// "整批"不是一条:一轮里除了开头那条提问,还可能有中途送进去的插话
+    /// (见 ChatPanelView.Steering.cs),它们同样是没换来回复的 user 消息。
+    /// </para>
+    /// <para>
     /// 发送前 <see cref="ContextBuilder" /> 还会兜一次(相邻同角色合并),两处都要:
     /// 这里让"界面/库/上下文"三者一致,那里防的是任何来路的历史(含旧版本留下的)。
+    /// </para>
     /// </remarks>
     private async Task SettleUnfinishedTurnAsync(AssistantBubble? bubble)
     {
@@ -1178,9 +1257,9 @@ public partial class ChatPanelView : UserControl
             await PersistAsync("assistant", partial);
             return;
         }
-        if (_history.Count > 0 && _history[^1].Role == ChatRole.User)
+        if (_history.Count > _turnHistoryStart && _history[^1].Role == ChatRole.User)
         {
-            _history.RemoveAt(_history.Count - 1);
+            _history.RemoveRange(_turnHistoryStart, _history.Count - _turnHistoryStart);
         }
     }
 
@@ -1372,6 +1451,7 @@ public partial class ChatPanelView : UserControl
     {
         _cts?.Cancel();
         _history.Clear();
+        ClearQueuedMessages(); // 排着的插话是给上一段对话的,换会话就作废
         MessagesPanel.Children.Clear();
         ResetMessageWindow();
         ResetEditing();

@@ -14,12 +14,29 @@ public sealed class SseStub : IDisposable
 {
     private readonly HttpListener _listener;
     private readonly TaskCompletionSource<string> _request = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly Lock _gate = new();
+    private readonly List<string> _bodies = [];
 
     /// <summary>接入配置里填的基地址。</summary>
     public string BaseUrl { get; }
 
     /// <summary>收到的请求体(等到真有请求打进来为止)—— 用来断言"发出去的到底长什么样"。</summary>
     public Task<string> RequestBodyAsync => _request.Task;
+
+    /// <summary>
+    /// 到目前为止收到的<b>每一次</b>请求体(按先后)。一轮里不止一次请求时要看的是这一份 ——
+    /// 比如"排队的那句有没有真的进到下一次请求里"。
+    /// </summary>
+    public IReadOnlyList<string> Requests
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return [.. _bodies];
+            }
+        }
+    }
 
     /// <param name="sse">流式请求(<c>"stream":true</c>)的回应。</param>
     /// <param name="delay">回应前先等一会儿,用来观察"处理中"的界面状态。</param>
@@ -63,6 +80,10 @@ public sealed class SseStub : IDisposable
                     using (var reader = new StreamReader(context.Request.InputStream, Encoding.UTF8))
                     {
                         body = await reader.ReadToEndAsync();
+                    }
+                    lock (_gate)
+                    {
+                        _bodies.Add(body);
                     }
                     _request.TrySetResult(body);
                     if (delay > TimeSpan.Zero)

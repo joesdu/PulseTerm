@@ -515,7 +515,7 @@
     <!-- ===== 阻塞类卡片:审批与失败 =====
          两者都是"这一轮停在这儿了",与工具日志不是一个分量:左边一道 3px 语义色竖条,
          整张卡从工具卡的灰描边里拎出来。 -->
-    <Style Selector="Border.approvalCard, Border.errorCard, Border.approvedCard, Border.deniedCard">
+    <Style Selector="Border.approvalCard, Border.errorCard, Border.approvedCard, Border.deniedCard, Border.steeringCard">
       <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
       <Setter Property="BorderThickness" Value="3,0,0,0" />
       <Setter Property="CornerRadius" Value="4" />
@@ -527,6 +527,11 @@
     </Style>
     <Style Selector="Border.errorCard, Border.deniedCard">
       <Setter Property="BorderBrush" Value="{DynamicResource VelaError}" />
+    </Style>
+    <!-- 插话卡:一轮跑到一半时用户补的那句。走强调色 —— 它既不是故障也不是停顿,
+         是"用户又说了一句话",与消息流里的用户气泡同一族颜色。 -->
+    <Style Selector="Border.steeringCard">
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaAccent}" />
     </Style>
     <!-- 已批准:左边条转绿并整卡压暗一档 —— 一屏堆着好几张时,过掉的那些该退到背景里去 -->
     <Style Selector="Border.approvedCard">
@@ -799,7 +804,7 @@
           <ComboBox x:Name="ProviderCombo" Grid.Column="1" MaxWidth="230" HorizontalAlignment="Left" />
           <!-- 对话模式:纯对话 / 计划 / Agent(对齐 Copilot 的模式选择) -->
           <ComboBox x:Name="ModeCombo" Grid.Column="2" Margin="6,0,0,0" MinWidth="88" />
-          <StackPanel Grid.Column="3" Orientation="Horizontal" Margin="8,0,0,0" VerticalAlignment="Center">
+          <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6" Margin="8,0,0,0" VerticalAlignment="Center">
             <!-- 主操作带文字(设计图):这一枚是整个面板唯一的"提交",纯图标要靠猜。
                  模型那列是 * ,面板收窄时先挤模型名,挤不到这里。 -->
             <Button x:Name="SendButton" Theme="{DynamicResource VelaAccentPillButtonTheme}"
@@ -837,6 +842,9 @@
          空会话给几条起手提示(不花钱),一轮答完再由模型给后续提问。 -->
     <!-- 待发的本地附件(拖进来或 + 选的),点芯片可移除 -->
     <WrapPanel x:Name="AttachmentBar" DockPanel.Dock="Bottom" IsVisible="False" Margin="2,6,2,0" />
+    <!-- 排队中的插话:上一轮还没答完时补发的消息,点一枚芯片可撤回(见 ChatPanelView.Steering.cs)。
+         摆在附件行之上 —— 附件属于"正在写的这一条",排队属于"已经发出去的那些"。 -->
+    <WrapPanel x:Name="QueuedBar" DockPanel.Dock="Bottom" IsVisible="False" Margin="2,6,2,0" />
     <WrapPanel x:Name="SuggestionBar" DockPanel.Dock="Bottom" IsVisible="False" Margin="2,6,2,0" />
     <TextBlock x:Name="StatusText" DockPanel.Dock="Bottom" Classes="dim" Margin="2,6,2,0" TextWrapping="Wrap" />
 

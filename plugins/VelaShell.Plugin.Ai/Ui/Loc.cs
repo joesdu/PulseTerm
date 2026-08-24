@@ -69,6 +69,8 @@ public sealed class Loc(string locale)
         ["ApprovalBypassTip"] = ["Every tool call runs automatically, including destructive ones. Risky.", "所有工具调用一律自动执行,包括破坏性操作。有风险。", "所有工具呼叫一律自動執行,包括破壞性操作。有風險。", "破壊的なものも含め、すべてのツール呼び出しを自動実行します。危険です。", "파괴적인 것을 포함해 모든 도구 호출을 자동 실행합니다. 위험합니다."],
         ["NoSession"] = ["(no session)", "(无会话)", "(無會話)", "(セッションなし)", "(세션 없음)"],
         ["InputPlaceholder"] = ["Ask anything…  (Enter to send, Shift+Enter newline, ↑↓ history, @ to attach a remote file)", "问点什么… (Enter 发送,Shift+Enter 换行,↑↓ 翻历史,@ 引用服务器文件)", "問點什麼… (Enter 傳送,Shift+Enter 換行,↑↓ 翻歷史,@ 引用伺服器檔案)", "質問を入力… (Enter で送信、Shift+Enter で改行、↑↓ で履歴、@ でリモートファイル参照)", "질문을 입력하세요… (Enter 전송, Shift+Enter 줄바꿈, ↑↓ 기록, @ 원격 파일 첨부)"],
+        // 一轮在跑时的占位提示:此刻回车不是"发下一轮",而是"插进这一轮"
+        ["InputPlaceholderBusy"] = ["Add to what it's doing…  (Enter queues it; the model reads it before its next step)", "补充点什么… (Enter 排队,模型在下一步之前就会读到)", "補充點什麼… (Enter 排隊,模型在下一步之前就會讀到)", "作業中の内容に補足… (Enter でキューへ、次のステップの前にモデルが読みます)", "진행 중인 작업에 덧붙이기… (Enter로 대기열에 넣으면 다음 단계 전에 모델이 읽습니다)"],
         // 历史会话(时序库)
         ["History"] = ["Chat history", "历史会话", "歷史會話", "チャット履歴", "대화 기록"],
         ["HistoryHeader"] = ["Saved conversations", "已保存的会话", "已儲存的會話", "保存された会話", "저장된 대화"],
@@ -98,6 +100,16 @@ public sealed class Loc(string locale)
         ["AttachLimit"] = ["only the first {0} files were attached", "只附带了前 {0} 个文件", "只附帶了前 {0} 個檔案", "最初の {0} 件のみ添付しました", "처음 {0}개 파일만 첨부했습니다"],
         ["Send"] = ["Send", "发送", "傳送", "送信", "전송"],
         ["Stop"] = ["Stop", "停止", "停止", "停止", "중지"],
+        // 边跑边补:一轮还没答完时,发送键换成「排队」,新消息插进当前这一轮
+        // (见 ChatPanelView.Steering.cs)。措辞要说清"会发出去、只是要等一步",
+        // 不能让人以为按下去什么都没发生。
+        ["Queue"] = ["Queue", "排队", "排隊", "キュー", "대기"],
+        ["QueueTip"] = ["Send now — the model gets it before its next step.", "现在就发 —— 模型在下一步之前就会读到。", "現在就傳 —— 模型在下一步之前就會讀到。", "今すぐ送信 — 次のステップの前にモデルが読みます。", "지금 보냅니다 — 모델이 다음 단계 전에 읽습니다."],
+        ["Queued"] = ["Queued — it reaches the model before its next step.", "已排队 —— 模型在下一步之前就会读到。", "已排隊 —— 模型在下一步之前就會讀到。", "キューに入れました — 次のステップの前にモデルへ届きます。", "대기열에 넣었습니다 — 모델이 다음 단계 전에 받습니다."],
+        ["QueuedTip"] = ["Click to take it back.", "点击撤回。", "點擊撤回。", "クリックで取り消します。", "클릭하면 취소합니다."],
+        ["QueueFull"] = ["Already {0} messages queued — let it answer first.", "已经排了 {0} 条 —— 先让它答完这一轮。", "已經排了 {0} 則 —— 先讓它答完這一輪。", "すでに {0} 件が待機中です — まず答えさせてください。", "이미 {0}개가 대기 중입니다 — 먼저 답하게 두세요."],
+        ["QueueReturned"] = ["This turn ended early — the queued message is back in the box.", "这一轮提前结束了 —— 排队的消息已放回输入框。", "這一輪提前結束了 —— 排隊的訊息已放回輸入框。", "このターンは途中で終わりました — 待機中のメッセージを入力欄に戻しました。", "이번 턴이 중간에 끝났습니다 — 대기 중이던 메시지를 입력창에 되돌렸습니다."],
+        ["Interjected"] = ["You added", "你补充了", "你補充了", "追加した内容", "추가한 내용"],
         ["NewChat"] = ["New chat", "新会话", "新會話", "新規チャット", "새 채팅"],
         ["NewChatTip"] = ["Start a new conversation (discards the current one).", "开始新会话(丢弃当前对话)。", "開始新會話(丟棄當前對話)。", "新しい会話を開始します(現在の会話は破棄)。", "새 대화를 시작합니다(현재 대화는 삭제)."],
         ["Settings"] = ["Settings", "设置", "設定", "設定", "설정"],

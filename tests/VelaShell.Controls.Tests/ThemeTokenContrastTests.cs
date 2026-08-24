@@ -180,8 +180,8 @@ public class ThemeTokenContrastTests
                 }
             }
         }
-        Assert.IsTrue(
-            failures.Count == 0,
+        Assert.IsEmpty(
+            failures,
             "以下文字/底色组合达不到 4.5:1:\n  " + string.Join("\n  ", failures)
         );
     }

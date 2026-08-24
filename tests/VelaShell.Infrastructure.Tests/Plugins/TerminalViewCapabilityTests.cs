@@ -68,7 +68,7 @@ public class TerminalViewCapabilityTests
 
         view.SimulateUserInput("ls -l\n");
 
-        Assert.AreEqual(1, seen.Count);
+        Assert.HasCount(1, seen);
         CollectionAssert.AreEqual("ls -l\n"u8.ToArray(), seen[0]);
     }
 
@@ -119,6 +119,6 @@ public class TerminalViewCapabilityTests
         // 每个插件面板一个终端,互不串台。
         Assert.AreEqual("a", first.Fed);
         Assert.AreEqual("", second.Fed);
-        Assert.AreEqual(2, api.Created.Count);
+        Assert.HasCount(2, api.Created);
     }
 }
