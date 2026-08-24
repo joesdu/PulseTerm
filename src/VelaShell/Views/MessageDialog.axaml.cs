@@ -212,7 +212,7 @@ public partial class MessageDialog : Window
     {
         if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
-            BeginMoveDrag(e);
+            this.BeginWindowMoveDrag(e);
         }
     }
 }

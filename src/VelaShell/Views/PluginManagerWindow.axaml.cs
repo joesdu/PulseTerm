@@ -47,7 +47,7 @@ public partial class PluginManagerWindow : Window
             e.Handled = true;
             return;
         }
-        BeginMoveDrag(e);
+        this.BeginWindowMoveDrag(e);
     }
 
     /// <summary>缩放抓取区。只认左键:系统 sizing 模态循环只在左键弹起时退出(#116)。</summary>

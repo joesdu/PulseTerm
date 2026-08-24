@@ -1,9 +1,11 @@
+using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
+using Avalonia.Threading;
 using VelaShell.PluginSdk.Ui;
 
 namespace VelaShell.PluginHost;
@@ -14,7 +16,7 @@ namespace VelaShell.PluginHost;
 /// 纯代码构建(PluginHost 不依赖 VelaShell.Controls);配色用宿主下发的 <c>Vela*</c> 令牌;
 /// caption 图标用几何 Path(lucide minus/square/x)。
 /// </summary>
-internal sealed class PluginHostShellWindow : Window
+internal sealed partial class PluginHostShellWindow : Window
 {
     private const double InnerRadius = 7;
 
@@ -279,7 +281,78 @@ internal sealed class PluginHostShellWindow : Window
             e.Handled = true;
             return;
         }
-        BeginMoveDrag(e);
+        BeginWindowMoveDrag(e);
+    }
+
+    /// <summary>
+    /// 拖动窗口:Windows 上自己走一遍移动模态循环,避开 Avalonia 留下的 (0,0) 幽灵指针。
+    /// </summary>
+    /// <remarks>
+    /// Avalonia 的 Win32 <c>BeginMoveDrag</c> 在系统移动模态循环结束后,会给自己补一条
+    /// <c>WM_LBUTTONUP(wParam: 0, lParam: 0)</c> —— 真正那次弹起被模态循环吃掉了,不补
+    /// 指针状态会停在"按下"。但 <c>lParam = 0</c> 被解码成客户区 (0,0),pointer-over 因此
+    /// 落到窗口左上角,压在那里的正是 NorthWest 缩放抓取区(TopLeftCorner 光标),光标于是
+    /// 闪一下对角双箭头(主仓 issue #264)。这里照抄那两步,只把补发弹起的坐标换成光标真实位置。
+    ///
+    /// 与主程序 <c>VelaShell.Views.WindowMoveDrag</c> 同源;本工程按依赖纪律不引用任何
+    /// VelaShell.* 主程序工程,故复制一份,改动请两边同步。
+    /// </remarks>
+    /// <param name="e">触发拖动的指针按下事件。</param>
+    private void BeginWindowMoveDrag(PointerPressedEventArgs e)
+    {
+        const uint WM_SYSCOMMAND = 0x0112,
+            WM_LBUTTONUP = 0x0202;
+        const int SC_MOUSEMOVE = 0xF012; // SC_MOVE + HTCAPTION:鼠标发起的标题栏移动
+        if (!OperatingSystem.IsWindows() || !e.Pointer.IsPrimary || TryGetPlatformHandle() is not { } handle)
+        {
+            BeginMoveDrag(e);
+            return;
+        }
+        IntPtr hWnd = handle.Handle;
+        e.Pointer.Capture(null);
+        // 与 Avalonia 同样后置到派发队列:在输入处理栈里直接进模态循环会把这次派发一起卡住。
+        Dispatcher.UIThread.Post(
+            () =>
+            {
+                _ = SendMessage(hWnd, WM_SYSCOMMAND, (IntPtr)SC_MOUSEMOVE, IntPtr.Zero); // 阻塞至松键
+                if (IsWindow(hWnd))
+                {
+                    _ = SendMessage(hWnd, WM_LBUTTONUP, IntPtr.Zero, CursorLParam(hWnd));
+                }
+            },
+            DispatcherPriority.Send
+        );
+    }
+
+    /// <summary>把光标当前位置打包成鼠标消息的 lParam(客户区物理坐标,低 16 位 x / 高 16 位 y)。</summary>
+    private static IntPtr CursorLParam(IntPtr hWnd)
+    {
+        if (!GetCursorPos(out POINT cursor) || !ScreenToClient(hWnd, ref cursor))
+        {
+            return IntPtr.Zero; // 取不到就退回 Avalonia 原本的行为,不会更差
+        }
+        return unchecked((IntPtr)(((cursor.Y & 0xFFFF) << 16) | (cursor.X & 0xFFFF)));
+    }
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool IsWindow(IntPtr hWnd);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool GetCursorPos(out POINT point);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool ScreenToClient(IntPtr hWnd, ref POINT point);
+
+    [LibraryImport("user32.dll", EntryPoint = "SendMessageW")]
+    private static partial IntPtr SendMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct POINT
+    {
+        public int X, Y;
     }
 
     private void BeginResize(WindowEdge edge, PointerPressedEventArgs e)

@@ -139,7 +139,7 @@ public partial class TitleBarView : UserControl
             _pressPoint = e.GetPosition(this);
             return;
         }
-        window.BeginMoveDrag(e);
+        window.BeginWindowMoveDrag(e);
     }
 
     private void Bar_PointerMoved(object? sender, PointerEventArgs e)
@@ -166,7 +166,7 @@ public partial class TitleBarView : UserControl
             int offsetX = (int)(window.Bounds.Width * ratioX * scaling);
             int offsetY = (int)(_pressPoint.Y * scaling);
             window.Position = new PixelPoint(screenPoint.X - offsetX, screenPoint.Y - offsetY);
-            window.BeginMoveDrag(pressed);
+            window.BeginWindowMoveDrag(pressed);
         }, DispatcherPriority.Render);
     }
 

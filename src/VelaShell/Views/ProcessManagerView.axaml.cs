@@ -78,7 +78,7 @@ public partial class ProcessManagerView : Window
             e.Handled = true;
             return;
         }
-        BeginMoveDrag(e);
+        this.BeginWindowMoveDrag(e);
     }
 
     /// <summary>

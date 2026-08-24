@@ -55,7 +55,7 @@ public partial class AuthenticationDialogView : Window
     {
         if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
-            BeginMoveDrag(e);
+            this.BeginWindowMoveDrag(e);
         }
     }
 
