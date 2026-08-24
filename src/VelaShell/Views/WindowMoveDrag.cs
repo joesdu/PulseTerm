@@ -75,7 +75,7 @@ internal static partial class WindowMoveDrag
         {
             return IntPtr.Zero;
         }
-        return unchecked((IntPtr)(((cursor.Y & 0xFFFF) << 16) | (cursor.X & 0xFFFF)));
+        return unchecked(((cursor.Y & 0xFFFF) << 16) | (cursor.X & 0xFFFF));
     }
 
     [LibraryImport("user32.dll")]

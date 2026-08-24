@@ -314,7 +314,7 @@ internal sealed partial class PluginHostShellWindow : Window
         Dispatcher.UIThread.Post(
             () =>
             {
-                _ = SendMessage(hWnd, WM_SYSCOMMAND, (IntPtr)SC_MOUSEMOVE, IntPtr.Zero); // 阻塞至松键
+                _ = SendMessage(hWnd, WM_SYSCOMMAND, SC_MOUSEMOVE, IntPtr.Zero); // 阻塞至松键
                 if (IsWindow(hWnd))
                 {
                     _ = SendMessage(hWnd, WM_LBUTTONUP, IntPtr.Zero, CursorLParam(hWnd));
@@ -331,7 +331,7 @@ internal sealed partial class PluginHostShellWindow : Window
         {
             return IntPtr.Zero; // 取不到就退回 Avalonia 原本的行为,不会更差
         }
-        return unchecked((IntPtr)(((cursor.Y & 0xFFFF) << 16) | (cursor.X & 0xFFFF)));
+        return unchecked(((cursor.Y & 0xFFFF) << 16) | (cursor.X & 0xFFFF));
     }
 
     [LibraryImport("user32.dll")]

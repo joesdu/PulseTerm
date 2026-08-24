@@ -52,20 +52,18 @@ public sealed class BlockSelectionTests
     }
 
     [TestMethod]
-    public void Contains_Block_LimitsEveryRowToTheSameColumnRange()
+    public void RowSpan_Block_LimitsEveryRowToTheSameColumnRange()
     {
         ((int Row, int Col) Start, (int Row, int Col) End) sel = ((1, 2), (3, 5));
 
-        Assert.IsTrue(TerminalSelectionMath.Contains(sel, block: true, 2, 2), "左边界含在内。");
-        Assert.IsTrue(TerminalSelectionMath.Contains(sel, block: true, 2, 4));
-        Assert.IsFalse(TerminalSelectionMath.Contains(sel, block: true, 2, 5), "右边界排它。");
-        Assert.IsFalse(TerminalSelectionMath.Contains(sel, block: true, 2, 1));
-        Assert.IsFalse(TerminalSelectionMath.Contains(sel, block: true, 0, 3), "行在选区之上。");
-        Assert.IsFalse(TerminalSelectionMath.Contains(sel, block: true, 4, 3), "行在选区之下。");
+        // 渲染是"每行先取列区间、格子循环里只比区间"(VelaTerminalControl.CollectRowSpans),
+        // 所以块选的行/列边界规则由 RowSpan 一处说了算。
+        Assert.AreEqual((2, 5), TerminalSelectionMath.RowSpan(sel, true, 2, 80), "每行同一段:左含右排它。");
+        Assert.AreEqual((0, 0), TerminalSelectionMath.RowSpan(sel, true, 0, 80), "行在选区之上。");
+        Assert.AreEqual((0, 0), TerminalSelectionMath.RowSpan(sel, true, 4, 80), "行在选区之下。");
 
         // 同一选区在线性模式下:中间行整行选中,与块选形成对照。
-        Assert.IsTrue(TerminalSelectionMath.Contains(sel, block: false, 2, 0));
-        Assert.IsTrue(TerminalSelectionMath.Contains(sel, block: false, 2, 40));
+        Assert.AreEqual((0, 80), TerminalSelectionMath.RowSpan(sel, false, 2, 80));
     }
 
     [TestMethod]

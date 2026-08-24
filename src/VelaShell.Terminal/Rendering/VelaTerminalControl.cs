@@ -125,6 +125,15 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     // 选区(线性或矩形块选),位于绝对行空间。
     private (int Row, int Col)? _selectionAnchor;
     private (int Row, int Col)? _selectionCaret;
+
+    // 已定稿的附加选区段:Ctrl+Shift+拖拽会把进行中那段定稿到这里,再另起一段,
+    // 于是"第 1 行 + 第 3 行"这种不连续选区可以一次复制。进行中那段始终在
+    // _selectionAnchor/_selectionCaret 里,只在渲染与复制时才与这些段合到一起。
+    private readonly List<SelectionSpan> _extraSelections = [];
+
+    // 渲染/复制时重建的合并段列表,以及逐行列区间缓冲 —— 两者都是复用的,热路径上不分配。
+    private readonly List<SelectionSpan> _spanBuffer = [];
+    private (int From, int To)[] _rowSpanBuffer = new (int From, int To)[4];
     private bool _styleTypefacesReady;
 
     /// <summary>创建一个使用默认 120×32 网格的终端控件。</summary>
@@ -1489,7 +1498,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         // 计算本帧「屏幕行 → 绝对缓冲行」映射(_screenToAbs):无折叠时即连续 topAbsolute+sr(与原行为一致),
         // 有折叠时跳过被隐藏的行。侧栏、正文、光标、命中测试全部复用该映射,确保三者对齐。
         BuildScreenRowMap(screen, rows);
-        ((int Row, int Col) Start, (int Row, int Col) End)? sel = NormalizedSelection();
+        List<SelectionSpan> spans = SelectionSpans();
 
         // 行号/时间侧栏在正文左侧:先画侧栏,再把正文(含光标、选区)整体右移一个侧栏宽度绘制,
         // 这样所有 col*_cellWidth 的坐标计算保持不变,只在命中测试处减去侧栏宽度即可。
@@ -1513,7 +1522,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
                 }
                 TerminalRow line = screen.ViewLine(absoluteRow);
                 double y = screenRow * CellHeightForTest;
-                RenderLine(context, palette, line, cols, y, absoluteRow, sel);
+                RenderLine(context, palette, line, cols, y, absoluteRow, spans);
             }
             if (_scrollOffset == 0)
             {
@@ -1936,7 +1945,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         int cols,
         double y,
         int absoluteRow,
-        ((int Row, int Col) Start, (int Row, int Col) End)? sel
+        List<SelectionSpan> spans
     )
     {
         // 备用屏(vim/htop/less 等全屏程序)自带配色且行内容每帧都在变:语义扫描
@@ -1944,6 +1953,9 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         SemanticKind?[]? semantic = SemanticHighlightingEnabled && !Emulator.IsAlternateScreen
             ? ComputeSemanticColumns(line, cols)
             : null;
+        // 本行落在各选区段内的列区间:逐行算一次,格子循环里只做区间比较 ——
+        // 多段选区不会把渲染热路径变成 O(格 × 段)。
+        int rowSpans = CollectRowSpans(spans, absoluteRow, cols);
         int col = 0;
         while (col < cols)
         {
@@ -1962,7 +1974,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
             {
                 (fg, bg) = (bg, fg);
             }
-            if (TerminalSelectionMath.Contains(sel, _blockSelection, absoluteRow, col))
+            if (IsSelectedColumn(rowSpans, col))
             {
                 bg = palette.SelectionBackground;
             }
@@ -2217,8 +2229,93 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
             ? TerminalSelectionMath.Normalize(a, c, _blockSelection)
             : null;
 
-    /// <summary>当前选区是否为 Alt+拖拽的矩形块选(测试与宿主诊断用)。</summary>
+    /// <summary>进行中(或最近一次)那段选区是否为 Alt+拖拽的矩形块选(测试与宿主诊断用)。</summary>
     public bool IsBlockSelection => _blockSelection && NormalizedSelection() is not null;
+
+    /// <summary>进行中(或最近一次)拖拽出的那一段选区;没有锚点时为 null。</summary>
+    private SelectionSpan? LiveSelection() =>
+        _selectionAnchor is { } a && _selectionCaret is { } c
+            ? SelectionSpan.FromDrag(a, c, _blockSelection)
+            : null;
+
+    /// <summary>
+    /// 当前所有<b>非空</b>选区段(已定稿的附加段 + 进行中那段),按文档顺序(行、列)排好。
+    /// 返回的是复用的缓冲列表:调用方用完即弃,下一次调用会就地重建它。
+    /// </summary>
+    private List<SelectionSpan> SelectionSpans()
+    {
+        _spanBuffer.Clear();
+        foreach (SelectionSpan span in _extraSelections)
+        {
+            if (!span.IsEmpty)
+            {
+                _spanBuffer.Add(span);
+            }
+        }
+        if (LiveSelection() is { IsEmpty: false } live)
+        {
+            _spanBuffer.Add(live);
+        }
+        // 复制出来的文本必须自上而下读,与用户选取各段的先后无关。
+        _spanBuffer.Sort(static (x, y) =>
+            x.Start.Row != y.Start.Row ? x.Start.Row - y.Start.Row : x.Start.Col - y.Start.Col);
+        return _spanBuffer;
+    }
+
+    /// <summary>把进行中那段定稿进附加段列表(空段丢弃),之后锚点可以另起一段。</summary>
+    private void CommitLiveSelection()
+    {
+        if (LiveSelection() is { IsEmpty: false } live)
+        {
+            _extraSelections.Add(live);
+        }
+    }
+
+    /// <summary>
+    /// 是否存在选区(含"单击不拖"的空段)。Ctrl+C 的复制闸门只看有没有锚点 ——
+    /// 与多段选区之前的行为保持一致,不在这里顺手改语义。
+    /// </summary>
+    private bool HasSelectionAnchor =>
+        _extraSelections.Count > 0 || NormalizedSelection() is not null;
+
+    /// <summary>把各选区段在某一绝对行上的列区间收进 _rowSpanBuffer,返回收到的段数。</summary>
+    private int CollectRowSpans(List<SelectionSpan> spans, int absoluteRow, int columns)
+    {
+        int count = 0;
+        foreach (SelectionSpan span in spans)
+        {
+            (int from, int to) = TerminalSelectionMath.RowSpan(
+                (span.Start, span.End),
+                span.Block,
+                absoluteRow,
+                columns
+            );
+            if (to <= from)
+            {
+                continue;
+            }
+            if (count == _rowSpanBuffer.Length)
+            {
+                Array.Resize(ref _rowSpanBuffer, count * 2);
+            }
+            _rowSpanBuffer[count++] = (from, to);
+        }
+        return count;
+    }
+
+    /// <summary>列 <paramref name="col" /> 是否落在本行任一选中区间内。</summary>
+    private bool IsSelectedColumn(int count, int col)
+    {
+        for (int i = 0; i < count; i++)
+        {
+            if (col >= _rowSpanBuffer[i].From && col < _rowSpanBuffer[i].To)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
 
     /// <summary>搜索整个缓冲区(回滚区 + 屏幕),不区分大小写(规范 §5.3)。</summary>
     public IReadOnlyList<BufferSearchHit> SearchBuffer(string query) =>
@@ -2292,6 +2389,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     /// </summary>
     public void ShowHit(BufferSearchHit hit)
     {
+        _extraSelections.Clear(); // 命中高亮是"整个选区换成这一处",不与既有多段并存
         _selectionAnchor = (hit.Row, hit.StartCol);
         _selectionCaret = (hit.Row, hit.StartCol + hit.Length);
         _blockSelection = false;
@@ -2303,23 +2401,41 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         InvalidateVisual();
     }
 
-    /// <summary>以文本形式返回当前选区(可逐行去除行尾空白)。</summary>
+    /// <summary>
+    /// 以文本形式返回当前选区(可逐行去除行尾空白)。有多段不连续选区时,各段按文档顺序
+    /// 自上而下拼接、段间断一行 —— 「选第 1 行、再 Ctrl+Shift 选第 3 行」复制出来就是两行。
+    /// </summary>
     public string GetSelectedText()
     {
-        ((int Row, int Col) Start, (int Row, int Col) End)? sel = NormalizedSelection();
-        if (sel is not { } s)
+        List<SelectionSpan> spans = SelectionSpans();
+        if (spans.Count == 0)
         {
             return string.Empty;
         }
         TerminalScreen screen = Emulator.Screen;
         var sb = new StringBuilder();
-        for (int row = s.Start.Row; row <= s.End.Row && row < screen.TotalRows; row++)
+        for (int i = 0; i < spans.Count; i++)
+        {
+            if (i > 0)
+            {
+                // 段与段本就不相连,粘贴时不能糊成一行。
+                sb.Append('\n');
+            }
+            AppendSpanText(sb, screen, spans[i]);
+        }
+        return TrimTrailingWhitespaceOnCopy ? sb.ToString().TrimEnd() : sb.ToString();
+    }
+
+    /// <summary>把一段选区的文本追加进 <paramref name="sb" />(不含段与段之间的分隔)。</summary>
+    private void AppendSpanText(StringBuilder sb, TerminalScreen screen, SelectionSpan span)
+    {
+        for (int row = span.Start.Row; row <= span.End.Row && row < screen.TotalRows; row++)
         {
             TerminalRow line = screen.ViewLine(row);
             // 块选时每行取同一段列区间(矩形),线性选区则首行从起点、末行到终点、中间整行。
             (int from, int to) = TerminalSelectionMath.RowSpan(
-                s,
-                _blockSelection,
+                (span.Start, span.End),
+                span.Block,
                 row,
                 line.Columns
             );
@@ -2340,12 +2456,11 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
                     sb.Length--;
                 }
             }
-            if (row != s.End.Row)
+            if (row != span.End.Row)
             {
                 sb.Append('\n');
             }
         }
-        return TrimTrailingWhitespaceOnCopy ? sb.ToString().TrimEnd() : sb.ToString();
     }
 
     private (int Row, int Col) PointToCell(Point p)
@@ -2421,7 +2536,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
             Emulator.Modes,
             Emulator.Type,
             canScrollHistory: Emulator.Screen.MaxScrollback > 0,
-            ctrlCCopiesSelection: CtrlCCopiesWhenSelected && NormalizedSelection() is not null);
+            ctrlCCopiesSelection: CtrlCCopiesWhenSelected && HasSelectionAnchor);
         switch (action.Kind)
         {
             case TerminalKeyActionKind.ImePassthrough:
@@ -2464,7 +2579,11 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         base.OnKeyDown(e);
     }
 
-    /// <summary>处理侧栏点击、URL 的 Ctrl+点击、应用鼠标上报,以及文本选区的起点与 Shift 扩展。</summary>
+    /// <summary>
+    /// 处理侧栏点击、URL 的 Ctrl+点击、应用鼠标上报,以及文本选区的起点、Shift 扩展
+    /// 与 Ctrl+Shift 追加(不连续多段选区)。
+    /// </summary>
+
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
@@ -2498,7 +2617,12 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         }
 
         // 在检测到的 URL 上 Ctrl+点击会用默认浏览器打开它(#9)。
-        if (props.IsLeftButtonPressed && e.KeyModifiers.HasFlag(KeyModifiers.Control))
+        // 排除 Ctrl+Shift:那是"追加一段不连续选区",落在 URL 上也不该跳浏览器。
+        if (
+            props.IsLeftButtonPressed
+            && e.KeyModifiers.HasFlag(KeyModifiers.Control)
+            && !e.KeyModifiers.HasFlag(KeyModifiers.Shift)
+        )
         {
             (int row, int col) = PointToCell(point);
             string lineText =
@@ -2542,13 +2666,38 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         if (props.IsLeftButtonPressed)
         {
             // 双击选择整个单词(设置 → 终端 → 选择与复制)。
+            // 按住 Ctrl+Shift 双击则是"再添一个词",已有各段留着。
             if (e.ClickCount == 2 && DoubleClickSelectsWord)
             {
-                SelectWordAt(PointToCell(point));
+                SelectWordAt(
+                    PointToCell(point),
+                    append: e.KeyModifiers.HasFlag(KeyModifiers.Control)
+                        && e.KeyModifiers.HasFlag(KeyModifiers.Shift)
+                );
+                e.Handled = true;
+                return;
+            }
+            // Ctrl+Shift+左键拖拽 = 再添一段不连续选区:把进行中那段定稿,然后另起一段。
+            // 复制时各段按文档顺序拼接、段间断行,于是"选中第 1 行,再 Ctrl+Shift 选中第 3 行,
+            // 一次复制得到这两行"成立。终端里没有先例(WT/iTerm2/xterm 都只有单段选区),
+            // 键位因此自定:Shift 单独按仍是扩展、Alt 仍是块选,三者可叠加 ——
+            // Ctrl+Shift+Alt+拖拽 = 追加一段矩形块选。
+            if (
+                e.KeyModifiers.HasFlag(KeyModifiers.Control)
+                && e.KeyModifiers.HasFlag(KeyModifiers.Shift)
+            )
+            {
+                CommitLiveSelection();
+                _blockSelection = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
+                _selecting = true;
+                _selectionAnchor = PointToCell(point);
+                _selectionCaret = _selectionAnchor;
+                InvalidateVisual();
                 e.Handled = true;
                 return;
             }
             // Shift+左键 = 把已有选区从锚点扩展到点击处(#266,对齐 Windows Terminal / xterm):
+
             // 锚点不动、只挪游标,并照常置 _selecting,故按住不放还能继续拖拽微调,松手也照常触发选中即复制。
             // 块选与否沿用上次按下时定下的模式,Shift 不改写它。没有锚点时不走这里 ——
             // 退回"新建选区",保住"按 Shift 绕过应用鼠标上报以便选文本"的既有语义。
@@ -2563,6 +2712,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
             // Alt+左键拖拽 = 矩形块选(#128,对齐 Windows Terminal):模式在按下这一刻定下,
             // 拖拽途中松开 Alt 不会退回线性选区。应用开启鼠标追踪时,鼠标事件已在上面转发给应用,
             // 此时需按住 Shift 绕过上报,即 Shift+Alt+拖拽仍可块选。
+            _extraSelections.Clear(); // 不带 Ctrl+Shift 的拖拽 = 从头选起
             _blockSelection = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
             _selecting = true;
             _selectionAnchor = PointToCell(point);
@@ -2581,7 +2731,9 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     /// 选中给定单元周围连续的单词(字母/数字及常见路径字符);
     /// 在开启「选中即复制」时,该单词会立即进入剪贴板。
     /// </summary>
-    private void SelectWordAt((int Row, int Col) cell)
+    /// <param name="cell">双击命中的单元。</param>
+    /// <param name="append">true = 作为新的一段追加(已有各段留着);false = 换掉整个选区。</param>
+    private void SelectWordAt((int Row, int Col) cell, bool append = false)
     {
         TerminalScreen screen = Emulator.Screen;
         if (cell.Row >= screen.TotalRows)
@@ -2607,6 +2759,14 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         while (end < line.Columns && IsWordCell(line, end))
         {
             end++;
+        }
+        if (append)
+        {
+            CommitLiveSelection();
+        }
+        else
+        {
+            _extraSelections.Clear();
         }
         _selectionAnchor = (cell.Row, start);
         _selectionCaret = (cell.Row, end);
@@ -2823,6 +2983,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
 
     private void ClearSelection()
     {
+        _extraSelections.Clear();
         _selectionAnchor = null;
         _selectionCaret = null;
         _blockSelection = false;
@@ -2848,7 +3009,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     /// </summary>
     public bool TryCopyOnCtrlC()
     {
-        if (!CtrlCCopiesWhenSelected || NormalizedSelection() is null)
+        if (!CtrlCCopiesWhenSelected || !HasSelectionAnchor)
         {
             return false;
         }
