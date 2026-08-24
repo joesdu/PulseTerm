@@ -47,10 +47,10 @@
          跨块选择、表格/任务列表。程序集名不以 "Avalonia" 开头,因此走插件 ALC 隔离加载
          (PluginAssemblyLoadContext 只把 Avalonia* 前缀回落到默认 ALC),不污染宿主。
          三个可选节点扩展见下,注册在 Ui/MarkdownExtensions.cs。 -->
-    <PackageReference Include="LiveMarkdown.Avalonia" Version="2.3.2" />
+    <PackageReference Include="LiveMarkdown.Avalonia" Version="2.4.0" />
     <!-- Mermaid:```mermaid 代码块画成原生 Avalonia 图(Mermaider 纯托管解析+布局,
          无浏览器无子进程),自带平移缩放。 -->
-    <PackageReference Include="LiveMarkdown.Avalonia.Mermaid" Version="2.3.2" />
+    <PackageReference Include="LiveMarkdown.Avalonia.Mermaid" Version="2.4.0" />
     <!-- LaTeX:$..$ / $$..$$,并补 \(..\) / \[..\](多数模型实际输出的定界符)。
          CSharpMath 内嵌 Latin Modern Math 字体,不依赖系统字体。 -->
     <PackageReference Include="LiveMarkdown.Avalonia.Math" Version="2.3.2" />
