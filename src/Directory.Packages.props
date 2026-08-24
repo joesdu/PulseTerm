@@ -21,7 +21,7 @@
     <!-- MMDB 读取器(Apache 2.0)。只是格式读取库,不绑定 MaxMind 的数据 ——
          我们配的是 DB-IP Lite City(CC BY 4.0),同一格式。 -->
     <PackageVersion Include="MaxMind.Db" Version="5.1.0" />
-    <PackageVersion Include="SonnetDB.Core" Version="3.0.1" />
+    <PackageVersion Include="SonnetDB.Core" Version="3.1.0" />
     <PackageVersion Include="Tmds.Ssh" Version="0.24.0" />
     <!-- FTP / FTPS 客户端(MIT,零依赖)。截至 54.2.0 最高只出到 net9.0 资产,
          本仓库 net11.0 会解析到那一份 —— 纯托管 DLL,且发布不裁剪、非单文件,无打包风险。
