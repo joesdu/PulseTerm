@@ -55,7 +55,7 @@
          CSharpMath 内嵌 Latin Modern Math 字体,不依赖系统字体。 -->
     <PackageReference Include="LiveMarkdown.Avalonia.Math" Version="2.4.0" />
     <!-- SVG:给图片管线注册 SVG 解码器。用 Svg.Controls.Avalonia 后端(非 Skia,用户决策)。 -->
-    <PackageReference Include="LiveMarkdown.Avalonia.Svg" Version="2.3.2" />
+    <PackageReference Include="LiveMarkdown.Avalonia.Svg" Version="2.4.0" />
   </ItemGroup>
 
 </Project>
