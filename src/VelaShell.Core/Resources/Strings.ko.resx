@@ -2568,10 +2568,10 @@
   <data name="SetVm_DefaultSuffix" xml:space="preserve">
     <value>(기본값)</value>
   </data>
-  <data name="SetVm_GroupFileOperations" xml:space="preserve">
+  <data name="Sc_GroupFileOperations" xml:space="preserve">
     <value>파일 작업</value>
   </data>
-  <data name="SetVm_GroupTabsAndPanels" xml:space="preserve">
+  <data name="Sc_GroupTabsAndPanels" xml:space="preserve">
     <value>탭 및 패널</value>
   </data>
   <data name="SetVm_SectionAbout" xml:space="preserve">
@@ -2607,43 +2607,43 @@
   <data name="SetVm_SectionTransfer" xml:space="preserve">
     <value>파일 전송</value>
   </data>
-  <data name="SetVm_ShortcutCloneSession" xml:space="preserve">
+  <data name="Sc_CloneSession" xml:space="preserve">
     <value>현재 세션 복제</value>
   </data>
-  <data name="SetVm_ShortcutCompletionPopup" xml:space="preserve">
+  <data name="Sc_CompletionPopup" xml:space="preserve">
     <value>명령 자동 완성 표시</value>
   </data>
-  <data name="SetVm_ShortcutDeleteWord" xml:space="preserve">
+  <data name="Sc_DeleteWord" xml:space="preserve">
     <value>이전 단어 삭제</value>
   </data>
-  <data name="SetVm_ShortcutNewTabAlias" xml:space="preserve">
+  <data name="Sc_NewTabAlias" xml:space="preserve">
     <value>새 탭(새 연결과 동일)</value>
   </data>
-  <data name="SetVm_ShortcutNextTab" xml:space="preserve">
+  <data name="Sc_NextTab" xml:space="preserve">
     <value>다음 탭</value>
   </data>
-  <data name="SetVm_ShortcutPaletteAlt" xml:space="preserve">
+  <data name="Sc_PaletteAlt" xml:space="preserve">
     <value>명령 팔레트(동일 기능)</value>
   </data>
-  <data name="SetVm_ShortcutPrevTab" xml:space="preserve">
+  <data name="Sc_PrevTab" xml:space="preserve">
     <value>이전 탭</value>
   </data>
-  <data name="SetVm_ShortcutReconnect" xml:space="preserve">
+  <data name="Sc_Reconnect" xml:space="preserve">
     <value>연결 끊김 후 다시 연결</value>
   </data>
-  <data name="SetVm_ShortcutReconnectAlt" xml:space="preserve">
+  <data name="Sc_ReconnectAlt" xml:space="preserve">
     <value>연결 끊김 후 다시 연결(동일 기능)</value>
   </data>
-  <data name="SetVm_ShortcutSaveInEditor" xml:space="preserve">
+  <data name="Sc_SaveInEditor" xml:space="preserve">
     <value>원격 편집기에서 저장</value>
   </data>
-  <data name="SetVm_ShortcutSearchTerminal" xml:space="preserve">
+  <data name="Sc_SearchTerminal" xml:space="preserve">
     <value>터미널 내용 검색</value>
   </data>
-  <data name="SetVm_ShortcutSendInterrupt" xml:space="preserve">
+  <data name="Sc_SendInterrupt" xml:space="preserve">
     <value>인터럽트 신호 ^C 보내기</value>
   </data>
-  <data name="SetVm_ShortcutToggleFileBrowser" xml:space="preserve">
+  <data name="Sc_ToggleFileBrowser" xml:space="preserve">
     <value>파일 브라우저 전환</value>
   </data>
   <data name="Sftp_ConflictOverwrite" xml:space="preserve">
@@ -3772,4 +3772,95 @@ Windows는 exe 전체 경로 또는 명령 이름(예: notepad), Linux는 명령
   <data name="BackgroundTasksIdle" xml:space="preserve"><value>백그라운드 작업 없음</value></data>
   <data name="BackgroundTasksCount" xml:space="preserve"><value>백그라운드 작업 {0}개</value></data>
   <data name="Msg_PluginInstalling" xml:space="preserve"><value>플러그인 설치 중</value></data>
+  <data name="Sc_GroupGlobal" xml:space="preserve"><value>전역</value></data>
+  <data name="Sc_GroupCompletion" xml:space="preserve"><value>명령 자동 완성</value></data>
+  <data name="Sc_GroupMouse" xml:space="preserve"><value>터미널 마우스 제스처</value></data>
+  <data name="Sc_GroupDialogs" xml:space="preserve"><value>대화 상자 및 창</value></data>
+  <data name="Sc_GroupAi" xml:space="preserve"><value>AI 어시스턴트 플러그인</value></data>
+  <data name="Sc_KeyLeftClick" xml:space="preserve"><value>왼쪽 클릭</value></data>
+  <data name="Sc_KeyRightClick" xml:space="preserve"><value>오른쪽 클릭</value></data>
+  <data name="Sc_KeyDoubleClick" xml:space="preserve"><value>더블 클릭</value></data>
+  <data name="Sc_KeyDrag" xml:space="preserve"><value>드래그</value></data>
+  <data name="Sc_KeyWheel" xml:space="preserve"><value>휠</value></data>
+  <data name="Sc_KeyTitleBar" xml:space="preserve"><value>제목 표시줄</value></data>
+  <data name="Sc_KeyGutter" xml:space="preserve"><value>여백 열</value></data>
+  <data name="Sc_PasteShiftInsert" xml:space="preserve"><value>붙여넣기(기존 X11 키)</value></data>
+  <data name="Sc_SearchNext" xml:space="preserve"><value>다음 일치 항목으로 이동</value></data>
+  <data name="Sc_SearchPrev" xml:space="preserve"><value>이전 일치 항목으로 이동</value></data>
+  <data name="Sc_SearchClose" xml:space="preserve"><value>검색 창 닫기</value></data>
+  <data name="Sc_ScrollPageUp" xml:space="preserve"><value>스크롤백 한 페이지 위로</value></data>
+  <data name="Sc_ScrollPageDown" xml:space="preserve"><value>스크롤백 한 페이지 아래로</value></data>
+  <data name="Sc_LineStart" xml:space="preserve"><value>커서를 줄 처음으로</value></data>
+  <data name="Sc_LineEnd" xml:space="preserve"><value>커서를 줄 끝으로</value></data>
+  <data name="Sc_CloseDisconnectedTab" xml:space="preserve"><value>연결이 끊긴 탭 닫기</value></data>
+  <data name="Sc_SuggestNext" xml:space="preserve"><value>다음 제안 선택</value></data>
+  <data name="Sc_SuggestPrev" xml:space="preserve"><value>이전 제안 선택</value></data>
+  <data name="Sc_SuggestAccept" xml:space="preserve"><value>선택한 제안 삽입</value></data>
+  <data name="Sc_SuggestDismiss" xml:space="preserve"><value>제안 팝업 닫기</value></data>
+  <data name="Sc_SuggestNative" xml:space="preserve"><value>셸 자체 자동 완성으로 전달</value></data>
+  <data name="Sc_GhostAccept" xml:space="preserve"><value>인라인 고스트 제안 수락</value></data>
+  <data name="Sc_OpenLink" xml:space="preserve"><value>포인터 아래 링크 열기</value></data>
+  <data name="Sc_SelectWord" xml:space="preserve"><value>단어 선택</value></data>
+  <data name="Sc_AppendWord" xml:space="preserve"><value>선택에 단어 추가</value></data>
+  <data name="Sc_ExtendSelection" xml:space="preserve"><value>앵커에서 선택 영역 확장</value></data>
+  <data name="Sc_BlockSelection" xml:space="preserve"><value>사각형 블록 선택</value></data>
+  <data name="Sc_AppendSelection" xml:space="preserve"><value>비연속 선택 영역 추가</value></data>
+  <data name="Sc_AppendBlockSelection" xml:space="preserve"><value>사각형 블록 선택 추가</value></data>
+  <data name="Sc_BypassMouseReport" xml:space="preserve"><value>마우스 보고를 우회하여 텍스트 선택</value></data>
+  <data name="Sc_RightClickPaste" xml:space="preserve"><value>오른쪽 클릭으로 붙여넣기</value></data>
+  <data name="Sc_ZoomFont" xml:space="preserve"><value>터미널 글꼴 크기 조절</value></data>
+  <data name="Sc_FastScroll" xml:space="preserve"><value>스크롤백을 5배 속도로 이동</value></data>
+  <data name="Sc_GutterMenu" xml:space="preserve"><value>여백 열 설정 메뉴 열기</value></data>
+  <data name="Sc_ToggleFold" xml:space="preserve"><value>출력 블록 접기/펼치기</value></data>
+  <data name="Sc_PaletteNext" xml:space="preserve"><value>다음 명령 선택</value></data>
+  <data name="Sc_PalettePrev" xml:space="preserve"><value>이전 명령 선택</value></data>
+  <data name="Sc_PaletteRun" xml:space="preserve"><value>선택한 명령 실행</value></data>
+  <data name="Sc_PaletteClose" xml:space="preserve"><value>명령 팔레트 닫기</value></data>
+  <data name="Sc_EditPath" xml:space="preserve"><value>현재 경로 편집</value></data>
+  <data name="Sc_CommitPath" xml:space="preserve"><value>입력한 경로로 이동</value></data>
+  <data name="Sc_CancelPath" xml:space="preserve"><value>경로 편집 취소</value></data>
+  <data name="Sc_OpenEntry" xml:space="preserve"><value>선택한 파일 또는 폴더 열기</value></data>
+  <data name="Sc_CloseEditor" xml:space="preserve"><value>편집기 닫기</value></data>
+  <data name="Sc_RefreshProcesses" xml:space="preserve"><value>프로세스 목록 새로 고침</value></data>
+  <data name="Sc_EndTask" xml:space="preserve"><value>선택한 프로세스 종료</value></data>
+  <data name="Sc_CloseWindow" xml:space="preserve"><value>창 닫기</value></data>
+  <data name="Sc_DialogCancel" xml:space="preserve"><value>현재 대화 상자 취소 후 닫기</value></data>
+  <data name="Sc_DialogConfirm" xml:space="preserve"><value>기본 버튼 실행</value></data>
+  <data name="Sc_MaximizeRestore" xml:space="preserve"><value>창 최대화/복원</value></data>
+  <data name="Sc_CancelDockDrag" xml:space="preserve"><value>진행 중인 도킹 드래그 취소</value></data>
+  <data name="Sc_PasswordPaste" xml:space="preserve"><value>비밀번호 입력란에 붙여넣기</value></data>
+  <data name="Sc_PasswordCopyBlocked" xml:space="preserve"><value>비밀번호 입력란에서 복사 차단</value></data>
+  <data name="Sc_AiSend" xml:space="preserve"><value>메시지 보내기</value></data>
+  <data name="Sc_AiNewline" xml:space="preserve"><value>줄 바꿈 삽입</value></data>
+  <data name="Sc_AiHistoryPrev" xml:space="preserve"><value>이전 입력 불러오기</value></data>
+  <data name="Sc_AiHistoryNext" xml:space="preserve"><value>다음 입력 불러오기</value></data>
+  <data name="Sc_AiRefNext" xml:space="preserve"><value>다음 파일 후보 선택</value></data>
+  <data name="Sc_AiRefPrev" xml:space="preserve"><value>이전 파일 후보 선택</value></data>
+  <data name="Sc_AiRefAccept" xml:space="preserve"><value>파일 참조 삽입</value></data>
+  <data name="Sc_AiRefClose" xml:space="preserve"><value>파일 선택기 닫기</value></data>
+  <data name="Sc_AiRefDelete" xml:space="preserve"><value>파일 참조를 통째로 삭제</value></data>
+  <data name="Sc_AiRenameCommit" xml:space="preserve"><value>세션 이름 변경 확정</value></data>
+  <data name="Sc_AiRenameCancel" xml:space="preserve"><value>세션 이름 변경 취소</value></data>
+  <data name="Sc_AiClosePanel" xml:space="preserve"><value>AI 보조 창 닫기</value></data>
+  <data name="Sc_NoteDisconnected" xml:space="preserve"><value>세션이 끊긴 동안에만</value></data>
+  <data name="Sc_NoteMainScreen" xml:space="preserve"><value>메인 화면이고 스크롤백이 있을 때만</value></data>
+  <data name="Sc_NoteAnyScreen" xml:space="preserve"><value>대체 화면에서도 작동</value></data>
+  <data name="Sc_NoteCtrlCCopies" xml:space="preserve"><value>선택 시 Ctrl+C 복사가 켜져 있고 선택이 있으면 복사</value></data>
+  <data name="Sc_NoteSearchOpen" xml:space="preserve"><value>검색 창이 열려 있을 때만</value></data>
+  <data name="Sc_NoteSuggestOpen" xml:space="preserve"><value>제안 팝업이 열려 있을 때만</value></data>
+  <data name="Sc_NoteListFocused" xml:space="preserve"><value>목록에 포커스가 있을 때만</value></data>
+  <data name="Sc_NoteMouseReporting" xml:space="preserve"><value>앱이 마우스 보고를 사용할 때 필요</value></data>
+  <data name="Sc_NoteOptional" xml:space="preserve"><value>설정에서 끌 수 있음</value></data>
+  <data name="Sc_NoteRequiresSetting" xml:space="preserve"><value>설정에서 해당 옵션을 켜야 함</value></data>
+  <data name="Sc_NotePasswordBlocked" xml:space="preserve"><value>Ctrl+X도 차단됨</value></data>
+  <data name="Sc_NoteDragging" xml:space="preserve"><value>도킹 드래그 중에만</value></data>
+  <data name="Sc_NoteCaretFirstLine" xml:space="preserve"><value>커서가 첫 줄에 있을 때만</value></data>
+  <data name="Sc_NoteCaretLastLine" xml:space="preserve"><value>커서가 마지막 줄에 있을 때만</value></data>
+  <data name="Sc_NoteRefPopup" xml:space="preserve"><value>@ 파일 선택기가 열려 있을 때만</value></data>
+  <data name="Sc_NoteAllDialogs" xml:space="preserve"><value>모든 대화 상자와 보조 창에 적용</value></data>
+  <data name="Sc_NoteEditorOnly" xml:space="preserve"><value>원격 파일 편집기</value></data>
+  <data name="Sc_FilterPlaceholder" xml:space="preserve"><value>단축키 검색</value></data>
+  <data name="Sc_NoMatch" xml:space="preserve"><value>일치하는 단축키가 없습니다.</value></data>
+  <data name="Sc_Count" xml:space="preserve"><value>총 {0}개 단축키</value></data>
+  <data name="Sc_MacNote" xml:space="preserve"><value>macOS에서는 터미널 내 복사/붙여넣기/새 탭/탭 닫기/설정에 Ctrl 대신 Command를 사용합니다.</value></data>
 </root>

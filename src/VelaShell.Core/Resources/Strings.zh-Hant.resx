@@ -2568,10 +2568,10 @@
   <data name="SetVm_DefaultSuffix" xml:space="preserve">
     <value>(預設)</value>
   </data>
-  <data name="SetVm_GroupFileOperations" xml:space="preserve">
+  <data name="Sc_GroupFileOperations" xml:space="preserve">
     <value>檔案操作</value>
   </data>
-  <data name="SetVm_GroupTabsAndPanels" xml:space="preserve">
+  <data name="Sc_GroupTabsAndPanels" xml:space="preserve">
     <value>標籤與面板</value>
   </data>
   <data name="SetVm_SectionAbout" xml:space="preserve">
@@ -2607,43 +2607,43 @@
   <data name="SetVm_SectionTransfer" xml:space="preserve">
     <value>檔案傳輸</value>
   </data>
-  <data name="SetVm_ShortcutCloneSession" xml:space="preserve">
+  <data name="Sc_CloneSession" xml:space="preserve">
     <value>複製目前工作階段</value>
   </data>
-  <data name="SetVm_ShortcutCompletionPopup" xml:space="preserve">
+  <data name="Sc_CompletionPopup" xml:space="preserve">
     <value>顯示命令補全</value>
   </data>
-  <data name="SetVm_ShortcutDeleteWord" xml:space="preserve">
+  <data name="Sc_DeleteWord" xml:space="preserve">
     <value>刪除前一個單字</value>
   </data>
-  <data name="SetVm_ShortcutNewTabAlias" xml:space="preserve">
+  <data name="Sc_NewTabAlias" xml:space="preserve">
     <value>新增標籤(同新增連線)</value>
   </data>
-  <data name="SetVm_ShortcutNextTab" xml:space="preserve">
+  <data name="Sc_NextTab" xml:space="preserve">
     <value>下一個標籤頁</value>
   </data>
-  <data name="SetVm_ShortcutPaletteAlt" xml:space="preserve">
+  <data name="Sc_PaletteAlt" xml:space="preserve">
     <value>命令面板(等效)</value>
   </data>
-  <data name="SetVm_ShortcutPrevTab" xml:space="preserve">
+  <data name="Sc_PrevTab" xml:space="preserve">
     <value>上一個標籤頁</value>
   </data>
-  <data name="SetVm_ShortcutReconnect" xml:space="preserve">
+  <data name="Sc_Reconnect" xml:space="preserve">
     <value>斷線後重新連線</value>
   </data>
-  <data name="SetVm_ShortcutReconnectAlt" xml:space="preserve">
+  <data name="Sc_ReconnectAlt" xml:space="preserve">
     <value>斷線後重新連線(等效)</value>
   </data>
-  <data name="SetVm_ShortcutSaveInEditor" xml:space="preserve">
+  <data name="Sc_SaveInEditor" xml:space="preserve">
     <value>遠端編輯器內儲存</value>
   </data>
-  <data name="SetVm_ShortcutSearchTerminal" xml:space="preserve">
+  <data name="Sc_SearchTerminal" xml:space="preserve">
     <value>搜尋終端機內容</value>
   </data>
-  <data name="SetVm_ShortcutSendInterrupt" xml:space="preserve">
+  <data name="Sc_SendInterrupt" xml:space="preserve">
     <value>傳送中斷訊號 ^C</value>
   </data>
-  <data name="SetVm_ShortcutToggleFileBrowser" xml:space="preserve">
+  <data name="Sc_ToggleFileBrowser" xml:space="preserve">
     <value>切換檔案瀏覽器</value>
   </data>
   <data name="Sftp_ConflictOverwrite" xml:space="preserve">
@@ -3772,4 +3772,95 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   <data name="BackgroundTasksIdle" xml:space="preserve"><value>目前沒有背景工作</value></data>
   <data name="BackgroundTasksCount" xml:space="preserve"><value>{0} 項背景工作</value></data>
   <data name="Msg_PluginInstalling" xml:space="preserve"><value>正在安裝外掛</value></data>
+  <data name="Sc_GroupGlobal" xml:space="preserve"><value>全域</value></data>
+  <data name="Sc_GroupCompletion" xml:space="preserve"><value>命令補全</value></data>
+  <data name="Sc_GroupMouse" xml:space="preserve"><value>終端機滑鼠手勢</value></data>
+  <data name="Sc_GroupDialogs" xml:space="preserve"><value>對話方塊與視窗</value></data>
+  <data name="Sc_GroupAi" xml:space="preserve"><value>AI 助理外掛</value></data>
+  <data name="Sc_KeyLeftClick" xml:space="preserve"><value>左鍵</value></data>
+  <data name="Sc_KeyRightClick" xml:space="preserve"><value>右鍵</value></data>
+  <data name="Sc_KeyDoubleClick" xml:space="preserve"><value>按兩下</value></data>
+  <data name="Sc_KeyDrag" xml:space="preserve"><value>拖曳</value></data>
+  <data name="Sc_KeyWheel" xml:space="preserve"><value>滾輪</value></data>
+  <data name="Sc_KeyTitleBar" xml:space="preserve"><value>標題列</value></data>
+  <data name="Sc_KeyGutter" xml:space="preserve"><value>側欄</value></data>
+  <data name="Sc_PasteShiftInsert" xml:space="preserve"><value>貼上(傳統 X11 鍵位)</value></data>
+  <data name="Sc_SearchNext" xml:space="preserve"><value>跳到下一個相符項</value></data>
+  <data name="Sc_SearchPrev" xml:space="preserve"><value>跳到上一個相符項</value></data>
+  <data name="Sc_SearchClose" xml:space="preserve"><value>關閉搜尋列</value></data>
+  <data name="Sc_ScrollPageUp" xml:space="preserve"><value>捲動歷程上翻一頁</value></data>
+  <data name="Sc_ScrollPageDown" xml:space="preserve"><value>捲動歷程下翻一頁</value></data>
+  <data name="Sc_LineStart" xml:space="preserve"><value>游標跳到行首</value></data>
+  <data name="Sc_LineEnd" xml:space="preserve"><value>游標跳到行尾</value></data>
+  <data name="Sc_CloseDisconnectedTab" xml:space="preserve"><value>關閉已中斷的分頁</value></data>
+  <data name="Sc_SuggestNext" xml:space="preserve"><value>選取下一個建議</value></data>
+  <data name="Sc_SuggestPrev" xml:space="preserve"><value>選取上一個建議</value></data>
+  <data name="Sc_SuggestAccept" xml:space="preserve"><value>採用選取的建議</value></data>
+  <data name="Sc_SuggestDismiss" xml:space="preserve"><value>收合建議彈出層</value></data>
+  <data name="Sc_SuggestNative" xml:space="preserve"><value>交給 shell 原生補全</value></data>
+  <data name="Sc_GhostAccept" xml:space="preserve"><value>接受行內幽靈補全</value></data>
+  <data name="Sc_OpenLink" xml:space="preserve"><value>開啟指標下的連結</value></data>
+  <data name="Sc_SelectWord" xml:space="preserve"><value>選取單字</value></data>
+  <data name="Sc_AppendWord" xml:space="preserve"><value>追加選取一個單字</value></data>
+  <data name="Sc_ExtendSelection" xml:space="preserve"><value>從錨點延伸選取範圍</value></data>
+  <data name="Sc_BlockSelection" xml:space="preserve"><value>矩形區塊選取</value></data>
+  <data name="Sc_AppendSelection" xml:space="preserve"><value>追加一段不連續選取範圍</value></data>
+  <data name="Sc_AppendBlockSelection" xml:space="preserve"><value>追加一段矩形區塊選取</value></data>
+  <data name="Sc_BypassMouseReport" xml:space="preserve"><value>略過滑鼠回報以選取文字</value></data>
+  <data name="Sc_RightClickPaste" xml:space="preserve"><value>右鍵貼上</value></data>
+  <data name="Sc_ZoomFont" xml:space="preserve"><value>縮放終端機字型大小</value></data>
+  <data name="Sc_FastScroll" xml:space="preserve"><value>五倍速捲動歷程</value></data>
+  <data name="Sc_GutterMenu" xml:space="preserve"><value>開啟側欄設定選單</value></data>
+  <data name="Sc_ToggleFold" xml:space="preserve"><value>摺疊/展開輸出區塊</value></data>
+  <data name="Sc_PaletteNext" xml:space="preserve"><value>選取下一個命令</value></data>
+  <data name="Sc_PalettePrev" xml:space="preserve"><value>選取上一個命令</value></data>
+  <data name="Sc_PaletteRun" xml:space="preserve"><value>執行選取的命令</value></data>
+  <data name="Sc_PaletteClose" xml:space="preserve"><value>關閉命令選擇區</value></data>
+  <data name="Sc_EditPath" xml:space="preserve"><value>編輯目前路徑</value></data>
+  <data name="Sc_CommitPath" xml:space="preserve"><value>前往輸入的路徑</value></data>
+  <data name="Sc_CancelPath" xml:space="preserve"><value>取消路徑編輯</value></data>
+  <data name="Sc_OpenEntry" xml:space="preserve"><value>開啟選取的檔案或資料夾</value></data>
+  <data name="Sc_CloseEditor" xml:space="preserve"><value>關閉編輯器</value></data>
+  <data name="Sc_RefreshProcesses" xml:space="preserve"><value>重新整理處理程序清單</value></data>
+  <data name="Sc_EndTask" xml:space="preserve"><value>結束選取的處理程序</value></data>
+  <data name="Sc_CloseWindow" xml:space="preserve"><value>關閉視窗</value></data>
+  <data name="Sc_DialogCancel" xml:space="preserve"><value>取消並關閉目前對話方塊</value></data>
+  <data name="Sc_DialogConfirm" xml:space="preserve"><value>觸發預設按鈕</value></data>
+  <data name="Sc_MaximizeRestore" xml:space="preserve"><value>最大化/還原視窗</value></data>
+  <data name="Sc_CancelDockDrag" xml:space="preserve"><value>取消進行中的停駐拖曳</value></data>
+  <data name="Sc_PasswordPaste" xml:space="preserve"><value>在密碼欄位中貼上</value></data>
+  <data name="Sc_PasswordCopyBlocked" xml:space="preserve"><value>密碼欄位中禁止複製</value></data>
+  <data name="Sc_AiSend" xml:space="preserve"><value>傳送訊息</value></data>
+  <data name="Sc_AiNewline" xml:space="preserve"><value>插入換行</value></data>
+  <data name="Sc_AiHistoryPrev" xml:space="preserve"><value>叫出上一則輸入</value></data>
+  <data name="Sc_AiHistoryNext" xml:space="preserve"><value>叫出下一則輸入</value></data>
+  <data name="Sc_AiRefNext" xml:space="preserve"><value>選取下一個檔案候選</value></data>
+  <data name="Sc_AiRefPrev" xml:space="preserve"><value>選取上一個檔案候選</value></data>
+  <data name="Sc_AiRefAccept" xml:space="preserve"><value>插入檔案參照</value></data>
+  <data name="Sc_AiRefClose" xml:space="preserve"><value>關閉檔案選擇彈出層</value></data>
+  <data name="Sc_AiRefDelete" xml:space="preserve"><value>整塊刪除檔案參照</value></data>
+  <data name="Sc_AiRenameCommit" xml:space="preserve"><value>提交工作階段重新命名</value></data>
+  <data name="Sc_AiRenameCancel" xml:space="preserve"><value>取消工作階段重新命名</value></data>
+  <data name="Sc_AiClosePanel" xml:space="preserve"><value>關閉 AI 次要視窗</value></data>
+  <data name="Sc_NoteDisconnected" xml:space="preserve"><value>僅在工作階段已中斷時</value></data>
+  <data name="Sc_NoteMainScreen" xml:space="preserve"><value>僅主畫面且有捲動歷程</value></data>
+  <data name="Sc_NoteAnyScreen" xml:space="preserve"><value>備用畫面也有效</value></data>
+  <data name="Sc_NoteCtrlCCopies" xml:space="preserve"><value>開啟選取時 Ctrl+C 複製且有選取範圍時改為複製</value></data>
+  <data name="Sc_NoteSearchOpen" xml:space="preserve"><value>僅在搜尋列開啟時</value></data>
+  <data name="Sc_NoteSuggestOpen" xml:space="preserve"><value>僅在建議彈出層開啟時</value></data>
+  <data name="Sc_NoteListFocused" xml:space="preserve"><value>僅在清單取得焦點時</value></data>
+  <data name="Sc_NoteMouseReporting" xml:space="preserve"><value>應用程式啟用滑鼠回報時需要</value></data>
+  <data name="Sc_NoteOptional" xml:space="preserve"><value>可在設定中關閉</value></data>
+  <data name="Sc_NoteRequiresSetting" xml:space="preserve"><value>需在設定中開啟對應選項</value></data>
+  <data name="Sc_NotePasswordBlocked" xml:space="preserve"><value>Ctrl+X 同樣被禁止</value></data>
+  <data name="Sc_NoteDragging" xml:space="preserve"><value>僅在停駐拖曳進行中</value></data>
+  <data name="Sc_NoteCaretFirstLine" xml:space="preserve"><value>僅當游標在首行時</value></data>
+  <data name="Sc_NoteCaretLastLine" xml:space="preserve"><value>僅當游標在末行時</value></data>
+  <data name="Sc_NoteRefPopup" xml:space="preserve"><value>僅在 @ 檔案彈出層開啟時</value></data>
+  <data name="Sc_NoteAllDialogs" xml:space="preserve"><value>對所有對話方塊與次要視窗有效</value></data>
+  <data name="Sc_NoteEditorOnly" xml:space="preserve"><value>遠端檔案編輯器</value></data>
+  <data name="Sc_FilterPlaceholder" xml:space="preserve"><value>搜尋快速鍵</value></data>
+  <data name="Sc_NoMatch" xml:space="preserve"><value>沒有符合的快速鍵。</value></data>
+  <data name="Sc_Count" xml:space="preserve"><value>共 {0} 個快速鍵</value></data>
+  <data name="Sc_MacNote" xml:space="preserve"><value>在 macOS 上,終端機內的複製/貼上/新增分頁/關閉分頁/開啟設定改用 Command 取代 Ctrl。</value></data>
 </root>

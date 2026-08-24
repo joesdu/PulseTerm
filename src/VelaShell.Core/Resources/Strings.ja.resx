@@ -2568,10 +2568,10 @@
   <data name="SetVm_DefaultSuffix" xml:space="preserve">
     <value>(デフォルト)</value>
   </data>
-  <data name="SetVm_GroupFileOperations" xml:space="preserve">
+  <data name="Sc_GroupFileOperations" xml:space="preserve">
     <value>ファイル操作</value>
   </data>
-  <data name="SetVm_GroupTabsAndPanels" xml:space="preserve">
+  <data name="Sc_GroupTabsAndPanels" xml:space="preserve">
     <value>タブとパネル</value>
   </data>
   <data name="SetVm_SectionAbout" xml:space="preserve">
@@ -2607,43 +2607,43 @@
   <data name="SetVm_SectionTransfer" xml:space="preserve">
     <value>ファイル転送</value>
   </data>
-  <data name="SetVm_ShortcutCloneSession" xml:space="preserve">
+  <data name="Sc_CloneSession" xml:space="preserve">
     <value>現在のセッションを複製</value>
   </data>
-  <data name="SetVm_ShortcutCompletionPopup" xml:space="preserve">
+  <data name="Sc_CompletionPopup" xml:space="preserve">
     <value>コマンド補完を表示</value>
   </data>
-  <data name="SetVm_ShortcutDeleteWord" xml:space="preserve">
+  <data name="Sc_DeleteWord" xml:space="preserve">
     <value>前の単語を削除</value>
   </data>
-  <data name="SetVm_ShortcutNewTabAlias" xml:space="preserve">
+  <data name="Sc_NewTabAlias" xml:space="preserve">
     <value>新しいタブ(新規接続と同じ)</value>
   </data>
-  <data name="SetVm_ShortcutNextTab" xml:space="preserve">
+  <data name="Sc_NextTab" xml:space="preserve">
     <value>次のタブ</value>
   </data>
-  <data name="SetVm_ShortcutPaletteAlt" xml:space="preserve">
+  <data name="Sc_PaletteAlt" xml:space="preserve">
     <value>コマンドパレット(同等)</value>
   </data>
-  <data name="SetVm_ShortcutPrevTab" xml:space="preserve">
+  <data name="Sc_PrevTab" xml:space="preserve">
     <value>前のタブ</value>
   </data>
-  <data name="SetVm_ShortcutReconnect" xml:space="preserve">
+  <data name="Sc_Reconnect" xml:space="preserve">
     <value>切断後に再接続</value>
   </data>
-  <data name="SetVm_ShortcutReconnectAlt" xml:space="preserve">
+  <data name="Sc_ReconnectAlt" xml:space="preserve">
     <value>切断後に再接続(同等)</value>
   </data>
-  <data name="SetVm_ShortcutSaveInEditor" xml:space="preserve">
+  <data name="Sc_SaveInEditor" xml:space="preserve">
     <value>リモートエディター内で保存</value>
   </data>
-  <data name="SetVm_ShortcutSearchTerminal" xml:space="preserve">
+  <data name="Sc_SearchTerminal" xml:space="preserve">
     <value>ターミナル内容を検索</value>
   </data>
-  <data name="SetVm_ShortcutSendInterrupt" xml:space="preserve">
+  <data name="Sc_SendInterrupt" xml:space="preserve">
     <value>割り込みシグナル ^C を送信</value>
   </data>
-  <data name="SetVm_ShortcutToggleFileBrowser" xml:space="preserve">
+  <data name="Sc_ToggleFileBrowser" xml:space="preserve">
     <value>ファイルブラウザーの切り替え</value>
   </data>
   <data name="Sftp_ConflictOverwrite" xml:space="preserve">
@@ -3772,4 +3772,95 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   <data name="BackgroundTasksIdle" xml:space="preserve"><value>バックグラウンドタスクはありません</value></data>
   <data name="BackgroundTasksCount" xml:space="preserve"><value>バックグラウンドタスク {0} 件</value></data>
   <data name="Msg_PluginInstalling" xml:space="preserve"><value>プラグインをインストール中</value></data>
+  <data name="Sc_GroupGlobal" xml:space="preserve"><value>グローバル</value></data>
+  <data name="Sc_GroupCompletion" xml:space="preserve"><value>コマンド補完</value></data>
+  <data name="Sc_GroupMouse" xml:space="preserve"><value>ターミナルのマウス操作</value></data>
+  <data name="Sc_GroupDialogs" xml:space="preserve"><value>ダイアログとウィンドウ</value></data>
+  <data name="Sc_GroupAi" xml:space="preserve"><value>AI アシスタントプラグイン</value></data>
+  <data name="Sc_KeyLeftClick" xml:space="preserve"><value>左クリック</value></data>
+  <data name="Sc_KeyRightClick" xml:space="preserve"><value>右クリック</value></data>
+  <data name="Sc_KeyDoubleClick" xml:space="preserve"><value>ダブルクリック</value></data>
+  <data name="Sc_KeyDrag" xml:space="preserve"><value>ドラッグ</value></data>
+  <data name="Sc_KeyWheel" xml:space="preserve"><value>ホイール</value></data>
+  <data name="Sc_KeyTitleBar" xml:space="preserve"><value>タイトルバー</value></data>
+  <data name="Sc_KeyGutter" xml:space="preserve"><value>ガター</value></data>
+  <data name="Sc_PasteShiftInsert" xml:space="preserve"><value>貼り付け(従来の X11 キー)</value></data>
+  <data name="Sc_SearchNext" xml:space="preserve"><value>次の一致へ移動</value></data>
+  <data name="Sc_SearchPrev" xml:space="preserve"><value>前の一致へ移動</value></data>
+  <data name="Sc_SearchClose" xml:space="preserve"><value>検索バーを閉じる</value></data>
+  <data name="Sc_ScrollPageUp" xml:space="preserve"><value>スクロールバックを 1 ページ戻る</value></data>
+  <data name="Sc_ScrollPageDown" xml:space="preserve"><value>スクロールバックを 1 ページ進む</value></data>
+  <data name="Sc_LineStart" xml:space="preserve"><value>カーソルを行頭へ</value></data>
+  <data name="Sc_LineEnd" xml:space="preserve"><value>カーソルを行末へ</value></data>
+  <data name="Sc_CloseDisconnectedTab" xml:space="preserve"><value>切断されたタブを閉じる</value></data>
+  <data name="Sc_SuggestNext" xml:space="preserve"><value>次の候補を選択</value></data>
+  <data name="Sc_SuggestPrev" xml:space="preserve"><value>前の候補を選択</value></data>
+  <data name="Sc_SuggestAccept" xml:space="preserve"><value>選択した候補を挿入</value></data>
+  <data name="Sc_SuggestDismiss" xml:space="preserve"><value>候補ポップアップを閉じる</value></data>
+  <data name="Sc_SuggestNative" xml:space="preserve"><value>シェル本来の補完に渡す</value></data>
+  <data name="Sc_GhostAccept" xml:space="preserve"><value>インライン候補を確定</value></data>
+  <data name="Sc_OpenLink" xml:space="preserve"><value>ポインター下のリンクを開く</value></data>
+  <data name="Sc_SelectWord" xml:space="preserve"><value>単語を選択</value></data>
+  <data name="Sc_AppendWord" xml:space="preserve"><value>選択に単語を追加</value></data>
+  <data name="Sc_ExtendSelection" xml:space="preserve"><value>アンカーから選択を拡張</value></data>
+  <data name="Sc_BlockSelection" xml:space="preserve"><value>矩形(ブロック)選択</value></data>
+  <data name="Sc_AppendSelection" xml:space="preserve"><value>不連続な選択範囲を追加</value></data>
+  <data name="Sc_AppendBlockSelection" xml:space="preserve"><value>矩形選択範囲を追加</value></data>
+  <data name="Sc_BypassMouseReport" xml:space="preserve"><value>マウス報告を回避してテキストを選択</value></data>
+  <data name="Sc_RightClickPaste" xml:space="preserve"><value>右クリックで貼り付け</value></data>
+  <data name="Sc_ZoomFont" xml:space="preserve"><value>ターミナルのフォントサイズを変更</value></data>
+  <data name="Sc_FastScroll" xml:space="preserve"><value>スクロールバックを 5 倍速で移動</value></data>
+  <data name="Sc_GutterMenu" xml:space="preserve"><value>ガター設定メニューを開く</value></data>
+  <data name="Sc_ToggleFold" xml:space="preserve"><value>出力ブロックを折りたたむ/展開</value></data>
+  <data name="Sc_PaletteNext" xml:space="preserve"><value>次のコマンドを選択</value></data>
+  <data name="Sc_PalettePrev" xml:space="preserve"><value>前のコマンドを選択</value></data>
+  <data name="Sc_PaletteRun" xml:space="preserve"><value>選択したコマンドを実行</value></data>
+  <data name="Sc_PaletteClose" xml:space="preserve"><value>コマンドパレットを閉じる</value></data>
+  <data name="Sc_EditPath" xml:space="preserve"><value>現在のパスを編集</value></data>
+  <data name="Sc_CommitPath" xml:space="preserve"><value>入力したパスへ移動</value></data>
+  <data name="Sc_CancelPath" xml:space="preserve"><value>パス編集をキャンセル</value></data>
+  <data name="Sc_OpenEntry" xml:space="preserve"><value>選択したファイル/フォルダーを開く</value></data>
+  <data name="Sc_CloseEditor" xml:space="preserve"><value>エディターを閉じる</value></data>
+  <data name="Sc_RefreshProcesses" xml:space="preserve"><value>プロセス一覧を更新</value></data>
+  <data name="Sc_EndTask" xml:space="preserve"><value>選択したプロセスを終了</value></data>
+  <data name="Sc_CloseWindow" xml:space="preserve"><value>ウィンドウを閉じる</value></data>
+  <data name="Sc_DialogCancel" xml:space="preserve"><value>現在のダイアログをキャンセルして閉じる</value></data>
+  <data name="Sc_DialogConfirm" xml:space="preserve"><value>既定のボタンを実行</value></data>
+  <data name="Sc_MaximizeRestore" xml:space="preserve"><value>ウィンドウを最大化/元に戻す</value></data>
+  <data name="Sc_CancelDockDrag" xml:space="preserve"><value>進行中のドッキング操作を中止</value></data>
+  <data name="Sc_PasswordPaste" xml:space="preserve"><value>パスワード欄に貼り付け</value></data>
+  <data name="Sc_PasswordCopyBlocked" xml:space="preserve"><value>パスワード欄ではコピー禁止</value></data>
+  <data name="Sc_AiSend" xml:space="preserve"><value>メッセージを送信</value></data>
+  <data name="Sc_AiNewline" xml:space="preserve"><value>改行を入力</value></data>
+  <data name="Sc_AiHistoryPrev" xml:space="preserve"><value>前の入力を呼び出す</value></data>
+  <data name="Sc_AiHistoryNext" xml:space="preserve"><value>次の入力を呼び出す</value></data>
+  <data name="Sc_AiRefNext" xml:space="preserve"><value>次のファイル候補を選択</value></data>
+  <data name="Sc_AiRefPrev" xml:space="preserve"><value>前のファイル候補を選択</value></data>
+  <data name="Sc_AiRefAccept" xml:space="preserve"><value>ファイル参照を挿入</value></data>
+  <data name="Sc_AiRefClose" xml:space="preserve"><value>ファイル選択を閉じる</value></data>
+  <data name="Sc_AiRefDelete" xml:space="preserve"><value>ファイル参照をまとめて削除</value></data>
+  <data name="Sc_AiRenameCommit" xml:space="preserve"><value>セッション名の変更を確定</value></data>
+  <data name="Sc_AiRenameCancel" xml:space="preserve"><value>セッション名の変更を取消</value></data>
+  <data name="Sc_AiClosePanel" xml:space="preserve"><value>AI サブウィンドウを閉じる</value></data>
+  <data name="Sc_NoteDisconnected" xml:space="preserve"><value>セッション切断中のみ</value></data>
+  <data name="Sc_NoteMainScreen" xml:space="preserve"><value>メイン画面かつスクロールバックがある場合のみ</value></data>
+  <data name="Sc_NoteAnyScreen" xml:space="preserve"><value>代替画面でも有効</value></data>
+  <data name="Sc_NoteCtrlCCopies" xml:space="preserve"><value>選択時に Ctrl+C でコピーが有効かつ選択があればコピー</value></data>
+  <data name="Sc_NoteSearchOpen" xml:space="preserve"><value>検索バーが開いている場合のみ</value></data>
+  <data name="Sc_NoteSuggestOpen" xml:space="preserve"><value>候補ポップアップ表示中のみ</value></data>
+  <data name="Sc_NoteListFocused" xml:space="preserve"><value>一覧にフォーカスがある場合のみ</value></data>
+  <data name="Sc_NoteMouseReporting" xml:space="preserve"><value>アプリがマウス報告を有効にしている場合に必要</value></data>
+  <data name="Sc_NoteOptional" xml:space="preserve"><value>設定でオフにできます</value></data>
+  <data name="Sc_NoteRequiresSetting" xml:space="preserve"><value>設定で該当オプションを有効にする必要があります</value></data>
+  <data name="Sc_NotePasswordBlocked" xml:space="preserve"><value>Ctrl+X も同様に禁止</value></data>
+  <data name="Sc_NoteDragging" xml:space="preserve"><value>ドッキング操作中のみ</value></data>
+  <data name="Sc_NoteCaretFirstLine" xml:space="preserve"><value>カーソルが最初の行にある場合のみ</value></data>
+  <data name="Sc_NoteCaretLastLine" xml:space="preserve"><value>カーソルが最後の行にある場合のみ</value></data>
+  <data name="Sc_NoteRefPopup" xml:space="preserve"><value>@ ファイル選択を開いている場合のみ</value></data>
+  <data name="Sc_NoteAllDialogs" xml:space="preserve"><value>すべてのダイアログとサブウィンドウに適用</value></data>
+  <data name="Sc_NoteEditorOnly" xml:space="preserve"><value>リモートファイルエディター</value></data>
+  <data name="Sc_FilterPlaceholder" xml:space="preserve"><value>ショートカットを検索</value></data>
+  <data name="Sc_NoMatch" xml:space="preserve"><value>一致するショートカットはありません。</value></data>
+  <data name="Sc_Count" xml:space="preserve"><value>ショートカット合計 {0} 件</value></data>
+  <data name="Sc_MacNote" xml:space="preserve"><value>macOS では、ターミナル内のコピー/貼り付け/新しいタブ/タブを閉じる/設定は Ctrl の代わりに Command を使います。</value></data>
 </root>

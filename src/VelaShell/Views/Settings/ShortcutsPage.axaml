@@ -5,13 +5,28 @@
              x:Class="VelaShell.Views.Settings.ShortcutsPage"
              x:DataType="vm:SettingsViewModel">
 
+  <!-- 快捷键参考页(只读):条目全部来自 ShortcutCatalog,与 docs/快捷键参考.md 同源。
+       新增绑定只需改目录,本页与文档一起跟着变;这里不放任何写死的键位。 -->
+
   <StackPanel Spacing="14">
     <StackPanel Spacing="2">
       <TextBlock Classes="page-title" Text="{loc:Localize SetShortcuts_Title}" />
       <TextBlock Classes="page-subtitle" Text="{loc:Localize SetShortcuts_Subtitle}" />
     </StackPanel>
 
-    <ItemsControl ItemsSource="{Binding ShortcutGroups}">
+    <!-- 搜索:动作名、键位与生效条件一起匹配(ShortcutItem.SearchText)。 -->
+    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+      <TextBox Text="{Binding ShortcutFilter}"
+               PlaceholderText="{loc:Localize Sc_FilterPlaceholder}" />
+      <TextBlock Grid.Column="1" Classes="row-desc"
+                 Text="{Binding ShortcutCountText}"
+                 TextWrapping="NoWrap" VerticalAlignment="Center" />
+    </Grid>
+
+    <TextBlock Classes="row-desc" IsVisible="{Binding !HasShortcutMatches}"
+               Text="{loc:Localize Sc_NoMatch}" />
+
+    <ItemsControl ItemsSource="{Binding FilteredShortcutGroups}">
       <ItemsControl.ItemsPanel>
         <ItemsPanelTemplate>
           <StackPanel Spacing="14" />
@@ -25,13 +40,21 @@
               <ItemsControl ItemsSource="{Binding Items}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:ShortcutItem">
-                    <Border Height="36" Padding="12,0"
+                    <!-- 行高改为自适应:带生效条件的条目要在动作名下面多排一行备注,
+                         写死 36px 会把备注裁掉。 -->
+                    <Border MinHeight="36" Padding="12,7"
                             BorderBrush="{DynamicResource VelaBorderPrimary}"
                             BorderThickness="0,0,0,1">
-                      <Grid ColumnDefinitions="*,Auto">
-                        <TextBlock Text="{Binding Label}"
-                                   Foreground="{DynamicResource VelaTextSecondary}"
-                                   FontSize="{DynamicResource VelaFontSize12}" VerticalAlignment="Center" />
+                      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <StackPanel VerticalAlignment="Center" Spacing="2">
+                          <TextBlock Text="{Binding Label}"
+                                     Foreground="{DynamicResource VelaTextSecondary}"
+                                     FontSize="{DynamicResource VelaFontSize12}"
+                                     TextWrapping="Wrap" />
+                          <TextBlock Classes="row-desc"
+                                     IsVisible="{Binding HasNote}"
+                                     Text="{Binding Note}" />
+                        </StackPanel>
                         <ItemsControl Grid.Column="1" ItemsSource="{Binding Keys}"
                                       VerticalAlignment="Center">
                           <ItemsControl.ItemsPanel>
@@ -61,5 +84,8 @@
       </ItemsControl.ItemTemplate>
     </ItemsControl>
 
+    <!-- 平台差异:全局键位在三平台都是 Ctrl,只有终端上下文在 macOS 换成 Command
+         (KeyboardShortcutService.RegisterMappings),故表里统一列 Ctrl,差异在这里说清。 -->
+    <TextBlock Classes="row-desc" Text="{Binding ShortcutMacNote}" />
   </StackPanel>
 </UserControl>
