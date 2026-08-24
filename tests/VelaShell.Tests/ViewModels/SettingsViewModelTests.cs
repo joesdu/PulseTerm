@@ -446,12 +446,12 @@ public class SettingsViewModelTests
     public void ShortcutFilter_KeepsOnlyMatchingRows()
     {
         SettingsViewModel vm = CreateVm();
-        int total = vm.FilteredShortcutGroups.Sum(group => group.Items.Length);
+        int total = vm.FilteredShortcutGroups.Sum(group => group.FilteredItems.Count);
 
         vm.ShortcutFilter = "F5";
 
         Assert.HasCount(1, vm.FilteredShortcutGroups, "F5 只在进程管理器一组里出现");
-        Assert.HasCount(1, vm.FilteredShortcutGroups[0].Items);
+        Assert.HasCount(1, vm.FilteredShortcutGroups[0].FilteredItems);
         Assert.IsTrue(vm.HasShortcutMatches);
         Assert.IsGreaterThan(1, total, "全量表不该只有一条,否则下面的收窄断言没意义");
     }
@@ -464,10 +464,10 @@ public class SettingsViewModelTests
         SettingsViewModel vm = CreateVm();
 
         vm.ShortcutFilter = "Ctrl+Shift+L";
-        int withPlus = vm.FilteredShortcutGroups.Sum(group => group.Items.Length);
+        int withPlus = vm.FilteredShortcutGroups.Sum(group => group.FilteredItems.Count);
 
         vm.ShortcutFilter = "Ctrl Shift L";
-        int withSpaces = vm.FilteredShortcutGroups.Sum(group => group.Items.Length);
+        int withSpaces = vm.FilteredShortcutGroups.Sum(group => group.FilteredItems.Count);
 
         Assert.AreEqual(1, withPlus, "加号写法搜不到 Ctrl+Shift+L");
         Assert.AreEqual(1, withSpaces, "空格写法搜不到 Ctrl Shift L");
@@ -486,16 +486,65 @@ public class SettingsViewModelTests
         Assert.IsFalse(vm.HasShortcutMatches);
     }
 
-    /// <summary>清空搜索词回到全量表本身(不是重建的另一份副本)。</summary>
+    /// <summary>清空搜索词(只剩空白也算清空)回到全量表。</summary>
     [TestMethod]
     [TestCategory("Settings")]
     public void ShortcutFilter_Cleared_RestoresFullCatalog()
     {
         SettingsViewModel vm = CreateVm();
+        int total = vm.FilteredShortcutGroups.Sum(group => group.FilteredItems.Count);
         vm.ShortcutFilter = "F5";
 
         vm.ShortcutFilter = "   ";
 
-        Assert.AreSame(vm.ShortcutGroups, vm.FilteredShortcutGroups, "只有空白的搜索词等于没搜");
+        Assert.AreEqual(vm.ShortcutGroups.Length, vm.FilteredShortcutGroups.Length, "只有空白的搜索词等于没搜");
+        Assert.AreEqual(total, vm.FilteredShortcutGroups.Sum(group => group.FilteredItems.Count));
+    }
+
+    // ———— 快捷键参考页的分组折叠 ————
+
+    /// <summary>分组默认展开:参考页的首要用途是通读,折叠是用户主动收纳。</summary>
+    [TestMethod]
+    [TestCategory("Settings")]
+    public void ShortcutGroups_DefaultToExpanded()
+    {
+        SettingsViewModel vm = CreateVm();
+
+        Assert.IsTrue(vm.ShortcutGroups.All(group => group.IsExpanded));
+    }
+
+    /// <summary>
+    /// 搜索命中的分组必须临时展开 —— 搜到了却因为分组是收起的而看不见,等于没搜。
+    /// </summary>
+    [TestMethod]
+    [TestCategory("Settings")]
+    public void ShortcutFilter_ForcesMatchingGroupOpen()
+    {
+        SettingsViewModel vm = CreateVm();
+        foreach (ShortcutGroup group in vm.ShortcutGroups)
+        {
+            group.IsExpanded = false;
+        }
+
+        vm.ShortcutFilter = "F5";
+
+        Assert.IsTrue(vm.FilteredShortcutGroups[0].IsExpanded, "命中的分组应被临时展开");
+    }
+
+    /// <summary>
+    /// 搜索清空后要把用户原本的折叠态还回去:搜一次不该把人手动收起来的分组全打开。
+    /// </summary>
+    [TestMethod]
+    [TestCategory("Settings")]
+    public void ShortcutFilter_Cleared_RestoresCollapsedState()
+    {
+        SettingsViewModel vm = CreateVm();
+        ShortcutGroup first = vm.ShortcutGroups[0];
+        first.IsExpanded = false;
+
+        vm.ShortcutFilter = "Ctrl";
+        vm.ShortcutFilter = string.Empty;
+
+        Assert.IsFalse(first.IsExpanded, "搜索结束后应还原为用户收起的状态");
     }
 }
