@@ -28,7 +28,7 @@
 | `Emulation/InputEncoder.cs` `MouseEncoder.cs` | 键盘（含应用光标键模式）与鼠标协议（X10 / SGR 等）的输入编码。 |
 | `Emulation/Utf8Sink.cs` | 动态编码切换与 UTF-8 增量解码。 |
 | `Rendering/VelaTerminalControl.cs` | **自绘渲染控件**（热点文件）：直接绘制字形、选区、光标、滚动条；处理输入事件与命中测试。 |
-| `Rendering/TerminalSelectionMath.cs` | 选区几何的纯计算：线性选区与矩形块选（Alt+拖拽）共用的归一化/命中/逐行列区间规则。行为对齐 Windows Terminal —— 块选与否在**按下那一刻**由 Alt 决定，拖拽途中改按不影响。 |
+| `Rendering/TerminalSelectionMath.cs` | 选区几何的纯计算：线性选区与矩形块选（Alt+拖拽）共用的归一化/逐行列区间规则，以及一段选区的表示 `SelectionSpan`（不连续多段选区 = 一串它）。行为对齐 Windows Terminal —— 块选与否在**按下那一刻**由 Alt 决定，拖拽途中改按不影响。 |
 | `Rendering/GutterLayout.cs` `GutterFoldModel.cs` | 侧栏（行号 / 时间戳）布局与折叠模型。 |
 | `Rendering/TerminalPaletteOverrides.cs` | 主题层对调色板的运行时覆盖。 |
 | `Input/TerminalKeyRouter.cs` | 一次按键的动作归类（编码为字节 / 命中快捷键 / IME 组字中间态不得编码 / 交还基类），把路由决策从控件里剥离出来单测。 |
