@@ -53,7 +53,7 @@ public partial class RecordingPlayerView : Window
     {
         if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
-            BeginMoveDrag(e);
+            this.BeginWindowMoveDrag(e);
         }
     }
 

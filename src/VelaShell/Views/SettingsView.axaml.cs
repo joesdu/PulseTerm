@@ -84,7 +84,7 @@ public partial class SettingsView : Window
     {
         if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
-            BeginMoveDrag(e);
+            this.BeginWindowMoveDrag(e);
         }
     }
 

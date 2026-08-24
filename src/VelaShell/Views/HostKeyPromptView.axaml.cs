@@ -59,7 +59,7 @@ public partial class HostKeyPromptView : Window
     {
         if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
-            BeginMoveDrag(e);
+            this.BeginWindowMoveDrag(e);
         }
     }
 }
