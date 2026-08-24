@@ -1,0 +1,172 @@
+name: 🐞 Bug 报告 / Bug report
+description: 报告一个功能不正常 / Report something that does not work
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈。下面几栏里,**版本、平台、复现步骤**是最关键的三项 —— 缺了它们基本没法开始排查。
+
+        > 🔒 **安全漏洞请勿走这里**,按 [SECURITY.md](https://github.com/joesdu/VelaShell/blob/main/SECURITY.md) 私下报告。
+        > 🧩 **第三方插件自身的问题**请到那个插件的仓库反馈;插件宿主/权限系统的问题才属于这里。
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我搜索过已有 Issue(含已关闭的),这不是重复
+          required: true
+        - label: 我在**最新发行版**上确认问题仍然存在(本项目不做向后移植)
+          required: true
+        - label: 这不是安全漏洞
+          required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: VelaShell 版本
+      description: 设置 → 关于 页可以直接看到完整版本号。
+      placeholder: "例如 1.1.2 / 0.0.1-dev(自行构建)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: 操作系统
+      options:
+        - Windows 11
+        - Windows 10
+        - macOS
+        - Linux
+    validations:
+      required: true
+
+  - type: input
+    id: os-detail
+    attributes:
+      label: 系统版本与架构
+      description: 发行版 / 系统版本号 + CPU 架构。Linux 请附桌面环境与显示协议(X11 还是 Wayland)。
+      placeholder: "例如 Windows 11 24H2 x64 / macOS 15.2 arm64 / Ubuntu 24.04 x64 GNOME Wayland"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install
+    attributes:
+      label: 安装方式
+      description: 唯一官方渠道是本仓库的 GitHub Releases 与 Microsoft Store。
+      options:
+        - GitHub Release — Windows zip
+        - GitHub Release — Linux tar.gz
+        - GitHub Release — macOS tar.gz
+        - GitHub Release — macOS dmg
+        - Microsoft Store(MSIX)
+        - 自行从源码构建
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 出问题的功能区域
+      options:
+        - 终端显示与渲染(乱码、错位、颜色、光标、字体)
+        - SSH 连接与身份验证(含跳板机 ProxyJump)
+        - SFTP / FTP 文件浏览与传输
+        - ZMODEM(rz / sz)
+        - 端口转发隧道
+        - 本地终端标签(PowerShell / CMD / WSL / Git Bash)
+        - 停靠、分屏与标签页(VelaDock)
+        - 会话管理、分组与导入
+        - 设置、外观与主题
+        - 多语言 / 界面文案
+        - 命令面板、快捷键与命令补全
+        - 资源监视、路由追踪、任务管理器
+        - 插件系统(宿主、权限、插件管理)
+        - AI 助手插件
+        - 应用内自更新
+        - 其他 / 不确定
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 请写成可以照着操作的步骤。**能稳定复现的最小步骤**比一大段描述有用得多。
+      placeholder: |
+        1. 新建一条 SSH 连接,认证方式选私钥
+        2. 连上后在终端里执行 `htop`
+        3. 按 F3 打开搜索,切换到中文输入法输入「日志」
+        4. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望的行为
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际的行为
+      description: 有报错弹窗、异常堆栈请原样贴上。截图或录屏直接拖进来即可。
+    validations:
+      required: true
+
+  - type: input
+    id: scaling
+    attributes:
+      label: 显示缩放比例
+      description: |
+        **终端接缝、字符错位、控件尺寸类问题请务必填。**
+        这类问题相当一部分只在 125% / 150% 这种分数缩放下出现,100% 与 200% 永远复现不了。
+        多显示器且缩放不同的话请一并说明。
+      placeholder: "例如 150%;或:主屏 150%、副屏 100%,只在副屏上出现"
+
+  - type: textarea
+    id: remote
+    attributes:
+      label: 远端环境
+      description: 终端、SSH、SFTP、ZMODEM 类问题请填。本地终端标签的问题填本地 shell 即可。
+      placeholder: |
+        远端系统:Ubuntu 24.04
+        Shell:zsh 5.9(带 oh-my-zsh)
+        TERM:xterm-256color
+        出问题时正在跑:tmux 3.4 里的 vim
+        终端类型设置(设置 → 终端):xterm-256color
+
+  - type: textarea
+    id: env-extra
+    attributes:
+      label: 其他环境信息
+      description: 与问题相关就填,不相关可留空。
+      placeholder: |
+        界面语言:简体中文
+        硬件加速(设置 → 外观):已开启 / 已关闭
+        已安装并启用的插件:velashell.ai
+        终端字体:Cascadia Mono 14
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志
+      description: |
+        日志目录:`~/.velashell/logs/`(Windows 即 `C:\Users\<你>\.velashell\logs\`)。
+        ZMODEM 问题可设 `VELASHELL_ZMODEM_TRACE=1` 重跑一次,会记录协议帧。
+
+        ⚠️ **贴之前请把主机地址、用户名、密码、私钥内容打码。**
+      render: text
+
+  - type: textarea
+    id: regression
+    attributes:
+      label: 以前是好的吗?
+      description: 如果是新出现的问题,知道哪个版本还正常会极大缩小排查范围。
+      placeholder: "1.1.1 上正常,升到 1.1.2 之后出现"

@@ -1,0 +1,118 @@
+name: ✨ 功能建议 / Feature request
+description: 提议一个新功能或改进 / Propose a new feature or improvement
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        欢迎提想法。有一件事想先说清楚,能帮你少走弯路:
+
+        **VelaShell 有插件系统。** 面向特定协议、特定服务、特定工作流的功能(比如接某个数据库、对接某个云服务),
+        通常做成插件比进主程序更合适 —— 不是每个用户都要为用不上的功能付出体积和依赖。
+        主程序保留的是**所有人都要用的终端与连接能力**。
+
+        如果你的想法属于前者,写[插件](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/dev-guide.md)
+        会让它更快落地,也不必等这边排期。
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我搜索过已有 Issue(含已关闭的),这不是重复
+          required: true
+        - label: 我看过 [README](https://github.com/joesdu/VelaShell/blob/main/README.md) 的特性列表,确认这个功能确实还没有
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 你想解决什么问题?
+      description: |
+        **请先描述问题,而不是你想到的方案。**
+        「我每次都要手动 XXX,一天来回十几遍」比「请加一个 XXX 按钮」有用得多 ——
+        知道了真实场景,往往能找到比原提议更好的解法,或者发现现有功能已经能做到。
+      placeholder: |
+        我同时维护十几台机器,每次重启服务都要挨个连上去敲同一串命令。
+        现在的快捷命令只能发给当前这个标签,得手动切十几次。
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 你设想的解决方式
+      description: 有具体想法就写,没有也没关系 —— 上面那栏才是关键。有交互草图或参考产品的截图可以直接拖进来。
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 涉及的功能区域
+      options:
+        - 终端引擎与渲染
+        - SSH 连接与身份验证
+        - SFTP / FTP 文件传输
+        - 端口转发隧道
+        - 本地终端
+        - 停靠、分屏与标签页
+        - 会话管理与导入
+        - 设置、外观与主题
+        - 快捷键、命令面板与命令补全
+        - 运维工具(资源监视 / 路由追踪 / 任务管理器)
+        - 插件系统本身(宿主能力、权限、API)
+        - AI 助手插件
+        - 多语言 / 无障碍
+        - 其他 / 跨多个区域
+    validations:
+      required: true
+
+  - type: dropdown
+    id: plugin-fit
+    attributes:
+      label: 这个功能适合做成插件吗?
+      description: 见本页顶部的说明。不确定就选最后一项,我们一起判断。
+      options:
+        - 不适合 —— 属于所有人都要用的核心终端/连接能力
+        - 适合 —— 但我希望它作为第一方插件提供
+        - 适合 —— 我打算自己写这个插件,想先确认宿主 API 够不够用
+        - 不确定
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 你现在是怎么绕过去的?
+      description: 现有的替代做法、别的工具怎么解决的、为什么那些方式不够用。
+      placeholder: "现在用 xxx 工具单独做这件事,但它没法和 VelaShell 的会话共用连接。"
+
+  - type: checkboxes
+    id: platforms
+    attributes:
+      label: 相关平台
+      description: 有些能力有平台差异(例如本地终端标签目前仅 Windows 可用)。
+      options:
+        - label: Windows
+        - label: Linux
+        - label: macOS
+
+  - type: dropdown
+    id: contribution
+    attributes:
+      label: 你愿意动手实现吗?
+      description: 完全可选。不管选哪个都不影响这个建议被认真对待。
+      options:
+        - 只是提个建议
+        - 愿意参与讨论设计
+        - 愿意提 PR 实现(会先看 CONTRIBUTING.md)
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: 补充信息
+      description: 参考实现、相关标准/协议文档、其他终端产品的做法等。

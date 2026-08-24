@@ -389,7 +389,11 @@ The full completion matrix and backlog live in [`plan.md`](plan.md) §10–§12 
 
 ## 🤝 Contributing
 
-Issues and pull requests are welcome. Before contributing, read [`docs-en/architecture.md`](docs-en/architecture.md) for the layering conventions and dependency direction; if you are writing a plugin, start with the [plugin development guide](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs-en/dev-guide.md).
+Issues and pull requests are welcome. **Read [`CONTRIBUTING.en.md`](CONTRIBUTING.en.md) before you start** — it covers the setup (the SDK is a preview build, and only Debug builds locally), branch and commit conventions, the two hard rules for the test suite, and the localization and documentation sync requirements.
+
+For layering conventions and dependency direction see [`docs-en/architecture.md`](docs-en/architecture.md); if you are writing a plugin, start with the [plugin development guide](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs-en/dev-guide.md).
+
+Found a security vulnerability? **Do not open a public issue** — follow the private process in [`SECURITY.md`](SECURITY.md).
 
 ---
 

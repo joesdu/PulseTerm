@@ -1,0 +1,24 @@
+# 关掉空白 Issue:两个模板已经覆盖 bug 与需求,其余诉求下面各有去处。
+# 空白 Issue 收到的多半是缺版本、缺复现步骤的一句话,来回问三轮才能开始看。
+blank_issues_enabled: false
+
+contact_links:
+  - name: 🔒 安全漏洞 / Security vulnerability
+    url: https://github.com/joesdu/VelaShell/security/policy
+    about: 请勿开公开 Issue。按 SECURITY.md 的流程私下报告。/ Do not open a public issue — follow SECURITY.md.
+
+  - name: 🧩 插件开发问题 / Plugin development
+    url: https://github.com/joesdu/velashell-plugin-toolchain
+    about: 插件 SDK、模板与 vela-plugin CLI 在另一个仓库。/ The plugin SDK, templates and CLI live in another repository.
+
+  - name: 🛒 第三方插件本身的问题 / Third-party plugin issues
+    url: https://market.easilynet.top
+    about: 插件的行为由其作者负责,请到该插件自己的仓库反馈。/ Report to the plugin's own repository.
+
+  - name: 🤝 想贡献代码 / Want to contribute
+    url: https://github.com/joesdu/VelaShell/blob/main/CONTRIBUTING.md
+    about: 分支、提交、测试与本地化约定都在贡献指南里。/ Branching, commits, tests and i18n conventions.
+
+  - name: 💼 商业授权咨询 / Commercial licensing
+    url: https://github.com/joesdu/VelaShell/blob/main/LICENSE-COMMERCIAL.md
+    about: 需要闭源集成或分发时,邮件 dygood@outlook.com,标题注明 Commercial License。
