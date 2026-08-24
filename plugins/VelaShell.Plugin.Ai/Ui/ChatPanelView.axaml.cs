@@ -2153,8 +2153,16 @@ public partial class ChatPanelView : UserControl
                 MarkdownBuilder = _text,
                 CodeBlockColorTheme = owner._codeBlockTheme
             };
-            // 公式控件是渲染时新建的,每次定稿后补一次颜色(见 ApplyMathColors)
-            Host.RenderedTextProjectionChanged += (_, _) => owner.ApplyMathColors(Host);
+            // 公式控件是渲染时新建的,每次定稿后补一次颜色(见 ApplyMathColors)。
+            // LiveMarkdown 2.4.0 撤掉了 RenderedTextProjectionChanged 事件,改由
+            // RenderedTextProjection 属性发变更通知 —— 每次渲染定稿仍恰好来一次。
+            Host.PropertyChanged += (_, e) =>
+            {
+                if (e.Property == MarkdownRenderer.RenderedTextProjectionProperty)
+                {
+                    owner.ApplyMathColors(Host);
+                }
+            };
             // 回复里的链接要能点开(远端路径 = 下载下来)—— 见 OnMarkdownLinkClicked
             Host.LinkClick += (_, e) => owner.OnMarkdownLinkClicked(e);
         }
