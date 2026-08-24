@@ -2464,7 +2464,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         base.OnKeyDown(e);
     }
 
-    /// <summary>处理侧栏点击、URL 的 Ctrl+点击、应用鼠标上报以及文本选区起点。</summary>
+    /// <summary>处理侧栏点击、URL 的 Ctrl+点击、应用鼠标上报,以及文本选区的起点与 Shift 扩展。</summary>
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
@@ -2545,6 +2545,18 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
             if (e.ClickCount == 2 && DoubleClickSelectsWord)
             {
                 SelectWordAt(PointToCell(point));
+                e.Handled = true;
+                return;
+            }
+            // Shift+左键 = 把已有选区从锚点扩展到点击处(#266,对齐 Windows Terminal / xterm):
+            // 锚点不动、只挪游标,并照常置 _selecting,故按住不放还能继续拖拽微调,松手也照常触发选中即复制。
+            // 块选与否沿用上次按下时定下的模式,Shift 不改写它。没有锚点时不走这里 ——
+            // 退回"新建选区",保住"按 Shift 绕过应用鼠标上报以便选文本"的既有语义。
+            if (e.KeyModifiers.HasFlag(KeyModifiers.Shift) && _selectionAnchor is not null)
+            {
+                _selectionCaret = PointToCell(point);
+                _selecting = true;
+                InvalidateVisual();
                 e.Handled = true;
                 return;
             }

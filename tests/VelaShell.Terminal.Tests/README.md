@@ -10,7 +10,7 @@
 - **内存布局** — `Emulation/TerminalCellMemoryTests`：单元格必须保持无托管引用（组合标记走驻留池索引），否则数百万格的回滚缓冲会被 GC 逐格扫描。
 - **缓冲与滚动** — `ScrollbackBufferTests`、`ScrollOffsetTests`、`BufferSearchTests`。
 - **输入编码** — `MouseEncoderTests`、`Input/TerminalInputTrackerTests`、`Input/TerminalKeyRouterTests`（按键动作归类，含 IME 组字中间态不得编码）、`EchoSuppressorTests`（本地回显抑制）、`LocalEchoTests`（对端不回显链路的本地回显策略）。
-- **选区** — `BlockSelectionTests`：矩形块选（Alt+拖拽）与线性选区的归一化、命中与逐行列区间。
+- **选区** — `BlockSelectionTests`：矩形块选（Alt+拖拽）与线性选区的归一化、命中与逐行列区间。`ShiftExtendSelectionTests`：Shift+点击扩展选区（#266）—— 锚点必须原地不动，含反向扩展、块选模式沿用、无选区时退回新建选区。
 - **补全幽灵** — `GhostTextRemainderTests`：剩余文本必须每帧从已回显文本现算，逐键推演会抖动。
 - **侧栏渲染** — `GutterLayoutTests`、`GutterFoldTests`、`GutterFoldUiTests`、`GutterVisibilityTests`、`LineTimestampTests`。
 - **桥接与语义** — `TerminalBridgeTests`（SSH ↔ 引擎）、`SemanticMatcherTests`。
