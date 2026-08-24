@@ -24,27 +24,6 @@ public sealed record SettingsSection(string Name, string Icon);
 /// <summary>关于页的开源依赖条目(项目主页 + 许可证页面可点击跳转)。</summary>
 public sealed record DependencyInfo(string Name, string License, string Url, string LicenseUrl);
 
-/// <summary>快捷键参考页的分组与条目(纯展示;产品决定不提供自定义键位)。</summary>
-public sealed record ShortcutGroup(string Title, ShortcutItem[] Items);
-
-/// <summary>快捷键参考页的单条记录:一个功能名及其组合键序列。</summary>
-/// <param name="Label">功能说明文本(本地化后的动作名)。</param>
-/// <param name="Keys">组成该快捷键的按键序列(如 ["Ctrl", "N"];鼠标手势里也可以是「双击」「滚轮」这类本地化手势名)。</param>
-/// <param name="Note">生效条件备注(如「仅在会话已断开时」);无条件生效时为 <see langword="null" />。</param>
-public sealed record ShortcutItem(string Label, string[] Keys, string? Note = null)
-{
-    /// <summary>是否有生效条件备注(模板据此决定要不要占一行备注位)。</summary>
-    public bool HasNote => !string.IsNullOrEmpty(Note);
-
-    /// <summary>
-    /// 搜索匹配用的合并文本:动作名 + 键位 + 备注,一次过滤全覆盖。
-    /// 键位同时收录空格与加号两种拼法 —— 用户照着键帽敲的是 "Ctrl Shift F",
-    /// 照着文档敲的是 "Ctrl+Shift+F",两种都得能搜到。
-    /// </summary>
-    public string SearchText { get; } =
-        $"{Label} {string.Join(' ', Keys)} {string.Join('+', Keys)} {Note}";
-}
-
 /// <summary>设置窗口的视图模型:承载全部偏好项的绑定、分组页导航、外观即时预览与加载/保存流程。</summary>
 public class SettingsViewModel : ReactiveObject
 {
@@ -111,7 +90,18 @@ public class SettingsViewModel : ReactiveObject
         {
             int selectedSection = SelectedSectionIndex;
             Sections = BuildSections();
+            // 分组标题要跟着换语言,只能整表重建;折叠态挂在分组对象上,按稳定 id 搬到新表,
+            // 否则切一次语言就把用户收起来的分组全打开了。
+            Dictionary<string, bool> expansion = ShortcutGroups.ToDictionary(
+                group => group.Id,
+                group => group.IsExpanded,
+                StringComparer.Ordinal
+            );
             ShortcutGroups = ShortcutCatalog.Build();
+            foreach (ShortcutGroup group in ShortcutGroups)
+            {
+                group.IsExpanded = expansion.GetValueOrDefault(group.Id, true);
+            }
             this.RaisePropertyChanged(nameof(Sections));
             this.RaisePropertyChanged(nameof(ShortcutGroups));
             this.RaisePropertyChanged(nameof(ShortcutMacNote));
@@ -830,12 +820,14 @@ public class SettingsViewModel : ReactiveObject
 
     /// <summary>
     /// 按 <see cref="ShortcutFilter" /> 过滤后的分组;整组条目都被滤掉时该组不出现。
-    /// 未搜索过时直接是全量表本身(不另建一份,也就不会与 <see cref="ShortcutGroups" /> 走散)。
+    /// 元素与 <see cref="ShortcutGroups" /> 是同一批分组对象(折叠态挂在对象上,
+    /// 因此过滤前后不会丢),被滤掉的条目由各分组的 <see cref="ShortcutGroup.FilteredItems" /> 表达。
+    /// 首次访问时尚未搜索过,直接就是全量表。
     /// </summary>
     public ShortcutGroup[] FilteredShortcutGroups
     {
         get => field ??= ShortcutGroups;
-        private set => field = value;
+        private set;
     }
 
     /// <summary>过滤后是否还有条目(为 false 时页面显示「没有匹配的快捷键」)。</summary>
@@ -843,29 +835,70 @@ public class SettingsViewModel : ReactiveObject
 
     /// <summary>页脚计数文案:未过滤时是总数,过滤后是命中数。</summary>
     public string ShortcutCountText =>
-        Strings.Format("Sc_Count", ShortcutCatalog.Flatten(FilteredShortcutGroups).Count());
+        Strings.Format("Sc_Count", FilteredShortcutGroups.Sum(group => group.FilteredItems.Count));
 
     /// <summary>macOS 上终端内改用 Command 的说明(全局键位仍是 Ctrl,见 KeyboardShortcutService)。</summary>
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822:将成员标记为 static", Justification = "<挂起>")]
     public string ShortcutMacNote => Strings.Get("Sc_MacNote");
 
-    /// <summary>重算过滤结果与其派生文案;换语言与改搜索词都经这里。</summary>
+    /// <summary>搜索期间被临时强制展开的分组,其原折叠态暂存于此,搜索清空后原样还回去。</summary>
+    private readonly Dictionary<string, bool> _shortcutExpansionBeforeSearch = [with(StringComparer.Ordinal)];
+
+    private bool _shortcutSearchActive;
+
+    /// <summary>
+    /// 重算过滤结果与其派生文案;换语言与改搜索词都经这里。
+    /// 折叠态的处理与快捷命令面板一致:搜索命中的分组临时强制展开(否则搜到了却看不见),
+    /// 搜索清空时把用户原来的折叠态还回去 —— 搜一次不该把人手动收起来的分组全打开。
+    /// </summary>
     private void RefreshShortcutView()
     {
-        string filter = ShortcutFilter.Trim();
-        FilteredShortcutGroups = filter.Length == 0
-            ? ShortcutGroups
-            : [.. ShortcutGroups
-                .Select(group => group with
+        string query = ShortcutFilter.Trim();
+        bool active = query.Length > 0;
+        if (active && !_shortcutSearchActive)
+        {
+            _shortcutExpansionBeforeSearch.Clear();
+            foreach (ShortcutGroup group in ShortcutGroups)
+            {
+                _shortcutExpansionBeforeSearch[group.Id] = group.IsExpanded;
+            }
+        }
+        else if (!active && _shortcutSearchActive)
+        {
+            foreach (ShortcutGroup group in ShortcutGroups)
+            {
+                group.IsExpanded = _shortcutExpansionBeforeSearch.GetValueOrDefault(group.Id, true);
+            }
+            _shortcutExpansionBeforeSearch.Clear();
+        }
+        _shortcutSearchActive = active;
+
+        List<ShortcutGroup> visible = [];
+        foreach (ShortcutGroup group in ShortcutGroups)
+        {
+            group.FilteredItems.Clear();
+            foreach (ShortcutItem item in group.Items)
+            {
+                if (!active || item.SearchText.Contains(query, StringComparison.CurrentCultureIgnoreCase))
                 {
-                    Items = [.. group.Items.Where(item =>
-                        item.SearchText.Contains(filter, StringComparison.CurrentCultureIgnoreCase))],
-                })
-                .Where(group => group.Items.Length > 0)];
+                    group.FilteredItems.Add(item);
+                }
+            }
+            if (group.FilteredItems.Count == 0)
+            {
+                continue;
+            }
+            if (active)
+            {
+                group.IsExpanded = true;
+            }
+            visible.Add(group);
+        }
+        FilteredShortcutGroups = [.. visible];
         this.RaisePropertyChanged(nameof(FilteredShortcutGroups));
         this.RaisePropertyChanged(nameof(HasShortcutMatches));
         this.RaisePropertyChanged(nameof(ShortcutCountText));
     }
-
 
     // ———— 下拉的索引映射(POCO 字符串 ↔ ComboBox SelectedIndex) ————
 

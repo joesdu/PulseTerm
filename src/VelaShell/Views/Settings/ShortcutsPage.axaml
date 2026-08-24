@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:VelaShell.ViewModels"
+             xmlns:pc="using:VelaShell.Controls.Controls"
              xmlns:loc="using:VelaShell.Localization"
              x:Class="VelaShell.Views.Settings.ShortcutsPage"
              x:DataType="vm:SettingsViewModel">
@@ -8,13 +9,42 @@
   <!-- 快捷键参考页(只读):条目全部来自 ShortcutCatalog,与 docs/快捷键参考.md 同源。
        新增绑定只需改目录,本页与文档一起跟着变;这里不放任何写死的键位。 -->
 
+  <UserControl.Styles>
+    <!-- 分组头:与代码片段页、侧栏快捷命令面板同款——压掉 Fluent ToggleButton 的强调色
+         选中态,展开状态只由箭头表达;底色沿用设置页表头的 VelaBgSidebar。 -->
+    <Style Selector="ToggleButton.group-header">
+      <Setter Property="Background" Value="{DynamicResource VelaBgSidebar}" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="12,8" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="ToggleButton.group-header /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource VelaBgSidebar}" />
+    </Style>
+    <Style Selector="ToggleButton.group-header:checked /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource VelaBgSidebar}" />
+    </Style>
+    <Style Selector="ToggleButton.group-header:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+    </Style>
+    <Style Selector="ToggleButton.group-header:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+    </Style>
+    <Style Selector="ToggleButton.group-header:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource VelaBgActive}" />
+    </Style>
+  </UserControl.Styles>
+
   <StackPanel Spacing="14">
     <StackPanel Spacing="2">
       <TextBlock Classes="page-title" Text="{loc:Localize SetShortcuts_Title}" />
       <TextBlock Classes="page-subtitle" Text="{loc:Localize SetShortcuts_Subtitle}" />
     </StackPanel>
 
-    <!-- 搜索:动作名、键位与生效条件一起匹配(ShortcutItem.SearchText)。 -->
+    <!-- 搜索:动作名、键位与生效条件一起匹配(ShortcutItem.SearchText)。
+         命中的分组会被临时展开,搜索清空后还原用户原本的折叠态。 -->
     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
       <TextBox Text="{Binding ShortcutFilter}"
                PlaceholderText="{loc:Localize Sc_FilterPlaceholder}" />
@@ -29,22 +59,51 @@
     <ItemsControl ItemsSource="{Binding FilteredShortcutGroups}">
       <ItemsControl.ItemsPanel>
         <ItemsPanelTemplate>
-          <StackPanel Spacing="14" />
+          <StackPanel Spacing="8" />
         </ItemsPanelTemplate>
       </ItemsControl.ItemsPanel>
       <ItemsControl.ItemTemplate>
         <DataTemplate x:DataType="vm:ShortcutGroup">
-          <StackPanel Spacing="8">
-            <TextBlock Classes="section-title" Text="{Binding Title}" />
-            <Border Classes="table">
-              <ItemsControl ItemsSource="{Binding Items}">
+          <Border Classes="table">
+            <StackPanel>
+              <ToggleButton Classes="group-header"
+                            IsChecked="{Binding IsExpanded, Mode=TwoWay}">
+                <Grid ColumnDefinitions="Auto,8,*,Auto">
+                  <Panel Width="11" Height="11" VerticalAlignment="Center">
+                    <pc:LucideIcon Width="11" Height="11"
+                                   Data="{StaticResource Icon.chevron-right}"
+                                   Foreground="{DynamicResource VelaTextTertiary}"
+                                   IsVisible="{Binding !IsExpanded}" />
+                    <pc:LucideIcon Width="11" Height="11"
+                                   Data="{StaticResource Icon.chevron-down}"
+                                   Foreground="{DynamicResource VelaTextTertiary}"
+                                   IsVisible="{Binding IsExpanded}" />
+                  </Panel>
+                  <TextBlock Grid.Column="2" Text="{Binding Title}"
+                             Foreground="{DynamicResource VelaTextSecondary}"
+                             FontSize="{DynamicResource VelaFontSize12}" FontWeight="SemiBold"
+                             VerticalAlignment="Center"
+                             TextTrimming="CharacterEllipsis" />
+                  <!-- 计数徽标:折叠后仍能一眼看出这组里有几条,不必展开确认。 -->
+                  <Border Grid.Column="3" Padding="6,1" CornerRadius="8"
+                          Background="{DynamicResource VelaBgInput}"
+                          VerticalAlignment="Center">
+                    <TextBlock Text="{Binding FilteredItems.Count}"
+                               Foreground="{DynamicResource VelaTextMuted}"
+                               FontSize="{DynamicResource VelaFontSize10}" />
+                  </Border>
+                </Grid>
+              </ToggleButton>
+
+              <ItemsControl ItemsSource="{Binding FilteredItems}"
+                            IsVisible="{Binding IsExpanded}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:ShortcutItem">
-                    <!-- 行高改为自适应:带生效条件的条目要在动作名下面多排一行备注,
-                         写死 36px 会把备注裁掉。 -->
+                    <!-- 行高自适应:带生效条件的条目要在动作名下面多排一行备注,
+                         写死 36px 会把备注裁掉。分隔线画在上边框,免得最后一行与分组框重线。 -->
                     <Border MinHeight="36" Padding="12,7"
                             BorderBrush="{DynamicResource VelaBorderPrimary}"
-                            BorderThickness="0,0,0,1">
+                            BorderThickness="0,1,0,0">
                       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                         <StackPanel VerticalAlignment="Center" Spacing="2">
                           <TextBlock Text="{Binding Label}"
@@ -78,8 +137,8 @@
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
-            </Border>
-          </StackPanel>
+            </StackPanel>
+          </Border>
         </DataTemplate>
       </ItemsControl.ItemTemplate>
     </ItemsControl>
