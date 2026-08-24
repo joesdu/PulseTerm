@@ -2665,10 +2665,10 @@ Paste anyway?</value>
   <data name="SetVm_DefaultSuffix" xml:space="preserve">
     <value>(default)</value>
   </data>
-  <data name="SetVm_GroupFileOperations" xml:space="preserve">
+  <data name="Sc_GroupFileOperations" xml:space="preserve">
     <value>File Operations</value>
   </data>
-  <data name="SetVm_GroupTabsAndPanels" xml:space="preserve">
+  <data name="Sc_GroupTabsAndPanels" xml:space="preserve">
     <value>Tabs &amp; Panels</value>
   </data>
   <data name="SetVm_SectionAbout" xml:space="preserve">
@@ -2704,43 +2704,43 @@ Paste anyway?</value>
   <data name="SetVm_SectionTransfer" xml:space="preserve">
     <value>File Transfer</value>
   </data>
-  <data name="SetVm_ShortcutCloneSession" xml:space="preserve">
+  <data name="Sc_CloneSession" xml:space="preserve">
     <value>Clone Current Session</value>
   </data>
-  <data name="SetVm_ShortcutCompletionPopup" xml:space="preserve">
+  <data name="Sc_CompletionPopup" xml:space="preserve">
     <value>Show Command Completion</value>
   </data>
-  <data name="SetVm_ShortcutDeleteWord" xml:space="preserve">
+  <data name="Sc_DeleteWord" xml:space="preserve">
     <value>Delete Previous Word</value>
   </data>
-  <data name="SetVm_ShortcutNewTabAlias" xml:space="preserve">
+  <data name="Sc_NewTabAlias" xml:space="preserve">
     <value>New Tab (same as New Connection)</value>
   </data>
-  <data name="SetVm_ShortcutNextTab" xml:space="preserve">
+  <data name="Sc_NextTab" xml:space="preserve">
     <value>Next Tab</value>
   </data>
-  <data name="SetVm_ShortcutPaletteAlt" xml:space="preserve">
+  <data name="Sc_PaletteAlt" xml:space="preserve">
     <value>Command Palette (alternate)</value>
   </data>
-  <data name="SetVm_ShortcutPrevTab" xml:space="preserve">
+  <data name="Sc_PrevTab" xml:space="preserve">
     <value>Previous Tab</value>
   </data>
-  <data name="SetVm_ShortcutReconnect" xml:space="preserve">
+  <data name="Sc_Reconnect" xml:space="preserve">
     <value>Reconnect After Disconnect</value>
   </data>
-  <data name="SetVm_ShortcutReconnectAlt" xml:space="preserve">
+  <data name="Sc_ReconnectAlt" xml:space="preserve">
     <value>Reconnect After Disconnect (alternate)</value>
   </data>
-  <data name="SetVm_ShortcutSaveInEditor" xml:space="preserve">
+  <data name="Sc_SaveInEditor" xml:space="preserve">
     <value>Save in Remote Editor</value>
   </data>
-  <data name="SetVm_ShortcutSearchTerminal" xml:space="preserve">
+  <data name="Sc_SearchTerminal" xml:space="preserve">
     <value>Search Terminal Content</value>
   </data>
-  <data name="SetVm_ShortcutSendInterrupt" xml:space="preserve">
+  <data name="Sc_SendInterrupt" xml:space="preserve">
     <value>Send Interrupt ^C</value>
   </data>
-  <data name="SetVm_ShortcutToggleFileBrowser" xml:space="preserve">
+  <data name="Sc_ToggleFileBrowser" xml:space="preserve">
     <value>Toggle File Browser</value>
   </data>
   <data name="Sftp_ConflictOverwrite" xml:space="preserve">
@@ -3773,4 +3773,95 @@ Trusting it will also trust future packages signed by the same key. Plugins can 
   <data name="BackgroundTasksIdle" xml:space="preserve"><value>No background tasks</value></data>
   <data name="BackgroundTasksCount" xml:space="preserve"><value>{0} background tasks</value></data>
   <data name="Msg_PluginInstalling" xml:space="preserve"><value>Installing plugin</value></data>
+  <data name="Sc_GroupGlobal" xml:space="preserve"><value>Global</value></data>
+  <data name="Sc_GroupCompletion" xml:space="preserve"><value>Command Completion</value></data>
+  <data name="Sc_GroupMouse" xml:space="preserve"><value>Terminal Mouse Gestures</value></data>
+  <data name="Sc_GroupDialogs" xml:space="preserve"><value>Dialogs and Windows</value></data>
+  <data name="Sc_GroupAi" xml:space="preserve"><value>AI Assistant Plugin</value></data>
+  <data name="Sc_KeyLeftClick" xml:space="preserve"><value>Left Click</value></data>
+  <data name="Sc_KeyRightClick" xml:space="preserve"><value>Right Click</value></data>
+  <data name="Sc_KeyDoubleClick" xml:space="preserve"><value>Double Click</value></data>
+  <data name="Sc_KeyDrag" xml:space="preserve"><value>Drag</value></data>
+  <data name="Sc_KeyWheel" xml:space="preserve"><value>Wheel</value></data>
+  <data name="Sc_KeyTitleBar" xml:space="preserve"><value>Title Bar</value></data>
+  <data name="Sc_KeyGutter" xml:space="preserve"><value>Gutter</value></data>
+  <data name="Sc_PasteShiftInsert" xml:space="preserve"><value>Paste (classic X11 binding)</value></data>
+  <data name="Sc_SearchNext" xml:space="preserve"><value>Jump to the next match</value></data>
+  <data name="Sc_SearchPrev" xml:space="preserve"><value>Jump to the previous match</value></data>
+  <data name="Sc_SearchClose" xml:space="preserve"><value>Close the search bar</value></data>
+  <data name="Sc_ScrollPageUp" xml:space="preserve"><value>Scroll back one page</value></data>
+  <data name="Sc_ScrollPageDown" xml:space="preserve"><value>Scroll forward one page</value></data>
+  <data name="Sc_LineStart" xml:space="preserve"><value>Move the cursor to the line start</value></data>
+  <data name="Sc_LineEnd" xml:space="preserve"><value>Move the cursor to the line end</value></data>
+  <data name="Sc_CloseDisconnectedTab" xml:space="preserve"><value>Close a disconnected tab</value></data>
+  <data name="Sc_SuggestNext" xml:space="preserve"><value>Select the next suggestion</value></data>
+  <data name="Sc_SuggestPrev" xml:space="preserve"><value>Select the previous suggestion</value></data>
+  <data name="Sc_SuggestAccept" xml:space="preserve"><value>Insert the selected suggestion</value></data>
+  <data name="Sc_SuggestDismiss" xml:space="preserve"><value>Dismiss the suggestion popup</value></data>
+  <data name="Sc_SuggestNative" xml:space="preserve"><value>Fall through to the shell native completion</value></data>
+  <data name="Sc_GhostAccept" xml:space="preserve"><value>Accept the inline (ghost) suggestion</value></data>
+  <data name="Sc_OpenLink" xml:space="preserve"><value>Open the link under the pointer</value></data>
+  <data name="Sc_SelectWord" xml:space="preserve"><value>Select the word</value></data>
+  <data name="Sc_AppendWord" xml:space="preserve"><value>Add another word to the selection</value></data>
+  <data name="Sc_ExtendSelection" xml:space="preserve"><value>Extend the selection from its anchor</value></data>
+  <data name="Sc_BlockSelection" xml:space="preserve"><value>Rectangular (block) selection</value></data>
+  <data name="Sc_AppendSelection" xml:space="preserve"><value>Add a separate selection range</value></data>
+  <data name="Sc_AppendBlockSelection" xml:space="preserve"><value>Add a separate block selection</value></data>
+  <data name="Sc_BypassMouseReport" xml:space="preserve"><value>Select text despite mouse reporting</value></data>
+  <data name="Sc_RightClickPaste" xml:space="preserve"><value>Paste with the right button</value></data>
+  <data name="Sc_ZoomFont" xml:space="preserve"><value>Zoom the terminal font</value></data>
+  <data name="Sc_FastScroll" xml:space="preserve"><value>Scroll the buffer five times faster</value></data>
+  <data name="Sc_GutterMenu" xml:space="preserve"><value>Open the gutter settings menu</value></data>
+  <data name="Sc_ToggleFold" xml:space="preserve"><value>Collapse or expand an output block</value></data>
+  <data name="Sc_PaletteNext" xml:space="preserve"><value>Select the next command</value></data>
+  <data name="Sc_PalettePrev" xml:space="preserve"><value>Select the previous command</value></data>
+  <data name="Sc_PaletteRun" xml:space="preserve"><value>Run the selected command</value></data>
+  <data name="Sc_PaletteClose" xml:space="preserve"><value>Close the command palette</value></data>
+  <data name="Sc_EditPath" xml:space="preserve"><value>Edit the current path</value></data>
+  <data name="Sc_CommitPath" xml:space="preserve"><value>Go to the typed path</value></data>
+  <data name="Sc_CancelPath" xml:space="preserve"><value>Cancel path editing</value></data>
+  <data name="Sc_OpenEntry" xml:space="preserve"><value>Open the selected file or folder</value></data>
+  <data name="Sc_CloseEditor" xml:space="preserve"><value>Close the editor</value></data>
+  <data name="Sc_RefreshProcesses" xml:space="preserve"><value>Refresh the process list</value></data>
+  <data name="Sc_EndTask" xml:space="preserve"><value>End the selected process</value></data>
+  <data name="Sc_CloseWindow" xml:space="preserve"><value>Close the window</value></data>
+  <data name="Sc_DialogCancel" xml:space="preserve"><value>Cancel and close the current dialog</value></data>
+  <data name="Sc_DialogConfirm" xml:space="preserve"><value>Trigger the default button</value></data>
+  <data name="Sc_MaximizeRestore" xml:space="preserve"><value>Maximize or restore the window</value></data>
+  <data name="Sc_CancelDockDrag" xml:space="preserve"><value>Cancel the dock drag in progress</value></data>
+  <data name="Sc_PasswordPaste" xml:space="preserve"><value>Paste into a password field</value></data>
+  <data name="Sc_PasswordCopyBlocked" xml:space="preserve"><value>Copy is blocked in password fields</value></data>
+  <data name="Sc_AiSend" xml:space="preserve"><value>Send the message</value></data>
+  <data name="Sc_AiNewline" xml:space="preserve"><value>Insert a line break</value></data>
+  <data name="Sc_AiHistoryPrev" xml:space="preserve"><value>Recall the previous input</value></data>
+  <data name="Sc_AiHistoryNext" xml:space="preserve"><value>Recall the next input</value></data>
+  <data name="Sc_AiRefNext" xml:space="preserve"><value>Select the next file candidate</value></data>
+  <data name="Sc_AiRefPrev" xml:space="preserve"><value>Select the previous file candidate</value></data>
+  <data name="Sc_AiRefAccept" xml:space="preserve"><value>Insert the file reference</value></data>
+  <data name="Sc_AiRefClose" xml:space="preserve"><value>Close the file picker</value></data>
+  <data name="Sc_AiRefDelete" xml:space="preserve"><value>Delete a whole file reference</value></data>
+  <data name="Sc_AiRenameCommit" xml:space="preserve"><value>Commit the session rename</value></data>
+  <data name="Sc_AiRenameCancel" xml:space="preserve"><value>Cancel the session rename</value></data>
+  <data name="Sc_AiClosePanel" xml:space="preserve"><value>Close the AI secondary window</value></data>
+  <data name="Sc_NoteDisconnected" xml:space="preserve"><value>Only while the session is disconnected</value></data>
+  <data name="Sc_NoteMainScreen" xml:space="preserve"><value>Main screen with scrollback only</value></data>
+  <data name="Sc_NoteAnyScreen" xml:space="preserve"><value>Works on the alternate screen too</value></data>
+  <data name="Sc_NoteCtrlCCopies" xml:space="preserve"><value>Copies instead when the selection-copy option is on and text is selected</value></data>
+  <data name="Sc_NoteSearchOpen" xml:space="preserve"><value>Only while the search bar is open</value></data>
+  <data name="Sc_NoteSuggestOpen" xml:space="preserve"><value>Only while the suggestion popup is open</value></data>
+  <data name="Sc_NoteListFocused" xml:space="preserve"><value>Only while the list has focus</value></data>
+  <data name="Sc_NoteMouseReporting" xml:space="preserve"><value>Needed when the app enables mouse reporting</value></data>
+  <data name="Sc_NoteOptional" xml:space="preserve"><value>Can be turned off in Settings</value></data>
+  <data name="Sc_NoteRequiresSetting" xml:space="preserve"><value>Requires the matching option in Settings</value></data>
+  <data name="Sc_NotePasswordBlocked" xml:space="preserve"><value>Ctrl+X is blocked as well</value></data>
+  <data name="Sc_NoteDragging" xml:space="preserve"><value>Only while a dock drag is in progress</value></data>
+  <data name="Sc_NoteCaretFirstLine" xml:space="preserve"><value>Only when the caret is on the first line</value></data>
+  <data name="Sc_NoteCaretLastLine" xml:space="preserve"><value>Only when the caret is on the last line</value></data>
+  <data name="Sc_NoteRefPopup" xml:space="preserve"><value>Only while the @ file picker is open</value></data>
+  <data name="Sc_NoteAllDialogs" xml:space="preserve"><value>Applies to every dialog and secondary window</value></data>
+  <data name="Sc_NoteEditorOnly" xml:space="preserve"><value>Remote file editor</value></data>
+  <data name="Sc_FilterPlaceholder" xml:space="preserve"><value>Search shortcuts</value></data>
+  <data name="Sc_NoMatch" xml:space="preserve"><value>No shortcut matches your search.</value></data>
+  <data name="Sc_Count" xml:space="preserve"><value>{0} shortcuts in total</value></data>
+  <data name="Sc_MacNote" xml:space="preserve"><value>On macOS the terminal accepts Command in place of Ctrl for copy, paste, new tab, close tab and Settings.</value></data>
 </root>

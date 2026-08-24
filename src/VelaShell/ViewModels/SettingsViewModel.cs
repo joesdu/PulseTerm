@@ -29,8 +29,21 @@ public sealed record ShortcutGroup(string Title, ShortcutItem[] Items);
 
 /// <summary>快捷键参考页的单条记录:一个功能名及其组合键序列。</summary>
 /// <param name="Label">功能说明文本(本地化后的动作名)。</param>
-/// <param name="Keys">组成该快捷键的按键序列(如 ["Ctrl", "N"])。</param>
-public sealed record ShortcutItem(string Label, string[] Keys);
+/// <param name="Keys">组成该快捷键的按键序列(如 ["Ctrl", "N"];鼠标手势里也可以是「双击」「滚轮」这类本地化手势名)。</param>
+/// <param name="Note">生效条件备注(如「仅在会话已断开时」);无条件生效时为 <see langword="null" />。</param>
+public sealed record ShortcutItem(string Label, string[] Keys, string? Note = null)
+{
+    /// <summary>是否有生效条件备注(模板据此决定要不要占一行备注位)。</summary>
+    public bool HasNote => !string.IsNullOrEmpty(Note);
+
+    /// <summary>
+    /// 搜索匹配用的合并文本:动作名 + 键位 + 备注,一次过滤全覆盖。
+    /// 键位同时收录空格与加号两种拼法 —— 用户照着键帽敲的是 "Ctrl Shift F",
+    /// 照着文档敲的是 "Ctrl+Shift+F",两种都得能搜到。
+    /// </summary>
+    public string SearchText { get; } =
+        $"{Label} {string.Join(' ', Keys)} {string.Join('+', Keys)} {Note}";
+}
 
 /// <summary>设置窗口的视图模型:承载全部偏好项的绑定、分组页导航、外观即时预览与加载/保存流程。</summary>
 public class SettingsViewModel : ReactiveObject
@@ -98,9 +111,12 @@ public class SettingsViewModel : ReactiveObject
         {
             int selectedSection = SelectedSectionIndex;
             Sections = BuildSections();
-            ShortcutGroups = BuildShortcutGroups();
+            ShortcutGroups = ShortcutCatalog.Build();
             this.RaisePropertyChanged(nameof(Sections));
             this.RaisePropertyChanged(nameof(ShortcutGroups));
+            this.RaisePropertyChanged(nameof(ShortcutMacNote));
+            // 分组重建后过滤结果指向旧数组,必须跟着重算,否则快捷键页停在旧语言。
+            RefreshShortcutView();
             SelectedSectionIndex = selectedSection;
         };
 
@@ -792,54 +808,64 @@ public class SettingsViewModel : ReactiveObject
     }
 
     /// <summary>
-    /// 快捷键参考页分组(只读展示)。条目与真实绑定逐一核对
-    /// (MainWindow.axaml KeyBindings、KeyboardShortcutService、TerminalTabView、
-    /// RemoteFileEditorView,设置审计 C-10/R-14),不得列出未绑定的键位;
-    /// 新增/修改绑定时必须同步本表,长期方案是直接从绑定注册表生成。
+    /// 快捷键参考页的完整分组(只读展示),取自 <see cref="ShortcutCatalog" /> ——
+    /// 该表是全应用快捷键的唯一事实来源,与 <c>docs/快捷键参考.md</c> 同源。
+    /// 本属性保留全量,过滤后的展示用 <see cref="FilteredShortcutGroups" />。
     /// </summary>
-    public ShortcutGroup[] ShortcutGroups { get; private set; } = BuildShortcutGroups();
+    public ShortcutGroup[] ShortcutGroups { get; private set; } = ShortcutCatalog.Build();
 
-    private static ShortcutGroup[] BuildShortcutGroups() =>
-        [
-            new(
-                Strings.Get("SetVm_SectionGeneral"),
-                [
-                    new(Strings.Get("Cmd_NewSshConnection"), ["Ctrl", "N"]),
-                    new(Strings.Get("SetVm_ShortcutNewTabAlias"), ["Ctrl", "T"]),
-                    new(Strings.Get("SetVm_ShortcutCloneSession"), ["Ctrl", "Shift", "N"]),
-                    new(Strings.Get("Cmd_OpenSettings"), ["Ctrl", ","]),
-                    new(Strings.Get("Cmd_CommandPalette"), ["Ctrl", "K"]),
-                    new(Strings.Get("SetVm_ShortcutPaletteAlt"), ["Ctrl", "P"]),
-                ]
-            ),
-            new(
-                Strings.Get("SetVm_GroupTabsAndPanels"),
-                [
-                    new(Strings.Get("CloseTab"), ["Ctrl", "W"]),
-                    new(Strings.Get("SetVm_ShortcutNextTab"), ["Ctrl", "Tab"]),
-                    new(Strings.Get("SetVm_ShortcutPrevTab"), ["Ctrl", "Shift", "Tab"]),
-                    new(Strings.Get("SetVm_ShortcutToggleFileBrowser"), ["Ctrl", "Shift", "F"]),
-                    new(Strings.Get("Cmd_TunnelManager"), ["Ctrl", "Shift", "T"]),
-                ]
-            ),
-            new(
-                Strings.Get("SetVm_SectionTerminal"),
-                [
-                    new(Strings.Get("Copy"), ["Ctrl", "Shift", "C"]),
-                    new(Strings.Get("Cmd_Paste"), ["Ctrl", "Shift", "V"]),
-                    new(Strings.Get("SetVm_ShortcutSendInterrupt"), ["Ctrl", "C"]),
-                    new(Strings.Get("SetVm_ShortcutDeleteWord"), ["Ctrl", "Backspace"]),
-                    new(Strings.Get("SetVm_ShortcutSearchTerminal"), ["Ctrl", "F"]),
-                    new(Strings.Get("SetVm_ShortcutCompletionPopup"), ["Alt", "Enter"]),
-                    new(Strings.Get("SetVm_ShortcutReconnect"), ["Enter"]),
-                    new(Strings.Get("SetVm_ShortcutReconnectAlt"), ["Ctrl", "R"]),
-                ]
-            ),
-            new(
-                Strings.Get("SetVm_GroupFileOperations"),
-                [new(Strings.Get("SetVm_ShortcutSaveInEditor"), ["Ctrl", "S"])]
-            ),
-        ];
+    /// <summary>
+    /// 快捷键页的搜索词:同时匹配动作名、键位与生效条件备注(见 <see cref="ShortcutItem.SearchText" />)。
+    /// 空串等于不过滤。
+    /// </summary>
+    public string ShortcutFilter
+    {
+        get;
+        set
+        {
+            this.RaiseAndSetIfChanged(ref field, value);
+            RefreshShortcutView();
+        }
+    } = string.Empty;
+
+    /// <summary>
+    /// 按 <see cref="ShortcutFilter" /> 过滤后的分组;整组条目都被滤掉时该组不出现。
+    /// 未搜索过时直接是全量表本身(不另建一份,也就不会与 <see cref="ShortcutGroups" /> 走散)。
+    /// </summary>
+    public ShortcutGroup[] FilteredShortcutGroups
+    {
+        get => field ??= ShortcutGroups;
+        private set => field = value;
+    }
+
+    /// <summary>过滤后是否还有条目(为 false 时页面显示「没有匹配的快捷键」)。</summary>
+    public bool HasShortcutMatches => FilteredShortcutGroups.Length > 0;
+
+    /// <summary>页脚计数文案:未过滤时是总数,过滤后是命中数。</summary>
+    public string ShortcutCountText =>
+        Strings.Format("Sc_Count", ShortcutCatalog.Flatten(FilteredShortcutGroups).Count());
+
+    /// <summary>macOS 上终端内改用 Command 的说明(全局键位仍是 Ctrl,见 KeyboardShortcutService)。</summary>
+    public string ShortcutMacNote => Strings.Get("Sc_MacNote");
+
+    /// <summary>重算过滤结果与其派生文案;换语言与改搜索词都经这里。</summary>
+    private void RefreshShortcutView()
+    {
+        string filter = ShortcutFilter.Trim();
+        FilteredShortcutGroups = filter.Length == 0
+            ? ShortcutGroups
+            : [.. ShortcutGroups
+                .Select(group => group with
+                {
+                    Items = [.. group.Items.Where(item =>
+                        item.SearchText.Contains(filter, StringComparison.CurrentCultureIgnoreCase))],
+                })
+                .Where(group => group.Items.Length > 0)];
+        this.RaisePropertyChanged(nameof(FilteredShortcutGroups));
+        this.RaisePropertyChanged(nameof(HasShortcutMatches));
+        this.RaisePropertyChanged(nameof(ShortcutCountText));
+    }
+
 
     // ———— 下拉的索引映射(POCO 字符串 ↔ ComboBox SelectedIndex) ————
 

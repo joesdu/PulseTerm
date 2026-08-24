@@ -435,4 +435,67 @@ public class SettingsViewModelTests
 
         Assert.EndsWith($"({architecture})", SettingsViewModel.AboutOs);
     }
+
+    // ———— 快捷键参考页的搜索 ————
+    // 全部断言只用键位(F5、Ctrl+Shift+L)而不用动作名:动作名随界面语言变,
+    // 键位不变,测试才不会因为跑测机器的语言不同而红。
+
+    /// <summary>搜索一个只属于某一组的键位:其余分组整组消失,计数跟着收窄。</summary>
+    [TestMethod]
+    [TestCategory("Settings")]
+    public void ShortcutFilter_KeepsOnlyMatchingRows()
+    {
+        SettingsViewModel vm = CreateVm();
+        int total = vm.FilteredShortcutGroups.Sum(group => group.Items.Length);
+
+        vm.ShortcutFilter = "F5";
+
+        Assert.HasCount(1, vm.FilteredShortcutGroups, "F5 只在进程管理器一组里出现");
+        Assert.HasCount(1, vm.FilteredShortcutGroups[0].Items);
+        Assert.IsTrue(vm.HasShortcutMatches);
+        Assert.IsGreaterThan(1, total, "全量表不该只有一条,否则下面的收窄断言没意义");
+    }
+
+    /// <summary>键帽是分开的("Ctrl" "Shift" "L"),但用户会照文档敲加号写法,两种都要搜得到。</summary>
+    [TestMethod]
+    [TestCategory("Settings")]
+    public void ShortcutFilter_MatchesBothSpacedAndPlusJoinedKeys()
+    {
+        SettingsViewModel vm = CreateVm();
+
+        vm.ShortcutFilter = "Ctrl+Shift+L";
+        int withPlus = vm.FilteredShortcutGroups.Sum(group => group.Items.Length);
+
+        vm.ShortcutFilter = "Ctrl Shift L";
+        int withSpaces = vm.FilteredShortcutGroups.Sum(group => group.Items.Length);
+
+        Assert.AreEqual(1, withPlus, "加号写法搜不到 Ctrl+Shift+L");
+        Assert.AreEqual(1, withSpaces, "空格写法搜不到 Ctrl Shift L");
+    }
+
+    /// <summary>搜不到时页面要能显示空态提示,而不是留一片什么都没有的白。</summary>
+    [TestMethod]
+    [TestCategory("Settings")]
+    public void ShortcutFilter_NoMatch_ReportsEmptyState()
+    {
+        SettingsViewModel vm = CreateVm();
+
+        vm.ShortcutFilter = "这个键位不存在";
+
+        Assert.IsEmpty(vm.FilteredShortcutGroups);
+        Assert.IsFalse(vm.HasShortcutMatches);
+    }
+
+    /// <summary>清空搜索词回到全量表本身(不是重建的另一份副本)。</summary>
+    [TestMethod]
+    [TestCategory("Settings")]
+    public void ShortcutFilter_Cleared_RestoresFullCatalog()
+    {
+        SettingsViewModel vm = CreateVm();
+        vm.ShortcutFilter = "F5";
+
+        vm.ShortcutFilter = "   ";
+
+        Assert.AreSame(vm.ShortcutGroups, vm.FilteredShortcutGroups, "只有空白的搜索词等于没搜");
+    }
 }

@@ -432,6 +432,11 @@ Open these as tabs or standalone floating windows. All can also be entered from 
 ## 16. Global Keyboard Shortcuts (**Customization not supported**, by product decision; the “Keyboard Shortcut Reference” page in Settings is read-only)
 
 > Current state after checking against actual bindings on 2026-07-12. Items marked “Not implemented” were concepts in the initial design and have no current binding.
+>
+> **This section is a design-level excerpt, not the complete list.** Every bound keyboard shortcut and mouse gesture
+> (terminal selection gestures, the completion popup and per-dialog keys included) lives in
+> [Keyboard Shortcuts](keyboard-shortcuts.md) — that table shares its source with `ShortcutCatalog` and is test-guarded,
+> so treat it as authoritative when adding shortcuts.
 
 | Shortcut | Function | Status |
 |---|---|---|
