@@ -384,7 +384,11 @@ dotnet test --logger "console;verbosity=detailed"
 
 ## 🤝 贡献
 
-欢迎提交 Issue 与 Pull Request。在贡献前，建议先阅读 [`docs/architecture.md`](docs/architecture.md) 了解项目的分层约定与依赖方向；写插件请读 [插件开发指南](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/dev-guide.md)。
+欢迎提交 Issue 与 Pull Request。**动手前请先读 [`CONTRIBUTING.md`](CONTRIBUTING.md)** —— 里面写清了环境准备（SDK 为 preview 版、本地只能构建 Debug）、分支与提交约定、测试的两条硬约束,以及多语言与文档的同步要求。
+
+架构上的分层约定与依赖方向见 [`docs/architecture.md`](docs/architecture.md)；写插件请读 [插件开发指南](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/dev-guide.md)。
+
+发现安全漏洞请**不要**开公开 Issue，按 [`SECURITY.md`](SECURITY.md) 的流程私下报告。
 
 ---
 
