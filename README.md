@@ -338,6 +338,7 @@ dotnet test --logger "console;verbosity=detailed"
 - [`DESIGN.md`](DESIGN.md) — 设计系统：色彩/字体/间距令牌与组件规范
 - [`docs/交互与界面规格.md`](docs/交互与界面规格.md) — 交互逻辑与设计 Token
 - [`docs/settings-audit.md`](docs/settings-audit.md) — 设置项审计台账与整改记录
+- [`docs/Xshell兼容登录.md`](docs/Xshell兼容登录.md) — 堡垒机/SSO 按 Xshell 方式拉起登录的兼容层与安全模型
 - [`docs/隧道功能规划.md`](docs/隧道功能规划.md) — 端口转发隧道设计
 - [`docs/路由追踪设计.md`](docs/路由追踪设计.md) — 路由追踪与地理可视化
 - [`docs/性能与内存优化-2026-07.md`](docs/性能与内存优化-2026-07.md) — 性能与内存优化批次记录

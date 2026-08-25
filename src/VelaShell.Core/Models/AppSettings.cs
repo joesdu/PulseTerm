@@ -865,6 +865,44 @@ public class SecurityOptions : ObservableOptions
         get;
         set => Set(ref field, value);
     } = "";
+
+    // 外部拉起(Xshell 兼容登录):第三方安全软件/堡垒机网页按 Xshell 的调用约定
+    // (-url ssh://… / ssh:// 协议关联)拉起本应用去登录服务器。
+    /// <summary>是否接受来自进程外的连接请求;关掉后 <c>-url</c> 与协议关联一律被忽略。</summary>
+    public bool AllowExternalLaunch
+    {
+        get;
+        set => Set(ref field, value);
+    } = true;
+
+    /// <summary>
+    /// 外部拉起在连接前是否需要用户确认。默认开:凭据是别人递过来的,目标也是别人指定的,
+    /// 没有这道确认,任何能在本机起进程的东西(包括浏览器里的一个链接)都能让终端静默连上任意主机。
+    /// </summary>
+    public bool ConfirmExternalLaunch
+    {
+        get;
+        set => Set(ref field, value);
+    } = true;
+
+    /// <summary>
+    /// 用户勾过「信任该目标,不再询问」的目标键(<c>scheme://user@host:port</c>)。
+    /// 只记目标,**不记凭据**。
+    /// </summary>
+    public List<string> TrustedExternalLaunchTargets
+    {
+        get;
+        // 旧配置里没有这一项、或 JSON 里显式写了 null 时归一为空表:
+        // 消费方(外部拉起的确认闸门)直接 Contains/Add,不该为一条缺省字段做空判断。
+        set => field = value ?? [];
+    } = [];
+
+    /// <summary>是否把 <c>ssh</c> / <c>sftp</c> 协议关联到本应用(Windows 写 HKCU,无需管理员)。</summary>
+    public bool RegisterUrlProtocols
+    {
+        get;
+        set => Set(ref field, value);
+    }
 }
 
 /// <summary>设置 - 密钥管理(设计 UBP59)。</summary>

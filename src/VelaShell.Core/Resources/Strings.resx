@@ -3864,4 +3864,80 @@ Trusting it will also trust future packages signed by the same key. Plugins can 
   <data name="Sc_NoMatch" xml:space="preserve"><value>No shortcut matches your search.</value></data>
   <data name="Sc_Count" xml:space="preserve"><value>{0} shortcuts in total</value></data>
   <data name="Sc_MacNote" xml:space="preserve"><value>On macOS the terminal accepts Command in place of Ctrl for copy, paste, new tab, close tab and Settings.</value></data>
+  <!-- Xshell 兼容登录:外部拉起确认弹窗与设置项 -->
+  <data name="ExtLaunch_Title" xml:space="preserve">
+    <value>External login request</value>
+  </data>
+  <data name="ExtLaunch_Origin" xml:space="preserve">
+    <value>Source</value>
+  </data>
+  <data name="ExtLaunch_OriginCommandLine" xml:space="preserve">
+    <value>Command line (-url / -f)</value>
+  </data>
+  <data name="ExtLaunch_OriginUrlProtocol" xml:space="preserve">
+    <value>ssh:// link (URL protocol)</value>
+  </data>
+  <data name="ExtLaunch_OriginSessionFile" xml:space="preserve">
+    <value>Xshell session file (-f)</value>
+  </data>
+  <data name="ExtLaunch_Target" xml:space="preserve">
+    <value>Target</value>
+  </data>
+  <data name="ExtLaunch_Protocol" xml:space="preserve">
+    <value>Protocol</value>
+  </data>
+  <data name="ExtLaunch_Credential" xml:space="preserve">
+    <value>Credentials</value>
+  </data>
+  <data name="ExtLaunch_CredentialSupplied" xml:space="preserve">
+    <value>Supplied with the request (used once, never saved)</value>
+  </data>
+  <data name="ExtLaunch_CredentialNone" xml:space="preserve">
+    <value>Not supplied - VelaShell will ask</value>
+  </data>
+  <data name="ExtLaunch_TrustTarget" xml:space="preserve">
+    <value>Trust this target and stop asking</value>
+  </data>
+  <data name="ExtLaunch_Connect" xml:space="preserve">
+    <value>Connect</value>
+  </data>
+  <data name="ExtLaunch_Blocked" xml:space="preserve">
+    <value>An external login request was ignored - external launch is turned off in Settings.</value>
+  </data>
+  <data name="ExtLaunch_UnsupportedScheme" xml:space="preserve">
+    <value>Unsupported protocol: {0}</value>
+  </data>
+  <data name="ExtLaunch_Connecting" xml:space="preserve">
+    <value>Connecting to {0} (external login request)...</value>
+  </data>
+  <data name="SetSecurity_SectionExternalLaunch" xml:space="preserve">
+    <value>External login (Xshell compatible)</value>
+  </data>
+  <data name="SetSecurity_AllowExternalLaunch" xml:space="preserve">
+    <value>Accept external login requests</value>
+  </data>
+  <data name="SetSecurity_AllowExternalLaunchDesc" xml:space="preserve">
+    <value>Let SSO / jump-server tools open a session with &quot;VelaShell.exe -url ssh://...&quot;, the way they drive Xshell. Off means such requests are ignored.</value>
+  </data>
+  <data name="SetSecurity_ConfirmExternalLaunch" xml:space="preserve">
+    <value>Confirm before connecting</value>
+  </data>
+  <data name="SetSecurity_ConfirmExternalLaunchDesc" xml:space="preserve">
+    <value>Show the target and where the request came from, and wait for your approval. Turning this off lets any local process - including a web page - open a session silently.</value>
+  </data>
+  <data name="SetSecurity_RegisterProtocols" xml:space="preserve">
+    <value>Handle ssh:// and sftp:// links</value>
+  </data>
+  <data name="SetSecurity_RegisterProtocolsDesc" xml:space="preserve">
+    <value>Register both schemes for the current user only (HKCU on Windows), so links on a jump-server page open here. Turning it off removes only the entries VelaShell created.</value>
+  </data>
+  <data name="SetSecurity_TrustedLaunchTargets" xml:space="preserve">
+    <value>Trusted external targets</value>
+  </data>
+  <data name="SetSecurity_TrustedLaunchTargetsDesc" xml:space="preserve">
+    <value>Targets you chose to stop being asked about. Clearing brings the confirmation back for all of them.</value>
+  </data>
+  <data name="SetSecurity_ClearTrustedLaunchTargets" xml:space="preserve">
+    <value>Clear</value>
+  </data>
 </root>

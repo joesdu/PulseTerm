@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
 using System.Text;
 using Avalonia;
 using ReactiveUI.Avalonia;
@@ -46,14 +45,29 @@ internal static partial class Program
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         InstallGlobalExceptionGuards();
 
+        // Xshell 兼容登录(-url / -f / ssh:// 协议关联):第三方安全软件、堡垒机网页是按 Xshell 的
+        // 调用约定拉起终端的。解析放在这里,是因为下面的单实例分支要用它决定「转发还是提示」。
+        ExternalLaunchRequest? launch = XshellLaunchParser.TryParse(args);
+
         // 每个用户只允许运行一个实例:SonnetDB 对其 WAL 持有独占锁,否则第二个进程会在启动时
         // 因文件被占用而抛出 IOException 崩溃。改为在启动前检测运行中的实例,并以友好提示干净退出。
         // 自更新后重启(--after-update)时,前一个进程仍在关闭中,因此等待其释放锁,而非立即退出。
         bool afterUpdate = args.Contains("--after-update", StringComparer.Ordinal);
         if (!TryAcquireSingleInstanceLock(afterUpdate ? TimeSpan.FromSeconds(15) : TimeSpan.Zero))
         {
+            // 已经有实例在跑:把这次拉起交给它(开标签页/唤到前台),自己干净退出。
+            // 只有转发确实失败了才退回提示框 —— 否则用户在网页上点了登录,这边毫无反应。
+            if (TryForwardToRunningInstance(launch))
+            {
+                return;
+            }
             ShowMessage(Strings.Get("Boot_AlreadyRunning"), "VelaShell");
             return;
+        }
+        if (launch is not null)
+        {
+            // 主窗口还没有,先入队;App 起来后 Attach 时一并放行。
+            ExternalLaunchInbox.Publish(launch);
         }
         try
         {
@@ -153,8 +167,8 @@ internal static partial class Program
         try
         {
             string root = new VelaShellStoragePaths().RootDirectory;
-            string key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(root.ToLowerInvariant())))[..16];
-            _singleInstanceMutex = new(false, $"Local\\VelaShell-{key}");
+            // 互斥体与拉起管道同键(都以数据根为源),两者才能指向同一个「实例」。
+            _singleInstanceMutex = new(false, $"Local\\VelaShell-{SingleInstanceLaunchChannel.KeyFor(root)}");
             try
             {
                 if (!_singleInstanceMutex.WaitOne(waitTimeout))
@@ -172,6 +186,27 @@ internal static partial class Program
         {
             // 绝不让该守卫自身阻塞启动;退路为允许启动。
             return true;
+        }
+    }
+
+    /// <summary>
+    /// 把这次启动交给已在运行的实例:带目标的转成一次连接请求,不带的(双击图标、托盘里已隐藏)
+    /// 转成一次「唤到前台」。对方确认收下才返回 true。
+    /// </summary>
+    private static bool TryForwardToRunningInstance(ExternalLaunchRequest? launch)
+    {
+        try
+        {
+            string root = new VelaShellStoragePaths().RootDirectory;
+            ExternalLaunchRequest request = launch ?? new ExternalLaunchRequest { Kind = ExternalLaunchKind.Activate };
+            // 5 秒:对方可能正忙于启动(插件激活、数据库打开),给足握手时间;
+            // 真连不上时这点等待也不至于让用户觉得点了个死链接。
+            return SingleInstanceLaunchChannel.TrySend(root, request, TimeSpan.FromSeconds(5));
+        }
+        catch (Exception ex)
+        {
+            Trace.WriteLine($"[VelaShell] Forwarding to running instance failed: {ex}");
+            return false;
         }
     }
 

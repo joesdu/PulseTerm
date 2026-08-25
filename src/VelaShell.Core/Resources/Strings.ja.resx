@@ -3863,4 +3863,80 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   <data name="Sc_NoMatch" xml:space="preserve"><value>一致するショートカットはありません。</value></data>
   <data name="Sc_Count" xml:space="preserve"><value>ショートカット合計 {0} 件</value></data>
   <data name="Sc_MacNote" xml:space="preserve"><value>macOS では、ターミナル内のコピー/貼り付け/新しいタブ/タブを閉じる/設定は Ctrl の代わりに Command を使います。</value></data>
+  <!-- Xshell 兼容登录:外部拉起确认弹窗与设置项 -->
+  <data name="ExtLaunch_Title" xml:space="preserve">
+    <value>外部からのログイン要求</value>
+  </data>
+  <data name="ExtLaunch_Origin" xml:space="preserve">
+    <value>要求元</value>
+  </data>
+  <data name="ExtLaunch_OriginCommandLine" xml:space="preserve">
+    <value>コマンドライン (-url / -f)</value>
+  </data>
+  <data name="ExtLaunch_OriginUrlProtocol" xml:space="preserve">
+    <value>ssh:// リンク (URL プロトコル)</value>
+  </data>
+  <data name="ExtLaunch_OriginSessionFile" xml:space="preserve">
+    <value>Xshell セッションファイル (-f)</value>
+  </data>
+  <data name="ExtLaunch_Target" xml:space="preserve">
+    <value>接続先</value>
+  </data>
+  <data name="ExtLaunch_Protocol" xml:space="preserve">
+    <value>プロトコル</value>
+  </data>
+  <data name="ExtLaunch_Credential" xml:space="preserve">
+    <value>資格情報</value>
+  </data>
+  <data name="ExtLaunch_CredentialSupplied" xml:space="preserve">
+    <value>要求に同梱 (今回限り、保存しません)</value>
+  </data>
+  <data name="ExtLaunch_CredentialNone" xml:space="preserve">
+    <value>未指定 - VelaShell が入力を求めます</value>
+  </data>
+  <data name="ExtLaunch_TrustTarget" xml:space="preserve">
+    <value>この接続先を信頼して今後確認しない</value>
+  </data>
+  <data name="ExtLaunch_Connect" xml:space="preserve">
+    <value>接続</value>
+  </data>
+  <data name="ExtLaunch_Blocked" xml:space="preserve">
+    <value>外部からのログイン要求を無視しました: 設定で外部起動が無効です。</value>
+  </data>
+  <data name="ExtLaunch_UnsupportedScheme" xml:space="preserve">
+    <value>サポートされていないプロトコル: {0}</value>
+  </data>
+  <data name="ExtLaunch_Connecting" xml:space="preserve">
+    <value>{0} に接続しています (外部からのログイン要求)...</value>
+  </data>
+  <data name="SetSecurity_SectionExternalLaunch" xml:space="preserve">
+    <value>外部ログイン (Xshell 互換)</value>
+  </data>
+  <data name="SetSecurity_AllowExternalLaunch" xml:space="preserve">
+    <value>外部からのログイン要求を受け付ける</value>
+  </data>
+  <data name="SetSecurity_AllowExternalLaunchDesc" xml:space="preserve">
+    <value>SSO / 踏み台ツールが Xshell と同じ流儀で「VelaShell.exe -url ssh://...」からセッションを開けるようにします。無効にすると、この種の要求はすべて無視されます。</value>
+  </data>
+  <data name="SetSecurity_ConfirmExternalLaunch" xml:space="preserve">
+    <value>接続前に確認する</value>
+  </data>
+  <data name="SetSecurity_ConfirmExternalLaunchDesc" xml:space="preserve">
+    <value>接続先と要求元を表示し、承認を待ちます。無効にすると、ローカルの任意のプロセス (Web ページ上のリンクを含む) が無言でセッションを開けます。</value>
+  </data>
+  <data name="SetSecurity_RegisterProtocols" xml:space="preserve">
+    <value>ssh:// と sftp:// リンクを関連付ける</value>
+  </data>
+  <data name="SetSecurity_RegisterProtocolsDesc" xml:space="preserve">
+    <value>現在のユーザーのみに両スキームを登録します (Windows では HKCU)。踏み台のページ上のリンクがここで開きます。無効化時は VelaShell が作成した項目だけを削除します。</value>
+  </data>
+  <data name="SetSecurity_TrustedLaunchTargets" xml:space="preserve">
+    <value>信頼済みの外部接続先</value>
+  </data>
+  <data name="SetSecurity_TrustedLaunchTargetsDesc" xml:space="preserve">
+    <value>「今後確認しない」を選んだ接続先です。消去するとすべて再び確認されます。</value>
+  </data>
+  <data name="SetSecurity_ClearTrustedLaunchTargets" xml:space="preserve">
+    <value>消去</value>
+  </data>
 </root>

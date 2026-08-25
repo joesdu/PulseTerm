@@ -110,6 +110,48 @@
 
     <Border Classes="sep" />
 
+    <!-- 外部登录(Xshell 兼容):堡垒机/SSO 网页按 Xshell 的调用约定拉起本应用去登录服务器。
+         凭据与目标都来自外部,因此默认要过一道确认弹窗;协议关联默认不开(只写 HKCU)。 -->
+    <TextBlock Classes="section-title" Text="{loc:Localize SetSecurity_SectionExternalLaunch}" />
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetSecurity_AllowExternalLaunch}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetSecurity_AllowExternalLaunchDesc}" />
+      </StackPanel>
+      <ToggleSwitch Grid.Column="1" IsChecked="{Binding Security.AllowExternalLaunch}" VerticalAlignment="Center" />
+    </Grid>
+    <!-- 从属设置:允许外部拉起时才有意义(设置审计 §10)。 -->
+    <StackPanel Spacing="14" IsVisible="{Binding Security.AllowExternalLaunch}">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Spacing="2">
+          <TextBlock Classes="row-label" Text="{loc:Localize SetSecurity_ConfirmExternalLaunch}" />
+          <TextBlock Classes="row-desc" Text="{loc:Localize SetSecurity_ConfirmExternalLaunchDesc}" />
+        </StackPanel>
+        <ToggleSwitch Grid.Column="1" IsChecked="{Binding Security.ConfirmExternalLaunch}" VerticalAlignment="Center" />
+      </Grid>
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Spacing="2">
+          <TextBlock Classes="row-label" Text="{loc:Localize SetSecurity_RegisterProtocols}" />
+          <TextBlock Classes="row-desc" Text="{loc:Localize SetSecurity_RegisterProtocolsDesc}" />
+        </StackPanel>
+        <ToggleSwitch Grid.Column="1" IsChecked="{Binding Security.RegisterUrlProtocols}" VerticalAlignment="Center" />
+      </Grid>
+      <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasTrustedLaunchTargets}">
+        <StackPanel Spacing="2">
+          <TextBlock Classes="row-label" Text="{loc:Localize SetSecurity_TrustedLaunchTargets}" />
+          <TextBlock Classes="row-desc" Text="{loc:Localize SetSecurity_TrustedLaunchTargetsDesc}" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+          <TextBlock Classes="row-desc" Text="{Binding TrustedLaunchTargetCount}" VerticalAlignment="Center" />
+          <Button Classes="dlg-outline"
+                  Content="{loc:Localize SetSecurity_ClearTrustedLaunchTargets}"
+                  Command="{Binding ClearTrustedLaunchTargetsCommand}" />
+        </StackPanel>
+      </Grid>
+    </StackPanel>
+
+    <Border Classes="sep" />
+
     <!-- 告警通道 -->
     <TextBlock Text="{loc:Localize SetSecurity_SectionAlerts}"
                Foreground="#74B9FF" FontSize="{DynamicResource VelaFontSize12}" FontWeight="SemiBold" />

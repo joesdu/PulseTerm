@@ -3863,4 +3863,80 @@ Windows는 exe 전체 경로 또는 명령 이름(예: notepad), Linux는 명령
   <data name="Sc_NoMatch" xml:space="preserve"><value>일치하는 단축키가 없습니다.</value></data>
   <data name="Sc_Count" xml:space="preserve"><value>총 {0}개 단축키</value></data>
   <data name="Sc_MacNote" xml:space="preserve"><value>macOS에서는 터미널 내 복사/붙여넣기/새 탭/탭 닫기/설정에 Ctrl 대신 Command를 사용합니다.</value></data>
+  <!-- Xshell 兼容登录:外部拉起确认弹窗与设置项 -->
+  <data name="ExtLaunch_Title" xml:space="preserve">
+    <value>외부 로그인 요청</value>
+  </data>
+  <data name="ExtLaunch_Origin" xml:space="preserve">
+    <value>요청 출처</value>
+  </data>
+  <data name="ExtLaunch_OriginCommandLine" xml:space="preserve">
+    <value>명령줄 (-url / -f)</value>
+  </data>
+  <data name="ExtLaunch_OriginUrlProtocol" xml:space="preserve">
+    <value>ssh:// 링크 (URL 프로토콜)</value>
+  </data>
+  <data name="ExtLaunch_OriginSessionFile" xml:space="preserve">
+    <value>Xshell 세션 파일 (-f)</value>
+  </data>
+  <data name="ExtLaunch_Target" xml:space="preserve">
+    <value>대상</value>
+  </data>
+  <data name="ExtLaunch_Protocol" xml:space="preserve">
+    <value>프로토콜</value>
+  </data>
+  <data name="ExtLaunch_Credential" xml:space="preserve">
+    <value>자격 증명</value>
+  </data>
+  <data name="ExtLaunch_CredentialSupplied" xml:space="preserve">
+    <value>요청에 포함됨 (이번만 사용, 저장 안 함)</value>
+  </data>
+  <data name="ExtLaunch_CredentialNone" xml:space="preserve">
+    <value>없음 - VelaShell이 물어봅니다</value>
+  </data>
+  <data name="ExtLaunch_TrustTarget" xml:space="preserve">
+    <value>이 대상을 신뢰하고 다시 묻지 않기</value>
+  </data>
+  <data name="ExtLaunch_Connect" xml:space="preserve">
+    <value>연결</value>
+  </data>
+  <data name="ExtLaunch_Blocked" xml:space="preserve">
+    <value>외부 로그인 요청을 무시했습니다: 설정에서 외부 실행이 꺼져 있습니다.</value>
+  </data>
+  <data name="ExtLaunch_UnsupportedScheme" xml:space="preserve">
+    <value>지원하지 않는 프로토콜: {0}</value>
+  </data>
+  <data name="ExtLaunch_Connecting" xml:space="preserve">
+    <value>{0}에 연결하는 중 (외부 로그인 요청)...</value>
+  </data>
+  <data name="SetSecurity_SectionExternalLaunch" xml:space="preserve">
+    <value>외부 로그인 (Xshell 호환)</value>
+  </data>
+  <data name="SetSecurity_AllowExternalLaunch" xml:space="preserve">
+    <value>외부 로그인 요청 허용</value>
+  </data>
+  <data name="SetSecurity_AllowExternalLaunchDesc" xml:space="preserve">
+    <value>SSO / 점프 서버 도구가 Xshell을 다루듯 &quot;VelaShell.exe -url ssh://...&quot;로 세션을 열 수 있게 합니다. 끄면 이런 요청은 모두 무시됩니다.</value>
+  </data>
+  <data name="SetSecurity_ConfirmExternalLaunch" xml:space="preserve">
+    <value>연결 전 확인</value>
+  </data>
+  <data name="SetSecurity_ConfirmExternalLaunchDesc" xml:space="preserve">
+    <value>대상과 요청 출처를 보여주고 승인을 기다립니다. 끄면 로컬의 어떤 프로세스든 (웹 페이지의 링크 포함) 조용히 세션을 열 수 있습니다.</value>
+  </data>
+  <data name="SetSecurity_RegisterProtocols" xml:space="preserve">
+    <value>ssh:// 및 sftp:// 링크 연결</value>
+  </data>
+  <data name="SetSecurity_RegisterProtocolsDesc" xml:space="preserve">
+    <value>현재 사용자에게만 두 스킴을 등록합니다 (Windows는 HKCU). 점프 서버 페이지의 링크가 여기서 열립니다. 끄면 VelaShell이 만든 항목만 삭제합니다.</value>
+  </data>
+  <data name="SetSecurity_TrustedLaunchTargets" xml:space="preserve">
+    <value>신뢰된 외부 대상</value>
+  </data>
+  <data name="SetSecurity_TrustedLaunchTargetsDesc" xml:space="preserve">
+    <value>&quot;다시 묻지 않기&quot;를 선택한 대상입니다. 지우면 모두 다시 확인합니다.</value>
+  </data>
+  <data name="SetSecurity_ClearTrustedLaunchTargets" xml:space="preserve">
+    <value>지우기</value>
+  </data>
 </root>

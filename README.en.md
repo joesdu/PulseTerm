@@ -344,6 +344,7 @@ English translations of the design documents are linked below; the Chinese origi
 - [`DESIGN.md`](DESIGN.md) — design system: colour/type/spacing tokens and component rules
 - [`docs-en/interaction-and-ui-specs.md`](docs-en/interaction-and-ui-specs.md) — interaction logic and design tokens
 - [`docs-en/settings-audit.md`](docs-en/settings-audit.md) — settings audit ledger and remediation log
+- [`docs-en/xshell-compatible-login.md`](docs-en/xshell-compatible-login.md) — Xshell-compatible external launch for jump servers, and its security model
 - [`docs-en/tunnel-feature-planning.md`](docs-en/tunnel-feature-planning.md) — port-forwarding tunnel design
 - [`docs-en/route-tracing-design.md`](docs-en/route-tracing-design.md) — traceroute and geographic visualisation
 - [`docs-en/performance-and-memory-optimization-2026-07.md`](docs-en/performance-and-memory-optimization-2026-07.md) — performance and memory optimisation log
