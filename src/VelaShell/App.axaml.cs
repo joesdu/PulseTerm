@@ -16,6 +16,7 @@ using VelaShell.Core.Services;
 using VelaShell.Core.Ssh;
 using VelaShell.Core.Sync;
 using VelaShell.Infrastructure.DependencyInjection;
+using VelaShell.Infrastructure.Startup;
 using VelaShell.Localization;
 using VelaShell.PluginSdk.Logging;
 using VelaShell.PluginSdk.Ui;
@@ -38,6 +39,7 @@ public class App : Application
     private readonly SyncDebounceLifecycle _syncDebounce = new();
     private IThemeService? _themeService;
     private TrayIconService? _trayIconService;
+    private SingleInstanceLaunchChannel? _launchChannel;
 
     /// <summary>当前应用的 DI 服务容器;在 <see cref="Initialize" /> 完成前为 <c>null</c>。</summary>
     public IServiceProvider? Services => _serviceProvider;
@@ -159,6 +161,14 @@ public class App : Application
             // 开机自启动与设置保持同步(用户可能在外部改过注册表)。
             StartupRegistration.Apply(_startupSettings?.General.LaunchAtStartup == true);
 
+            // ssh:// / sftp:// 协议关联同理:设置是唯一事实,启动时把系统状态拉回来对齐。
+            UrlProtocolRegistration.Apply(_startupSettings?.Security.RegisterUrlProtocols == true);
+
+            // Xshell 兼容登录:命令行里那条请求已在 Program 里入队,这里接上处理器一并放行;
+            // 之后由别的进程转发来的请求也走同一个入口。管道监听要等主窗口在手 ——
+            // 提前收下请求却无处可放,只会把它丢掉。
+            WireExternalLaunch(mainWindow, viewModel);
+
             // 过期会话/传输日志清理(设置 → 常规/文件传输 → 日志保留天数),后台执行。
             // 真的放到后台:目录枚举+删除是磁盘 IO,日志多时同步跑会拖慢首帧。
             int logRetentionDays = _startupSettings?.General.LogRetentionDays ?? 30;
@@ -196,6 +206,7 @@ public class App : Application
                     Dispatcher.UIThread.Post(() =>
                     {
                         StartupRegistration.Apply(settings.General.LaunchAtStartup);
+                        UrlProtocolRegistration.Apply(settings.Security.RegisterUrlProtocols);
                         _trayIconService?.SetEnabled(settings.General.MinimizeToTray);
                     });
             }
@@ -242,12 +253,37 @@ public class App : Application
             // 并清理「默认编辑器打开」遗留的 remote-edit 临时文件。
             desktop.Exit += (_, _) =>
             {
+                ExternalLaunchInbox.Detach();
+                _launchChannel?.Dispose();
                 _trayIconService?.Dispose();
                 ExternalEditSessionManager.CleanupAll();
                 DisposeServicesOnExit();
             };
         }
         base.OnFrameworkInitializationCompleted();
+    }
+
+    /// <summary>
+    /// Xshell 兼容登录的接线:收件箱 → 协调器(确认闸门 + 连接),外加单实例转发管道的监听。
+    /// </summary>
+    /// <remarks>
+    /// 两条来源合一个入口:冷启动那条(<c>Program</c> 解析命令行后入队)与热态那条
+    /// (第二个进程经命名管道转发)。管道回调跑在后台线程,必须 Post 回 UI 线程 ——
+    /// 协调器要弹窗、要开标签页,全是 UI 线程独占的活儿。
+    /// </remarks>
+    private void WireExternalLaunch(Window mainWindow, MainWindowViewModel viewModel)
+    {
+        var coordinator = new ExternalLaunchCoordinator(
+            mainWindow,
+            viewModel,
+            _serviceProvider?.GetService<ISettingsService>(),
+            _serviceProvider?.GetService<ISessionRepository>(),
+            _serviceProvider?.GetService<IAuditLogService>());
+        ExternalLaunchInbox.Attach(request =>
+            Dispatcher.UIThread.Post(() => _ = coordinator.HandleAsync(request)));
+        string storageRoot = _serviceProvider?.GetService<Infrastructure.Persistence.VelaShellStoragePaths>()?.RootDirectory
+                             ?? new Infrastructure.Persistence.VelaShellStoragePaths().RootDirectory;
+        _launchChannel = SingleInstanceLaunchChannel.StartServer(storageRoot, ExternalLaunchInbox.Publish);
     }
 
     /// <summary>

@@ -3863,4 +3863,80 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   <data name="Sc_NoMatch" xml:space="preserve"><value>沒有符合的快速鍵。</value></data>
   <data name="Sc_Count" xml:space="preserve"><value>共 {0} 個快速鍵</value></data>
   <data name="Sc_MacNote" xml:space="preserve"><value>在 macOS 上,終端機內的複製/貼上/新增分頁/關閉分頁/開啟設定改用 Command 取代 Ctrl。</value></data>
+  <!-- Xshell 兼容登录:外部拉起确认弹窗与设置项 -->
+  <data name="ExtLaunch_Title" xml:space="preserve">
+    <value>外部登入請求</value>
+  </data>
+  <data name="ExtLaunch_Origin" xml:space="preserve">
+    <value>來源</value>
+  </data>
+  <data name="ExtLaunch_OriginCommandLine" xml:space="preserve">
+    <value>命令列(-url / -f)</value>
+  </data>
+  <data name="ExtLaunch_OriginUrlProtocol" xml:space="preserve">
+    <value>ssh:// 連結(協定關聯)</value>
+  </data>
+  <data name="ExtLaunch_OriginSessionFile" xml:space="preserve">
+    <value>Xshell 工作階段檔(-f)</value>
+  </data>
+  <data name="ExtLaunch_Target" xml:space="preserve">
+    <value>目標</value>
+  </data>
+  <data name="ExtLaunch_Protocol" xml:space="preserve">
+    <value>協定</value>
+  </data>
+  <data name="ExtLaunch_Credential" xml:space="preserve">
+    <value>憑證</value>
+  </data>
+  <data name="ExtLaunch_CredentialSupplied" xml:space="preserve">
+    <value>隨請求提供(僅用於本次,不儲存)</value>
+  </data>
+  <data name="ExtLaunch_CredentialNone" xml:space="preserve">
+    <value>未提供,稍後由 VelaShell 詢問</value>
+  </data>
+  <data name="ExtLaunch_TrustTarget" xml:space="preserve">
+    <value>信任此目標,不再詢問</value>
+  </data>
+  <data name="ExtLaunch_Connect" xml:space="preserve">
+    <value>連線</value>
+  </data>
+  <data name="ExtLaunch_Blocked" xml:space="preserve">
+    <value>已忽略一則外部登入請求:設定中已關閉外部喚起。</value>
+  </data>
+  <data name="ExtLaunch_UnsupportedScheme" xml:space="preserve">
+    <value>不支援的協定:{0}</value>
+  </data>
+  <data name="ExtLaunch_Connecting" xml:space="preserve">
+    <value>正在連線 {0}(外部登入請求)...</value>
+  </data>
+  <data name="SetSecurity_SectionExternalLaunch" xml:space="preserve">
+    <value>外部登入(Xshell 相容)</value>
+  </data>
+  <data name="SetSecurity_AllowExternalLaunch" xml:space="preserve">
+    <value>接受外部登入請求</value>
+  </data>
+  <data name="SetSecurity_AllowExternalLaunchDesc" xml:space="preserve">
+    <value>允許 SSO、堡壘機等工具以「VelaShell.exe -url ssh://...」喚起工作階段(與它們驅動 Xshell 的方式相同)。關閉後這類請求一律忽略。</value>
+  </data>
+  <data name="SetSecurity_ConfirmExternalLaunch" xml:space="preserve">
+    <value>連線前先確認</value>
+  </data>
+  <data name="SetSecurity_ConfirmExternalLaunchDesc" xml:space="preserve">
+    <value>以對話框顯示目標與請求來源,由你確認才連線。關閉後,本機任何處理程序(包括網頁上的一個連結)都能讓終端機靜默連上伺服器。</value>
+  </data>
+  <data name="SetSecurity_RegisterProtocols" xml:space="preserve">
+    <value>關聯 ssh:// 與 sftp:// 連結</value>
+  </data>
+  <data name="SetSecurity_RegisterProtocolsDesc" xml:space="preserve">
+    <value>僅為目前使用者註冊這兩個協定(Windows 寫入 HKCU),堡壘機網頁上的連結便會以本應用開啟。關閉時只刪除 VelaShell 自己寫入的機碼。</value>
+  </data>
+  <data name="SetSecurity_TrustedLaunchTargets" xml:space="preserve">
+    <value>已信任的外部目標</value>
+  </data>
+  <data name="SetSecurity_TrustedLaunchTargetsDesc" xml:space="preserve">
+    <value>你勾選過「不再詢問」的目標。清空後將重新逐一確認。</value>
+  </data>
+  <data name="SetSecurity_ClearTrustedLaunchTargets" xml:space="preserve">
+    <value>清空</value>
+  </data>
 </root>

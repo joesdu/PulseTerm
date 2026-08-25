@@ -149,6 +149,11 @@ public class SettingsViewModel : ReactiveObject
             );
         Sync = gistSyncService is null ? null : new SyncViewModel(gistSyncService);
         RemoveKnownHostCommand = ReactiveCommand.CreateFromTask<KnownHost>(RemoveKnownHostAsync);
+        ClearTrustedLaunchTargetsCommand = ReactiveCommand.Create(() =>
+        {
+            Security.TrustedExternalLaunchTargets.Clear();
+            RefreshTrustedLaunchTargets();
+        });
         LoadCommand = ReactiveCommand.CreateFromTask(LoadAsync);
         SaveCommand = ReactiveCommand.CreateFromTask(SaveAsync);
         CancelCommand = ReactiveCommand.Create(() => CloseRequested?.Invoke(this, EventArgs.Empty));
@@ -359,6 +364,33 @@ public class SettingsViewModel : ReactiveObject
 
     /// <summary>删除一条已信任主机指纹;下次连接该主机将重新执行首次指纹流程。</summary>
     public ReactiveCommand<KnownHost, RxVoid> RemoveKnownHostCommand { get; }
+
+    /// <summary>
+    /// 外部登录里被用户勾过「不再询问」的目标数量(<c>scheme://user@host:port</c>)。
+    /// 只显示条数而不铺一张表:这些目标本就是一次性登录的落点,用户要的是「清掉」而不是逐条端详。
+    /// </summary>
+    public int TrustedLaunchTargetCount
+    {
+        get;
+        private set => this.RaiseAndSetIfChanged(ref field, value);
+    }
+
+    /// <summary>是否存在已信任的外部登录目标(用于控制清空按钮的显示)。</summary>
+    public bool HasTrustedLaunchTargets
+    {
+        get;
+        private set => this.RaiseAndSetIfChanged(ref field, value);
+    }
+
+    /// <summary>清空已信任的外部登录目标;此后每次外部拉起都重新确认(随「保存」生效)。</summary>
+    public ReactiveCommand<RxVoid, RxVoid> ClearTrustedLaunchTargetsCommand { get; }
+
+    /// <summary>把信任目标的派生显示状态拉回与 <see cref="Security" /> 一致。</summary>
+    private void RefreshTrustedLaunchTargets()
+    {
+        TrustedLaunchTargetCount = Security.TrustedExternalLaunchTargets.Count;
+        HasTrustedLaunchTargets = TrustedLaunchTargetCount > 0;
+    }
 
     /// <summary>代码片段页(quick_commands 集合);无存储时为 null。</summary>
     public QuickCommandsViewModel? Snippets { get; }
@@ -1237,6 +1269,7 @@ public class SettingsViewModel : ReactiveObject
         Security = settings.Security;
         Keys = settings.Keys;
         Proxy = settings.Proxy;
+        RefreshTrustedLaunchTargets();
 
         // 配色方案下拉:重算“(默认)”标注与选中项(出厂值折射到当前主题默认方案;
         // 显式方案反向匹配;改过单色显示“未选择”)。
