@@ -20,7 +20,11 @@ namespace VelaShell.ViewModels;
 /// </summary>
 public class TerminalTabViewModel : TabViewModel, IDisposable
 {
+    /// <summary>「已复制」回执停留的时长;与连接配置页保持一致。</summary>
+    private static readonly TimeSpan CopyFeedbackDuration = TimeSpan.FromSeconds(2);
+
     private readonly Lock _ptyResizeGate = new();
+    private IDisposable? _copyFeedbackReset;
     private bool _disposed;
     private (int Columns, int Rows)? _pendingPtySize;
     private bool _ptyResizeSending;
@@ -86,6 +90,11 @@ public class TerminalTabViewModel : TabViewModel, IDisposable
                 SyncChannelCloseRequested?.Invoke(channel);
             }
         });
+
+        CopyErrorCommand = ReactiveCommand.CreateFromTask(
+            CopyErrorAsync,
+            this.WhenAnyValue(x => x.ConnectionError, error => !string.IsNullOrWhiteSpace(error))
+        );
     }
 
     /// <summary>创建一个标签并立即挂载实时传输(已建立连接的场景)。</summary>
@@ -447,6 +456,23 @@ public class TerminalTabViewModel : TabViewModel, IDisposable
     public bool HasConnectionError => !string.IsNullOrEmpty(ConnectionError);
 
     /// <summary>
+    /// 复制覆盖层上的失败原因到剪贴板。失败原因往往是一长串原文 —— 服务端的认证链、
+    /// 主机密钥指纹、算法协商差异的两份名单 —— 要拿去搜索、贴给同事或发给设备厂商,
+    /// 照着屏幕抄不现实。与连接配置页的「复制」是同一套做法。
+    /// </summary>
+    public ReactiveCommand<RxVoid, RxVoid> CopyErrorCommand { get; }
+
+    /// <summary>写系统剪贴板的回调;由视图注入(视图模型层拿不到 TopLevel)。</summary>
+    public Func<string, Task>? CopyToClipboard { get; set; }
+
+    /// <summary>刚复制过:按钮上短暂显示「已复制」回执。</summary>
+    public bool ErrorCopied
+    {
+        get;
+        private set => this.RaiseAndSetIfChanged(ref field, value);
+    }
+
+    /// <summary>
     /// 标签页内失败/断开覆盖层(设计 yxjmg)的可见性:未连接(断开/错误)且是一个
     /// 真实会话标签(SSH 或本地)时显示。连接中/已连接不显示。
     /// </summary>
@@ -534,6 +560,9 @@ public class TerminalTabViewModel : TabViewModel, IDisposable
             return;
         }
         _disposed = true;
+        // 「已复制」回执的定时器可能还挂着:不取消的话它会在标签消失之后才回调。
+        _copyFeedbackReset?.Dispose();
+        _copyFeedbackReset = null;
         // 立即标记为未连接:同步频道转发(WriteSyncInput)以 IsConnected 为闸门。
         // 频道内其他标签的输入可能与本标签的关闭并发,不复位 IsConnected 的话,
         // 转发会向已释放的桥写入而与释放竞争。
@@ -752,6 +781,29 @@ public class TerminalTabViewModel : TabViewModel, IDisposable
     /// 不弹全局框。置为断开态以启用“重新连接”;不触发 <see cref="Disconnected" /> 事件——
     /// 初始连接失败不应自动重连(尤其认证失败),由用户手动决定重连或关闭。
     /// </summary>
+    /// <summary>
+    /// 把失败原因原文送进剪贴板,并在按钮上留一句「已复制」的回执 —— 没有回执就分不清
+    /// 「复制成功了」和「按钮没反应」,用户只会再点两下。回执到点自动退回;连点时先取消
+    /// 上一个定时器,否则第二次点完会立刻被第一次的定时器把提示抹掉。
+    /// </summary>
+    private async Task CopyErrorAsync()
+    {
+        if (CopyToClipboard is not { } copy || ConnectionError is not { Length: > 0 })
+        {
+            return;
+        }
+        // 复制覆盖层上那一整段(标题下面显示的就是它),而不是只复制 ConnectionError:
+        // 用户要的是「屏幕上这段话」,两者不一致就会让人以为漏复制了。
+        await copy(DisconnectOverlayDetail).ConfigureAwait(true);
+        ErrorCopied = true;
+        _copyFeedbackReset?.Dispose();
+        _copyFeedbackReset = DispatcherTimer.RunOnce(() => ErrorCopied = false, CopyFeedbackDuration);
+    }
+
+    /// <summary>
+    /// 把标签切换到断开状态并记录连接失败的原因(幂等)。覆盖层显示为“连接失败 + 具体原因”,
+    /// </summary>
+    /// <param name="message"></param>
     public void MarkConnectionFailed(string message)
     {
         if (_disposed)

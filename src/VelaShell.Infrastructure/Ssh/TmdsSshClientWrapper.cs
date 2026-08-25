@@ -119,13 +119,45 @@ public sealed class TmdsSshClientWrapper : ISshClientWrapper
             SafeDisposeClient(client);
             // 代理拨号/握手失败时,Tmds 只看到连接被断;用中继记录的真实原因报错。
             Exception? proxyError = _relay?.Error;
+            // 算法协商失败时回探一次对端的 KEXINIT,把"对端提供什么、我们支持什么"补进消息。
+            // 必须赶在 DisposeRelay 之前:走代理时 _settings.HostName 指的正是那条环回中继。
+            string? mismatch = proxyError is null
+                ? await TryDescribeAlgorithmMismatchAsync(ex, cancellationToken).ConfigureAwait(false)
+                : null;
             DisposeRelay();
             if (proxyError is not null)
                 throw new VelaSshConnectionException(proxyError.Message, proxyError);
+            if (mismatch is not null)
+                throw new VelaSshConnectionException($"{ex.Message}\n{mismatch}", ex);
             if (TmdsSshInterop.Translate(ex, cancellationToken) is { } translated) throw translated;
             throw;
         }
         _client = client;
+    }
+
+    /// <summary>
+    /// 只在算法协商失败(<c>KeyExchangeFailed</c>)时回探对端算法名单。其余失败原因 —— 认证不过、
+    /// 超时、根本连不上 —— 本身已经说清楚了,再去开一条连接只是白白打扰对端。
+    /// </summary>
+    /// <remarks>
+    /// 诊断绝不能改变失败本身:探不到就返回 null,原来的异常照常抛出。
+    /// </remarks>
+    private async Task<string?> TryDescribeAlgorithmMismatchAsync(Exception ex, CancellationToken cancellationToken)
+    {
+        if (cancellationToken.IsCancellationRequested
+            || TmdsSshInterop.ExtractConnectFailedReason(ex.Message) is not "KeyExchangeFailed")
+        {
+            return null;
+        }
+        try
+        {
+            return await SshAlgorithmDiagnostics.TryDescribeAsync(_settings, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception probeError)
+        {
+            System.Diagnostics.Trace.WriteLine($"[VelaShell] SSH algorithm probe failed: {probeError}");
+            return null;
+        }
     }
 
     /// <summary>

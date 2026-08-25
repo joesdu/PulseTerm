@@ -3737,6 +3737,27 @@ Windows는 exe 전체 경로 또는 명령 이름(예: notepad), Linux는 명령
   <data name="Msg_ProxyAuthFailed" xml:space="preserve">
     <value>프록시 인증에 실패했습니다. 사용자 이름과 비밀번호를 확인하세요.</value>
   </data>
+  <data name="Ssh_AlgoMismatchTitle" xml:space="preserve">
+    <value>상대 서버({0})와 이 클라이언트 간에 공통 알고리즘이 없습니다.</value>
+  </data>
+  <data name="Ssh_AlgoMismatchPeer" xml:space="preserve">
+    <value>  서버 제공: {0}</value>
+  </data>
+  <data name="Ssh_AlgoMismatchOurs" xml:space="preserve">
+    <value>  클라이언트 지원: {0}</value>
+  </data>
+  <data name="Ssh_AlgoKindKex" xml:space="preserve">
+    <value>키 교환</value>
+  </data>
+  <data name="Ssh_AlgoKindHostKey" xml:space="preserve">
+    <value>호스트 키</value>
+  </data>
+  <data name="Ssh_AlgoKindEncryption" xml:space="preserve">
+    <value>암호화</value>
+  </data>
+  <data name="Ssh_AlgoKindMac" xml:space="preserve">
+    <value>무결성(MAC)</value>
+  </data>
   <data name="Plugin_ProtocolUnavailable" xml:space="preserve">
     <value>이 프로토콜을 제공하는 플러그인을 사용할 수 없습니다. 플러그인 관리에서 설치하거나 활성화하세요.</value>
   </data>

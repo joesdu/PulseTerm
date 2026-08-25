@@ -3737,6 +3737,27 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   <data name="Msg_ProxyAuthFailed" xml:space="preserve">
     <value>代理驗證失敗,請檢查代理使用者名稱與密碼。</value>
   </data>
+  <data name="Ssh_AlgoMismatchTitle" xml:space="preserve">
+    <value>對端({0})與本用戶端沒有共同的演算法。</value>
+  </data>
+  <data name="Ssh_AlgoMismatchPeer" xml:space="preserve">
+    <value>  對端提供:{0}</value>
+  </data>
+  <data name="Ssh_AlgoMismatchOurs" xml:space="preserve">
+    <value>  本用戶端支援:{0}</value>
+  </data>
+  <data name="Ssh_AlgoKindKex" xml:space="preserve">
+    <value>金鑰交換</value>
+  </data>
+  <data name="Ssh_AlgoKindHostKey" xml:space="preserve">
+    <value>主機金鑰</value>
+  </data>
+  <data name="Ssh_AlgoKindEncryption" xml:space="preserve">
+    <value>加密</value>
+  </data>
+  <data name="Ssh_AlgoKindMac" xml:space="preserve">
+    <value>完整性(MAC)</value>
+  </data>
   <data name="Plugin_ProtocolUnavailable" xml:space="preserve">
     <value>提供該協定的外掛程式目前無法使用。請在外掛程式管理頁安裝或啟用它。</value>
   </data>

@@ -3737,6 +3737,27 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   <data name="Msg_ProxyAuthFailed" xml:space="preserve">
     <value>プロキシ認証に失敗しました。ユーザー名とパスワードを確認してください。</value>
   </data>
+  <data name="Ssh_AlgoMismatchTitle" xml:space="preserve">
+    <value>接続先 ({0}) とこのクライアントに共通のアルゴリズムがありません。</value>
+  </data>
+  <data name="Ssh_AlgoMismatchPeer" xml:space="preserve">
+    <value>  接続先の提供: {0}</value>
+  </data>
+  <data name="Ssh_AlgoMismatchOurs" xml:space="preserve">
+    <value>  本クライアントの対応: {0}</value>
+  </data>
+  <data name="Ssh_AlgoKindKex" xml:space="preserve">
+    <value>鍵交換</value>
+  </data>
+  <data name="Ssh_AlgoKindHostKey" xml:space="preserve">
+    <value>ホスト鍵</value>
+  </data>
+  <data name="Ssh_AlgoKindEncryption" xml:space="preserve">
+    <value>暗号化</value>
+  </data>
+  <data name="Ssh_AlgoKindMac" xml:space="preserve">
+    <value>完全性 (MAC)</value>
+  </data>
   <data name="Plugin_ProtocolUnavailable" xml:space="preserve">
     <value>このプロトコルを提供するプラグインが利用できません。プラグイン管理画面でインストールまたは有効化してください。</value>
   </data>

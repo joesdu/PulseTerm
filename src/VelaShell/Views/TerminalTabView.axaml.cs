@@ -52,6 +52,11 @@ public partial class TerminalTabView : UserControl
         {
             HookTerminalControl();
             HookSuggestions();
+            // 失败覆盖层上的「复制」:剪贴板要经 TopLevel 取,视图模型层拿不到,由视图注入。
+            if (DataContext is TerminalTabViewModel tab)
+            {
+                tab.CopyToClipboard = CopyToClipboardAsync;
+            }
         };
         ScrollBarView?.Scroll += OnScrollBarScroll;
 
@@ -892,6 +897,15 @@ public partial class TerminalTabView : UserControl
 
     // 终端控件是跨分屏重新挂载的单一共享实例,因此每个视图都把滚动条(重新)绑定到它
     // 当前承载的那个控件上。
+    /// <summary>把文本写进系统剪贴板;拿不到剪贴板(无 TopLevel)时静默跳过。</summary>
+    private async Task CopyToClipboardAsync(string text)
+    {
+        if (TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
+        {
+            await clipboard.SetTextAsync(text);
+        }
+    }
+
     private void HookTerminalControl()
     {
         var ctrl =
