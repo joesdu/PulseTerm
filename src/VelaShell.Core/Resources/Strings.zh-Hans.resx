@@ -3829,6 +3829,27 @@ Windows 填 exe 完整路径或命令名(如 notepad);Linux 填命令名(如 ged
   <data name="Msg_ProxyAuthFailed" xml:space="preserve">
     <value>代理认证失败,请检查代理用户名与密码。</value>
   </data>
+  <data name="Ssh_AlgoMismatchTitle" xml:space="preserve">
+    <value>对端({0})与本客户端没有共同的算法。</value>
+  </data>
+  <data name="Ssh_AlgoMismatchPeer" xml:space="preserve">
+    <value>  对端提供:{0}</value>
+  </data>
+  <data name="Ssh_AlgoMismatchOurs" xml:space="preserve">
+    <value>  本客户端支持:{0}</value>
+  </data>
+  <data name="Ssh_AlgoKindKex" xml:space="preserve">
+    <value>密钥交换</value>
+  </data>
+  <data name="Ssh_AlgoKindHostKey" xml:space="preserve">
+    <value>主机密钥</value>
+  </data>
+  <data name="Ssh_AlgoKindEncryption" xml:space="preserve">
+    <value>加密</value>
+  </data>
+  <data name="Ssh_AlgoKindMac" xml:space="preserve">
+    <value>完整性(MAC)</value>
+  </data>
   <data name="Plugin_ProtocolUnavailable" xml:space="preserve">
     <value>提供该协议的插件当前不可用。请在插件管理页安装或启用它。</value>
   </data>

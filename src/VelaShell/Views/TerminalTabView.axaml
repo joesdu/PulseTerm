@@ -26,6 +26,37 @@
       <Setter Property="VerticalContentAlignment" Value="Center" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
     </Style>
+
+    <!-- 失败/断开覆盖层。两种形态差别很大,所以宽度与对齐都随 .error 切换而不是写死一套:
+         「连接已断开」只有一句话,窄卡片居中最好看;「连接失败」的原因是多行技术文本
+         (算法协商会把双方名单都列出来),窄卡片里居中就成了一团没法读的东西。 -->
+    <Style Selector="Border.dc-card">
+      <Setter Property="Width" Value="340" />
+    </Style>
+    <Style Selector="Border.dc-card.error">
+      <Setter Property="Width" Value="560" />
+    </Style>
+    <!-- 原因块:出错时给一层输入框同款底色,把「这是原文」和上面的标题分开。 -->
+    <Style Selector="Border.dc-detail">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Padding" Value="0" />
+    </Style>
+    <Style Selector="Border.dc-detail.error">
+      <Setter Property="Background" Value="{DynamicResource VelaBgInput}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Padding" Value="14,12" />
+    </Style>
+    <Style Selector="SelectableTextBlock.dc-detail">
+      <Setter Property="TextAlignment" Value="Center" />
+      <Setter Property="MaxWidth" Value="280" />
+    </Style>
+    <Style Selector="SelectableTextBlock.dc-detail.error">
+      <Setter Property="TextAlignment" Value="Left" />
+      <Setter Property="MaxWidth" Value="Infinity" />
+      <Setter Property="LineHeight" Value="18" />
+    </Style>
   </UserControl.Styles>
 
   <Grid RowDefinitions="Auto,*,Auto">
@@ -273,12 +304,12 @@
               Background="#66000000"
               HorizontalAlignment="Stretch"
               VerticalAlignment="Stretch">
-        <Border Background="{DynamicResource VelaBgSurface}"
+        <Border Classes="dc-card" Classes.error="{Binding HasConnectionError}"
+                Background="{DynamicResource VelaBgSurface}"
                 BorderBrush="{DynamicResource VelaBorderSecondary}"
                 BorderThickness="1"
                 CornerRadius="8"
                 Padding="32,24"
-                Width="340"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"
                 BoxShadow="{DynamicResource VelaShadowWindow}">
@@ -299,14 +330,55 @@
                        FontSize="{DynamicResource VelaFontSize16}" FontWeight="SemiBold"
                        HorizontalAlignment="Center" />
 
-            <TextBlock Text="{Binding DisconnectOverlayDetail}"
-                       Foreground="{DynamicResource VelaTextMuted}"
-                       FontFamily="{DynamicResource VelaUiMonoFont}"
-                       FontSize="{DynamicResource VelaFontSize11}"
-                       MaxWidth="280"
-                       TextWrapping="Wrap"
-                       TextAlignment="Center"
-                       HorizontalAlignment="Center" />
+            <!-- 失败原因可能很长(算法协商差异会把双方的算法名单都列出来):套一层限高滚动区,
+                 否则卡片会被撑高到把「重新连接 / 关闭标签页」顶出屏幕。 -->
+            <Border Classes="dc-detail" Classes.error="{Binding HasConnectionError}">
+              <ScrollViewer MaxHeight="200"
+                            HorizontalScrollBarVisibility="Disabled"
+                            VerticalScrollBarVisibility="Auto">
+                <!-- SelectableTextBlock 而不是 TextBlock:失败原因要能划选、Ctrl+C 拿走。
+                     下面那颗「复制」按钮管整段,这里管只想要其中一行的情况。 -->
+                <SelectableTextBlock Classes="dc-detail" Classes.error="{Binding HasConnectionError}"
+                                     Text="{Binding DisconnectOverlayDetail}"
+                                     Foreground="{DynamicResource VelaTextMuted}"
+                                     FontFamily="{DynamicResource VelaUiMonoFont}"
+                                     FontSize="{DynamicResource VelaFontSize11}"
+                                     TextWrapping="Wrap" />
+              </ScrollViewer>
+            </Border>
+
+            <!-- 失败原因常是一长串原文(认证链、主机密钥指纹、算法名单):给它一颗复制按钮,
+                 用户才拿得走去搜索、贴给同事或发给设备厂商 —— 照着屏幕抄不现实。
+                 与连接配置页的「复制」同款(两态叠放,同宽同位,复制完按钮不会跳一下)。 -->
+            <Button HorizontalAlignment="Center"
+                    IsVisible="{Binding HasConnectionError}"
+                    Command="{Binding CopyErrorCommand}"
+                    Background="Transparent"
+                    Foreground="{DynamicResource VelaTextSecondary}"
+                    BorderBrush="{DynamicResource VelaBorderPrimary}"
+                    BorderThickness="1"
+                    Height="24" Padding="8,0" CornerRadius="4" Cursor="Hand"
+                    FontSize="{DynamicResource VelaFontSize10}"
+                    ToolTip.Tip="{loc:Localize Profile_CopyErrorTip}"
+                    ToolTip.Placement="Top">
+              <Panel>
+                <StackPanel Orientation="Horizontal" Spacing="5" IsVisible="{Binding !ErrorCopied}">
+                  <pc:LucideIcon Width="11" Height="11"
+                                 Data="{StaticResource Icon.copy}"
+                                 Foreground="{DynamicResource VelaTextSecondary}"
+                                 VerticalAlignment="Center" />
+                  <TextBlock Text="{loc:Localize Copy}" VerticalAlignment="Center" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="5" IsVisible="{Binding ErrorCopied}">
+                  <pc:LucideIcon Width="11" Height="11"
+                                 Data="{StaticResource Icon.circle-check}"
+                                 Foreground="{DynamicResource VelaAccent}"
+                                 VerticalAlignment="Center" />
+                  <TextBlock Text="{loc:Localize Profile_ErrorCopied}" VerticalAlignment="Center"
+                             Foreground="{DynamicResource VelaAccent}" />
+                </StackPanel>
+              </Panel>
+            </Button>
 
             <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
               <Button Command="{Binding ReconnectCommand}"

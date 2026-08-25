@@ -79,6 +79,46 @@ public class XshellLaunchParserTests
     }
 
     [TestMethod]
+    public void Parse_SsoClientCommandLine_SurvivesHashOnlyUserName()
+    {
+        // 地面真值:某 SSO 客户端(D:\SsoTool)对 SSH/SFTP 资源固定把用户名换成字面量 "#sso"、
+        // 口令换成 sessionId,再按 Xshell 的约定拉起:
+        //     VelaShell.exe ssh://#sso:<sessionId>@<堡垒机IP>:<代理端口> -newtab CBH_<资源>
+        // 那个开头的 # 曾把整个 authority 截没,解析返回 null —— 网页点了登录,终端开了却没连。
+        ExternalLaunchRequest request = XshellLaunchParser.TryParse(
+            ["ssh://#sso:1f4b9c2e7a@10.20.30.40:9527", "-newtab", "CBH_10.1.2.3_22_root"])!;
+
+        Assert.AreEqual("10.20.30.40", request.Host);
+        Assert.AreEqual(9527, request.Port);
+        Assert.AreEqual("#sso", request.Username);
+        Assert.AreEqual("1f4b9c2e7a", request.Password);
+        Assert.IsTrue(request.IsSupported);
+    }
+
+    [TestMethod]
+    public void Parse_CredentialsWithHashSlashOrQuestionMark_DoNotTruncateTheHost()
+    {
+        // 一次性口令是现发的随机串,# / ? 都可能原样出现在里面(调用方不会替我们转义)。
+        ExternalLaunchRequest request = XshellLaunchParser.TryParse(["-url", "sftp://ops#dev:a/b?c#d@10.0.3.21:2222"])!;
+
+        Assert.AreEqual("10.0.3.21", request.Host);
+        Assert.AreEqual(2222, request.Port);
+        Assert.AreEqual("ops#dev", request.Username);
+        Assert.AreEqual("a/b?c#d", request.Password);
+    }
+
+    [TestMethod]
+    public void Parse_AtSignInsidePath_IsNotMistakenForCredentials()
+    {
+        // 反过来也得站得住:没带凭据时,路径里的 @ 不能被当成主机分界。
+        ExternalLaunchRequest request = XshellLaunchParser.TryParse(["-url", "sftp://files.example.com:2222/home/ops@corp"])!;
+
+        Assert.AreEqual("files.example.com", request.Host);
+        Assert.AreEqual(2222, request.Port);
+        Assert.AreEqual(string.Empty, request.Username);
+    }
+
+    [TestMethod]
     public void Parse_IPv6Host_KeepsAddressWithoutBrackets()
     {
         ExternalLaunchRequest request = XshellLaunchParser.TryParse(["-url", "ssh://root@[fe80::1]:2222"])!;

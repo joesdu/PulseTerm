@@ -1,4 +1,5 @@
 using NSubstitute;
+using ReactiveUI.Primitives;
 using VelaShell.Core.Models;
 using VelaShell.Core.Ssh;
 using VelaShell.Terminal;
@@ -318,5 +319,48 @@ public class TerminalTabViewModelTests
         Assert.IsFalse(_vm.ShowDisconnectedOverlay);
         _vm.ConnectionStatus = SessionStatus.Disconnected;
         Assert.IsTrue(_vm.ShowDisconnectedOverlay);
+    }
+
+    [TestMethod]
+    [TestCategory("TerminalTab")]
+    public async Task CopyErrorCommand_CopiesTheWholeOverlayText_AndAcknowledges()
+    {
+        // 算法协商失败这类原因是多行的(双方的算法名单都列出来),正是照着屏幕抄不动、
+        // 必须能整段拿走的那种。复制的内容必须与覆盖层上显示的完全一致 ——
+        // 少一行就会让人以为漏复制了。
+        const string Failure = """
+            连接失败:probe@10.0.3.21:22
+            The connection could not be established - KeyExchangeFailed - No common encryption algorithm.
+            加密:对端提供 [aes128-ctr];本客户端支持 [aes256-gcm@openssh.com]
+            """;
+        string? copied = null;
+        _vm.CopyToClipboard = text =>
+        {
+            copied = text;
+            return Task.CompletedTask;
+        };
+
+        _vm.MarkConnectionFailed(Failure);
+        Assert.IsTrue(_vm.HasConnectionError);
+        Assert.IsFalse(_vm.ErrorCopied);
+
+        await _vm.CopyErrorCommand.Execute().FirstAsync();
+
+        Assert.AreEqual(_vm.DisconnectOverlayDetail, copied);
+        Assert.Contains("aes128-ctr", copied!, "多行原因必须整段进剪贴板,不能只留第一行。");
+        // 没有这句回执就分不清"复制成功了"和"按钮没反应",用户只会再点两下。
+        Assert.IsTrue(_vm.ErrorCopied);
+    }
+
+    [TestMethod]
+    [TestCategory("TerminalTab")]
+    public async Task CopyErrorCommand_IsUnavailable_UntilThereIsAFailureToCopy()
+    {
+        // 普通掉线的覆盖层没有"失败原因"可言:按钮该是灰的,而不是复制一句空话。
+        Assert.IsFalse(await _vm.CopyErrorCommand.CanExecute.FirstAsync());
+
+        _vm.MarkConnectionFailed("Permission denied (publickey,password).");
+
+        Assert.IsTrue(await _vm.CopyErrorCommand.CanExecute.FirstAsync());
     }
 }

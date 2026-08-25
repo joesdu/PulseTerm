@@ -3738,6 +3738,27 @@ Overwrite it?</value>
   <data name="Msg_ProxyAuthFailed" xml:space="preserve">
     <value>Proxy authentication failed; check the proxy username and password.</value>
   </data>
+  <data name="Ssh_AlgoMismatchTitle" xml:space="preserve">
+    <value>The peer ({0}) and this client have no algorithm in common.</value>
+  </data>
+  <data name="Ssh_AlgoMismatchPeer" xml:space="preserve">
+    <value>  peer offers: {0}</value>
+  </data>
+  <data name="Ssh_AlgoMismatchOurs" xml:space="preserve">
+    <value>  this client supports: {0}</value>
+  </data>
+  <data name="Ssh_AlgoKindKex" xml:space="preserve">
+    <value>Key exchange</value>
+  </data>
+  <data name="Ssh_AlgoKindHostKey" xml:space="preserve">
+    <value>Host key</value>
+  </data>
+  <data name="Ssh_AlgoKindEncryption" xml:space="preserve">
+    <value>Encryption</value>
+  </data>
+  <data name="Ssh_AlgoKindMac" xml:space="preserve">
+    <value>Integrity (MAC)</value>
+  </data>
   <data name="Plugin_ProtocolUnavailable" xml:space="preserve">
     <value>The plugin providing this protocol is unavailable. Install or enable it in the plugin manager.</value>
   </data>

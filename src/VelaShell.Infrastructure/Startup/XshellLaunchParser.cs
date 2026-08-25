@@ -125,6 +125,12 @@ public static class XshellLaunchParser
     /// 刻意手写而不是丢给 <see cref="Uri" />:堡垒机现发的一次性密码里出现未转义的
     /// <c>@ : / #</c> 是常态,<see cref="Uri" /> 遇到就直接判非法 URI 或把主机截错;
     /// 而这里按「最后一个 @ 才是主机分界」来切,天然容得下密码里的 @。
+    /// <para>
+    /// 同理,路径/查询/片段的起始符只在**主机那一侧**找 —— 用户名与口令里同样会出现裸的
+    /// <c># ? /</c>:某 SSO 客户端给 SSH/SFTP 资源发的用户名就是字面量 <c>#sso</c>
+    /// (<c>ssh://#sso:一次性口令@堡垒机:代理端口</c>)。若先按整串截 authority,那个 <c>#</c>
+    /// 会把主机连同端口一并吃掉,解析结果为 null —— 用户看到的就是「网页上点了登录,终端开了但没连」。
+    /// </para>
     /// </remarks>
     public static ExternalLaunchRequest? ParseUrl(string? url, ExternalLaunchOrigin origin = ExternalLaunchOrigin.UrlProtocol)
     {
@@ -142,24 +148,15 @@ public static class XshellLaunchParser
             text = text[(schemeEnd + 3)..];
         }
 
-        // 主机之后的路径/查询/片段与登录无关(<c>ssh://u@h:22/?foo=1</c> 这类调用方常见)。
-        int authorityEnd = text.AsSpan().IndexOfAny('/', '?', '#');
-        if (authorityEnd >= 0)
-        {
-            text = text[..authorityEnd];
-        }
-        if (text.Length == 0)
+        if (!TrySplitAuthority(text, out string userInfo, out string authority))
         {
             return null;
         }
 
         string username = string.Empty;
         string? password = null;
-        int at = text.LastIndexOf('@');
-        if (at >= 0)
+        if (userInfo.Length > 0)
         {
-            string userInfo = text[..at];
-            text = text[(at + 1)..];
             int colon = userInfo.IndexOf(':', StringComparison.Ordinal);
             username = Decode(colon >= 0 ? userInfo[..colon] : userInfo);
             if (colon >= 0)
@@ -169,7 +166,7 @@ public static class XshellLaunchParser
             }
         }
 
-        if (!TrySplitHostPort(text, out string host, out int port) || host.Length == 0)
+        if (!TrySplitHostPort(authority, out string host, out int port) || host.Length == 0)
         {
             return null;
         }
@@ -239,6 +236,89 @@ public static class XshellLaunchParser
             "rlogin" => (ConnectionType.SSH, false, 513),
             _ => (ConnectionType.SSH, false, 22)
         };
+
+    /// <summary>
+    /// 把 <c>[user[:password]@]host[:port][/…]</c> 切成「凭据」与「主机」两段。切不出主机时返回
+    /// <see langword="false" />。
+    /// </summary>
+    /// <remarks>
+    /// 难点全在于两侧都可能出现裸的 <c>@ # ? /</c>:凭据里有(堡垒机现发,不转义),路径里也可能有。
+    /// 因此按可信度从高到低试,取第一条能读出主机的:
+    /// <list type="number">
+    /// <item>第一个 <c>/</c> 之前若有 <c>@</c>,分界就是其中**最后**那个 —— 路径永远在 authority
+    /// 之后,所以路径里的 <c>@</c> 抢不走分界(<c>sftp://ops@h/home/ops@corp</c> 连的是 h)。</item>
+    /// <item>那一段本身就是个像样的主机 ⇒ 整条 URL 没带凭据(<c>sftp://h:22/home/ops@corp</c>)。</item>
+    /// <item>都不成,才从右往左找 <c>@</c>,取第一个「其后能读成 host[:port]」的位置。凭据里带了
+    /// <c>/</c> 的走这条(<c>sftp://ops#dev:a/b@h:22</c>)。</item>
+    /// <item>最后按 URI 本来的规矩整串截一次,收尾 <c>ssh://h:22?x=1</c> 这类没有凭据的写法。</item>
+    /// </list>
+    /// </remarks>
+    private static bool TrySplitAuthority(string text, out string userInfo, out string authority)
+    {
+        int slash = text.IndexOf('/', StringComparison.Ordinal);
+        string beforePath = slash >= 0 ? text[..slash] : text;
+        int at = beforePath.LastIndexOf('@');
+        if (at >= 0 && Accept(text, at, out userInfo, out authority))
+        {
+            return true;
+        }
+        if (LooksLikeHost(beforePath))
+        {
+            userInfo = string.Empty;
+            authority = beforePath;
+            return true;
+        }
+        for (at = text.LastIndexOf('@'); at >= 0; at = at == 0 ? -1 : text.LastIndexOf('@', at - 1))
+        {
+            if (Accept(text, at, out userInfo, out authority))
+            {
+                return true;
+            }
+        }
+        userInfo = string.Empty;
+        authority = TrimAfterAuthority(text);
+        // 一个像样的主机都认不出来(例如 scheme 后面就没了):交给调用方按解析失败处理。
+        return LooksLikeHost(authority);
+
+        static bool Accept(string text, int at, out string userInfo, out string authority)
+        {
+            userInfo = text[..at];
+            authority = TrimAfterAuthority(text[(at + 1)..]);
+            return LooksLikeHost(authority);
+        }
+    }
+
+    /// <summary>截掉主机之后的路径/查询/片段(<c>ssh://u@h:22/?folder=prod</c> 这类调用方常见)。</summary>
+    private static string TrimAfterAuthority(string value)
+    {
+        int end = value.AsSpan().IndexOfAny('/', '?', '#');
+        return end >= 0 ? value[..end] : value;
+    }
+
+    /// <summary>
+    /// 这一段读起来像不像 <c>host[:port]</c>。只做字符集判断:主机名/IPv4 只允许字母数字与
+    /// <c>. - _</c>(字母按 Unicode 认,IDN 主机名照常放行);带 <c>:</c> 的按 IPv6 收紧到
+    /// 十六进制数字 —— 否则 <c>user:pass</c> 这样的凭据片段也会被当成 IPv6 主机放行,分界就切歪了。
+    /// </summary>
+    private static bool LooksLikeHost(string value)
+    {
+        if (value.Length == 0 || !TrySplitHostPort(value, out string host, out _) || host.Length == 0)
+        {
+            return false;
+        }
+        bool ipv6 = host.Contains(':', StringComparison.Ordinal);
+        foreach (char c in host)
+        {
+            bool accepted = ipv6
+                ? char.IsAsciiHexDigit(c) || c is ':' or '.' or '%'
+                : char.IsLetterOrDigit(c) || c is '.' or '-' or '_';
+            if (!accepted)
+            {
+                return false;
+            }
+        }
+        return true;
+    }
 
     /// <summary>切分 <c>host[:port]</c>,兼容 IPv6 的 <c>[::1]:22</c> 写法。</summary>
     private static bool TrySplitHostPort(string authority, out string host, out int port)
