@@ -151,6 +151,27 @@
   <data name="Cmd_TunnelManager" xml:space="preserve">
     <value>터널 관리</value>
   </data>
+  <data name="Cmd_XModemReceive" xml:space="preserve">
+    <value>XMODEM: 파일 수신 (원격 sx)</value>
+  </data>
+  <data name="Cmd_XModemSend" xml:space="preserve">
+    <value>XMODEM: 파일 전송 (원격 rx)</value>
+  </data>
+  <data name="Cmd_XModem1KSend" xml:space="preserve">
+    <value>XMODEM-1K: 파일 전송 (원격 rx)</value>
+  </data>
+  <data name="Cmd_YModemReceive" xml:space="preserve">
+    <value>YMODEM: 파일 수신 (원격 sb)</value>
+  </data>
+  <data name="Cmd_YModemSend" xml:space="preserve">
+    <value>YMODEM: 파일 전송 (원격 rb)</value>
+  </data>
+  <data name="Cmd_YModemGReceive" xml:space="preserve">
+    <value>YMODEM-G: 파일 수신 (고속, 재전송 없음)</value>
+  </data>
+  <data name="CmdCat_Transfer" xml:space="preserve">
+    <value>파일 전송</value>
+  </data>
   <data name="CmdCat_Actions" xml:space="preserve">
     <value>작업</value>
   </data>

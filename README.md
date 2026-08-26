@@ -47,8 +47,8 @@ VelaShell 是一个使用 .NET 11 与 Avalonia 构建的桌面终端应用，支
 - **跳板机（ProxyJump）**  
   一条会话可引用另一条已保存配置作跳板，支持链式多段跳转（≤5 跳、带环检测）；由 Tmds.Ssh 原生 `SshProxy` 逐跳建链，指纹按各跳逻辑主机分别校验。
 
-- **ZMODEM（rz / sz）**  
-  终端内直接收发文件：从输出流中识别 ZMODEM 引导序列后接管通道，由自研 ZMODEM 协议引擎完成传输，结束后自动复位回终端。收发双向、传输无关（SSH / 本地 ConPTY 通用），排障可置 `VELASHELL_ZMODEM_TRACE=1` 打开协议帧跟踪。
+- **ZMODEM（rz / sz）/ XMODEM（rx / sx）/ YMODEM（rb / sb）**  
+  终端内直接收发文件，三种协议均为自研引擎、收发双向、传输无关（SSH / 本地 ConPTY 通用）。ZMODEM **自动接管**：从输出流中识别引导序列后接管通道，结束自动复位回终端；XMODEM / YMODEM 在链路上没有可识别的引导序列，只能从**命令面板**（Ctrl+P → 「文件传输」）手动发起——先在远端敲好 `sb`/`rb`，再点对应命令。YMODEM 支持批量与 YMODEM-G 流式变体。排障可置 `VELASHELL_TRANSFER_TRACE=1`（旧名 `VELASHELL_ZMODEM_TRACE=1` 仍可用）打开协议帧跟踪。
 
 - **FTP / FTPS**  
   连接配置可选 FTP 类型：支持显式 / 隐式 FTPS 与明文 FTP、匿名登录、被动/主动模式；服务器证书未通过校验时给出 SHA-256 指纹交由用户确认，信任后按指纹固定。基于 [FluentFTP](https://github.com/robinrodricks/FluentFTP)（MIT），自带连接池以支持并发传输（FTP 一条控制连接同时只能跑一条命令），并复用与 SFTP 完全相同的双栏文件面板与传输栈。设计与取舍见 [`docs/FTP客户端可行性调研.md`](docs/FTP客户端可行性调研.md)。
@@ -314,8 +314,8 @@ dotnet test --logger "console;verbosity=detailed"
 
 | 测试项目 | 说明 |
 |----------|------|
-| `VelaShell.Core.Tests` | 领域模型、SFTP 与传输队列、隧道、云同步加密、ZMODEM 协议（含 lrzsz 互操作） |
-| `VelaShell.Terminal.Tests` | VT 解析、终端仿真、编码、字符宽度、侧栏折叠与 ZMODEM 路由 |
+| `VelaShell.Core.Tests` | 领域模型、SFTP 与传输队列、隧道、云同步加密、ZMODEM / XMODEM / YMODEM 协议（期望值按 lrzsz 与 ymodem.txt 手工构造的互操作回归） |
+| `VelaShell.Terminal.Tests` | VT 解析、终端仿真、编码、字符宽度、侧栏折叠、以及 ZMODEM 自动接管与 XMODEM / YMODEM 手动接管的路由 |
 | `VelaShell.Presentation.Tests` | ViewModel 工作流与命令 |
 | `VelaShell.Infrastructure.Tests` | SonnetDB 持久化、凭据加密、ConPTY、SSH 密钥管理、插件管理与跨进程 RPC |
 | `VelaShell.Controls.Tests` | 自定义控件行为 |
@@ -359,7 +359,7 @@ dotnet test --logger "console;verbosity=detailed"
 - **VelaDock（自研）** — 可拖拽分屏与停靠布局，零第三方依赖
 - **Tmds.Ssh** — SSH / SFTP / 端口转发 / ProxyJump（全托管 async-first 实现）
 - **FluentFTP** — FTP / FTPS 客户端
-- **ZMODEM（自研）** — 终端内 rz/sz 收发，协议引擎在 `VelaShell.Core/ZModem/`
+- **ZMODEM / XMODEM / YMODEM（自研）** — 终端内 rz/sz、rx/sx、rb/sb 收发，协议引擎在 `VelaShell.Core/ZModem/` 与 `VelaShell.Core/XYModem/`，共用契约在 `VelaShell.Core/FileTransfer/`
 - **AvaloniaEdit** — 远程文件编辑器与 AI 输入框（语法高亮、内联引用芯片）
 - **SonnetDB** — 嵌入式多模型数据库（文档 + 时序），唯一持久化引擎
 - **插件运行时（自研）** — 可收集 ALC + 独立宿主进程 + 命名管道 RPC + `.vpx` 打包
@@ -375,7 +375,7 @@ dotnet test --logger "console;verbosity=detailed"
 
 项目处于活跃开发阶段。
 
-**已可用**：终端引擎、SSH/SFTP、FTP/FTPS、ZMODEM、本地终端、跳板机、会话管理与导入、身份验证、隧道、持久化、设置中心、云同步、会话录制、资源监视/进程管理/路由追踪，以及**插件系统框架层**（双宿主模式、完整能力面、UI 扩展、心跳自愈与空闲回收、插件私有存储与卸载清理、`.vpx` 装卸、SDK 测试替身与开发文档）与第一方 **AI 助手插件**。
+**已可用**：终端引擎、SSH/SFTP、FTP/FTPS、ZMODEM / XMODEM / YMODEM、本地终端、跳板机、会话管理与导入、身份验证、隧道、持久化、设置中心、云同步、会话录制、资源监视/进程管理/路由追踪，以及**插件系统框架层**（双宿主模式、完整能力面、UI 扩展、心跳自愈与空闲回收、插件私有存储与卸载清理、`.vpx` 装卸、SDK 测试替身与开发文档）与第一方 **AI 助手插件**。
 
 **未开放**：Telnet / 串口协议与证书认证（可行性与改造清单见 [`docs/Telnet与串口可行性调研.md`](docs/Telnet与串口可行性调研.md)）；容器管理插件尚未开始。部分设置项目前仅持久化、待接线到运行时。
 

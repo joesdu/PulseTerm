@@ -1,4 +1,5 @@
-using VelaShell.Core.ZModem.Abstractions;
+using VelaShell.Core.FileTransfer.Abstractions;
+using VelaShell.Core.FileTransfer.Protocol;
 
 namespace VelaShell.Core.ZModem.Protocol;
 
@@ -56,6 +57,49 @@ public sealed class ZModemFrameReader(IByteDuplex duplex)
         Array.Copy(_buffer, _pos, merged, seed.Length, remaining);
         _buffer = merged;
         _pos = 0;
+    }
+
+    /// <summary>
+    /// 从已缓冲区批量搬走一段「不含 ZDLE 的连续原始字节」到 <paramref name="destination" />,
+    /// 返回搬走的字节数(0 表示缓冲为空、或下一个字节就是 ZDLE,调用方应退回逐字节路径)。
+    /// 不会触发任何 IO,因此纯同步、零 async 状态机 —— 数据子包解码的热路径靠它把
+    /// 「每字节两层 await」压成「每块一次 memcpy」。
+    /// </summary>
+    /// <param name="destination">接收原始字节的缓冲。</param>
+    /// <returns>实际搬走的字节数。</returns>
+    public int DrainPlainRun(Span<byte> destination)
+    {
+        if (destination.IsEmpty || _pos >= _buffer.Length)
+        {
+            return 0;
+        }
+        ReadOnlySpan<byte> available = _buffer.AsSpan(_pos, Math.Min(destination.Length, _buffer.Length - _pos));
+        int zdle = available.IndexOf(ZModemConstants.ZDLE);
+        int take = zdle < 0 ? available.Length : zdle;
+        if (take == 0)
+        {
+            return 0;
+        }
+        available[..take].CopyTo(destination);
+        _pos += take;
+        return take;
+    }
+
+    /// <summary>
+    /// 取走并清空当前缓冲里尚未消费的字节。会话收尾时由引擎调用,把「跟在协议帧后面、
+    /// 其实属于 shell 的字节」(最典型的是 <c>sz</c> 退出后紧跟着的提示符)退还出去 ——
+    /// 否则它们会随读取器一起被丢弃,用户会看到传输完成后终端少了一行提示符。
+    /// </summary>
+    /// <returns>尚未消费的缓冲字节;没有则为空。</returns>
+    public ReadOnlyMemory<byte> DrainBuffered()
+    {
+        if (_pos >= _buffer.Length)
+        {
+            return ReadOnlyMemory<byte>.Empty;
+        }
+        byte[] rest = _buffer.AsSpan(_pos).ToArray();
+        _pos = _buffer.Length;
+        return rest;
     }
 
     /// <summary>拉取下一个原始字节;缓冲耗尽时从通道补充。EOF 返回 <c>-1</c>。</summary>

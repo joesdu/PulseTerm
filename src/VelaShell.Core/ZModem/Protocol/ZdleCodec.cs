@@ -84,6 +84,26 @@ public static class ZdleCodec
         }
     }
 
+    /// <summary>
+    /// 把单个字节按需转义后写入 <paramref name="destination" />,返回写入的字节数(1 或 2)。
+    /// 发送端热路径用它直接写进池化缓冲,避免 <c>List&lt;byte&gt;</c> 的逐字节 Add 与扩容拷贝。
+    /// </summary>
+    /// <param name="value">原始数据字节。</param>
+    /// <param name="destination">接收编码结果的缓冲(至少 2 字节)。</param>
+    /// <param name="escapeAllControl">是否转义全部控制字符(<c>Zctlesc</c>)。</param>
+    /// <returns>写入的字节数。</returns>
+    public static int EscapeByte(byte value, Span<byte> destination, bool escapeAllControl = false)
+    {
+        if (!NeedsEscape(value, escapeAllControl))
+        {
+            destination[0] = value;
+            return 1;
+        }
+        destination[0] = ZModemConstants.ZDLE;
+        destination[1] = (byte)(value ^ 0x40);
+        return 2;
+    }
+
     /// <summary>把一段数据按 ZDLE 规则转义后追加到输出缓冲。</summary>
     /// <param name="data">原始数据。</param>
     /// <param name="output">接收编码结果的缓冲。</param>

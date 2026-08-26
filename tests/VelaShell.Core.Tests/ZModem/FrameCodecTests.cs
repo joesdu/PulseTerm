@@ -1,4 +1,5 @@
 using VelaShell.Core.ZModem.Protocol;
+using VelaShell.Core.Tests.FileTransfer;
 
 namespace VelaShell.Core.Tests.ZModem;
 

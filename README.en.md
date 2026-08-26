@@ -47,8 +47,8 @@ Together, VelaShell means **"a terminal as your sail, riding the signal winds to
 - **Jump hosts (ProxyJump)**  
   A session can reference another saved profile as its jump host, chained up to 5 hops with cycle detection. Chains are built hop by hop through Tmds.Ssh's native `SshProxy`, and fingerprints are verified per logical host at every hop.
 
-- **ZMODEM (rz / sz)**  
-  Transfer files straight from the terminal: the ZMODEM lead-in sequence is detected in the output stream, the channel is handed to our own ZMODEM protocol engine, and the terminal is restored afterwards. Both directions, transport agnostic (SSH or local ConPTY). Set `VELASHELL_ZMODEM_TRACE=1` for frame-level tracing.
+- **ZMODEM (rz / sz), XMODEM (rx / sx), YMODEM (rb / sb)**  
+  Transfer files straight from the terminal. All three engines are in-house, bidirectional and transport agnostic (SSH or local ConPTY). ZMODEM takes over **automatically** once its lead-in sequence is spotted in the output stream, and the terminal is restored afterwards. XMODEM and YMODEM have no lead-in on the wire, so they are started **manually** from the command palette (Ctrl+P → "File Transfer") — run `sb`/`rb` on the remote first, then invoke the matching entry. YMODEM supports batches and the YMODEM-G streaming variant. Set `VELASHELL_TRANSFER_TRACE=1` (the old `VELASHELL_ZMODEM_TRACE=1` still works) for frame-level tracing.
 
 - **FTP / FTPS**  
   Built on [FluentFTP](https://github.com/robinrodricks/FluentFTP) (MIT) with a connection pool for concurrent transfers (a single FTP control connection can only run one command at a time), reusing exactly the same dual-pane file browser and transfer stack as SFTP. Rationale in [`docs-en/ftp-client-feasibility-research.md`](docs-en/ftp-client-feasibility-research.md).
@@ -318,8 +318,8 @@ dotnet test --logger "console;verbosity=detailed"
 
 | Test project | Scope |
 |--------------|-------|
-| `VelaShell.Core.Tests` | Domain models, SFTP and the transfer queue, tunnels, sync encryption, ZMODEM (including lrzsz interop) |
-| `VelaShell.Terminal.Tests` | VT parsing, emulation, encodings, character widths, gutter folding and ZMODEM routing |
+| `VelaShell.Core.Tests` | Domain models, SFTP and the transfer queue, tunnels, sync encryption, ZMODEM / XMODEM / YMODEM (interop regressions against hand-built lrzsz and ymodem.txt wire bytes) |
+| `VelaShell.Terminal.Tests` | VT parsing, emulation, encodings, character widths, gutter folding, plus ZMODEM auto-takeover and XMODEM / YMODEM manual-takeover routing |
 | `VelaShell.Presentation.Tests` | View-model workflows and commands |
 | `VelaShell.Infrastructure.Tests` | SonnetDB persistence, credential encryption, ConPTY, SSH key management, plugin management and cross-process RPC |
 | `VelaShell.Controls.Tests` | Custom control behaviour |
@@ -364,7 +364,7 @@ English translations of the design documents are linked below; the Chinese origi
 - **VelaDock (in-house)** — draggable split/dock layout with zero third-party dependencies
 - **Tmds.Ssh** — SSH / SFTP / port forwarding / ProxyJump (fully managed, async-first)
 - **FluentFTP** — FTP / FTPS client
-- **ZMODEM (in-house)** — in-terminal rz/sz, protocol engine under `VelaShell.Core/ZModem/`
+- **ZMODEM / XMODEM / YMODEM (in-house)** — in-terminal rz/sz, rx/sx and rb/sb; engines under `VelaShell.Core/ZModem/` and `VelaShell.Core/XYModem/`, shared contracts under `VelaShell.Core/FileTransfer/`
 - **AvaloniaEdit** — remote file editor and the AI composer (syntax highlighting, inline reference chips)
 - **SonnetDB** — embedded multi-model database (document + time series), the only persistence engine
 - **Plugin runtime (in-house)** — collectible ALCs, a separate host process, named-pipe RPC and `.vpx` packaging
@@ -380,7 +380,7 @@ English translations of the design documents are linked below; the Chinese origi
 
 The project is under active development.
 
-**Working today**: terminal engine, SSH/SFTP, FTP/FTPS, ZMODEM, local shells, jump hosts, session management and import, authentication, tunnels, persistence, settings centre, cloud sync, session recording, resource monitor / process manager / traceroute, plus the **plugin system framework** (dual hosting modes, the full capability surface, UI extensions, heartbeat self-healing and idle recycling, per-plugin storage with uninstall cleanup, `.vpx` install/uninstall, SDK test doubles and developer docs) and the first-party **AI assistant plugin**.
+**Working today**: terminal engine, SSH/SFTP, FTP/FTPS, ZMODEM / XMODEM / YMODEM, local shells, jump hosts, session management and import, authentication, tunnels, persistence, settings centre, cloud sync, session recording, resource monitor / process manager / traceroute, plus the **plugin system framework** (dual hosting modes, the full capability surface, UI extensions, heartbeat self-healing and idle recycling, per-plugin storage with uninstall cleanup, `.vpx` install/uninstall, SDK test doubles and developer docs) and the first-party **AI assistant plugin**.
 
 **Not yet available**: Telnet / serial protocols and certificate authentication (feasibility and work list in [`docs-en/telnet-and-serial-feasibility-research.md`](docs-en/telnet-and-serial-feasibility-research.md)); the container-management plugin has not been started. Some settings are persisted but not yet wired to runtime behaviour.
 

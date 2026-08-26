@@ -2,10 +2,11 @@ using System.Text;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using VelaShell.Core.Ssh;
-using VelaShell.Core.ZModem.Abstractions;
+using VelaShell.Core.FileTransfer.Abstractions;
 using VelaShell.Core.ZModem.Model;
 using VelaShell.Core.ZModem.Protocol;
-using VelaShell.Terminal.ZModem;
+using VelaShell.Terminal.FileTransfer;
+using VelaShell.Core.FileTransfer.Model;
 
 namespace VelaShell.Terminal.Tests;
 
@@ -435,18 +436,18 @@ public class TerminalBridgeTests
     }
 
     /// <summary>构造一个已进入会话态的路由器(喂 ZRQINIT 触发接收会话)。</summary>
-    private ZModemTerminalRouter StartInSessionRouter()
+    private TerminalTransferRouter StartInSessionRouter()
     {
-        var router = new ZModemTerminalRouter(_shellStream, () => Substitute.For<IZModemFileSink>());
+        var router = new TerminalTransferRouter(_shellStream, () => Substitute.For<IFileTransferSink>());
         byte[] zrqinit = ZModemFrameWriter.Write(ZModemHeader.Empty(ZModemFrameType.ZRQINIT), ZModemHeaderFormat.Hex);
-        ZModemRouteResult route = router.ProcessIncoming(zrqinit);
+        TransferRouteResult route = router.ProcessIncoming(zrqinit);
         Assert.IsTrue(route.SessionStarted);
         Assert.IsTrue(router.IsInSession);
         return router;
     }
 
     [TestMethod]
-    public async Task UserInput_DuringZModemSession_IsDroppedNotWritten()
+    public async Task UserInput_DuringFileTransferSession_IsDroppedNotWritten()
     {
         // 会话期间击键混进协议流会被对端当帧内容解析,必须整段丢弃。
         // 断言字节选 'q':ZMODEM hex 帧只含 0-9a-f 与帧界符,'q' 绝不会由引擎自己写出。
@@ -464,8 +465,8 @@ public class TerminalBridgeTests
             });
 
         using var bridge = new SshTerminalBridge(_terminal, _shellStream);
-        ZModemTerminalRouter router = StartInSessionRouter();
-        bridge.ZModemRouter = router;
+        TerminalTransferRouter router = StartInSessionRouter();
+        bridge.TransferRouter = router;
 
         _terminal.UserInput += Raise.Event<Action<byte[]>>(Encoding.UTF8.GetBytes("qqq"));
         await bridge.DrainWritesAsync();
@@ -478,7 +479,7 @@ public class TerminalBridgeTests
     }
 
     [TestMethod]
-    public async Task UserInput_CtrlXDuringZModemSession_CancelsSession_ThenInputFlowsAgain()
+    public async Task UserInput_CtrlXDuringFileTransferSession_CancelsSession_ThenInputFlowsAgain()
     {
         _shellStream.CanRead.Returns(false);
         _shellStream.CanWrite.Returns(true);
@@ -486,9 +487,9 @@ public class TerminalBridgeTests
             .Returns(Task.CompletedTask);
 
         using var bridge = new SshTerminalBridge(_terminal, _shellStream);
-        ZModemTerminalRouter router = StartInSessionRouter();
-        bridge.ZModemRouter = router;
-        var ended = new TaskCompletionSource<ZModemSession>(TaskCreationOptions.RunContinuationsAsynchronously);
+        TerminalTransferRouter router = StartInSessionRouter();
+        bridge.TransferRouter = router;
+        var ended = new TaskCompletionSource<FileTransferSession>(TaskCreationOptions.RunContinuationsAsynchronously);
         router.SessionEnded += s => ended.TrySetResult(s);
 
         // Ctrl+X(CAN)= 用户中止意图:转成会话取消,而非把裸字节塞进协议流。

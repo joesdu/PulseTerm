@@ -39,9 +39,9 @@
 | `Input/TerminalInputTracker.cs` | 输入焦点与按键跟踪。 |
 | `EchoSuppressor.cs` | 本地回显抑制（避免输入被双重显示）。 |
 | `SshTerminalBridge.cs` | 将 Core 的 SSH Shell 抽象桥接到终端引擎的 I/O。 |
-| `ZModem/ZModemDetector.cs` | 在输出字节流中嗅探 ZMODEM 引导序列（`ZRQINIT` → 本地接收，`ZRINIT` → 本地发送）。 |
-| `ZModem/ZModemTerminalRouter.cs` | 插在「桥的读循环 → 终端喂入」之间的路由器：常态透传并监视引导，命中后切入会话态把字节改喂 ZMODEM 引擎，期间终端停喂，会话结束自动复位。 |
-| `ZModem/ShellStreamByteDuplex.cs` | 把 `IShellStreamWrapper` 适配为 Core ZMODEM 引擎所需的 `IByteDuplex`。 |
+| `FileTransfer/ZModemDetector.cs` | 在输出字节流中嗅探 ZMODEM 引导序列（`ZRQINIT` → 本地接收，`ZRINIT` → 本地发送）。 |
+| `FileTransfer/TerminalTransferRouter.cs` | 插在「桥的读循环 → 终端喂入」之间的路由器：常态透传并监视 ZMODEM 引导，命中后切入会话态把字节改喂对应引擎，期间终端停喂，会话结束自动复位并把残余字节交还终端。XMODEM / YMODEM 没有可识别的引导序列，改由 `StartManualSession` 手动接管。 |
+| `FileTransfer/ShellStreamByteDuplex.cs` | 把 `IShellStreamWrapper` 适配为 Core 传输引擎所需的 `IByteDuplex`。 |
 | `ITerminalEmulator.cs` | 仿真器对外接口。 |
 
 ## 🔑 核心思路
@@ -50,11 +50,11 @@
 - **状态机驱动**：`VtParser` 严格按 DEC/Xterm 规范实现转义序列状态机，仿真逻辑（`TerminalEmulator`）与解析逻辑解耦，便于逐条对照规范测试。
 - **主/备屏与滚动区**：完整支持全屏应用（vim、htop）所需的备用屏幕、滚动区域与光标保存/恢复语义。
 - **正确的宽字符处理**：`CharWidth` 保证 CJK 与 Emoji 的双宽对齐，避免终端错位。
-- **ZMODEM 旁路而非分叉**：`ZModem/` 只做「检测 + 路由」，协议本身在 `VelaShell.Core/ZModem/`，且路由器设计为传输无关（SSH / ConPTY / 未来的串口·Telnet 通用），VT 引擎对 ZMODEM 一无所知。
+- **文件传输旁路而非分叉**：`FileTransfer/` 只做「检测 + 路由」，协议本身在 `VelaShell.Core/ZModem/` 与 `VelaShell.Core/XYModem/`，且路由器设计为传输无关（SSH / ConPTY / 未来的串口·Telnet 通用），VT 引擎对这些协议一无所知。
 
 ## 🔗 依赖关系
 
-- **引用**：`VelaShell.Core`（SSH Shell 抽象、ZMODEM 协议引擎）、`Avalonia`（仅渲染控件用）。
+- **引用**：`VelaShell.Core`（SSH Shell 抽象、ZMODEM / XMODEM / YMODEM 协议引擎）、`Avalonia`（仅渲染控件用）。
 - **被引用**：`VelaShell.Presentation`、`VelaShell`（App）。
 - `InternalsVisibleTo` 暴露给 [`tests/VelaShell.Terminal.Tests`](../../tests/VelaShell.Terminal.Tests)，可对 `internal` 引擎细节做白盒测试。
 

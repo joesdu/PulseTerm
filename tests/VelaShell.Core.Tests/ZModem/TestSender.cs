@@ -1,46 +1,11 @@
 using System.Text;
-using VelaShell.Core.ZModem.Abstractions;
+using VelaShell.Core.FileTransfer.Abstractions;
 using VelaShell.Core.ZModem.Model;
 using VelaShell.Core.ZModem.Protocol;
+using VelaShell.Core.FileTransfer.Model;
+using VelaShell.Core.Tests.FileTransfer;
 
 namespace VelaShell.Core.Tests.ZModem;
-
-/// <summary>把收到的文件数据累积在内存中的测试用 sink。</summary>
-internal sealed class InMemoryFileSink : IZModemFileSink
-{
-    private readonly Dictionary<Guid, MemoryStream> _streams = [];
-
-    public ZModemFileDisposition NextDisposition { get; set; } = ZModemFileDisposition.Accept;
-    public Dictionary<string, byte[]> Completed { get; } = [];
-    public List<string> OfferedNames { get; } = [];
-
-    public ValueTask<(ZModemFileDisposition Disposition, long ResumeOffset)> OnFileOfferedAsync(
-        ZModemFileMetadata metadata, ZModemTransferItem item, CancellationToken cancellationToken)
-    {
-        OfferedNames.Add(metadata.FileName);
-        item.LocalPath = metadata.FileName;
-        if (NextDisposition == ZModemFileDisposition.Accept)
-        {
-            _streams[item.Id] = new MemoryStream();
-        }
-        return ValueTask.FromResult((NextDisposition, 0L));
-    }
-
-    public ValueTask WriteAsync(ZModemTransferItem item, ReadOnlyMemory<byte> data, CancellationToken cancellationToken)
-    {
-        _streams[item.Id].Write(data.Span);
-        return ValueTask.CompletedTask;
-    }
-
-    public ValueTask CompleteAsync(ZModemTransferItem item, CancellationToken cancellationToken)
-    {
-        Completed[item.FileName] = _streams[item.Id].ToArray();
-        return ValueTask.CompletedTask;
-    }
-
-    public ValueTask FailAsync(ZModemTransferItem item, Exception? error, CancellationToken cancellationToken) =>
-        ValueTask.CompletedTask;
-}
 
 /// <summary>
 /// 极简 ZMODEM 发送方:只实现足以驱动 ZModemReceiver 的一侧(ZFILE→等 ZRPOS→ZDATA→ZEOF→ZFIN),

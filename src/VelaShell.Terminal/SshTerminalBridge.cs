@@ -1,6 +1,7 @@
 using System.Threading.Channels;
 using Avalonia.Threading;
 using VelaShell.Core.Ssh;
+using VelaShell.Core.FileTransfer.Model;
 
 namespace VelaShell.Terminal;
 
@@ -72,7 +73,7 @@ public class SshTerminalBridge : IDisposable
         }
         _disposed = true;
         _terminal.UserInput -= OnUserInput;
-        ZModemRouter?.SessionEnded -= OnZModemSessionEnded;
+        TransferRouter?.SessionEnded -= OnFileTransferSessionEnded;
 
         // 封口写队列:写循环排空残余(_disposed 已置位,只弃不写)后自行退出。
         _writeQueue.Writer.TryComplete();
@@ -135,7 +136,7 @@ public class SshTerminalBridge : IDisposable
     /// (检测并接管 ZMODEM 会话),其余字节才嗂入终端。由宿主在启动前装配。
     /// 赋值时自动订阅其会话结束事件,以便在会话收尾后把终端复位到干净状态。
     /// </summary>
-    public ZModem.ZModemTerminalRouter? ZModemRouter
+    public FileTransfer.TerminalTransferRouter? TransferRouter
     {
         get;
         set
@@ -144,9 +145,9 @@ public class SshTerminalBridge : IDisposable
             {
                 return;
             }
-            field?.SessionEnded -= OnZModemSessionEnded;
+            field?.SessionEnded -= OnFileTransferSessionEnded;
             field = value;
-            field?.SessionEnded += OnZModemSessionEnded;
+            field?.SessionEnded += OnFileTransferSessionEnded;
         }
     }
 
@@ -156,17 +157,20 @@ public class SshTerminalBridge : IDisposable
     private static readonly byte[] AltScreenExit = "\x1b[?1049l"u8.ToArray();
 
     /// <summary>
-    /// ZMODEM 会话结束(成功 / 失败 / 取消)后的终端复位:在 UI 线程补发一次 DECRST 1049。
-    /// 若终端确实被杂散字节卡在备用屏,这会切回主屏、恢复可见内容;若本就在主屏(正常情况),
+    /// 传输会话结束(成功 / 失败 / 取消)后的终端复位:在 UI 线程补发一次 DECRST 1049,
+    /// 再把路由器回收的残余字节(协议帧之后紧跟的 shell 输出,典型就是提示符)喂回终端。
+    /// 若终端确实被杂散字节卡在备用屏,DECRST 会切回主屏、恢复可见内容;若本就在主屏(正常情况),
     /// 模拟器会短路返回,是无副作用的空操作。事件在后台线程触发,故必须编组到 UI 线程再喂入。
     /// </summary>
-    private void OnZModemSessionEnded(Core.ZModem.Model.ZModemSession session)
+    private void OnFileTransferSessionEnded(Core.FileTransfer.Model.FileTransferSession session)
     {
         _ = session;
         if (_disposed)
         {
             return;
         }
+        // 必须在这里(而非 UI 线程闭包里)取:路由器已经复位,下一次会话会覆盖这份缓存。
+        byte[] tail = TransferRouter?.TakeRecoveredBytes() ?? [];
         Dispatcher.UIThread.Post(() =>
         {
             if (_disposed)
@@ -176,6 +180,10 @@ public class SshTerminalBridge : IDisposable
             try
             {
                 _terminal.Feed(AltScreenExit);
+                if (tail.Length > 0)
+                {
+                    _terminal.Feed(tail);
+                }
             }
             catch (Exception ex)
             {
@@ -276,7 +284,7 @@ public class SshTerminalBridge : IDisposable
                 // 跟得上网络节奏,而 UI 以帧率排空。
                 // ZMODEM 路由优先:会话期间返回空终端字节(全部转交引擎),
                 // 命中时仅把引导前的字节嗂终端;未启用时原样嗂入。
-                ZModem.ZModemTerminalRouter? router = ZModemRouter;
+                FileTransfer.TerminalTransferRouter? router = TransferRouter;
                 if (router is null || router.CanPassThrough(data))
                 {
                     // 常态直通:无 ZMODEM 引导迹象时原始块零拷贝进合批队列。
@@ -284,7 +292,7 @@ public class SshTerminalBridge : IDisposable
                 }
                 else
                 {
-                    ZModem.ZModemRouteResult route = router.ProcessIncoming(data);
+                    FileTransfer.TransferRouteResult route = router.ProcessIncoming(data);
                     if (route.TerminalBytes.Length > 0)
                     {
                         EnqueueForFeed(route.TerminalBytes);
@@ -454,7 +462,7 @@ public class SshTerminalBridge : IDisposable
         // ZMODEM 会话期间击键不得混进协议流:字节会被对端当帧内容解析,轻则 CRC 错重传,
         // 重则整笔传输失败。只识别用户的中止意图 —— Ctrl+X(CAN,ZMODEM 规范取消键)与
         // Ctrl+C(用户本能)都转成会话取消,由引擎发出规范的取消序列;其余击键丢弃。
-        if (ZModemRouter is { IsInSession: true } router)
+        if (TransferRouter is { IsInSession: true } router)
         {
             if (Array.IndexOf(data, (byte)0x18) >= 0 || Array.IndexOf(data, (byte)0x03) >= 0)
             {
