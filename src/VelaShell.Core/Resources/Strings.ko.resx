@@ -220,6 +220,9 @@
   <data name="CopyFileName" xml:space="preserve">
     <value>이름 복사</value>
   </data>
+  <data name="CopyCurrentFolderPath" xml:space="preserve">
+    <value>현재 폴더 경로 복사</value>
+  </data>
   <data name="CopyFilePath" xml:space="preserve">
     <value>경로 복사</value>
   </data>

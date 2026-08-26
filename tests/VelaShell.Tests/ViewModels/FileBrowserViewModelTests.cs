@@ -781,6 +781,28 @@ public class FileBrowserViewModelTests
         Assert.AreEqual("readme.txt", copied);
     }
 
+    /// <summary>
+    /// 空白区右键的「复制当前文件夹路径」不需要选中任何条目 —— 它取的是 <c>CurrentPath</c>。
+    /// 没有它,想拿当前目录的路径就得先退回上级、再右键那个文件夹。
+    /// </summary>
+    [TestMethod]
+    [TestCategory("FileBrowser")]
+    public async Task CopyCurrentPath_CopiesCurrentDirectoryWithoutSelection()
+    {
+        string? copied = null;
+        _vm.CopyToClipboard = text =>
+        {
+            copied = text;
+            return Task.CompletedTask;
+        };
+        _vm.CurrentPath = "/root/nginx-backup-before-ubuntu-package";
+        _vm.SelectedFiles.Clear();
+
+        await _vm.CopyCurrentPathCommand.Execute().FirstAsync();
+
+        Assert.AreEqual("/root/nginx-backup-before-ubuntu-package", copied);
+    }
+
     [TestMethod]
     [TestCategory("FileBrowser")]
     public async Task Properties_InvokesViewCallback()
