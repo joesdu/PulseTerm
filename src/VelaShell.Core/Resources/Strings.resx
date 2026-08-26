@@ -852,6 +852,27 @@ If this keeps happening, close any other VelaShell windows and try again.</value
   <data name="Cmd_TunnelManager" xml:space="preserve">
     <value>Tunnel Manager</value>
   </data>
+  <data name="Cmd_XModemReceive" xml:space="preserve">
+    <value>XMODEM: Receive File (remote sx)</value>
+  </data>
+  <data name="Cmd_XModemSend" xml:space="preserve">
+    <value>XMODEM: Send File (remote rx)</value>
+  </data>
+  <data name="Cmd_XModem1KSend" xml:space="preserve">
+    <value>XMODEM-1K: Send File (remote rx)</value>
+  </data>
+  <data name="Cmd_YModemReceive" xml:space="preserve">
+    <value>YMODEM: Receive Files (remote sb)</value>
+  </data>
+  <data name="Cmd_YModemSend" xml:space="preserve">
+    <value>YMODEM: Send Files (remote rb)</value>
+  </data>
+  <data name="Cmd_YModemGReceive" xml:space="preserve">
+    <value>YMODEM-G: Receive Files (fast, no retry)</value>
+  </data>
+  <data name="CmdCat_Transfer" xml:space="preserve">
+    <value>File Transfer</value>
+  </data>
   <data name="CmdCat_Actions" xml:space="preserve">
     <value>Actions</value>
   </data>

@@ -1,23 +1,11 @@
 using System.Text;
-using VelaShell.Core.ZModem.Abstractions;
+using VelaShell.Core.FileTransfer.Abstractions;
 using VelaShell.Core.ZModem.Model;
 using VelaShell.Core.ZModem.Protocol;
+using VelaShell.Core.FileTransfer.Model;
+using VelaShell.Core.Tests.FileTransfer;
 
 namespace VelaShell.Core.Tests.ZModem;
-
-/// <summary>内存文件来源:直接给出待发送内容,不碰磁盘。</summary>
-internal sealed class InMemoryFileSource((string Name, byte[] Data)[] files) : IZModemFileSource
-{
-    private readonly Dictionary<string, byte[]> _data =
-        files.ToDictionary(f => f.Name, f => f.Data);
-
-    public ValueTask<IReadOnlyList<ZModemOutgoingFile>> GetFilesAsync(CancellationToken cancellationToken) =>
-        ValueTask.FromResult<IReadOnlyList<ZModemOutgoingFile>>(
-            [.. _data.Select(kv => new ZModemOutgoingFile($"/tmp/{kv.Key}", kv.Key, kv.Value.Length, null))]);
-
-    public ValueTask<Stream> OpenReadAsync(ZModemOutgoingFile file, CancellationToken cancellationToken) =>
-        ValueTask.FromResult<Stream>(new MemoryStream(_data[file.RemoteName], writable: false));
-}
 
 /// <summary>
 /// 发送方(远端 <c>rz</c> 场景)的状态机测试:把 <see cref="ZModemSender" /> 与
@@ -27,15 +15,15 @@ internal sealed class InMemoryFileSource((string Name, byte[] Data)[] files) : I
 [TestCategory("ZModem")]
 public class SenderTests
 {
-    private static async Task<(ZModemSession Send, ZModemSession Receive, InMemoryFileSink Sink)> RoundTripAsync(
+    private static async Task<(FileTransferSession Send, FileTransferSession Receive, InMemoryFileSink Sink)> RoundTripAsync(
         (string Name, byte[] Data)[] files)
     {
         (InMemoryByteDuplex a, InMemoryByteDuplex b) = InMemoryByteDuplex.CreatePair();
         var sink = new InMemoryFileSink();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
 
-        Task<ZModemSession> receive = new ZModemReceiver(b, sink).ReceiveAsync(cts.Token);
-        Task<ZModemSession> send = new ZModemSender(a, new InMemoryFileSource(files)).SendAsync(cts.Token);
+        Task<FileTransferSession> receive = new ZModemReceiver(b, sink).ReceiveAsync(cts.Token);
+        Task<FileTransferSession> send = new ZModemSender(a, new InMemoryFileSource(files)).SendAsync(cts.Token);
 
         await Task.WhenAll(receive, send);
         return (send.Result, receive.Result, sink);
@@ -46,11 +34,11 @@ public class SenderTests
     public async Task Send_SingleTextFile_ArrivesIntact()
     {
         byte[] content = Encoding.UTF8.GetBytes("hello from the sender\n");
-        (ZModemSession send, ZModemSession receive, InMemoryFileSink sink) =
+        (FileTransferSession send, FileTransferSession receive, InMemoryFileSink sink) =
             await RoundTripAsync([("upload.txt", content)]);
 
-        Assert.AreEqual(ZModemTransferStatus.Completed, send.Status);
-        Assert.AreEqual(ZModemTransferStatus.Completed, receive.Status);
+        Assert.AreEqual(FileTransferState.Completed, send.Status);
+        Assert.AreEqual(FileTransferState.Completed, receive.Status);
         Assert.AreSequenceEqual(content, sink.Completed["upload.txt"]);
     }
 
@@ -65,9 +53,9 @@ public class SenderTests
             content[i] = (byte)(i % 256);
         }
 
-        (ZModemSession send, _, InMemoryFileSink sink) = await RoundTripAsync([("blob.bin", content)]);
+        (FileTransferSession send, _, InMemoryFileSink sink) = await RoundTripAsync([("blob.bin", content)]);
 
-        Assert.AreEqual(ZModemTransferStatus.Completed, send.Status);
+        Assert.AreEqual(FileTransferState.Completed, send.Status);
         Assert.AreSequenceEqual(content, sink.Completed["blob.bin"]);
     }
 
@@ -82,9 +70,9 @@ public class SenderTests
             content[i] = (byte)(i * 7 % 251);
         }
 
-        (ZModemSession send, _, InMemoryFileSink sink) = await RoundTripAsync([("aligned.bin", content)]);
+        (FileTransferSession send, _, InMemoryFileSink sink) = await RoundTripAsync([("aligned.bin", content)]);
 
-        Assert.AreEqual(ZModemTransferStatus.Completed, send.Status);
+        Assert.AreEqual(FileTransferState.Completed, send.Status);
         Assert.AreSequenceEqual(content, sink.Completed["aligned.bin"]);
     }
 
@@ -92,9 +80,9 @@ public class SenderTests
     [Timeout(30000, CooperativeCancellation = true)]
     public async Task Send_EmptyFile_Succeeds()
     {
-        (ZModemSession send, _, InMemoryFileSink sink) = await RoundTripAsync([("empty.txt", [])]);
+        (FileTransferSession send, _, InMemoryFileSink sink) = await RoundTripAsync([("empty.txt", [])]);
 
-        Assert.AreEqual(ZModemTransferStatus.Completed, send.Status);
+        Assert.AreEqual(FileTransferState.Completed, send.Status);
         Assert.IsEmpty(sink.Completed["empty.txt"]);
     }
 
@@ -109,9 +97,9 @@ public class SenderTests
             ("c.bin", [0x18, 0x10, 0x11, 0x13, 0x00, 0xFF])
         ];
 
-        (ZModemSession send, _, InMemoryFileSink sink) = await RoundTripAsync(files);
+        (FileTransferSession send, _, InMemoryFileSink sink) = await RoundTripAsync(files);
 
-        Assert.AreEqual(ZModemTransferStatus.Completed, send.Status);
+        Assert.AreEqual(FileTransferState.Completed, send.Status);
         foreach ((string name, byte[] data) in files)
         {
             Assert.AreSequenceEqual(data, sink.Completed[name], $"{name} 内容不符");
@@ -124,18 +112,18 @@ public class SenderTests
     public async Task Send_ReceiverSkipsFile_SenderContinues()
     {
         (InMemoryByteDuplex a, InMemoryByteDuplex b) = InMemoryByteDuplex.CreatePair();
-        var sink = new InMemoryFileSink { NextDisposition = ZModemFileDisposition.Skip };
+        var sink = new InMemoryFileSink { NextDisposition = TransferFileDisposition.Skip };
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
 
-        Task<ZModemSession> receive = new ZModemReceiver(b, sink).ReceiveAsync(cts.Token);
-        Task<ZModemSession> send = new ZModemSender(
+        Task<FileTransferSession> receive = new ZModemReceiver(b, sink).ReceiveAsync(cts.Token);
+        Task<FileTransferSession> send = new ZModemSender(
             a,
             new InMemoryFileSource([("skipped.txt", Encoding.UTF8.GetBytes("nope"))])).SendAsync(cts.Token);
 
         await Task.WhenAll(receive, send);
 
-        Assert.AreEqual(ZModemTransferStatus.Completed, send.Result.Status);
-        Assert.AreEqual(ZModemTransferStatus.Skipped, send.Result.Items[0].Status);
+        Assert.AreEqual(FileTransferState.Completed, send.Result.Status);
+        Assert.AreEqual(FileTransferState.Skipped, send.Result.Items[0].Status);
         Assert.IsFalse(sink.Completed.ContainsKey("skipped.txt"));
     }
 
@@ -173,9 +161,9 @@ public class SenderTests
             ZModemFrameWriter.Write(ZModemHeader.Empty(ZModemFrameType.ZFIN), ZModemHeaderFormat.Hex),
             cts.Token);
 
-        ZModemSession session = await new ZModemSender(a, new InMemoryFileSource([]), options).SendAsync(cts.Token);
+        FileTransferSession session = await new ZModemSender(a, new InMemoryFileSource([]), options).SendAsync(cts.Token);
 
-        Assert.AreEqual(ZModemTransferStatus.Cancelled, session.Status);
+        Assert.AreEqual(FileTransferState.Cancelled, session.Status);
 
         byte[] outbound = await a.DrainOutboundAsync();
         // 应发过 ZFIN(优雅收尾),不应发 CAN 中止序列。
@@ -214,9 +202,9 @@ public class SenderTests
                 ZModemHeaderFormat.Hex),
             cts.Token);
 
-        ZModemSession session = await new ZModemSender(a, new InMemoryFileSource([]), options).SendAsync(cts.Token);
+        FileTransferSession session = await new ZModemSender(a, new InMemoryFileSource([]), options).SendAsync(cts.Token);
 
-        Assert.AreEqual(ZModemTransferStatus.Cancelled, session.Status);
+        Assert.AreEqual(FileTransferState.Cancelled, session.Status);
 
         byte[] outbound = await a.DrainOutboundAsync();
         byte[] zfin = ZModemFrameWriter.Write(ZModemHeader.Empty(ZModemFrameType.ZFIN), ZModemHeaderFormat.Hex);
@@ -239,13 +227,13 @@ public class SenderTests
 
         // b 端扮演 rz(接收方状态机):它发 ZRINIT、等文件;收到 ZFIN 应干净结束。
         var receiverSink = new InMemoryFileSink();
-        Task<ZModemSession> receive = new ZModemReceiver(b, receiverSink).ReceiveAsync(cts.Token);
-        Task<ZModemSession> send = new ZModemSender(a, new InMemoryFileSource([])).SendAsync(cts.Token);
+        Task<FileTransferSession> receive = new ZModemReceiver(b, receiverSink).ReceiveAsync(cts.Token);
+        Task<FileTransferSession> send = new ZModemSender(a, new InMemoryFileSource([])).SendAsync(cts.Token);
 
         await Task.WhenAll(receive, send);
 
-        Assert.AreEqual(ZModemTransferStatus.Cancelled, send.Result.Status);
-        Assert.AreEqual(ZModemTransferStatus.Completed, receive.Result.Status, "接收方收到 ZFIN 应干净收束,而非挂起");
+        Assert.AreEqual(FileTransferState.Cancelled, send.Result.Status);
+        Assert.AreEqual(FileTransferState.Completed, receive.Result.Status, "接收方收到 ZFIN 应干净收束,而非挂起");
         Assert.IsEmpty(receiverSink.Completed, "取消批次不应落地任何文件");
     }
 

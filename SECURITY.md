@@ -53,7 +53,7 @@ You will be credited in the release notes and the advisory unless you prefer to 
 - **Credential storage** — the encrypted local store (AES-256-GCM + local key file), the "remember password" path, key material reaching logs, crash dumps or the UI
 - **Host key verification** — TOFU recording, fingerprint-change rejection, verification on both SSH and SFTP channels
 - **Transport** — SSH, SFTP, FTP/FTPS (including certificate validation and fingerprint pinning), ProxyJump chains
-- **Path handling** — SFTP remote paths, ZMODEM receive directories, archive extraction (zip-slip)
+- **Path handling** — SFTP remote paths, ZMODEM / XMODEM / YMODEM receive directories, archive extraction (zip-slip)
 - **Terminal engine** — escape sequences that lead to command execution, clipboard exfiltration, or state the user cannot see
 - **Plugin system** — Broker permission enforcement, RPC pipe authentication, permission-file tampering, plugin identity spoofing, supply-chain checks on plugin packages
 - **Self-update** — `latest.json` handling, SHA-256 verification, the out-of-process swap
@@ -135,7 +135,7 @@ VelaShell 尚未到 1.0,处于活跃开发中。**不做向后移植** —— �
 - **凭据存储** —— 本地加密存储(AES-256-GCM + 本地密钥文件)、「记住密码」链路、密钥材料进入日志/崩溃转储/界面的情况
 - **主机密钥校验** —— TOFU 记录、指纹变更拒绝、SSH 与 SFTP 双通道校验
 - **传输层** —— SSH、SFTP、FTP/FTPS(含证书校验与指纹固定)、ProxyJump 链式跳转
-- **路径处理** —— SFTP 远程路径、ZMODEM 接收目录、压缩包解包(zip-slip)
+- **路径处理** —— SFTP 远程路径、ZMODEM / XMODEM / YMODEM 接收目录、压缩包解包(zip-slip)
 - **终端引擎** —— 导致命令执行、剪贴板外泄,或制造用户看不见的状态的转义序列
 - **插件系统** —— Broker 权限强制、RPC 管道认证、权限文件篡改、插件身份冒充、插件包供应链校验
 - **自更新链路** —— `latest.json` 处理、SHA-256 校验、外置换版进程

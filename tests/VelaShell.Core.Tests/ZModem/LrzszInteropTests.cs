@@ -1,7 +1,10 @@
 using System.Text;
-using VelaShell.Core.ZModem.Abstractions;
+using VelaShell.Core.FileTransfer.Abstractions;
 using VelaShell.Core.ZModem.Model;
 using VelaShell.Core.ZModem.Protocol;
+using VelaShell.Core.FileTransfer.Model;
+using VelaShell.Core.FileTransfer.Protocol;
+using VelaShell.Core.Tests.FileTransfer;
 
 namespace VelaShell.Core.Tests.ZModem;
 
@@ -173,9 +176,9 @@ public class LrzszInteropTests
         var duplex = new SilentDuplex();
         var receiver = new ZModemReceiver(duplex, new InMemoryFileSink(), options);
 
-        ZModemSession session = await receiver.ReceiveAsync(CancellationToken.None);
+        FileTransferSession session = await receiver.ReceiveAsync(CancellationToken.None);
 
-        Assert.AreEqual(ZModemTransferStatus.Failed, session.Status);
+        Assert.AreEqual(FileTransferState.Failed, session.Status);
         // 每次超时都应补发一次 ZRINIT,最后再发取消序列。
         Assert.IsGreaterThan(0, duplex.WrittenBytes, "超时后应向对端发过 ZRINIT / 取消序列");
     }
@@ -215,34 +218,34 @@ public class LrzszInteropTests
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
 
         // a 端扮演 sz(发送方状态机),要发一个文件;b 端是接收方,其 sink 一被询问就中止(用户取消目录)。
-        Task<ZModemSession> send = new ZModemSender(
+        Task<FileTransferSession> send = new ZModemSender(
             a, new InMemoryFileSource([("doc.pdf", new byte[4096])])).SendAsync(cts.Token);
-        Task<ZModemSession> receive = new ZModemReceiver(b, new AbortingFileSink()).ReceiveAsync(cts.Token);
+        Task<FileTransferSession> receive = new ZModemReceiver(b, new AbortingFileSink()).ReceiveAsync(cts.Token);
 
         await Task.WhenAll(send, receive);
 
         // 接收方判为已取消。
-        Assert.AreEqual(ZModemTransferStatus.Cancelled, receive.Result.Status);
+        Assert.AreEqual(FileTransferState.Cancelled, receive.Result.Status);
         // 关键:sz(发送方)被干净收尾——它看到 ZSKIP 把文件记为 Skipped,并正常走完 ZFIN。
         // 若接收方发的是 CAN,发送方会读到取消序列而中途中断(Cancelled/Failed),而非干净的 Completed+Skipped。
-        Assert.AreEqual(ZModemTransferStatus.Completed, send.Result.Status, "sz 应收到 ZSKIP 后干净收尾");
-        Assert.AreEqual(ZModemTransferStatus.Skipped, send.Result.Items[0].Status, "被取消的文件应记为 Skipped");
+        Assert.AreEqual(FileTransferState.Completed, send.Result.Status, "sz 应收到 ZSKIP 后干净收尾");
+        Assert.AreEqual(FileTransferState.Skipped, send.Result.Items[0].Status, "被取消的文件应记为 Skipped");
     }
 
     /// <summary>一被询问文件处置就返回 Abort:复刻用户放弃保存目录选择。</summary>
-    private sealed class AbortingFileSink : IZModemFileSink
+    private sealed class AbortingFileSink : IFileTransferSink
     {
-        public ValueTask<(ZModemFileDisposition Disposition, long ResumeOffset)> OnFileOfferedAsync(
-            ZModemFileMetadata metadata, ZModemTransferItem item, CancellationToken cancellationToken) =>
-            ValueTask.FromResult((ZModemFileDisposition.Abort, 0L));
+        public ValueTask<(TransferFileDisposition Disposition, long ResumeOffset)> OnFileOfferedAsync(
+            TransferFileMetadata metadata, FileTransferItem item, CancellationToken cancellationToken) =>
+            ValueTask.FromResult((TransferFileDisposition.Abort, 0L));
 
-        public ValueTask WriteAsync(ZModemTransferItem item, ReadOnlyMemory<byte> data, CancellationToken cancellationToken) =>
+        public ValueTask WriteAsync(FileTransferItem item, ReadOnlyMemory<byte> data, CancellationToken cancellationToken) =>
             ValueTask.CompletedTask;
 
-        public ValueTask CompleteAsync(ZModemTransferItem item, CancellationToken cancellationToken) =>
+        public ValueTask CompleteAsync(FileTransferItem item, CancellationToken cancellationToken) =>
             ValueTask.CompletedTask;
 
-        public ValueTask FailAsync(ZModemTransferItem item, Exception? error, CancellationToken cancellationToken) =>
+        public ValueTask FailAsync(FileTransferItem item, Exception? error, CancellationToken cancellationToken) =>
             ValueTask.CompletedTask;
     }
 
@@ -255,11 +258,11 @@ public class LrzszInteropTests
         var receiver = new ZModemReceiver(duplex, new InMemoryFileSink());
         using var cts = new CancellationTokenSource();
 
-        Task<ZModemSession> task = receiver.ReceiveAsync(cts.Token);
+        Task<FileTransferSession> task = receiver.ReceiveAsync(cts.Token);
         await cts.CancelAsync();
-        ZModemSession session = await task;
+        FileTransferSession session = await task;
 
-        Assert.AreEqual(ZModemTransferStatus.Cancelled, session.Status);
+        Assert.AreEqual(FileTransferState.Cancelled, session.Status);
     }
 
     /// <summary>入站永不产出数据、也永不 EOF 的双工:用于复现「对端静默」。</summary>

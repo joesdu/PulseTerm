@@ -9,8 +9,19 @@ public sealed class ZModemOptions
     /// <summary>是否转义全部控制字符(<c>Zctlesc</c>),用于对控制字符敏感的链路。默认 <c>false</c>。</summary>
     public bool EscapeAllControl { get; init; }
 
-    /// <summary>发送方每个数据子包的最大负载字节数。默认 1024(经典 ZMODEM 块大小)。</summary>
-    public int SubpacketSize { get; init; } = 1024;
+    /// <summary>
+    /// 发送方每个数据子包的最大负载字节数。默认 8192 —— lrzsz 的 <c>rz</c> 是纯字节流解析,
+    /// 对子包大小没有上限,而 SSH 这类高延迟链路上 1KB 子包意味着每 MB 要多做上千次
+    /// 「转义 + CRC + 写通道」的固定开销。8K 与 SecureCRT / Xshell 的默认值一致。
+    /// </summary>
+    public int SubpacketSize { get; init; } = 8192;
+
+    /// <summary>
+    /// 流式推数据的间隙,发现对端插话后读取那一帧的时间预算。默认 500 毫秒。
+    /// 对端在流式阶段只会为出错 / 中止插话(ZRPOS / ZSKIP / ZCAN),这类帧都是几十字节、
+    /// 一到就是完整的,给半秒足够;给太长会让偶发噪声把整条数据流卡住。
+    /// </summary>
+    public TimeSpan StreamInterjectTimeout { get; init; } = TimeSpan.FromMilliseconds(500);
 
     /// <summary>
     /// 传输已经跑起来之后,等待对端下一帧 / 下一个子包的超时。超时后引擎按协议重试(补发 ZRPOS),

@@ -1,4 +1,5 @@
-using System.Runtime.InteropServices;
+using System.Buffers;
+using VelaShell.Core.FileTransfer.Protocol;
 
 namespace VelaShell.Core.ZModem.Protocol;
 
@@ -53,6 +54,9 @@ public readonly record struct ZModemSubpacketResult(
 /// </summary>
 public static class ZModemSubpacket
 {
+    /// <summary>读取端一次批量搬运的原始字节上限(仅为减少 memcpy 次数,与协议无关)。</summary>
+    private const int DrainChunk = 4096;
+
     private static byte FrameEndByte(ZModemSubpacketEnd end) =>
         end switch
         {
@@ -73,7 +77,74 @@ public static class ZModemSubpacket
             _ => throw new ArgumentOutOfRangeException(nameof(kind))
         };
 
-    /// <summary>把一段数据编码为链路上的数据子包(含 ZDLE 转义与 CRC)。</summary>
+    /// <summary>
+    /// 编码 <paramref name="dataLength" /> 字节负载所需的最坏情况缓冲长度:
+    /// 每个数据字节最多膨胀成 2 字节转义序列,再加 ZDLE + 结束符 + 最多 8 字节转义后的 CRC32。
+    /// </summary>
+    /// <param name="dataLength">负载字节数。</param>
+    /// <returns>足以容纳编码结果的缓冲长度。</returns>
+    public static int MaxEncodedLength(int dataLength) => (dataLength * 2) + 16;
+
+    /// <summary>
+    /// 把一段数据编码为链路上的数据子包(含 ZDLE 转义与 CRC),写入调用方提供的缓冲。
+    /// 发送端的热路径走这条:缓冲可由 <see cref="ArrayPool{T}" /> 复用,整条链路零堆分配 ——
+    /// 旧实现每个子包新建一个 <c>List&lt;byte&gt;</c> 再 <c>ToArray</c>,100MB 文件就是十几万次分配。
+    /// </summary>
+    /// <param name="data">子包负载(原始未转义字节)。</param>
+    /// <param name="end">帧结束语义(决定帧结束符)。</param>
+    /// <param name="useCrc32">true 用 CRC32,false 用 CRC16。</param>
+    /// <param name="escapeAllControl">是否转义全部控制字符(<c>Zctlesc</c>)。</param>
+    /// <param name="destination">接收编码结果的缓冲,长度须不小于 <see cref="MaxEncodedLength" />。</param>
+    /// <returns>实际写入的字节数。</returns>
+    public static int Write(
+        ReadOnlySpan<byte> data,
+        ZModemSubpacketEnd end,
+        bool useCrc32,
+        bool escapeAllControl,
+        Span<byte> destination)
+    {
+        if (destination.Length < MaxEncodedLength(data.Length))
+        {
+            throw new ArgumentException("目标缓冲不足以容纳编码后的子包。", nameof(destination));
+        }
+
+        byte frameEnd = FrameEndByte(end);
+        int written = 0;
+
+        // 1) 转义后的负载。
+        foreach (byte b in data)
+        {
+            written += ZdleCodec.EscapeByte(b, destination[written..], escapeAllControl);
+        }
+
+        // 2) ZDLE + 帧结束符(不转义;帧结束符本身即为转义序列的一部分)。
+        destination[written++] = ZModemConstants.ZDLE;
+        destination[written++] = frameEnd;
+
+        // 3) CRC 覆盖 (原始数据 + 帧结束符字节),CRC 字节再做 ZDLE 转义。
+        if (useCrc32)
+        {
+            uint running = Crc32ZModem.Initial;
+            running = Crc32ZModem.UpdateRunning(running, data);
+            running = Crc32ZModem.UpdateRunning(running, frameEnd);
+            uint crc = running ^ 0xFFFFFFFF;
+            written += ZdleCodec.EscapeByte((byte)(crc & 0xFF), destination[written..], escapeAllControl);
+            written += ZdleCodec.EscapeByte((byte)((crc >> 8) & 0xFF), destination[written..], escapeAllControl);
+            written += ZdleCodec.EscapeByte((byte)((crc >> 16) & 0xFF), destination[written..], escapeAllControl);
+            written += ZdleCodec.EscapeByte((byte)((crc >> 24) & 0xFF), destination[written..], escapeAllControl);
+        }
+        else
+        {
+            ushort crc = 0;
+            crc = Crc16Xmodem.Update(crc, data);
+            crc = Crc16Xmodem.Update(crc, frameEnd);
+            written += ZdleCodec.EscapeByte((byte)(crc >> 8), destination[written..], escapeAllControl);
+            written += ZdleCodec.EscapeByte((byte)(crc & 0xFF), destination[written..], escapeAllControl);
+        }
+        return written;
+    }
+
+    /// <summary>把一段数据编码为链路上的数据子包(含 ZDLE 转义与 CRC),返回新数组。</summary>
     /// <param name="data">子包负载(原始未转义字节)。</param>
     /// <param name="end">帧结束语义(决定帧结束符)。</param>
     /// <param name="useCrc32">true 用 CRC32,false 用 CRC16。</param>
@@ -85,41 +156,22 @@ public static class ZModemSubpacket
         bool useCrc32,
         bool escapeAllControl = false)
     {
-        byte frameEnd = FrameEndByte(end);
-        var output = new List<byte>(data.Length + 8);
-
-        // 1) 转义后的负载。
-        ZdleCodec.Escape(data, output, escapeAllControl);
-
-        // 2) ZDLE + 帧结束符(不转义;帧结束符本身即为转义序列的一部分)。
-        output.Add(ZModemConstants.ZDLE);
-        output.Add(frameEnd);
-
-        // 3) CRC 覆盖 (原始数据 + 帧结束符字节),CRC 字节再做 ZDLE 转义。
-        if (useCrc32)
+        byte[] buffer = ArrayPool<byte>.Shared.Rent(MaxEncodedLength(data.Length));
+        try
         {
-            uint running = Crc32ZModem.Initial;
-            running = Crc32ZModem.UpdateRunning(running, data);
-            running = Crc32ZModem.UpdateRunning(running, frameEnd);
-            uint crc = running ^ 0xFFFFFFFF;
-            ZdleCodec.EscapeByte((byte)(crc & 0xFF), output, escapeAllControl);
-            ZdleCodec.EscapeByte((byte)((crc >> 8) & 0xFF), output, escapeAllControl);
-            ZdleCodec.EscapeByte((byte)((crc >> 16) & 0xFF), output, escapeAllControl);
-            ZdleCodec.EscapeByte((byte)((crc >> 24) & 0xFF), output, escapeAllControl);
+            int written = Write(data, end, useCrc32, escapeAllControl, buffer);
+            return buffer.AsSpan(0, written).ToArray();
         }
-        else
+        finally
         {
-            ushort crc = 0;
-            crc = Crc16Xmodem.Update(crc, data);
-            crc = Crc16Xmodem.Update(crc, frameEnd);
-            ZdleCodec.EscapeByte((byte)(crc >> 8), output, escapeAllControl);
-            ZdleCodec.EscapeByte((byte)(crc & 0xFF), output, escapeAllControl);
+            ArrayPool<byte>.Shared.Return(buffer);
         }
-        return [.. output];
     }
 
     /// <summary>
-    /// 从帧读取器增量读取一个数据子包:逐字节反转义直到遇到帧结束符,再读入并校验 CRC。
+    /// 从帧读取器增量读取一个数据子包:先尽量批量搬走「不含 ZDLE 的连续段」,
+    /// 只在真正遇到 ZDLE 时才退回逐字节反转义,直到遇到帧结束符,再读入并校验 CRC。
+    /// CRC 边收边算(单遍),不再先攒完整包再重扫一遍。
     /// </summary>
     /// <param name="reader">已定位在数据子包起点的帧读取器。</param>
     /// <param name="useCrc32">当前帧是否使用 CRC32(由 ZDATA 帧头形态决定)。</param>
@@ -131,50 +183,106 @@ public static class ZModemSubpacket
         CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(reader);
-        var data = new List<byte>(1024);
+
+        byte[] scratch = ArrayPool<byte>.Shared.Rent(DrainChunk);
+        var accumulator = new ArrayBufferWriter<byte>(DrainChunk);
+        ushort crc16 = 0;
+        uint crc32 = Crc32ZModem.Initial;
         ZModemSubpacketEnd end;
 
         // 子包 CRC 覆盖「原始数据 + 帧结束符字节」,故必须捕获终止符原始字节并并入 CRC ——
         // 传 0 会让读侧算出 CRC(data+0) 而写侧是 CRC(data+frameEnd),每个子包都判 CRC 错、
         // 触发无休止重传(表现为文件传输永久卡死)。
         byte frameEnd;
-        // 步骤 1:累积负载,直到遇到子包终止符。
-        while (true)
+        try
         {
-            (ZdleToken token, bool eof) = await reader.ReadEscapedByteAsync(ct).ConfigureAwait(false);
-            if (eof)
+            // 步骤 1:累积负载,直到遇到子包终止符。
+            while (true)
+            {
+                // 快路径:把已缓冲、且不含 ZDLE 的连续段整段搬走并一次性喂 CRC。
+                int drained = reader.DrainPlainRun(scratch);
+                if (drained > 0)
+                {
+                    ReadOnlySpan<byte> run = scratch.AsSpan(0, drained);
+                    accumulator.Write(run);
+                    if (useCrc32)
+                    {
+                        crc32 = Crc32ZModem.UpdateRunning(crc32, run);
+                    }
+                    else
+                    {
+                        crc16 = Crc16Xmodem.Update(crc16, run);
+                    }
+                    continue;
+                }
+
+                (ZdleToken token, bool eof) = await reader.ReadEscapedByteAsync(ct).ConfigureAwait(false);
+                if (eof)
+                {
+                    return new(ZModemSubpacketStatus.EndOfStream, []);
+                }
+                switch (token.Kind)
+                {
+                    case ZdleTokenKind.DataByte:
+                    case ZdleTokenKind.Rub0:
+                    case ZdleTokenKind.Rub1:
+                        // ZRUB0/1 在数据子包语境下作为普通数据字节处理。
+                        accumulator.GetSpan(1)[0] = token.Value;
+                        accumulator.Advance(1);
+                        if (useCrc32)
+                        {
+                            crc32 = Crc32ZModem.UpdateRunning(crc32, token.Value);
+                        }
+                        else
+                        {
+                            crc16 = Crc16Xmodem.Update(crc16, token.Value);
+                        }
+                        continue;
+                    case ZdleTokenKind.SubpacketEndNoAck:
+                    case ZdleTokenKind.SubpacketMoreNoAck:
+                    case ZdleTokenKind.SubpacketMoreAck:
+                    case ZdleTokenKind.SubpacketEndAck:
+                        frameEnd = token.Value; // 终止符字节本身参与 CRC。
+                        end = EndFromToken(token.Kind);
+                        break;
+                    case ZdleTokenKind.Cancel:
+                        return new(ZModemSubpacketStatus.Cancelled, []);
+                    default:
+                        return new(ZModemSubpacketStatus.CrcError, []);
+                }
+                break;
+            }
+
+            // 步骤 2:读入并校验 CRC(CRC 字节亦经 ZDLE 转义)。
+            int crcLength = useCrc32 ? 4 : 2;
+            byte[]? crcBytes = await ReadCrcBytesAsync(reader, crcLength, ct).ConfigureAwait(false);
+            if (crcBytes is null)
             {
                 return new(ZModemSubpacketStatus.EndOfStream, []);
             }
-            switch (token.Kind)
-            {
-                case ZdleTokenKind.DataByte:
-                    data.Add(token.Value);
-                    continue;
-                case ZdleTokenKind.SubpacketEndNoAck:
-                case ZdleTokenKind.SubpacketMoreNoAck:
-                case ZdleTokenKind.SubpacketMoreAck:
-                case ZdleTokenKind.SubpacketEndAck:
-                    frameEnd = token.Value; // 终止符字节本身参与 CRC。
-                    end = EndFromToken(token.Kind);
-                    break;
-                case ZdleTokenKind.Cancel:
-                    return new(ZModemSubpacketStatus.Cancelled, []);
-                case ZdleTokenKind.Rub0:
-                case ZdleTokenKind.Rub1:
-                    // ZRUB0/1 在数据子包语境下作为普通数据字节处理。
-                    data.Add(token.Value);
-                    continue;
-                default:
-                    return new(ZModemSubpacketStatus.CrcError, []);
-            }
-            break;
-        }
 
-        // 步骤 2:读入并校验 CRC(CRC 字节亦经 ZDLE 转义)。
-        return useCrc32
-            ? await VerifyCrc32Async(reader, data, frameEnd, end, ct).ConfigureAwait(false)
-            : await VerifyCrc16Async(reader, data, frameEnd, end, ct).ConfigureAwait(false);
+            bool ok;
+            if (useCrc32)
+            {
+                uint expected = (uint)(crcBytes[0] | (crcBytes[1] << 8) | (crcBytes[2] << 16) | (crcBytes[3] << 24));
+                uint actual = Crc32ZModem.UpdateRunning(crc32, frameEnd) ^ 0xFFFFFFFF;
+                ok = expected == actual;
+            }
+            else
+            {
+                ushort expected = (ushort)((crcBytes[0] << 8) | crcBytes[1]);
+                ushort actual = Crc16Xmodem.Update(crc16, frameEnd);
+                ok = expected == actual;
+            }
+
+            return ok
+                ? new(ZModemSubpacketStatus.Ok, accumulator.WrittenSpan.ToArray(), end)
+                : new(ZModemSubpacketStatus.CrcError, []);
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(scratch);
+        }
     }
 
     private static async ValueTask<byte[]?> ReadCrcBytesAsync(ZModemFrameReader reader, int count, CancellationToken ct)
@@ -190,48 +298,5 @@ public static class ZModemSubpacket
             bytes[i] = token.Value;
         }
         return bytes;
-    }
-
-    private static async ValueTask<ZModemSubpacketResult> VerifyCrc16Async(
-        ZModemFrameReader reader,
-        List<byte> data,
-        byte frameEnd,
-        ZModemSubpacketEnd end,
-        CancellationToken ct)
-    {
-        byte[]? crcBytes = await ReadCrcBytesAsync(reader, 2, ct).ConfigureAwait(false);
-        if (crcBytes is null)
-        {
-            return new(ZModemSubpacketStatus.EndOfStream, []);
-        }
-        ushort expected = (ushort)((crcBytes[0] << 8) | crcBytes[1]);
-        ushort actual = 0;
-        actual = Crc16Xmodem.Update(actual, CollectionsMarshal.AsSpan(data));
-        actual = Crc16Xmodem.Update(actual, frameEnd);
-        return expected == actual
-            ? new(ZModemSubpacketStatus.Ok, [.. data], end)
-            : new(ZModemSubpacketStatus.CrcError, []);
-    }
-
-    private static async ValueTask<ZModemSubpacketResult> VerifyCrc32Async(
-        ZModemFrameReader reader,
-        List<byte> data,
-        byte frameEnd,
-        ZModemSubpacketEnd end,
-        CancellationToken ct)
-    {
-        byte[]? crcBytes = await ReadCrcBytesAsync(reader, 4, ct).ConfigureAwait(false);
-        if (crcBytes is null)
-        {
-            return new(ZModemSubpacketStatus.EndOfStream, []);
-        }
-        uint expected = (uint)(crcBytes[0] | (crcBytes[1] << 8) | (crcBytes[2] << 16) | (crcBytes[3] << 24));
-        uint running = Crc32ZModem.Initial;
-        running = Crc32ZModem.UpdateRunning(running, CollectionsMarshal.AsSpan(data));
-        running = Crc32ZModem.UpdateRunning(running, frameEnd);
-        uint actual = running ^ 0xFFFFFFFF;
-        return expected == actual
-            ? new(ZModemSubpacketStatus.Ok, [.. data], end)
-            : new(ZModemSubpacketStatus.CrcError, []);
     }
 }

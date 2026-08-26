@@ -1,5 +1,7 @@
 using System.Text;
 using VelaShell.Core.ZModem.Protocol;
+using VelaShell.Core.FileTransfer.Model;
+using VelaShell.Core.Tests.FileTransfer;
 
 namespace VelaShell.Core.Tests.ZModem;
 
@@ -18,7 +20,7 @@ public class ReceiverTests
         var sender = new TestSender(senderSide, useCrc32, subpacketSize);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        Task<Core.ZModem.Model.ZModemSession> recvTask = receiver.ReceiveAsync(cts.Token);
+        Task<Core.FileTransfer.Model.FileTransferSession> recvTask = receiver.ReceiveAsync(cts.Token);
         Task sendTask = sender.SendBatchAsync(files, cts.Token);
         await Task.WhenAll(recvTask, sendTask);
     }
@@ -104,7 +106,7 @@ public class ReceiverTests
         info.AddRange(Encoding.ASCII.GetBytes("7 0 0 0 0 7"));
         info.Add(0);
 
-        Core.ZModem.Model.ZModemFileMetadata meta = ZModemReceiver.ParseFileMetadata([.. info]);
+        Core.FileTransfer.Model.TransferFileMetadata meta = ZModemReceiver.ParseFileMetadata([.. info]);
         Assert.AreEqual("dir/report.log", meta.FileName);
         Assert.AreEqual(7L, meta.Size);
         _ = data;

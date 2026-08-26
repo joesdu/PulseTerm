@@ -1,3 +1,5 @@
+using VelaShell.Core.FileTransfer.Protocol;
+
 namespace VelaShell.Core.ZModem.Protocol;
 
 /// <summary>

@@ -13,7 +13,9 @@
 | `Diagnostics/` | 路由追踪的逐跳判定（`TraceAnalysisTests`）。 |
 | `Processes/` | 远端进程探针的解析与瞬时 CPU 计算（`RemoteProcessProbeTests`）。 |
 | `Sftp/` | `SftpService`（含并发特征化与独立 SFTP 契约）、`SerializedSftpService`、`TransferManager` 传输逻辑与限速。 |
-| `ZModem/` | ZMODEM 协议引擎：CRC、ZDLE 转义、子包、帧编解码、收发端状态机，以及 **`LrzszInteropTests`**——其期望值按 lrzsz 的 `zm.c`/`zmodem.h` 定义**手工构造**，不经我们自己的编码器生成，避免「编码器与解码器一起错还全绿」的自证测试。 |
+| `FileTransfer/` | 三种协议共用的测试替身：内存双工通道、内存文件源/汇。 |
+| `ZModem/` | ZMODEM 协议引擎：CRC、ZDLE 转义、子包、帧编解码、收发端状态机、`ZModemHardeningTests`（文件名编码、ZEOF 长度校验、ZSINIT 应答、尾字节交还等回归），以及 **`LrzszInteropTests`**——其期望值按 lrzsz 的 `zm.c`/`zmodem.h` 定义**手工构造**，不经我们自己的编码器生成，避免「编码器与解码器一起错还全绿」的自证测试。 |
+| `XYModem/` | XMODEM / YMODEM 引擎：块编解码（`XYModemBlockTests`）、按 `ymodem.txt` **手工拼线上字节**的互操作回归（`XYModemInteropTests`）、以及收发对接的回环保真测试（`XYModemLoopbackTests`）。 |
 | `Tunnels/` | `TunnelService` 端口转发。 |
 | `Services/` | `SessionMetrics` 指标计算、`SettingsPreviewService`。 |
 | `Sync/` | `SyncCrypto` 云同步加密（PBKDF2 + AES-256-GCM）。 |

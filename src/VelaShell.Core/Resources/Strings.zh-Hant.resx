@@ -151,6 +151,27 @@
   <data name="Cmd_TunnelManager" xml:space="preserve">
     <value>隧道管理</value>
   </data>
+  <data name="Cmd_XModemReceive" xml:space="preserve">
+    <value>XMODEM:接收檔案(遠端 sx)</value>
+  </data>
+  <data name="Cmd_XModemSend" xml:space="preserve">
+    <value>XMODEM:傳送檔案(遠端 rx)</value>
+  </data>
+  <data name="Cmd_XModem1KSend" xml:space="preserve">
+    <value>XMODEM-1K:傳送檔案(遠端 rx)</value>
+  </data>
+  <data name="Cmd_YModemReceive" xml:space="preserve">
+    <value>YMODEM:接收檔案(遠端 sb)</value>
+  </data>
+  <data name="Cmd_YModemSend" xml:space="preserve">
+    <value>YMODEM:傳送檔案(遠端 rb)</value>
+  </data>
+  <data name="Cmd_YModemGReceive" xml:space="preserve">
+    <value>YMODEM-G:接收檔案(高速,不重傳)</value>
+  </data>
+  <data name="CmdCat_Transfer" xml:space="preserve">
+    <value>檔案傳輸</value>
+  </data>
   <data name="CmdCat_Actions" xml:space="preserve">
     <value>操作</value>
   </data>

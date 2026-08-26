@@ -80,23 +80,35 @@ adapt `SshClient` / `SftpClient` / `RemoteProcess` to the neutral `Core.Ssh` int
 `InfrastructureServiceCollectionExtensions.BuildProxyChain` from the saved jump-host profiles
 (≤5 hops, cycle-checked, host key verified per logical hop).
 
-## ZMODEM
+## In-terminal file transfer (ZMODEM / XMODEM / YMODEM)
 
-In-terminal `rz` / `sz` file transfer is implemented in-house and split across two projects:
+`rz`/`sz`, `rb`/`sb` and `rx`/`sx` transfers are implemented in-house and split across three
+projects, with the protocol-neutral contracts shared by all three engines:
 
 ```text
-Core/ZModem/       -> transport-agnostic protocol engine (frames, ZDLE, CRC-16/32,
-                      ZModemSender / ZModemReceiver) over an IByteDuplex abstraction
-Terminal/ZModem/   -> ZModemDetector (spots the ZRQINIT / ZRINIT boot sequence in the
-                      output stream) + ZModemTerminalRouter (sits between the bridge read
-                      loop and the emulator; hands bytes to the engine for the duration of
-                      a session, then resets) + ShellStreamByteDuplex
-App/Services/ZModem/ -> file source (upload), folder sink (download), progress observer
+Core/FileTransfer/ -> shared contracts: IByteDuplex, IFileTransferSink / Source / Observer,
+                      FileTransferSession / Item, CRC-16/XMODEM, the ZFILE / YMODEM block-0
+                      file-info codec, and TransferTrace
+Core/ZModem/       -> ZMODEM engine (frames, ZDLE escaping, CRC-16/32, ZModemSender /
+                      ZModemReceiver) over the IByteDuplex abstraction
+Core/XYModem/      -> XMODEM / XMODEM-1K / YMODEM / YMODEM-G engine (fixed-size blocks,
+                      per-block ACK/NAK, XYModemSender / XYModemReceiver)
+Terminal/FileTransfer/ -> ZModemDetector (spots the ZRQINIT / ZRINIT boot sequence in the
+                      output stream) + TerminalTransferRouter (sits between the bridge read
+                      loop and the emulator; hands bytes to the chosen engine for the
+                      duration of a session, then resets) + ShellStreamByteDuplex
+App/Services/FileTransfer/ -> file source (upload), folder sink (download), progress observer
 ```
 
-Because the engine only needs an `IByteDuplex`, the same path serves SSH, local ConPTY, and
-future serial / Telnet sessions. Set `VELASHELL_ZMODEM_TRACE=1` to dump protocol frames when
-diagnosing interop problems.
+ZMODEM starts **automatically**: its lead-in sequence is recognisable in the output stream.
+XMODEM and YMODEM can only be started **manually** (command palette → "File Transfer"), because
+they have no lead-in on the wire — `sb`/`sx` wait silently for the receiver's `C`, and `rb`/`rx`
+emit a bare `C` that is indistinguishable from ordinary terminal output, so any auto-detection
+would misfire. Run the remote command first, then invoke the palette entry.
+
+Because the engines only need an `IByteDuplex`, the same path serves SSH, local ConPTY, and
+future serial / Telnet sessions. Set `VELASHELL_TRANSFER_TRACE=1` (the historical
+`VELASHELL_ZMODEM_TRACE=1` still works) to dump protocol frames when diagnosing interop problems.
 
 ## Docking (VelaDock)
 

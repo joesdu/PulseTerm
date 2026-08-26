@@ -1,7 +1,7 @@
-using System.Globalization;
-using System.Text;
-using VelaShell.Core.ZModem.Abstractions;
-using VelaShell.Core.ZModem.Diagnostics;
+using VelaShell.Core.FileTransfer.Abstractions;
+using VelaShell.Core.FileTransfer.Diagnostics;
+using VelaShell.Core.FileTransfer.Model;
+using VelaShell.Core.FileTransfer.Protocol;
 using VelaShell.Core.ZModem.Model;
 
 namespace VelaShell.Core.ZModem.Protocol;
@@ -9,22 +9,22 @@ namespace VelaShell.Core.ZModem.Protocol;
 /// <summary>
 /// ZMODEM 接收方状态机:驱动「远端 <c>sz</c> → 本地落地」的完整批量接收流程。
 /// 握手 ZRQINIT→ZRINIT,逐文件 ZFILE→(ZRPOS 就绪)→ZDATA 子包→ZEOF,最后 ZFIN 交换 + 消费 <c>OO</c>。
-/// 通过 <see cref="IByteDuplex" /> 收发原始字节,经 <see cref="IZModemFileSink" /> 落地,
-/// 经 <see cref="IZModemSessionObserver" /> 上报进度。全程二进制安全,与 lrzsz 互操作。
+/// 通过 <see cref="IByteDuplex" /> 收发原始字节,经 <see cref="IFileTransferSink" /> 落地,
+/// 经 <see cref="IFileTransferObserver" /> 上报进度。全程二进制安全,与 lrzsz 互操作。
 /// </summary>
 public sealed class ZModemReceiver(
     IByteDuplex duplex,
-    IZModemFileSink sink,
+    IFileTransferSink sink,
     ZModemOptions? options = null,
-    IZModemSessionObserver? observer = null)
+    IFileTransferObserver? observer = null)
 {
     /// <summary>收尾阶段等待发送方 <c>"OO"</c> 的最长时间;等不到也照常结束会话。</summary>
     private static readonly TimeSpan OverAndOutTimeout = TimeSpan.FromSeconds(3);
 
     private readonly IByteDuplex _duplex = duplex ?? throw new ArgumentNullException(nameof(duplex));
-    private readonly IZModemFileSink _sink = sink ?? throw new ArgumentNullException(nameof(sink));
+    private readonly IFileTransferSink _sink = sink ?? throw new ArgumentNullException(nameof(sink));
     private readonly ZModemOptions _options = options ?? ZModemOptions.Default;
-    private readonly IZModemSessionObserver? _observer = observer;
+    private readonly IFileTransferObserver? _observer = observer;
     private readonly ZModemFrameReader _reader = new(duplex);
 
     private bool _useCrc32;
@@ -34,12 +34,12 @@ public sealed class ZModemReceiver(
     /// </summary>
     /// <param name="cancellationToken">取消整个会话的令牌。</param>
     /// <returns>本次会话的状态与已接收文件清单。</returns>
-    public async Task<ZModemSession> ReceiveAsync(CancellationToken cancellationToken)
+    public async Task<FileTransferSession> ReceiveAsync(CancellationToken cancellationToken)
     {
-        var session = new ZModemSession { Direction = ZModemTransferDirection.Receive };
-        ZModemTrace.Log($"RECEIVER START frameTimeout={_options.FrameTimeout.TotalSeconds}s maxRetries={_options.MaxRetries}");
+        var session = new FileTransferSession { Direction = FileTransferDirection.Receive };
+        TransferTrace.Log($"RECEIVER START frameTimeout={_options.FrameTimeout.TotalSeconds}s maxRetries={_options.MaxRetries}");
         _observer?.OnSessionStarted(session);
-        session.Status = ZModemTransferStatus.Transferring;
+        session.Status = FileTransferState.Transferring;
 
         try
         {
@@ -57,13 +57,13 @@ public sealed class ZModemReceiver(
                         cancellationToken,
                         handshakeDone ? null : _options.HandshakeTimeout)
                     .ConfigureAwait(false);
-                ZModemTrace.Log(frame.Status == ZModemReadStatus.Header
+                TransferTrace.Log(frame.Status == ZModemReadStatus.Header
                     ? $"RECV frame {frame.Header.Type} fmt={frame.Format} pos={frame.Header.Position}"
                     : $"RECV frame status={frame.Status}");
                 switch (frame.Status)
                 {
                     case ZModemReadStatus.Cancelled:
-                        session.Status = ZModemTransferStatus.Cancelled;
+                        session.Status = FileTransferState.Cancelled;
                         _observer?.OnSessionFailed(session, null);
                         return session;
                     case ZModemReadStatus.EndOfStream:
@@ -75,7 +75,7 @@ public sealed class ZModemReceiver(
                         // 让路由器把终端交还给用户(而不是永久卡在会话态)。
                         if (++handshakeRetries > (handshakeDone ? _options.MaxRetries : _options.HandshakeRetries))
                         {
-                            session.Status = ZModemTransferStatus.Failed;
+                            session.Status = FileTransferState.Failed;
                             _observer?.OnSessionFailed(session, new TimeoutException("ZMODEM handshake timed out"));
                             await TrySendCancelAsync().ConfigureAwait(false);
                             return session;
@@ -113,6 +113,14 @@ public sealed class ZModemReceiver(
                         Finish(session);
                         return session;
 
+                    case ZModemFrameType.ZSINIT:
+                        // 发送方声明自己的转义策略与 Attn 序列(sz -e 会发)。它跟着一个数据子包,
+                        // 且规范要求接收方回 ZACK —— 不回,sz 会一直重发 ZSINIT 直到超时放弃,
+                        // 表现为"传输死活起不来"。这里读掉子包并应答。
+                        _useCrc32 = frame.Format == ZModemHeaderFormat.Binary32;
+                        await ConsumeZsinitAsync(cancellationToken).ConfigureAwait(false);
+                        break;
+
                     case ZModemFrameType.ZCOMPL:
                     case ZModemFrameType.ZSKIP:
                         // 批处理阶段的无害控制帧:继续等待下一帧。
@@ -126,21 +134,40 @@ public sealed class ZModemReceiver(
         }
         catch (OperationCanceledException)
         {
-            session.Status = ZModemTransferStatus.Cancelled;
+            session.Status = FileTransferState.Cancelled;
             _observer?.OnSessionFailed(session, null);
             await TrySendCancelAsync().ConfigureAwait(false);
             return session;
         }
         catch (Exception ex)
         {
-            session.Status = ZModemTransferStatus.Failed;
+            session.Status = FileTransferState.Failed;
             _observer?.OnSessionFailed(session, ex);
             await TrySendCancelAsync().ConfigureAwait(false);
             return session;
         }
+        finally
+        {
+            // 读取器缓冲里剩下的字节已经不属于本次传输了(多半是 sz 退出后的 shell 提示符),
+            // 退回通道让路由器交还终端 —— 否则用户看到的是"传完了但提示符没了"。
+            _duplex.Unread(_reader.DrainBuffered());
+        }
     }
 
-    private async Task<bool> ReceiveFileAsync(ZModemSession session, CancellationToken ct)
+    /// <summary>读掉 ZSINIT 后面的数据子包(Attn 序列)并回 ZACK,让 <c>sz -e</c> 能继续往下走。</summary>
+    private async Task ConsumeZsinitAsync(CancellationToken ct)
+    {
+        ZModemSubpacketResult attn = await ReadSubpacketAsync(ct).ConfigureAwait(false);
+        if (attn.Status is ZModemSubpacketStatus.Cancelled or ZModemSubpacketStatus.EndOfStream)
+        {
+            return;
+        }
+        // Attn 序列(接收方在出错时用来打断发送方的字节串)对 SSH 这样的可靠链路没有意义,
+        // 我们靠 ZRPOS 就能纠错,所以解析出来也不用;应答本身才是关键。
+        await SendHeaderAsync(ZModemHeader.Empty(ZModemFrameType.ZACK), ct).ConfigureAwait(false);
+    }
+
+    private async Task<bool> ReceiveFileAsync(FileTransferSession session, CancellationToken ct)
     {
         // 读取紧跟 ZFILE 帧头的文件信息数据子包(用当前帧的 CRC 宽度)。
         ZModemSubpacketResult info = await ReadSubpacketAsync(ct).ConfigureAwait(false);
@@ -148,14 +175,14 @@ public sealed class ZModemReceiver(
         {
             if (info.Status == ZModemSubpacketStatus.Cancelled)
             {
-                session.Status = ZModemTransferStatus.Cancelled;
+                session.Status = FileTransferState.Cancelled;
                 _observer?.OnSessionFailed(session, null);
                 return false;
             }
             if (info.Status is ZModemSubpacketStatus.Timeout or ZModemSubpacketStatus.EndOfStream)
             {
                 // 文件信息子包始终没到齐:中止,避免无限期占住终端。
-                session.Status = ZModemTransferStatus.Failed;
+                session.Status = FileTransferState.Failed;
                 _observer?.OnSessionFailed(session, new TimeoutException("ZMODEM ZFILE subpacket timed out"));
                 await TrySendCancelAsync().ConfigureAwait(false);
                 return false;
@@ -165,36 +192,36 @@ public sealed class ZModemReceiver(
             return true;
         }
 
-        ZModemFileMetadata metadata = ParseFileMetadata(info.Data);
-        var item = new ZModemTransferItem { FileName = metadata.FileName, Size = metadata.Size };
+        TransferFileMetadata metadata = ParseFileMetadata(info.Data);
+        var item = new FileTransferItem { FileName = metadata.FileName, Size = metadata.Size };
         session.AddItem(item);
 
         // 这两条之间就是「弹保存目录对话框」。只见前者不见后者 = 卡在 UI 提示上,而非协议上。
-        ZModemTrace.Log($"ZFILE offered name='{metadata.FileName}' size={metadata.Size} -> prompting sink");
-        (ZModemFileDisposition disposition, long resumeOffset) =
+        TransferTrace.Log($"ZFILE offered name='{metadata.FileName}' size={metadata.Size} -> prompting sink");
+        (TransferFileDisposition disposition, long resumeOffset) =
             await _sink.OnFileOfferedAsync(metadata, item, ct).ConfigureAwait(false);
-        ZModemTrace.Log($"ZFILE disposition={disposition} resumeOffset={resumeOffset}");
+        TransferTrace.Log($"ZFILE disposition={disposition} resumeOffset={resumeOffset}");
 
         switch (disposition)
         {
-            case ZModemFileDisposition.Skip:
-                item.Status = ZModemTransferStatus.Skipped;
+            case TransferFileDisposition.Skip:
+                item.Status = FileTransferState.Skipped;
                 _observer?.OnFileSkipped(item);
                 await SendHeaderAsync(ZModemHeader.Empty(ZModemFrameType.ZSKIP), ct).ConfigureAwait(false);
                 return true;
-            case ZModemFileDisposition.Abort:
+            case TransferFileDisposition.Abort:
                 // 用户中止(如放弃选择保存目录):绝不发 CAN —— CAN 未必能让 sz 停下,它会继续吐协议字节,
                 // 会话结束后这些二进制垃圾流回终端,其中的 ESC 序列会把终端切到备用屏幕缓冲区,
                 // 表现为"点击焦点后内容全没、输入无效"。改回 ZSKIP 优雅跳过当前文件:sz 收到后跳过并发 ZFIN
                 // 干净收尾(根本不发文件数据)。后续文件会被 sink 再次判为 Abort 而继续 ZSKIP,直到 ZFIN。
-                item.Status = ZModemTransferStatus.Cancelled;
-                session.Status = ZModemTransferStatus.Cancelled;
+                item.Status = FileTransferState.Cancelled;
+                session.Status = FileTransferState.Cancelled;
                 _observer?.OnFileSkipped(item);
                 await SendHeaderAsync(ZModemHeader.Empty(ZModemFrameType.ZSKIP), ct).ConfigureAwait(false);
                 return true; // 继续主循环,等 sz 的 ZFIN 干净收束(会话状态已记为 Cancelled,Finish 不会覆盖)。
         }
 
-        item.Status = ZModemTransferStatus.Transferring;
+        item.Status = FileTransferState.Transferring;
         item.BytesTransferred = resumeOffset;
         _observer?.OnFileStarted(item);
 
@@ -204,9 +231,12 @@ public sealed class ZModemReceiver(
         return await ReceiveFileDataAsync(session, item, ct).ConfigureAwait(false);
     }
 
-    private async Task<bool> ReceiveFileDataAsync(ZModemSession session, ZModemTransferItem item, CancellationToken ct)
+    private async Task<bool> ReceiveFileDataAsync(FileTransferSession session, FileTransferItem item, CancellationToken ct)
     {
         int dataRetries = 0;
+        // ZEOF 长度对不上的累计次数。不能复用 dataRetries —— 那个每读到一个合法帧就清零,
+        // 用它做上限等于没有上限(发送方一直重发同一个 ZEOF 就会把接收方钉在死循环里)。
+        int eofMismatches = 0;
         while (true)
         {
             ZModemHeaderResult frame = await ReadHeaderAsync(ct).ConfigureAwait(false);
@@ -214,7 +244,7 @@ public sealed class ZModemReceiver(
             {
                 case ZModemReadStatus.Cancelled:
                     await FailItemAsync(session, item, null, ct).ConfigureAwait(false);
-                    session.Status = ZModemTransferStatus.Cancelled;
+                    session.Status = FileTransferState.Cancelled;
                     _observer?.OnSessionFailed(session, null);
                     return false;
                 case ZModemReadStatus.EndOfStream:
@@ -226,7 +256,7 @@ public sealed class ZModemReceiver(
                     if (++dataRetries > _options.MaxRetries)
                     {
                         await FailItemAsync(session, item, null, ct).ConfigureAwait(false);
-                        session.Status = ZModemTransferStatus.Failed;
+                        session.Status = FileTransferState.Failed;
                         _observer?.OnSessionFailed(session, new TimeoutException("ZMODEM data transfer timed out"));
                         await TrySendCancelAsync().ConfigureAwait(false);
                         return false;
@@ -251,9 +281,32 @@ public sealed class ZModemReceiver(
                     break;
 
                 case ZModemFrameType.ZEOF:
-                    // 文件数据结束:位置字段应等于已收字节数。收尾并回到批循环。
+                    // ZEOF 的位置字段 = 发送方声称已发的总字节数。它和我们实际收下的字节数对不上,
+                    // 说明中间丢了子包(链路吞字节、或一个 ZDATA 帧被整段跳过);此时直接收尾就是
+                    // 悄悄交付一个被截断的文件。规范的做法是回 ZRPOS 让发送方从我们的实际位置续发。
+                    if (frame.Header.Position != (uint)item.BytesTransferred)
+                    {
+                        TransferTrace.Log(
+                            $"ZEOF length mismatch: peer says {frame.Header.Position}, received {item.BytesTransferred} -> ZRPOS");
+                        if (++eofMismatches > _options.MaxRetries)
+                        {
+                            await FailItemAsync(session, item, null, ct).ConfigureAwait(false);
+                            session.Status = FileTransferState.Failed;
+                            _observer?.OnSessionFailed(
+                                session,
+                                new InvalidDataException("ZMODEM ZEOF 声明的长度与实际接收字节数不一致"));
+                            await TrySendCancelAsync().ConfigureAwait(false);
+                            return false;
+                        }
+                        await SendHeaderAsync(
+                                ZModemHeader.WithPosition(ZModemFrameType.ZRPOS, (uint)item.BytesTransferred),
+                                ct)
+                            .ConfigureAwait(false);
+                        continue;
+                    }
+                    // 文件数据结束:收尾并回到批循环。
                     await _sink.CompleteAsync(item, ct).ConfigureAwait(false);
-                    item.Status = ZModemTransferStatus.Completed;
+                    item.Status = FileTransferState.Completed;
                     _observer?.OnFileCompleted(item);
                     // 回 ZRINIT 表示已就绪接收下一个文件(或后续 ZFIN)。
                     await SendZrinitAsync(ct).ConfigureAwait(false);
@@ -266,7 +319,7 @@ public sealed class ZModemReceiver(
         }
     }
 
-    private async Task<bool> ReceiveDataSubpacketsAsync(ZModemSession session, ZModemTransferItem item, CancellationToken ct)
+    private async Task<bool> ReceiveDataSubpacketsAsync(FileTransferSession session, FileTransferItem item, CancellationToken ct)
     {
         while (true)
         {
@@ -275,7 +328,7 @@ public sealed class ZModemReceiver(
             {
                 case ZModemSubpacketStatus.Cancelled:
                     await FailItemAsync(session, item, null, ct).ConfigureAwait(false);
-                    session.Status = ZModemTransferStatus.Cancelled;
+                    session.Status = FileTransferState.Cancelled;
                     _observer?.OnSessionFailed(session, null);
                     return false;
                 case ZModemSubpacketStatus.EndOfStream:
@@ -399,13 +452,29 @@ public sealed class ZModemReceiver(
         timeout.CancelAfter(OverAndOutTimeout);
         try
         {
-            for (int i = 0; i < 2; i++)
+            int seen = 0;
+            while (seen < 2)
             {
                 (ZdleToken token, bool eof) = await _reader.ReadEscapedByteAsync(timeout.Token).ConfigureAwait(false);
-                if (eof || token.Value != ZModemConstants.OverAndOut)
+                if (eof)
                 {
                     return;
                 }
+                // 十六进制帧头以 CR LF(可能再加 XON)收尾,这些字节留在缓冲里还没被消化。
+                // 不跳过它们就会在第一个 CR 上判定"没有 OO"直接返回,把真正的 "OO" 留在缓冲里 ——
+                // 会话收尾把残余字节交还终端时,用户屏幕上就会凭空多出两个 "OO"。
+                if (token.Value is 0x0D or 0x0A or ZModemConstants.XON)
+                {
+                    continue;
+                }
+                if (token.Value == ZModemConstants.OverAndOut)
+                {
+                    seen++;
+                    continue;
+                }
+                // 不属于收尾序列(多半已经是 shell 的输出了):退回缓冲,交给残余字节回流逻辑。
+                _reader.Seed([token.Value]);
+                return;
             }
         }
         catch (OperationCanceledException)
@@ -414,7 +483,7 @@ public sealed class ZModemReceiver(
         }
     }
 
-    private async Task FailItemAsync(ZModemSession session, ZModemTransferItem item, Exception? error, CancellationToken ct)
+    private async Task FailItemAsync(FileTransferSession session, FileTransferItem item, Exception? error, CancellationToken ct)
     {
         _ = session;
         try
@@ -425,7 +494,7 @@ public sealed class ZModemReceiver(
         {
             // 清理失败不掩盖原始错误。
         }
-        item.Status = ZModemTransferStatus.Failed;
+        item.Status = FileTransferState.Failed;
     }
 
     private async Task TrySendCancelAsync()
@@ -441,101 +510,23 @@ public sealed class ZModemReceiver(
         }
     }
 
-    private static void Finish(ZModemSession session)
+    private static void Finish(FileTransferSession session)
     {
-        if (session.Status is ZModemTransferStatus.Cancelled or ZModemTransferStatus.Failed)
+        if (session.Status is FileTransferState.Cancelled or FileTransferState.Failed)
         {
             return;
         }
-        session.Status = ZModemTransferStatus.Completed;
+        session.Status = FileTransferState.Completed;
     }
 
     /// <summary>
     /// 解析 ZFILE 数据子包:首段为 NUL 结尾的文件名,其后以空格分隔可选字段
     /// (大小 修改时间(八进制) 模式(八进制) 串行 剩余文件数 剩余字节数)。
+    /// 该格式与 YMODEM 的 0 号块完全一致,故实现落在共享的
+    /// <see cref="TransferFileInfoCodec" /> 上,两个协议不再各写一遍。
     /// </summary>
     /// <param name="data">ZFILE 数据子包的反转义负载。</param>
     /// <returns>解析出的文件元数据。</returns>
-    public static ZModemFileMetadata ParseFileMetadata(byte[] data)
-    {
-        int nul = Array.IndexOf(data, (byte)0);
-        string fileName;
-        string rest;
-        if (nul < 0)
-        {
-            // 无 NUL:整段作为文件名(异常发送方的兜底)。
-            fileName = DecodeLatin1(data, 0, data.Length);
-            rest = string.Empty;
-        }
-        else
-        {
-            fileName = DecodeLatin1(data, 0, nul);
-            int restStart = nul + 1;
-            // 元数据段以 NUL 结尾;取到下一个 NUL 或段尾。
-            int restEnd = Array.IndexOf(data, (byte)0, restStart);
-            if (restEnd < 0)
-            {
-                restEnd = data.Length;
-            }
-            rest = DecodeLatin1(data, restStart, restEnd - restStart).Trim();
-        }
-
-        long? size = null;
-        DateTimeOffset? modified = null;
-        int? mode = null;
-        int? filesRemaining = null;
-
-        if (rest.Length > 0)
-        {
-            string[] parts = rest.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length > 0 && long.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out long sz))
-            {
-                size = sz;
-            }
-            if (parts.Length > 1 && TryParseOctal(parts[1], out long mtime) && mtime > 0)
-            {
-                modified = DateTimeOffset.FromUnixTimeSeconds(mtime);
-            }
-            if (parts.Length > 2 && TryParseOctal(parts[2], out long m))
-            {
-                mode = (int)(m & 0xFFFF);
-            }
-            if (parts.Length > 4 && int.TryParse(parts[4], NumberStyles.Integer, CultureInfo.InvariantCulture, out int fr))
-            {
-                filesRemaining = fr;
-            }
-        }
-
-        return new ZModemFileMetadata
-        {
-            FileName = fileName,
-            Size = size,
-            ModifiedUtc = modified,
-            UnixMode = mode,
-            FilesRemaining = filesRemaining,
-            RawMetadata = rest.Length > 0 ? rest : null
-        };
-    }
-
-    private static bool TryParseOctal(string value, out long result)
-    {
-        result = 0;
-        if (string.IsNullOrEmpty(value))
-        {
-            return false;
-        }
-        foreach (char c in value)
-        {
-            if (c is < '0' or > '7')
-            {
-                return false;
-            }
-            result = (result << 3) + (c - '0');
-        }
-        return true;
-    }
-
-    private static string DecodeLatin1(byte[] data, int offset, int length) =>
-        // 文件名按字节保真解码(不假设 UTF-8),避免多字节文件名被破坏。
-        Encoding.Latin1.GetString(data, offset, length);
+    public static TransferFileMetadata ParseFileMetadata(byte[] data) =>
+        TransferFileInfoCodec.Parse(data);
 }

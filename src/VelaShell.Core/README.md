@@ -22,7 +22,9 @@
 | `Processes/` | 远端进程管理（任务管理器）契约：`IRemoteProcessService`、`RemoteProcessInfo`、`RemoteProcessProbe`（实现方持有相邻两次采样，快照给出**瞬时** CPU 占用而非生命周期平均值）。 |
 | `Diagnostics/` | 路由追踪：`TraceRoute`（逐跳模型与 `HopVerdict` 判定 —— 着色与告警以判定为准，而不是直接看丢包率）、`IIpGeolocationService`（IP 归属地推断契约）。 |
 | `Import/` | 从其他工具导入会话的契约与结果模型：`ISessionImportService`、`ImportedSession`、`SessionImportScan`、`SessionImportOutcome`（WinSCP / Xshell 的具体解密与解析在 Infrastructure）。 |
-| `ZModem/` | **自研 ZMODEM 协议引擎**（传输无关）：`Protocol/`（帧读写、ZDLE 转义、CRC-16/32、`ZModemSender`/`ZModemReceiver`）、`Model/`、`Abstractions/`（`IByteDuplex` 与文件源/汇契约，为未来 Telnet/串口预留）、`Diagnostics/ZModemTrace`（置 `VELASHELL_ZMODEM_TRACE=1` 打开帧跟踪）。 |
+| `FileTransfer/` | **三种终端内传输协议共用的契约与工具**（协议中立）：`Abstractions/`（`IByteDuplex`、文件源/汇/观察者契约，为未来 Telnet/串口预留）、`Model/`（会话与文件项、协议枚举）、`Protocol/`（`Crc16Xmodem`、ZFILE 与 YMODEM 0 号块共用的文件信息编解码）、`Diagnostics/TransferTrace`（置 `VELASHELL_TRANSFER_TRACE=1`，旧名 `VELASHELL_ZMODEM_TRACE=1` 亦可，打开帧跟踪）。 |
+| `ZModem/` | **自研 ZMODEM 协议引擎**（传输无关）：`Protocol/`（帧读写、ZDLE 转义、CRC-16/32、`ZModemSender`/`ZModemReceiver`）、`Model/ZModemOptions`。 |
+| `XYModem/` | **自研 XMODEM / XMODEM-1K / YMODEM / YMODEM-G 引擎**（传输无关）：`Protocol/`（定长块编解码、逐块 ACK/NAK 状态机、`XYModemSender`/`XYModemReceiver`）、`Model/XYModemOptions`。 |
 | `Tunnels/` | 端口转发隧道契约 `ITunnelService`。 |
 | `Sync/` | 云同步契约与载荷：`IGistSyncService`、`SyncModels`、`SyncCrypto`（PBKDF2 + AES-256-GCM 端到端加密）。 |
 | `Services/` | 跨层服务契约与逻辑：`IThemeService`/`ThemeService`、`ISessionMetricsService` 与 `SessionMetrics`(`.Extras`/`Records`)（CPU/内存/磁盘/网络指标的解析与换算）、`SettingsPreviewService`。 |
