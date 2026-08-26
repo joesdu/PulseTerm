@@ -390,9 +390,9 @@ dotnet test --logger "console;verbosity=detailed"
 
 **已可用**：终端引擎、SSH/SFTP、FTP/FTPS、ZMODEM / XMODEM / YMODEM、本地终端、跳板机、会话管理与导入、身份验证、隧道、持久化、设置中心、云同步、会话录制、资源监视/进程管理/路由追踪，以及**插件系统框架层**（双宿主模式、完整能力面、UI 扩展、心跳自愈与空闲回收、插件私有存储与卸载清理、`.vpx` 装卸、SDK 测试替身与开发文档）与第一方 **AI 助手插件**。
 
-**由插件提供**：Telnet、Redis、S3 —— 都不随安装包预装，按需从[插件商店](https://market.easilynet.top)安装（源码在 [joesdu/velashell-plugins](https://github.com/joesdu/velashell-plugins)）。
+**由插件提供**：Telnet、串口（COM / USB 转串口）、Redis、S3 —— 都不随安装包预装，按需从[插件商店](https://market.easilynet.top)安装（源码在 [joesdu/velashell-plugins](https://github.com/joesdu/velashell-plugins)）。
 
-**未开放**：串口（COM）会话与证书认证（可行性与改造清单见 [`docs/Telnet与串口可行性调研.md`](docs/Telnet与串口可行性调研.md)）；容器管理插件尚未开始；系统密钥链与 sudo 凭据自动填充仍在调研（见 [`docs/系统密钥链与sudo凭据填充可行性调研.md`](docs/系统密钥链与sudo凭据填充可行性调研.md)）。部分设置项目前仅持久化、待接线到运行时。
+**未开放**：证书认证；容器管理插件尚未开始；系统密钥链与 sudo 凭据自动填充仍在调研（见 [`docs/系统密钥链与sudo凭据填充可行性调研.md`](docs/系统密钥链与sudo凭据填充可行性调研.md)）。部分设置项目前仅持久化、待接线到运行时。
 
 完整完成情况与待办清单见 [`plan.md`](plan.md) §10–§12 与 [`docs/plugins/STATUS.md`](docs/plugins/STATUS.md)。
 

@@ -1469,14 +1469,14 @@
   <data name="Profile_PrivateKeyFile" xml:space="preserve">
     <value>개인 키 파일</value>
   </data>
+  <data name="Profile_RefreshDevices" xml:space="preserve">
+    <value>장치 목록 새로 고침</value>
+  </data>
   <data name="Profile_RememberPassword" xml:space="preserve">
     <value>비밀번호 저장</value>
   </data>
   <data name="Profile_SelectKeyFile" xml:space="preserve">
     <value>개인 키 파일 선택</value>
-  </data>
-  <data name="Profile_Serial" xml:space="preserve">
-    <value>시리얼</value>
   </data>
   <data name="Profile_SessionGroup" xml:space="preserve">
     <value>세션 그룹</value>

@@ -1700,14 +1700,14 @@
   <data name="Profile_PrivateKeyFile" xml:space="preserve">
     <value>私钥文件</value>
   </data>
+  <data name="Profile_RefreshDevices" xml:space="preserve">
+    <value>刷新设备列表</value>
+  </data>
   <data name="Profile_RememberPassword" xml:space="preserve">
     <value>记住密码</value>
   </data>
   <data name="Profile_SelectKeyFile" xml:space="preserve">
     <value>选择私钥文件</value>
-  </data>
-  <data name="Profile_Serial" xml:space="preserve">
-    <value>串口</value>
   </data>
   <data name="Profile_SessionGroup" xml:space="preserve">
     <value>会话分组</value>

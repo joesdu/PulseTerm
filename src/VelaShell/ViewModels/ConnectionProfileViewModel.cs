@@ -200,6 +200,10 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
         CopyErrorCommand = ReactiveCommand.CreateFromTask(CopyErrorAsync, this.WhenAnyValue(x => x.ErrorMessage, message => !string.IsNullOrWhiteSpace(message)));
         SelectConnectionTypeCommand = ReactiveCommand.Create<ConnectionType>(SelectConnectionType);
         SelectPluginProtocolCommand = ReactiveCommand.CreateFromTask<string>(SelectPluginProtocolAsync);
+        // 刷新期间不让再点:枚举串口要读注册表 / 扫 sysfs,连点会把候选项列表反复重建。
+        RefreshHostChoicesCommand = ReactiveCommand.CreateFromTask(
+            RefreshHostChoicesAsync,
+            this.WhenAnyValue(x => x.IsHostRefreshing, refreshing => !refreshing));
         // 表单是插件异步装载出来的,字段进集合的那一刻就得带上当前的折叠状态 ——
         // 只在切换「高级选项」时下发是不够的(先渲染后展开,首屏会把高级字段全画出来)。
         // 必须在下面那句可能触发装载的 SelectPluginProtocolAsync 之前接线。
@@ -286,6 +290,66 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
 
     /// <summary>「主机」输入框的占位提示。</summary>
     public string HostPlaceholder => _pluginForm?.HostPlaceholder ?? "192.168.1.100";
+
+    /// <summary>
+    /// 是否显示「端口」那一栏。声明了 <c>NoEndpoint</c> 的连接类型收起它 ——
+    /// 目标不是一个 <c>host:port</c> 时(串口是一根线、SQLite 是磁盘上一个文件),
+    /// 那一栏填什么都不会被用上,摆着只会让用户以为它有意义,而且还留着上一个协议的残值。
+    /// <para>
+    /// 只收显示,不改判定:端口的**取值**照旧参与保存/连接按钮的可用性 ——
+    /// 收起一栏不该顺手把按钮堵死。
+    /// </para>
+    /// </summary>
+    public bool ShowPortField => _pluginForm?.ShowsPort != false;
+
+    /// <summary>「主机」那一栏是否渲染成**只读**下拉。</summary>
+    public bool HostIsChoice => _pluginForm is { HostIsChoice: true, HostAllowsCustomValue: false };
+
+    /// <summary>
+    /// 「主机」那一栏是否渲染成**可编辑**下拉。
+    /// <para>
+    /// 串口就是这一档:端口是可枚举的(所以该给下拉),但枚举不到的也必须填得进去 ——
+    /// 没插的适配器、容器里映射进来的 <c>/dev/ttyS10</c>、还没装驱动的板子。
+    /// </para>
+    /// </summary>
+    public bool HostIsEditableChoice => _pluginForm is { HostIsChoice: true, HostAllowsCustomValue: true };
+
+    /// <summary>「主机」那一栏是否就是个普通文本框(SSH / SFTP / FTP / S3 / Telnet 都是)。</summary>
+    public bool HostIsText => _pluginForm?.HostIsChoice != true;
+
+    /// <summary>「主机」下拉旁边要不要给刷新按钮(候选项是向插件现取的)。</summary>
+    public bool HostIsDynamicChoice => _pluginForm?.HostIsDynamic == true;
+
+    /// <summary>「主机」下拉的候选项。</summary>
+    public ObservableCollection<PluginChoiceItem> HostChoices { get; } = [];
+
+    /// <summary>正在向插件索取「主机」候选项(刷新按钮期间不可点)。</summary>
+    public bool IsHostRefreshing
+    {
+        get;
+        private set => this.RaiseAndSetIfChanged(ref field, value);
+    }
+
+    /// <summary>
+    /// 「主机」下拉当前选中的项。可编辑形态下对不上候选项就是**没有选中项**,
+    /// 当前值由文本框自己显示 —— 在那里回落到第一项,等于把用户存的那个
+    /// "这次没枚举到"的端口悄悄换成别的。
+    /// </summary>
+    public PluginChoiceItem? SelectedHostChoice
+    {
+        get
+        {
+            PluginChoiceItem? exact = HostChoices.FirstOrDefault(choice => choice.Value == Host);
+            return exact ?? (HostIsChoice ? HostChoices.FirstOrDefault() : null);
+        }
+        set
+        {
+            if (value is not null)
+            {
+                Host = value.Value;
+            }
+        }
+    }
 
     /// <summary>「用户名」输入框的标签(插件协议可改写,如 Access Key ID)。</summary>
     public string UsernameLabel => _pluginForm?.UsernameLabel ?? Strings.Get("Username");
@@ -399,11 +463,21 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
         private set => this.RaiseAndSetIfChanged(ref field, value);
     }
 
-    /// <summary>目标主机地址(主机名或 IP)。</summary>
+    /// <summary>
+    /// 目标主机地址(主机名或 IP)。协议可以改写它承载的东西 —— 串口在这一栏装设备名
+    /// (<c>COM3</c> / <c>/dev/ttyUSB0</c>),与 PuTTY 把 <i>Host Name</i> 换成
+    /// <i>Serial line</i> 是同一个取舍。
+    /// </summary>
     public string Host
     {
         get => _host;
-        set => this.RaiseAndSetIfChanged(ref _host, value);
+        set
+        {
+            this.RaiseAndSetIfChanged(ref _host, value);
+            // 下拉形态下当前值与选中项是同一件事;不补这一发,程序化改 Host
+            // (读入既有配置、刷新后归位)时下拉显示的还是上一项。
+            this.RaisePropertyChanged(nameof(SelectedHostChoice));
+        }
     }
 
     /// <summary>SSH 端口,有效范围 1–65535,默认 22。</summary>
@@ -643,11 +717,20 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
     /// <summary>切换密码明文/掩码显示的命令。</summary>
     public ReactiveCommand<RxVoid, RxVoid> TogglePasswordVisibilityCommand { get; }
 
-    /// <summary>选择 SSH 或 SFTP;Telnet/串口没有对应命令,因此仍保持禁用。</summary>
+    /// <summary>选择 SSH 或 SFTP;Telnet/串口由插件贡献页签,不走这条命令。</summary>
     public ReactiveCommand<ConnectionType, RxVoid> SelectConnectionTypeCommand { get; }
 
     /// <summary>切到某个插件协议页签(按需触发该插件的惰性激活并渲染它的设置表单)。</summary>
     public ReactiveCommand<string, RxVoid> SelectPluginProtocolCommand { get; }
+
+    /// <summary>
+    /// 重新向插件索取「主机」下拉的候选项。
+    /// <para>
+    /// 为什么非要有这么个按钮:串口适配器是**热插拔**的,而用户很可能是先打开连接对话框、
+    /// 才想起去插线。没有刷新,他就得把对话框关掉再开一次。
+    /// </para>
+    /// </summary>
+    public ReactiveCommand<RxVoid, RxVoid> RefreshHostChoicesCommand { get; }
 
     /// <summary>
     /// 从仓储加载分组下拉(“未分组” + 全部分组),并选中当前配置的分组;
@@ -937,6 +1020,9 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
             row.PropertyChanged -= OnPluginFieldChanged;
         }
         PluginFields.Clear();
+        // 主机下拉的候选项同属上一个协议:留着的话,从串口切回 SSH 再切到别的插件协议时,
+        // 那个下拉里还挂着一串 COM 口。
+        HostChoices.Clear();
     }
 
     /// <summary>被依赖字段的值一变就重算所有行的可见性(只关心值,不关心可见性自身的变化)。</summary>
@@ -1054,8 +1140,11 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
                 ? await registry.ResolveWorkspaceAsync(protocolId).ConfigureAwait(true) is { } workspace
                     ? PluginConnectionForm.From(workspace.Descriptor)
                     : null
-                : await registry.ResolveAsync(protocolId).ConfigureAwait(true) is { } fileSystem
-                    ? PluginConnectionForm.From(fileSystem.Descriptor)
+                : await registry.ResolveAsync(protocolId).ConfigureAwait(true) is { } protocol
+                    // 实现体一起带上:动态下拉的候选项由它现给(它兼实现 IProtocolChoiceSource
+                    // 时才有;串口是终端实现,S3 是文件系统实现,所以两边都要问)。
+                    ? PluginConnectionForm.From(protocol.Descriptor,
+                        (object?)protocol.Terminal ?? protocol.FileSystem)
                     : null;
             // **陈旧续体作废**:装载期间用户可能已经点去了 SSH 或另一个协议(协议页签不受
             // canExecute 约束)。不校验就会把 S3 的描述符盖到 SSH 表单上,
@@ -1084,7 +1173,8 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
                     ? value
                     : null;
                 PluginFields.Add(new(field, stored,
-                    field.Kind == ProtocolSettingKind.SshSession ? EnsureSshSessionChoices() : null));
+                    field.Kind == ProtocolSettingKind.SshSession ? EnsureSshSessionChoices() : null,
+                    field.Kind == ProtocolSettingKind.DynamicChoice ? ReloadFieldChoicesAsync : null));
             }
             // 编辑既有配置时,高级字段里只要有一处不是默认值就自动展开:
             // 用户填过的东西不能藏起来(否则"我明明设过分片大小"变成一次静默丢失的错觉),
@@ -1098,6 +1188,9 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
             // 而显示条件对**新建**配置(全默认)也必须一开始就生效 ——
             // 少了这句,「主节点名」会在独立形态下先露出来,直到用户碰一下别的字段才消失。
             ApplyPluginFieldVisibility();
+            // 动态候选项现取一次。放在最后:它可能真的去枚举硬件(串口),
+            // 而表单的其余部分不该等它 —— 取不到也只是下拉是空的,手输照旧可用。
+            await LoadDynamicChoicesAsync().ConfigureAwait(true);
         }
         finally
         {
@@ -1113,6 +1206,107 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// 把所有动态下拉的候选项向插件取一遍(主机那一栏 + 各 <c>DynamicChoice</c> 字段)。
+    /// 打开表单时调一次,用户点刷新时按单个字段调。
+    /// </summary>
+    private async Task LoadDynamicChoicesAsync()
+    {
+        if (_pluginForm is not { } form)
+        {
+            return;
+        }
+        if (form.HostIsChoice)
+        {
+            IsHostRefreshing = true;
+            try
+            {
+                IReadOnlyList<ProtocolSettingChoice> choices = form.HostIsDynamic
+                    ? await FetchChoicesAsync(form, ProtocolDescriptor.HostFieldKey).ConfigureAwait(true)
+                    : [];
+                ReplaceHostChoices(choices.Count > 0 ? choices : form.HostChoices ?? []);
+            }
+            finally
+            {
+                IsHostRefreshing = false;
+            }
+        }
+        foreach (PluginProtocolFieldViewModel field in PluginFields.Where(f => f.IsDynamicChoice).ToList())
+        {
+            await ReloadFieldChoicesAsync(field).ConfigureAwait(true);
+        }
+    }
+
+    /// <summary>重新取一个字段的候选项(刷新按钮与首次加载共用)。</summary>
+    private async Task ReloadFieldChoicesAsync(PluginProtocolFieldViewModel field)
+    {
+        if (_pluginForm is not { } form)
+        {
+            return;
+        }
+        field.ReplaceChoices(await FetchChoicesAsync(form, field.Key).ConfigureAwait(true));
+    }
+
+    /// <summary>重新取「主机」那一栏的候选项(刷新按钮)。</summary>
+    private async Task RefreshHostChoicesAsync()
+    {
+        if (_pluginForm is not { HostIsDynamic: true } form)
+        {
+            return;
+        }
+        IsHostRefreshing = true;
+        try
+        {
+            IReadOnlyList<ProtocolSettingChoice> choices =
+                await FetchChoicesAsync(form, ProtocolDescriptor.HostFieldKey).ConfigureAwait(true);
+            ReplaceHostChoices(choices.Count > 0 ? choices : form.HostChoices ?? []);
+        }
+        finally
+        {
+            IsHostRefreshing = false;
+        }
+    }
+
+    /// <summary>
+    /// 向插件索取一批候选项。
+    /// <para>
+    /// <b>永不抛</b>:这跑在画界面的路径上,一次列不出设备不该变成一个连表单都打不开的错误 ——
+    /// 何况这些字段本来就允许手输。插件没实现取值源时同样退化成空表(用声明里的兜底列表)。
+    /// </para>
+    /// <para>
+    /// <c>Task.Run</c> 不能省:枚举串口要读注册表(Windows)或扫 sysfs(Linux),
+    /// 是同步阻塞的几十毫秒。在界面线程上直接调就是一次可感的卡顿。
+    /// </para>
+    /// </summary>
+    private static async Task<IReadOnlyList<ProtocolSettingChoice>> FetchChoicesAsync(
+        PluginConnectionForm form, string fieldKey)
+    {
+        if (form.ChoiceSource is not { } source)
+        {
+            return [];
+        }
+        try
+        {
+            return await Task.Run(() => source.GetChoicesAsync(fieldKey)).ConfigureAwait(true) ?? [];
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.WriteLine($"[PluginProtocols] Fetching choices for '{fieldKey}' failed: {ex.Message}");
+            return [];
+        }
+    }
+
+    private void ReplaceHostChoices(IReadOnlyList<ProtocolSettingChoice> choices)
+    {
+        HostChoices.Clear();
+        foreach (ProtocolSettingChoice choice in choices)
+        {
+            HostChoices.Add(PluginChoiceItem.From(choice));
+        }
+        // 当前值不在新列表里也**照旧留着**:适配器这次没插,不代表这条配置该被改写。
+        this.RaisePropertyChanged(nameof(SelectedHostChoice));
     }
 
     /// <summary>
@@ -1266,6 +1460,14 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
         this.RaisePropertyChanged(nameof(PasswordLabel));
         this.RaisePropertyChanged(nameof(ShowCredentialFields));
         this.RaisePropertyChanged(nameof(ShowPasswordField));
+        // 主机那一栏的形态与端口栏的显隐同样只看描述符 —— 漏发的表现是
+        // 「已经切回 SSH,主机那格还是个串口下拉」。
+        this.RaisePropertyChanged(nameof(ShowPortField));
+        this.RaisePropertyChanged(nameof(HostIsText));
+        this.RaisePropertyChanged(nameof(HostIsChoice));
+        this.RaisePropertyChanged(nameof(HostIsEditableChoice));
+        this.RaisePropertyChanged(nameof(HostIsDynamicChoice));
+        this.RaisePropertyChanged(nameof(SelectedHostChoice));
         // 走属性 setter 而不是只发通知:它要驱动 canExecute 的组合器重算。
         AllowsAnonymous = _pluginForm?.AllowsAnonymous == true;
     }
