@@ -12,7 +12,8 @@
 # 不是每个人都要连 Redis、开 S3、拨 Telnet,预装等于给所有人塞三份用不上的依赖(光 Redis 与
 # S3 的 SDK 就近 5 MB),还把发布节奏绑在另一个仓库的发版顺序上。它们改由用户按需从插件商店
 # (https://market.easilynet.top)自行安装 —— 插件管理页的安装入口旁就有链接。
-# 联调/本机想要那几个插件时仍可手动跑 scripts/Fetch-Plugins.ps1(见该脚本),流水线不跑它。
+# 联调/本机想要那几个插件时,自己把插件目录铺进 artifacts/plugins/ 即可(见
+# src/VelaShell/VelaShell.csproj 的 VelaPluginsStageDir),流水线不碰这个目录。
 # 另有 build-msix 任务产出商店版 .msixbundle,但它不附加到 Release —— 作为工作流
 # artifact(store-msix)留存,由人工下载后提交 Partner Center。便携版与商店版是同一份二进制,
 # 只是容器不同;应用内自更新在商店版会自动关闭(运行时判定包身份,见 Services/AppPackaging.cs)。

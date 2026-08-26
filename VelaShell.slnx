@@ -25,7 +25,6 @@
     <File Path="README.en.md" />
     <File Path="README.md" />
     <File Path="Directory.Build.targets" />
-    <File Path="scripts/Fetch-Plugins.ps1" />
   </Folder>
   <Folder Name="/src/">
     <File Path="src/Directory.Build.props" />

@@ -23,9 +23,9 @@
 	     这里不看 VelaPluginShip:本机构建目录是开发环境,不随包分发的插件也要能跑起来看效果;
 	     "不进安装包"由下面的 GetVelaPluginPayload 在发布期把关。
 
-	     注意这里**不写 artifacts/plugins/**:那个目录是 scripts/Fetch-Plugins.ps1 取回
-	     工具链侧插件(Redis / S3 / Telnet)的落点,取件时会被整目录清空重建
-	     (见脚本的 Reset-StageDirectory)。本仓库自建的插件走 ProjectReference 构建顺序
+	     注意这里**不写 artifacts/plugins/**:那个目录是本机手动铺放
+	     插件仓库侧插件(Redis / S3 / Telnet)的暂存目录
+	     (见 src/VelaShell/VelaShell.csproj 的 VelaPluginsStageDir)。本仓库自建的插件走 ProjectReference 构建顺序
 	     进宿主输出、走 GetVelaPluginPayload 进发行包,与那个暂存目录互不相干。 -->
 	<Target Name="CopyVelaPluginToAppOutput" AfterTargets="Build" Condition="'$(VelaPluginId)' != ''">
 		<PropertyGroup>

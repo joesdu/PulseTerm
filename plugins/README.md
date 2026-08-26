@@ -8,8 +8,8 @@
 
 其余第一方插件（Redis / S3 / Telnet 与 HelloWorld 示例）住在
 **[joesdu/velashell-plugins](https://github.com/joesdu/velashell-plugins)**，
-以 Release 资产 `velashell-plugins-<版本>.zip` 交付，由 [`scripts/Fetch-Plugins.ps1`](../scripts/Fetch-Plugins.ps1)
-取回解到 `artifacts/plugins/`（联调时 `-FromPluginsRepo <插件仓库路径>` 就地构建，不走网络）。
+以 Release 资产 `velashell-plugins-<版本>.zip` 交付。本机想连它们一起跑，把插件目录铺进
+`artifacts/plugins/` 即可（或用 `-p:VelaPluginsStageDir=<目录>` 指别处），构建与发布都从那里取件。
 
 SDK、模板与 `vela-plugin` CLI 则在
 **[joesdu/velashell-plugin-toolchain](https://github.com/joesdu/velashell-plugin-toolchain)**，
