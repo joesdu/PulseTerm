@@ -395,9 +395,9 @@ The project is under active development.
 
 **Working today**: terminal engine, SSH/SFTP, FTP/FTPS, ZMODEM / XMODEM / YMODEM, local shells, jump hosts, session management and import, authentication, tunnels, persistence, settings centre, cloud sync, session recording, resource monitor / process manager / traceroute, plus the **plugin system framework** (dual hosting modes, the full capability surface, UI extensions, heartbeat self-healing and idle recycling, per-plugin storage with uninstall cleanup, `.vpx` install/uninstall, SDK test doubles and developer docs) and the first-party **AI assistant plugin**.
 
-**Provided by plugins**: Telnet, Redis and S3 — none of them preinstalled; install on demand from the [plugin marketplace](https://market.easilynet.top) (sources in [joesdu/velashell-plugins](https://github.com/joesdu/velashell-plugins)).
+**Provided by plugins**: Telnet, serial (COM / USB-to-serial), Redis and S3 — none of them preinstalled; install on demand from the [plugin marketplace](https://market.easilynet.top) (sources in [joesdu/velashell-plugins](https://github.com/joesdu/velashell-plugins)).
 
-**Not yet available**: serial (COM) sessions and certificate authentication (feasibility and work list in [`docs-en/telnet-and-serial-feasibility-research.md`](docs-en/telnet-and-serial-feasibility-research.md)); the container-management plugin has not been started. Some settings are persisted but not yet wired to runtime behaviour.
+**Not yet available**: certificate authentication; the container-management plugin has not been started. Some settings are persisted but not yet wired to runtime behaviour.
 
 The full completion matrix and backlog live in [`plan.md`](plan.md) §10–§12 and [`docs-en/plugins/STATUS.md`](docs-en/plugins/STATUS.md).
 

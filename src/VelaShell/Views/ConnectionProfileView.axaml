@@ -3,7 +3,6 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="using:VelaShell.ViewModels"
-        xmlns:protocols="using:VelaShell.PluginSdk.Protocols"
         xmlns:behaviors="using:VelaShell.Behaviors"
         xmlns:models="clr-namespace:VelaShell.Core.Models;assembly=VelaShell.Core"
         xmlns:loc="using:VelaShell.Localization"
@@ -236,12 +235,9 @@
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
-            <!-- Telnet 已由插件提供(plugins/VelaShell.Plugin.Telnet),页签走上面那条
-                 动态列表;这里不再留占位。串口仍是未实现的占位,等它自己的插件。 -->
-            <Border Classes="proto-tab" IsEnabled="False" ToolTip.Tip="{loc:Localize Profile_NotSupported}">
-              <TextBlock Classes="proto-label" Text="{loc:Localize Profile_Serial}"
-                         Foreground="{DynamicResource VelaTextTertiary}" />
-            </Border>
+            <!-- Telnet 与串口都已由插件提供(velashell-plugins 仓库的
+                 VelaShell.Plugin.Telnet / VelaShell.Plugin.Serial),页签走上面那条动态列表 ——
+                 宿主不再认识任何一种具体协议,这里也就不再有禁用的占位页签。 -->
           </StackPanel>
           <!-- 滑动下划线:2px 强调色,在各协议页签间平移;位置由代码后置按按钮实际边界驱动。 -->
           <Border x:Name="ProtoTabIndicator"
@@ -270,13 +266,53 @@
                     ScrollViewer.AllowAutoHide="False">
       <StackPanel Margin="20,18" Spacing="14">
 
-        <!-- 主机名/IP + 端口(插件协议可改写这一格的标签与占位,如 S3 的「服务端点」) -->
-        <Grid ColumnDefinitions="*,12,90">
+        <!-- 主机名/IP + 端口。插件协议可以改写这一格的标签与占位(S3 的「服务端点」),
+             也可以改写它的**形态** —— 串口把它变成一个可刷新、可手输的设备下拉。
+             端口那一格在协议声明 NoEndpoint 时整格收起(串口是一根线,SQLite 是一个文件,
+             端口填什么都不会被用上)。 -->
+        <Grid ColumnDefinitions="*,12,Auto">
           <StackPanel Grid.Column="0">
             <TextBlock Classes="field-label" Text="{Binding HostLabel}" />
-            <TextBox Text="{Binding Host}" PlaceholderText="{Binding HostPlaceholder}" />
+            <TextBox Text="{Binding Host}" PlaceholderText="{Binding HostPlaceholder}"
+                     IsVisible="{Binding HostIsText}" />
+            <!-- 只读下拉:值只能取自候选项。 -->
+            <ComboBox ItemsSource="{Binding HostChoices}" SelectedItem="{Binding SelectedHostChoice}"
+                      IsVisible="{Binding HostIsChoice}" HorizontalAlignment="Stretch">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:PluginChoiceItem">
+                  <TextBlock Text="{Binding Label}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+            <!-- 可编辑下拉 + 刷新:串口是这一档。列表是便利而非白名单 ——
+                 没插的适配器、容器里映射进来的 /dev/ttyS10 都必须填得进去。
+                 PluginChoiceItem.ToString() 返回的是**落盘值**,所以选中一项之后
+                 文本框里是 COM3 而不是那条带描述的展示文案。 -->
+            <Grid ColumnDefinitions="*,4,Auto" IsVisible="{Binding HostIsEditableChoice}">
+              <ComboBox Grid.Column="0" IsEditable="True"
+                        ItemsSource="{Binding HostChoices}"
+                        Text="{Binding Host}"
+                        PlaceholderText="{Binding HostPlaceholder}"
+                        HorizontalAlignment="Stretch">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:PluginChoiceItem">
+                    <TextBlock Text="{Binding Label}" />
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+              <Button Grid.Column="2" Width="30" Height="30" Padding="0"
+                      Background="Transparent" CornerRadius="3" Cursor="Hand"
+                      IsVisible="{Binding HostIsDynamicChoice}"
+                      Command="{Binding RefreshHostChoicesCommand}"
+                      ToolTip.Tip="{loc:Localize Profile_RefreshDevices}"
+                      VerticalAlignment="Bottom">
+                <PathIcon Width="13" Height="13"
+                          Data="M17.65 6.35A7.958 7.958 0 0 0 12 4a8 8 0 1 0 7.73 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"
+                          Foreground="{DynamicResource VelaTextTertiary}" />
+              </Button>
+            </Grid>
           </StackPanel>
-          <StackPanel Grid.Column="2">
+          <StackPanel Grid.Column="2" Width="90" IsVisible="{Binding ShowPortField}">
             <TextBlock Classes="field-label" Text="{loc:Localize Port}" />
             <NumericUpDown Value="{Binding Port}" Minimum="1" Maximum="65535"
                            Increment="1" FormatString="0" ShowButtonSpinner="False" />
@@ -355,11 +391,36 @@
                 <ComboBox ItemsSource="{Binding Choices}" SelectedItem="{Binding SelectedChoice}"
                           IsVisible="{Binding IsChoice}" HorizontalAlignment="Stretch">
                   <ComboBox.ItemTemplate>
-                    <DataTemplate x:DataType="protocols:ProtocolSettingChoice">
+                    <DataTemplate x:DataType="vm:PluginChoiceItem">
                       <TextBlock Text="{Binding Label}" />
                     </DataTemplate>
                   </ComboBox.ItemTemplate>
                 </ComboBox>
+                <!-- 可编辑下拉:候选项是便利,不是白名单。波特率就是活例子 ——
+                     表里给九个常用值,但 250000(Marlin)、76800(工业模块)都得填得进去。
+                     动态形态(候选项向插件现取)再多一个刷新按钮。 -->
+                <Grid ColumnDefinitions="*,4,Auto" IsVisible="{Binding IsEditableChoice}">
+                  <ComboBox Grid.Column="0" IsEditable="True"
+                            ItemsSource="{Binding Choices}"
+                            Text="{Binding Text}"
+                            PlaceholderText="{Binding Placeholder}"
+                            HorizontalAlignment="Stretch">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate x:DataType="vm:PluginChoiceItem">
+                        <TextBlock Text="{Binding Label}" />
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                  <Button Grid.Column="2" Width="30" Height="30" Padding="0"
+                          Background="Transparent" CornerRadius="3" Cursor="Hand"
+                          IsVisible="{Binding IsDynamicChoice}"
+                          Command="{Binding RefreshChoicesCommand}"
+                          ToolTip.Tip="{loc:Localize Profile_RefreshDevices}">
+                    <PathIcon Width="13" Height="13"
+                              Data="M17.65 6.35A7.958 7.958 0 0 0 12 4a8 8 0 1 0 7.73 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"
+                              Foreground="{DynamicResource VelaTextTertiary}" />
+                  </Button>
+                </Grid>
                 <!-- 「已保存的 SSH 配置」选择器:选一条即让宿主代为建隧道,
                      插件收到的主机/端口已是本地转发端点。 -->
                 <ComboBox ItemsSource="{Binding SshSessions}" SelectedItem="{Binding SelectedSshSession}"

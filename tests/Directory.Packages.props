@@ -12,8 +12,8 @@
     <PackageVersion Include="NSubstitute" Version="6.2.0" />
     <!-- 插件契约与测试替身,由插件工具链仓库(joesdu/velashell-plugin-toolchain)
          发布到 nuget.org。 -->
-    <PackageVersion Include="VelaShell.PluginSdk" Version="1.4.0" />
-    <PackageVersion Include="VelaShell.PluginSdk.Testing" Version="1.4.0" />
+    <PackageVersion Include="VelaShell.PluginSdk" Version="1.5.0" />
+    <PackageVersion Include="VelaShell.PluginSdk.Testing" Version="1.5.0" />
     <PackageVersion Include="Avalonia" Version="12.1.1" />
     <PackageVersion Include="Avalonia.Headless" Version="12.1.1" />
     <!-- 菜单等控件的模板由主题提供:没有它 MenuItem 无模板、不可命中,真实点击测不了。 -->

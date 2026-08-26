@@ -25,9 +25,39 @@
 > - 实现:`plugins/VelaShell.Plugin.Telnet`(RFC 854 协商 / NAWS / TERMINAL-TYPE /
 >   8 位透明,零第三方依赖,与 §4.2 的选型结论一致)。
 >
-> **串口尚未实现**,连接页仍是禁用占位。它将复用同一套终端协议能力做成
-> `velashell.serial` 插件——第四、五节关于 `System.IO.Ports`、三平台端口枚举、
-> `Close()` 死锁与打包的结论**依然有效**,只是那些代码落在插件里而不是宿主里。
+> **2026-08-26 落地说明(串口已实现,同样是插件)**
+>
+> 串口复用了同一套终端协议能力,实现为 `velashell.serial`(velashell-plugins 仓库的
+> `plugins/VelaShell.Plugin.Serial`)。第四、五节关于 `System.IO.Ports`、三平台端口枚举、
+> `Close()` 死锁与打包的结论**全部兑现**,只是那些代码落在插件里而不是宿主里。
+> 连接页最后一个禁用占位页签因此删除——宿主至此不再认识任何一种具体协议。
+>
+> 与本文预案有出入的几处,写在这里免得后人对着旧文找不到:
+>
+> - **§3.5「不要用 `Host` 承载 `COM3`」在插件形态下反过来了。** 那条结论的语境是内建的
+>   `SessionProfile` + 纯 SSH 的 `ConnectionInfo`;而插件协议里 `Host` 早已泛化成"连到哪儿"
+>   (S3 填服务端点、SQLite 填数据库文件)。串口沿用这一格装设备名,与 PuTTY 把
+>   *Host Name* 换成 *Serial line* 同构,顺带让最近连接列表与会话名显示得出设备。
+>   代价是 SDK 得能把这一格**换成下拉** —— 见下一条。
+> - **SDK 补了三件事(1.5.0)**:`ProtocolFeatures.NoEndpoint`(收起端口栏,与既有的
+>   `WorkspaceFeatures.NoEndpoint` 同义;顺带把那一位在宿主侧真正实现了 —— 它自 1.3.1
+>   声明至今一直没人读)、`ProtocolSettingKind.DynamicChoice` + `IProtocolChoiceSource`
+>   (候选项在表单打开时现取:USB 转串口是**热插拔**设备,注册时枚举一次的列表等用户
+>   插上适配器时早已过期),以及 `AllowsCustomValue` / `HostKind` / `HostChoices`
+>   (可编辑下拉:250000(Marlin)、76800 这类非标波特率,以及枚举不到的设备都得填得进去)。
+> - **§3.6 的「本地回显」仍然没有做进终端层**,与 Telnet 同一处置:由插件在自己的读管道里
+>   注入回显,宿主终端层零改动。
+> - **Windows 友好名没走 §4.1 说的 WMI**,改用 SetupAPI(设备管理器同款):零新增依赖、
+>   无 COM 启动开销、几毫秒。取不到只是没有描述 —— 端口列表本身来自
+>   `SerialPort.GetPortNames()`,不受影响。
+> - **§五.2 的打包风险已排除**:插件是 RID 无关的动态装载工程,`System.IO.Ports` 的
+>   `runtimes/<rid>/native/` 那一层会原样落进插件输出目录(实测 628KB),再由宿主的
+>   `PluginAssemblyLoadContext.LoadUnmanagedDll` 经插件自己的 `deps.json` 解析。
+> - **§五.1 的 `Close()` 死锁绕法比预案更彻底**:读取带 250ms 超时轮询,**关闭路径上没有
+>   任何唤醒动作** —— 读线程自己看到收摊标记后自己关端口。于是 #20362 与 #44952 都够不着。
+> - **§五.4「无法自动化验证」依然成立**:串口没有环回可用。字节路径(读循环、EOF 归一化、
+>   换行状态机、写序列化、控制线动作)靠 `FakeSerialPort` 替身钉住;端到端仍需真硬件或
+>   `socat` / `com0com`。
 
 ---
 

@@ -1609,14 +1609,14 @@ Paste anyway?</value>
   <data name="Profile_PrivateKeyFile" xml:space="preserve">
     <value>Private Key File</value>
   </data>
+  <data name="Profile_RefreshDevices" xml:space="preserve">
+    <value>Refresh device list</value>
+  </data>
   <data name="Profile_RememberPassword" xml:space="preserve">
     <value>Remember password</value>
   </data>
   <data name="Profile_SelectKeyFile" xml:space="preserve">
     <value>Select Private Key File</value>
-  </data>
-  <data name="Profile_Serial" xml:space="preserve">
-    <value>Serial</value>
   </data>
   <data name="Profile_SessionGroup" xml:space="preserve">
     <value>Session Group</value>

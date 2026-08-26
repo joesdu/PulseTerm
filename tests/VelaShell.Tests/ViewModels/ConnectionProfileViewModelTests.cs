@@ -82,6 +82,193 @@ public sealed class ConnectionProfileViewModelTests
         Assert.AreEqual("test.telnet", profile.PluginProtocolId);
     }
 
+    /// <summary>没有网络端点的终端协议(串口)替身,兼动态候选项来源。</summary>
+    private sealed class FakeSerialTerminal(params string[] ports)
+        : PluginSdk.Protocols.IProtocolTerminal, PluginSdk.Protocols.IProtocolChoiceSource
+    {
+        /// <summary>被问过几次候选项(用来验证刷新真的重取,而不是拿缓存糊弄)。</summary>
+        public int Queries { get; private set; }
+
+        /// <summary>下一次要给出的端口(模拟热插拔)。</summary>
+        public string[] Ports { get; set; } = ports;
+
+        public Task<PluginSdk.Protocols.IProtocolTerminalSession> ConnectAsync(
+            PluginSdk.Protocols.ProtocolConnectRequest request,
+            PluginSdk.Protocols.ProtocolTerminalOptions options,
+            CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task<IReadOnlyList<PluginSdk.Protocols.ProtocolSettingChoice>> GetChoicesAsync(
+            string fieldKey, CancellationToken cancellationToken = default)
+        {
+            Queries++;
+            return Task.FromResult<IReadOnlyList<PluginSdk.Protocols.ProtocolSettingChoice>>(
+                fieldKey == PluginSdk.Protocols.ProtocolDescriptor.HostFieldKey
+                    ? [.. Ports.Select(port => new PluginSdk.Protocols.ProtocolSettingChoice(port, $"Fake ({port})"))]
+                    : []);
+        }
+    }
+
+    private static Infrastructure.Plugins.Protocols.PluginProtocolRegistry RegisterSerial(
+        FakeSerialTerminal terminal, out IDisposable handle)
+    {
+        var registry = new Infrastructure.Plugins.Protocols.PluginProtocolRegistry();
+        handle = registry.Register("test.serial", new()
+        {
+            Id = "test.serial",
+            DisplayName = "串口",
+            DefaultPort = 22,
+            HostLabel = "串口设备",
+            HostKind = PluginSdk.Protocols.ProtocolSettingKind.DynamicChoice,
+            HostAllowsCustomValue = true,
+            Features = PluginSdk.Protocols.ProtocolFeatures.NoEndpoint
+                       | PluginSdk.Protocols.ProtocolFeatures.NoCredentials
+        }, terminal);
+        return registry;
+    }
+
+    [TestMethod]
+    public async Task PluginProtocol_WithoutAnEndpoint_HidesThePortColumnButKeepsTheButtonsUsable()
+    {
+        // 串口的目标不是 host:port:端口那一栏填什么都不会被用上,摆着只会让用户以为它有意义,
+        // 而且还留着上一个协议的残值。但它的**取值**必须照旧参与按钮判定 ——
+        // 收起一栏不该顺手把保存/连接按钮堵死。
+        var terminal = new FakeSerialTerminal("COM3");
+        Infrastructure.Plugins.Protocols.PluginProtocolRegistry registry = RegisterSerial(terminal, out IDisposable handle);
+        using (handle)
+        {
+            var vm = new ConnectionProfileViewModel(protocolRegistry: registry) { Host = "COM3" };
+
+            await vm.SelectPluginProtocolCommand.Execute("test.serial").FirstAsync();
+
+            Assert.IsFalse(vm.ShowPortField);
+            Assert.IsTrue(vm.Port is >= 1 and <= 65535, "端口仍是个合法值,只是不显示。");
+            SessionProfile? profile = await vm.SaveCommand.Execute().FirstAsync();
+            Assert.IsNotNull(profile, "没有端口栏,也必须存得下去。");
+            Assert.AreEqual("COM3", profile.Host, "设备名走的正是「主机」那一栏。");
+        }
+    }
+
+    [TestMethod]
+    public async Task PluginProtocol_WithADynamicHostColumn_FetchesTheChoicesWhenTheFormOpens()
+    {
+        var terminal = new FakeSerialTerminal("COM3", "COM7");
+        Infrastructure.Plugins.Protocols.PluginProtocolRegistry registry = RegisterSerial(terminal, out IDisposable handle);
+        using (handle)
+        {
+            var vm = new ConnectionProfileViewModel(protocolRegistry: registry) { Host = "COM3" };
+
+            await vm.SelectPluginProtocolCommand.Execute("test.serial").FirstAsync();
+
+            Assert.IsTrue(vm.HostIsEditableChoice, "可手输:枚举不到的设备也必须填得进去。");
+            Assert.IsTrue(vm.HostIsDynamicChoice, "动态:USB 转串口是热插拔的,得给刷新按钮。");
+            Assert.IsFalse(vm.HostIsText);
+            CollectionAssert.AreEqual(new[] { "COM3", "COM7" }, vm.HostChoices.Select(choice => choice.Value).ToArray());
+            Assert.AreEqual("串口设备", vm.HostLabel);
+        }
+    }
+
+    [TestMethod]
+    public async Task RefreshHostChoices_PicksUpADeviceThatWasPluggedInAfterTheDialogOpened()
+    {
+        // 这个按钮存在的全部理由:用户很可能是先打开连接对话框、才想起去插线。
+        var terminal = new FakeSerialTerminal("COM3");
+        Infrastructure.Plugins.Protocols.PluginProtocolRegistry registry = RegisterSerial(terminal, out IDisposable handle);
+        using (handle)
+        {
+            var vm = new ConnectionProfileViewModel(protocolRegistry: registry) { Host = "COM3" };
+            await vm.SelectPluginProtocolCommand.Execute("test.serial").FirstAsync();
+            terminal.Ports = ["COM3", "COM9"];
+
+            await vm.RefreshHostChoicesCommand.Execute().FirstAsync();
+
+            CollectionAssert.AreEqual(new[] { "COM3", "COM9" }, vm.HostChoices.Select(choice => choice.Value).ToArray());
+            Assert.AreEqual(2, terminal.Queries, "刷新必须是真的重取,而不是拿缓存糊弄。");
+        }
+    }
+
+    [TestMethod]
+    public async Task DynamicHostColumn_KeepsAStoredDeviceThatIsNotPluggedInRightNow()
+    {
+        // 一条存着 COM7 的配置在适配器没插的时候打开,值被悄悄改写成 COM3 再保存下去,
+        // 是一次**静默的数据损坏** —— 用户下次插上线才发现配置指到别处去了。
+        var terminal = new FakeSerialTerminal("COM3");
+        Infrastructure.Plugins.Protocols.PluginProtocolRegistry registry = RegisterSerial(terminal, out IDisposable handle);
+        using (handle)
+        {
+            var vm = new ConnectionProfileViewModel(protocolRegistry: registry) { Host = "COM7" };
+
+            await vm.SelectPluginProtocolCommand.Execute("test.serial").FirstAsync();
+
+            Assert.AreEqual("COM7", vm.Host);
+            Assert.IsNull(vm.SelectedHostChoice, "对不上候选项就是没有选中项,当前值由文本框自己显示。");
+            SessionProfile? profile = await vm.SaveCommand.Execute().FirstAsync();
+            Assert.AreEqual("COM7", profile!.Host);
+        }
+    }
+
+    [TestMethod]
+    public async Task SwitchingBackToSsh_RestoresThePlainHostTextBoxAndThePortColumn()
+    {
+        var terminal = new FakeSerialTerminal("COM3");
+        Infrastructure.Plugins.Protocols.PluginProtocolRegistry registry = RegisterSerial(terminal, out IDisposable handle);
+        using (handle)
+        {
+            var vm = new ConnectionProfileViewModel(protocolRegistry: registry) { Host = "COM3" };
+            await vm.SelectPluginProtocolCommand.Execute("test.serial").FirstAsync();
+
+            await vm.SelectConnectionTypeCommand.Execute(ConnectionType.SSH).FirstAsync();
+
+            Assert.IsTrue(vm.ShowPortField);
+            Assert.IsTrue(vm.HostIsText, "切回 SSH 后主机那格必须是普通文本框,不能还挂着串口下拉。");
+            Assert.IsEmpty(vm.HostChoices);
+        }
+    }
+
+    [TestMethod]
+    public void EditableChoiceField_DoesNotRewriteAValueThatIsNotInTheList()
+    {
+        // 波特率:表里给九个常用值,但 250000(Marlin 固件)得填得进去 ——
+        // 把表当白名单等于告诉这些用户"本工具不支持你的设备"。
+        var field = new PluginProtocolFieldViewModel(new()
+        {
+            Key = "baudRate",
+            Label = "波特率",
+            Kind = PluginSdk.Protocols.ProtocolSettingKind.Choice,
+            AllowsCustomValue = true,
+            DefaultValue = "115200",
+            Choices = [new("9600", "9600"), new("115200", "115200")]
+        }, "250000");
+
+        Assert.AreEqual("250000", field.Text);
+        Assert.IsTrue(field.IsEditableChoice);
+        Assert.IsFalse(field.IsChoice);
+        Assert.IsNull(field.SelectedChoice);
+    }
+
+    [TestMethod]
+    public void ReadOnlyChoiceField_StillNormalisesAValueThatIsNotInTheList()
+    {
+        // 封闭枚举的老行为不变:值对不上就归一到第一项,免得下拉空着没法解释。
+        var field = new PluginProtocolFieldViewModel(new()
+        {
+            Key = "parity",
+            Label = "校验位",
+            Kind = PluginSdk.Protocols.ProtocolSettingKind.Choice,
+            Choices = [new("none", "无"), new("even", "偶校验")]
+        }, "whatever");
+
+        Assert.AreEqual("none", field.Text);
+    }
+
+    [TestMethod]
+    public void ChoiceItem_StringifiesToTheStoredValue()
+    {
+        // 可编辑下拉在用户选中一项时,会拿 item.ToString() 去填那个文本框 ——
+        // 而那就是接下来落盘的值。返回展示文案的话,存进配置的会是
+        // "USB-SERIAL CH340 (COM3)" 这种打不开的东西。
+        Assert.AreEqual("COM3", new PluginChoiceItem("COM3", "USB-SERIAL CH340 (COM3)").ToString());
+    }
+
     /// <summary>
     /// 声明了显示条件的字段只在条件成立时出现,并且**改一下就跟着变** ——
     /// 这正是它要解决的问题:Redis 的「主节点名」只有哨兵模式有意义,

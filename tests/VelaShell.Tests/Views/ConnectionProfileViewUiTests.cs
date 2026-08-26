@@ -45,18 +45,19 @@ public sealed class ConnectionProfileViewUiTests
                 .OfType<Button>()
                 .Where(button => button.Classes.Contains("proto-tab"))
                 .ToList();
-            // SSH / SFTP / FTP 三个内建可点页签;S3 与 Telnet 现在都由插件贡献,
-            // 没装插件(单测宿主就是这种)时不出现。只剩串口一个禁用的 Border。
+            // SSH / SFTP / FTP 三个内建可点页签;S3、Telnet、串口现在都由插件贡献,
+            // 没装插件(单测宿主就是这种)时不出现。
             Assert.HasCount(3, protocolButtons);
             Assert.IsTrue(protocolButtons.All(button => button.IsTabStop));
             AssertProtocolTabMotion(protocolButtons);
 
+            // 禁用的占位页签一个都不该剩下:最后一个(串口)已由 velashell.serial 插件接管,
+            // 宿主至此不再认识任何一种具体协议。
             var legacyProtocols = window.GetVisualDescendants()
                 .OfType<Border>()
                 .Where(border => border.Classes.Contains("proto-tab"))
                 .ToList();
-            Assert.HasCount(1, legacyProtocols);
-            Assert.IsTrue(legacyProtocols.All(border => !border.IsEnabled));
+            Assert.IsEmpty(legacyProtocols);
 
             TextBox passwordBox = window.GetVisualDescendants()
                 .OfType<TextBox>()
@@ -206,6 +207,49 @@ public sealed class ConnectionProfileViewUiTests
             Point origin = connect.TranslatePoint(default, window) ?? default;
             Assert.IsLessThanOrEqualTo(window.Bounds.Height + 0.5, origin.Y + connect.Bounds.Height,
                 "「连接」按钮必须留在窗口可视区域内。");
+
+            window.Close();
+        }, CancellationToken.None).GetAwaiter().GetResult();
+    }
+
+    /// <summary>
+    /// 可编辑下拉在用户选中一项之后,文本框里必须是**落盘值**。
+    /// <para>
+    /// 串口的端口下拉整个设计都压在这一条上:列表里显示的是
+    /// "USB-SERIAL CH340 (COM3)",而绑到 <c>Host</c> 上、接下来要拿去打开端口的必须是
+    /// <c>COM3</c>。Avalonia 的可编辑 ComboBox 填文本框时用的是 <c>item.ToString()</c> ——
+    /// 所以宿主侧包了一层 <see cref="PluginChoiceItem" /> 把 <c>ToString</c> 定成落盘值。
+    /// 这条用例钉的就是"那个假设成立"。直接把 SDK 的 record 丢进去,存下来的会是
+    /// <c>ProtocolSettingChoice { Value = COM3, … }</c>。
+    /// </para>
+    /// </summary>
+    [TestMethod]
+    public void EditableComboBox_PutsTheStoredValueInTheTextBox_NotTheDisplayLabel()
+    {
+        _session.Dispatch(() =>
+        {
+            var combo = new ComboBox
+            {
+                IsEditable = true,
+                ItemsSource = new[]
+                {
+                    new PluginChoiceItem("COM3", "USB-SERIAL CH340 (COM3)"),
+                    new PluginChoiceItem("COM7", "Prolific USB-to-Serial (COM7)")
+                }
+            };
+            var window = new Window { Content = combo, Width = 320, Height = 120 };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            combo.SelectedIndex = 1;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.AreEqual("COM7", combo.Text);
+
+            // 反向:填一个列表里没有的设备(适配器没插、容器里映射进来的口)照旧留得住。
+            combo.Text = "/dev/ttyS10";
+            Dispatcher.UIThread.RunJobs();
+            Assert.AreEqual("/dev/ttyS10", combo.Text);
 
             window.Close();
         }, CancellationToken.None).GetAwaiter().GetResult();
