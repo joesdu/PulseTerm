@@ -116,6 +116,7 @@ public class FileBrowserViewModel : ReactiveObject
         CopyToCommand = ReactiveCommand.CreateFromTask<RemoteFileInfoViewModel>(CopyToAsync);
         CopyPathCommand = ReactiveCommand.CreateFromTask<RemoteFileInfoViewModel>(CopyPathAsync);
         CopyNameCommand = ReactiveCommand.CreateFromTask<RemoteFileInfoViewModel>(CopyNameAsync);
+        CopyCurrentPathCommand = ReactiveCommand.CreateFromTask(CopyCurrentPathAsync);
         InvokeProtocolActionCommand = ReactiveCommand.CreateFromTask<ProtocolActionViewModel>(InvokeProtocolActionAsync);
         PropertiesCommand = ReactiveCommand.CreateFromTask<RemoteFileInfoViewModel>(
             ShowPropertiesAsync
@@ -842,6 +843,13 @@ public class FileBrowserViewModel : ReactiveObject
 
     /// <summary>把选中条目的名称复制到剪贴板。</summary>
     public ReactiveCommand<RemoteFileInfoViewModel, RxVoid> CopyNameCommand { get; }
+
+    /// <summary>
+    /// 把<b>当前所在目录</b>的完整远程路径复制到剪贴板(空白区右键)。
+    /// 与 <see cref="CopyPathCommand" /> 的区别是它不需要选中任何条目 ——
+    /// 否则想拿当前目录的路径就得先退回上级、再右键那个文件夹。
+    /// </summary>
+    public ReactiveCommand<RxVoid, RxVoid> CopyCurrentPathCommand { get; }
 
     /// <summary>
     /// 执行一条协议专属动作(插件协议贡献的右键菜单项,如 S3 的「复制分享链接」)。
@@ -2891,6 +2899,15 @@ public class FileBrowserViewModel : ReactiveObject
             return;
         }
         await CopyToClipboard(file.Name);
+    }
+
+    private async Task CopyCurrentPathAsync(CancellationToken ct = default)
+    {
+        if (CopyToClipboard is null || string.IsNullOrEmpty(CurrentPath))
+        {
+            return;
+        }
+        await CopyToClipboard(CurrentPath);
     }
 
     /// <summary>

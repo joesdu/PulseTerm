@@ -509,6 +509,15 @@
                                  Foreground="{DynamicResource VelaTextTertiary}" />
                 </MenuItem.Icon>
               </MenuItem>
+              <Separator />
+              <!-- 复制「当前所在目录」的路径。条目菜单里的「复制路径」需要先选中某一行,
+                   拿当前目录的路径就得先退回上级再右键它;这一项省掉那趟往返。 -->
+              <MenuItem Header="{loc:Localize CopyCurrentFolderPath}" Command="{Binding CopyCurrentPathCommand}">
+                <MenuItem.Icon>
+                  <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.copy}"
+                                 Foreground="{DynamicResource VelaTextTertiary}" />
+                </MenuItem.Icon>
+              </MenuItem>
             </ContextMenu>
           </ListBox.ContextMenu>
           <ListBox.ItemTemplate>

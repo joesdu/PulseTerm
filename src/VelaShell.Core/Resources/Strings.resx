@@ -668,6 +668,9 @@
   <data name="SftpCopyToPrompt" xml:space="preserve">
     <value>Enter destination path for copy</value>
   </data>
+  <data name="CopyCurrentFolderPath" xml:space="preserve">
+    <value>Copy Current Folder Path</value>
+  </data>
   <data name="CopyFilePath" xml:space="preserve">
     <value>Copy Path</value>
   </data>

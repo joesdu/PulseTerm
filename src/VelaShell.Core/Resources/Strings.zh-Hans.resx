@@ -760,6 +760,9 @@
   <data name="SftpCopyToPrompt" xml:space="preserve">
     <value>输入复制目标路径</value>
   </data>
+  <data name="CopyCurrentFolderPath" xml:space="preserve">
+    <value>复制当前文件夹路径</value>
+  </data>
   <data name="CopyFilePath" xml:space="preserve">
     <value>复制文件路径</value>
   </data>
