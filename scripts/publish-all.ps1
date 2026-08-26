@@ -6,13 +6,12 @@
 #       都是 macOS 独有工具。tar.gz 是应用内更新器的资产,dmg 只供人工安装,
 #       latest.json 永远只指向 tar.gz,详见 release.yml 文件头"macOS 双产物分工")
 #   Linux  x64 / arm64 含运行时 → tar.gz
-# 每份产物内含 plugins/<目录名>/(目录名 = 插件 id 把点换成短横),两个来源:
-#   ① AI 插件(velashell.ai)在本仓库 plugins/ 下,随 publish 一起构建;
-#   ② Redis / S3 / Telnet 在第一方插件仓库 joesdu/velashell-plugins,以 Release 资产
-#      velashell-plugins-<版本>.zip 交付 —— 本脚本在 publish 之前跑 scripts/Fetch-Plugins.ps1
-#      按 Directory.Build.props 的 VelaPluginsBundleVersion 取回解到 artifacts/plugins/。
-#   MSBuild 在发布期把两边一起登记入包。哪个插件进包由各插件的 <VelaPluginShip> 把关
-#   (示例插件 velashell.hello-world 设了 false,不进任何发行产物)。
+# 每份产物内含 plugins/<目录名>/(目录名 = 插件 id 把点换成短横),来源是本仓库 plugins/ 下
+#   自建的 AI 插件(velashell.ai),随 publish 一起构建。
+#   Redis / S3 / Telnet 住在 joesdu/velashell-plugins,2026-08-22 起不再随发行包预装 ——
+#   用户按需从插件商店 https://market.easilynet.top 自行安装。想让本机产物也带上它们,
+#   自己把插件目录铺进 artifacts/plugins/(或 -p:VelaPluginsStageDir=<目录>),
+#   MSBuild 发布期会把它一并登记入包。哪个插件进包由各插件的 <VelaPluginShip> 把关。
 #   latest.json    — 应用内自更新清单(版本/标签/各 RID 产物名+sha256+大小)
 #   SHA256SUMS.txt — 全部产物校验和
 # 注意:tar 在 Windows 上不保留 Unix 可执行位,本脚本产出的 tar.gz 解包后需
@@ -39,10 +38,6 @@ $targets = @(
     @{ Rid = 'linux-x64';   Archive = 'targz' }
     @{ Rid = 'linux-arm64'; Archive = 'targz' }
 )
-
-# 第一方插件:按 pin 的版本取回到 artifacts/plugins/,发布期由 MSBuild 登记入包。
-# 取不到会直接抛 —— 发行包不接受没插件的形态(publish 那一步也会自己再拦一道)。
-& (Join-Path $PSScriptRoot 'Fetch-Plugins.ps1')
 
 if (Test-Path $outRoot) { Remove-Item $outRoot -Recurse -Force }
 New-Item -ItemType Directory -Force $outRoot | Out-Null

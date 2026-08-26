@@ -212,7 +212,6 @@ Add a binding without registering it and `ShortcutCatalogTests` fails, printing 
 |---|---|
 | `Version` in `Directory.Build.props` | Overridden from the Release tag via `-p:Version` at publish time; editing it fights the pipeline |
 | Any `*.snk` | Keys are not committed; CI injects them |
-| `VelaPluginsBundleVersion` | A Release pin for another repository, with specific pitfalls documented in the comment — do not casually bump it |
 | The artifact layout in `.github/workflows/release.yml` | The macOS `tar.gz` / `dmg` split is tightly coupled to `latest.json`; getting it wrong silently breaks self-update |
 
 Dependency bumps are Dependabot's job (configured for daily NuGet and GitHub Actions checks) — no manual bump PRs needed.

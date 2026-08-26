@@ -217,7 +217,6 @@ README 同理:`README.md` ↔ `README.en.md`。
 |---|---|
 | `Directory.Build.props` 里的 `Version` | 发版时由 Release 标签经 `-p:Version` 覆盖,手改会和流水线打架 |
 | 任何 `*.snk` | 密钥不入库,由 CI 注入 |
-| `VelaPluginsBundleVersion` | 指向另一个仓库的 Release pin,有具体的坑(注释里写了),别顺手升 |
 | `.github/workflows/release.yml` 的产物布局 | macOS 的 `tar.gz` / `dmg` 分工和 `latest.json` 强耦合,改错会让自更新静默失效 |
 
 依赖升级交给 Dependabot(已配置为每日检查 NuGet 与 GitHub Actions),不用手动提 bump PR。

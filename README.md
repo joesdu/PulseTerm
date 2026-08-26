@@ -4,7 +4,7 @@
 
 **简体中文** · [English](README.en.md)
 
-VelaShell 是一个使用 .NET 11 与 Avalonia 构建的桌面终端应用，支持 Windows、Linux 与 macOS。它内置自研 VT 终端引擎、SSH/SFTP/FTP 连接、本地终端标签、跳板机（ProxyJump）、两步身份验证与主机指纹校验、端口转发隧道、分组会话管理、自研 VelaDock 可拖拽分屏、资源监视与路由追踪、命令面板与十一页设置中心；并带有一套**双模插件系统**（进程内 / 独立进程）与第一方 **AI 助手插件**。全部数据经嵌入式 SonnetDB 加密持久化。旨在为高频远程操作提供**键盘优先、信息密度高、响应迅速**的使用体验。
+VelaShell 是一个使用 .NET 11 与 Avalonia 构建的桌面终端应用，支持 Windows、Linux 与 macOS。它内置自研 VT 终端引擎、SSH/SFTP/FTP 连接、本地终端标签、跳板机（ProxyJump）与网络代理（HTTP / SOCKS5 / 跟随系统）、两步身份验证与主机指纹校验、端口转发隧道、分组会话管理、自研 VelaDock 可拖拽分屏、资源监视与路由追踪、命令面板与十二页设置中心；还能按 Xshell 的调用约定被堡垒机 / SSO 门户外部拉起。另带一套**双模插件系统**（进程内 / 独立进程）与第一方 **AI 助手插件**。全部数据经嵌入式 SonnetDB 加密持久化。旨在为高频远程操作提供**键盘优先、信息密度高、响应迅速**的使用体验。
 
 ---
 
@@ -29,7 +29,7 @@ VelaShell 是一个使用 .NET 11 与 Avalonia 构建的桌面终端应用，支
 | **当前版本** | `v0.0.1-dev`（活跃开发中，版本号单一来源见 `Directory.Build.props`；发版时由 Release 标签经 `-p:Version` 覆盖） |
 | **平台** | Windows 10 / 11 · Linux · macOS（x64 / arm64） |
 | **运行时** | .NET 11 + Avalonia 12.1，Self-contained 发布（免装 Runtime） |
-| **界面语言** | 简体中文 / English / 繁體中文 / 日本語 / 한국어（1234 键五语齐平） |
+| **界面语言** | 简体中文 / English / 繁體中文 / 日本語 / 한국어（五语键集完全一致，由 `LocalizedKeyUsageTests` / `UnusedLocalizedKeyTests` 守住，漏译与孤儿键都会让测试变红） |
 | **许可证** | 双许可：[AGPL-3.0](LICENSE) / [商业授权](LICENSE-COMMERCIAL.md) · © 2026 VelaShell 作者及贡献者 |
 
 ---
@@ -39,13 +39,19 @@ VelaShell 是一个使用 .NET 11 与 Avalonia 构建的桌面终端应用，支
 ### 终端与连接
 
 - **自研 VT 终端引擎**  
-  完整实现 DEC ANSI / VT / Xterm 状态机，支持 256 色、真彩色、DEC 线绘字符、主/备屏、滚动区、应用光标键、鼠标协议、CJK 双宽字符与动态编码切换。内置十种终端 profile（vt52/100/102/220/320/340/420/520/xterm/xterm-256color），默认 xterm-256color。终端为自绘 Avalonia 控件，字形、选区与滚动全部自行渲染。
+  完整实现 DEC ANSI / VT / Xterm 状态机，支持 256 色、真彩色、DEC 线绘字符、主/备屏、滚动区、应用光标键、鼠标协议、CJK 双宽字符与动态编码切换。内置十种终端 profile（vt52/100/102/220/320/340/420/520/xterm/xterm-256color），默认 xterm-256color。终端为自绘 Avalonia 控件，字形、选区与滚动全部自行渲染；选区支持行/块两种模式、`Shift+左键`扩展，以及 `Ctrl+Shift+拖拽`追加的**多段不连续选区**（可一次复制第 1 行 + 第 3 行）。
 
 - **SSH、SFTP 与本地终端**  
   基于 [Tmds.Ssh](https://github.com/tmds/Tmds.Ssh)（全托管、async-first 的 .NET SSH 库）实现 Shell、SFTP 文件传输与端口转发。支持密码与私钥认证，缺少凭据时自动进入两步身份验证流程（用户名 → 认证方式），认证失败可原地重试。另有**本地终端标签**（pwsh / PowerShell / CMD / WSL / Git Bash 自动探测）—— 经 ConPTY 实现，**目前仅 Windows** 可用。
 
 - **跳板机（ProxyJump）**  
   一条会话可引用另一条已保存配置作跳板，支持链式多段跳转（≤5 跳、带环检测）；由 Tmds.Ssh 原生 `SshProxy` 逐跳建链，指纹按各跳逻辑主机分别校验。
+
+- **网络代理**  
+  全局代理设置（设置 → 代理）：直连 / 跟随系统 / HTTP CONNECT / SOCKS5，支持代理认证，SOCKS5 可选由代理侧解析 DNS（不泄露目标域名）。作用于**全应用出站流量** —— SSH、FTP，以及云同步与更新检查等 HTTP 请求。
+
+- **Xshell 兼容登录（外部拉起）**  
+  可按 Xshell（及 SecureCRT / PuTTY）的调用约定被第三方安全客户端拉起：堡垒机 / SSO 门户网页上点「用终端打开」，一次性口令直接交给 VelaShell 完成登录，用户全程不接触密码。含 URL 协议注册与单实例转发；威胁模型与凭据处置见 [`docs/Xshell兼容登录.md`](docs/Xshell兼容登录.md)。
 
 - **ZMODEM（rz / sz）/ XMODEM（rx / sx）/ YMODEM（rb / sb）**  
   终端内直接收发文件，三种协议均为自研引擎、收发双向、传输无关（SSH / 本地 ConPTY 通用）。ZMODEM **自动接管**：从输出流中识别引导序列后接管通道，结束自动复位回终端；XMODEM / YMODEM 在链路上没有可识别的引导序列，只能从**命令面板**（Ctrl+P → 「文件传输」）手动发起——先在远端敲好 `sb`/`rb`，再点对应命令。YMODEM 支持批量与 YMODEM-G 流式变体。排障可置 `VELASHELL_TRANSFER_TRACE=1`（旧名 `VELASHELL_ZMODEM_TRACE=1` 仍可用）打开协议帧跟踪。
@@ -94,10 +100,10 @@ VelaShell 是一个使用 .NET 11 与 Avalonia 构建的桌面终端应用，支
   插件经 `IPluginContext` 访问宿主能力：`Sessions`（会话枚举/状态）、`Terminal`（读输出/写输入）、`RemoteFs`（远端文件读写与目录列举）、`RemoteExec`（远端命令执行）、`Storage` 与 `TimeSeries`（插件私有的文档与时序存储）、`Secrets`（经宿主加密的机密）、`Commands`（注册命令与快捷入口）、`Events`（会话/语言/主题事件）、`Ui`（面板：停靠文档或独立窗口）、`Clipboard`、`Log`。危险能力经权限对话框逐项授权。
 
 - **打包与管理**  
-  插件以 `.vpx` 包分发，独立的插件管理窗口可安装/启停/卸载；卸载时其私有数据（SonnetDB 命名空间与数据目录）一并清理。SDK 另提供测试替身（`VelaShell.PluginSdk.Testing`），插件可在 headless 下自测。第三方开发者一条命令即可断点调试（`vela-plugin dev init` → F5），详见 [开发指南](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/dev-guide.md)、[命令行手册](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/cli.md)、[SDK 参考](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/sdk-reference.md)与[打包发布](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/publishing.md)；插件商店：<http://market.easilynet.top>。完整蓝图见 [`docs/plugins/`](docs/plugins/)（15 篇设计 + [进度总览](docs/plugins/STATUS.md)）。
+  插件以 `.vpx` 包分发，独立的插件管理窗口可安装/启停/卸载；卸载时其私有数据（SonnetDB 命名空间与数据目录）一并清理。SDK 另提供测试替身（`VelaShell.PluginSdk.Testing`），插件可在 headless 下自测。第三方开发者一条命令即可断点调试（`vela-plugin dev init` → F5），详见 [开发指南](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/dev-guide.md)、[命令行手册](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/cli.md)、[SDK 参考](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/sdk-reference.md)与[打包发布](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/publishing.md)；插件商店：<https://market.easilynet.top>。完整蓝图见 [`docs/plugins/`](docs/plugins/)（15 篇设计 + [进度总览](docs/plugins/STATUS.md)）。
 
 - **AI 助手插件（第一方）**  
-  多提供商流式对话：OpenAI Responses / OpenAI Chat Completions 兼容 / Anthropic Messages 三种线协议，覆盖 OpenAI、Grok、Ollama 与各类中转站，Base URL 与 API Key 自填（Key 走宿主加密机密存储）。**Agent 模式**基于 Microsoft.Extensions.AI 的 `FunctionInvokingChatClient` 工具循环，工具桥接到 sessions / terminal / remoteExec / remoteFs，危险操作面板内逐条审批；可挂接自定义 **MCP 服务器**（stdio / HTTP）扩展工具集。对话落插件私有时序库，历史可翻回、可续聊、可删除；输入框 ↑↓ 调历史，`@` 唤出所选会话的远端文件选择器，发送时把文件内容随消息附给模型。输入框本身是带 **Markdown 着色**的编辑器，`@` 引用显示为主题色短名芯片（悬停给全路径），消息气泡按 Markdown 渲染。
+  多提供商流式对话：OpenAI Responses / OpenAI Chat Completions 兼容 / Anthropic Messages 三种线协议，覆盖 OpenAI、Grok、Ollama 与各类中转站，Base URL 与 API Key 自填（Key 走宿主加密机密存储）。**Agent 模式**基于 Microsoft.Extensions.AI 的 `FunctionInvokingChatClient` 工具循环，工具桥接到 sessions / terminal / remoteExec / remoteFs，危险操作面板内逐条审批；可挂接自定义 **MCP 服务器**（stdio / HTTP）扩展工具集。另带**网页检索与抓取**工具（默认走公共 SearXNG 实例，可换成自建），让模型在回答前先查资料。Agent 跑动过程中还能**插话**：新消息进队列即时排上，不必等当前回合结束。对话落插件私有时序库，历史可翻回、可续聊、可删除；输入框 ↑↓ 调历史，`@` 唤出所选会话的远端文件选择器，发送时把文件内容随消息附给模型。输入框本身是带 **Markdown 着色**的编辑器，`@` 引用显示为主题色短名芯片（悬停给全路径），消息气泡按 Markdown 渲染。
 
 ### 数据、外观与更新
 
@@ -108,13 +114,13 @@ VelaShell 是一个使用 .NET 11 与 Avalonia 构建的桌面终端应用，支
   应用设置、连接配置（含分组与端口转发隧道）与代码片段同步到你自己账号下的私密 Gist，多设备无缝漫游；每次同步即一个可回溯的历史版本，支持任意版本恢复；可选口令端到端加密（PBKDF2 + AES-256-GCM），未启用加密时凭据绝不上传。
 
 - **设置中心**  
-  十一个设置页面：常规、外观、终端、密钥管理、快捷键、文件传输、安全审计、代码片段、云同步、关于、支持与捐赠。密钥管理可直接枚举 `~/.ssh` 密钥（类型 + SHA256 指纹）、生成 RSA 密钥对、导入与复制公钥。
+  十二个设置页面：常规、外观、终端、代理、密钥管理、快捷键、文件传输、安全审计、代码片段、云同步、关于、支持与捐赠。密钥管理可直接枚举 `~/.ssh` 密钥（类型 + SHA256 指纹）、生成 RSA 密钥对、导入与复制公钥。快捷键页由 `ShortcutCatalog` 单一来源生成，与 [`docs/快捷键参考.md`](docs/快捷键参考.md) 同源。
 
 - **深色 / 浅色 / 系统主题**  
   设计 Token 化，无硬编码颜色，支持运行时切换；终端配色未自定义时随主题联动（暗=Dracula / 亮=Solarized Light）。滚动条为 Windows 11 风格两态实现（静止细条，悬停出滑道与箭头）。
 
 - **内置终端字体**  
-  随包内置 Cascadia Mono 四档字重作为终端默认字体，三平台字形一致；CJK 走系统回退。
+  随包内置 Cascadia Mono 四款字形（常规 / 粗体 / 斜体 / 粗斜体）作为终端默认字体，三平台字形一致；CJK 走系统回退。
 
 - **实时状态栏**  
   连接状态、延迟、运行时长、终端尺寸、编码、CPU / 内存 / 网速一目了然。
@@ -151,9 +157,6 @@ VelaShell 是一个使用 .NET 11 与 Avalonia 构建的桌面终端应用，支
 git clone https://github.com/joesdu/VelaShell
 cd VelaShell
 
-# 取回随包分发的第一方插件（AI / Redis / S3 / Telnet，来自插件工具链仓库的 Release）
-pwsh scripts/Fetch-Plugins.ps1
-
 # 构建整个解决方案（含插件宿主）
 dotnet build
 
@@ -161,7 +164,11 @@ dotnet build
 dotnet build src/VelaShell/VelaShell.csproj
 ```
 
-> 取回的插件落在 `artifacts/plugins/`，构建时自动镜像到应用输出目录的 `plugins/<插件目录名>/`，F5 即可加载。不跑这一步照样能构建能跑，只是启动后一个插件都没有；`dotnet publish` 则会直接失败——发行包不接受没插件的形态。**应用正在运行时构建会因文件占用失败**，先关掉应用。
+> 干净克隆构建出来只带本仓库自建的 **AI 插件**。想在本机连同 Redis / S3 / Telnet 一起跑，把它们的插件目录铺进 `artifacts/plugins/`（或用 `-p:VelaPluginsStageDir=<目录>` 指别处）—— 构建时会自动镜像到应用输出目录的 `plugins/<插件目录名>/`，F5 即可加载。`dotnet publish` 仅在自建插件与暂存目录**两边都空**时才失败，发行包不接受「插件系统看着在、实则没插件」。
+>
+> 自 2026-08-22 起**发布流水线不再预装** Redis / S3 / Telnet（不是每个人都要连 Redis、开 S3、拨 Telnet），改由用户按需从[插件商店](https://market.easilynet.top)自行安装。暂存目录纯属本机行为：铺过之后你本机 `dotnet publish` 出来的包会把它们一并打进去，只影响你自己的产物。
+>
+> **应用正在运行时构建会因文件占用失败**，先关掉应用。
 
 ### 运行
 
@@ -176,7 +183,7 @@ dotnet publish src/VelaShell/VelaShell.csproj -c Release -r win-x64 --self-conta
 ### 启动测试 SSH 服务器
 
 ```bash
-docker-compose -f docker-compose.test.yml up
+docker compose -f docker-compose.test.yml up -d
 # 用户名：testuser，密码：testpass
 # 端口：2222
 ```
@@ -204,7 +211,7 @@ docker-compose -f docker-compose.test.yml up
 pwsh scripts/publish-all.ps1
 ```
 
-产物覆盖 Windows x64/arm64（便携 zip）、macOS 与 Linux x64/arm64（tar.gz），全部为含运行时的自包含发布，解压到任意目录即可运行，无需预装 .NET。包内除主程序外还带着隔离插件的宿主进程 `VelaShell.PluginHost` 与随包分发的插件目录 `plugins/`。macOS 的 `.dmg` 拖装包只在 CI 的 macOS runner 上生成（`hdiutil`/`iconutil`/`codesign` 是 macOS 独有工具）；**自动更新永远只取 tar.gz**，dmg 仅供人工安装。
+产物覆盖 Windows x64/arm64（便携 zip）、macOS 与 Linux x64/arm64（tar.gz），全部为含运行时的自包含发布，解压到任意目录即可运行，无需预装 .NET。包内除主程序外还带着隔离插件的宿主进程 `VelaShell.PluginHost`，以及只放着自建 AI 插件的 `plugins/` 目录（Redis / S3 / Telnet 自 2026-08-22 起不再预装，改由用户从插件商店按需安装）。macOS 的 `.dmg` 拖装包只在 CI 的 macOS runner 上生成（`hdiutil`/`iconutil`/`codesign` 是 macOS 独有工具）；**自动更新永远只取 tar.gz**，dmg 仅供人工安装。
 
 > 从 Microsoft Store 安装的版本（MSIX）更新由商店接管，应用内的更新操作会自动隐藏。商店版装在只读的 `WindowsApps` 下，数据目录被系统重定向到包私有位置，因此**与便携版的配置、会话、密钥互不相通**。
 
@@ -229,11 +236,10 @@ VelaShell/
 │   ├── VelaShell.Infrastructure/   # SSH/SFTP/FTP/隧道实现、SonnetDB 持久化、AES-256 凭据加密、
 │   │                               # Gist 同步、插件管理与能力实现
 │   └── VelaShell.PluginHost/       # 隔离插件的宿主进程（命名管道 RPC，只依赖 SDK 契约）
-├── tests/                          # 6 个 MSTest 项目：单元、集成、UI 与冒烟测试
+├── tests/                          # 7 个 MSTest 项目：单元、集成、UI 与冒烟测试
 │   └── fixtures/                   # 插件运行时用例的夹具插件（非示例代码，见其 README）
 ├── docs/                           # 架构设计、UI 规格、设置审计、插件蓝图与交互说明
 ├── scripts/publish-all.ps1         # 跨平台一键发布脚本
-├── scripts/Fetch-Plugins.ps1       # 取回随包分发的第一方插件（见下方「插件工具链」）
 ├── docker-compose.test.yml         # 本地 SSH 测试服务器
 ├── global.json                     # SDK 版本锁定
 ├── Directory.Build.props           # 全仓版本与公共 MSBuild 属性
@@ -243,34 +249,35 @@ VelaShell/
 
 > 每个源项目与测试项目均带有独立 `README.md`，说明该项目的架构、目录职责与依赖关系。入口项目实际名为 `VelaShell`（历史文档中的 `VelaShell.App` 为旧别名）。
 
-### 🧩 插件工具链在另一个仓库
+### 🧩 三个仓库各管一摊
 
-插件 SDK、`dotnet new` 模板、`vela-plugin` 命令行与 Redis / S3 / Telnet 插件（及 HelloWorld
-示例）已于 2026-08-21 拆到
-**[joesdu/velashell-plugin-toolchain](https://github.com/joesdu/velashell-plugin-toolchain)**。
+插件相关的东西已经拆出去了，现在是三个仓库分工：
+
+| 仓库 | 管什么 | 怎么交付到本仓库 |
+| --- | --- | --- |
+| **joesdu/VelaShell**（本仓库） | 主程序 + 宿主侧插件运行时 + 自建的 AI 插件 | — |
+| **[joesdu/velashell-plugin-toolchain](https://github.com/joesdu/velashell-plugin-toolchain)** | 插件 SDK、`dotnet new` 模板、`vela-plugin` 命令行 | `VelaShell.PluginSdk` / `.Testing` **NuGet 包** |
+| **[joesdu/velashell-plugins](https://github.com/joesdu/velashell-plugins)** | Redis / S3 / Telnet 插件（及 HelloWorld 示例） | `velashell-plugins-<版本>.zip` **Release 资产** |
+
+> 拆分是分两步走的：2026-08-21 先把 SDK、工具链与插件一起搬到工具链仓库，2026-08-22 又把插件
+> 从中独立出来 —— 工具链仓库从此只管 SDK 与工具链，不再产出插件分发包。老文档里「插件在工具链
+> 仓库」的说法已经作废。
 
 **AI 插件是例外**：它留在本仓库的 [`plugins/VelaShell.Plugin.Ai/`](plugins/VelaShell.Plugin.Ai)，
-是随主程序一起构建、一起发布的第一方插件——它与宿主耦合最紧（借宿主的 AvaloniaEdit 作输入框、
-必须进程内装载、Avalonia 版本必须与宿主逐字一致），理由见
+随主程序一起构建、一起发布 —— 它与宿主耦合最紧，且那些耦合点都是**编译期**的（借宿主的
+AvaloniaEdit 作输入框、必须进程内装载、Avalonia 版本必须与宿主逐字一致），理由见
 [`plugins/README.md`](plugins/README.md)。
 
-| 消费方式 | pin 在哪 |
-| --- | --- |
-| `VelaShell.PluginSdk` / `.Testing` NuGet 包（编译期契约） | `src/Directory.Packages.props`、`tests/Directory.Packages.props`（都是具体版本号） |
-| `velashell-plugins-<版本>.zip` Release 资产（Redis / S3 / Telnet） | `Directory.Build.props` 的 `VelaPluginsBundleVersion` |
+SDK 契约的版本 pin 在 `src/Directory.Packages.props` 与 `tests/Directory.Packages.props`
+（都是具体版本号）。插件二进制本仓库不 pin —— 它们不进发行包，也就没有需要锁的版本。
 
-克隆之后先取一次那批插件，否则启动起来只装得上 AI 一个：
+想在本机连同 Redis / S3 / Telnet 一起跑，把它们的插件目录铺进**暂存目录** `artifacts/plugins/`：
+可以解 [joesdu/velashell-plugins](https://github.com/joesdu/velashell-plugins) 的 Release 资产
+`velashell-plugins-<版本>.zip`（包内布局就是安装包 `plugins/` 那一层），也可以直接指向那边的
+构建产物。要改指别处就传 `-p:VelaPluginsStageDir=<目录>`。
 
-```powershell
-pwsh scripts/Fetch-Plugins.ps1
-```
-
-要在本机改 Redis / S3 / Telnet，把工具链仓库也克隆下来，就地构建它们、不走网络
-（脚本会自动丢掉包里的 `velashell-ai`——那一份由本仓库自己构建）：
-
-```powershell
-pwsh scripts/Fetch-Plugins.ps1 -FromToolchain G:\velashell-plugin-toolchain
-```
+> ⚠️ 别把 `velashell-ai` 也铺进来 —— 本仓库自己就产出它，同一个 id 出现两份会被 `PluginManager`
+> 判重，后来者标 Invalid，表象是「插件莫名其妙用不了」。
 
 改 SDK 契约则先在工具链仓库发一个（预发布）包，再把
 `src/Directory.Packages.props`、`tests/Directory.Packages.props` 与
@@ -299,7 +306,7 @@ pwsh scripts/Fetch-Plugins.ps1 -FromToolchain G:\velashell-plugin-toolchain
 
 ## 🧪 测试
 
-项目包含覆盖核心模型、VT 引擎、ViewModel、插件系统与集成场景的 MSTest 测试套件（6 个测试项目，含真实双进程插件 e2e 与 headless UI 测试）。
+项目包含覆盖核心模型、VT 引擎、ViewModel、插件系统与集成场景的 MSTest 测试套件（7 个测试项目，含真实双进程插件 e2e 与 headless UI 测试）。
 
 ```bash
 # 运行全部测试
@@ -322,7 +329,9 @@ dotnet test --logger "console;verbosity=detailed"
 | `VelaShell.Plugin.Ai.Tests` | AI 插件：工具箱审批闸门、能力桥接、设置与机密存取、会话历史、`@` 引用语法与面板 headless 交互 |
 | `VelaShell.Tests` | 窗口级视图模型、身份验证流程、插件面板与主题令牌、集成与冒烟测试 |
 
-> 集成测试按环境早退跳过：`SshIntegrationTests` 需 Docker + SSH 服务器，`CrossPlatformPublishTests` 需 `VELASHELL_PUBLISH_TESTS=1`。
+> 集成测试按环境**早退跳过**：`SshIntegrationTests` 与 `TransferRealChannelIntegrationTests`（`DockerIntegration` 分类）需要 Docker + `docker-compose.test.yml` 里的 SSH 服务器，ZMODEM 那几条还需要容器内能装上 `lrzsz`；`CrossPlatformPublishTests` 需 `VELASHELL_PUBLISH_TESTS=1`。
+>
+> ⚠️ **早退跳过在 MSTest 里记为「通过」**。也就是说前提不满足时，这些用例会安静地全绿而一行都没跑 —— 看测试结果分辨不出来。判据本身也要够诚实：探 TCP 端口是不够的，Docker 的端口代理**永远**接受连接，哪怕后端 sshd 根本握不上手，所以夹具改成缓存一次**真实 SSH 握手**再决定跳不跳。要确认它们真的跑过，看 `TestContext` 里有没有 `[SKIP]` 行。
 >
 > ⚠️ headless UI 测试请用 `Dispatch(async () => { …; return true; })` 这种**带返回值**的重载：`HeadlessUnitTestSession` 没有 `Func<Task>` 重载，写成无返回值会拿到一个从未被等待的 `Task<Task>`，测试体跑到第一个 `await` 就"通过"，断言失败全部丢失。
 
@@ -345,8 +354,12 @@ dotnet test --logger "console;verbosity=detailed"
 - [`docs/终端输入乱序问题分析与架构建议.md`](docs/终端输入乱序问题分析与架构建议.md) — 终端输入串行化
 - [`docs/SFTP双栏与WinSCP差距分析.md`](docs/SFTP双栏与WinSCP差距分析.md) — 双栏 SFTP 与 WinSCP 的逐项差距决策清单
 - [`docs/FTP客户端可行性调研.md`](docs/FTP客户端可行性调研.md) — FTP / FTPS 支持的取舍
-- [`docs/Redis客户端插件化调研与设计.md`](docs/Redis客户端插件化调研与设计.md) — Redis 界面客户端:工作台连接类型、引擎取舍与界面设计
+- [`docs/Redis客户端插件化调研与设计.md`](docs/Redis客户端插件化调研与设计.md) — Redis 界面客户端：工作台连接类型、引擎取舍与界面设计
+- [`docs/S3协议插件化设计.md`](docs/S3协议插件化设计.md) — S3 对象存储接入插件的设计
+- [`docs/S3协议完整支持-实施报告-2026-08.md`](docs/S3协议完整支持-实施报告-2026-08.md) — S3 完整支持的实施记录
 - [`docs/Telnet与串口可行性调研.md`](docs/Telnet与串口可行性调研.md) — Telnet / 串口会话类型的可行性与改造清单
+- [`docs/系统密钥链与sudo凭据填充可行性调研.md`](docs/系统密钥链与sudo凭据填充可行性调研.md) — 三平台系统密钥链与 sudo 自动填充的可行性
+- [`docs/快捷键参考.md`](docs/快捷键参考.md) — 全部键盘快捷键与鼠标手势（与 `ShortcutCatalog` 同源，非手抄）
 - [`plan.md`](plan.md) — 进展记录、已知问题与后续待办（开发跟进以此为准）
 
 ---
@@ -377,7 +390,9 @@ dotnet test --logger "console;verbosity=detailed"
 
 **已可用**：终端引擎、SSH/SFTP、FTP/FTPS、ZMODEM / XMODEM / YMODEM、本地终端、跳板机、会话管理与导入、身份验证、隧道、持久化、设置中心、云同步、会话录制、资源监视/进程管理/路由追踪，以及**插件系统框架层**（双宿主模式、完整能力面、UI 扩展、心跳自愈与空闲回收、插件私有存储与卸载清理、`.vpx` 装卸、SDK 测试替身与开发文档）与第一方 **AI 助手插件**。
 
-**未开放**：Telnet / 串口协议与证书认证（可行性与改造清单见 [`docs/Telnet与串口可行性调研.md`](docs/Telnet与串口可行性调研.md)）；容器管理插件尚未开始。部分设置项目前仅持久化、待接线到运行时。
+**由插件提供**：Telnet、Redis、S3 —— 都不随安装包预装，按需从[插件商店](https://market.easilynet.top)安装（源码在 [joesdu/velashell-plugins](https://github.com/joesdu/velashell-plugins)）。
+
+**未开放**：串口（COM）会话与证书认证（可行性与改造清单见 [`docs/Telnet与串口可行性调研.md`](docs/Telnet与串口可行性调研.md)）；容器管理插件尚未开始；系统密钥链与 sudo 凭据自动填充仍在调研（见 [`docs/系统密钥链与sudo凭据填充可行性调研.md`](docs/系统密钥链与sudo凭据填充可行性调研.md)）。部分设置项目前仅持久化、待接线到运行时。
 
 完整完成情况与待办清单见 [`plan.md`](plan.md) §10–§12 与 [`docs/plugins/STATUS.md`](docs/plugins/STATUS.md)。
 

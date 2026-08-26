@@ -127,16 +127,15 @@
 
        ⚠️ 2026-08-22 起②**不再进发行包**:不是每个人都要连 Redis、开 S3、拨 Telnet,
        预装等于给所有人塞三份用不上的依赖,还把发版绑在另一个仓库的发布顺序上。
-       用户按需从插件商店(https://market.easilynet.top)装。发布流水线已不跑取件脚本,
+       用户按需从插件商店(https://market.easilynet.top)装。
        CI 上这个暂存目录压根不存在 —— 下面两个 Target 的 Exists/为空判断因此都会走空分支。
-       这里的机制保留是给**本机**用的:想在自己机器上连同那几个插件一起跑,取回来即可。
+       这里的机制保留是给**本机**用的:想在自己机器上连同那几个插件一起跑,铺进去即可。
 
-    暂存目录怎么来(都是本机手动动作):
-      · 日常:pwsh scripts/Fetch-Plugins.ps1      —— 按 pin 的版本下载并校验 sha256
-      · 联调:pwsh scripts/Fetch-Plugins.ps1 -FromPluginsRepo <插件仓库路径>
-              —— 就地构建那边的插件,不走网络
-    也可以用 -p:VelaPluginsStageDir=<目录> 直接指别处。
-    取件脚本会把包里与①重名的插件目录丢掉 —— 同一个 id 出现两份会被 PluginManager 判重。
+    暂存目录怎么来(纯本机手动动作):把插件目录铺进 artifacts/plugins/ 即可 ——
+    可以从插件仓库(joesdu/velashell-plugins)的 Release 资产 velashell-plugins-<版本>.zip
+    解出来,也可以直接指向那边的构建产物;用 -p:VelaPluginsStageDir=<目录> 能改指别处。
+    ⚠️ 别把 velashell-ai 也铺进来:①已经产出它了,同一个 id 出现两份会被 PluginManager 判重,
+    后来者标 Invalid,表象是"插件莫名其妙用不了"。
   -->
   <PropertyGroup>
     <VelaPluginsStageDir Condition="'$(VelaPluginsStageDir)' == ''">$(MSBuildThisFileDirectory)..\..\artifacts\plugins</VelaPluginsStageDir>
@@ -225,8 +224,8 @@
       <Output TaskParameter="TargetOutputs" ItemName="_VelaLocalPluginPayload" />
     </MSBuild>
 
-    <!-- ② 本机取回、解在暂存目录里的插件仓库侧插件。CI 上不存在这个目录(流水线不再取件),
-         这一项为空是**正常**的。.bundle-version 是取件脚本的印记,不进包。 -->
+    <!-- ② 本机自己铺在暂存目录里的插件仓库侧插件。CI 上不存在这个目录,
+         这一项为空是**正常**的。.bundle-version 是早年取件脚本留下的印记,存量机器上可能还有,不进包。 -->
     <ItemGroup>
       <_VelaStagedPluginPayload Include="$(VelaPluginsStageDir)\**\*" Exclude="$(VelaPluginsStageDir)\.bundle-version" />
     </ItemGroup>
@@ -234,7 +233,7 @@
     <!-- 一个插件都没有会悄无声息地发出"插件系统看着在、实则没插件"的包,宁可在这里断掉发布。
          正常路径靠①兜底:②不进发行包之后,这条只会在自建插件也全军覆没时才响。 -->
     <Error Condition="'@(_VelaLocalPluginPayload)' == '' and '@(_VelaStagedPluginPayload)' == ''"
-           Text="发布产物里没有任何插件:plugins/ 下没有 &lt;VelaPluginShip&gt;true&lt;/VelaPluginShip&gt; 的插件工程,插件暂存目录 '$(VelaPluginsStageDir)' 也是空的或不存在。发行包里的插件本该来自 plugins/ 下的自建工程 —— 先查那边为什么没产出;确实想把插件仓库侧的插件一并打进去,再跑 `pwsh scripts/Fetch-Plugins.ps1`。" />
+           Text="发布产物里没有任何插件:plugins/ 下没有 &lt;VelaPluginShip&gt;true&lt;/VelaPluginShip&gt; 的插件工程,插件暂存目录 '$(VelaPluginsStageDir)' 也是空的或不存在。发行包里的插件本该来自 plugins/ 下的自建工程 —— 先查那边为什么没产出;确实想把插件仓库侧的插件一并打进去,把它们铺进暂存目录再发布。" />
 
     <ItemGroup>
       <ResolvedFileToPublish Include="@(_VelaLocalPluginPayload)">

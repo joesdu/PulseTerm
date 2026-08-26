@@ -29,28 +29,15 @@
       https://github.com/joesdu/velashell-plugin-toolchain   SDK 与工具链
       https://github.com/joesdu/velashell-plugins            第一方插件(Redis / S3 / Telnet / HelloWorld)
     契约程序集(VelaShell.PluginSdk / .Testing)一律走 nuget.org 上的正式包,版本写在
-    src/ 与 tests/ 的 Directory.Packages.props 里;那几个插件的二进制走下面这个 Release pin。
+    src/ 与 tests/ 的 Directory.Packages.props 里。那几个插件的二进制本仓库不再 pin:
+    2026-08-22 起它们不随发行包预装(用户按需从插件商店装),本机想连它们一起跑就自己把
+    插件目录铺进 artifacts/plugins/,见 src/VelaShell/VelaShell.csproj 的 VelaPluginsStageDir。
 
     **例外:AI 插件(velashell.ai)是本仓库自建的第一方插件**,源码在 plugins/ 下,
     随主程序一起构建、一起发布 —— 它与宿主的耦合最紧(要用宿主的 AvaloniaEdit 作输入框、
     必须进程内装载、Avalonia 版本必须与宿主逐字一致),分在两个仓库时每改一处 UI 都要
     先发一次插件仓库的 Release 才能联调。详见 plugins/README.md。
   -->
-  <PropertyGroup>
-    <!-- **插件仓库侧**插件(Redis / S3 / Telnet)所在的 velashell-plugins Release 版本。
-         它与 src/Directory.Packages.props 里 VelaShell.PluginSdk 的版本是两个独立的号
-         —— 插件仓库有自己的发行版本(VelaPluginsVersion),不跟 SDK 走。
-         scripts/Fetch-Plugins.ps1 据此下载
-         releases/download/<标签>/velashell-plugins-<版本>.zip 解进 artifacts/plugins/;
-         插件仓库的标签不带前导 v,脚本两种写法都会试一遍。
-         包里若含 velashell-ai,取回时会被丢掉 —— 那一份由本仓库自己构建,见脚本注释。
-         2026-08-22 起这几个插件**不再随发行包预装**(用户按需从插件商店装),发布流水线
-         也不再跑取件脚本 —— 这个 pin 现在只服务本机开发/联调时手动取件。
-         别退回 1.4.0:那一版的 zip 与 1.4.1 的二进制逐字节相同,但三个 plugin.json 里
-         写的还是 0.1.0,装出来插件管理页会显示 v0.1.0。 -->
-    <VelaPluginsBundleVersion Condition="'$(VelaPluginsBundleVersion)' == ''">1.4.1</VelaPluginsBundleVersion>
-  </PropertyGroup>
-
   <PropertyGroup>
   	<Authors>joesdu</Authors>
   	<PackagePrefix>VelaShell</PackagePrefix>
