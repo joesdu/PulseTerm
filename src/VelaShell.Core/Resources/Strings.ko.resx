@@ -2445,6 +2445,12 @@
   <data name="SetTerm_StartupCommandPlaceholder" xml:space="preserve">
     <value>예: cd /var/www</value>
   </data>
+  <data name="SetTerm_ReportWorkingDirectory" xml:space="preserve">
+    <value>터미널 작업 디렉터리 보고</value>
+  </data>
+  <data name="SetTerm_ReportWorkingDirectoryDesc" xml:space="preserve">
+    <value>연결 후 bash에 OSC 7 훅을 조용히 설치하여 파일 브라우저의 「터미널 디렉터리 따라가기」에 사용합니다. 끄면 아무 명령도 주입하지 않습니다</value>
+  </data>
   <data name="SetTerm_Subtitle" xml:space="preserve">
     <value>// 터미널 표시 및 동작 설정</value>
   </data>

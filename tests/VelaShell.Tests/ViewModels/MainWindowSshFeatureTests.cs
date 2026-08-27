@@ -34,6 +34,30 @@ public sealed class MainWindowSshFeatureTests
         Assert.EndsWith("; cd /srv/app", command);
     }
 
+    /// <summary>
+    /// 关掉「上报终端工作目录」后必须一个字节都不注入(#286):用户报的就是每次开窗
+    /// 终端里都要闪一串 test -n "$BASH_VERSION"。空串在 SendSilentCommand 里被直接丢弃,
+    /// 连多余的回车都不会有。
+    /// </summary>
+    [TestMethod]
+    public void BuildStartupCommand_WhenReportingDisabled_WithoutUserCommand_InjectsNothing()
+    {
+        string command = MainWindowViewModel.BuildStartupCommand(null, reportWorkingDirectory: false);
+
+        Assert.IsEmpty(command);
+    }
+
+    /// <summary>关掉钩子不该连累用户自己的"连接后执行命令" —— 那是两件事。</summary>
+    [TestMethod]
+    public void BuildStartupCommand_WhenReportingDisabled_KeepsUserCommandOnly()
+    {
+        string command = MainWindowViewModel.BuildStartupCommand("  cd /srv/app  ", reportWorkingDirectory: false);
+
+        Assert.AreEqual("cd /srv/app", command);
+        Assert.DoesNotContain("vela_shell_osc7", command);
+        Assert.DoesNotContain("BASH_VERSION", command);
+    }
+
     [TestMethod]
     public async Task ConnectProfileAsync_AddsTerminalTab_AndUpdatesStatusBar()
     {

@@ -2445,6 +2445,12 @@
   <data name="SetTerm_StartupCommandPlaceholder" xml:space="preserve">
     <value>例如 cd /var/www</value>
   </data>
+  <data name="SetTerm_ReportWorkingDirectory" xml:space="preserve">
+    <value>回報終端機工作目錄</value>
+  </data>
+  <data name="SetTerm_ReportWorkingDirectoryDesc" xml:space="preserve">
+    <value>連線後向 bash 靜默安裝 OSC 7 掛鉤,供檔案瀏覽器「跟隨終端機目錄」使用;關閉則不注入任何指令</value>
+  </data>
   <data name="SetTerm_Subtitle" xml:space="preserve">
     <value>// 設定終端機的顯示與行為</value>
   </data>
