@@ -2445,6 +2445,12 @@
   <data name="SetTerm_StartupCommandPlaceholder" xml:space="preserve">
     <value>例: cd /var/www</value>
   </data>
+  <data name="SetTerm_ReportWorkingDirectory" xml:space="preserve">
+    <value>ターミナルの作業ディレクトリを通知</value>
+  </data>
+  <data name="SetTerm_ReportWorkingDirectoryDesc" xml:space="preserve">
+    <value>接続後に bash へ OSC 7 フックをサイレント設定し、ファイルブラウザーの「ターミナルのディレクトリに追従」で使用します。オフにすると一切注入しません</value>
+  </data>
   <data name="SetTerm_Subtitle" xml:space="preserve">
     <value>// ターミナルの表示と動作を設定</value>
   </data>

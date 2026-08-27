@@ -155,6 +155,13 @@
                  Text="{loc:Localize SetTerm_StartupCommandDesc}" />
       <TextBox Text="{Binding TerminalBehavior.StartupCommand}" PlaceholderText="{loc:Localize SetTerm_StartupCommandPlaceholder}" />
     </StackPanel>
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetTerm_ReportWorkingDirectory}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetTerm_ReportWorkingDirectoryDesc}" />
+      </StackPanel>
+      <ToggleSwitch Grid.Column="1" IsChecked="{Binding TerminalBehavior.ReportWorkingDirectory}" VerticalAlignment="Center" />
+    </Grid>
 
     <Border Classes="sep" />
 

@@ -51,6 +51,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     /// <summary>
     /// bash 提示符目录上报钩子(内置、静默注入):每次提示符出现时发送 OSC 7,
     /// 供 SFTP 文件浏览器的「跟随终端目录」功能读取当前工作目录。
+    /// 由「设置 → 终端 → 会话 → 上报终端工作目录」开关控制,关掉即一字节不注入(#286)。
     /// </summary>
     /// <remarks>
     /// bash 代码放在单引号包裹的 eval 参数里,避免 fish 等 shell 预解析函数体时报错;
@@ -2361,19 +2362,36 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     }
 
     /// <summary>
-    /// 连接成功后静默注入目录上报钩子,并追加用户配置的"连接后执行命令"
+    /// 连接成功后按设置注入目录上报钩子,并追加用户配置的"连接后执行命令"
     /// (设置 → 终端 → 会话)。PTY 输入由内核缓冲,shell 就绪后才会读取,
     /// 无需等待提示符。
     /// </summary>
     private static void SendStartupCommand(TerminalTabViewModel tab, AppSettings settings)
     {
-        tab.SendSilentCommand(BuildStartupCommand(settings.TerminalBehavior.StartupCommand));
+        tab.SendSilentCommand(
+            BuildStartupCommand(
+                settings.TerminalBehavior.StartupCommand,
+                settings.TerminalBehavior.ReportWorkingDirectory
+            )
+        );
     }
 
-    /// <summary>组合内置目录上报钩子与用户启动命令;保持一次注入以共用同一个回显抑制窗口。</summary>
-    internal static string BuildStartupCommand(string? userCommand)
+    /// <summary>
+    /// 组合内置目录上报钩子与用户启动命令;保持一次注入以共用同一个回显抑制窗口。
+    /// </summary>
+    /// <param name="userCommand">用户配置的"连接后执行命令";空则只剩钩子。</param>
+    /// <param name="reportWorkingDirectory">
+    /// 是否注入 OSC 7 目录上报钩子(设置 → 终端 → 会话,#286)。关掉时两者皆空 =
+    /// 返回空串,<see cref="TerminalTabViewModel.SendSilentCommand" /> 对空串直接不发,
+    /// 连回车都不会多出来。
+    /// </param>
+    internal static string BuildStartupCommand(string? userCommand, bool reportWorkingDirectory = true)
     {
         string user = userCommand?.Trim() ?? string.Empty;
+        if (!reportWorkingDirectory)
+        {
+            return user;
+        }
         return user.Length == 0 ? WorkingDirectoryReportHook : WorkingDirectoryReportHook + "; " + user;
     }
 

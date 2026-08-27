@@ -636,6 +636,17 @@ public class TerminalBehaviorOptions : ObservableOptions
         get;
         set => Set(ref field, value);
     } = "";
+
+    /// <summary>
+    /// 连接后静默注入 bash 目录上报钩子(OSC 7),默认开(#286)。
+    /// 关 = 一个字节都不注入,终端里再不会出现那串 <c>test -n "$BASH_VERSION" &amp;&amp; eval ...</c>;
+    /// 代价是 SFTP 文件浏览器的「跟随终端目录」(map-pin)拿不到 cwd,除非用户自己的提示符发 OSC 7。
+    /// </summary>
+    public bool ReportWorkingDirectory
+    {
+        get;
+        set => Set(ref field, value);
+    } = true;
 }
 
 /// <summary>设置 - 文件传输(设计 HGwa7)。</summary>

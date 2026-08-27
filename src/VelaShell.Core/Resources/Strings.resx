@@ -2545,6 +2545,12 @@ Paste anyway?</value>
   <data name="SetTerm_StartupCommandPlaceholder" xml:space="preserve">
     <value>e.g. cd /var/www</value>
   </data>
+  <data name="SetTerm_ReportWorkingDirectory" xml:space="preserve">
+    <value>Report terminal working directory</value>
+  </data>
+  <data name="SetTerm_ReportWorkingDirectoryDesc" xml:space="preserve">
+    <value>Silently installs an OSC 7 hook in bash after connecting so the file browser can follow the terminal directory; turn off to inject nothing at all</value>
+  </data>
   <data name="SetTerm_Subtitle" xml:space="preserve">
     <value>// Configure terminal display and behavior</value>
   </data>
