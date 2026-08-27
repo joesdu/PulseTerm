@@ -136,11 +136,10 @@ public sealed class BreadcrumbUnderscoreUiTests
     /// <summary>核对窗口里 crumb 按钮的真实渲染:带下划线那段在、且没走助记符解析。</summary>
     private static void AssertBreadcrumbKeepsUnderscore(Window window, int minimumSegments)
     {
-        TextBlock[] crumbTexts = window.GetVisualDescendants()
+        TextBlock[] crumbTexts = [.. window.GetVisualDescendants()
                                       .OfType<Button>()
                                       .Where(b => b.Classes.Contains("crumb"))
-                                      .SelectMany(b => b.GetVisualDescendants().OfType<TextBlock>())
-                                      .ToArray();
+                                      .SelectMany(b => b.GetVisualDescendants().OfType<TextBlock>())];
 
         // 扫描本身得先成立:一个面包屑都没找到时,下面两条断言会空转成永远通过的空壳。
         Assert.IsGreaterThanOrEqualTo(minimumSegments, crumbTexts.Length,

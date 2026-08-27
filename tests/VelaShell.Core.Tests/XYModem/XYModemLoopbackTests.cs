@@ -57,8 +57,8 @@ public class XYModemLoopbackTests
 
         Assert.AreEqual(FileTransferState.Completed, send.Status);
         Assert.AreEqual(FileTransferState.Completed, receive.Status);
-        Assert.AreEqual((long)data.Length, sink.OfferedSizes[0]);
-        CollectionAssert.AreEqual(data, sink.Completed["payload.bin"]);
+        Assert.AreEqual(data.Length, sink.OfferedSizes[0]);
+        Assert.AreSequenceEqual(data, sink.Completed["payload.bin"]);
     }
 
     /// <summary>YMODEM 的批量能力:一次会话连发三个文件,顺序与内容都不能串。</summary>
@@ -77,10 +77,10 @@ public class XYModemLoopbackTests
 
         Assert.AreEqual(FileTransferState.Completed, send.Status);
         Assert.AreEqual(FileTransferState.Completed, receive.Status);
-        CollectionAssert.AreEqual(new[] { "first.bin", "second.bin", "三个.txt" }, sink.OfferedNames);
+        Assert.AreSequenceEqual(new[] { "first.bin", "second.bin", "三个.txt" }, sink.OfferedNames);
         foreach ((string name, byte[] data) in files)
         {
-            CollectionAssert.AreEqual(data, sink.Completed[name], $"{name} 内容不符");
+            Assert.AreSequenceEqual(data, sink.Completed[name], $"{name} 内容不符");
         }
         Assert.AreEqual(3, send.Items.Count);
     }
@@ -95,7 +95,7 @@ public class XYModemLoopbackTests
             await RoundTripAsync(TerminalTransferProtocol.YModem, [("wrap.bin", data)]);
 
         Assert.AreEqual(FileTransferState.Completed, receive.Status);
-        CollectionAssert.AreEqual(data, sink.Completed["wrap.bin"], "块号回绕后内容错位");
+        Assert.AreSequenceEqual(data, sink.Completed["wrap.bin"], "块号回绕后内容错位");
     }
 
     /// <summary>XMODEM 单文件:没有文件名与大小,内容仍要能完整落地。</summary>
@@ -110,7 +110,7 @@ public class XYModemLoopbackTests
         Assert.AreEqual(FileTransferState.Completed, send.Status);
         Assert.AreEqual(FileTransferState.Completed, receive.Status);
         Assert.IsNull(sink.OfferedSizes[0], "XMODEM 不传大小,元数据里的 Size 应为 null");
-        CollectionAssert.AreEqual(data, sink.Completed["classic.bin"]);
+        Assert.AreSequenceEqual(data, sink.Completed["classic.bin"]);
     }
 
     /// <summary>XMODEM-1K:发送端改用 1024 字节块,接收端按引导字节自适应。</summary>
@@ -123,7 +123,7 @@ public class XYModemLoopbackTests
             await RoundTripAsync(TerminalTransferProtocol.XModem1K, [("big.bin", data)]);
 
         Assert.AreEqual(FileTransferState.Completed, receive.Status);
-        CollectionAssert.AreEqual(data, sink.Completed["big.bin"]);
+        Assert.AreSequenceEqual(data, sink.Completed["big.bin"]);
     }
 
     /// <summary>YMODEM-G:数据块不逐块应答,内容仍要完整。</summary>
@@ -137,7 +137,7 @@ public class XYModemLoopbackTests
 
         Assert.AreEqual(FileTransferState.Completed, send.Status);
         Assert.AreEqual(FileTransferState.Completed, receive.Status);
-        CollectionAssert.AreEqual(data, sink.Completed["stream.bin"]);
+        Assert.AreSequenceEqual(data, sink.Completed["stream.bin"]);
     }
 
     /// <summary>正好等于块长整数倍的文件不能多发一个空块、也不能少一块。</summary>
@@ -151,7 +151,7 @@ public class XYModemLoopbackTests
 
         Assert.AreEqual(FileTransferState.Completed, receive.Status);
         Assert.AreEqual(data.Length, sink.Completed["exact.bin"].Length);
-        CollectionAssert.AreEqual(data, sink.Completed["exact.bin"]);
+        Assert.AreSequenceEqual(data, sink.Completed["exact.bin"]);
     }
 
     /// <summary>空文件也要能走完流程(0 号块声明大小 0,随后直接 EOT)。</summary>

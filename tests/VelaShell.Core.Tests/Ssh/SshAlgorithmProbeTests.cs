@@ -32,38 +32,38 @@ public class SshAlgorithmProbeTests
     [TestMethod]
     public async Task Probe_ReadsEveryListTheServerAdvertises()
     {
-        await using FakeSshServer server = FakeSshServer.Start((stream, ct) => ServeBastionKexInitAsync(stream, ct));
+        await using var server = FakeSshServer.Start((stream, ct) => ServeBastionKexInitAsync(stream, ct));
 
         SshPeerAlgorithms peer = (await SshAlgorithmProbe.TryProbeAsync(
-            IPAddress.Loopback.ToString(), server.Port, ProbeTimeout, TestContext.CancellationTokenSource.Token))!;
+            IPAddress.Loopback.ToString(), server.Port, ProbeTimeout, TestContext.CancellationToken))!;
 
         Assert.AreEqual(BastionVersion, peer.ServerVersion);
-        CollectionAssert.AreEqual(BastionKex, peer.KeyExchange.ToArray());
-        CollectionAssert.AreEqual(BastionHostKey, peer.HostKey.ToArray());
-        CollectionAssert.AreEqual(BastionEncryption, peer.EncryptionServerToClient.ToArray());
-        CollectionAssert.AreEqual(BastionEncryption, peer.EncryptionClientToServer.ToArray());
-        CollectionAssert.AreEqual(BastionMac, peer.MacServerToClient.ToArray());
+        Assert.AreSequenceEqual(BastionKex, [.. peer.KeyExchange]);
+        Assert.AreSequenceEqual(BastionHostKey, [.. peer.HostKey]);
+        Assert.AreSequenceEqual(BastionEncryption, [.. peer.EncryptionServerToClient]);
+        Assert.AreSequenceEqual(BastionEncryption, [.. peer.EncryptionClientToServer]);
+        Assert.AreSequenceEqual(BastionMac, [.. peer.MacServerToClient]);
     }
 
     [TestMethod]
     public async Task Probe_SkipsTheBannerLinesBeforeTheVersionString()
     {
         // 堡垒机与政企设备普遍在版本串之前先甩一段法律声明;认死第一行就什么也探不到了。
-        await using FakeSshServer server = FakeSshServer.Start(
+        await using var server = FakeSshServer.Start(
             (stream, ct) => ServeBastionKexInitAsync(stream, ct, banner: "*** 授权用户专用,操作全程审计 ***"));
 
         SshPeerAlgorithms peer = (await SshAlgorithmProbe.TryProbeAsync(
-            IPAddress.Loopback.ToString(), server.Port, ProbeTimeout, TestContext.CancellationTokenSource.Token))!;
+            IPAddress.Loopback.ToString(), server.Port, ProbeTimeout, TestContext.CancellationToken))!;
 
         Assert.AreEqual(BastionVersion, peer.ServerVersion);
-        CollectionAssert.AreEqual(BastionEncryption, peer.EncryptionServerToClient.ToArray());
+        Assert.AreSequenceEqual(BastionEncryption, [.. peer.EncryptionServerToClient]);
     }
 
     [TestMethod]
     public async Task Probe_EndpointThatIsNotSsh_ReturnsNullInsteadOfThrowing()
     {
         // 端口填错(填到 HTTP 或 TLS 上)时诊断只该沉默,不能再抛一个异常盖掉真正的失败。
-        await using FakeSshServer server = FakeSshServer.Start(async (stream, ct) =>
+        await using var server = FakeSshServer.Start(async (stream, ct) =>
         {
             await WriteLineAsync(stream, "HTTP/1.1 400 Bad Request", ct);
             await WriteLineAsync(stream, "Content-Length: 0", ct);
@@ -71,13 +71,13 @@ public class SshAlgorithmProbeTests
 
         Assert.IsNull(await SshAlgorithmProbe.TryProbeAsync(
                           IPAddress.Loopback.ToString(), server.Port, ProbeTimeout,
-                          TestContext.CancellationTokenSource.Token));
+                          TestContext.CancellationToken));
     }
 
     [TestMethod]
     public async Task Probe_PacketCutShort_ReturnsNullInsteadOfThrowing()
     {
-        await using FakeSshServer server = FakeSshServer.Start(async (stream, ct) =>
+        await using var server = FakeSshServer.Start(async (stream, ct) =>
         {
             await WriteLineAsync(stream, BastionVersion, ct);
             await ReadLineAsync(stream, ct);
@@ -89,7 +89,7 @@ public class SshAlgorithmProbeTests
 
         Assert.IsNull(await SshAlgorithmProbe.TryProbeAsync(
                           IPAddress.Loopback.ToString(), server.Port, ProbeTimeout,
-                          TestContext.CancellationTokenSource.Token));
+                          TestContext.CancellationToken));
     }
 
     [TestMethod]
@@ -102,13 +102,13 @@ public class SshAlgorithmProbeTests
 
         Assert.IsNull(await SshAlgorithmProbe.TryProbeAsync(
                           IPAddress.Loopback.ToString(), port, ProbeTimeout,
-                          TestContext.CancellationTokenSource.Token));
+                          TestContext.CancellationToken));
     }
 
     [TestMethod]
     public async Task Describe_ReportsOnlyTheAlgorithmClassesWithNoOverlap()
     {
-        await using FakeSshServer server = FakeSshServer.Start((stream, ct) => ServeBastionKexInitAsync(stream, ct));
+        await using var server = FakeSshServer.Start((stream, ct) => ServeBastionKexInitAsync(stream, ct));
         var settings = new SshClientSettings("probe@127.0.0.1")
         {
             HostName = IPAddress.Loopback.ToString(),
@@ -116,7 +116,7 @@ public class SshAlgorithmProbeTests
         };
 
         string message = (await SshAlgorithmDiagnostics.TryDescribeAsync(
-            settings, TestContext.CancellationTokenSource.Token))!;
+            settings, TestContext.CancellationToken))!;
 
         Assert.Contains(BastionVersion, message, "对端版本要摆出来 —— 用户和厂商对线时就靠这一句。");
         Assert.Contains("aes128-ctr", message, "对端提供的加密算法必须原样列出。");
@@ -139,7 +139,7 @@ public class SshAlgorithmProbeTests
     {
         // 协商失败另有原因(比如对端在 KEXINIT 之后才出问题)时不能硬凑一段说明:
         // 指着一堆其实能用的算法说"没有交集"比不说更糟。
-        await using FakeSshServer server = FakeSshServer.Start((stream, ct) =>
+        await using var server = FakeSshServer.Start((stream, ct) =>
             ServeKexInitAsync(stream, ct, BastionVersion, BastionKex,
                               ["rsa-sha2-256"], ["chacha20-poly1305@openssh.com"], ["hmac-sha2-256"]));
         var settings = new SshClientSettings("probe@127.0.0.1")
@@ -149,7 +149,7 @@ public class SshAlgorithmProbeTests
         };
 
         Assert.IsNull(await SshAlgorithmDiagnostics.TryDescribeAsync(
-                          settings, TestContext.CancellationTokenSource.Token));
+                          settings, TestContext.CancellationToken));
     }
 
     public TestContext TestContext { get; set; } = null!;

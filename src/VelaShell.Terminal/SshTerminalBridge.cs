@@ -1,7 +1,6 @@
 using System.Threading.Channels;
 using Avalonia.Threading;
 using VelaShell.Core.Ssh;
-using VelaShell.Core.FileTransfer.Model;
 
 namespace VelaShell.Terminal;
 

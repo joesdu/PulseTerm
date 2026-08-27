@@ -464,7 +464,7 @@ public sealed class PluginWorkspaceTests
 
         launcher.OnUnregistered(WorkspaceId);
 
-        CollectionAssert.AreEqual(new[] { session.SessionId }, abandoned);
+        Assert.AreSequenceEqual(new[] { session.SessionId }, abandoned);
         // 已经报过的会话不会再报第二次(界面关闭标签页时也会 Forget)。
         abandoned.Clear();
         launcher.OnUnregistered(WorkspaceId);

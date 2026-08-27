@@ -1,9 +1,8 @@
 using System.Text;
-using VelaShell.Core.FileTransfer.Abstractions;
-using VelaShell.Core.ZModem.Model;
-using VelaShell.Core.ZModem.Protocol;
 using VelaShell.Core.FileTransfer.Model;
 using VelaShell.Core.Tests.FileTransfer;
+using VelaShell.Core.ZModem.Model;
+using VelaShell.Core.ZModem.Protocol;
 
 namespace VelaShell.Core.Tests.ZModem;
 
