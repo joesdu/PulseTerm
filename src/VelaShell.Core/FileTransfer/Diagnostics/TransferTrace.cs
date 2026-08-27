@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
-using VelaShell.Core.FileTransfer.Protocol;
 
 namespace VelaShell.Core.FileTransfer.Diagnostics;
 

@@ -82,9 +82,8 @@ public class RemoteExecCapabilityTests
         // 顺序调 Report。换成 System.Progress<T> 就会 Post 到线程池,顺序当场没了 ——
         // 所以这个测试刻意不用它,SDK 的文档里也写明了别用。
         Assert.AreEqual(3, result.Lines);
-        CollectionAssert.AreEqual(
-            (string[])["first", "a warning", "second"],
-            lines.Items.Select(static l => l.Line).ToArray());
+        Assert.AreSequenceEqual(
+            (string[])["first", "a warning", "second"], [.. lines.Items.Select(static l => l.Line)]);
         Assert.AreEqual(ExecStream.StandardOutput, lines.Items[0].Stream);
         Assert.AreEqual(ExecStream.StandardError, lines.Items[1].Stream);
         Assert.AreEqual(ExecStream.StandardOutput, lines.Items[2].Stream);

@@ -5,13 +5,12 @@ using System.Security.Cryptography;
 using System.Text;
 using NSubstitute;
 using Tmds.Ssh;
-using VelaShell.Core.Ssh;
 using VelaShell.Core.FileTransfer.Abstractions;
-using VelaShell.Core.ZModem.Model;
+using VelaShell.Core.FileTransfer.Model;
+using VelaShell.Core.Ssh;
 using VelaShell.Infrastructure.Ssh;
 using VelaShell.Terminal;
 using VelaShell.Terminal.FileTransfer;
-using VelaShell.Core.FileTransfer.Model;
 
 namespace VelaShell.Tests.Integration;
 
@@ -299,7 +298,7 @@ public class TransferRealChannelIntegrationTests
         }
         try
         {
-            using var probe = ConnectAsync().GetAwaiter().GetResult();
+            using TmdsSshClientWrapper probe = ConnectAsync().GetAwaiter().GetResult();
             return true;
         }
         catch

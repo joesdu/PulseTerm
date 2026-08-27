@@ -164,7 +164,7 @@ public sealed class XYModemReceiver(
             // 0 号块坏了:NAK 请求重发,再等下一个引导。
             await WriteAsync([XYModemConstants.NAK], ct).ConfigureAwait(false);
             currentLead = await WaitForLeadAsync(handshaking: false, ct).ConfigureAwait(false);
-            if (currentLead < 0 || currentLead == XYModemConstants.CAN)
+            if (currentLead is < 0 or XYModemConstants.CAN)
             {
                 session.Status = currentLead == XYModemConstants.CAN
                     ? FileTransferState.Cancelled

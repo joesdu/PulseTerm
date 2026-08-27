@@ -1,5 +1,3 @@
-using VelaShell.Core.FileTransfer.Protocol;
-
 namespace VelaShell.Core.FileTransfer.Protocol;
 
 /// <summary>

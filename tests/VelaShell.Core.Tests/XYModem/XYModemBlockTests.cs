@@ -29,7 +29,7 @@ public class XYModemBlockTests
         Assert.AreEqual(0x01, wire[0], "128 字节块必须以 SOH(0x01)引导");
         Assert.AreEqual(0x00, wire[1], "块号");
         Assert.AreEqual(0xFF, wire[2], "块号取反");
-        CollectionAssert.AreEqual(payload, wire[3..131], "负载应原样上链(这一族协议不做转义)");
+        Assert.AreSequenceEqual(payload, wire[3..131], "负载应原样上链(这一族协议不做转义)");
         Assert.AreEqual(0x00, wire[131], "全零负载的 CRC-16/XMODEM 高字节必为 0");
         Assert.AreEqual(0x00, wire[132], "全零负载的 CRC-16/XMODEM 低字节必为 0");
     }
@@ -100,7 +100,7 @@ public class XYModemBlockTests
         XYModemBlock.Write(payload, 1, useCrc: true, first);
         XYModemBlock.Write(payload, 200, useCrc: true, second);
 
-        CollectionAssert.AreEqual(first[131..133], second[131..133], "块号变了但校验字段不该变");
+        Assert.AreSequenceEqual(first[131..133], second[131..133], "块号变了但校验字段不该变");
         // 与独立实现的 CRC 例程比对(Crc16Xmodem 自身有已知向量测试托底)。
         ushort expected = Crc16Xmodem.Compute(payload);
         Assert.AreEqual((byte)(expected >> 8), first[131]);

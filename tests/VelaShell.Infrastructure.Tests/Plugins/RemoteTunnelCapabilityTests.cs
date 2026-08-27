@@ -227,7 +227,7 @@ public class RemoteTunnelCapabilityTests
         await stream.FlushAsync();
 
         // 二进制原样到达:这条通道存在的意义就是这些字节不被 UTF-8 与换行动过。
-        CollectionAssert.AreEqual(payload, inner.ToArray());
+        Assert.AreSequenceEqual(payload, inner.ToArray());
         await stream.DisposeAsync();
     }
 }

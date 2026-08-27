@@ -78,8 +78,8 @@ public class ZModemHardeningTests
             new ZModemSender(a, new InMemoryFileSource([("测试文件.txt", data)])).SendAsync(cts.Token);
         await Task.WhenAll(receive, send);
 
-        CollectionAssert.AreEqual(new[] { "测试文件.txt" }, sink.OfferedNames);
-        CollectionAssert.AreEqual(data, sink.Completed["测试文件.txt"]);
+        Assert.AreSequenceEqual(new[] { "测试文件.txt" }, sink.OfferedNames);
+        Assert.AreSequenceEqual(data, sink.Completed["测试文件.txt"]);
     }
 
     /// <summary>
@@ -172,7 +172,7 @@ public class ZModemHardeningTests
 
         // 引擎在收尾时把没消费的字节 Unread 回通道,这里应能重新读出来。
         ReadOnlyMemory<byte> returned = await duplex.ReadAsync(CancellationToken.None);
-        CollectionAssert.AreEqual(tail, returned.ToArray(), "提示符字节必须原样退回,而不是随读取器一起丢掉");
+        Assert.AreSequenceEqual(tail, returned.ToArray(), "提示符字节必须原样退回,而不是随读取器一起丢掉");
     }
 
     /// <summary>
@@ -202,7 +202,7 @@ public class ZModemHardeningTests
             ZModemSubpacketResult result = await ZModemSubpacket.ReadAsync(reader, useCrc32, CancellationToken.None);
 
             Assert.AreEqual(ZModemSubpacketStatus.Ok, result.Status, $"crc32={useCrc32}");
-            CollectionAssert.AreEqual(payload, result.Data, $"crc32={useCrc32} 时负载不保真");
+            Assert.AreSequenceEqual(payload, result.Data, $"crc32={useCrc32} 时负载不保真");
         }
     }
 

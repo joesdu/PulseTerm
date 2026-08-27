@@ -133,7 +133,7 @@ public sealed class ScrollBarMarqueeUiTests
 
             // 刺激送达的凭据:光看"没框选"不算数,得先证明这一下确实按在了滚动条上。
             // (滑块在 headless 下拖不动滚动偏移,所以不能拿 Offset 当凭据。)
-            var pressedOnBar = false;
+            bool pressedOnBar = false;
             bar.AddHandler(
                 InputElement.PointerPressedEvent,
                 (_, _) => pressedOnBar = true,
@@ -147,7 +147,7 @@ public sealed class ScrollBarMarqueeUiTests
             Pump(window);
             window.MouseDown(start, MouseButton.Left);
             Pump(window);
-            var overlayEverVisible = false;
+            bool overlayEverVisible = false;
             for (int step = 1; step <= 6; step++)
             {
                 window.MouseMove(new(start.X, start.Y + (20.0 * step)));

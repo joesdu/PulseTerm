@@ -88,10 +88,8 @@ public class DevicePixelGridTests
         }
 
         // 21.25 的行距只能落在 21 或 22 设备像素上;出现第三种值说明吸附把行距算飘了。
-        CollectionAssert.AreEquivalent(
-            new long[] { 21, 22 },
-            deviceHeights.OrderBy(h => h).ToArray(),
-            "行高应只在 21/22 设备像素之间浮动。"
+        Assert.AreSequenceEqual(
+            new long[] { 21, 22 }, [.. deviceHeights.OrderBy(h => h)], Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder, "行高应只在 21/22 设备像素之间浮动。"
         );
     }
 

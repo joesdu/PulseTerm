@@ -1,12 +1,11 @@
 using System.Text;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
-using VelaShell.Core.Ssh;
 using VelaShell.Core.FileTransfer.Abstractions;
-using VelaShell.Core.ZModem.Model;
+using VelaShell.Core.FileTransfer.Model;
+using VelaShell.Core.Ssh;
 using VelaShell.Core.ZModem.Protocol;
 using VelaShell.Terminal.FileTransfer;
-using VelaShell.Core.FileTransfer.Model;
 
 namespace VelaShell.Terminal.Tests;
 

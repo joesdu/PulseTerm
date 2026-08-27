@@ -114,9 +114,9 @@ public class XYModemInteropTests
         FileTransferSession session = await receiving;
 
         Assert.AreEqual(FileTransferState.Completed, session.Status);
-        CollectionAssert.AreEqual(new[] { "中文名.txt" }, sink.OfferedNames, "0 号块的 UTF-8 文件名应原样解出");
-        Assert.AreEqual((long)content.Length, sink.OfferedSizes[0], "0 号块声明的大小应被解析");
-        CollectionAssert.AreEqual(content, sink.Completed["中文名.txt"], "末块的 SUB 填充必须按声明大小裁掉");
+        Assert.AreSequenceEqual(new[] { "中文名.txt" }, sink.OfferedNames, "0 号块的 UTF-8 文件名应原样解出");
+        Assert.AreEqual(content.Length, sink.OfferedSizes[0], "0 号块声明的大小应被解析");
+        Assert.AreSequenceEqual(content, sink.Completed["中文名.txt"], "末块的 SUB 填充必须按声明大小裁掉");
     }
 
     /// <summary>
@@ -150,8 +150,8 @@ public class XYModemInteropTests
         FileTransferSession session = await receiving;
 
         Assert.AreEqual(FileTransferState.Completed, session.Status);
-        CollectionAssert.AreEqual(new[] { "download.bin" }, sink.OfferedNames);
-        CollectionAssert.AreEqual(content, sink.Completed["download.bin"]);
+        Assert.AreSequenceEqual(new[] { "download.bin" }, sink.OfferedNames);
+        Assert.AreSequenceEqual(content, sink.Completed["download.bin"]);
     }
 
     /// <summary>XMODEM-1K 的 1024 字节块由 STX 引导,接收方应按引导字节自动识别块长。</summary>
@@ -187,7 +187,7 @@ public class XYModemInteropTests
         Assert.AreEqual(FileTransferState.Completed, session.Status);
         // 尾部是 24 个 SUB 填充,裁掉后应正好还原 1000 字节 —— 但内容末尾恰为 SUB 时会多裁,
         // 这是 XMODEM 不传大小的固有局限,此处的测试数据刻意避开了那种情形。
-        CollectionAssert.AreEqual(content, sink.Completed["big.bin"]);
+        Assert.AreSequenceEqual(content, sink.Completed["big.bin"]);
     }
 
     /// <summary>块校验失败时必须回 NAK 要求重发,重发正确后照常继续 —— 这是 XMODEM 的全部纠错手段。</summary>
@@ -222,7 +222,7 @@ public class XYModemInteropTests
 
         FileTransferSession session = await receiving;
         Assert.AreEqual(FileTransferState.Completed, session.Status);
-        CollectionAssert.AreEqual(content, sink.Completed["retry.bin"]);
+        Assert.AreSequenceEqual(content, sink.Completed["retry.bin"]);
     }
 
     /// <summary>
@@ -266,8 +266,8 @@ public class XYModemInteropTests
 
         byte[] landed = sink.Completed["dup.bin"];
         Assert.AreEqual(256, landed.Length, "重复块被写了两遍就会超过声明的 256 字节");
-        CollectionAssert.AreEqual(first, landed[..4]);
-        CollectionAssert.AreEqual(second, landed[128..132]);
+        Assert.AreSequenceEqual(first, landed[..4]);
+        Assert.AreSequenceEqual(second, landed[128..132]);
     }
 
     /// <summary>YMODEM-G 的握手字符是 <c>'G'</c> 而不是 <c>'C'</c>,且收到块后不逐块应答。</summary>
@@ -301,7 +301,7 @@ public class XYModemInteropTests
 
         FileTransferSession session = await receiving;
         Assert.AreEqual(FileTransferState.Completed, session.Status);
-        CollectionAssert.AreEqual(content, sink.Completed["g.bin"]);
+        Assert.AreSequenceEqual(content, sink.Completed["g.bin"]);
     }
 
     /// <summary>对端发来连续 CAN 时必须立刻中止,而不是把 CAN 当数据吞下去。</summary>
@@ -353,7 +353,7 @@ public class XYModemInteropTests
         Assert.AreEqual(0xFF, blockZero[2]);
         TransferFileMetadata parsed = TransferFileInfoCodec.Parse(blockZero.AsSpan(3, 128));
         Assert.AreEqual("up.txt", parsed.FileName);
-        Assert.AreEqual((long)content.Length, parsed.Size);
+        Assert.AreEqual(content.Length, parsed.Size);
         await peer.WriteAsync(new byte[] { ACK, C }, cts.Token);
 
         // 数据块:内容不足 128 时用 SOH 小块,尾部 SUB 填充。
@@ -361,7 +361,7 @@ public class XYModemInteropTests
         Assert.AreEqual(SOH, dataBlock[0], "不足 128 字节的尾块应降到 SOH 小块,不该发整整 1KB 填充");
         Assert.AreEqual(0x01, dataBlock[1]);
         Assert.AreEqual(0xFE, dataBlock[2]);
-        CollectionAssert.AreEqual(content, dataBlock[3..(3 + content.Length)]);
+        Assert.AreSequenceEqual(content, dataBlock[3..(3 + content.Length)]);
         Assert.AreEqual(SUB, dataBlock[3 + content.Length], "尾部必须用 SUB(0x1A)填充");
         Assert.IsTrue(
             XYModemBlock.Verify(dataBlock.AsSpan(3, 128), dataBlock.AsSpan(131, 2), useCrc: true),
@@ -378,7 +378,7 @@ public class XYModemInteropTests
         Assert.AreEqual(SOH, terminator[0]);
         Assert.AreEqual(0x00, terminator[1]);
         Assert.AreEqual(0xFF, terminator[2]);
-        CollectionAssert.AreEqual(new byte[128], terminator[3..131], "批结束块的负载必须是 128 个零");
+        Assert.AreSequenceEqual(new byte[128], terminator[3..131], "批结束块的负载必须是 128 个零");
         Assert.AreEqual(0x00, terminator[131]);
         Assert.AreEqual(0x00, terminator[132]);
         await peer.WriteAsync(new byte[] { ACK }, cts.Token);

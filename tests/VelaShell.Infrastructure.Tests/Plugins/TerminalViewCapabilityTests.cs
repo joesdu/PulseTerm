@@ -69,7 +69,7 @@ public class TerminalViewCapabilityTests
         view.SimulateUserInput("ls -l\n");
 
         Assert.HasCount(1, seen);
-        CollectionAssert.AreEqual("ls -l\n"u8.ToArray(), seen[0]);
+        Assert.AreSequenceEqual("ls -l\n"u8.ToArray(), seen[0]);
     }
 
     [TestMethod]

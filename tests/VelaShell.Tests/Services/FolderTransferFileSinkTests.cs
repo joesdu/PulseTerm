@@ -1,7 +1,6 @@
-using VelaShell.Core.Models;
-using VelaShell.Core.ZModem.Model;
-using VelaShell.Services.FileTransfer;
 using VelaShell.Core.FileTransfer.Model;
+using VelaShell.Core.Models;
+using VelaShell.Services.FileTransfer;
 
 namespace VelaShell.Tests.Services;
 

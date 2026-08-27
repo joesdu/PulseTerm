@@ -1,10 +1,9 @@
 using System.Collections.Concurrent;
 using Avalonia.Threading;
-using VelaShell.Core.Models;
 using VelaShell.Core.FileTransfer.Abstractions;
-using VelaShell.Core.ZModem.Model;
-using VelaShell.ViewModels;
 using VelaShell.Core.FileTransfer.Model;
+using VelaShell.Core.Models;
+using VelaShell.ViewModels;
 
 namespace VelaShell.Services.FileTransfer;
 

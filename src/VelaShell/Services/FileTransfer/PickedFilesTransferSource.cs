@@ -1,5 +1,4 @@
 using VelaShell.Core.FileTransfer.Abstractions;
-using VelaShell.Core.ZModem.Model;
 using VelaShell.Core.FileTransfer.Model;
 
 namespace VelaShell.Services.FileTransfer;

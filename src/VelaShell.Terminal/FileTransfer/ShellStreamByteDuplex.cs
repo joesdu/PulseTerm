@@ -1,7 +1,7 @@
 using System.Threading.Channels;
-using VelaShell.Core.Ssh;
 using VelaShell.Core.FileTransfer.Abstractions;
 using VelaShell.Core.FileTransfer.Diagnostics;
+using VelaShell.Core.Ssh;
 
 namespace VelaShell.Terminal.FileTransfer;
 
