@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
@@ -105,6 +106,10 @@ internal sealed class MarqueeSelection
         {
             return;
         }
+        if (IsWithinScrollBar(e.Source))
+        {
+            return;
+        }
         if (!_canStart(e))
         {
             return;
@@ -136,6 +141,26 @@ internal sealed class MarqueeSelection
                 _pressSelection.Add(item);
             }
         }
+    }
+
+    /// <summary>按下位置是否落在列表自己的滚动条里(含滑块、轨道与两端按钮)。</summary>
+    /// <remarks>
+    /// 滚动条长在 <see cref="ListBox" /> 的模板内,它的 PointerPressed 照样冒泡到列表,
+    /// 而框选是以 handledEventsToo 挂在列表上的 —— 不在这里拦掉,拖滚动条就会顺带拉出一个选区。
+    /// 这不是各视图的 start policy 能表达的事(滚动条在任何面板里都不是框选面),
+    /// 所以拦在公共入口,三处调用方一起受益。
+    /// </remarks>
+    private static bool IsWithinScrollBar(object? source)
+    {
+        for (var current = source as Visual; current is not null; current = current.GetVisualParent())
+        {
+            if (current is ScrollBar)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     internal static bool IsDndSurface(object? source)
