@@ -71,6 +71,12 @@
       <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
       <Setter Property="FontWeight" Value="Medium" />
     </Style>
+    <!-- 路径里的下划线是路径的一部分,不是访问键:默认 Button 模板的 ContentPresenter 开着
+         RecognizesAccessKey,/app_old 会被渲染成 /appold
+         (下划线吃掉、后一个字母加下划线)。面包屑不是菜单,不需要助记符。 -->
+    <Style Selector="Button.crumb /template/ ContentPresenter">
+      <Setter Property="RecognizesAccessKey" Value="False" />
+    </Style>
     <Style Selector="Button.crumb:pointerover /template/ ContentPresenter">
       <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
       <Setter Property="Foreground" Value="{DynamicResource VelaAccent}" />
