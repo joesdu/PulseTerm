@@ -1352,7 +1352,7 @@ public partial class ChatPanelView : UserControl
     }
 
     /// <summary>非空行拆成数组;全空返回 null(<c>ChatOptions</c> 上 null 才表示"不发这个参数")。</summary>
-    private static IList<string>? SplitLines(string? text)
+    private static string[]? SplitLines(string? text)
     {
         if (string.IsNullOrWhiteSpace(text))
         {
@@ -1819,7 +1819,7 @@ public partial class ChatPanelView : UserControl
     }
 
     /// <summary>一枚文件引用芯片(与输入框里那段彩色引用同色同名,悬停给全路径)。</summary>
-    private Border BuildReferenceChip(string path)
+    private static Border BuildReferenceChip(string path)
     {
         var row = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 4 };
         row.Children.Add(MakeIcon("Icon.file", "VelaAccent", 10));
@@ -1875,7 +1875,7 @@ public partial class ChatPanelView : UserControl
     /// ② 一次性取值扛不住主题切换 —— 绑上去才会跟着 Dark/Light 变。
     /// 同一条经验在 <see cref="ToolPickerView" /> 里也写着,这里是它的统一版本。
     /// </remarks>
-    private Viewbox MakeIcon(string geometryKey, string brushKey, double size)
+    private static Viewbox MakeIcon(string geometryKey, string brushKey, double size)
     {
         var path = new Avalonia.Controls.Shapes.Path
         {
@@ -2152,7 +2152,7 @@ public partial class ChatPanelView : UserControl
                 Spacing = 2,
                 VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
             };
-            var copyIcon = new Decorator { Child = _owner.MakeIcon("Icon.copy", "VelaTextMuted", 12) };
+            var copyIcon = new Decorator { Child = ChatPanelView.MakeIcon("Icon.copy", "VelaTextMuted", 12) };
             var copy = new Button { Content = copyIcon };
             _owner.ApplyThemeResource(copy, "AiGhostIconButtonTheme");
             ToolTip.SetTip(copy, _owner._loc["CopyReply"]);
@@ -2300,7 +2300,7 @@ public partial class ChatPanelView : UserControl
             {
                 var iconBox = new Decorator
                 {
-                    Child = owner.MakeIcon(iconKey, iconBrushKey ?? "VelaTextMuted", 11),
+                    Child = ChatPanelView.MakeIcon(iconKey, iconBrushKey ?? "VelaTextMuted", 11),
                     Margin = new Thickness(0, 0, 5, 0),
                     VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
                 };
@@ -2314,7 +2314,7 @@ public partial class ChatPanelView : UserControl
             {
                 var trailing = new Decorator
                 {
-                    Child = owner.MakeIcon(trailingIconKey, "VelaTextMuted", 11),
+                    Child = ChatPanelView.MakeIcon(trailingIconKey, "VelaTextMuted", 11),
                     VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
                 };
                 Grid.SetColumn(trailing, 3);
@@ -2415,7 +2415,7 @@ public partial class ChatPanelView : UserControl
             };
             _statusIconHost = new Decorator
             {
-                Child = owner.MakeIcon("Icon.ellipsis", "VelaAccent", 11),
+                Child = ChatPanelView.MakeIcon("Icon.ellipsis", "VelaAccent", 11),
                 Margin = new Thickness(0, 0, 6, 0),
                 VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
             };
@@ -2474,7 +2474,7 @@ public partial class ChatPanelView : UserControl
         public void Complete(string result)
         {
             _result = result;
-            _statusIconHost.Child = _owner.MakeIcon("Icon.circle-check", "VelaStatusConnected", 11);
+            _statusIconHost.Child = ChatPanelView.MakeIcon("Icon.circle-check", "VelaStatusConnected", 11);
             ToolTip.SetTip(_statusIconHost, _owner._loc["ToolDone"]);
         }
 

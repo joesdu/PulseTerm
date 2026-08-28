@@ -194,6 +194,6 @@ public static class SshAlgorithmProbe
         return true;
     }
 
-    private static IReadOnlyList<string> Split(string nameList) =>
+    private static string[] Split(string nameList) =>
         nameList.Length == 0 ? [] : nameList.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 }

@@ -52,7 +52,7 @@ public sealed class PluginTimeSeriesTests : IDisposable
     [TestMethod]
     public async Task WriteAndQuery_RoundTripsAllValueKinds_AndFiltersByTag()
     {
-        ITimeSeriesApi api = new SonnetDbPluginTimeSeries(_engine, "velashell.ai");
+        var api = new SonnetDbPluginTimeSeries(_engine, "velashell.ai");
         ITimeSeries series = await api.OpenAsync(ChatDefinition);
         var clock = new TimeSeriesClock();
         await series.WriteManyAsync(
@@ -82,7 +82,7 @@ public sealed class PluginTimeSeriesTests : IDisposable
     [TestMethod]
     public async Task Query_HonoursDescendingLimitAndTimeRange()
     {
-        ITimeSeriesApi api = new SonnetDbPluginTimeSeries(_engine, "velashell.ai");
+        var api = new SonnetDbPluginTimeSeries(_engine, "velashell.ai");
         ITimeSeries series = await api.OpenAsync(ChatDefinition);
         DateTimeOffset start = DateTimeOffset.UtcNow;
         for (int i = 0; i < 5; i++)
@@ -108,7 +108,7 @@ public sealed class PluginTimeSeriesTests : IDisposable
     [TestMethod]
     public async Task SameTimestampInSameSeries_Overwrites_ClockAvoidsIt()
     {
-        ITimeSeriesApi api = new SonnetDbPluginTimeSeries(_engine, "velashell.ai");
+        var api = new SonnetDbPluginTimeSeries(_engine, "velashell.ai");
         ITimeSeries series = await api.OpenAsync(ChatDefinition);
         DateTimeOffset at = DateTimeOffset.UtcNow;
         await series.WriteAsync(Message(at, "c1", 0, "user", "first"));
@@ -128,7 +128,7 @@ public sealed class PluginTimeSeriesTests : IDisposable
     [TestMethod]
     public async Task CountDistinctAndDelete_WorkPerConversation()
     {
-        ITimeSeriesApi api = new SonnetDbPluginTimeSeries(_engine, "velashell.ai");
+        var api = new SonnetDbPluginTimeSeries(_engine, "velashell.ai");
         ITimeSeries series = await api.OpenAsync(ChatDefinition);
         var clock = new TimeSeriesClock();
         await series.WriteManyAsync(
@@ -153,8 +153,8 @@ public sealed class PluginTimeSeriesTests : IDisposable
     [TestMethod]
     public async Task Plugins_CannotSeeEachOthersSeries()
     {
-        ITimeSeriesApi ai = new SonnetDbPluginTimeSeries(_engine, "velashell.ai");
-        ITimeSeriesApi other = new SonnetDbPluginTimeSeries(_engine, "velashell.other");
+        var ai = new SonnetDbPluginTimeSeries(_engine, "velashell.ai");
+        var other = new SonnetDbPluginTimeSeries(_engine, "velashell.other");
         ITimeSeries aiSeries = await ai.OpenAsync(ChatDefinition);
         ITimeSeries otherSeries = await other.OpenAsync(ChatDefinition);
         await aiSeries.WriteAsync(Message(DateTimeOffset.UtcNow, "c1", 0, "user", "secret"));
@@ -181,7 +181,7 @@ public sealed class PluginTimeSeriesTests : IDisposable
     [TestMethod]
     public async Task Open_RejectsBadNamesAndEnforcesQuota()
     {
-        ITimeSeriesApi api = new SonnetDbPluginTimeSeries(_engine, "velashell.ai");
+        var api = new SonnetDbPluginTimeSeries(_engine, "velashell.ai");
         await Assert.ThrowsExactlyAsync<ArgumentException>(async () =>
             await api.OpenAsync(new("Bad Name", [TimeSeriesColumn.Field("v", TimeSeriesValueKind.Integer)])));
         await Assert.ThrowsExactlyAsync<ArgumentException>(async () =>
@@ -198,7 +198,7 @@ public sealed class PluginTimeSeriesTests : IDisposable
     [TestMethod]
     public async Task Drop_RemovesSeriesAndItsMarker()
     {
-        ITimeSeriesApi api = new SonnetDbPluginTimeSeries(_engine, "velashell.ai");
+        var api = new SonnetDbPluginTimeSeries(_engine, "velashell.ai");
         await api.OpenAsync(ChatDefinition);
         Assert.IsTrue(await api.DropAsync("chat_messages"));
         Assert.IsEmpty(await api.ListAsync());

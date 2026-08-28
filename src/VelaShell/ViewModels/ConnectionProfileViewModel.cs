@@ -766,7 +766,7 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
     /// SSH 配置候选。表单可能在候选加载完之前就渲染(协议激活与仓储读取是两条独立的异步链),
     /// 那时至少要给出"不经跳板机"这一项 —— 一个空下拉会让用户以为功能坏了。
     /// </summary>
-    private IReadOnlyList<PluginSessionChoice> EnsureSshSessionChoices()
+    private List<PluginSessionChoice> EnsureSshSessionChoices()
     {
         if (_sshSessionChoices.Count == 0)
         {

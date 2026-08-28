@@ -36,8 +36,6 @@ public sealed class GistSyncService(
         WriteIndented = true,
     };
 
-    private readonly GistApiClient _api = new();
-
     /// <summary>同步操作串行化:防止自动推送与手动同步并发互踩。</summary>
     private readonly SemaphoreSlim _gate = new(1, 1);
 

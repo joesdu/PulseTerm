@@ -6,8 +6,6 @@ namespace VelaShell.Terminal.Tests;
 [TestCategory("Semantics")]
 public class SemanticMatcherTests
 {
-    private readonly SemanticMatcher _matcher = new();
-
     [TestMethod]
     public void Match_FindsUrl_WithCorrectOffsets()
     {

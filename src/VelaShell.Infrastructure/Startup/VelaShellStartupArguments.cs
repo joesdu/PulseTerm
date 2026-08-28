@@ -111,6 +111,6 @@ public sealed class VelaShellStartupArguments
                      .Where(v => v.Length > 0);
 
     /// <summary>把一条 <c>--wait-debugger</c> 值切成插件 id 集合(逗号/分号分隔)。</summary>
-    private static IEnumerable<string> SplitIds(string? value) =>
+    private static string[] SplitIds(string? value) =>
         (value ?? "").Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 }

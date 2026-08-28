@@ -157,7 +157,7 @@ public sealed class ToolPickerView : UserControl
     }
 
     /// <summary>描边小按钮(图标 + 文字),供左栏的「新增服务器」与组里的「更新工具库」共用。</summary>
-    private Button OutlineButton(string icon, string text, Action onClick)
+    private static Button OutlineButton(string icon, string text, Action onClick)
     {
         var content = new StackPanel
         {
