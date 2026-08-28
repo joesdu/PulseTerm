@@ -2316,7 +2316,6 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         return false;
     }
 
-
     /// <summary>搜索整个缓冲区(回滚区 + 屏幕),不区分大小写(规范 §5.3)。</summary>
     public IReadOnlyList<BufferSearchHit> SearchBuffer(string query) =>
         BufferSearch.FindAll(Emulator.Screen, query);
@@ -2528,7 +2527,14 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     /// 分类决策(快捷键优先级、修饰键改写、编码)全在 <see cref="TerminalKeyRouter" />,
     /// 这里只执行动作 —— 改键位行为去改路由器,别在这里加分支。
     /// </summary>
-    protected override async void OnKeyDown(KeyEventArgs e)
+    /// <remarks>
+    /// <b>本方法必须保持同步,<c>e.Handled</c> 必须在任何 await 之前置位。</b>
+    /// 路由事件的处理器一旦 <c>await</c> 就地返回,事件随即继续冒泡 —— 此后再置 Handled 已经晚了。
+    /// 回归 #265:这里原本是 <c>async void</c> 且在 <c>await PasteAsync()</c> <b>之后</b>才置位,
+    /// 于是 Ctrl+Shift+V 冒泡到 <c>TerminalTabView.OnKeyDown</c> 又粘贴一次 ——
+    /// 用户看到两个多行确认框,点两次确定、粘贴两遍。
+    /// </remarks>
+    protected override void OnKeyDown(KeyEventArgs e)
     {
         TerminalKeyAction action = TerminalKeyRouter.Classify(
             e.Key,
@@ -2543,6 +2549,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
                 break; // 已提交文本会经 OnTextInput 单独送达。
 
             case TerminalKeyActionKind.CopySelection:
+                e.Handled = true;
                 // Ctrl+C 变体带"复制后清选区"的既有语义;Ctrl+Shift+C 保留选区。
                 if (e.KeyModifiers == KeyModifiers.Control)
                 {
@@ -2550,13 +2557,12 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
                 }
                 else
                 {
-                    await CopyAsync();
+                   _ = CopyAsync();
                 }
-                e.Handled = true;
                 return;
 
             case TerminalKeyActionKind.PasteClipboard:
-                await PasteAsync();
+                _ = PasteAsync();
                 e.Handled = true;
                 return;
 
