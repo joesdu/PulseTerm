@@ -46,25 +46,38 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     // 输出只从很小的字符集绘制,因此命中率约 100%,每帧文本塑形 ——
     // 这一主要渲染开销 —— 实际上消失了。字体/字号变化时清空。
     private readonly Dictionary<GlyphKey, FormattedText> _glyphCache = [];
-    private readonly List<char> _runChars = [];
+    // 待发出的 GlyphRun 内容。两者都跨 run、跨帧复用(见 FlushGlyphRun 对所有权的说明):
+    // 字符缓冲手工扩容以便按精确长度切 ReadOnlyMemory;字形表直接以 List 交出去 ——
+    // List<T> 本身就是长度精确的 IReadOnlyList<T>,不必再 ToArray 一份。
+    private char[] _runChars = new char[256];
+    private int _runCharCount;
     private readonly List<GlyphInfo> _runGlyphs = [];
 
     // 客户端语义着色(URL、IP、错误/警告/成功词、选项标志、数字),针对
     // 远端程序留在默认颜色下的文本,使普通日志/MOTD 也能被高亮,
     // 且绝不破坏显式 SGR 颜色(ls --color、git 等)。正则结果按行文本缓存,
     // 因为可见行每一帧都会被重新扫描(光标闪烁、输出)。
-    private readonly Dictionary<string, IReadOnlyList<SemanticSpan>> _semanticSpanCache = [];
+    // 用 StringComparer.Ordinal 建表是为了能取到 span 备用查找(GetAlternateLookup):
+    // 缓存命中路径因此不必先把行文本物化成 string 才查得了表 —— 只有 miss 时才建键。
+    private readonly Dictionary<string, IReadOnlyList<SemanticSpan>> _semanticSpanCache =
+        new(StringComparer.Ordinal);
+
+    private Dictionary<string, IReadOnlyList<SemanticSpan>>.AlternateLookup<ReadOnlySpan<char>>
+        _semanticSpanCacheBySpan;
 
     // 侧栏文本(时间戳/行号/折叠标记)的 FormattedText 缓存:这些文本帧间高度重复
     // (行号在滚动稳定时完全不变),不缓存则每行每帧做一次文本塑形。
     // 键为文本本身;暗色画刷随主题变化时整体失效(见 GutterText)。
-    private readonly Dictionary<string, FormattedText> _gutterTextCache = [];
+    private readonly Dictionary<string, FormattedText> _gutterTextCache = new(StringComparer.Ordinal);
+    private Dictionary<string, FormattedText>.AlternateLookup<ReadOnlySpan<char>> _gutterTextCacheBySpan;
     private ImmutableSolidColorBrush? _gutterTextCacheBrush;
 
     // ComputeSemanticColumns 的复用缓冲:该方法对每个可见行、每一帧都会执行,
     // 若每次都 new StringBuilder/List/数组,全屏 TUI 下就是每帧几百次堆分配直喂 GC。
     // 三者都只在 UI 线程的渲染路径内短暂使用,跨行复用安全。
-    private readonly StringBuilder _semanticLineBuilder = new();
+    // 行文本用裸 char[] 而非 StringBuilder:语义匹配与缓存查表全程走 span,
+    // 命中路径因此一个字符串都不产生(见 SemanticSpansFor)。
+    private char[] _semanticLineChars = new char[256];
     private readonly List<int> _semanticColByChar = [];
     private SemanticKind?[] _semanticByColumn = [];
 
@@ -140,8 +153,36 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     public VelaTerminalControl()
         : this(new(120, 32)) { }
 
+    /// <summary>
+    /// 光标/幽灵叠加层。挂在 <c>VisualChildren</c> 上(而非仅 LogicalChildren):只有可视子元素
+    /// 才会被渲染器访问并拿到自己的绘制记录 —— 这正是它能独立于正文失效的前提。
+    /// 排在正文之后加入,因此恒画在正文之上。
+    /// </summary>
+    private readonly CursorOverlay _overlay;
+
+    /// <summary>
+    /// 失效整个终端(正文 + 光标/幽灵叠加层)。
+    /// </summary>
+    /// <remarks>
+    /// <b>本类内部一律用它,不要直接写 <c>InvalidateVisual()</c></b>:光标与幽灵住在独立的
+    /// <see cref="CursorOverlay" /> 里,只失效正文会让光标停在旧位置(输入时光标不跟手)。
+    /// 唯一的例外是光标闪烁计时器 —— 它只失效叠加层,这正是拆层的意义。
+    /// 外部宿主强制重绘时同样应当调本方法(见 <c>TerminalTabView.ForceFullRepaint</c>)。
+    /// </remarks>
+    public void InvalidateTerminal()
+    {
+        InvalidateVisual();
+        _overlay.InvalidateVisual();
+    }
+
     private VelaTerminalControl(TerminalEmulator emulator)
     {
+        // span 备用查找必须在字典建好之后取一次并留住:它是个包住底层桶的结构体视图,
+        // 每次现取虽然也对,但在每行每帧的热路径上白白多做一次比较器类型检查。
+        _semanticSpanCacheBySpan = _semanticSpanCache.GetAlternateLookup<ReadOnlySpan<char>>();
+        _gutterTextCacheBySpan = _gutterTextCache.GetAlternateLookup<ReadOnlySpan<char>>();
+        _overlay = new(this);
+        VisualChildren.Add(_overlay);
         Emulator = emulator;
         Focusable = true;
         ClipToBounds = true;
@@ -175,7 +216,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
             if (field != value)
             {
                 field = value;
-                InvalidateVisual();
+                InvalidateTerminal();
             }
         }
         // 默认值与设置模型(TerminalBehaviorOptions.CursorStyle)一致;运行时由
@@ -217,7 +258,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
             field = clamped;
             RecomputeMetrics();
             RelayoutFromBounds();
-            InvalidateVisual();
+            InvalidateTerminal();
         }
     } = 1.0;
 
@@ -333,7 +374,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
             }
             field = sanitized;
             RelayoutFromBounds();
-            InvalidateVisual();
+            InvalidateTerminal();
             LayoutPaddingChanged?.Invoke();
         }
     } = DefaultRightPadding;
@@ -367,7 +408,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
             }
             field = sanitized;
             RelayoutFromBounds();
-            InvalidateVisual();
+            InvalidateTerminal();
             LayoutPaddingChanged?.Invoke();
         }
     }
@@ -393,7 +434,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         }
         field = value;
         RelayoutFromBounds();
-        InvalidateVisual();
+        InvalidateTerminal();
     }
 
     /// <summary>侧栏右键菜单改动部件开关后上报(时间戳, 行号, 折叠标记, 空白),供上层持久化。</summary>
@@ -422,7 +463,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
                 return;
             }
             _scrollOffset = clamped;
-            InvalidateVisual();
+            InvalidateTerminal();
             ScrollChanged?.Invoke();
         }
     }
@@ -459,7 +500,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
             field = value;
             RecomputeMetrics();
             RelayoutFromBounds();
-            InvalidateVisual();
+            InvalidateTerminal();
         }
     } = new("fonts:VelaShell#Cascadia Mono, Cascadia Mono, JetBrains Mono, Consolas, Microsoft YaHei, Segoe UI, monospace");
 
@@ -472,7 +513,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
             field = value;
             RecomputeMetrics();
             RelayoutFromBounds();
-            InvalidateVisual();
+            InvalidateTerminal();
         }
     } = 14;
 
@@ -502,7 +543,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         // 选区的行索引是绝对的,会在调整大小时偏移;与其让陈旧的范围
         // 标记(或复制)错误的文本,不如直接丢弃它。
         ClearSelection();
-        InvalidateVisual();
+        InvalidateTerminal();
         ScrollChanged?.Invoke();
     }
 
@@ -691,7 +732,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     {
         ApplyDesignPalette(Emulator.Palette, ActualThemeVariant == ThemeVariant.Light);
         ApplyPaletteOverrides(Emulator.Palette);
-        InvalidateVisual();
+        InvalidateTerminal();
     }
 
     private void ApplyPaletteOverrides(TerminalPalette palette)
@@ -775,8 +816,8 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         if (BellMode == "visual")
         {
             _bellFlashUntil = DateTime.UtcNow.AddMilliseconds(120);
-            InvalidateVisual();
-            DispatcherTimer.RunOnce(InvalidateVisual, TimeSpan.FromMilliseconds(140));
+            InvalidateTerminal();
+            DispatcherTimer.RunOnce(InvalidateTerminal, TimeSpan.FromMilliseconds(140));
         }
         else if (BellMode == "system" && OperatingSystem.IsWindows())
         {
@@ -798,11 +839,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
             _cursorBlinkTimer ??= new(
                 TimeSpan.FromMilliseconds(530),
                 DispatcherPriority.Background,
-                (_, _) =>
-                {
-                    _cursorBlinkVisible = !_cursorBlinkVisible;
-                    InvalidateVisual();
-                }
+                (_, _) => BlinkTick()
             );
             if (!_cursorBlinkTimer.IsEnabled)
             {
@@ -817,9 +854,30 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
                 return;
             }
             _cursorBlinkVisible = true;
-            InvalidateVisual();
+            InvalidateTerminal();
         }
     }
+
+    /// <summary>
+    /// 翻转闪烁相位并<b>只</b>失效光标叠加层。
+    /// </summary>
+    /// <remarks>
+    /// 这是拆出 <see cref="CursorOverlay" /> 的全部意义所在:闪烁不改变正文一个像素,
+    /// 却曾经每 530ms 逼着整屏(1 万格的解析色 + 逐行语义扫描 + 全部 GlyphRun)重记录一遍。
+    /// 本方法是本类里唯一允许绕过 <see cref="InvalidateTerminal" /> 的地方。
+    /// internal 供 <c>CursorOverlayUiTests</c> 免去等待真实计时器。
+    /// </remarks>
+    internal void BlinkTick()
+    {
+        _cursorBlinkVisible = !_cursorBlinkVisible;
+        _overlay.InvalidateVisual();
+    }
+
+    /// <summary>本控件正文(不含叠加层)的累计渲染次数,仅供 headless 测试断言重绘范围。</summary>
+    internal int BodyRenderCountForTest { get; private set; }
+
+    /// <summary>光标/幽灵叠加层的累计渲染次数,仅供 headless 测试断言重绘范围。</summary>
+    internal int OverlayRenderCountForTest { get; private set; }
 
     /// <summary>输入会重置闪烁相位,使光标在输入落点处立即可见。</summary>
     private void ResetCursorBlink()
@@ -832,7 +890,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         if (!_cursorBlinkVisible)
         {
             _cursorBlinkVisible = true;
-            InvalidateVisual();
+            InvalidateTerminal();
         }
     }
 
@@ -873,7 +931,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         }
         bool scrollStateChanged = scrollback != _lastScrollbackCount || _scrollOffset != offsetBefore;
         _lastScrollbackCount = scrollback;
-        InvalidateVisual();
+        InvalidateTerminal();
         // 滚动几何没变(如 htop 原地重绘、进度条刷新)就不惊动滚动条等订阅者:
         // 稳态输出下这是每次 Feed 一趟的下游刷新,省掉是纯赚。
         if (scrollStateChanged)
@@ -948,7 +1006,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
             return;
         }
         _ghostFull = full;
-        InvalidateVisual();
+        InvalidateTerminal();
     }
 
     /// <summary>清除幽灵候选(立即重绘;移除叠画不会引发位置抖动)。</summary>
@@ -959,7 +1017,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
             return;
         }
         _ghostFull = null;
-        InvalidateVisual();
+        InvalidateTerminal();
     }
 
     /// <summary>
@@ -1097,7 +1155,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
                 return;
             }
             field = clamped;
-            InvalidateVisual();
+            InvalidateTerminal();
         }
     } = 1.0;
 
@@ -1294,13 +1352,32 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
                 );
             }
         }
-        _runGlyphs.Add(new(glyphId, _runChars.Count, width * CellWidthForTest));
-        _runChars.Add(ch);
+        _runGlyphs.Add(new(glyphId, _runCharCount, width * CellWidthForTest));
+        if (_runCharCount == _runChars.Length)
+        {
+            Array.Resize(ref _runChars, _runChars.Length * 2);
+        }
+        _runChars[_runCharCount++] = ch;
         _runPrevCol = col;
         _runPrevWidth = width;
     }
 
     /// <summary>将待处理的字形运行(若有)作为单次 DrawGlyphRun 发出,并重置缓冲区。</summary>
+    /// <remarks>
+    /// <b>为什么可以把复用缓冲直接交给 GlyphRun</b>:此处原先是
+    /// <c>_runChars.ToArray().AsMemory()</c> + <c>_runGlyphs.ToArray()</c> —— 每个 run、每帧两个
+    /// 定长数组,而彩色输出(ls --color、提示符)一行会拆成好几个 run,是正文重绘里最大的一笔分配。
+    /// <para>
+    /// 之所以能安全复用:Avalonia 的延迟渲染在 <c>DrawGlyphRun</c> 里就地取用
+    /// <c>GlyphRun.PlatformImpl</c>(把字形塑形成平台的不可变文本 blob),而落进渲染数据的
+    /// <c>DrawGlyphRunPayload</c> 只存一个 <c>Int32</c> 资源索引 —— 不持有任何托管数组。
+    /// 也就是说 <c>DrawGlyphRun</c> 返回之后,这两个缓冲就与已记录的绘制无关了。
+    /// </para>
+    /// <para>
+    /// headless 测试平台不做真实绘制,这条路径无法在测试里验证像素;改动它之后请在真机上
+    /// 扫一眼终端文本(尤其粗体/斜体与彩色混排的行)。
+    /// </para>
+    /// </remarks>
     private void FlushGlyphRun(DrawingContext context, double y)
     {
         if (_runGlyphs.Count == 0)
@@ -1312,11 +1389,13 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         {
             try
             {
+                // List<GlyphInfo> 已经是长度精确的 IReadOnlyList<GlyphInfo>,直接交出去;
+                // 字符缓冲按实际长度切片。两者都不再复制。
                 var run = new GlyphRun(
                     gtf,
                     FontSize,
-                    _runChars.ToArray().AsMemory(),
-                    _runGlyphs.ToArray(),
+                    _runChars.AsMemory(0, _runCharCount),
+                    _runGlyphs,
                     new Point(_runStartCol * CellWidthForTest, y + _baselineOffset)
                 );
                 context.DrawGlyphRun(_runBrush, run);
@@ -1327,11 +1406,11 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
                 // 并在会话余下时间改为重绘,使一切经由逐单元 FormattedText 路径重新渲染
                 // (结果正确,只是更慢)。
                 _glyphRunUnsupported = true;
-                Dispatcher.UIThread.Post(InvalidateVisual);
+                Dispatcher.UIThread.Post(InvalidateTerminal);
             }
         }
         _runGlyphs.Clear();
-        _runChars.Clear();
+        _runCharCount = 0;
         _runStyle = -1;
     }
 
@@ -1339,6 +1418,12 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     protected override Size ArrangeOverride(Size finalSize)
     {
         Size result = base.ArrangeOverride(finalSize);
+
+        // 叠加层铺满整个控件:它内部再套与正文相同的平移,坐标系因此完全一致。
+        // 手工挂在 VisualChildren 上的子元素不参与默认的测量/排布,必须自己走这两步,
+        // 否则它拿不到 Bounds、渲染器直接跳过 —— 表现为光标彻底消失。
+        _overlay.Measure(finalSize);
+        _overlay.Arrange(new Rect(finalSize));
         ApplyLayoutSize(finalSize);
         return result;
     }
@@ -1413,7 +1498,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         ClearFolds(); // reflow 会重建行对象,折叠引用失效。
         // reflow 会移动绝对行;陈旧的选区会标记(并复制)错误的文本。
         ClearSelection();
-        InvalidateVisual();
+        InvalidateTerminal();
         ScrollChanged?.Invoke();
         PtySizeChanged?.Invoke(cols, rows);
     }
@@ -1450,7 +1535,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         _lastScrollbackCount = Emulator.Screen.ScrollbackCount;
         ClearFolds();
         ClearSelection();
-        InvalidateVisual();
+        InvalidateTerminal();
         ScrollChanged?.Invoke();
         PtySizeChanged?.Invoke(cols, rows);
     }
@@ -1488,6 +1573,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     /// <param name="context"></param>
     public override void Render(DrawingContext context)
     {
+        BodyRenderCountForTest++;
         TerminalScreen screen = Emulator.Screen;
         TerminalPalette palette = Emulator.Palette;
         RefreshPixelGrid();
@@ -1524,17 +1610,54 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
                 double y = screenRow * CellHeightForTest;
                 RenderLine(context, palette, line, cols, y, absoluteRow, spans);
             }
-            if (_scrollOffset == 0)
-            {
-                RenderCursor(context, screen, palette);
-                RenderGhostText(context, screen, palette, cols);
-            }
         }
 
         // 视觉 BEL:整个终端上的一次短暂半透明闪烁(§终端 → 视觉闪烁)。
         if (_bellFlashUntil > DateTime.UtcNow)
         {
             context.FillRectangle(BellFlashBrush, new(Bounds.Size));
+        }
+
+        // 光标与幽灵文本不在这里画,由 _overlay 这个独立可视子元素承担 —— 见 CursorOverlay。
+    }
+
+    /// <summary>
+    /// 光标 + 幽灵文本的叠加层:一个独立的可视子元素,画在正文之上。
+    /// </summary>
+    /// <remarks>
+    /// <b>为什么要单独一层</b>:光标闪烁每 530ms 翻一次相位,而 Avalonia 没有"局部失效"——
+    /// 在同一个控件里就意味着为了一个格子重新记录整屏(200×50 = 1 万格的解析色 + 逐行语义扫描
+    /// + 全部 GlyphRun)。拆成子元素后,闪烁只失效这一层,正文的绘制记录原样复用。
+    /// <para>
+    /// 顺序上光标先画、幽灵后画(与拆分前一致):块状光标落在 CursorX 上,幽灵文本正是从 CursorX
+    /// 起向右铺,幽灵必须压在光标块之上,否则补全的第一个字符会被光标盖住。两者同层才能保住这个次序,
+    /// 所以幽灵一并搬了过来。
+    /// </para>
+    /// <para>
+    /// <b>失效必须成对</b>:本层的内容(光标位置、幽灵剩余)由屏幕状态现算,正文一变它就过期。
+    /// 因此正文的每一次失效都要连带失效本层 —— 全走 <see cref="InvalidateTerminal" />,
+    /// 不要在本类里直接写 <c>InvalidateVisual()</c>(唯一的例外是闪烁计时器,它只失效本层)。
+    /// </para>
+    /// </remarks>
+    private sealed class CursorOverlay(VelaTerminalControl owner) : Control
+    {
+        public override void Render(DrawingContext context)
+        {
+            owner.OverlayRenderCountForTest++;
+            if (owner._scrollOffset != 0)
+            {
+                return; // 回滚查看历史时不画光标/幽灵(与拆分前的可见性条件一致)。
+            }
+            TerminalScreen screen = owner.Emulator.Screen;
+            TerminalPalette palette = owner.Emulator.Palette;
+
+            // 与正文同一套平移,使 col*_cellWidth 的坐标计算保持不变。
+            using (context.PushTransform(
+                       Matrix.CreateTranslation(owner.ContentPadding + owner.GutterWidth(), owner.ContentPadding)))
+            {
+                owner.RenderCursor(context, screen, palette);
+                owner.RenderGhostText(context, screen, palette, screen.Columns);
+            }
         }
     }
 
@@ -1657,14 +1780,18 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     /// 画刷实例变化(主题切换/画刷缓存重建)时整体失效;字体/字号变化时随
     /// <c>_glyphCache</c> 一起清空。上限防长会话滚动把历史行号无界积累。
     /// </summary>
-    private FormattedText GutterText(string text, Typeface typeface, ImmutableSolidColorBrush brush)
+    /// <remarks>
+    /// 取 span 而非 string:调用方在栈上拼好 "[HH:mm:ss] " / 右对齐行号,命中缓存时
+    /// (滚动稳定期几乎恒命中)连缓存键都不必物化。只有 miss 才 <c>ToString()</c> 建键。
+    /// </remarks>
+    private FormattedText GutterText(ReadOnlySpan<char> text, Typeface typeface, ImmutableSolidColorBrush brush)
     {
         if (!ReferenceEquals(_gutterTextCacheBrush, brush))
         {
             _gutterTextCache.Clear();
             _gutterTextCacheBrush = brush;
         }
-        if (_gutterTextCache.TryGetValue(text, out FormattedText? cached))
+        if (_gutterTextCacheBySpan.TryGetValue(text, out FormattedText? cached))
         {
             return cached;
         }
@@ -1672,10 +1799,50 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         {
             _gutterTextCache.Clear();
         }
+        string key = new(text);
         var formatted = new FormattedText(
-            text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, typeface, FontSize, brush);
-        _gutterTextCache[text] = formatted;
+            key, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, typeface, FontSize, brush);
+        _gutterTextCache[key] = formatted;
         return formatted;
+    }
+
+    /// <summary>
+    /// 把行时间戳写成 <c>"[HH:mm:ss] "</c>,返回 <paramref name="buffer" /> 中写好的那一段。
+    /// 缓冲至少需要 <c>GutterTimeFormat.Length + 3</c> 个字符。
+    /// </summary>
+    /// <remarks>
+    /// 这些文本只是 <see cref="GutterText" /> 的缓存键,却在每个可见行、每一帧上重算
+    /// (光标闪烁也会重绘)。写进调用方的栈缓冲,把原先每行 2 个中间 string 降为零。
+    /// internal 是为了让 <c>GutterTextFormattingTests</c> 直接锁住与原 <c>PadLeft</c> 写法的逐字等价。
+    /// </remarks>
+    internal static ReadOnlySpan<char> FormatGutterTimestamp(DateTime timestamp, Span<char> buffer)
+    {
+        buffer[0] = '[';
+        timestamp.TryFormat(buffer[1..], out int length, GutterTimeFormat, CultureInfo.InvariantCulture);
+        buffer[++length] = ']';
+        buffer[++length] = ' ';
+        return buffer[..++length];
+    }
+
+    /// <summary>
+    /// 把绝对缓冲行号写成右对齐到 <see cref="GutterLayout.NumberDigits" /> 位、尾随一个空格的形式
+    /// (与原先的 <c>(row + 1).ToString().PadLeft(NumberDigits) + " "</c> 逐字等价),
+    /// 返回 <paramref name="buffer" /> 中写好的那一段。位数超出时不截断,自然变宽。
+    /// </summary>
+    /// <inheritdoc cref="FormatGutterTimestamp" path="/remarks" />
+    internal static ReadOnlySpan<char> FormatGutterLineNumber(int absoluteRow, Span<char> buffer)
+    {
+        buffer.Fill(' '); // 缓冲跨行复用,先抹掉上一行的残留。
+        (absoluteRow + 1).TryFormat(buffer, out int digits, provider: CultureInfo.InvariantCulture);
+        int width = Math.Max(digits, GutterLayout.NumberDigits);
+        if (digits < width)
+        {
+            // TryFormat 从头写起,右移到该宽度的末尾;CopyTo 是 memmove 语义,区间重叠安全。
+            buffer[..digits].CopyTo(buffer[(width - digits)..]);
+            buffer[..(width - digits)].Fill(' ');
+        }
+        buffer[width] = ' ';
+        return buffer[..(width + 1)];
     }
 
     private void RenderGutter(DrawingContext context, TerminalScreen screen, TerminalPalette palette, int rows)
@@ -1688,6 +1855,11 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         double numberLeft = Gutter.NumberLeft;
         int lastContentRow = -1; // 最后一行有内容的屏幕行:分隔线/折叠线只画到这里,空屏不画侧栏。
         int cursorAbsoluteRow = screen.ScrollbackCount + screen.CursorY;
+
+        // 时间戳/行号的栈缓冲在循环外开一次(stackalloc 不随迭代释放,CA2014):
+        // 逐行复用即可,内容每行现写。
+        Span<char> stampBuffer = stackalloc char[GutterTimeFormat.Length + 3];
+        Span<char> numberBuffer = stackalloc char[GutterLayout.NumberDigits + 16];
         for (int screenRow = 0; screenRow < rows; screenRow++)
         {
             int absoluteRow = _screenToAbs[screenRow];
@@ -1702,19 +1874,17 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
             TerminalRow line = screen.ViewLine(absoluteRow);
             lastContentRow = screenRow;
             double y = screenRow * CellHeightForTest + _glyphYOffset;
+            // 时间戳与行号都在栈上拼:两者原先各拼 2~3 个中间 string,而它们只是缓存键 ——
+            // 每个可见行、每一帧(光标闪烁也算)白扔一轮。栈缓冲足够容下最长形态。
             if (ShowLineTimestamp && line.Timestamp is { } ts)
             {
-                string stamp =
-                    "[" + ts.ToString(GutterTimeFormat, CultureInfo.InvariantCulture) + "] ";
-                context.DrawText(GutterText(stamp, typeface, dimBrush), new Point(0, y));
+                context.DrawText(GutterText(FormatGutterTimestamp(ts, stampBuffer), typeface, dimBrush), new Point(0, y));
             }
             if (ShowLineNumber)
             {
-                string number =
-                    (absoluteRow + 1)
-                        .ToString(CultureInfo.InvariantCulture)
-                        .PadLeft(GutterLayout.NumberDigits) + " ";
-                context.DrawText(GutterText(number, typeface, dimBrush), new Point(numberLeft, y));
+                context.DrawText(
+                    GutterText(FormatGutterLineNumber(absoluteRow, numberBuffer), typeface, dimBrush),
+                    new Point(numberLeft, y));
             }
         }
         if (lastContentRow < 0)
@@ -1855,7 +2025,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
 
     private void AfterFoldChange()
     {
-        InvalidateVisual();
+        InvalidateTerminal();
         ScrollChanged?.Invoke();
     }
 
@@ -2086,9 +2256,9 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         {
             return null;
         }
-        StringBuilder sb = _semanticLineBuilder.Clear();
         List<int> colByChar = _semanticColByChar;
         colByChar.Clear();
+        int length = 0;
         for (int i = 0; i <= lastNonBlank; i++)
         {
             TerminalCell cell = line[i];
@@ -2096,14 +2266,23 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
             {
                 continue;
             }
-            int before = sb.Length;
-            cell.AppendText(sb);
-            for (int k = before; k < sb.Length; k++)
+
+            // 缓冲不足时扩容重试同一格。单元格最多贡献 2(代理对)+ 组合标记长度个字符,
+            // 上界无法预先精确算出,故按"写失败即翻倍"处理。
+            int written = cell.AppendTo(_semanticLineChars.AsSpan(length));
+            if (written < 0)
+            {
+                Array.Resize(ref _semanticLineChars, Math.Max(_semanticLineChars.Length * 2, length + 64));
+                i--;
+                continue;
+            }
+            for (int k = 0; k < written; k++)
             {
                 colByChar.Add(i);
             }
+            length += written;
         }
-        IReadOnlyList<SemanticSpan> spans = SemanticSpansFor(sb.ToString());
+        IReadOnlyList<SemanticSpan> spans = SemanticSpansFor(_semanticLineChars.AsSpan(0, length));
         if (spans.Count == 0)
         {
             return null;
@@ -2131,9 +2310,13 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         return byColumn;
     }
 
-    private IReadOnlyList<SemanticSpan> SemanticSpansFor(string text)
+    /// <remarks>
+    /// 查表走 span 备用查找:命中时(可见行帧间基本不变,这是绝大多数情况)一个字符串都不分配。
+    /// 只有 miss 才 <c>ToString()</c> 建缓存键 —— 从"每行每帧一个 string"降到"每行内容变化一次"。
+    /// </remarks>
+    private IReadOnlyList<SemanticSpan> SemanticSpansFor(ReadOnlySpan<char> text)
     {
-        if (_semanticSpanCache.TryGetValue(text, out IReadOnlyList<SemanticSpan>? cached))
+        if (_semanticSpanCacheBySpan.TryGetValue(text, out IReadOnlyList<SemanticSpan>? cached))
         {
             return cached;
         }
@@ -2144,7 +2327,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
             _semanticSpanCache.Clear();
         }
         IReadOnlyList<SemanticSpan> spans = SemanticMatcher.Match(text);
-        _semanticSpanCache[text] = spans;
+        _semanticSpanCache[new(text)] = spans;
         return spans;
     }
 
@@ -2368,7 +2551,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
             spans.Add((hit.StartCol, hit.StartCol + hit.Length, i == currentIndex));
         }
         _searchHighlights = map;
-        InvalidateVisual();
+        InvalidateTerminal();
     }
 
     /// <summary>移除所有搜索命中高亮并重新绘制。</summary>
@@ -2379,7 +2562,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
             return;
         }
         _searchHighlights = null;
-        InvalidateVisual();
+        InvalidateTerminal();
     }
 
     /// <summary>
@@ -2397,7 +2580,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         int desiredTop = Math.Max(0, hit.Row - rows / 2);
         int maxTop = Math.Max(0, totalRows - rows);
         ScrollOffset = maxTop - Math.Min(desiredTop, maxTop);
-        InvalidateVisual();
+        InvalidateTerminal();
     }
 
     /// <summary>
@@ -2489,7 +2672,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         base.OnGotFocus(e);
         _hasFocus = true;
         UpdateCursorBlinkTimer();
-        InvalidateVisual();
+        InvalidateTerminal();
     }
 
     /// <summary>标记控件未聚焦,停止闪烁并绘制空心光标。</summary>
@@ -2498,7 +2681,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         base.OnLostFocus(e);
         _hasFocus = false;
         UpdateCursorBlinkTimer();
-        InvalidateVisual();
+        InvalidateTerminal();
     }
 
     /// <summary>对提交的文本输入进行编码并发送往 PTY。</summary>
@@ -2698,7 +2881,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
                 _selecting = true;
                 _selectionAnchor = PointToCell(point);
                 _selectionCaret = _selectionAnchor;
-                InvalidateVisual();
+                InvalidateTerminal();
                 e.Handled = true;
                 return;
             }
@@ -2711,7 +2894,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
             {
                 _selectionCaret = PointToCell(point);
                 _selecting = true;
-                InvalidateVisual();
+                InvalidateTerminal();
                 e.Handled = true;
                 return;
             }
@@ -2723,7 +2906,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
             _selecting = true;
             _selectionAnchor = PointToCell(point);
             _selectionCaret = _selectionAnchor;
-            InvalidateVisual();
+            InvalidateTerminal();
         }
         else if (props.IsRightButtonPressed && RightClickPaste)
         {
@@ -2778,7 +2961,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         _selectionCaret = (cell.Row, end);
         _selecting = false;
         _blockSelection = false;
-        InvalidateVisual();
+        InvalidateTerminal();
         if (CopyOnSelect)
         {
             _ = CopyAsync();
@@ -2820,7 +3003,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
             if (hover != _foldHoverAbs)
             {
                 _foldHoverAbs = hover;
-                InvalidateVisual();
+                InvalidateTerminal();
             }
         }
 
@@ -2851,7 +3034,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
                 }
             case true:
                 _selectionCaret = PointToCell(e.GetPosition(this));
-                InvalidateVisual();
+                InvalidateTerminal();
                 break;
         }
     }
@@ -2863,7 +3046,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         if (_foldHoverAbs != -1)
         {
             _foldHoverAbs = -1;
-            InvalidateVisual();
+            InvalidateTerminal();
         }
     }
 
@@ -2939,7 +3122,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         int delta = (int)(e.Delta.Y * WheelScrollLines * multiplier);
         int maxOffset = Emulator.Screen.ScrollbackCount;
         _scrollOffset = Math.Clamp(_scrollOffset + delta, 0, maxOffset);
-        InvalidateVisual();
+        InvalidateTerminal();
         ScrollChanged?.Invoke();
         e.Handled = true;
     }
@@ -3021,7 +3204,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         }
         _ = CopyAsync();
         ClearSelection();
-        InvalidateVisual();
+        InvalidateTerminal();
         return true;
     }
 

@@ -48,6 +48,8 @@ public class LucideIcon : Control
         return new(w, h);
     }
 
+    private readonly PenCache _pens = new();
+
     /// <summary>使用当前前景画刷绘制图标几何。</summary>
     public override void Render(DrawingContext context)
     {
@@ -67,7 +69,10 @@ public class LucideIcon : Control
         // 因此描边在任何尺寸下都保持 lucide 2/24 的粗细比例。
         double scale = Math.Min(w, h) / 24.0;
         var offset = new Point((w - 24 * scale) / 2, (h - 24 * scale) / 2);
-        var pen = new Pen(brush, 2, lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round);
+
+        // 画笔按 (颜色, 线宽, 端点, 拐角) 复用:图标在工具栏/会话树/文件浏览器里成百上千个,
+        // 每个每次重绘都新建一支可变 Pen(框架还要再快照一次)纯属白扔。
+        IPen pen = _pens.Get(brush, 2, PenLineCap.Round, PenLineJoin.Round);
         using (context.PushTransform(Matrix.CreateScale(scale, scale) * Matrix.CreateTranslation(offset.X, offset.Y)))
         {
             context.DrawGeometry(null, pen, geometry);

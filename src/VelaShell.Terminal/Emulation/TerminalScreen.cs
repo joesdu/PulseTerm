@@ -508,6 +508,7 @@ public sealed class TerminalScreen
                 break;
             }
             physical.RemoveAt(physical.Count - 1);
+            Recycle(last); // 这些行到此确定无人引用,直接进回收池。
         }
 
         // 2. 按新宽度重新生成逻辑行。
@@ -548,6 +549,15 @@ public sealed class TerminalScreen
                     cursorOffset = cells.Count + cursorCol;
                 }
                 cells.AddRange(row.Span[..len]);
+            }
+
+            // 内容已整段复制进 cells,physical[i..j] 这些行对象到此确定无人再读 ——
+            // 立刻回收,下面 EmitLogicalLine 就地取用。滚动回收使池的驻留量只有
+            // 「一条逻辑行所跨的物理行数」(通常 1~3 行),不额外占内存:
+            // physical 本来就把全部旧行持有到本方法结束,2 倍峰值是既有事实,这里只是不再重新分配。
+            for (int r = i; r <= j; r++)
+            {
+                Recycle(physical[r]);
             }
             int emittedStart = rebuilt.Count;
             EmitLogicalLine(cells, cursorOffset, newCols, blank, rebuilt, ref newCursorRow, ref newCursorCol);
@@ -598,13 +608,16 @@ public sealed class TerminalScreen
         ScrollBottom = newRows - 1;
         CursorY = Math.Clamp(newCursorRow - screenStart, 0, newRows - 1);
         CursorX = Math.Clamp(newCursorCol, 0, newCols - 1);
+
+        // 回收池不跨调用驻留:留着就等于让屏幕长期多占一份行内存,而它的收益只在本次重排内。
+        _reflowPool.Clear();
     }
 
     /// <summary>
     /// 把一条逻辑行的单元格换行成若干 <paramref name="cols" /> 宽的行,使宽字符的前导/尾随成对
     /// 留在同一行,除最后一行外每行都标记为软换行,并报告 <paramref name="cursorOffset" /> 落点。
     /// </summary>
-    private static void EmitLogicalLine(List<TerminalCell> cells,
+    private void EmitLogicalLine(List<TerminalCell> cells,
         int cursorOffset,
         int cols,
         in TerminalCell blank,
@@ -657,8 +670,26 @@ public sealed class TerminalScreen
         }
     }
 
-    private static TerminalRow NewBlankRow(int cols, in TerminalCell blank)
+    /// <summary>
+    /// reflow 期间的行对象回收池。
+    /// </summary>
+    /// <remarks>
+    /// 只在 <see cref="ReflowResize" /> 这一次调用内有效,方法结束即清空 —— 不跨调用驻留,
+    /// 因此不会让屏幕长期多占一份行内存。往里放的必须是「内容已复制走、确定无人引用」的行。
+    /// </remarks>
+    private readonly Stack<TerminalRow> _reflowPool = new();
+
+    /// <summary>把一个确定已无人引用的行交还回收池。</summary>
+    private void Recycle(TerminalRow row) => _reflowPool.Push(row);
+
+    /// <summary>取一个指定宽度的空白行:优先复用回收池里的旧行对象。</summary>
+    private TerminalRow NewBlankRow(int cols, in TerminalCell blank)
     {
+        if (_reflowPool.TryPop(out TerminalRow? recycled))
+        {
+            recycled.ResetFor(cols, blank);
+            return recycled;
+        }
         var row = new TerminalRow(cols);
         row.Fill(blank);
         return row;

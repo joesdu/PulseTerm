@@ -501,7 +501,7 @@ public sealed class UsageHeatGrid : Control
             }
             if (i == selected && SelectionBrush is { } selectionBrush)
             {
-                context.DrawRectangle(null, new Pen(selectionBrush, 1), rect.Deflate(0.5), 3, 3);
+                context.DrawRectangle(null, _pens.Get(selectionBrush, 1), rect.Deflate(0.5), 3, 3);
             }
             if (!showValue)
             {
@@ -510,20 +510,9 @@ public sealed class UsageHeatGrid : Control
             string label = labels is not null && i < labels.Count
                                ? labels[i]
                                : LabelPrefix + i.ToString(CultureInfo.InvariantCulture);
-            var text = new FormattedText(
-                value.ToString("F0", CultureInfo.InvariantCulture) + "%",
-                CultureInfo.InvariantCulture,
-                FlowDirection.LeftToRight,
-                typeface,
-                valueSize,
-                labelBrush);
-            var index = new FormattedText(
-                label,
-                CultureInfo.InvariantCulture,
-                FlowDirection.LeftToRight,
-                typeface,
-                indexSize,
-                labelBrush);
+            FormattedText text = ShapedText(
+                value.ToString("F0", CultureInfo.InvariantCulture) + "%", typeface, valueSize, labelBrush);
+            FormattedText index = ShapedText(label, typeface, indexSize, labelBrush);
             if (sparkline)
             {
                 // 折线要占满格子,文字压在左上/右下角,不居中盖住曲线;各垫一层底片保证读得清。
@@ -542,6 +531,47 @@ public sealed class UsageHeatGrid : Control
                 context.DrawText(index, new(rect.Center.X - (index.Width / 2), rect.Center.Y - text.Height - 1));
             }
         }
+    }
+
+    // ---- 文本塑形缓存 --------------------------------------------------------
+
+    /// <summary>
+    /// 已塑形的读数/标签文本,键为 (文本, 字号)。
+    /// </summary>
+    /// <remarks>
+    /// 每格两条文本(百分比 + 核心号),没有缓存就是每次刷新做 2×核心数 次文本塑形 ——
+    /// 128 核的机器每秒 256 次,而内容其实高度重复:百分比只有 "0%".."100%" 一百来种,
+    /// 核心标签按索引固定不变。字号随格子大小变化,故一并入键;画刷变了(主题切换)整表失效。
+    /// </remarks>
+    private readonly PenCache _pens = new();
+
+    private readonly Dictionary<(string Text, double Size), FormattedText> _textCache = [];
+    private Typeface _textCacheTypeface;
+    private IBrush? _textCacheBrush;
+
+    /// <summary>取一条已塑形的文本;字体/画刷变化时整表重建。</summary>
+    private FormattedText ShapedText(string text, Typeface typeface, double size, IBrush brush)
+    {
+        if (!ReferenceEquals(_textCacheBrush, brush) || _textCacheTypeface != typeface)
+        {
+            _textCache.Clear();
+            _textCacheBrush = brush;
+            _textCacheTypeface = typeface;
+        }
+        if (_textCache.TryGetValue((text, size), out FormattedText? cached))
+        {
+            return cached;
+        }
+
+        // 上限保险丝:自定义标签理论上可以无界(插件下发),满了直接重置。
+        if (_textCache.Count > 512)
+        {
+            _textCache.Clear();
+        }
+        var formatted = new FormattedText(
+            text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, typeface, size, brush);
+        _textCache[(text, size)] = formatted;
+        return formatted;
     }
 
     /// <summary>给压在曲线上的文字垫一层底片。</summary>
@@ -593,12 +623,11 @@ public sealed class UsageHeatGrid : Control
         }
         if (LineBrush is { } stroke)
         {
-            context.DrawGeometry(null, new Pen(stroke, 1.2, lineJoin: PenLineJoin.Round), line);
+            context.DrawGeometry(null, _pens.Get(stroke, 1.2, PenLineCap.Flat, PenLineJoin.Round), line);
         }
     }
 
     /// <summary>按列数摊分可用宽度,并夹到 <see cref="MaxCellWidth" />(核心少时不铺满整行)。</summary>
-
 
     private IBrush? LevelBrush(double value) => value switch
     {

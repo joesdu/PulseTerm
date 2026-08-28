@@ -138,6 +138,57 @@ public sealed class TerminalRow(int columns)
         return sb.ToString();
     }
 
+    /// <summary>
+    /// 把 <see cref="GetText" /> 的内容写进 <paramref name="destination" />,返回写入的字符数;
+    /// 空间不足时返回 -1(调用方据此扩容重试,已写入的内容作废)。
+    /// </summary>
+    /// <remarks>
+    /// 与 <see cref="GetText" /> 逐字等价,只是不物化 string。整缓冲区扫描的场合
+    /// (<see cref="BufferSearch.FindAll" /> 每次按键要过一遍全部回滚行)用它,把
+    /// "每行一个 StringBuilder + 一个 string"降为"每次搜索一个复用缓冲"。
+    /// 一致性由 <c>BufferSearchTests.CopyTextTo_MatchesGetText</c> 把守。
+    /// </remarks>
+    /// <param name="destination">接收行文本的目标缓冲。</param>
+    /// <returns>写入的字符数;缓冲不足时为 -1。</returns>
+    public int CopyTextTo(Span<char> destination)
+    {
+        int lastNonBlank = LastNonBlank();
+        int written = 0;
+        for (int i = 0; i <= lastNonBlank; i++)
+        {
+            int n = _cells[i].AppendTo(destination[written..]);
+            if (n < 0)
+            {
+                return -1;
+            }
+            written += n;
+        }
+        return written;
+    }
+
+    /// <summary>
+    /// 把本行原地复位成指定宽度的空白行(等价于 <c>new TerminalRow(columns)</c> 后 <see cref="Fill" />),
+    /// 宽度不变时连单元格数组都不重新分配。
+    /// </summary>
+    /// <remarks>
+    /// 供 <see cref="TerminalScreen" /> 的 reflow 回收复用旧行对象。改列宽会对整个缓冲区重排,
+    /// 每次都为上万行各 new 一个 <see cref="TerminalCell" /> 数组(1 万行 × 200 列 × 16B ≈ 32MB),
+    /// 而拖拽改宽会连着触发几十次 —— 那些数组多数能活过一次 gen0 回收被提升,代价远不止分配本身。
+    /// <b>只能对确定已经没人引用的行调用</b>(reflow 里旧行的内容已复制进收集缓冲,即为此)。
+    /// </remarks>
+    /// <param name="columns">复位后的列数。</param>
+    /// <param name="blank">用于填充的空白单元格。</param>
+    public void ResetFor(int columns, in TerminalCell blank)
+    {
+        if (_cells.Length != columns)
+        {
+            _cells = new TerminalCell[columns];
+        }
+        _cells.AsSpan().Fill(blank);
+        Wrapped = false;
+        Timestamp = null;
+    }
+
     /// <summary>创建本行的深拷贝,保留单元格、wrapped 标志与时间戳。</summary>
     public TerminalRow Clone()
     {

@@ -15,6 +15,48 @@ public class BufferSearchTests
     }
 
     [TestMethod]
+    public void CopyTextTo_MatchesGetText()
+    {
+        // FindAll 已改为逐行写进复用缓冲(不再每行 GetText() 造 string),
+        // 这里锁住这条零分配路径与 GetText 的逐字等价 —— 含尾部裁剪、宽字符与组合标记。
+        TerminalEmulator e = Feed(
+            "plain ascii",
+            "中文宽字符 mixed 混排",
+            "é 组合标记",
+            "",
+            "trailing spaces then nothing");
+
+        Span<char> buffer = stackalloc char[512];
+        for (int row = 0; row < e.Screen.TotalRows; row++)
+        {
+            TerminalRow line = e.Screen.ViewLine(row);
+            int written = line.CopyTextTo(buffer);
+            Assert.IsGreaterThanOrEqualTo(0, written, $"第 {row} 行放不进 512 字符缓冲。");
+            Assert.AreEqual(line.GetText(), new string(buffer[..written]), $"第 {row} 行两条路径产出不一致。");
+        }
+    }
+
+    [TestMethod]
+    public void CopyTextTo_ReturnsNegativeOne_WhenBufferTooSmall()
+    {
+        TerminalEmulator e = Feed("this line is definitely longer than eight characters");
+        Span<char> tooSmall = stackalloc char[8];
+        Assert.AreEqual(-1, e.Screen.ViewLine(0).CopyTextTo(tooSmall));
+    }
+
+    [TestMethod]
+    public void FindAll_HandlesWideCharsAndCombiningMarks()
+    {
+        // 缓冲按 Columns*2 起步、命中 -1 才扩容,这条覆盖"一行字符数可能超过列数"的扩容分支。
+        TerminalEmulator e = Feed("needle 中文中文中文 ééé needle");
+
+        IReadOnlyList<BufferSearchHit> hits = BufferSearch.FindAll(e.Screen, "needle");
+
+        Assert.HasCount(2, hits);
+        Assert.AreEqual(0, hits[0].StartCol);
+    }
+
+    [TestMethod]
     public void FindAll_FindsHits_CaseInsensitive_WithPositions()
     {
         TerminalEmulator e = Feed("hello world", "no match here", "WORLD of Hello");

@@ -71,6 +71,8 @@ public sealed class ChartSeries : Control
         set => SetValue(MirrorProperty, value);
     }
 
+    private readonly PenCache _pens = new();
+
     /// <summary>按父图表给定的量程绘制自身曲线。</summary>
     public override void Render(DrawingContext context)
     {
@@ -138,7 +140,7 @@ public sealed class ChartSeries : Control
             }
             ctx.EndFigure(false);
         }
-        context.DrawGeometry(null, new Pen(stroke, StrokeThickness, lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round), line);
+        context.DrawGeometry(null, _pens.Get(stroke, StrokeThickness, PenLineCap.Round, PenLineJoin.Round), line);
     }
 }
 
@@ -297,6 +299,8 @@ public sealed class TimeSeriesChart : Panel
 /// <summary>图表的网格层:只画水平/垂直网格与镜像中线,永远垫在曲线下方。</summary>
 internal sealed class ChartGridLayer : Control
 {
+    private readonly PenCache _pens = new();
+
     /// <summary>按父图表的配置绘制网格。</summary>
     public override void Render(DrawingContext context)
     {
@@ -311,7 +315,7 @@ internal sealed class ChartGridLayer : Control
         }
         if (chart.GridBrush is { } grid)
         {
-            var pen = new Pen(grid, 1);
+            IPen pen = _pens.Get(grid, 1);
             for (int i = 1; i < chart.GridRows; i++)
             {
                 double y = Math.Round(h * i / chart.GridRows) + 0.5;
@@ -326,7 +330,7 @@ internal sealed class ChartGridLayer : Control
         if (chart.Mirrored && chart.MidlineBrush is { } mid)
         {
             double y = Math.Round(h / 2) + 0.5;
-            context.DrawLine(new Pen(mid, 1), new(0, y), new(w, y));
+            context.DrawLine(_pens.Get(mid, 1), new(0, y), new(w, y));
         }
     }
 }

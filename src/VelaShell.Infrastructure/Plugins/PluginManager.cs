@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Buffers.Binary;
 using System.Diagnostics;
 using System.IO.Compression;
@@ -744,21 +745,31 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
 
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         Span<byte> frame = stackalloc byte[8];
-        foreach (string file in files.OrderBy(f => Path.GetRelativePath(fullRoot, f).Replace('\\', '/'), StringComparer.Ordinal))
+
+        // 读缓冲在循环外开一次并跨文件复用:原先每个文件都新开 64 KB,一个两百来个文件的
+        // 插件光在这里就扔掉十几 MB 垃圾,而这条路径是安装/校验时的启动开销。
+        byte[] buffer = ArrayPool<byte>.Shared.Rent(64 * 1024);
+        try
         {
-            byte[] path = Encoding.UTF8.GetBytes(Path.GetRelativePath(fullRoot, file).Replace('\\', '/'));
-            BinaryPrimitives.WriteInt32LittleEndian(frame, path.Length);
-            hash.AppendData(frame[..4]);
-            hash.AppendData(path);
-            using FileStream stream = File.OpenRead(file);
-            BinaryPrimitives.WriteInt64LittleEndian(frame, stream.Length);
-            hash.AppendData(frame);
-            byte[] buffer = new byte[64 * 1024];
-            int read;
-            while ((read = stream.Read(buffer)) > 0)
+            foreach (string file in files.OrderBy(f => Path.GetRelativePath(fullRoot, f).Replace('\\', '/'), StringComparer.Ordinal))
             {
-                hash.AppendData(buffer.AsSpan(0, read));
+                byte[] path = Encoding.UTF8.GetBytes(Path.GetRelativePath(fullRoot, file).Replace('\\', '/'));
+                BinaryPrimitives.WriteInt32LittleEndian(frame, path.Length);
+                hash.AppendData(frame[..4]);
+                hash.AppendData(path);
+                using FileStream stream = File.OpenRead(file);
+                BinaryPrimitives.WriteInt64LittleEndian(frame, stream.Length);
+                hash.AppendData(frame);
+                int read;
+                while ((read = stream.Read(buffer)) > 0)
+                {
+                    hash.AppendData(buffer.AsSpan(0, read));
+                }
             }
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
         }
         return Convert.ToHexStringLower(hash.GetHashAndReset());
     }
@@ -794,22 +805,30 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
     }
 
     /// <summary>把条目内容拷进目标流,超出预算即中止并抛出。返回实际写出的字节数。</summary>
+    /// <remarks>本方法按 zip 条目逐个调用,缓冲走池:上千条目的包不必扔掉上千个 80 KB 数组。</remarks>
     private static long CopyBounded(Stream source, Stream destination, long budget, string entryName)
     {
-        byte[] buffer = new byte[81920];
-        long written = 0;
-        int read;
-        while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
+        byte[] buffer = ArrayPool<byte>.Shared.Rent(81920);
+        try
         {
-            written += read;
-            if (written > budget)
+            long written = 0;
+            int read;
+            while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
             {
-                throw new InvalidOperationException(
-                    $"Rejected package: unpacked size exceeds {MaxUnpackedBytes} bytes (while extracting '{entryName}').");
+                written += read;
+                if (written > budget)
+                {
+                    throw new InvalidOperationException(
+                        $"Rejected package: unpacked size exceeds {MaxUnpackedBytes} bytes (while extracting '{entryName}').");
+                }
+                destination.Write(buffer, 0, read);
             }
-            destination.Write(buffer, 0, read);
+            return written;
         }
-        return written;
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
     }
 
     /// <summary>删除某插件的 DB 命名空间与数据目录(卸载/覆盖安装时)。</summary>

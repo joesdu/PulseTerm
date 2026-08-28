@@ -22,6 +22,80 @@ public class ResizePreservationTests
     private static string Line(TerminalEmulator e, int row) => e.Screen.ActiveLine(row).GetText();
 
     [TestMethod]
+    public void Reflow_RecycledRows_AreNeverAliasedIntoTheBufferTwice()
+    {
+        // reflow 会把旧行对象回收复用(避免每次重排为整个缓冲区重新分配上万个单元格数组)。
+        // 这类复用出错的典型症状就是"同一个行对象被塞进缓冲区两处":一处改写会连带另一处
+        // 一起变,画面上表现为某一行的内容莫名其妙复制到别处。这里直接按引用identity 查重。
+        var e = New(40, 8);
+        for (int i = 0; i < 40; i++)
+        {
+            Feed(e, $"line-{i} with enough text to wrap when the terminal gets narrow\r\n");
+        }
+
+        // 拖拽改宽:来回多次,每次都验证一遍(池只在单次调用内有效,反复调用才压得到边界)。
+        foreach (int width in new[] { 20, 60, 15, 80, 33, 40 })
+        {
+            e.Resize(width, 8);
+
+            var seen = new HashSet<TerminalRow>(ReferenceEqualityComparer.Instance);
+            for (int row = 0; row < e.Screen.TotalRows; row++)
+            {
+                TerminalRow line = e.Screen.ViewLine(row);
+                Assert.IsTrue(
+                    seen.Add(line),
+                    $"宽度 {width} 下,同一个 TerminalRow 实例在缓冲区里出现了两次(第 {row} 行)—— 行回收把仍在使用的行发了出去。");
+            }
+        }
+    }
+
+    [TestMethod]
+    public void Reflow_RepeatedWidthChanges_PreserveTextExactly()
+    {
+        // 行回收之后的内容回归:反复改宽再回到原宽,文本必须逐字不变。
+        //
+        // 刻意只用 ASCII:宽字符另有一条与本用例无关的既有行为 —— 双宽字符放不进行尾时
+        // 会在那里留下一个空白格,再变宽重排时该空白被并进逻辑行,于是 "触发" 变成 "触 发"。
+        // 那是 reflow 收集逻辑本身的老问题(在改行回收之前就能复现),不该由这条用例来断言;
+        // 混进来只会让它变成一条测两件事、且长期红着的用例。
+        var e = New(60, 6);
+        string[] written =
+        [
+            "alpha bravo charlie delta echo foxtrot golf hotel india juliet",
+            "short",
+            "kilo lima mike november oscar papa quebec romeo sierra tango",
+            "the quick brown fox jumps over the lazy dog again and again"
+        ];
+        foreach (string line in written)
+        {
+            Feed(e, line + "\r\n");
+        }
+        string before = BufferText(e);
+
+        foreach (int width in new[] { 25, 100, 17, 60 })
+        {
+            e.Resize(width, 6);
+        }
+
+        Assert.AreEqual(before, BufferText(e), "反复改宽再回到原宽后,缓冲区文本必须逐字一致。");
+    }
+
+    /// <summary>把整个缓冲区(回滚 + 屏幕)取成文本,逐行去尾空格、丢掉尾部空行。</summary>
+    private static string BufferText(TerminalEmulator e)
+    {
+        List<string> lines = [];
+        for (int row = 0; row < e.Screen.TotalRows; row++)
+        {
+            lines.Add(e.Screen.ViewLine(row).GetText().TrimEnd());
+        }
+        while (lines.Count > 0 && lines[^1].Length == 0)
+        {
+            lines.RemoveAt(lines.Count - 1);
+        }
+        return string.Join('\n', lines);
+    }
+
+    [TestMethod]
     public void NarrowResize_ReflowsInsteadOfTruncating()
     {
         TerminalEmulator e = New(80, 4);

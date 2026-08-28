@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Collections.Concurrent;
 using System.Text.Json;
 using VelaShell.PluginSdk;
@@ -185,23 +186,36 @@ internal sealed class PluginCapabilityRouter : IDisposable
                     }
                     // 单块上限 512KB:base64 后 ~700KB,远低于帧上限,又不至于块太碎。
                     int count = Math.Clamp(request.MaxBytes, 1, 512 * 1024);
-                    byte[] buffer = new byte[count];
-                    int read = 0;
-                    while (read < count)
+
+                    // 缓冲走池:512KB 远超 85KB 的大对象堆阈值,按块新开会让插件拉一个大文件的
+                    // 全过程都在 LOH 上反复申请/回收(LOH 不压缩,直接喂出碎片与 gen2 回收)。
+                    // 池的最大桶是 1MB,512KB 正好落在池内。
+                    byte[] buffer = ArrayPool<byte>.Shared.Rent(count);
+                    try
                     {
-                        int n = await stream.ReadAsync(buffer.AsMemory(read, count - read), cancellationToken).ConfigureAwait(false);
-                        if (n == 0)
+                        int read = 0;
+                        while (read < count)
                         {
-                            break;
+                            int n = await stream.ReadAsync(buffer.AsMemory(read, count - read), cancellationToken).ConfigureAwait(false);
+                            if (n == 0)
+                            {
+                                break;
+                            }
+                            read += n;
                         }
-                        read += n;
+                        bool eof = read == 0;
+                        if (eof && _openStreams.TryRemove(request.StreamId, out Stream? finished))
+                        {
+                            await finished.DisposeAsync().ConfigureAwait(false); // 流尽即释放,插件忘关也不泄漏
+                        }
+                        return new FsStreamReadResponse(Convert.ToBase64String(buffer, 0, read), eof);
                     }
-                    bool eof = read == 0;
-                    if (eof && _openStreams.TryRemove(request.StreamId, out Stream? finished))
+                    finally
                     {
-                        await finished.DisposeAsync().ConfigureAwait(false); // 流尽即释放,插件忘关也不泄漏
+                        // 租来的数组可能比 count 长,且必然带着上一位租客的数据:
+                        // 上面一律按 read 长度截取,不会把多余字节读出去。
+                        ArrayPool<byte>.Shared.Return(buffer);
                     }
-                    return new FsStreamReadResponse(Convert.ToBase64String(buffer, 0, read), eof);
                 }
             case PluginRpc.FsStreamClose:
                 {

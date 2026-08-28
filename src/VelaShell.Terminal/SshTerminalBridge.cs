@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Threading.Channels;
 using Avalonia.Threading;
 using VelaShell.Core.Ssh;
@@ -11,7 +12,25 @@ namespace VelaShell.Terminal;
 public class SshTerminalBridge : IDisposable
 {
     private readonly CancellationTokenSource _cts;
-    private readonly List<byte[]> _pending = [];
+    /// <summary>
+    /// 一块待喂入终端的输出。
+    /// </summary>
+    /// <param name="Buffer">承载字节的数组。<b>可能比实际数据长</b>(池租的数组只保证 ≥ 请求长度)。</param>
+    /// <param name="Length">有效字节数 —— 一律以它为准,绝不能用 <c>Buffer.Length</c>。</param>
+    /// <param name="Pooled">
+    /// 该数组是否租自 <see cref="ArrayPool{T}" />。为 true 时排空后必须归还;
+    /// 转交路由(ZMODEM)产出的数组不是池的,归还就会污染池。
+    /// </param>
+    private readonly record struct PendingChunk(byte[] Buffer, int Length, bool Pooled);
+
+    private readonly List<PendingChunk> _pending = [];
+
+    /// <summary>
+    /// <see cref="FlushPending" /> 从 <see cref="_pending" /> 摘下来的待处理块。
+    /// 提出来是为了让拼接与归还都在锁外做(锁只护摘取这一下),同时保住"归还必发生"的时机 ——
+    /// 池数组只有在 Feed 同步消费完之后才能还。仅 UI 线程访问。
+    /// </summary>
+    private readonly List<PendingChunk> _draining = [];
 
     // 出站写队列:所有发往 PTY 的字节(击键 + SendRaw 注入)先入队,由唯一的写循环按序
     // 逐段 await 后刷出。绝不能对底层流并发 WriteAsync —— Tmds.Ssh 的 SshChannel.WriteAsync
@@ -248,7 +267,7 @@ public class SshTerminalBridge : IDisposable
     private async Task ReadLoopAsync(CancellationToken token)
     {
         // 更大的读取缓冲意味着更少的 await 与更大的自然批次。
-        byte[] buffer = new byte[16384];
+        byte[] buffer = ArrayPool<byte>.Shared.Rent(16384);
         bool remoteClosed = false;
         try
         {
@@ -261,21 +280,32 @@ public class SshTerminalBridge : IDisposable
                     remoteClosed = true;
                     break;
                 }
-                byte[] data = new byte[bytesRead];
-                Array.Copy(buffer, data, bytesRead);
+
+                // 每块仍要一份自己的副本(读缓冲下一轮就被覆写,而 UI 线程晚一点才排空),
+                // 但副本租自池:这里原先是 `new byte[bytesRead]`,cat 一个大文件时它就是
+                // 整条输出链路上最大的一笔分配(每秒上千块、每块至多 16KB)。
+                // 归还发生在 FlushPending 把它喂完之后,见 PendingChunk.Pooled。
+                byte[] data = ArrayPool<byte>.Shared.Rent(bytesRead);
+                buffer.AsSpan(0, bytesRead).CopyTo(data);
+
                 // 记录/回放拿到的流与屏幕一致:注入的初始化脚本回显在此剥除。
                 // 无论有无订阅者都要跑,否则抑制器的跨块状态会与实际流脱节。
                 // 整块被剥光(或被扣下等下一块续判)时无事可记。
-                byte[] logged = SuppressTapEcho(data);
-                if (logged.Length > 0)
+                // 抑制器与订阅者的签名都是精确长度的 byte[],故此处才物化 —— 两者都是
+                // 冷路径(抑制器只活在连接后的最初几秒,日志/录制默认关闭),稳态不经过。
+                if (_tapEchoSuppressor is not null || DataReceived is not null)
                 {
-                    try
+                    byte[] logged = SuppressTapEcho(data.AsSpan(0, bytesRead).ToArray());
+                    if (logged.Length > 0)
                     {
-                        DataReceived?.Invoke(logged);
-                    }
-                    catch
-                    {
-                        // 日志订阅者异常不允许打断读循环。
+                        try
+                        {
+                            DataReceived?.Invoke(logged);
+                        }
+                        catch
+                        {
+                            // 日志订阅者异常不允许打断读循环。
+                        }
                     }
                 }
 
@@ -284,17 +314,20 @@ public class SshTerminalBridge : IDisposable
                 // ZMODEM 路由优先:会话期间返回空终端字节(全部转交引擎),
                 // 命中时仅把引导前的字节嗂终端;未启用时原样嗂入。
                 FileTransfer.TerminalTransferRouter? router = TransferRouter;
-                if (router is null || router.CanPassThrough(data))
+                if (router is null || router.CanPassThrough(data.AsSpan(0, bytesRead)))
                 {
-                    // 常态直通:无 ZMODEM 引导迹象时原始块零拷贝进合批队列。
-                    EnqueueForFeed(data);
+                    // 常态直通:无 ZMODEM 引导迹象时原始块零拷贝进合批队列(所有权移交队列)。
+                    EnqueueForFeed(new(data, bytesRead, Pooled: true));
                 }
                 else
                 {
-                    FileTransfer.TransferRouteResult route = router.ProcessIncoming(data);
+                    FileTransfer.TransferRouteResult route = router.ProcessIncoming(data.AsMemory(0, bytesRead));
+
+                    // 路由产出的是它自己的数组,不属于池;本块的池数组到此为止,当场归还。
+                    ArrayPool<byte>.Shared.Return(data);
                     if (route.TerminalBytes.Length > 0)
                     {
-                        EnqueueForFeed(route.TerminalBytes);
+                        EnqueueForFeed(new(route.TerminalBytes, route.TerminalBytes.Length, Pooled: false));
                     }
                 }
             }
@@ -317,6 +350,10 @@ public class SshTerminalBridge : IDisposable
         {
             remoteClosed = true;
             Error?.Invoke(ex);
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
         }
 
         // 表示远端主动关闭,但不包括我们自身 Dispose() 驱动的拆除。
@@ -362,11 +399,11 @@ public class SshTerminalBridge : IDisposable
         return merged;
     }
 
-    private void EnqueueForFeed(byte[] data)
+    private void EnqueueForFeed(PendingChunk chunk)
     {
         lock (_pendingLock)
         {
-            _pending.Add(data);
+            _pending.Add(chunk);
         }
 
         // 最多只调度一次待处理的 UI 刷新;后续分块搭它的便车。
@@ -384,26 +421,35 @@ public class SshTerminalBridge : IDisposable
     {
         // 先重置,使排空期间到达的分块能调度一次全新刷新。
         Interlocked.Exchange(ref _flushScheduled, 0);
-        byte[] buffer;
-        int length;
+
+        // 只在锁内摘取,拼接/喂入/归还都在锁外做 —— 读线程不会被 UI 的这段活儿挡住。
         lock (_pendingLock)
         {
-            int count = _pending.Count;
-            if (count == 0)
+            if (_pending.Count == 0)
             {
                 return;
             }
-            if (count == 1)
+            _draining.AddRange(_pending);
+            _pending.Clear();
+        }
+        try
+        {
+            if (_disposed)
             {
-                buffer = _pending[0];
-                length = buffer.Length;
+                return;
+            }
+            byte[] buffer;
+            int length;
+            if (_draining.Count == 1)
+            {
+                (buffer, length, _) = _draining[0];
             }
             else
             {
                 int total = 0;
-                for (int i = 0; i < count; i++)
+                for (int i = 0; i < _draining.Count; i++)
                 {
-                    total += _pending[i].Length;
+                    total += _draining[i].Length;
                 }
                 if (_combineBuffer.Length < total)
                 {
@@ -411,46 +457,55 @@ public class SshTerminalBridge : IDisposable
                     _combineBuffer = new byte[Math.Max(total, _combineBuffer.Length * 2)];
                 }
                 int offset = 0;
-                for (int i = 0; i < count; i++)
+                for (int i = 0; i < _draining.Count; i++)
                 {
-                    byte[] chunk = _pending[i];
-                    Array.Copy(chunk, 0, _combineBuffer, offset, chunk.Length);
+                    PendingChunk chunk = _draining[i];
+                    Array.Copy(chunk.Buffer, 0, _combineBuffer, offset, chunk.Length);
                     offset += chunk.Length;
                 }
                 buffer = _combineBuffer;
                 length = total;
             }
-            _pending.Clear();
-        }
-        if (_disposed)
-        {
-            return;
-        }
-        if (_echoSuppressor is { } suppressor)
-        {
-            // 抑制窗只覆盖连接后的最初几秒:此路径物化精确数组无妨,稳态热路径不经过。
-            byte[] exact = length == buffer.Length ? buffer : buffer[..length];
-            exact = suppressor.Process(exact);
-            if (suppressor.Expired)
+            if (_echoSuppressor is { } suppressor)
             {
-                exact = AppendHeldTail(exact, suppressor);
-                _echoSuppressor = null;
+                // 抑制窗只覆盖连接后的最初几秒:此路径物化精确数组无妨,稳态热路径不经过。
+                byte[] exact = buffer.AsSpan(0, length).ToArray();
+                exact = suppressor.Process(exact);
+                if (suppressor.Expired)
+                {
+                    exact = AppendHeldTail(exact, suppressor);
+                    _echoSuppressor = null;
+                }
+                if (exact.Length == 0)
+                {
+                    return;
+                }
+                buffer = exact;
+                length = exact.Length;
             }
-            if (exact.Length == 0)
+            try
             {
-                return;
+                // 每次刷新只 Feed 一次 => 一次 Updated => 一次重绘,与分块数量无关。
+                FeedTerminal(buffer, length);
             }
-            buffer = exact;
-            length = exact.Length;
+            catch (Exception ex)
+            {
+                Error?.Invoke(ex);
+            }
         }
-        try
+        finally
         {
-            // 每次刷新只 Feed 一次 => 一次 Updated => 一次重绘,与分块数量无关。
-            FeedTerminal(buffer, length);
-        }
-        catch (Exception ex)
-        {
-            Error?.Invoke(ex);
+            // 归还必须发生在 Feed 之后(它同步消费,不留引用),且每条退出路径都要走到 ——
+            // 提前 return(已 Dispose、抑制器把整块吃光)同样得还,否则就是池泄漏。
+            for (int i = 0; i < _draining.Count; i++)
+            {
+                PendingChunk chunk = _draining[i];
+                if (chunk.Pooled)
+                {
+                    ArrayPool<byte>.Shared.Return(chunk.Buffer);
+                }
+            }
+            _draining.Clear();
         }
     }
 
