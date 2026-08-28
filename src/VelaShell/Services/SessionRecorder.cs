@@ -22,6 +22,7 @@ public sealed class SessionRecorder : IDisposable
 
     private MemoryStream _buffer = new();
     private long _bufferStartOffsetMs;
+    private long _lastFlushedOffsetMs = -1;
     private bool _disposed;
     private bool _failed;
 
@@ -93,7 +94,12 @@ public sealed class SessionRecorder : IDisposable
                 return;
             }
             payload = _buffer.ToArray();
-            offset = _bufferStartOffsetMs;
+
+            // 块的存储时间 = 开始时刻 + 偏移,而同一录制同一毫秒只存得下一个点(后写覆盖先写)。
+            // 满 64KB 会立刻触发刷盘,爆发输出下两次刷盘落在同一毫秒完全可能 —— 偏移必须严格
+            // 递增,否则前一块被后一块悄悄顶掉,回放时那段输出凭空消失。
+            offset = Math.Max(_bufferStartOffsetMs, _lastFlushedOffsetMs + 1);
+            _lastFlushedOffsetMs = offset;
             _buffer = new();
         }
         _ = PersistAsync(async () =>

@@ -88,6 +88,15 @@ public class AppSettings
         {
             Transfer.LocalDownloadDirectory = string.Empty;
         }
+
+        // 会话录制早年默认开启,把终端原始输出整份落库,不少用户因此攒下几个 GB 还不知情。
+        // 现改为默认关闭:存量配置统一关一次(旧的 true 分不清是用户选的还是旧默认值),
+        // 打上标记后就不再插手,用户此后开关几次都算数。
+        if (!Security.RecordingOptInMigrated)
+        {
+            Security.RecordProductionSessions = false;
+            Security.RecordingOptInMigrated = true;
+        }
     }
 }
 
@@ -829,8 +838,18 @@ public class TransferOptions : ObservableOptions
 /// <summary>设置 - 安全审计(设计 glqQE;策略项持久化,审计数据在 SonnetDB audit_log)。</summary>
 public class SecurityOptions : ObservableOptions
 {
-    /// <summary>规划中(会话录制):仅持久化,当前无运行时消费者,不出现在设置界面(设置审计 R-11)。</summary>
-    public bool RecordProductionSessions { get; set; } = true;
+    /// <summary>
+    /// 会话录制总开关(设置 → 安全审计 / 回放中心标题栏)。默认关闭:录制把终端原始输出
+    /// 整份落库,一天挂几个会话就是几个 GB,默认开着等于替用户把磁盘吃满。要用的人自己开。
+    /// </summary>
+    public bool RecordProductionSessions { get; set; }
+
+    /// <summary>
+    /// 录制"改为默认关闭"的一次性迁移标记。此开关早年默认开启且从未征求过用户同意,
+    /// 存量配置里的 <see langword="true" /> 分不清是用户选的还是旧默认值带的 ——
+    /// 于是统一关一次并打上标记,之后完全听用户的(见 <see cref="AppSettings.Normalize" />)。
+    /// </summary>
+    public bool RecordingOptInMigrated { get; set; }
 
     /// <summary>规划中(输入脱敏,依赖会话录制):仅持久化,不出现在设置界面(设置审计 R-12)。</summary>
     public bool MaskSensitiveInput { get; set; } = true;
