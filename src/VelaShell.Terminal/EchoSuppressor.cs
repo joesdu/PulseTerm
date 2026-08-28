@@ -41,6 +41,26 @@ public sealed class EchoSuppressor
     public bool Expired => _hitsLeft <= 0 || DateTime.UtcNow > _deadline;
 
     /// <summary>
+    /// 取回并清空当前扣住的块尾部分命中,交还终端。
+    /// <para>
+    /// 扣住的字节只会在<b>下一次</b> <see cref="Process" /> 里放出来;调用方一旦因
+    /// <see cref="Expired" /> 弃用本实例,就再也没有下一次——不在此处取回,那几个字节
+    /// 就被永久吞掉了(抑制窗恰好在扣住的同一块内到期时发生)。
+    /// </para>
+    /// </summary>
+    /// <returns>此前扣住、尚未喂终端的字节;没有则为空数组。</returns>
+    public byte[] TakeHeld()
+    {
+        if (_held == 0)
+        {
+            return [];
+        }
+        byte[] result = _needle[.._held];
+        _held = 0;
+        return result;
+    }
+
+    /// <summary>
     /// 处理一块输出字节,剥除其中匹配到的命令回显;块尾的部分命中会被扣下,合并进下一块续判。
     /// </summary>
     public byte[] Process(byte[] data)

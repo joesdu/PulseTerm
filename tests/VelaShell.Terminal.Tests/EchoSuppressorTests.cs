@@ -81,4 +81,26 @@ public class EchoSuppressorTests
         byte[] result = s.Process(Encoding.UTF8.GetBytes("pi@host:~$ pr"));
         Assert.AreEqual("pi@host:~$ pr", Encoding.UTF8.GetString(result));
     }
+
+    /// <summary>
+    /// 宿主一旦发现抑制器失效就会弃用实例(<c>SshTerminalBridge</c>),此时块尾扣住的部分命中
+    /// 必须取得回来——否则再没有下一次 Process 放行它们,那几个字节被永久吞掉
+    /// (与 #291 的 ZMODEM 扣留同源)。
+    /// </summary>
+    [TestMethod]
+    public void ExpiredWithHeldTail_TakeHeldReturnsBytesInsteadOfLosingThem()
+    {
+        var s = new EchoSuppressor(Needle, 2, TimeSpan.FromMilliseconds(1));
+        string prefix = Payload[..10];
+        byte[] first = s.Process(Encoding.UTF8.GetBytes(prefix));
+
+        // 扣住了:本次一个字节都没放出来。
+        Assert.IsEmpty(first);
+        Thread.Sleep(30);
+        Assert.IsTrue(s.Expired);
+
+        // 宿主弃用实例前把扣住的尾巴取回来交还终端;取一次即清空。
+        Assert.AreEqual(prefix, Encoding.UTF8.GetString(s.TakeHeld()));
+        Assert.IsEmpty(s.TakeHeld());
+    }
 }

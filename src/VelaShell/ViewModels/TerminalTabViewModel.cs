@@ -262,6 +262,10 @@ public class TerminalTabViewModel : TabViewModel, IDisposable
 
     private void OnTrackedCommandSubmitted(string command)
     {
+        // 传输意图先于回显校验处理:远端的 sz/rz 引导可能在几毫秒内就到,等 200ms 二次校验
+        // 就晚了。这一路只认命令名,密码行不可能解析成 sz/rz(解析失败即无副作用)。
+        NoteTransferCommand(command);
+
         // 回显校验:所键入的文本应已被 shell 回显到屏上;密码提示符不回显 → 不记录,
         // 防止口令进历史。注意桥接层的输出是按帧合并 Feed 的——Enter 瞬间最后几个
         // 字符的回显可能还在队列里,同步校验失败时延迟 200ms 后在整个可视区做二次
@@ -301,12 +305,31 @@ public class TerminalTabViewModel : TabViewModel, IDisposable
             string? command = ExtractCommandAfterPrompt(control.GetBufferLine(control.CursorRow));
             if (!string.IsNullOrWhiteSpace(command))
             {
+                // 未知态同样要认传输命令:"sz fi<Tab>" 补全后行内容就不可知了,
+                // 而带 Tab 补全的文件名恰恰是最常见的敲法。
+                NoteTransferCommand(command);
                 CommandLineSubmitted?.Invoke(command);
             }
         }
         catch
         {
             // 读缓冲失败时宁可漏记不误记。
+        }
+    }
+
+    /// <summary>
+    /// 把用户提交的命令行转给路由器:X/YMODEM 据此自动开会话(它们在链路上没有引导,
+    /// 只能靠这一路),ZMODEM 据此放宽检测判据。不是传输命令时是空操作。
+    /// </summary>
+    private void NoteTransferCommand(string command)
+    {
+        try
+        {
+            _ = TransferRouter?.NoteCommandSubmitted(command);
+        }
+        catch
+        {
+            // 传输意图识别失败不得影响命令历史等其余处理。
         }
     }
 

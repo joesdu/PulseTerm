@@ -338,9 +338,28 @@ public class SshTerminalBridge : IDisposable
         byte[] result = suppressor.Process(data);
         if (suppressor.Expired)
         {
+            result = AppendHeldTail(result, suppressor);
             _tapEchoSuppressor = null;
         }
         return result;
+    }
+
+    /// <summary>
+    /// 弃用抑制器前把它扣住的块尾交还输出流。扣住的字节本该在下一次 Process 里放出来,
+    /// 实例一弃用就没有下一次了——不接回来就是永久吞字节(与 #291 的 ZMODEM 扣留同源)。
+    /// 扣住的必然是本块的尾巴,故追加在后面。
+    /// </summary>
+    private static byte[] AppendHeldTail(byte[] head, EchoSuppressor suppressor)
+    {
+        byte[] tail = suppressor.TakeHeld();
+        if (tail.Length == 0)
+        {
+            return head;
+        }
+        byte[] merged = new byte[head.Length + tail.Length];
+        head.CopyTo(merged, 0);
+        tail.CopyTo(merged, head.Length);
+        return merged;
     }
 
     private void EnqueueForFeed(byte[] data)
@@ -414,6 +433,7 @@ public class SshTerminalBridge : IDisposable
             exact = suppressor.Process(exact);
             if (suppressor.Expired)
             {
+                exact = AppendHeldTail(exact, suppressor);
                 _echoSuppressor = null;
             }
             if (exact.Length == 0)

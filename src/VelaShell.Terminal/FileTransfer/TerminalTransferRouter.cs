@@ -68,6 +68,14 @@ public sealed class TerminalTransferRouter(
     private readonly ZModemDetector _detector = new();
     private readonly Lock _gate = new();
 
+    /// <summary>
+    /// 敲过 <c>sz</c>/<c>rz</c> 后放宽 ZMODEM 判据的时长。够远端把命令跑起来、把引导吐出来,
+    /// 又不至于长到让后面无关的输出继续享受宽松判据。
+    /// </summary>
+    private static readonly TimeSpan CommandArmWindow = TimeSpan.FromSeconds(30);
+
+    private DateTime _relaxDetectorUntil = DateTime.MinValue;
+
     private TransferRoutingState _state = TransferRoutingState.Normal;
     private ShellStreamByteDuplex? _duplex;
     private CancellationTokenSource? _sessionCts;
@@ -129,6 +137,9 @@ public sealed class TerminalTransferRouter(
                 return new([], false);
             }
 
+            // 命令行武装窗内放宽尾锚定(见 NoteCommandSubmitted);过期即自动收回。
+            _detector.AcceptUnanchoredHeader = DateTime.UtcNow < _relaxDetectorUntil;
+
             ZModemDetectResult detect = _detector.Process(data.Span);
             if (!detect.Detected)
             {
@@ -178,12 +189,44 @@ public sealed class TerminalTransferRouter(
             {
                 return TransferStartFailure.NotWired;
             }
-            // 检测器里可能扣着几个字节(疑似 ZMODEM 引导前缀),它们属于终端而不属于本次会话;
-            // 这里主动清掉,避免它们在会话结束时被当成"残余"再喂一次。
-            _ = _detector.Flush();
+            // 检测器的跨分片匹配状态属于上一段输出,与本次会话无关,清掉重来。
+            _detector.Reset();
             StartSession(protocol, direction, []);
             return TransferStartFailure.None;
         }
+    }
+
+    /// <summary>
+    /// 告知路由器:用户刚提交了一行命令。这是与输出流嗅探完全独立的第二路信号,用途有二。
+    /// <para>
+    /// <b>一、X/YMODEM 自动触发。</b>这两个协议在链路上没有任何引导序列,基于输出的自动检测
+    /// 必然误触发(见类注释);但用户敲的 <c>sx</c>/<c>rx</c>/<c>sb</c>/<c>rb</c> 是确定无疑的意图,
+    /// 据此直接开会话即可。握手有 30 秒上限(<c>XYModemOptions</c>),敲错了也会自己退出来。
+    /// </para>
+    /// <para>
+    /// <b>二、ZMODEM 判据放宽。</b>敲过 <c>sz</c>/<c>rz</c> 之后的一小段时间内,把检测器的尾锚定
+    /// 要求关掉:此时误报代价远低于漏检。<b>刻意做成"加分信号"而非硬闸门</b> —— 脚本、别名、
+    /// <c>make upload</c> 里调 <c>sz</c> 的场景压根不会经过这里,它们仍须照常被自动检测到。
+    /// </para>
+    /// </summary>
+    /// <param name="commandLine">用户提交的整行命令。</param>
+    /// <returns>据此启动了会话时为 true(仅 X/YMODEM 会启动)。</returns>
+    public bool NoteCommandSubmitted(string? commandLine)
+    {
+        if (TransferCommandParser.Parse(commandLine) is not { } intent)
+        {
+            return false;
+        }
+        TransferTrace.Log($"COMMAND intent protocol={intent.Protocol} direction={intent.Direction}");
+        if (intent.Protocol == TerminalTransferProtocol.ZModem)
+        {
+            lock (_gate)
+            {
+                _relaxDetectorUntil = DateTime.UtcNow + CommandArmWindow;
+            }
+            return false;
+        }
+        return StartManualSession(intent.Protocol, intent.Direction) == TransferStartFailure.None;
     }
 
     private void StartSession(
@@ -262,8 +305,8 @@ public sealed class TerminalTransferRouter(
             _duplex = null;
             _sessionCts?.Dispose();
             _sessionCts = null;
-            // 复位检测器,丢弃可能残留的扣留字节(会话字节不应回流终端)。
-            _ = _detector.Flush();
+            // 复位检测器:会话期间的字节不属于常态输出流,跨分片匹配状态必须清干净。
+            _detector.Reset();
         }
     }
 
