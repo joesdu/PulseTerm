@@ -244,7 +244,10 @@ public sealed class PluginProtocolFieldViewModel : ReactiveObject
     /// </summary>
     public PluginSessionChoice? SelectedSshSession
     {
-        get => SshSessions.FirstOrDefault(choice => choice.Id == _text) ?? SshSessions.FirstOrDefault();
+        // 兜底项走索引器而非 FirstOrDefault():本 getter 挂在绑定上,每次刷新都会跑,
+        // 而 SshSessions 是可索引集合 —— LINQ 那条要建一个枚举器。
+        get => SshSessions.FirstOrDefault(choice => choice.Id == _text)
+               ?? (SshSessions.Count > 0 ? SshSessions[0] : null);
         set
         {
             if (value is not null)

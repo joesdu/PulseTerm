@@ -124,3 +124,63 @@ dotnet_naming_style.pascal_case.required_prefix =
 dotnet_naming_style.pascal_case.required_suffix = 
 dotnet_naming_style.pascal_case.word_separator = 
 dotnet_naming_style.pascal_case.capitalization = pascal_case
+
+# ============================================================================
+# 性能分析器(CA1xxx)
+#
+# 这些规则默认是"隐藏"或"建议"级,不会出现在构建输出里 —— 等于白装。这里按仓库实际
+# 情况分成三档:开成警告(有价值且已清零)、显式关闭(对本仓库是噪声或会引入 bug)、
+# 以及未列出的(保持默认)。
+#
+# 复现完整清单:
+#   dotnet build VelaShell.slnx -t:Rebuild -p:AnalysisModePerformance=All
+# ============================================================================
+
+# ---- 开成警告:已全部清零,新增即失败 ----------------------------------------
+
+# 私有/内部成员的返回类型用具体类型,省掉接口派发。
+dotnet_diagnostic.CA1859.severity = warning
+# 常量数组作实参会每次调用重新分配一个数组,应提为 static readonly。
+dotnet_diagnostic.CA1861.severity = warning
+# 未使用的私有字段 —— 死代码,顺带白占对象大小。
+dotnet_diagnostic.CA1823.severity = warning
+# StringBuilder.Append 单字符用 char 重载,不走字符串路径。
+dotnet_diagnostic.CA1834.severity = warning
+# 可索引集合上别用 LINQ(First/Last/Count),索引器不建枚举器。
+dotnet_diagnostic.CA1826.severity = warning
+# static readonly 能写成 const 的就写 const。
+dotnet_diagnostic.CA1802.severity = warning
+# 密封内部类型,便于 JIT 去虚化。
+dotnet_diagnostic.CA1852.severity = warning
+# 不访问实例数据的成员标 static。
+# 注:对隐式接口实现会误报(见 NullUiApi.NoopPanel.PlacementRatio,改了编译不过),
+# 遇到时按现场判断,不要照搬。
+dotnet_diagnostic.CA1822.severity = warning
+
+# ---- 显式关闭:对本仓库不适用 ------------------------------------------------
+
+# CA2007「考虑调用 ConfigureAwait」—— 5400+ 条。本仓库是 GUI 应用:UI 层的 await
+# 恰恰需要回到 UI 线程,加 ConfigureAwait(false) 是错的;库层(Core/Infrastructure)
+# 已经在该加的地方逐处加了。全局开启只会淹没真正的信号。
+dotnet_diagnostic.CA2007.severity = none
+
+# CA2000「离开作用域前释放对象」—— 400+ 条,几乎全是误报:Avalonia 控件的生命周期
+# 归可视树管,DI 容器注册的实例归容器管,分析器都看不出来。
+dotnet_diagnostic.CA2000.severity = none
+
+# CA1863「缓存 CompositeFormat」—— 本仓库的格式串来自 ResourceManager,每次按
+# CurrentUICulture 现取(见 Core/Resources/Strings)。缓存进静态字段会把语言冻结在
+# 首次使用那一刻,运行时切语言直接失效 —— 这条建议在这里是 bug 而不是优化。
+dotnet_diagnostic.CA1863.severity = none
+
+# CA1819「属性不应返回数组」—— 是 API 设计规则而非性能规则,而本仓库多处刻意返回
+# 数组/Span 以避免拷贝(终端网格、协议缓冲)。
+dotnet_diagnostic.CA1819.severity = none
+
+# ---- 测试项目的放宽 --------------------------------------------------------
+
+[tests/**.cs]
+# CA1861「常量数组作实参应提为 static readonly」在断言里是负优化:
+# Assert.AreSequenceEqual(new[] { "a", "b" }, actual) 就该这么写 —— 把期望值搬到类字段上,
+# 读的人要来回跳才能知道这条断言在比什么,而"重复调用重复分配"在只跑一次的用例里不存在。
+dotnet_diagnostic.CA1861.severity = none

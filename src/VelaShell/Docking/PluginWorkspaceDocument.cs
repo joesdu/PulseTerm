@@ -23,8 +23,6 @@ namespace VelaShell.Docking;
 /// </summary>
 public sealed class PluginWorkspaceDocument : DockDocument, IDockViewProvider
 {
-    private readonly IWorkspaceDocument _workspace;
-    private readonly string _typeName;
     private int _closed;
 
     /// <summary>从插件交出的文档初始化停靠标签页。</summary>
@@ -35,19 +33,19 @@ public sealed class PluginWorkspaceDocument : DockDocument, IDockViewProvider
     public PluginWorkspaceDocument(SessionProfile profile, Guid sessionId, string typeName, IWorkspaceDocument workspace)
     {
         Profile = profile ?? throw new ArgumentNullException(nameof(profile));
-        _workspace = workspace ?? throw new ArgumentNullException(nameof(workspace));
-        _typeName = typeName;
+        Workspace = workspace ?? throw new ArgumentNullException(nameof(workspace));
+        TypeName = typeName;
         SessionId = sessionId;
         Id = sessionId.ToString("N");
         Title = string.IsNullOrWhiteSpace(profile.Name) ? profile.Host : profile.Name;
         Status = Map(SafeState());
         // 标签上的状态圆点跟着插件报的状态走。插件在**任意线程**触发这个事件,
         // 而属性通知会直接驱动绑定 —— 不封送回 UI 线程就是一次跨线程改可视树。
-        _workspace.StatusChanged += OnWorkspaceStatus;
+        Workspace.StatusChanged += OnWorkspaceStatus;
     }
 
     /// <summary>连接类型的展示名(如 <c>Redis</c>),标签与提示文本用。</summary>
-    public string TypeName => _typeName;
+    public string TypeName { get; }
 
     /// <summary>
     /// 标签上的状态。刻意映射成宿主的 <see cref="SessionStatus" /> 而不是直接暴露
@@ -74,7 +72,7 @@ public sealed class PluginWorkspaceDocument : DockDocument, IDockViewProvider
     {
         try
         {
-            return _workspace.Status.State;
+            return Workspace.Status.State;
         }
         catch
         {
@@ -90,13 +88,13 @@ public sealed class PluginWorkspaceDocument : DockDocument, IDockViewProvider
     public Guid SessionId { get; }
 
     /// <summary>插件交出的文档(状态与重连由它提供)。</summary>
-    public IWorkspaceDocument Workspace => _workspace;
+    public IWorkspaceDocument Workspace { get; }
 
     /// <summary>从连接配置派生的强调色画刷,用于视觉标识(与终端/SFTP 标签同一套)。</summary>
     public IBrush ConnectionAccentBrush => ConnectionAccent.BrushFor(Profile.Id);
 
     /// <summary>显示连接详情的提示文本。</summary>
-    public string ConnectionTooltip => $"{Title} · {_typeName} · {Profile.Host}:{Profile.Port}";
+    public string ConnectionTooltip => $"{Title} · {TypeName} · {Profile.Host}:{Profile.Port}";
 
     /// <summary>
     /// 创建停靠内容:向插件索取控件。
@@ -110,16 +108,16 @@ public sealed class PluginWorkspaceDocument : DockDocument, IDockViewProvider
     {
         try
         {
-            object view = _workspace.CreateView();
+            object view = Workspace.CreateView();
             if (view is Control control)
             {
                 return control;
             }
-            Trace.WriteLine($"[PluginWorkspace] '{_typeName}' returned {view?.GetType().FullName ?? "null"}, which is not an Avalonia Control.");
+            Trace.WriteLine($"[PluginWorkspace] '{TypeName}' returned {view?.GetType().FullName ?? "null"}, which is not an Avalonia Control.");
         }
         catch (Exception ex)
         {
-            Trace.WriteLine($"[PluginWorkspace] '{_typeName}' threw while creating its view: {ex}");
+            Trace.WriteLine($"[PluginWorkspace] '{TypeName}' threw while creating its view: {ex}");
         }
         return BrokenView();
     }
@@ -134,16 +132,16 @@ public sealed class PluginWorkspaceDocument : DockDocument, IDockViewProvider
         {
             return;
         }
-        _workspace.StatusChanged -= OnWorkspaceStatus;
+        Workspace.StatusChanged -= OnWorkspaceStatus;
         try
         {
-            await _workspace.DisposeAsync().ConfigureAwait(false);
+            await Workspace.DisposeAsync().ConfigureAwait(false);
         }
         catch (Exception ex)
         {
             // 关闭路径不许抛:标签页已经从界面上消失了,再冒一个异常出去只会变成
             // 一次没人处理的 UnobservedTaskException。
-            Trace.WriteLine($"[PluginWorkspace] Disposing '{_typeName}' session failed: {ex.Message}");
+            Trace.WriteLine($"[PluginWorkspace] Disposing '{TypeName}' session failed: {ex.Message}");
         }
     }
 
@@ -154,7 +152,7 @@ public sealed class PluginWorkspaceDocument : DockDocument, IDockViewProvider
         {
             try
             {
-                return _workspace.Status.State;
+                return Workspace.Status.State;
             }
             catch
             {
@@ -163,8 +161,8 @@ public sealed class PluginWorkspaceDocument : DockDocument, IDockViewProvider
         }
     }
 
-    private static Control BrokenView() =>
-        new TextBlock
+    private static TextBlock BrokenView() =>
+        new()
         {
             Text = Strings.Get("Plugin_ProtocolUnavailable"),
             HorizontalAlignment = HorizontalAlignment.Center,

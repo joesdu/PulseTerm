@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics;
 using VelaShell.PluginSdk.Protocols;
 using VelaShell.PluginSdk.Workspaces;
@@ -304,6 +305,10 @@ public sealed class PluginProtocolRegistry
         return Register(pluginId, descriptor, fileSystem: null, terminal);
     }
 
+    [SuppressMessage("Performance", "CA1859:使用具体类型以提高性能",
+        Justification = "返回 IDisposable 是注册句柄的契约:公开重载把它原样透给插件,注销方式" +
+                        "只能是 Dispose。换成具体的 Unregister 会把实现类型泄进 API 面," +
+                        "省下的那一次接口派发远不值这个代价。")]
     private IDisposable Register(
         string pluginId,
         ProtocolDescriptor descriptor,
@@ -516,7 +521,7 @@ public sealed class PluginProtocolRegistry
         }
     }
 
-    private void Detach(Entry entry)
+    private static void Detach(Entry entry)
     {
         if (entry.Registration.FileSystem is not { } fileSystem)
         {
@@ -597,7 +602,7 @@ public sealed class PluginProtocolRegistry
             }
             if (removed)
             {
-                owner.Detach(entry); // 锁外拆订阅,理由同 RemovePlugin
+                PluginProtocolRegistry.Detach(entry); // 锁外拆订阅,理由同 RemovePlugin
                 owner.RaiseUnregistered(id);
                 owner.RaiseChanged();
             }

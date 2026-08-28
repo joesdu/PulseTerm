@@ -18,7 +18,6 @@ public class ManualTransferRouterTests
 {
     private const byte SOH = 0x01;
     private const byte EOT = 0x04;
-    private const byte ACK = 0x06;
     private const byte C = 0x43;
     private const byte SUB = 0x1A;
 

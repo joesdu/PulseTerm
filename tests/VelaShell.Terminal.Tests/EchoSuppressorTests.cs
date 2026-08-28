@@ -6,7 +6,7 @@ namespace VelaShell.Terminal.Tests;
 [TestClass]
 public class EchoSuppressorTests
 {
-    private static readonly string Payload = "prompt_nl() { local c; ((c>1)) && echo; }; PROMPT_COMMAND=prompt_nl";
+    private const string Payload = "prompt_nl() { local c; ((c>1)) && echo; }; PROMPT_COMMAND=prompt_nl";
 
     private static byte[] Needle => Encoding.UTF8.GetBytes(Payload + "\r\n");
 

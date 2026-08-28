@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using VelaShell.PluginSdk.Logging;
 using VelaShell.PluginSdk.Ui;
 
@@ -20,6 +21,9 @@ internal sealed class NullUiApi(IPluginLogger log) : IUiApi
         public string PanelId { get; } = Guid.NewGuid().ToString("N");
         public bool IsOpen => false;
         public event Action? Closed { add { } remove { } }
+        [SuppressMessage("Performance", "CA1822:将成员标记为 static",
+            Justification = "IPluginPanel 的接口成员,改成 static 就不再实现该接口(编译失败)。" +
+                            "CA1822 通常会跳过接口实现,这里是误报。")]
         public double PlacementRatio => double.NaN;
         public event Action<double>? PlacementRatioChanged { add { } remove { } }
         public Task ActivateAsync() => Task.CompletedTask;

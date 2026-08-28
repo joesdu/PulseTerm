@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using NSubstitute;
 using VelaShell.Core.Ssh;
 using VelaShell.Infrastructure.Plugins.Capabilities;
@@ -26,6 +27,10 @@ public class RemoteTunnelCapabilityTests
         return (new(connections), client, sessionId.ToString());
     }
 
+    // 返回类型必须是 Stream:它要喂给 NSubstitute 的 Returns(async call => ... NewStream()),
+    // 那些 lambda 的目标委托是 Task<Stream>。CA1859 建议改成 MemoryStream,改了推断不出委托类型。
+    [SuppressMessage("Performance", "CA1859:使用具体类型以提高性能",
+        Justification = "返回类型由 ISshClientWrapper.OpenUnixConnectionAsync 的 Task<Stream> 签名决定。")]
     private static Stream NewStream() => new MemoryStream();
 
     [TestMethod]
