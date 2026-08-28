@@ -2044,7 +2044,7 @@
     <value>すべてのセッションを自動録画</value>
   </data>
   <data name="SetSecurity_AutoRecordDesc" xml:space="preserve">
-    <value>// ターミナル出力をローカルデータベースに記録し、監査と再生に利用。以後に確立した接続に適用され、保持日数は「一般 → ターミナルセッションログの保持日数」に従います</value>
+    <value>// 端末の出力をローカルデータベースに記録し、監査と再生に使います。既定はオフ:録画は急速に増え、よく使う週なら数 GB になります。以降に確立した接続に適用され、保持日数は「一般 → 端末セッションログの保持日数」に従います</value>
   </data>
   <data name="SetSecurity_BlockOnChange" xml:space="preserve">
     <value>フィンガープリント変更時にブロックして警告</value>
@@ -3989,5 +3989,43 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   </data>
   <data name="SetSecurity_ClearTrustedLaunchTargets" xml:space="preserve">
     <value>消去</value>
+  </data>
+  <data name="Recorder_Cleanup" xml:space="preserve">
+    <value>クリーンアップ</value>
+  </data>
+  <data name="Recorder_CleanupTip" xml:space="preserve">
+    <value>録画を削除し、占有しているディスク領域を実際に解放します</value>
+  </data>
+  <data name="Recorder_CleanupTitle" xml:space="preserve">
+    <value>録画データのクリーンアップ</value>
+  </data>
+  <data name="Recorder_CleanupMessage" xml:space="preserve">
+    <value>録画 {0} 件、内容は合計 {1} です。データベースのディレクトリはディスク上で {2} を占有しており、そのうち約 {3} は以前削除した録画の残骸です。録画の削除は印を付けるだけで、バイトはディスクに返却されません。
+
+クリーンアップの範囲を選んでください。いずれの選択肢もストレージを再構築し、領域を実際に返却します。</value>
+  </data>
+  <data name="Recorder_CleanupKeepAll" xml:space="preserve">
+    <value>削除済みのみ回収</value>
+  </data>
+  <data name="Recorder_CleanupKeepRecent" xml:space="preserve">
+    <value>直近 7 日間を保持</value>
+  </data>
+  <data name="Recorder_CleanupPurgeAll" xml:space="preserve">
+    <value>すべての録画を削除</value>
+  </data>
+  <data name="Recorder_CleanupPurgeConfirm" xml:space="preserve">
+    <value>すべての録画が完全に削除され、復元できません。続行しますか?</value>
+  </data>
+  <data name="Recorder_CleanupBusy" xml:space="preserve">
+    <value>クリーンアップ中…</value>
+  </data>
+  <data name="Recorder_CleanupDone" xml:space="preserve">
+    <value>録画 {0} 件をクリーンアップし、{1} を解放しました。</value>
+  </data>
+  <data name="Recorder_CleanupDoneDeferred" xml:space="preserve">
+    <value>録画 {0} 件をクリーンアップしました。データは削除済みで、ディスク領域は次回 VelaShell 起動時に解放されます。</value>
+  </data>
+  <data name="Recorder_CleanupFailed" xml:space="preserve">
+    <value>クリーンアップに失敗しました: {0}</value>
   </data>
 </root>

@@ -49,6 +49,16 @@ public sealed class SonnetDbEngine : IDisposable
     /// <summary>会话录制分块数据时序 measurement 名。</summary>
     public const string RecordingChunksMeasurement = "session_recording_chunks";
 
+    /// <summary>
+    /// 段文件改走内存映射的体积阈值。SonnetDB 默认只对大于 64MB 的段用 mmap,比这小的段在
+    /// <c>Tsdb.Open</c> 里整个读进托管堆 —— 而会话录制每次刷盘都落一个新段,几 GB 录制数据
+    /// 就是几十上百个不足 64MB 的小段,于是"开库即全量入堆",内存直接顶到数据体积。
+    /// 实测:60 个 10MB 段(共 600MB)在默认阈值下开库后托管堆 601.7MB,阈值改成 1MB 后只剩 0.4MB。
+    /// 代价:Windows 上被映射的段文件删不掉,DropMeasurement 腾出的字节要等下次开库才真正落盘
+    /// (清理入口据此提示"重启后彻底释放")。
+    /// </summary>
+    private const long SegmentMemoryMapThresholdBytes = 1024 * 1024;
+
     private readonly Tsdb _db;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly ConcurrentDictionary<string, DocumentCollectionStore> _stores = new(StringComparer.Ordinal);
@@ -66,9 +76,21 @@ public sealed class SonnetDbEngine : IDisposable
             throw new ArgumentException(@"SonnetDB root directory is required.", nameof(rootDirectory));
         }
         Directory.CreateDirectory(rootDirectory);
-        _db = Tsdb.Open(new() { RootDirectory = rootDirectory });
+        RootDirectory = rootDirectory;
+        _db = Tsdb.Open(new()
+        {
+            RootDirectory = rootDirectory,
+            SegmentReaderOptions = new()
+            {
+                UseMemoryMappedFileForLargeSegments = true,
+                MemoryMappedFileThresholdBytes = SegmentMemoryMapThresholdBytes
+            }
+        });
         EnsureSchema();
     }
+
+    /// <summary>数据库根目录(统计磁盘占用用)。</summary>
+    public string RootDirectory { get; }
 
     /// <summary>释放所有文档集合存储与底层数据库句柄;线程安全且幂等。</summary>
     public void Dispose()
@@ -301,6 +323,24 @@ public sealed class SonnetDbEngine : IDisposable
         catch
         {
             return false;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    /// <summary>
+    /// 把内存表立刻刷成段文件。批量回灌大量数据时必须周期性调用 —— 否则写进去的点会一直堆在
+    /// 内存表里(默认要攒满 100 万点或 5 分钟才自动刷),搬运几 GB 录制就等于把几 GB 顶进内存。
+    /// </summary>
+    public async Task FlushAsync(CancellationToken cancellationToken = default)
+    {
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            ThrowIfDisposed();
+            _db.FlushNow();
         }
         finally
         {

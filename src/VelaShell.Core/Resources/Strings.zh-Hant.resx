@@ -2044,7 +2044,7 @@
     <value>自動錄製所有工作階段</value>
   </data>
   <data name="SetSecurity_AutoRecordDesc" xml:space="preserve">
-    <value>// 記錄終端機輸出到本機資料庫供稽核與回放;對之後建立的連線生效,保留天數隨「一般 → 終端機工作階段日誌保留天數」</value>
+    <value>// 記錄終端輸出到本機資料庫供稽核與回放。預設關閉:錄製體積成長很快,用得多時一週就是幾個 GB。對之後建立的連線生效,保留天數隨「一般 → 終端工作階段記錄保留天數」</value>
   </data>
   <data name="SetSecurity_BlockOnChange" xml:space="preserve">
     <value>指紋變更時阻斷並告警</value>
@@ -3989,5 +3989,43 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   </data>
   <data name="SetSecurity_ClearTrustedLaunchTargets" xml:space="preserve">
     <value>清空</value>
+  </data>
+  <data name="Recorder_Cleanup" xml:space="preserve">
+    <value>清理</value>
+  </data>
+  <data name="Recorder_CleanupTip" xml:space="preserve">
+    <value>刪除錄製並真正把佔用的磁碟空間釋放出來</value>
+  </data>
+  <data name="Recorder_CleanupTitle" xml:space="preserve">
+    <value>清理錄製資料</value>
+  </data>
+  <data name="Recorder_CleanupMessage" xml:space="preserve">
+    <value>現有 {0} 筆錄製,內容共 {1}。資料庫目錄佔用磁碟 {2},其中約 {3} 是先前刪除的錄製殘留下來的 —— 刪除錄製只是做個標記,並不會把位元組還給磁碟。
+
+請選擇清理力度,以下每一檔都會重建儲存,把空間真正還回去。</value>
+  </data>
+  <data name="Recorder_CleanupKeepAll" xml:space="preserve">
+    <value>只回收已刪除的</value>
+  </data>
+  <data name="Recorder_CleanupKeepRecent" xml:space="preserve">
+    <value>僅保留最近 7 天</value>
+  </data>
+  <data name="Recorder_CleanupPurgeAll" xml:space="preserve">
+    <value>刪除全部錄製</value>
+  </data>
+  <data name="Recorder_CleanupPurgeConfirm" xml:space="preserve">
+    <value>全部錄製將被永久刪除且無法復原,確定要繼續嗎?</value>
+  </data>
+  <data name="Recorder_CleanupBusy" xml:space="preserve">
+    <value>正在清理…</value>
+  </data>
+  <data name="Recorder_CleanupDone" xml:space="preserve">
+    <value>已清理 {0} 筆錄製,釋放 {1}。</value>
+  </data>
+  <data name="Recorder_CleanupDoneDeferred" xml:space="preserve">
+    <value>已清理 {0} 筆錄製。資料已清除,磁碟空間將在下次啟動 VelaShell 時釋放。</value>
+  </data>
+  <data name="Recorder_CleanupFailed" xml:space="preserve">
+    <value>清理失敗:{0}</value>
   </data>
 </root>

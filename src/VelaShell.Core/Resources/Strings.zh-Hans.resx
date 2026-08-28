@@ -2235,7 +2235,7 @@
     <value>自动录制所有会话</value>
   </data>
   <data name="SetSecurity_AutoRecordDesc" xml:space="preserve">
-    <value>// 记录终端输出到本地数据库供审计与回放;对之后建立的连接生效,保留天数随「常规 → 终端会话日志保留天数」</value>
+    <value>// 记录终端输出到本地数据库供审计与回放。默认关闭:录制体积增长很快,用得多时一周就是几个 GB。对之后建立的连接生效,保留天数随「常规 → 终端会话日志保留天数」</value>
   </data>
   <data name="SetSecurity_BlockOnChange" xml:space="preserve">
     <value>指纹变更时阻断并告警</value>
@@ -4081,5 +4081,43 @@ Windows 填 exe 完整路径或命令名(如 notepad);Linux 填命令名(如 ged
   </data>
   <data name="SetSecurity_ClearTrustedLaunchTargets" xml:space="preserve">
     <value>清空</value>
+  </data>
+  <data name="Recorder_Cleanup" xml:space="preserve">
+    <value>清理</value>
+  </data>
+  <data name="Recorder_CleanupTip" xml:space="preserve">
+    <value>删除录制并真正把占用的磁盘空间释放出来</value>
+  </data>
+  <data name="Recorder_CleanupTitle" xml:space="preserve">
+    <value>清理录制数据</value>
+  </data>
+  <data name="Recorder_CleanupMessage" xml:space="preserve">
+    <value>现有 {0} 条录制,内容共 {1}。数据库目录占用磁盘 {2},其中约 {3} 是此前删除的录制残留下来的 —— 删除录制只是打个标记,并不会把字节还给磁盘。
+
+请选择清理力度,以下每一档都会重建存储,把空间真正还回去。</value>
+  </data>
+  <data name="Recorder_CleanupKeepAll" xml:space="preserve">
+    <value>只回收已删除的</value>
+  </data>
+  <data name="Recorder_CleanupKeepRecent" xml:space="preserve">
+    <value>仅保留最近 7 天</value>
+  </data>
+  <data name="Recorder_CleanupPurgeAll" xml:space="preserve">
+    <value>删除全部录制</value>
+  </data>
+  <data name="Recorder_CleanupPurgeConfirm" xml:space="preserve">
+    <value>全部录制将被永久删除且无法恢复,确定继续吗?</value>
+  </data>
+  <data name="Recorder_CleanupBusy" xml:space="preserve">
+    <value>正在清理…</value>
+  </data>
+  <data name="Recorder_CleanupDone" xml:space="preserve">
+    <value>已清理 {0} 条录制,释放 {1}。</value>
+  </data>
+  <data name="Recorder_CleanupDoneDeferred" xml:space="preserve">
+    <value>已清理 {0} 条录制。数据已清除,磁盘空间将在下次启动 VelaShell 时释放。</value>
+  </data>
+  <data name="Recorder_CleanupFailed" xml:space="preserve">
+    <value>清理失败:{0}</value>
   </data>
 </root>

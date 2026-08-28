@@ -2144,7 +2144,7 @@ Paste anyway?</value>
     <value>Auto-record all sessions</value>
   </data>
   <data name="SetSecurity_AutoRecordDesc" xml:space="preserve">
-    <value>// Record terminal output to a local database for audit and replay; applies to connections opened afterwards, retention follows General → Terminal session log retention</value>
+    <value>// Record terminal output to a local database for audit and replay. Off by default: recordings grow fast — a busy week can be several GB. Applies to connections opened afterwards; retention follows General → Terminal session log retention</value>
   </data>
   <data name="SetSecurity_BlockOnChange" xml:space="preserve">
     <value>Block and alert on fingerprint change</value>
@@ -3990,5 +3990,43 @@ Trusting it will also trust future packages signed by the same key. Plugins can 
   </data>
   <data name="SetSecurity_ClearTrustedLaunchTargets" xml:space="preserve">
     <value>Clear</value>
+  </data>
+  <data name="Recorder_Cleanup" xml:space="preserve">
+    <value>Clean up</value>
+  </data>
+  <data name="Recorder_CleanupTip" xml:space="preserve">
+    <value>Delete recordings and actually release the disk space they occupy</value>
+  </data>
+  <data name="Recorder_CleanupTitle" xml:space="preserve">
+    <value>Clean up recording data</value>
+  </data>
+  <data name="Recorder_CleanupMessage" xml:space="preserve">
+    <value>{0} recording(s), {1} of content. The database directory occupies {2} on disk, of which about {3} is left over from recordings you already deleted — deleting a recording only marks it, it never releases the bytes.
+
+Choose how much to clean up. Every option rebuilds the store so the space is genuinely returned.</value>
+  </data>
+  <data name="Recorder_CleanupKeepAll" xml:space="preserve">
+    <value>Reclaim deleted only</value>
+  </data>
+  <data name="Recorder_CleanupKeepRecent" xml:space="preserve">
+    <value>Keep last 7 days</value>
+  </data>
+  <data name="Recorder_CleanupPurgeAll" xml:space="preserve">
+    <value>Delete all recordings</value>
+  </data>
+  <data name="Recorder_CleanupPurgeConfirm" xml:space="preserve">
+    <value>Every recording will be deleted permanently and cannot be recovered. Continue?</value>
+  </data>
+  <data name="Recorder_CleanupBusy" xml:space="preserve">
+    <value>Cleaning up…</value>
+  </data>
+  <data name="Recorder_CleanupDone" xml:space="preserve">
+    <value>Cleaned up {0} recording(s), {1} released.</value>
+  </data>
+  <data name="Recorder_CleanupDoneDeferred" xml:space="preserve">
+    <value>Cleaned up {0} recording(s). The data is gone; the disk space is released the next time VelaShell starts.</value>
+  </data>
+  <data name="Recorder_CleanupFailed" xml:space="preserve">
+    <value>Cleanup failed: {0}</value>
   </data>
 </root>

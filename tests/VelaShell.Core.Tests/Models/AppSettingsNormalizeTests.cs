@@ -55,4 +55,39 @@ public class AppSettingsNormalizeTests
     [TestMethod]
     public void DefaultDownloadDirectory_IsEmpty_MeaningFollowSystem() =>
         Assert.AreEqual(string.Empty, new AppSettings().Transfer.LocalDownloadDirectory);
+
+    /// <summary>新装用户不该被默认打开录制:录制把终端原始输出整份落库,一开就是按 GB 长。</summary>
+    [TestMethod]
+    public void SessionRecording_IsOffByDefault() =>
+        Assert.IsFalse(new AppSettings().Security.RecordProductionSessions);
+
+    /// <summary>
+    /// 存量配置里的 <c>true</c> 分不清是用户选的还是旧默认值带的(这开关早年默认开启且从未征求同意),
+    /// 因此统一关一次。
+    /// </summary>
+    [TestMethod]
+    public void LegacyRecordingDefault_IsTurnedOffOnce()
+    {
+        AppSettings settings = new();
+        settings.Security.RecordProductionSessions = true;
+        settings.Security.RecordingOptInMigrated = false;
+
+        settings.Normalize();
+
+        Assert.IsFalse(settings.Security.RecordProductionSessions);
+        Assert.IsTrue(settings.Security.RecordingOptInMigrated, "迁移标记要落下,之后不再插手用户的选择");
+    }
+
+    /// <summary>迁移只做一次:用户此后自己打开录制,再次载入设置不能又给关掉。</summary>
+    [TestMethod]
+    public void RecordingOptIn_AfterMigration_IsRespected()
+    {
+        AppSettings settings = new();
+        settings.Security.RecordProductionSessions = true;
+        settings.Security.RecordingOptInMigrated = true;
+
+        settings.Normalize();
+
+        Assert.IsTrue(settings.Security.RecordProductionSessions);
+    }
 }

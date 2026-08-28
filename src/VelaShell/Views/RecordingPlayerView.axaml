@@ -102,6 +102,11 @@
                     Click="ExportRecording_Click"
                     ToolTip.Tip="{loc:Localize Recorder_ExportTip}" />
             <Button Classes="dlg-outline" Content="{loc:Localize Refresh}" Command="{Binding RefreshCommand}" />
+            <!-- 清理:删除只写墓碑不腾空间,真正回收磁盘要靠这里的重建(见 ISessionRecordingStore.ReclaimSpaceAsync)。 -->
+            <Button x:Name="CleanupButton" Classes="dlg-outline" Content="{loc:Localize Recorder_Cleanup}"
+                    Click="Cleanup_Click"
+                    ToolTip.Placement="Top"
+                    ToolTip.Tip="{loc:Localize Recorder_CleanupTip}" />
             <Button Classes="dlg-accent" Content="{Binding AutoRecordText}"
                     Command="{Binding ToggleAutoRecordCommand}"
                     ToolTip.Tip="{loc:Localize Recorder_AutoRecordTip}" />

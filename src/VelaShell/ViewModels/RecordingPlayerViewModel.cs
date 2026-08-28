@@ -211,6 +211,33 @@ public class RecordingPlayerViewModel : ReactiveObject
     /// <summary>切换自动录制开关命令。</summary>
     public ReactiveCommand<RxVoid, RxVoid> ToggleAutoRecordCommand { get; }
 
+    /// <summary>
+    /// 录制数据的占用快照(条数 / 逻辑体积 / 磁盘占用),供清理入口展示。
+    /// 统计要遍历整个数据库目录,丢到后台线程,别让几 GB 的目录枚举卡住界面。
+    /// </summary>
+    public Task<RecordingStorageUsage> GetStorageUsageAsync() => Task.Run(() => _store.GetStorageUsageAsync());
+
+    /// <summary>
+    /// 执行清理并刷新列表。<paramref name="keepDays" /> 语义见
+    /// <see cref="ISessionRecordingStore.ReclaimSpaceAsync" />(0 = 一条不留,
+    /// <see cref="int.MaxValue" /> = 只回收已删除录制占的空间)。
+    /// <para>
+    /// 整个回收扔到后台线程:引擎的锁未被占用时那些 await 会同步走完,搬运几 GB 数据
+    /// 就直接在 UI 线程上跑,界面一动不动。回来后再刷列表(await 会回到 UI 线程)。
+    /// </para>
+    /// </summary>
+    public async Task<RecordingCleanupResult> CleanupAsync(int keepDays)
+    {
+        Pause();
+        SelectedRecording = null;
+        RecordingCleanupResult result = await Task.Run(() => _store.ReclaimSpaceAsync(keepDays));
+        await RefreshAsync();
+        return result;
+    }
+
+    /// <summary>把状态栏文本换成给定内容(清理结果回显)。</summary>
+    public void SetStatus(string status) => Status = status;
+
     /// <summary>初始化:加载录制列表并读取自动录制设置。</summary>
     public async Task InitializeAsync()
     {
