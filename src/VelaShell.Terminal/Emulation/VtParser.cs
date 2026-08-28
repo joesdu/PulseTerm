@@ -14,6 +14,28 @@ public sealed class VtParser(IVtActions actions)
 {
     private const int MaxParams = 32;
 
+    /// <summary>
+    /// OSC / DCS 字符串载荷的字符数上限。越限即判定为「没有终结符的坏序列」:丢弃载荷、
+    /// 回到 ground。
+    /// <para>
+    /// 没有上限时,一条不带终结符的 OSC(坏掉的提示符脚本忘了发 BEL/ST,或 <c>cat</c> 到
+    /// 二进制里的 <c>1B 5D</c>)会把其后<b>全部输出</b>吸进这个 StringBuilder —— 内存无限
+    /// 增长,屏幕一直死着,而终结符可能永远不来。
+    /// </para>
+    /// <para>
+    /// 取 128 KiB:合法 OSC 远低于此,含最大的 OSC 52 剪贴板写入
+    /// (<c>TerminalEmulator.MaxOsc52Bytes</c> = 64 KiB 解码后,base64 约 87 KiB)。
+    /// </para>
+    /// </summary>
+    private const int MaxStringPayload = 128 * 1024;
+
+    /// <summary>
+    /// 中间字节个数上限(与 xterm 一致)。合法序列最多 1 个(<c>CSI ! p</c>、<c>CSI SP q</c>
+    /// 之类),超出即为畸形;不设限时 <c>ESC [</c> 后跟一长串空格(0x20 也是中间字节)
+    /// 同样能撑爆缓冲。
+    /// </summary>
+    private const int MaxIntermediates = 2;
+
     private readonly StringBuilder _intermediates = new(4);
     private readonly StringBuilder _oscOrDcs = new(64);
 
@@ -218,7 +240,9 @@ public sealed class VtParser(IVtActions actions)
         switch (rune)
         {
             case >= 0x20 and <= 0x2F:
-                _intermediates.Append((char)rune);
+                // ESC 没有 ignore 态,超限就只是不再收集(EscDispatch 只看 intermediates[0],
+                // 而带 3 个以上中间字节的 ESC 序列现实中不存在):缓冲有界即可。
+                _ = CollectIntermediate(rune);
                 return;
             case >= 0x30 and <= 0x7E:
                 actions.EscDispatch(_intermediates.ToString(), (char)rune);
@@ -301,7 +325,10 @@ public sealed class VtParser(IVtActions actions)
         switch (rune)
         {
             case >= 0x20 and <= 0x2F:
-                _intermediates.Append((char)rune);
+                if (!CollectIntermediate(rune))
+                {
+                    _state = State.CsiIgnore;
+                }
                 return;
             case >= 0x40 and <= 0x7E:
                 FinishParam();
@@ -340,9 +367,37 @@ public sealed class VtParser(IVtActions actions)
                 _state = State.Ground;
                 return;
             case >= 0x20:
-                _oscOrDcs.Append(char.ConvertFromUtf32(rune));
+                AppendStringPayload(rune);
                 break;
         }
+    }
+
+    /// <summary>
+    /// 往 OSC/DCS 载荷追加一个字符;越过 <see cref="MaxStringPayload" /> 即中止整条序列
+    /// (丢弃载荷并回到 ground,理由见该常量注释)。
+    /// </summary>
+    private void AppendStringPayload(int rune)
+    {
+        if (_oscOrDcs.Length >= MaxStringPayload)
+        {
+            Reset(); // 丢弃载荷、回 ground:其后的字节照常显示,终端自己缓过来。
+            return;
+        }
+        _oscOrDcs.Append(char.ConvertFromUtf32(rune));
+    }
+
+    /// <summary>
+    /// 收集一个中间字节;已达 <see cref="MaxIntermediates" /> 时返回 false —— 调用方据此把
+    /// 整条序列判为畸形,转入对应的 ignore 态(继续吞到终结字节,但不分发)。
+    /// </summary>
+    private bool CollectIntermediate(int rune)
+    {
+        if (_intermediates.Length >= MaxIntermediates)
+        {
+            return false;
+        }
+        _intermediates.Append((char)rune);
+        return true;
     }
 
     private void DispatchOsc()
@@ -412,7 +467,10 @@ public sealed class VtParser(IVtActions actions)
         switch (rune)
         {
             case >= 0x20 and <= 0x2F:
-                _intermediates.Append((char)rune);
+                if (!CollectIntermediate(rune))
+                {
+                    _state = State.DcsIgnore;
+                }
                 return;
             case >= 0x40 and <= 0x7E:
                 FinishParam();
@@ -439,7 +497,7 @@ public sealed class VtParser(IVtActions actions)
             case 0x09:
             case 0x0A:
             case 0x0D:
-                _oscOrDcs.Append(char.ConvertFromUtf32(rune));
+                AppendStringPayload(rune);
                 break;
         }
     }
