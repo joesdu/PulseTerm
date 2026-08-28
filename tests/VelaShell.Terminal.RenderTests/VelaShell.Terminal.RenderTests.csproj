@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <!--
+    ============ 为什么终端渲染测试要单独一个项目 ============
+    Avalonia 的平台注册(AvaloniaLocator)是进程级的,而 HeadlessUnitTestSession 是按测试类
+    各起一个。同一个程序集里混用两种平台配置(VelaShell.Terminal.Tests 用的是默认
+    UseHeadlessDrawing=true 的空绘制后端,这里要的是 Skia 软件光栅)会互相踩,
+    典型症状是整个套件挂死而不是失败。分开程序集,两边各自独占一套配置。
+
+    分工:
+      VelaShell.Terminal.Tests       —— 逻辑与交互(事件投递、命中、几何记账),不看像素
+      VelaShell.Terminal.RenderTests —— 只看像素:字形到底画没画出来、颜色对不对
+  -->
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Headless" />
+    <PackageReference Include="Avalonia.Skia" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="coverlet.collector">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="MSTest.TestAdapter" />
+    <PackageReference Include="MSTest.TestFramework" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\VelaShell.Terminal\VelaShell.Terminal.csproj" />
+  </ItemGroup>
+
+</Project>

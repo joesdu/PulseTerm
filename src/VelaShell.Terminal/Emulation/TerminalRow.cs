@@ -126,6 +126,34 @@ public sealed class TerminalRow(int columns)
         return -1;
     }
 
+    /// <summary>
+    /// 最后一个<b>被占用</b>的单元格索引 —— 有字符的格,或双宽字符的尾格;全空行返回 -1。
+    /// </summary>
+    /// <remarks>
+    /// 与 <see cref="LastNonBlank" /> 的区别只在双宽字符的尾格上:尾格自身不承载字形
+    /// (<c>Rune == 0</c>),但它是那个宽字符的一半,不能与"从没写过的空格子"混为一谈。
+    /// <para>
+    /// reflow 的收集步骤靠它区分两种同样 <c>Rune == 0</c> 的格子:
+    /// </para>
+    /// <list type="bullet">
+    /// <item><b>宽字符尾格</b> —— 必须保留,否则前导格会被当成单宽字符,宽字符就散了。</item>
+    /// <item><b>换行填充格</b> —— 双宽字符在行尾只剩一列放不下时,自动换行会在那里留下一个
+    /// 永远不会被写入的空格子。它不是内容,重排时必须丢掉,否则每经一次 reflow 就在
+    /// 断点处凭空多出一个空格(<c>"触发"</c> 变 <c>"触 发"</c>)。</item>
+    /// </list>
+    /// </remarks>
+    public int LastOccupied()
+    {
+        for (int i = _cells.Length - 1; i >= 0; i--)
+        {
+            if (_cells[i].Rune != 0 || _cells[i].IsWideTrailing)
+            {
+                return i;
+            }
+        }
+        return -1;
+    }
+
     /// <summary>本行截至最后一个非空单元格的文本(尾部空格已裁剪)。</summary>
     public string GetText()
     {

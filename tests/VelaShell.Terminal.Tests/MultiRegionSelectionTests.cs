@@ -17,16 +17,10 @@ namespace VelaShell.Terminal.Tests;
 [TestCategory("MultiRegionSelection")]
 public sealed class MultiRegionSelectionTests
 {
+    /// <summary>全程序集共用的 headless 会话(见 HeadlessTestSession:每类各起一个时,拆除会互相踩)。</summary>
+    private static Avalonia.Headless.HeadlessUnitTestSession _session => HeadlessTestSession.Current;
+
     private const string Sample = "abcdefgh\r\nijklmnop\r\nqrstuvwx";
-
-    private static HeadlessUnitTestSession _session = null!;
-
-    [ClassInitialize]
-    public static void Initialize(TestContext _) =>
-        _session = HeadlessUnitTestSession.StartNew(typeof(HeadlessTestApp));
-
-    [ClassCleanup]
-    public static void Cleanup() => _session.Dispose();
 
     [TestMethod]
     public void CtrlShiftDrag_AddsASecondRegion_AndCopiesBoth()

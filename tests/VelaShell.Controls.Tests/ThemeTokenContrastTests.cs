@@ -39,8 +39,8 @@ public class ThemeTokenContrastTests
     {
         var byVariant = new Dictionary<string, Dictionary<string, string>>(StringComparer.Ordinal)
         {
-            ["Dark"] = new(StringComparer.Ordinal),
-            ["Light"] = new(StringComparer.Ordinal),
+            ["Dark"] = [with(StringComparer.Ordinal)],
+            ["Light"] = [with(StringComparer.Ordinal)],
         };
         XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
         foreach (string file in new[] { "VelaTokens.axaml", "VelaShellTokens.axaml" })
