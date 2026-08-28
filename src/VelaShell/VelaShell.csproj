@@ -1,6 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
+    <!-- Win32 版本资源:AssemblyTitle → FileDescription(任务管理器、文件属性与安全软件
+         弹窗里显示的那一行,此前是裸的程序集名 "VelaShell"),Description → Comments。
+         刻意用英文并与 build/msix/AppxManifest.template.xml 的 Description 逐字一致:
+         这几个字段是给 Windows 与杀软厂商的分析员看的,商店版与便携版说的得是同一句话。
+         其余字段(Company/Product/Copyright)在仓库根 Directory.Build.props,见 #299。 -->
+    <AssemblyTitle>VelaShell SSH / SFTP Terminal Client</AssemblyTitle>
+    <Description>A modern, cross-platform SSH and SFTP client with a GPU-accelerated terminal.</Description>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\velashell.ico</ApplicationIcon>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>

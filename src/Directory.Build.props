@@ -16,7 +16,8 @@
         <AssemblyOriginatorKeyFile>$(MSBuildThisFileDirectory)\VelaShell.snk</AssemblyOriginatorKeyFile>
         <DelaySign>false</DelaySign>
         <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
-        <Copyright>© joesdu. All rights reserved.</Copyright>
+        <!-- Copyright 已上移到仓库根 Directory.Build.props 并改为无条件(Debug 产物此前
+             LegalCopyright 为空),与 Company/Product 同处;见那里的版本资源注释。 -->
         <!-- see https://github.com/dotnet/sdk/issues/2679 -->
         <DebugType>portable</DebugType>
         <DelaySign>False</DelaySign>

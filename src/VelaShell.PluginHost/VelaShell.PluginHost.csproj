@@ -2,6 +2,9 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <!-- 这是发行包里第二个可执行体,隔离插件一开就出现在任务管理器和杀软日志里;
+         FileDescription 空着或只是程序集名,用户看不出它跟 VelaShell 的关系。 -->
+    <AssemblyTitle>VelaShell Plugin Host</AssemblyTitle>
     <Description>VelaShell 隔离插件宿主进程:经命名管道 RPC 连接主程序,在可收集 ALC 中装载并运行单个插件。</Description>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!-- 只依赖 SDK 契约,严禁引用任何 VelaShell.* 主程序工程(设计稿 02 §2 依赖纪律)。 -->
