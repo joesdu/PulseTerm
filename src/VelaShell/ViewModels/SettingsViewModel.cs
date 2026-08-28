@@ -1215,6 +1215,9 @@ public class SettingsViewModel : ReactiveObject
         {
             List<KnownHost> hosts = await _hostKeyService.GetKnownHostsAsync();
             KnownHosts.Clear();
+            // 先置可见再入列:IsVisible=false 期间灌进 ItemsControl 的行会占住布局高度却
+            // 画不出来。列表限高滚动后这条尤其致命——表现为“有滚动条但内容一片空白”。
+            HasKnownHosts = hosts.Count > 0;
             foreach (
                 KnownHost host in hosts
                     .OrderBy(h => h.Host, StringComparer.OrdinalIgnoreCase)
