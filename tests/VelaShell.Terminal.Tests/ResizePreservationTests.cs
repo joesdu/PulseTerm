@@ -50,19 +50,57 @@ public class ResizePreservationTests
     }
 
     [TestMethod]
+    public void Reflow_WideCharWrapPadding_IsNotCarriedAsContent()
+    {
+        // 双宽字符在行尾只剩一列时放不下,自动换行会在那一列留下一个永远不会被写入的填充格。
+        // 它不是内容,重排时必须丢掉 —— 否则每经一次 reflow 就在断点处凭空多出一个空格。
+        //
+        // 宽度 5:'a','b' 占 0,1;'中' 占 2,3;'文' 需要两列而只剩第 4 列 → 换行,第 4 列成为填充格。
+        var e = New(5, 4);
+        Feed(e, "ab中文");
+
+        TerminalRow wrapped = e.Screen.ViewLine(0);
+        Assert.IsTrue(wrapped.Wrapped, "第 0 行应当是软换行行。");
+        Assert.AreEqual(0, wrapped[4].Rune, "第 4 列应当是没写过的填充格。");
+        Assert.IsFalse(wrapped[4].IsWideTrailing, "填充格不是宽字符尾格 —— 两者都 Rune==0,正是本用例要区分的。");
+        Assert.IsTrue(wrapped[3].IsWideTrailing, "第 3 列应当是 '中' 的尾格。");
+
+        e.Resize(10, 4); // 变宽 → 重排,两段应当无缝接回
+
+        Assert.AreEqual(
+            "ab中文",
+            e.Screen.ViewLine(0).GetText(),
+            "换行填充格被当成内容收进了逻辑行,断点处多出一个空格。");
+    }
+
+    [TestMethod]
+    public void Reflow_WideCharAtLineEnd_KeepsTrailingHalf()
+    {
+        // 反向保险:修填充格时不能顺手把宽字符的尾格也砍了 —— 砍掉的话前导格会被当成
+        // 单宽字符,重排后宽字符只占一列,后面所有内容跟着错位。
+        var e = New(8, 4);
+        Feed(e, "ab中");
+
+        e.Resize(20, 4);
+
+        TerminalRow row = e.Screen.ViewLine(0);
+        Assert.AreEqual("ab中", row.GetText());
+        Assert.AreEqual('中', row[2].Rune);
+        Assert.IsTrue(row[3].IsWideTrailing, "重排后 '中' 必须仍然占两列(尾格还在)。");
+    }
+
+    [TestMethod]
     public void Reflow_RepeatedWidthChanges_PreserveTextExactly()
     {
         // 行回收之后的内容回归:反复改宽再回到原宽,文本必须逐字不变。
-        //
-        // 刻意只用 ASCII:宽字符另有一条与本用例无关的既有行为 —— 双宽字符放不进行尾时
-        // 会在那里留下一个空白格,再变宽重排时该空白被并进逻辑行,于是 "触发" 变成 "触 发"。
-        // 那是 reflow 收集逻辑本身的老问题(在改行回收之前就能复现),不该由这条用例来断言;
-        // 混进来只会让它变成一条测两件事、且长期红着的用例。
+        // 混排宽字符:它们曾经会在每次重排的换行断点处多攒一个空格(见
+        // Reflow_WideCharWrapPadding_IsNotCarriedAsContent),这条用例连带把那个回归也压住。
         var e = New(60, 6);
         string[] written =
         [
             "alpha bravo charlie delta echo foxtrot golf hotel india juliet",
-            "short",
+            "短行",
+            "中文宽字符 mixed with ascii 混排的一行足够长以便触发换行重排",
             "kilo lima mike november oscar papa quebec romeo sierra tango",
             "the quick brown fox jumps over the lazy dog again and again"
         ];

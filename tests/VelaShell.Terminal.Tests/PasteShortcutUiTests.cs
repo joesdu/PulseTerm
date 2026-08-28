@@ -26,13 +26,8 @@ namespace VelaShell.Terminal.Tests;
 [TestCategory("PasteShortcutUi")]
 public class PasteShortcutUiTests
 {
-    private static HeadlessUnitTestSession _session = null!;
-
-    [ClassInitialize]
-    public static void Init(TestContext _) => _session = HeadlessUnitTestSession.StartNew(typeof(HeadlessTestApp));
-
-    [ClassCleanup]
-    public static void Cleanup() => _session.Dispose();
+    /// <summary>全程序集共用的 headless 会话(见 HeadlessTestSession:每类各起一个时,拆除会互相踩)。</summary>
+    private static Avalonia.Headless.HeadlessUnitTestSession _session => HeadlessTestSession.Current;
 
     private static void OnUi(Action body) =>
         _session.Dispatch(() =>

@@ -18,13 +18,8 @@ namespace VelaShell.Terminal.Tests;
 [TestCategory("GutterFoldUi")]
 public class GutterFoldUiTests
 {
-    private static HeadlessUnitTestSession _session = null!;
-
-    [ClassInitialize]
-    public static void Init(TestContext _) => _session = HeadlessUnitTestSession.StartNew(typeof(HeadlessTestApp));
-
-    [ClassCleanup]
-    public static void Cleanup() => _session.Dispose();
+    /// <summary>全程序集共用的 headless 会话(见 HeadlessTestSession:每类各起一个时,拆除会互相踩)。</summary>
+    private static Avalonia.Headless.HeadlessUnitTestSession _session => HeadlessTestSession.Current;
 
     private static void OnUi(Action body) =>
         _session.Dispatch(() =>
@@ -230,14 +225,4 @@ public class GutterFoldUiTests
             Assert.AreEqual(0, control.FoldCountForTest, "正文区域点击不应折叠。");
         });
     }
-}
-
-/// <summary>headless 测试用的最小 Avalonia 应用。</summary>
-public class HeadlessTestApp : Application
-{
-    /// <summary>菜单的模板由主题提供:缺了它 MenuItem 无模板、无命中区,真实点击测不了。</summary>
-    public override void Initialize() => Styles.Add(new FluentTheme());
-
-    public static AppBuilder BuildAvaloniaApp() =>
-        AppBuilder.Configure<HeadlessTestApp>().UseHeadless(new AvaloniaHeadlessPlatformOptions());
 }

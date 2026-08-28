@@ -52,6 +52,7 @@
     <Project Path="tests/VelaShell.Infrastructure.Tests/VelaShell.Infrastructure.Tests.csproj" />
     <Project Path="tests/VelaShell.Plugin.Ai.Tests/VelaShell.Plugin.Ai.Tests.csproj" />
     <Project Path="tests/VelaShell.Presentation.Tests/VelaShell.Presentation.Tests.csproj" />
+    <Project Path="tests/VelaShell.Terminal.RenderTests/VelaShell.Terminal.RenderTests.csproj" />
     <Project Path="tests/VelaShell.Terminal.Tests/VelaShell.Terminal.Tests.csproj" />
     <Project Path="tests/VelaShell.Tests/VelaShell.Tests.csproj" />
     <File Path="tests/fixtures/README.md" />

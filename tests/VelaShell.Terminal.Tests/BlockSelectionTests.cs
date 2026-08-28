@@ -16,14 +16,8 @@ namespace VelaShell.Terminal.Tests;
 [TestCategory("BlockSelection")]
 public sealed class BlockSelectionTests
 {
-    private static HeadlessUnitTestSession _session = null!;
-
-    [ClassInitialize]
-    public static void Initialize(TestContext _) =>
-        _session = HeadlessUnitTestSession.StartNew(typeof(HeadlessTestApp));
-
-    [ClassCleanup]
-    public static void Cleanup() => _session.Dispose();
+    /// <summary>全程序集共用的 headless 会话(见 HeadlessTestSession:每类各起一个时,拆除会互相踩)。</summary>
+    private static Avalonia.Headless.HeadlessUnitTestSession _session => HeadlessTestSession.Current;
 
     [TestMethod]
     public void Normalize_Block_TakesRectangleCorners_RegardlessOfDragDirection()

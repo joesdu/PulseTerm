@@ -541,7 +541,16 @@ public sealed class TerminalScreen
                 {
                     lineTimestamp = t;
                 }
-                int len = r < j ? row.Columns : row.LastNonBlank() + 1;
+                // 取到"最后一个被占用的格"为止,而不是整行宽度。
+                //
+                // 被换行的段落原先按 row.Columns 整行收:对普通换行没差别(整行都是内容),
+                // 但双宽字符在行尾只剩一列放不下时,自动换行会在那里留下一个永远不会被写入的
+                // 空格子 —— 按整行收就把这个填充格当成了内容,每经一次 reflow 就在断点处多出
+                // 一个空格("触发" → "触 发",反复拖拽改宽会越积越多)。
+                //
+                // 不能改用 LastNonBlank:宽字符的尾格 Rune 同样是 0,砍掉它前导格就会被当成
+                // 单宽字符,宽字符散架。LastOccupied 正是为区分这两者而设。
+                int len = row.LastOccupied() + 1;
                 if (r == cursorAbs)
                 {
                     int cursorCol = Math.Min(CursorX, row.Columns - 1);

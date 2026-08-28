@@ -59,17 +59,15 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     // 因为可见行每一帧都会被重新扫描(光标闪烁、输出)。
     // 用 StringComparer.Ordinal 建表是为了能取到 span 备用查找(GetAlternateLookup):
     // 缓存命中路径因此不必先把行文本物化成 string 才查得了表 —— 只有 miss 时才建键。
-    private readonly Dictionary<string, IReadOnlyList<SemanticSpan>> _semanticSpanCache =
-        new(StringComparer.Ordinal);
+    private readonly Dictionary<string, IReadOnlyList<SemanticSpan>> _semanticSpanCache = [with(StringComparer.Ordinal)];
 
-    private Dictionary<string, IReadOnlyList<SemanticSpan>>.AlternateLookup<ReadOnlySpan<char>>
-        _semanticSpanCacheBySpan;
+    private readonly Dictionary<string, IReadOnlyList<SemanticSpan>>.AlternateLookup<ReadOnlySpan<char>> _semanticSpanCacheBySpan;
 
     // 侧栏文本(时间戳/行号/折叠标记)的 FormattedText 缓存:这些文本帧间高度重复
     // (行号在滚动稳定时完全不变),不缓存则每行每帧做一次文本塑形。
     // 键为文本本身;暗色画刷随主题变化时整体失效(见 GutterText)。
-    private readonly Dictionary<string, FormattedText> _gutterTextCache = new(StringComparer.Ordinal);
-    private Dictionary<string, FormattedText>.AlternateLookup<ReadOnlySpan<char>> _gutterTextCacheBySpan;
+    private readonly Dictionary<string, FormattedText> _gutterTextCache = [with(StringComparer.Ordinal)];
+    private readonly Dictionary<string, FormattedText>.AlternateLookup<ReadOnlySpan<char>> _gutterTextCacheBySpan;
     private ImmutableSolidColorBrush? _gutterTextCacheBrush;
 
     // ComputeSemanticColumns 的复用缓冲:该方法对每个可见行、每一帧都会执行,
@@ -1374,8 +1372,15 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     /// 也就是说 <c>DrawGlyphRun</c> 返回之后,这两个缓冲就与已记录的绘制无关了。
     /// </para>
     /// <para>
-    /// headless 测试平台不做真实绘制,这条路径无法在测试里验证像素;改动它之后请在真机上
-    /// 扫一眼终端文本(尤其粗体/斜体与彩色混排的行)。
+    /// <b>GlyphRun 必须释放</b>:它实现 <see cref="IDisposable" />,内部持有引用计数的原生
+    /// 文本 blob(<c>IRef&lt;IGlyphRunImpl&gt;</c>),而 <c>GlyphRun</c> 自身<b>没有终结器</b> ——
+    /// 兜底只剩 <c>RefCountable.Ref&lt;T&gt;</c> 的终结器。原生内存不计入 GC 压力,GC 因此没有
+    /// 理由及时跑,漏掉的引用会一路堆到某次 gen2 才释放:每帧每个 run 泄漏一个文本 blob。
+    /// 释放是安全的 —— 上面说的 <c>Clone()</c> 已经让渲染数据自持一份引用,这里放掉的只是我们自己那份。
+    /// </para>
+    /// <para>
+    /// 以上两点(缓冲复用、画完即释放)都只有真实光栅化才验得到,由
+    /// <c>VelaShell.Terminal.RenderTests.GlyphRenderingTests</c> 按像素把守。
     /// </para>
     /// </remarks>
     private void FlushGlyphRun(DrawingContext context, double y)
@@ -1391,7 +1396,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
             {
                 // List<GlyphInfo> 已经是长度精确的 IReadOnlyList<GlyphInfo>,直接交出去;
                 // 字符缓冲按实际长度切片。两者都不再复制。
-                var run = new GlyphRun(
+                using var run = new GlyphRun(
                     gtf,
                     FontSize,
                     _runChars.AsMemory(0, _runCharCount),

@@ -118,7 +118,7 @@ public partial class SettingsView : UserControl
     /// <b>不落盘</b>:它说的是"刚才那一次连通",隔天再打开时那句话已经不成立了 ——
     /// 与其显示一个可能过期的绿点,不如老实退回灰点。
     /// </summary>
-    private readonly Dictionary<string, (bool Ok, DateTime At)> _testResults = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, (bool Ok, DateTime At)> _testResults = [with(StringComparer.Ordinal)];
 
     /// <summary>左栏图标的三档描边色(见 <see cref="ApplyTints" />),装载后解析一次。</summary>
     private IBrush? _providerTint;

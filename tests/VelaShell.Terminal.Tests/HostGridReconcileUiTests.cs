@@ -23,17 +23,11 @@ namespace VelaShell.Terminal.Tests;
 [TestCategory("TerminalGrid")]
 public sealed class HostGridReconcileUiTests
 {
+    /// <summary>全程序集共用的 headless 会话(见 HeadlessTestSession:每类各起一个时,拆除会互相踩)。</summary>
+    private static Avalonia.Headless.HeadlessUnitTestSession _session => HeadlessTestSession.Current;
+
     /// <summary>xterm-256color 的 <c>is2</c>:里面的 <c>ESC[?3l</c> 就是 #253 的扳机。</summary>
     private const string XtermInitString = "\x1b[!p\x1b[?3;4l\x1b[4l\x1b>";
-
-    private static HeadlessUnitTestSession _session = null!;
-
-    [ClassInitialize]
-    public static void Initialize(TestContext _) =>
-        _session = HeadlessUnitTestSession.StartNew(typeof(HeadlessTestApp));
-
-    [ClassCleanup]
-    public static void Cleanup() => _session.Dispose();
 
     [TestMethod]
     public void XtermInitString_DoesNotShrinkTheSelectableWidth()

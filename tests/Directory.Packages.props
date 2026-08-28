@@ -16,6 +16,11 @@
     <PackageVersion Include="VelaShell.PluginSdk.Testing" Version="1.5.0" />
     <PackageVersion Include="Avalonia" Version="12.1.1" />
     <PackageVersion Include="Avalonia.Headless" Version="12.1.1" />
+    <!-- 真实光栅化后端。headless 平台默认 UseHeadlessDrawing=true(绘制是空操作,
+         CaptureRenderedFrame 返回 null),因此终端的字形绘制路径在测试里一个像素都验不到 ——
+         GlyphRun 批处理改动只能靠人眼在真机上扫。挂上 Skia 走软件光栅即可按像素断言。
+         仅 VelaShell.Terminal.RenderTests 使用(见该项目注释:为什么要单独一个项目)。 -->
+    <PackageVersion Include="Avalonia.Skia" Version="12.1.1" />
     <!-- 菜单等控件的模板由主题提供:没有它 MenuItem 无模板、不可命中,真实点击测不了。 -->
     <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.1" />
     <!-- AI 插件的输入框是 AvaloniaEdit,而插件只在编译期引用它(运行时按 ALC 规则回落到
