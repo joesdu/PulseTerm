@@ -14,8 +14,12 @@ namespace VelaShell.Terminal.Emulation;
 /// </remarks>
 internal static class CombiningPool
 {
-    /// <summary>池上限:正常使用永远到不了;是对抗性输入的无界增长保险丝。</summary>
-    private const int MaxEntries = 65536;
+    /// <summary>
+    /// 池上限:正常使用永远到不了;是对抗性输入的无界增长保险丝。
+    /// 取 ushort.MaxValue 而非 65536 —— 索引存在 <see cref="TerminalCell.CombiningIndex" /> 的
+    /// <c>ushort</c> 里(把单元格从 20 字节压到 16 字节的一半功劳),65536 会溢出成 0。
+    /// </summary>
+    private const int MaxEntries = ushort.MaxValue;
 
     private static readonly Lock Gate = new();
     private static readonly Dictionary<string, int> Lookup = [];
@@ -23,7 +27,7 @@ internal static class CombiningPool
     private static int _count = 1;
 
     /// <summary>驻留一段组合标记,返回其索引;null/空串返回 0;池满返回 0(丢弃标记)。</summary>
-    public static int Intern(string? marks)
+    public static ushort Intern(string? marks)
     {
         if (string.IsNullOrEmpty(marks))
         {
@@ -33,7 +37,7 @@ internal static class CombiningPool
         {
             if (Lookup.TryGetValue(marks, out int existing))
             {
-                return existing;
+                return (ushort)existing;
             }
             if (_count >= MaxEntries)
             {
@@ -49,7 +53,7 @@ internal static class CombiningPool
             _byIndex[index] = marks;
             _count = index + 1;
             Lookup[marks] = index;
-            return index;
+            return (ushort)index;
         }
     }
 

@@ -75,9 +75,16 @@ public sealed partial class SemanticMatcher
     /// (例如 IP 内的数字,或 URL 内的 IP),优先级更高的类别胜出:
     /// Url &gt; IpAddress &gt; Error &gt; Warning &gt; Success &gt; Option &gt; Number。
     /// </summary>
-    public static IReadOnlyList<SemanticSpan> Match(string? line)
+    public static IReadOnlyList<SemanticSpan> Match(string? line) => Match(line.AsSpan());
+
+    /// <inheritdoc cref="Match(string?)" />
+    /// <remarks>
+    /// Span 重载是渲染热路径的入口(<c>VelaTerminalControl.ComputeSemanticColumns</c> 逐行调用),
+    /// 让调用方不必为了匹配而先把行文本物化成 string。
+    /// </remarks>
+    public static IReadOnlyList<SemanticSpan> Match(ReadOnlySpan<char> line)
     {
-        if (string.IsNullOrEmpty(line))
+        if (line.IsEmpty)
         {
             return [];
         }
@@ -127,19 +134,26 @@ public sealed partial class SemanticMatcher
         {
             return null;
         }
-        foreach (Match m in UrlRegex().Matches(line))
+        foreach (ValueMatch m in UrlRegex().EnumerateMatches(line))
         {
             if (offset >= m.Index && offset < m.Index + m.Length)
             {
-                return m.Value;
+                return line.Substring(m.Index, m.Length);
             }
         }
         return null;
     }
 
-    private static void Collect(List<SemanticSpan> into, Regex regex, string line, SemanticKind kind)
+    /// <remarks>
+    /// 用 <see cref="Regex.EnumerateMatches(ReadOnlySpan{char})" /> 而非 <c>Matches</c>:
+    /// 后者每个命中都要实例化一个 <see cref="System.Text.RegularExpressions.Match" />
+    /// (还挂着 Group/Capture 集合),而这里只用
+    /// 到 Index/Length —— 正是 <see cref="ValueMatch" /> 结构体给的两个字段。七条正则 × 每行 ×
+    /// 帧率下,这是纯白扔的对象。
+    /// </remarks>
+    private static void Collect(List<SemanticSpan> into, Regex regex, ReadOnlySpan<char> line, SemanticKind kind)
     {
-        foreach (Match m in regex.Matches(line))
+        foreach (ValueMatch m in regex.EnumerateMatches(line))
         {
             if (m.Length > 0)
             {

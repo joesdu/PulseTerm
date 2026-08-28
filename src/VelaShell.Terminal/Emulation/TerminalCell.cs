@@ -5,6 +5,14 @@ namespace VelaShell.Terminal.Emulation;
 /// <summary>
 /// 终端网格中的一个字符单元格。采用值类型,使行可被存为连续数组并被廉价清空。
 /// </summary>
+/// <remarks>
+/// <b>字段声明顺序即内存布局,不要随手调整。</b>本结构含自定义结构体字段
+/// (<see cref="TerminalColor" />),此时 CLR 的自动布局不再按大小重排字段、而是沿用声明顺序;
+/// 把两个 2 字节字段(<see cref="CombiningIndex" />、<see cref="Flags" />)分开写会各自吃掉
+/// 一个 4 字节槽,结构从 16 字节涨到 20。当前顺序 4+4+4+2+2 = 16 字节,恰好塞满。
+/// 回滚缓冲默认每标签页 1 万行 × 上百列,这 4 字节按整个缓冲区放大。
+/// 由 <c>TerminalCellMemoryTests.TerminalCell_StaysWithinPackedSize</c> 把守。
+/// </remarks>
 public struct TerminalCell : IEquatable<TerminalCell>
 {
     /// <summary>
@@ -13,11 +21,26 @@ public struct TerminalCell : IEquatable<TerminalCell>
     /// </summary>
     public int Rune;
 
+    /// <summary>单元格的前景(文字)颜色。</summary>
+    public TerminalColor Foreground;
+
+    /// <summary>单元格的背景颜色。</summary>
+    public TerminalColor Background;
+
     /// <summary>
     /// 组合标记在 <see cref="CombiningPool" /> 中的索引;0 = 无。存索引而非字符串引用,
     /// 使本结构不含托管引用:回滚缓冲的数百万格从此不被 GC 逐格扫描,每格再省 4 字节。
+    /// <para>
+    /// 宽度取 <c>ushort</c> 而非 <c>int</c>:与打包成 4 字节的 <see cref="TerminalColor" /> 合力,
+    /// 把本结构从 20 字节压到 16 字节(回滚缓冲省 20% 内存)。池上限
+    /// <c>CombiningPool.MaxEntries</c> 已相应对齐为 <see cref="ushort.MaxValue" />。
+    /// </para>
     /// </summary>
-    public int CombiningIndex;
+    public ushort CombiningIndex;
+
+    /// <summary>单元格的渲染属性位(加粗、反显、宽字符尾格等)。</summary>
+    /// <remarks>紧跟 <see cref="CombiningIndex" /> 声明:两个 2 字节字段合用一个槽,见类型注释。</remarks>
+    public CellFlags Flags;
 
     /// <summary>追加在 <see cref="Rune" /> 之后的可选组合标记。常见情况下为 Null。</summary>
     public string? Combining
@@ -25,15 +48,6 @@ public struct TerminalCell : IEquatable<TerminalCell>
         readonly get => CombiningPool.Get(CombiningIndex);
         set => CombiningIndex = CombiningPool.Intern(value);
     }
-
-    /// <summary>单元格的前景(文字)颜色。</summary>
-    public TerminalColor Foreground;
-
-    /// <summary>单元格的背景颜色。</summary>
-    public TerminalColor Background;
-
-    /// <summary>单元格的渲染属性位(加粗、反显、宽字符尾格等)。</summary>
-    public CellFlags Flags;
 
     /// <summary>一个使用默认颜色、无属性的空单元格。</summary>
     public static TerminalCell Empty => new()
@@ -69,6 +83,55 @@ public struct TerminalCell : IEquatable<TerminalCell>
             return char.ConvertFromUtf32(Rune);
         }
         return char.ConvertFromUtf32(Rune) + Combining;
+    }
+
+    /// <summary>
+    /// 把单元格文本(基础字符及组合标记)写入 <paramref name="destination" />,返回写入的字符数;
+    /// 宽字符尾格写入 0 个字符。空间不足时不写入任何内容并返回 -1(调用方据此扩容重试)。
+    /// </summary>
+    /// <remarks>
+    /// 与 <see cref="AppendText(StringBuilder)" /> 语义逐字一致,只是写进调用方自备的缓冲。
+    /// 渲染热路径(<c>VelaTerminalControl.ComputeSemanticColumns</c> 逐行重建行文本)用它
+    /// 避免为了做一次语义匹配而物化 StringBuilder + string。两者的一致性由
+    /// <c>TerminalCellMemoryTests.AppendTo_MatchesAppendText</c> 把守。
+    /// </remarks>
+    /// <param name="destination">接收单元格文本的目标缓冲。</param>
+    /// <returns>写入的字符数;缓冲不足时为 -1。</returns>
+    public readonly int AppendTo(Span<char> destination)
+    {
+        if (IsWideTrailing)
+        {
+            return 0;
+        }
+        string? combining = Combining;
+        int baseLength = Rune is 0 or <= 0xFFFF ? 1 : 2;
+        int needed = baseLength + (combining?.Length ?? 0);
+        if (destination.Length < needed)
+        {
+            return -1;
+        }
+        int written = 0;
+        if (Rune == 0)
+        {
+            destination[written++] = ' ';
+        }
+        else if (Rune <= 0xFFFF)
+        {
+            destination[written++] = (char)Rune;
+        }
+        else
+        {
+            // 补充平面:手工拆代理对,免掉 char.ConvertFromUtf32 的 string 分配。
+            int offset = Rune - 0x10000;
+            destination[written++] = (char)(0xD800 + (offset >> 10));
+            destination[written++] = (char)(0xDC00 + (offset & 0x3FF));
+        }
+        if (combining is not null)
+        {
+            combining.CopyTo(destination[written..]);
+            written += combining.Length;
+        }
+        return written;
     }
 
     /// <summary>将单元格文本(基础字符及组合标记)追加到指定的 <see cref="StringBuilder" />;宽字符尾格不追加内容。</summary>

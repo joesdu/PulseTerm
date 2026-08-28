@@ -18,4 +18,9 @@
     <AvaloniaResource Include="Assets/Fonts/**" />
   </ItemGroup>
 
+  <!-- 见 VelaShell.Terminal.csproj 同处注释:签名构建(Release)省略友元声明,非签名构建保留。 -->
+  <ItemGroup Condition="'$(SignAssembly)' != 'true'">
+    <InternalsVisibleTo Include="VelaShell.Controls.Tests" />
+  </ItemGroup>
+
 </Project>

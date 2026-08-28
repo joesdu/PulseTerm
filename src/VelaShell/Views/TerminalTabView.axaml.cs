@@ -68,7 +68,7 @@ public partial class TerminalTabView : UserControl
         // 幽灵/列表状态会与本类脱钩;订阅 Closed 统一对账,防止"看不见却仍拦键"的
         // 僵尸弹层
         SuggestPopup.Closed += (_, _) => OnSuggestPopupClosedByPlatform();
-        SearchBox.TextChanged += (_, _) => RunSearch();
+        SearchBox.TextChanged += (_, _) => ScheduleSearch();
         SearchNext.Click += (_, _) => MoveHit(+1);
         SearchPrev.Click += (_, _) => MoveHit(-1);
         SearchClose.Click += (_, _) => CloseSearch();
@@ -723,6 +723,8 @@ public partial class TerminalTabView : UserControl
 
     private void CloseSearch()
     {
+        // DispatcherTimer 被调度器强引用,不停表会让关掉的搜索栏继续按时唤醒本视图。
+        _searchDebounce?.Stop();
         SearchBar.IsVisible = false;
         _searchHits = [];
         _searchIndex = -1;
@@ -730,8 +732,45 @@ public partial class TerminalTabView : UserControl
         FocusTerminal();
     }
 
+    /// <summary>
+    /// 搜索防抖间隔。<see cref="RunSearch" /> 要在 UI 线程上扫过整个缓冲区(回滚 + 屏幕,
+    /// 默认上限 1 万行);逐键直跑会让长会话下搜索框自己打字都发卡。取 150ms:低于连续
+    /// 击键的间隔,又短到松手即出结果。
+    /// </summary>
+    private static readonly TimeSpan SearchDebounce = TimeSpan.FromMilliseconds(150);
+
+    private DispatcherTimer? _searchDebounce;
+
+    /// <summary>把一次搜索排进防抖窗口;窗口内的后续击键只是把它往后推。</summary>
+    private void ScheduleSearch()
+    {
+        if (_searchDebounce is null)
+        {
+            _searchDebounce = new(SearchDebounce, DispatcherPriority.Input, (_, _) => RunSearch());
+        }
+        else
+        {
+            _searchDebounce.Stop(); // 重启计时 = 推迟到最后一次击键之后。
+        }
+        _searchDebounce.Start();
+    }
+
+    /// <summary>
+    /// 立即跑掉待处理的防抖搜索。Enter(下一处)/Esc 之类需要"此刻的结果"的动作先调它,
+    /// 否则会拿着上一次击键前的命中集做导航。
+    /// </summary>
+    private void FlushPendingSearch()
+    {
+        if (_searchDebounce is { IsEnabled: true })
+        {
+            _searchDebounce.Stop();
+            RunSearch();
+        }
+    }
+
     private void RunSearch()
     {
+        _searchDebounce?.Stop(); // 直接调用(打开搜索栏)时也要吃掉待处理的那一次。
         if (_termControl is null || !SearchBar.IsVisible)
         {
             return;
@@ -744,6 +783,7 @@ public partial class TerminalTabView : UserControl
 
     private void MoveHit(int delta)
     {
+        FlushPendingSearch(); // 导航必须基于当前输入的命中集,不能用防抖窗口前的旧结果。
         if (_searchHits.Count == 0)
         {
             return;
@@ -839,7 +879,7 @@ public partial class TerminalTabView : UserControl
         // ① 立即重绘终端 + 下一拍强制整棵可视树重绘(DWM 表面恢复可能晚于激活事件;
         //    整树重绘确保合成器一定提交一整帧新画面到 DWM,兜住单控件 InvalidateVisual
         //    被"内容未变"优化掉、或空白区跨出终端边界的情形)。激活不频繁,代价可忽略。
-        _termControl?.InvalidateVisual();
+        _termControl?.InvalidateTerminal();
         DispatcherTimer.RunOnce(ForceFullRepaint, TimeSpan.FromMilliseconds(120));
 
         // ② 顺带收口可能残留的僵尸弹层(内容消失常与输入死亡耦合出现)。
@@ -858,7 +898,7 @@ public partial class TerminalTabView : UserControl
     {
         if (_hostWindow is not { } window)
         {
-            _termControl?.InvalidateVisual();
+            _termControl?.InvalidateTerminal();
             return;
         }
         window.InvalidateVisual();

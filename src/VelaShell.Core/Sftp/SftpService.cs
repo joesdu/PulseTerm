@@ -144,16 +144,25 @@ public class SftpService(
             remoteStream.Seek(resumeOffset, SeekOrigin.Begin);
 
             // 32KB 一次往返对高延迟链路太小;续传路径是自己搬字节,块大些能显著减少往返次数。
-            byte[] buffer = new byte[256 * 1024];
-            long bytesRead = 0;
-            int read;
-            while ((read = await remoteStream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
+            // 缓冲走池:256KB 超过 85KB 的大对象堆阈值,每次续传新开一个就是往 LOH 里丢一块
+            // (LOH 不压缩,累积成碎片);池的最大桶是 1MB,这个尺寸正好落在池内。
+            byte[] buffer = ArrayPool<byte>.Shared.Rent(256 * 1024);
+            try
             {
-                await localStream.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
-                bytesRead += read;
-                reporter.Report(resumeOffset + bytesRead);
+                long bytesRead = 0;
+                int read;
+                while ((read = await remoteStream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
+                {
+                    await localStream.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
+                    bytesRead += read;
+                    reporter.Report(resumeOffset + bytesRead);
+                }
+                reporter.ReportFinal(resumeOffset + bytesRead);
             }
-            reporter.ReportFinal(resumeOffset + bytesRead);
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(buffer);
+            }
         }
         else
         {

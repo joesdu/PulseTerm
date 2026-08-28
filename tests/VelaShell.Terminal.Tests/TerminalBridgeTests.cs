@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Text;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
@@ -350,6 +351,57 @@ public class TerminalBridgeTests
                         chunk.CopyTo(call.ArgAt<byte[]>(0), call.ArgAt<int>(1));
                         return chunk.Length;
                     });
+    }
+
+    [TestMethod]
+    public void ReadLoop_PooledChunks_NeverLeakBytesBeyondTheReadLength()
+    {
+        // 读循环的每块副本改成租自 ArrayPool 之后,拿到的数组几乎总是比请求的长
+        // (池按 2 的幂分桶:请求 13 字节给 16 字节),而且带着上一位租客的残留数据。
+        // 任何一处用 Buffer.Length 而非实际读到的长度,就会把这些垃圾字节当成服务器输出
+        // 送进终端/录制。这里先把池里的桶全填成 0xFF,再断言旁路记录到的字节逐字精确。
+        for (int size = 16; size <= 32 * 1024; size *= 2)
+        {
+            byte[] poison = ArrayPool<byte>.Shared.Rent(size);
+            poison.AsSpan().Fill(0xFF);
+            ArrayPool<byte>.Shared.Return(poison);
+        }
+
+        byte[] first = Encoding.UTF8.GetBytes("hello");        // 5 字节 → 池至少给 16
+        byte[] second = Encoding.UTF8.GetBytes("world!");       // 6 字节
+        ScriptReads(first, second);
+
+        var logged = new MemoryStream();
+        using var bridge = new SshTerminalBridge(_terminal, _shellStream);
+        bridge.DataReceived += chunk =>
+        {
+            lock (logged)
+            {
+                logged.Write(chunk);
+            }
+        };
+        bridge.Start();
+
+        WaitUntil(() =>
+        {
+            lock (logged)
+            {
+                return logged.Length >= first.Length + second.Length;
+            }
+        });
+
+        lock (logged)
+        {
+            byte[] actual = logged.ToArray();
+            Assert.AreEqual(
+                "helloworld!",
+                Encoding.UTF8.GetString(actual),
+                "旁路记录混进了读长度之外的字节 —— 池租数组的尾部残留被当成服务器输出了。");
+            Assert.DoesNotContain(
+                (byte)0xFF,
+                actual,
+                "记录里出现了池毒化字节,说明某处用了 Buffer.Length 而不是实际读到的长度。");
+        }
     }
 
     [TestMethod]

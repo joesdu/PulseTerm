@@ -60,6 +60,15 @@ public static class CharWidth
             case >= 0x7F and < 0xA0:
                 return 0;
         }
+        // ASCII / Latin-1 / 拉丁扩展一律宽度 1:0x0300 以下没有任何零宽或宽字符区间
+        // (最低的零宽区间是组合变音符号 U+0300,最低的宽字符区间是 Hangul U+1100)。
+        // 这条早退让绝大多数字符只做一次比较,免掉下面两趟二分 —— 本方法在每个打印字符
+        // (TerminalEmulator.Print)与每个渲染格子(VelaTerminalControl.RenderLine)上各调一次,
+        // 是全仓最热的叶子函数之一。
+        if (rune < 0x0300)
+        {
+            return 1;
+        }
         if (InRanges(rune, ZeroWidth))
         {
             return 0;

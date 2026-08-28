@@ -124,6 +124,9 @@ public sealed class CircularProgressRing : Control
         }
     }
 
+    /// <summary>轨道与进度弧两支画笔的复用缓存 —— 不确定态每帧重绘,现建就是每帧两个对象。</summary>
+    private readonly PenCache _pens = new();
+
     /// <summary>绘制轨道与进度弧。</summary>
     public override void Render(DrawingContext context)
     {
@@ -138,7 +141,7 @@ public sealed class CircularProgressRing : Control
 
         if (TrackBrush is { } track)
         {
-            context.DrawEllipse(null, new Pen(track, thickness), center, radius, radius);
+            context.DrawEllipse(null, _pens.Get(track, thickness), center, radius, radius);
         }
         if (ArcBrush is not { } arc)
         {
@@ -163,7 +166,7 @@ public sealed class CircularProgressRing : Control
         }
 
         // 满圈单独走 DrawEllipse:圆弧的起终点重合时 ArcTo 画不出闭合圆(退化成不画)。
-        var pen = new Pen(arc, thickness, lineCap: PenLineCap.Round);
+        IPen pen = _pens.Get(arc, thickness, PenLineCap.Round);
         if (sweepDegrees >= 359.9)
         {
             context.DrawEllipse(null, pen, center, radius, radius);

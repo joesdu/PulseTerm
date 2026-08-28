@@ -20,7 +20,12 @@ public sealed class SessionRecorder : IDisposable
     private readonly Timer _flushTimer;
     private readonly SemaphoreSlim _writeGate = new(1, 1);
 
-    private MemoryStream _buffer = new();
+    /// <summary>
+    /// 攒批缓冲。<b>跨刷盘复用同一个实例</b>(<see cref="Flush" /> 里 <c>SetLength(0)</c> 而非
+    /// 换新):MemoryStream 靠倍增扩容,从 0 长到 64KB 阈值要经过约 9 个中间数组(合计 ~128KB),
+    /// 每次刷盘都重来一遍就是每 600ms 白扔一轮。复用后容量稳定在阈值附近,不再扩容。
+    /// </summary>
+    private readonly MemoryStream _buffer = new(FlushThresholdBytes);
     private long _bufferStartOffsetMs;
     private long _lastFlushedOffsetMs = -1;
     private bool _disposed;
@@ -93,6 +98,7 @@ public sealed class SessionRecorder : IDisposable
             {
                 return;
             }
+            // payload 必须是独立副本:它要交给后台的异步写入,而 _buffer 紧接着就被清空复用。
             payload = _buffer.ToArray();
 
             // 块的存储时间 = 开始时刻 + 偏移,而同一录制同一毫秒只存得下一个点(后写覆盖先写)。
@@ -100,7 +106,11 @@ public sealed class SessionRecorder : IDisposable
             // 递增,否则前一块被后一块悄悄顶掉,回放时那段输出凭空消失。
             offset = Math.Max(_bufferStartOffsetMs, _lastFlushedOffsetMs + 1);
             _lastFlushedOffsetMs = offset;
-            _buffer = new();
+
+            // 清空复用而非换新实例:保住已经长到 64KB 的容量,免掉下一轮的倍增扩容链。
+            // Position 也要归零 —— SetLength 只截长度,写指针留在原处会在开头留下一段空洞。
+            _buffer.SetLength(0);
+            _buffer.Position = 0;
         }
         _ = PersistAsync(async () =>
         {
