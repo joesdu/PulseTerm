@@ -48,6 +48,27 @@
   	<GenerateAssemblyProductAttribute>True</GenerateAssemblyProductAttribute>
   	<GenerateDocumentationFile>True</GenerateDocumentationFile>
   	<PackageReadmeFile>README.md</PackageReadmeFile>
+  	<!--
+  	  ==================== Windows 版本资源(#299 报毒)====================
+  	  下面三项经程序集特性写进每个产物的 Win32 版本资源(exe 的那份由 SDK 从托管
+  	  程序集拷进 apphost),对应资源管理器「属性 → 详细信息」与任务管理器里那几列:
+  	    Company   → CompanyName     Product → ProductName     Copyright → LegalCopyright
+  	  (FileDescription 取 AssemblyTitle、Comments 取 Description,按工程各自给。)
+
+  	  为什么显式写:版本资源填不满是杀软启发式的加分项之一,未签名 + 低流行度的
+  	  .NET apphost 本就容易被判可疑,元数据空着等于白送一条命中理由;向厂商提误报
+  	  申诉时,分析员看到的也正是这几个字段。**这只是降低概率,不解决报毒**——根治
+  	  要么走 Authenticode 签名(声誉逐版本累积),要么让用户装商店版(微软重签)。
+
+  	  Company/Product 此前是隐式默认值(Company 取 Authors、Product 取 AssemblyName,
+  	  于是每个 dll 的 ProductName 各不相同:VelaShell.Core、VelaShell.Terminal……)。
+  	  这里钉死成同一个产品名,全部随包分发的程序集才归得成一组。
+  	  Copyright 原先只在 src/Directory.Build.props 的 Release 组里给,Debug 产物的
+  	  LegalCopyright 是空的;移到这里改为无条件,两种配置一致。
+  	-->
+  	<Company>joesdu</Company>
+  	<Product>VelaShell</Product>
+  	<Copyright>© joesdu. All rights reserved.</Copyright>
   </PropertyGroup>
   
   <PropertyGroup Condition="'$(TargetFramework)' == 'net11.0'">
