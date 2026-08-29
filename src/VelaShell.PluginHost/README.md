@@ -20,7 +20,7 @@
 
 ## 🔑 核心思路
 
-- **依赖纪律**：只引用 `VelaShell.PluginSdk`，**严禁引用任何 `VelaShell.*` 主程序工程**（设计稿 [02 §2](../../docs/plugins/02-architecture.md)）。宿主的领域模型、SSH 库、持久化引擎一概不进这个进程。
+- **依赖纪律**：只引用 `VelaShell.PluginSdk`，**严禁引用任何 `VelaShell.*` 主程序工程**（设计稿 [02 §2](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/plugins/02-architecture.md)）。宿主的领域模型、SSH 库、持久化引擎一概不进这个进程。
 - **一进程一插件**：进程即隔离边界，退出即卸载，不存在程序集卸载残留与 ALC 泄漏。
 - **凭据不出主进程**：启动参数（管道名、一次性令牌、插件 id/版本/入口/数据目录）全部经**环境变量**传递，不进命令行 —— 命令行会出现在进程列表里。管道随机命名且仅当前用户可连；握手完成前除 `handshake` 外一切调用拒绝。
 - **父进程守望**：主程序崩溃或被杀（来不及发 deactivate）时，本进程按 `VELA_PARENT_PID` 自行退出，绝不孤儿常驻。
@@ -54,9 +54,9 @@ VelaShell.PluginHost
 
 ## 📚 相关文档
 
-- [docs/plugins/04-plugin-host.md](../../docs/plugins/04-plugin-host.md) —— 宿主进程设计
-- [docs/plugins/05-ipc-protocol.md](../../docs/plugins/05-ipc-protocol.md) —— RPC 协议
-- [docs/plugins/06-permission-system.md](../../docs/plugins/06-permission-system.md) —— 权限模型
-- [docs/plugins/dev-guide.md](../../docs/plugins/dev-guide.md) —— 插件开发指南
+- [04-plugin-host.md](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/plugins/04-plugin-host.md) —— 宿主进程设计
+- [05-ipc-protocol.md](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/plugins/05-ipc-protocol.md) —— RPC 协议
+- [06-permission-system.md](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/plugins/06-permission-system.md) —— 权限模型
+- [dev-guide.md](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/templates/dev-guide.md) —— 插件开发指南
 
 > 隔离链路的测试在 [`tests/VelaShell.Infrastructure.Tests/Plugins/`](../../tests/VelaShell.Infrastructure.Tests/Plugins)（`IsolatedPluginTests`、`RpcConnectionTests`、`StreamingRoutingTests`、`EmbedRoutingTests` 等）。

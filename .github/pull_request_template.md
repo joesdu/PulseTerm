@@ -53,11 +53,11 @@ Closes #
 <!-- 只勾选与本 PR 相关的;不涉及的整行删掉即可。 -->
 
 - [ ] **新增了界面文案** → 五份 resx 都已补齐(`Strings` / `zh-Hans` / `zh-Hant` / `ja` / `ko`),没有硬编码字符串
-- [ ] **新增或改动了快捷键** → 已登记进 `ShortcutCatalog`,`docs/快捷键参考.md` 已同步
-- [ ] **改了文档** → `docs/` 与 `docs-en/` 两侧都改了
+- [ ] **新增或改动了快捷键** → 已登记进 `ShortcutCatalog`,`velashell-docs zh/host/快捷键参考.md` 已同步
+- [ ] **改了文档** → 文档在 [velashell-docs](https://github.com/VelaShellLabs/velashell-docs),`zh/` 与 `en/` 两侧都改了(另开 PR)
 - [ ] **改了 README** → `README.md` 与 `README.en.md` 两侧都改了
 - [ ] **改了公开 API** → XML 文档注释已补(缺注释会出编译警告)
-- [ ] **新增了跨层引用** → 符合 `docs/architecture.md` 的依赖方向,没有反向依赖
+- [ ] **新增了跨层引用** → 符合 `velashell-docs zh/host/architecture.md` 的依赖方向,没有反向依赖
 - [ ] **新增了 NuGet 依赖** → 已在 Issue 里讨论过必要性,版本写进 `Directory.Packages.props`
 
 ## 界面改动的前后对比
