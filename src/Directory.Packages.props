@@ -33,7 +33,7 @@
          (VelaShellLabs/velashell-plugins)里,版本由那边的中央包管理登记,别再加回来。
          本仓库 plugins/ 下的自建插件(AI)不走中央包版本管理
          (根目录没有 Directory.Packages.props),依赖版本写在各自的 csproj 里。 -->
-    <PackageVersion Include="VelaShell.PluginSdk" Version="1.5.0" />
+    <PackageVersion Include="VelaShell.PluginSdk" Version="1.5.1" />
     <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="11.0.0-preview.7.26381.103" />
     <!-- 构建期工具:SourceLink(见 src/Directory.Build.props) -->
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="11.0.100-preview.7.26381.103" />
