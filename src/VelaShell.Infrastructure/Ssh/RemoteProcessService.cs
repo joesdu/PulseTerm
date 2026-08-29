@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using VelaShell.Core.Models;
 using VelaShell.Core.Processes;
 using VelaShell.Core.Ssh;
 
@@ -26,6 +27,16 @@ public sealed class RemoteProcessService(ISshConnectionService connectionService
     )
     {
         if (GetLiveClient(sessionId) is not { } client)
+        {
+            _lastSamples.TryRemove(sessionId, out _);
+            return null;
+        }
+
+        // 非 POSIX 远端(Windows 的 cmd.exe/PowerShell 等)直接判"不可用",一条命令都不发:
+        // 探测命令读的是 /proc 与 ps,cmd 跑不动它却照样有输出(整行被 echo 原样打回),
+        // 而 RemoteProcessProbe.Parse 只在输出为空时才返回 null —— 于是面板显示的不是
+        // "需要一个已连接的 Linux 会话",而是一张 CPU 0.0%、0 个进程的空表(#305 同源)。
+        if (!await IsPosixRemoteAsync(sessionId, client, cancellationToken).ConfigureAwait(false))
         {
             _lastSamples.TryRemove(sessionId, out _);
             return null;
@@ -103,6 +114,21 @@ public sealed class RemoteProcessService(ISshConnectionService connectionService
     {
         ISshClientWrapper? client = _connectionService.GetClient(sessionId);
         return client is { IsConnected: true } ? client : null;
+    }
+
+    /// <summary>
+    /// 对端是不是 POSIX shell(结论由 <see cref="RemoteShellProbe" /> 按主机缓存,
+    /// 除首次外只是一次字典查找)。
+    /// </summary>
+    private async Task<bool> IsPosixRemoteAsync(Guid sessionId, ISshClientWrapper client, CancellationToken cancellationToken)
+    {
+        ConnectionInfo? info = _connectionService.GetSession(sessionId)?.ConnectionInfo;
+        return await RemoteShellProbe
+            .IsPosixShellAsync(
+                client,
+                RemoteShellProbe.CacheKey(info?.Host, info?.Port ?? 22, info?.Username),
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private static async Task<string> RunAsync(

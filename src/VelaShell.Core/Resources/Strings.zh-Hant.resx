@@ -1349,6 +1349,9 @@
   <data name="Msg_Uploading" xml:space="preserve">
     <value>上傳中</value>
   </data>
+  <data name="Msg_Waiting" xml:space="preserve">
+    <value>等待中</value>
+  </data>
   <data name="Msg_UptimeHours" xml:space="preserve">
     <value>已執行 {0}h {1}m</value>
   </data>
@@ -3288,6 +3291,9 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   </data>
   <data name="Sftp_FollowTerminal" xml:space="preserve">
     <value>跟隨終端機目錄(同步到終端機目前路徑)</value>
+  </data>
+  <data name="Sftp_FollowTerminalNoReport" xml:space="preserve">
+    <value>終端機還沒有回報過工作目錄。Windows 遠端(cmd.exe / PowerShell)無法回報;其他 shell 可在自己的提示字元掛鉤中送出 OSC 7。</value>
   </data>
   <data name="Sftp_EditPath" xml:space="preserve">
     <value>編輯路徑 (Ctrl+L)</value>

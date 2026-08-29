@@ -1349,6 +1349,9 @@
   <data name="Msg_Uploading" xml:space="preserve">
     <value>アップロード中</value>
   </data>
+  <data name="Msg_Waiting" xml:space="preserve">
+    <value>待機中</value>
+  </data>
   <data name="Msg_UptimeHours" xml:space="preserve">
     <value>稼働 {0}h {1}m</value>
   </data>
@@ -3288,6 +3291,9 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   </data>
   <data name="Sftp_FollowTerminal" xml:space="preserve">
     <value>ターミナルのディレクトリに追従(現在のパスに同期)</value>
+  </data>
+  <data name="Sftp_FollowTerminalNoReport" xml:space="preserve">
+    <value>ターミナルはまだ作業ディレクトリを報告していません。Windows リモート(cmd.exe / PowerShell)は報告できません。他のシェルはプロンプトフックから OSC 7 を送信できます。</value>
   </data>
   <data name="Sftp_EditPath" xml:space="preserve">
     <value>パスを編集 (Ctrl+L)</value>

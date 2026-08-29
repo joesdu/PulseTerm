@@ -52,9 +52,13 @@ public static class RemoteShellProbe
     /// <summary>主机 → 探测结论。同一台机器只问一次,重连与新标签直接取缓存。</summary>
     private static readonly ConcurrentDictionary<string, bool> Results = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>缓存键:同一主机换了用户可能换了默认 shell,故用户名也进键。</summary>
+    /// <summary>
+    /// 缓存键:同一主机换了用户可能换了默认 shell,故用户名也进键。
+    /// 主机名为空(拿不到会话配置)时返回空串 = 本次不缓存,免得几个来路不明的连接
+    /// 共用同一格,互相顶掉对方的结论。
+    /// </summary>
     public static string CacheKey(string? host, int port, string? user) =>
-        $"{user ?? string.Empty}@{host ?? string.Empty}:{port}";
+        string.IsNullOrWhiteSpace(host) ? string.Empty : $"{user ?? string.Empty}@{host}:{port}";
 
     /// <summary>
     /// 判定一次探针执行的结果。退出码必须为 0 <b>且</b>标准输出里出现标记 ——

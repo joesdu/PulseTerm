@@ -430,6 +430,9 @@
   <data name="Sftp_FollowTerminal" xml:space="preserve">
     <value>Follow terminal directory (sync to the terminal's current path)</value>
   </data>
+  <data name="Sftp_FollowTerminalNoReport" xml:space="preserve">
+    <value>The terminal hasn't reported its working directory yet. Windows remotes (cmd.exe / PowerShell) cannot report it; other shells can emit OSC 7 from their prompt hook.</value>
+  </data>
   <data name="Sftp_EditPath" xml:space="preserve">
     <value>Edit path (Ctrl+L)</value>
   </data>
@@ -1545,6 +1548,9 @@ Paste anyway?</value>
   </data>
   <data name="Msg_Uploading" xml:space="preserve">
     <value>Uploading</value>
+  </data>
+  <data name="Msg_Waiting" xml:space="preserve">
+    <value>Waiting</value>
   </data>
   <data name="Msg_UptimeHours" xml:space="preserve">
     <value>Up {0}h {1}m</value>

@@ -99,15 +99,14 @@ public sealed class FtpFileService(IProxyResolver? proxyResolver = null) : ISftp
         long resumeOffset = 0,
         CancellationToken cancellationToken = default)
     {
-        using FtpConnectionPool.Lease lease = await RentAsync(sessionId, cancellationToken).ConfigureAwait(false);
         string fileName = Path.GetFileName(localPath);
         long totalBytes = new FileInfo(localPath).Length;
-        try
+        await RunTransferAsync(sessionId, "upload", async client =>
         {
             await using FileStream source = File.OpenRead(localPath);
             // 续传交给 FluentFTP:Resume 模式下它自己 SIZE 远端、再把本地流 Seek 到同一偏移。
             // 不需要 SFTP 那套「回退一个在途写入窗口」—— FTP 单条数据连接顺序写,没有乱序空洞。
-            FtpStatus status = await lease.Client.UploadStream(
+            FtpStatus status = await client.UploadStream(
                 source,
                 NormalizePath(remotePath),
                 resumeOffset > 0 ? FtpRemoteExists.Resume : FtpRemoteExists.Overwrite,
@@ -118,11 +117,7 @@ public sealed class FtpFileService(IProxyResolver? proxyResolver = null) : ISftp
             {
                 throw new VelaFtpOperationException($"FTP upload of {fileName} failed.");
             }
-        }
-        catch (Exception ex)
-        {
-            throw Fault(sessionId, ex, "upload");
-        }
+        }, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -133,15 +128,14 @@ public sealed class FtpFileService(IProxyResolver? proxyResolver = null) : ISftp
         long resumeOffset = 0,
         CancellationToken cancellationToken = default)
     {
-        using FtpConnectionPool.Lease lease = await RentAsync(sessionId, cancellationToken).ConfigureAwait(false);
         string fileName = GetRemoteFileName(remotePath);
-        try
+        await RunTransferAsync(sessionId, "download", async client =>
         {
-            long totalBytes = await lease.Client.GetFileSize(NormalizePath(remotePath), -1, cancellationToken).ConfigureAwait(false);
+            long totalBytes = await client.GetFileSize(NormalizePath(remotePath), -1, cancellationToken).ConfigureAwait(false);
             await using FileStream target = resumeOffset > 0
                 ? new FileStream(localPath, FileMode.Append, FileAccess.Write, FileShare.None)
                 : new FileStream(localPath, FileMode.Create, FileAccess.Write, FileShare.None);
-            bool ok = await lease.Client.DownloadStream(
+            bool ok = await client.DownloadStream(
                 target,
                 NormalizePath(remotePath),
                 resumeOffset,
@@ -151,11 +145,7 @@ public sealed class FtpFileService(IProxyResolver? proxyResolver = null) : ISftp
             {
                 throw new VelaFtpOperationException($"FTP download of {fileName} failed.");
             }
-        }
-        catch (Exception ex)
-        {
-            throw Fault(sessionId, ex, "download");
-        }
+        }, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -370,6 +360,66 @@ public sealed class FtpFileService(IProxyResolver? proxyResolver = null) : ISftp
     }
 
     // ---- 内部实现 ---------------------------------------------------------
+
+    /// <summary>
+    /// 跑一次传输。服务器以「忙 / 连接数超限 / 一次只能传一个」拒绝时,把该会话就地收成
+    /// 单连接并**重试一次** —— 这一次会排队等那条唯一的连接空下来,于是批量传输自然变成串行。
+    /// </summary>
+    /// <remarks>
+    /// 收紧是**整条会话**的一次性动作,而重试是**每个传输**各自的:一批并发传输往往同时撞上
+    /// 这个拒绝,只有跑得最快的那个能把上限从 4 收到 1,其余的看到的是"已经是 1 了"——
+    /// 所以重试的条件不能是"我收紧成功了",而是"这次拒绝是并发导致的,且会话还在"。
+    /// 收紧之后重试会在池的闸门上排队,同一时刻只剩一个传输在跑,自然不会再撞。
+    /// <para>
+    /// 与 <see cref="FtpConnectionPool" /> 里那条自适应是两个场景:池管的是"第二条**连接**开不出来",
+    /// 这里管的是"连接开得出来,但服务器不让同时跑第二个**传输**"(数据通道被拒)。
+    /// </para>
+    /// </remarks>
+    private async Task RunTransferAsync(
+        Guid sessionId,
+        string operation,
+        Func<AsyncFtpClient, Task> body,
+        CancellationToken cancellationToken)
+    {
+        for (int attempt = 0; ; attempt++)
+        {
+            try
+            {
+                using FtpConnectionPool.Lease lease = await RentAsync(sessionId, cancellationToken).ConfigureAwait(false);
+                await body(lease.Client).ConfigureAwait(false);
+                return;
+            }
+            catch (Exception ex) when (
+                attempt < MaxBusyRetries
+                && !cancellationToken.IsCancellationRequested
+                && FluentFtpInterop.IsConcurrencyRejection(ex)
+                && LimitSessionToSingleConnection(sessionId))
+            {
+                // 落到下一轮循环重试:这一次会排队等那条唯一的连接空下来。
+            }
+            catch (Exception ex)
+            {
+                throw Fault(sessionId, ex, operation);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 单个传输被"忙/超限"顶回来后允许重试的次数。给 2 次是留一手:
+    /// 收紧生效前抢跑的那几个传输可能连着撞两回,再多就该如实报错了。
+    /// </summary>
+    private const int MaxBusyRetries = 2;
+
+    /// <summary>把会话收成单连接;会话还在就返回 true(上限本来就是 1 也算数,见调用点注释)。</summary>
+    private bool LimitSessionToSingleConnection(Guid sessionId)
+    {
+        if (!_sessions.TryGetValue(sessionId, out FtpConnectionPool? pool))
+        {
+            return false;
+        }
+        pool.LimitToSingleConnection();
+        return true;
+    }
 
     private async Task<FtpConnectionPool.Lease> RentAsync(Guid sessionId, CancellationToken cancellationToken)
     {

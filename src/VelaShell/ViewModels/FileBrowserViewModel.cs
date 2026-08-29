@@ -311,6 +311,37 @@ public class FileBrowserViewModel : ReactiveObject
             if (value && _pendingTerminalPath is { Length: > 0 } path)
             {
                 SyncToTerminalPath(path); // 开启当下立即同步到终端当前目录
+                return;
+            }
+
+            // 一次上报都没收到过就打开开关 = 点了之后什么都不会发生。必须说清为什么:
+            // Windows 远端(cmd.exe/PowerShell)压根不上报 —— 那串 bash 钩子只对 POSIX shell
+            // 注入(#305),而受限 sshd 上探测不出来时也不注入。判据用"有没有真收到过 OSC 7"
+            // 而不是探测结论:用户自己在 rc 里发 OSC 7 的情形照样算数,不能误伤。
+            if (value)
+            {
+                ErrorMessage = Strings.Get("Sftp_FollowTerminalNoReport");
+                _followHintShown = true;
+            }
+            else if (_followHintShown)
+            {
+                ClearFollowHint();
+            }
+        }
+    }
+
+    /// <summary>上面那句提示当前是否挂在 <see cref="ErrorMessage" /> 上(只由本类挂、本类摘)。</summary>
+    private bool _followHintShown;
+
+    /// <summary>摘掉提示,但不碰别人写进去的错误(导航失败等)。</summary>
+    private void ClearFollowHint()
+    {
+        if (_followHintShown)
+        {
+            _followHintShown = false;
+            if (string.Equals(ErrorMessage, Strings.Get("Sftp_FollowTerminalNoReport"), StringComparison.Ordinal))
+            {
+                ErrorMessage = null;
             }
         }
     }
@@ -324,6 +355,14 @@ public class FileBrowserViewModel : ReactiveObject
             return;
         }
         _pendingTerminalPath = path;
+
+        // 上报来了 = 提示的前提不再成立,自己摘掉,不劳用户去点。
+        // 本方法在终端 feed 线程上被调用(见下面 SyncToTerminalPath 的注释),
+        // ErrorMessage 是绑定到界面的属性,必须回 UI 线程改。
+        if (_followHintShown)
+        {
+            Dispatcher.UIThread.Post(ClearFollowHint);
+        }
         if (FollowTerminal)
         {
             SyncToTerminalPath(path);
@@ -1461,11 +1500,20 @@ public class FileBrowserViewModel : ReactiveObject
             Type = TransferType.Upload,
             LocalPath = localPath,
             RemotePath = remotePath,
-            Status = TransferStatus.InProgress,
+            // 同批量传输:先"等待中",第一个进度回调到达才算真的开跑
+            // (FTP 单连接对端上,这一份保存也可能排在别人后面)。
+            Status = TransferStatus.Queued,
         };
         TransferSink?.AddTransfer(task);
         TransferItemViewModel? item = TransferSink?.FindTransfer(task.Id);
-        var progress = new Progress<TransferProgress>(p => item?.UpdateProgress(p));
+        var progress = new Progress<TransferProgress>(p =>
+        {
+            item?.UpdateProgress(p);
+            if (item?.Status == TransferStatus.Queued)
+            {
+                item.Status = TransferStatus.InProgress;
+            }
+        });
         try
         {
             await _sftpService.UploadFileAsync(_sessionId, localPath, remotePath, progress);
@@ -2367,7 +2415,9 @@ public class FileBrowserViewModel : ReactiveObject
             Type = type,
             LocalPath = localPath,
             RemotePath = remotePath,
-            Status = resumeOffset > 0 ? TransferStatus.Resuming : TransferStatus.InProgress,
+            // 建行即"等待中":这一刻它只是被排进了队,真正开跑要等拿到传输名额
+            // (FTP 单连接对端上可能要等很久)。第一次进度回调到达才算开始。
+            Status = TransferStatus.Queued,
         };
         TransferStatus finalStatus = TransferStatus.Failed;
         TransferSink?.AddTransfer(task);
@@ -2380,11 +2430,14 @@ public class FileBrowserViewModel : ReactiveObject
         var progress = new Progress<TransferProgress>(p =>
         {
             item?.UpdateProgress(p);
-            // Transition from Resuming to InProgress on first progress tick.
-            if (item?.Status == TransferStatus.Resuming)
+            // 第一个进度回调 = 字节真的开始流动了:排队结束。续传的第一拍先亮一下"续传中",
+            // 之后的回调再落到"进行中"(与改动前的观感一致,只是把它前面那段等待如实标出来了)。
+            item?.Status = item.Status switch
             {
-                item.Status = TransferStatus.InProgress;
-            }
+                TransferStatus.Queued when resumeOffset > 0 => TransferStatus.Resuming,
+                TransferStatus.Queued or TransferStatus.Resuming => TransferStatus.InProgress,
+                _ => item.Status,
+            };
         });
         // 目标"同名但内容对不上"时改名重传的落点(仅"重命名"策略):当前这一行按跳过收尾,
         // 改名后的整份重传在本方法收尾之后另起一行,免得一行的标题与它实际写的目标对不上。

@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using VelaShell.Core.Models;
 using VelaShell.Core.Services;
 using VelaShell.Core.Ssh;
 
@@ -24,7 +25,8 @@ public sealed class SessionMetricsService(ISshConnectionService connectionServic
 
     /// <summary>
     /// 采集指定会话的一次实时指标:在其现有 SSH 连接上跑探测命令,解析后与上一采样做差分
-    /// 得到瞬时 CPU%/网速。连接不存在或已断开、以及探测失败(超时、非 Linux 主机)时返回 <c>null</c>。
+    /// 得到瞬时 CPU%/网速。连接不存在或已断开、对端不是 POSIX shell、以及探测失败(超时、
+    /// 非 Linux 主机)时返回 <c>null</c>。
     /// </summary>
     public async Task<SessionMetrics?> GetMetricsAsync(Guid sessionId, MetricsScope scope, CancellationToken cancellationToken = default)
     {
@@ -36,6 +38,10 @@ public sealed class SessionMetricsService(ISshConnectionService connectionServic
                 _lastSamples.TryRemove((sessionId, stale), out _);
             }
             _staticInfo.TryRemove(sessionId, out _);
+            return null;
+        }
+        if (!await IsPosixRemoteAsync(sessionId, client, cancellationToken).ConfigureAwait(false))
+        {
             return null;
         }
         try
@@ -67,6 +73,10 @@ public sealed class SessionMetricsService(ISshConnectionService connectionServic
         {
             return null;
         }
+        if (!await IsPosixRemoteAsync(sessionId, client, cancellationToken).ConfigureAwait(false))
+        {
+            return null;
+        }
         try
         {
             string output = await client.RunCommandAsync(SessionMetrics.StaticCommand, cancellationToken).ConfigureAwait(false);
@@ -78,6 +88,29 @@ public sealed class SessionMetricsService(ISshConnectionService connectionServic
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// 对端是不是 POSIX shell。<b>不是就一条命令都不发</b>:探测命令通篇是 <c>/proc</c>、
+    /// <c>nproc</c>、<c>df</c>,Windows 的 cmd.exe 既跑不动它,又不会安静 ——
+    /// <c>echo __P__; nproc; …</c> 在 cmd 里是**一条** echo,它把整行原样打回来,于是
+    /// <see cref="SessionMetrics.Parse" />(只在输出为空时返回 null)拿着这堆回声解出一份
+    /// 全是 0 的假指标,状态栏一本正经地显示 CPU 0.00% / 内存 0.0%。
+    /// 状态栏每秒轮询一次,不拦下来就是每秒在对端起一个 cmd.exe(#305 同源)。
+    /// </summary>
+    /// <remarks>
+    /// 结论由 <see cref="RemoteShellProbe" /> 按主机缓存,除首次外只是一次字典查找;
+    /// 拿不到会话信息时退回空缓存键(不缓存,但仍然照探)。
+    /// </remarks>
+    private async Task<bool> IsPosixRemoteAsync(Guid sessionId, ISshClientWrapper client, CancellationToken cancellationToken)
+    {
+        ConnectionInfo? info = _connectionService.GetSession(sessionId)?.ConnectionInfo;
+        return await RemoteShellProbe
+            .IsPosixShellAsync(
+                client,
+                RemoteShellProbe.CacheKey(info?.Host, info?.Port ?? 22, info?.Username),
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 
     /// <summary>

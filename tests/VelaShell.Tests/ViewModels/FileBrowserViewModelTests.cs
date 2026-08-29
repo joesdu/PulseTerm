@@ -1960,4 +1960,40 @@ public class FileBrowserViewModelTests
             .DidNotReceive()
             .ListDirectoryAsync(_sessionId, "/somewhere/else", Arg.Any<CancellationToken>());
     }
+
+    /// <summary>
+    /// 一次 OSC 7 都没收到过就打开「跟随终端目录」= 点了什么都不会发生,必须说清为什么。
+    /// Windows 远端(cmd.exe/PowerShell)就是这种情况:那串钩子只对 POSIX shell 注入(#305)。
+    /// </summary>
+    [TestMethod]
+    [TestCategory("FileBrowser")]
+    public void FollowTerminal_WithoutAnyReport_ExplainsWhyNothingHappens()
+    {
+        _vm.FollowTerminal = true;
+
+        Assert.AreEqual(Strings.Get("Sftp_FollowTerminalNoReport"), _vm.ErrorMessage);
+    }
+
+    /// <summary>关掉开关就把这句提示收回去,别赖在面板顶上。</summary>
+    [TestMethod]
+    [TestCategory("FileBrowser")]
+    public void FollowTerminal_TurnedOff_RemovesTheHint()
+    {
+        _vm.FollowTerminal = true;
+        _vm.FollowTerminal = false;
+
+        Assert.IsNull(_vm.ErrorMessage);
+    }
+
+    /// <summary>终端有上报的会话不该看到这句提示 —— 它说的是"没收到过上报"。</summary>
+    [TestMethod]
+    [TestCategory("FileBrowser")]
+    public void FollowTerminal_AfterAReport_ShowsNoHint()
+    {
+        _vm.OnTerminalWorkingDirectoryChanged("/srv/app");
+
+        _vm.FollowTerminal = true;
+
+        Assert.IsNull(_vm.ErrorMessage);
+    }
 }

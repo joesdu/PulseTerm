@@ -41,6 +41,54 @@ internal static class FluentFtpInterop
     public static bool IsConnectionLost(Exception ex) => ex is VelaFtpConnectionException;
 
     /// <summary>
+    /// 服务器是不是在说「同一时刻只能有一个(连接/传输)」。
+    /// <para>
+    /// 用于把该会话就地收成单连接后重试一次 —— 用户报的现象是批量上传时
+    /// 第一个文件成功、其余全失败(服务端只支持单线程上传)。
+    /// </para>
+    /// </summary>
+    /// <remarks>
+    /// 各家服务器的措辞与应答码都不统一,所以两条线一起看:
+    /// 应答码 421(服务不可用/用户数超限)、425(开不了数据连接)、450(文件/传输忙),
+    /// 以及中英文关键词。判错的代价很小:无非是这一项退化成排队重试一次;
+    /// 判漏的代价才大 —— 用户看到的是一批失败的传输。
+    /// </remarks>
+    public static bool IsConcurrencyRejection(Exception? ex)
+    {
+        for (Exception? current = ex; current is not null; current = current.InnerException)
+        {
+            if (current is FtpCommandException { CompletionCode: "421" or "425" or "450" })
+            {
+                return true;
+            }
+            if (current.Message is { Length: > 0 } message && MentionsConcurrencyLimit(message))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static readonly string[] ConcurrencyKeywords =
+    [
+        "too many", "maximum number", "max clients", "connection limit", "already connected",
+        "only one", "one transfer", "simultaneous", "concurrent", "busy", "try again later",
+        "连接数", "同时", "并发", "超过最大", "已达上限",
+    ];
+
+    private static bool MentionsConcurrencyLimit(string message)
+    {
+        foreach (string keyword in ConcurrencyKeywords)
+        {
+            if (message.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
     /// 按 FTP 应答码分类。5xx 里 550 既可能是「不存在」也可能是「没权限」,
     /// 服务器措辞不统一,因此再看一眼文本 —— 分不清时保守地归为一般操作失败。
     /// </summary>

@@ -131,6 +131,24 @@ public class RemoteShellProbeTests
             RemoteShellProbe.CacheKey("host", 2222, "root"));
     }
 
+    /// <summary>拿不到主机名时返回空键 = 不缓存,免得几个连接共用一格互相顶掉结论。</summary>
+    [TestMethod]
+    public async Task CacheKey_WhenHostMissing_IsEmptyAndDisablesCaching()
+    {
+        Assert.IsEmpty(RemoteShellProbe.CacheKey(null, 22, "root"));
+        Assert.IsEmpty(RemoteShellProbe.CacheKey("   ", 22, "root"));
+
+        ISshClientWrapper client = Substitute.For<ISshClientWrapper>();
+        client.RunCommandDetailedAsync(RemoteShellProbe.ProbeCommand, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new RemoteCommandResult("vela-posix-42ok\n", "", 0)));
+
+        await RemoteShellProbe.IsPosixShellAsync(client, string.Empty, TestContext.CancellationToken);
+        await RemoteShellProbe.IsPosixShellAsync(client, string.Empty, TestContext.CancellationToken);
+
+        await client.Received(2).RunCommandDetailedAsync(
+            RemoteShellProbe.ProbeCommand, Arg.Any<CancellationToken>());
+    }
+
     /// <summary>MSTest 注入的测试上下文(取消令牌)。</summary>
     public TestContext TestContext { get; set; } = null!;
 }

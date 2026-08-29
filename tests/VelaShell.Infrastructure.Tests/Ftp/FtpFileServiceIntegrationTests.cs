@@ -205,6 +205,105 @@ public class FtpFileServiceIntegrationTests
             () => _service.ListDirectoryAsync(sessionId, "/"));
     }
 
+    /// <summary>
+    /// 服务器只肯给一条控制连接(用户报的"仅支持单线程上传"那类)时,批量上传必须**全部成功**。
+    /// </summary>
+    /// <remarks>
+    /// 修之前:第一个文件占住那唯一的连接,后面每个文件都去开第二条,被 421 顶回来 ——
+    /// 用户看到的是"批量上传只成功一个,其余全失败",而且那个 <c>421</c> 被翻译成连接级异常,
+    /// 顺带把整条会话标记成离线(树上的圆点变灰)。
+    /// 修之后:池发现"已有活连接却开不出新连接",就把上限收成 1,后来的传输排队复用那一条。
+    /// </remarks>
+    [TestMethod]
+    public async Task ConcurrentUploads_WhenServerAllowsOneConnection_AllSucceed()
+    {
+        _server.MaxConcurrentSessions = 1;
+        string outDir = Path.Combine(Path.GetTempPath(), $"vela-ftp-src-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(outDir);
+        try
+        {
+            var faulted = false;
+            _service.SessionStateChanged += (_, change) => faulted |= change.State == FtpSessionState.Faulted;
+
+            byte[] payload = Enumerable.Range(0, 4096).Select(static i => (byte)(i % 251)).ToArray();
+            var sources = new List<string>();
+            for (int i = 0; i < 5; i++)
+            {
+                string path = Path.Combine(outDir, $"batch{i}.bin");
+                await File.WriteAllBytesAsync(path, payload, TestContext.CancellationToken);
+                sources.Add(path);
+            }
+            Guid sessionId = await OpenAsync(maxConnections: 4);
+
+            // 界面上的"最大并发传输数"就是这么发起的:所有文件同时开跑。
+            await Task.WhenAll(sources.Select(source => _service.UploadFileAsync(
+                sessionId,
+                source,
+                "/" + Path.GetFileName(source),
+                progress: null,
+                resumeOffset: 0,
+                TestContext.CancellationToken)));
+
+            foreach (string source in sources)
+            {
+                string landed = Path.Combine(_root, Path.GetFileName(source));
+                Assert.IsTrue(File.Exists(landed), $"{Path.GetFileName(source)} 应已上传。");
+                CollectionAssert.AreEqual(payload, await File.ReadAllBytesAsync(landed, TestContext.CancellationToken));
+            }
+            Assert.IsFalse(faulted, "退化成单连接是正常降级,不该把整条会话标记为离线。");
+        }
+        finally
+        {
+            Directory.Delete(outDir, true);
+        }
+    }
+
+    /// <summary>
+    /// 另一类服务器:控制连接随便开,但**一次只让传一个文件**(第二个 STOR 直接 450)。
+    /// 池那条自适应看不到这种拒绝(连接开得出来),得由传输层收紧后重试。
+    /// </summary>
+    [TestMethod]
+    public async Task ConcurrentUploads_WhenServerAllowsOneTransfer_AllSucceed()
+    {
+        _server.MaxConcurrentTransfers = 1;
+        string outDir = Path.Combine(Path.GetTempPath(), $"vela-ftp-src-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(outDir);
+        try
+        {
+            byte[] payload = Enumerable.Range(0, 8192).Select(static i => (byte)(i % 253)).ToArray();
+            var sources = new List<string>();
+            for (int i = 0; i < 4; i++)
+            {
+                string path = Path.Combine(outDir, $"busy{i}.bin");
+                await File.WriteAllBytesAsync(path, payload, TestContext.CancellationToken);
+                sources.Add(path);
+            }
+            Guid sessionId = await OpenAsync(maxConnections: 4);
+
+            await Task.WhenAll(sources.Select(source => _service.UploadFileAsync(
+                sessionId,
+                source,
+                "/" + Path.GetFileName(source),
+                progress: null,
+                resumeOffset: 0,
+                TestContext.CancellationToken)));
+
+            foreach (string source in sources)
+            {
+                string landed = Path.Combine(_root, Path.GetFileName(source));
+                Assert.IsTrue(File.Exists(landed), $"{Path.GetFileName(source)} 应已上传。");
+                CollectionAssert.AreEqual(payload, await File.ReadAllBytesAsync(landed, TestContext.CancellationToken));
+            }
+        }
+        finally
+        {
+            Directory.Delete(outDir, true);
+        }
+    }
+
+    /// <summary>MSTest 注入的测试上下文(取消令牌)。</summary>
+    public TestContext TestContext { get; set; } = null!;
+
     private Task<Guid> OpenAsync(int maxConnections = 2, bool anonymous = false) =>
         _service.OpenSessionAsync(new FtpConnectionInfo
         {

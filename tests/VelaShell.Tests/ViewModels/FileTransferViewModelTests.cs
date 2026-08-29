@@ -2,6 +2,7 @@ using NSubstitute;
 using ReactiveUI.Primitives;
 using VelaShell.Core.Data;
 using VelaShell.Core.Models;
+using VelaShell.Core.Resources;
 using VelaShell.Core.Sftp;
 using VelaShell.ViewModels;
 
@@ -491,6 +492,52 @@ public class FileTransferViewModelTests
         Assert.AreEqual(0, vm.PanelOffsetX);
         Assert.AreEqual(0, vm.PanelOffsetY);
         vm.PersistPanelPosition();
+    }
+
+    /// <summary>
+    /// 排队中的行显示"等待中",而不是 0% + "0 B / 0 B • 0 B/s • ↑ 上传中"。
+    /// </summary>
+    /// <remarks>
+    /// FTP 对端只允许一条连接(或一次只让传一个文件)时,整批传输会被连接池排成串行,
+    /// 后面的项要等很久才轮到 —— 那期间它们一个字节都没在动,却写着"上传中 0%",
+    /// 看上去就是卡死了。
+    /// </remarks>
+    [TestMethod]
+    [TestCategory("FileTransfer")]
+    public void QueuedTransfer_ReadsAsWaiting_NotZeroPercent()
+    {
+        _vm.AddTransfer(CreateTask(status: TransferStatus.Queued));
+        TransferItemViewModel item = _vm.Transfers[0];
+
+        Assert.IsTrue(item.IsWaiting);
+        Assert.AreEqual(Strings.Get("Msg_Waiting"), item.ProgressText);
+        Assert.Contains(Strings.Get("Msg_Waiting"), item.InfoLine);
+        Assert.DoesNotContain("0 B/s", item.InfoLine);
+        Assert.DoesNotContain(Strings.Get("Msg_Uploading"), item.InfoLine);
+    }
+
+    /// <summary>轮到它开跑之后,那一行要变回正常的百分比与速度。</summary>
+    [TestMethod]
+    [TestCategory("FileTransfer")]
+    public void QueuedTransfer_OnceStarted_ShowsPercentAgain()
+    {
+        _vm.AddTransfer(CreateTask(status: TransferStatus.Queued));
+        TransferItemViewModel item = _vm.Transfers[0];
+
+        item.Status = TransferStatus.InProgress;
+        item.UpdateProgress(new TransferProgress
+        {
+            FileName = "file.txt",
+            BytesTransferred = 512,
+            TotalBytes = 1024,
+            Percentage = 50,
+            SpeedBytesPerSecond = 128,
+            EstimatedTimeRemaining = TimeSpan.FromSeconds(4),
+        });
+
+        Assert.IsFalse(item.IsWaiting);
+        Assert.AreEqual("50%", item.ProgressText);
+        Assert.Contains(Strings.Get("Msg_Uploading"), item.InfoLine);
     }
 
     /// <summary>存储读取失败不能把界面带崩 —— 位置记不住是小事,启动不了是大事。</summary>
