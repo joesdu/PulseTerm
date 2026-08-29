@@ -50,6 +50,30 @@ internal sealed class LoopbackFtpServer : IDisposable
     /// <summary>已接受的控制连接数(用于断言连接池确实开了多条连接)。</summary>
     public int AcceptedConnections;
 
+    /// <summary>
+    /// 同一时刻允许的控制连接数上限;超出的连接一律以 <c>421</c> 顶回去(连欢迎语都不给)。
+    /// <para>
+    /// 复刻用户报的那类服务器:只支持单线程上传,一次只能传一个文件,批量上传时
+    /// 除第一个以外全部失败。0 = 不限(默认)。
+    /// </para>
+    /// </summary>
+    public int MaxConcurrentSessions { get; set; }
+
+    /// <summary>被 <see cref="MaxConcurrentSessions" /> 顶回去的连接数(用于断言确实撞过限制)。</summary>
+    public int RejectedConnections;
+
+    /// <summary>
+    /// 同一时刻允许的上传数上限;超出的 <c>STOR</c> 以 <c>450 Transfer busy</c> 顶回去。
+    /// 复刻另一类服务器:控制连接随便开,但一次只让传一个文件。0 = 不限(默认)。
+    /// </summary>
+    public int MaxConcurrentTransfers { get; set; }
+
+    /// <summary>被 <see cref="MaxConcurrentTransfers" /> 顶回去的传输数。</summary>
+    public int RejectedTransfers;
+
+    private int _liveSessions;
+    private int _liveTransfers;
+
     public void Dispose()
     {
         _cts.Cancel();
@@ -87,29 +111,52 @@ internal sealed class LoopbackFtpServer : IDisposable
             NetworkStream stream = client.GetStream();
             using var reader = new StreamReader(stream, Encoding.UTF8, false, 1024, true);
             using var writer = new StreamWriter(stream, new UTF8Encoding(false), 1024, true) { AutoFlush = true, NewLine = "\r\n" };
-            await writer.WriteLineAsync("220 VelaShell loopback FTP").ConfigureAwait(false);
-            while (!_cts.IsCancellationRequested)
+
+            // 连接数超限:按真实服务器的做法,开口就是 421 然后关掉,不给欢迎语。
+            int live = Interlocked.Increment(ref _liveSessions);
+            if (MaxConcurrentSessions > 0 && live > MaxConcurrentSessions)
             {
-                string? line;
-                try
-                {
-                    line = await reader.ReadLineAsync(_cts.Token).ConfigureAwait(false);
-                }
-                catch (Exception ex) when (ex is IOException or OperationCanceledException)
-                {
-                    return;
-                }
-                if (line is null)
-                {
-                    return;
-                }
-                int space = line.IndexOf(' ');
-                string command = (space < 0 ? line : line[..space]).ToUpperInvariant();
-                string argument = space < 0 ? string.Empty : line[(space + 1)..].Trim();
-                if (!await ExecuteAsync(command, argument, state, writer).ConfigureAwait(false))
-                {
-                    return;
-                }
+                Interlocked.Decrement(ref _liveSessions);
+                Interlocked.Increment(ref RejectedConnections);
+                await writer.WriteLineAsync(
+                    "421 Too many users connected, please try again later.").ConfigureAwait(false);
+                return;
+            }
+            try
+            {
+                await ServeAsync(reader, writer, state).ConfigureAwait(false);
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _liveSessions);
+            }
+        }
+    }
+
+    private async Task ServeAsync(StreamReader reader, StreamWriter writer, SessionState state)
+    {
+        await writer.WriteLineAsync("220 VelaShell loopback FTP").ConfigureAwait(false);
+        while (!_cts.IsCancellationRequested)
+        {
+            string? line;
+            try
+            {
+                line = await reader.ReadLineAsync(_cts.Token).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is IOException or OperationCanceledException)
+            {
+                return;
+            }
+            if (line is null)
+            {
+                return;
+            }
+            int space = line.IndexOf(' ');
+            string command = (space < 0 ? line : line[..space]).ToUpperInvariant();
+            string argument = space < 0 ? string.Empty : line[(space + 1)..].Trim();
+            if (!await ExecuteAsync(command, argument, state, writer).ConfigureAwait(false))
+            {
+                return;
             }
         }
     }
@@ -344,6 +391,28 @@ internal sealed class LoopbackFtpServer : IDisposable
     {
         string path = Local(Normalize(state, argument));
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+
+        // "一次只让传一个文件"的服务器:控制连接开几条都行,但第二个传输直接 450 顶回去。
+        int live = Interlocked.Increment(ref _liveTransfers);
+        if (MaxConcurrentTransfers > 0 && live > MaxConcurrentTransfers)
+        {
+            Interlocked.Decrement(ref _liveTransfers);
+            Interlocked.Increment(ref RejectedTransfers);
+            await writer.WriteLineAsync("450 Transfer busy, only one transfer at a time").ConfigureAwait(false);
+            return;
+        }
+        try
+        {
+            await ReceiveFileCoreAsync(state, path, writer, append).ConfigureAwait(false);
+        }
+        finally
+        {
+            Interlocked.Decrement(ref _liveTransfers);
+        }
+    }
+
+    private static async Task ReceiveFileCoreAsync(SessionState state, string path, StreamWriter writer, bool append)
+    {
         await writer.WriteLineAsync("150 Opening data connection").ConfigureAwait(false);
         await using (Stream data = await state.AcceptDataAsync().ConfigureAwait(false))
         await using (FileStream target = append || state.RestartOffset > 0

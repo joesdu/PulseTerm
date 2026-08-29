@@ -97,6 +97,7 @@ public class TransferItemViewModel : ReactiveObject
             this.RaiseAndSetIfChanged(ref _status, value);
             _task.Status = value;
             this.RaisePropertyChanged(nameof(IsActive));
+            this.RaisePropertyChanged(nameof(IsWaiting));
             this.RaisePropertyChanged(nameof(IsFailed));
             this.RaisePropertyChanged(nameof(IsCompleted));
             this.RaisePropertyChanged(nameof(CanRetry));
@@ -107,6 +108,15 @@ public class TransferItemViewModel : ReactiveObject
 
     /// <summary>指示任务是否处于活动状态(进行中或排队中或续传中)。</summary>
     public bool IsActive => _status is TransferStatus.InProgress or TransferStatus.Queued or TransferStatus.Resuming;
+
+    /// <summary>
+    /// 还没开始传:排在队里等一个传输名额。面板据此把这一行显示成"等待中"而不是 0%。
+    /// <para>
+    /// 这不是稀有状态:FTP 对端只允许一条连接(或一次只让传一个文件)时,整批传输会被
+    /// 连接池排成串行,后面的项要等很久才轮到 —— 那期间它们确实一个字节都没在动。
+    /// </para>
+    /// </summary>
+    public bool IsWaiting => _status == TransferStatus.Queued;
 
     /// <summary>指示任务是否已失败。</summary>
     public bool IsFailed => _status == TransferStatus.Failed;
@@ -128,11 +138,13 @@ public class TransferItemViewModel : ReactiveObject
         private set => this.RaiseAndSetIfChanged(ref _transferredBytes, value);
     }
 
-    /// <summary>Right-hand status: "67%" while running, "完成" when done, "失败" on error.</summary>
+    /// <summary>Right-hand status: "等待中" while queued, "67%" while running, "完成" when done, "失败" on error.</summary>
     public string ProgressText => _status switch
     {
         TransferStatus.Completed => Strings.Get("Msg_Done"),
         TransferStatus.Failed => Strings.Get("Msg_Failed"),
+        // 排队中显示"等待中"而不是 0%:0% 看着像卡住,而它其实还没轮到。
+        TransferStatus.Queued => Strings.Get("Msg_Waiting"),
         _ => $"{_progress}%"
     };
 
@@ -141,6 +153,12 @@ public class TransferItemViewModel : ReactiveObject
     {
         get
         {
+            // 还没轮到的项:只说"等待中"。照常拼"0 B / 0 B • 0 B/s • ↑ 上传中"既不真实
+            // (它没在上传),也让人以为传输卡死了。
+            if (_status == TransferStatus.Queued)
+            {
+                return $"{Direction} {Strings.Get("Msg_Waiting")}";
+            }
             string action = _task.Type == TransferType.Upload ? $"↑ {Strings.Get("Msg_Uploading")}" : $"↓ {Strings.Get("Msg_Downloading")}";
             if (_status == TransferStatus.Completed)
             {

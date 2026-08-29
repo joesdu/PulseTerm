@@ -531,6 +531,9 @@
   <data name="Sftp_FollowTerminal" xml:space="preserve">
     <value>跟随终端目录(同步到终端当前路径)</value>
   </data>
+  <data name="Sftp_FollowTerminalNoReport" xml:space="preserve">
+    <value>终端还没有上报过工作目录。Windows 远端(cmd.exe / PowerShell)无法上报;其他 shell 可在自己的提示符钩子里发送 OSC 7。</value>
+  </data>
   <data name="Sftp_EditPath" xml:space="preserve">
     <value>编辑路径 (Ctrl+L)</value>
   </data>
@@ -1636,6 +1639,9 @@
   </data>
   <data name="Msg_Uploading" xml:space="preserve">
     <value>上传中</value>
+  </data>
+  <data name="Msg_Waiting" xml:space="preserve">
+    <value>等待中</value>
   </data>
   <data name="Msg_UptimeHours" xml:space="preserve">
     <value>已运行 {0}h {1}m</value>

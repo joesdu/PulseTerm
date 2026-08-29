@@ -1349,6 +1349,9 @@
   <data name="Msg_Uploading" xml:space="preserve">
     <value>업로드 중</value>
   </data>
+  <data name="Msg_Waiting" xml:space="preserve">
+    <value>대기 중</value>
+  </data>
   <data name="Msg_UptimeHours" xml:space="preserve">
     <value>가동 {0}h {1}m</value>
   </data>
@@ -3288,6 +3291,9 @@ Windows는 exe 전체 경로 또는 명령 이름(예: notepad), Linux는 명령
   </data>
   <data name="Sftp_FollowTerminal" xml:space="preserve">
     <value>터미널 디렉터리 따라가기(현재 경로에 동기화)</value>
+  </data>
+  <data name="Sftp_FollowTerminalNoReport" xml:space="preserve">
+    <value>터미널이 아직 작업 디렉터리를 보고하지 않았습니다. Windows 원격(cmd.exe / PowerShell)은 보고할 수 없으며, 다른 셸은 프롬프트 후크에서 OSC 7을 보낼 수 있습니다.</value>
   </data>
   <data name="Sftp_EditPath" xml:space="preserve">
     <value>경로 편집 (Ctrl+L)</value>

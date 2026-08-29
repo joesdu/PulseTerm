@@ -142,7 +142,8 @@
                                FontFamily="{DynamicResource VelaUiMonoFont}"
                                FontSize="{DynamicResource VelaFontSize10}" FontWeight="Medium"
                                Classes.done="{Binding IsCompleted}"
-                               Classes.failed="{Binding IsFailed}">
+                               Classes.failed="{Binding IsFailed}"
+                               Classes.waiting="{Binding IsWaiting}">
                       <TextBlock.Styles>
                         <Style Selector="TextBlock">
                           <Setter Property="Foreground" Value="{DynamicResource VelaAccent}" />
@@ -152,6 +153,10 @@
                         </Style>
                         <Style Selector="TextBlock.failed">
                           <Setter Property="Foreground" Value="{DynamicResource VelaError}" />
+                        </Style>
+                        <!-- 等待中:静默色。用强调色会跟正在跑的那几行抢注意力,而它恰恰是没在动的那些。 -->
+                        <Style Selector="TextBlock.waiting">
+                          <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />
                         </Style>
                       </TextBlock.Styles>
                     </TextBlock>

@@ -9,6 +9,14 @@ namespace VelaShell.Infrastructure.Tests;
 [TestCategory("Metrics")]
 public class SessionMetricsServiceTests
 {
+    /// <summary>
+    /// 让替身像一台 Linux 主机那样回答 POSIX shell 探针。采集前先探一句是 #305 之后的前置动作:
+    /// 不答这一句,服务就认定对端跑不了 /proc 探测,一条命令都不会发。
+    /// </summary>
+    private static void StubPosixShell(ISshClientWrapper client) =>
+        client.RunCommandDetailedAsync(RemoteShellProbe.ProbeCommand, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new RemoteCommandResult(RemoteShellProbe.PosixMarker + "\n", "", 0)));
+
     private static string Probe(long cpuBusy, long cpuIdle, long rx, long tx) =>
         "__P__\n4\n" +
         "__L__\n0.5 0.4 0.3 1/100 200\n" +
@@ -25,6 +33,7 @@ public class SessionMetricsServiceTests
         var sessionId = Guid.NewGuid();
         ISshClientWrapper client = Substitute.For<ISshClientWrapper>();
         client.IsConnected.Returns(true);
+        StubPosixShell(client);
         ISshConnectionService connections = Substitute.For<ISshConnectionService>();
         connections.GetClient(sessionId).Returns(client);
         var service = new SessionMetricsService(connections);
@@ -60,6 +69,7 @@ public class SessionMetricsServiceTests
         var sessionId = Guid.NewGuid();
         ISshClientWrapper client = Substitute.For<ISshClientWrapper>();
         client.IsConnected.Returns(true);
+        StubPosixShell(client);
         ISshConnectionService connections = Substitute.For<ISshConnectionService>();
         connections.GetClient(sessionId).Returns(client);
         var service = new SessionMetricsService(connections);
@@ -85,6 +95,7 @@ public class SessionMetricsServiceTests
         var sessionId = Guid.NewGuid();
         ISshClientWrapper client = Substitute.For<ISshClientWrapper>();
         client.IsConnected.Returns(true);
+        StubPosixShell(client);
         ISshConnectionService connections = Substitute.For<ISshConnectionService>();
         connections.GetClient(sessionId).Returns(client);
         var service = new SessionMetricsService(connections);
@@ -128,6 +139,7 @@ public class SessionMetricsServiceTests
         var sessionId = Guid.NewGuid();
         ISshClientWrapper client = Substitute.For<ISshClientWrapper>();
         client.IsConnected.Returns(true);
+        StubPosixShell(client);
         ISshConnectionService connections = Substitute.For<ISshConnectionService>();
         connections.GetClient(sessionId).Returns(client);
         var service = new SessionMetricsService(connections);
@@ -147,5 +159,32 @@ public class SessionMetricsServiceTests
 
         Assert.IsNotNull(afterReconnect);
         Assert.IsFalse(afterReconnect.HasNetRates);
+    }
+
+    /// <summary>
+    /// 非 POSIX 远端(Windows 的 cmd.exe)必须**一条采集命令都不发**,并如实报告"无数据"。
+    /// 以前不拦:cmd 把 <c>echo __P__; nproc; …</c> 整行原样回显,Parse 只在输出为空时才返回
+    /// null,于是状态栏拿着这堆回声显示 CPU 0.00% 的假数据,而且每秒重来一次(#305 同源)。
+    /// </summary>
+    [TestMethod]
+    public async Task NonPosixRemote_SendsNoProbeCommand_AndReportsNoData()
+    {
+        var sessionId = Guid.NewGuid();
+        ISshClientWrapper client = Substitute.For<ISshClientWrapper>();
+        client.IsConnected.Returns(true);
+        // cmd.exe 的回答:printf 不是内部或外部命令。
+        client.RunCommandDetailedAsync(RemoteShellProbe.ProbeCommand, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new RemoteCommandResult("", "'printf' 不是内部或外部命令", 1)));
+        // 万一门没关住,让采集命令返回 cmd 那种"整行回声",以便断言能抓到假数据。
+        client.RunCommandAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns("__P__; nproc ; echo __L__; cat /proc/loadavg\n");
+        ISshConnectionService connections = Substitute.For<ISshConnectionService>();
+        connections.GetClient(sessionId).Returns(client);
+        var service = new SessionMetricsService(connections);
+
+        Assert.IsNull(await service.GetMetricsAsync(sessionId));
+        Assert.IsNull(await service.GetStaticInfoAsync(sessionId));
+
+        await client.DidNotReceive().RunCommandAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 }
