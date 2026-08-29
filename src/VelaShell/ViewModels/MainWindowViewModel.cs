@@ -57,6 +57,12 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     /// bash 代码放在单引号包裹的 eval 参数里,避免 fish 等 shell 预解析函数体时报错;
     /// 外层守卫让非 bash shell 不执行。只追加 PROMPT_COMMAND,不覆盖用户已有的
     /// starship/direnv/atuin 等钩子,并在重连时按函数名去重。
+    /// <para>
+    /// 这道守卫只在 POSIX 世界内部有效:它挡得住 fish/csh,挡不住 cmd.exe ——
+    /// Windows OpenSSH 的默认 shell 把整行当命令执行,屏幕上就是
+    /// <c>'test' 不是内部或外部命令</c>(#305)。所以注入前必须先用
+    /// <see cref="RemoteShellProbe" /> 确认对端认 sh 语法,守卫是第二道闸不是第一道。
+    /// </para>
     /// </remarks>
     private const string WorkingDirectoryReportHook =
         """
@@ -2029,6 +2035,9 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         ISshClientWrapper client =
             _sshConnectionService!.GetClient(session.SessionId)
             ?? throw new InvalidOperationException("SSH client was not created for the session.");
+        // 先问一句对端是不是 POSIX shell,再决定要不要注入目录上报钩子(#305)。
+        // 独立 exec 通道,用完即关;每台主机只探一次,之后走缓存。
+        bool isPosixShell = await ProbePosixShellAsync(client, profile, settings, cancellationToken);
         // 通道打开是网络往返(pty-req + shell,2~3 个 RTT);真异步 API,UI 线程零阻塞。
         IShellStreamWrapper shellStream = await client.CreateShellStreamAsync(
             terminalType.ToTermName(), 120, 32, 0, 0, 4096,
@@ -2040,7 +2049,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         terminalTab.ConnectionStatus = SessionStatus.Connected;
         await FeedJumpChainNoticeAsync(terminalTab, profile);
         StartSessionLogging(terminalTab, settings);
-        SendStartupCommand(terminalTab, settings);
+        SendStartupCommand(terminalTab, settings, isPosixShell);
 
         // 会话 Id 从现在起才存在(握手完成后)——活动标签订阅在它被赋值前已触发,
         // 因此在这里绑定 SFTP 浏览器(并展示+加载),否则它将一直指向空占位,永远加载不到列表(#22)。
@@ -2120,6 +2129,8 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                 ?? throw new InvalidOperationException(
                     "SSH client was not created for the session."
                 );
+            // 同 RunHandshakeAsync:注入前先确认对端是 POSIX shell(#305)。首连已探过的主机命中缓存,不再发探针。
+            bool isPosixShell = await ProbePosixShellAsync(client, tab.Profile, settings, cancellationToken);
             // 同 RunHandshakeAsync:通道打开走真异步 API,UI 线程零阻塞。
             IShellStreamWrapper shellStream = await client.CreateShellStreamAsync(
                 terminalType.ToTermName(), 120, 32, 0, 0, 4096,
@@ -2135,7 +2146,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
             await FeedJumpChainNoticeAsync(tab, tab.Profile);
             tab.ResetReconnectAttempts();
             StartSessionLogging(tab, settings);
-            SendStartupCommand(tab, settings);
+            SendStartupCommand(tab, settings, isPosixShell);
             if (_metricsService is not null)
             {
                 tab.ResourceMonitor = new(_metricsService, session.SessionId, tab.Title);
@@ -2362,19 +2373,50 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     }
 
     /// <summary>
+    /// 探一句对端是不是 POSIX shell(#305):只有它认 sh 语法,才敢注入目录上报钩子。
+    /// 「上报终端工作目录」关着时直接返回 false —— 连探针那条 exec 通道都不开,守住
+    /// "关掉就一个字节都不发"的承诺(#286)。结果按主机缓存,只有每台机器的首次连接付这次往返。
+    /// </summary>
+    /// <remarks>
+    /// 刻意排在开 shell 通道**之前**、而不是与之并行:一是探针用完即关,不与 shell 通道并存,
+    /// 对 <c>MaxSessions 1</c> 的严苛服务端也只占一个通道名额;二是结论在注入前就已就绪,
+    /// 注入仍然赶在 shell 画出提示符之前,钩子末尾那记清行(见
+    /// <see cref="WorkingDirectoryReportHook" />)才落在该落的地方。
+    /// </remarks>
+    private static Task<bool> ProbePosixShellAsync(
+        ISshClientWrapper client,
+        SessionProfile? profile,
+        AppSettings settings,
+        CancellationToken cancellationToken
+    ) =>
+        settings.TerminalBehavior.ReportWorkingDirectory
+            ? RemoteShellProbe.IsPosixShellAsync(
+                client,
+                RemoteShellProbe.CacheKey(profile?.Host, profile?.Port ?? 22, profile?.Username),
+                cancellationToken
+            )
+            : Task.FromResult(false);
+
+    /// <summary>
     /// 连接成功后按设置注入目录上报钩子,并追加用户配置的"连接后执行命令"
     /// (设置 → 终端 → 会话)。PTY 输入由内核缓冲,shell 就绪后才会读取,
     /// 无需等待提示符。
     /// </summary>
-    private static void SendStartupCommand(TerminalTabViewModel tab, AppSettings settings)
-    {
+    /// <param name="tab">已挂上传输的终端标签。</param>
+    /// <param name="settings">当前设置。</param>
+    /// <param name="isPosixShell">
+    /// <see cref="ProbePosixShellAsync" /> 的结论;false 时不注入钩子。
+    /// 用户自己配的"连接后执行命令"不受它影响 —— 那是用户明确要求执行的东西,
+    /// 对端是什么 shell 由用户自己负责。
+    /// </param>
+    private static void SendStartupCommand(
+        TerminalTabViewModel tab,
+        AppSettings settings,
+        bool isPosixShell
+    ) =>
         tab.SendSilentCommand(
-            BuildStartupCommand(
-                settings.TerminalBehavior.StartupCommand,
-                settings.TerminalBehavior.ReportWorkingDirectory
-            )
+            BuildStartupCommand(settings.TerminalBehavior.StartupCommand, isPosixShell)
         );
-    }
 
     /// <summary>
     /// 组合内置目录上报钩子与用户启动命令;保持一次注入以共用同一个回显抑制窗口。
