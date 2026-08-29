@@ -1,0 +1,585 @@
+<!doctype html>
+<!--
+  VelaShell 官网 —— GitHub Pages(gh-pages 分支根目录)。
+  视觉沿用 build/social-preview/social-preview.html 的品牌语言:#05100E 底、青绿辉光、
+  40px 淡网格、Cascadia Mono 终端块。改配色请两边一起改,否则社交预览图与官网会漂。
+
+  下载区不写死资产链接:资产名带版本号,写死每发一版就断。改为运行时读
+  api.github.com/repos/joesdu/VelaShell/releases/latest,填版本号与各平台直链;
+  取不到就退回 releases/latest 页面,按钮始终可用。
+-->
+<html lang="zh-CN">
+
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VelaShell —— 现代化跨平台 SSH / SFTP / FTP 终端客户端</title>
+<meta name="description" content="VelaShell 是一款为运维与开发者打造的现代化跨平台 SSH 终端客户端。自研 VT 引擎、跳板机、端口转发隧道、可拖拽分屏、双模插件系统,支持 Windows / Linux / macOS。">
+<link rel="icon" href="assets/velashell.png">
+<link rel="canonical" href="https://joesdu.github.io/VelaShell/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="VelaShell —— 现代化跨平台 SSH / SFTP / FTP 终端客户端">
+<meta property="og:description" content="以终端为帆,驶向远方主机。.NET 11 + Avalonia,Windows / Linux / macOS,x64 & arm64。">
+<meta property="og:image" content="https://joesdu.github.io/VelaShell/assets/social-preview.png">
+<meta property="og:url" content="https://joesdu.github.io/VelaShell/">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg:          #05100E;
+    --surface:     rgba(255, 255, 255, .03);
+    --surface-2:   rgba(255, 255, 255, .045);
+    --line:        rgba(70, 214, 175, .16);
+    --line-strong: rgba(70, 214, 175, .26);
+    --text:        #E9FBF4;
+    --text-bright: #F2FFFA;
+    --text-2:      #DCF7EE;
+    --text-3:      #A8EBD8;
+    --muted:       #7FB6A8;
+    --brand:       #2FD8AB;
+    --brand-deep:  #00AE8E;
+    --brand-lite:  #22D5B1;
+    --danger:      #FF5F57;
+    --warn:        #FEBC2E;
+    --ok:          #28C840;
+    --font-ui:   "Inter", "Microsoft YaHei UI", "Segoe UI", system-ui, -apple-system, sans-serif;
+    --font-mono: "Cascadia Mono", "JetBrains Mono", ui-monospace, Consolas, "SF Mono", Menlo, monospace;
+    --maxw: 1160px;
+    --radius: 14px;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-ui);
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  /* 背景层:品牌辉光 + 冷色补光 + 淡网格,与社交预览图同一套参数。 */
+  .bg { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
+  .bg::before, .bg::after { content: ""; position: absolute; }
+  .bg::before {
+    left: -14%; top: -22%; width: 78vw; height: 82vh;
+    background: radial-gradient(circle at 35% 40%, rgba(16, 214, 164, .30), transparent 62%);
+  }
+  .bg::after {
+    right: -16%; top: 34%; width: 72vw; height: 78vh;
+    background: radial-gradient(circle at 60% 60%, rgba(20, 128, 160, .22), transparent 60%);
+  }
+  .grid {
+    position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    background-image:
+      linear-gradient(rgba(120, 235, 205, .045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(120, 235, 205, .045) 1px, transparent 1px);
+    background-size: 40px 40px;
+    mask-image: radial-gradient(circle at 28% 22%, #000 0%, transparent 72%);
+    -webkit-mask-image: radial-gradient(circle at 28% 22%, #000 0%, transparent 72%);
+  }
+
+  .wrap { width: 100%; max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+
+  a { color: inherit; }
+
+  /* ---- 顶栏 --------------------------------------------------------- */
+  header {
+    position: sticky; top: 0; z-index: 50;
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    background: rgba(5, 16, 14, .72);
+    border-bottom: 1px solid var(--line);
+  }
+  .nav { display: flex; align-items: center; gap: 28px; height: 62px; }
+  .lockup { display: flex; align-items: center; gap: 11px; text-decoration: none; flex: none; }
+  .lockup img { width: 30px; height: 30px; border-radius: 7px; filter: drop-shadow(0 4px 12px rgba(0, 196, 148, .4)); }
+  .lockup b { font-size: 18px; font-weight: 700; letter-spacing: -.2px; color: var(--text-bright); }
+  .nav-links { display: flex; gap: 24px; margin-left: auto; align-items: center; }
+  .nav-links a { color: var(--text-3); text-decoration: none; font-size: 14.5px; transition: color .16s; }
+  .nav-links a:hover { color: var(--brand); }
+  .lang {
+    font: inherit; font-size: 13px; cursor: pointer;
+    color: var(--text-3); background: var(--surface); border: 1px solid var(--line);
+    border-radius: 999px; padding: 4px 13px; transition: border-color .16s, color .16s;
+  }
+  .lang:hover { border-color: var(--line-strong); color: var(--brand); }
+
+  /* ---- Hero --------------------------------------------------------- */
+  .hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 60px; align-items: center; padding: 84px 0 78px; }
+  .mark { display: flex; align-items: center; gap: 22px; margin-bottom: 20px; }
+  .mark img { width: 82px; height: 82px; border-radius: 19px; filter: drop-shadow(0 14px 34px rgba(0, 196, 148, .42)); }
+  .mark h1 { font-size: 60px; line-height: 1.04; font-weight: 800; letter-spacing: -1.6px; color: var(--text-bright); }
+  .pron { font-size: 14.5px; color: var(--muted); font-family: var(--font-mono); margin-bottom: 26px; }
+  .tagline { font-size: 30px; line-height: 1.32; font-weight: 700; color: var(--text-bright); letter-spacing: -.5px; }
+  .tagline em { font-style: normal; color: var(--brand); }
+  .lede { margin-top: 18px; font-size: 16.5px; color: var(--text-3); max-width: 46ch; }
+  .stack { margin-top: 14px; font-size: 14px; color: var(--muted); font-family: var(--font-mono); }
+
+  .cta { display: flex; flex-wrap: wrap; gap: 13px; margin-top: 32px; align-items: center; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 9px;
+    padding: 12px 22px; border-radius: 999px; font-size: 15px; font-weight: 600;
+    text-decoration: none; border: 1px solid transparent; transition: transform .16s, box-shadow .16s, border-color .16s, background .16s;
+    white-space: nowrap;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--brand-lite), var(--brand-deep));
+    color: #04231C; box-shadow: 0 10px 30px rgba(0, 196, 148, .28);
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 14px 38px rgba(0, 196, 148, .4); }
+  .btn-ghost { border-color: var(--line-strong); color: var(--text-2); background: var(--surface); }
+  .btn-ghost:hover { border-color: var(--brand); color: var(--brand); }
+  .btn svg { width: 17px; height: 17px; flex: none; }
+  .alt-dl { margin-top: 15px; font-size: 13.5px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
+  .alt-dl a { color: var(--text-3); text-decoration: none; border-bottom: 1px dashed var(--line-strong); padding-bottom: 1px; }
+  .alt-dl a:hover { color: var(--brand); border-bottom-color: var(--brand); }
+
+  /* ---- 终端卡片(与社交预览图同构) ---------------------------------- */
+  .term {
+    background: rgba(0, 0, 0, .55); border: 1px solid var(--line-strong);
+    border-radius: 16px; overflow: hidden; box-shadow: 0 26px 70px rgba(0, 0, 0, .5);
+  }
+  .term-bar { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: rgba(255, 255, 255, .03); }
+  .dot { width: 11px; height: 11px; border-radius: 50%; flex: none; }
+  .term-title { margin-left: 12px; font-family: var(--font-mono); font-size: 13px; color: var(--text-3); }
+  .term-body { padding: 20px 22px 24px; font-family: var(--font-mono); font-size: 14px; line-height: 2; color: var(--text-2); }
+  .term-body .p { color: var(--brand); }
+  .term-body .c { color: var(--text-bright); }
+  .term-body .d { color: var(--muted); }
+  .term-body .hl { background: rgba(56, 219, 175, .26); border-radius: 2px; padding: 0 5px; color: var(--text-bright); }
+  .term-body .ok { color: var(--brand); }
+  .live { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--brand); margin-right: 8px; vertical-align: middle; }
+  .caret { display: inline-block; width: 8px; height: 17px; background: var(--brand); vertical-align: -3px; animation: blink 1.15s step-end infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* ---- 通用分区 ------------------------------------------------------ */
+  section { padding: 74px 0; }
+  .sec-head { max-width: 62ch; margin-bottom: 42px; }
+  .eyebrow { font-family: var(--font-mono); font-size: 12.5px; letter-spacing: 1.6px; text-transform: uppercase; color: var(--brand); margin-bottom: 12px; }
+  h2 { font-size: 34px; line-height: 1.25; font-weight: 750; letter-spacing: -.7px; color: var(--text-bright); }
+  .sec-head p { margin-top: 13px; font-size: 16px; color: var(--text-3); }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(268px, 1fr)); gap: 16px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 24px 22px; transition: border-color .18s, background .18s, transform .18s;
+  }
+  .card:hover { border-color: var(--line-strong); background: var(--surface-2); transform: translateY(-3px); }
+  .card h3 { font-size: 16.5px; font-weight: 680; color: var(--text-bright); margin-bottom: 9px; display: flex; align-items: center; gap: 9px; }
+  .card h3 svg { width: 18px; height: 18px; flex: none; color: var(--brand); }
+  .card p { font-size: 14.5px; color: var(--text-3); line-height: 1.7; }
+
+  /* ---- 插件生态 ------------------------------------------------------ */
+  .repos { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-top: 30px; }
+  .repo {
+    display: block; text-decoration: none; padding: 18px 20px; border-radius: 12px;
+    background: var(--surface); border: 1px solid var(--line); transition: border-color .18s, background .18s;
+  }
+  .repo:hover { border-color: var(--brand); background: var(--surface-2); }
+  .repo code { font-family: var(--font-mono); font-size: 13.5px; color: var(--brand); }
+  .repo span { display: block; margin-top: 7px; font-size: 13.5px; color: var(--text-3); }
+
+  .snip {
+    margin-top: 28px; background: rgba(0, 0, 0, .5); border: 1px solid var(--line);
+    border-radius: 12px; padding: 20px 22px; font-family: var(--font-mono);
+    font-size: 13.5px; line-height: 2; color: var(--text-2); overflow-x: auto;
+  }
+  .snip .p { color: var(--brand); }
+  .snip .d { color: var(--muted); }
+
+  /* ---- 事实表 -------------------------------------------------------- */
+  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .fact { background: #06120F; padding: 22px 20px; }
+  .fact dt { font-size: 12.5px; letter-spacing: .4px; text-transform: uppercase; color: var(--muted); font-family: var(--font-mono); margin-bottom: 8px; }
+  .fact dd { font-size: 15px; color: var(--text-2); }
+
+  .note { margin-top: 26px; padding: 16px 20px; border-left: 2px solid var(--brand); background: rgba(18, 195, 150, .10); border-radius: 0 10px 10px 0; font-size: 14.5px; color: var(--text-3); }
+
+  /* ---- 页脚 ---------------------------------------------------------- */
+  footer { border-top: 1px solid var(--line); padding: 46px 0 60px; margin-top: 30px; }
+  .foot { display: flex; flex-wrap: wrap; gap: 34px; justify-content: space-between; }
+  .foot-col h4 { font-size: 12.5px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); font-family: var(--font-mono); margin-bottom: 13px; }
+  .foot-col a { display: block; color: var(--text-3); text-decoration: none; font-size: 14.5px; line-height: 2.05; }
+  .foot-col a:hover { color: var(--brand); }
+  .copy { margin-top: 38px; padding-top: 24px; border-top: 1px solid var(--line); font-size: 13.5px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 10px 20px; justify-content: space-between; }
+
+  [data-en] { display: none; }
+  html[lang="en"] [data-zh] { display: none; }
+  html[lang="en"] [data-en] { display: revert; }
+
+  @media (max-width: 900px) {
+    .hero { grid-template-columns: 1fr; gap: 44px; padding: 56px 0; }
+    .mark h1 { font-size: 46px; }
+    .tagline { font-size: 25px; }
+    h2 { font-size: 28px; }
+    .nav-links a:not(.nav-gh) { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .caret { animation: none; }
+    .card:hover, .btn-primary:hover { transform: none; }
+  }
+</style>
+</head>
+
+<body>
+<div class="bg"></div>
+<div class="grid"></div>
+
+<header>
+  <div class="wrap nav">
+    <a class="lockup" href="#top">
+      <img src="assets/velashell.png" alt="">
+      <b>VelaShell</b>
+    </a>
+    <nav class="nav-links">
+      <a href="#features"><span data-zh>特性</span><span data-en>Features</span></a>
+      <a href="#plugins"><span data-zh>插件</span><span data-en>Plugins</span></a>
+      <a href="#facts"><span data-zh>规格</span><span data-en>Specs</span></a>
+      <a href="https://github.com/VelaShellLabs/velashell-docs"><span data-zh>文档</span><span data-en>Docs</span></a>
+      <a class="nav-gh" href="https://github.com/joesdu/VelaShell">GitHub</a>
+      <button class="lang" id="lang" type="button">English</button>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- ================= Hero ================= -->
+  <div class="wrap hero">
+    <div>
+      <div class="mark">
+        <img src="assets/velashell.png" alt="VelaShell">
+        <h1>VelaShell</h1>
+      </div>
+      <p class="pron">
+        /ˈveɪlə ʃɛl/
+        <span data-zh>· 以终端为帆,驶向远方主机</span>
+        <span data-en>· a terminal for a sail, bound for distant hosts</span>
+      </p>
+
+      <p class="tagline">
+        <span data-zh>为运维与开发者打造的<br><em>现代化跨平台 SSH 终端</em></span>
+        <span data-en>A modern cross-platform SSH terminal<br><em>for ops and developers</em></span>
+      </p>
+
+      <p class="lede">
+        <span data-zh>自研 VT 引擎与 VelaDock 可拖拽分屏,SSH / SFTP / FTP 与本地终端标签,跳板机、端口转发隧道、双模插件系统。会话数据经嵌入式 SonnetDB 加密持久化。</span>
+        <span data-en>An in-house VT engine and the VelaDock split-pane workspace; SSH / SFTP / FTP plus local terminal tabs, jump hosts, port-forwarding tunnels and a dual-mode plugin system. Session data is persisted encrypted in the embedded SonnetDB.</span>
+      </p>
+
+      <p class="stack">.NET 11 · Avalonia 12.1 · Windows / Linux / macOS · x64 &amp; arm64</p>
+
+      <div class="cta">
+        <a class="btn btn-primary" id="dl-main" href="https://github.com/joesdu/VelaShell/releases/latest">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <span id="dl-label"><span data-zh>下载</span><span data-en>Download</span></span>
+        </a>
+        <a class="btn btn-ghost" href="https://github.com/joesdu/VelaShell">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.73.5.5 5.73.5 12c0 5.08 3.29 9.39 7.86 10.91.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.34-1.29-1.7-1.29-1.7-1.06-.72.08-.71.08-.71 1.17.08 1.78 1.2 1.78 1.2 1.04 1.78 2.73 1.27 3.4.97.1-.75.41-1.27.74-1.56-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.29 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.12 3.05.74.8 1.18 1.83 1.18 3.09 0 4.41-2.69 5.39-5.25 5.67.42.36.79 1.08.79 2.18v3.23c0 .31.21.67.8.56A11.51 11.51 0 0 0 23.5 12C23.5 5.73 18.27.5 12 .5z"/></svg>
+          <span data-zh>在 GitHub 上查看</span><span data-en>View on GitHub</span>
+        </a>
+      </div>
+
+      <p class="alt-dl" id="alt-dl">
+        <span data-zh>其他平台:</span><span data-en>Other platforms:</span>
+        <a href="https://github.com/joesdu/VelaShell/releases/latest"><span data-zh>全部下载</span><span data-en>All downloads</span></a>
+      </p>
+    </div>
+
+    <!-- 示意用的终端块,不是产品截图。 -->
+    <div class="term" aria-hidden="true">
+      <div class="term-bar">
+        <i class="dot" style="background:#FF5F57"></i>
+        <i class="dot" style="background:#FEBC2E"></i>
+        <i class="dot" style="background:#28C840"></i>
+        <span class="term-title">vela@web-prod-01: ~</span>
+      </div>
+      <div class="term-body">
+        <div><span class="p">$</span> <span class="c">ssh web-prod-01</span></div>
+        <div><span class="live"></span><span class="ok">已连接</span> <span class="d">·</span> ProxyJump bastion <span class="d">·</span> 12 ms</div>
+        <div><span class="p">$</span> <span class="c">systemctl status nginx</span></div>
+        <div>Active: <span class="ok">active (running)</span> 42d</div>
+        <div>Memory: <span class="hl">128.4M</span> / 8G</div>
+        <div>Tasks: <span class="hl">9</span> <span class="d">(limit 4915)</span></div>
+        <div><span class="p">$</span> <span class="caret"></span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 特性 ================= -->
+  <section id="features">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Features</p>
+        <h2><span data-zh>键盘优先,信息密度高</span><span data-en>Keyboard-first, information-dense</span></h2>
+        <p>
+          <span data-zh>为高频远程操作设计:少一次抬手去摸鼠标,少一屏无用留白。</span>
+          <span data-en>Built for high-frequency remote work: one less reach for the mouse, one less screen of empty space.</span>
+        </p>
+      </div>
+
+      <div class="cards">
+        <div class="card">
+          <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg><span data-zh>自研 VT 终端引擎</span><span data-en>In-house VT engine</span></h3>
+          <p><span data-zh>自绘渲染、按单元格排版的终端引擎,配合 ZMODEM 传输与断线重连。</span><span data-en>A self-drawn, cell-based terminal engine, with ZMODEM transfer and reconnect.</span></p>
+        </div>
+        <div class="card">
+          <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg><span data-zh>SSH / SFTP / FTP 与本地终端</span><span data-en>SSH / SFTP / FTP and local shells</span></h3>
+          <p><span data-zh>独立 SFTP 标签、本地/远程双栏互拖与断点续传;本地终端标签同屏并列。</span><span data-en>A dedicated SFTP tab with dual local/remote panes, drag-and-drop and resumable transfers; local terminal tabs alongside.</span></p>
+        </div>
+        <div class="card">
+          <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/><path d="M4 6h1a3 3 0 0 1 3 3v6a3 3 0 0 0 3 3h1"/><circle cx="19" cy="12" r="2"/></svg><span data-zh>跳板机与网络代理</span><span data-en>Jump hosts and proxies</span></h3>
+          <p><span data-zh>原生 ProxyJump 链式跳转,HTTP / SOCKS5 / 跟随系统代理。</span><span data-en>Native chained ProxyJump, plus HTTP / SOCKS5 / follow-system proxying.</span></p>
+        </div>
+        <div class="card">
+          <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7L12 19"/></svg><span data-zh>端口转发隧道</span><span data-en>Port-forwarding tunnels</span></h3>
+          <p><span data-zh>本地 / 远程转发隧道,与会话配置一同分组管理。</span><span data-en>Local and remote forwarding tunnels, grouped alongside session profiles.</span></p>
+        </div>
+        <div class="card">
+          <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="12" y1="12" x2="21" y2="12"/></svg><span data-zh>VelaDock 可拖拽分屏</span><span data-en>VelaDock split panes</span></h3>
+          <p><span data-zh>自研停靠框架,零第三方依赖;任意标签组可水平/垂直拆分。</span><span data-en>An in-house docking framework with no third-party dependency; any tab group splits horizontally or vertically.</span></p>
+        </div>
+        <div class="card">
+          <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span data-zh>两步验证与指纹校验</span><span data-en>2FA and host fingerprints</span></h3>
+          <p><span data-zh>两步身份验证、主机指纹校验与已信任主机管理,会话录制与安全审计。</span><span data-en>Two-step authentication, host fingerprint checks and trusted-host management, with session recording and a security audit trail.</span></p>
+        </div>
+        <div class="card">
+          <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg><span data-zh>资源监视与路由追踪</span><span data-en>Resource monitor and traceroute</span></h3>
+          <p><span data-zh>远端资源监视;mtr 式跃点表配世界地图落点,离线 IP 归属地。</span><span data-en>Remote resource monitoring; an mtr-style hop table with a world map and offline IP geolocation.</span></p>
+        </div>
+        <div class="card">
+          <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span data-zh>命令面板与快捷键</span><span data-en>Command palette and shortcuts</span></h3>
+          <p><span data-zh>命令面板直达全部动作;快捷键有唯一事实来源,与文档同源生成。</span><span data-en>A command palette for every action; shortcuts have a single source of truth that the docs are generated from.</span></p>
+        </div>
+        <div class="card">
+          <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6v6H4z"/><path d="M14 4h6v6h-6z"/><path d="M4 14h6v6H4z"/><path d="M17 14v6M14 17h6"/></svg><span data-zh>双模插件系统 + AI 助手</span><span data-en>Dual-mode plugins + AI assistant</span></h3>
+          <p><span data-zh>进程内或独立进程装载,权限闸门与能力 API;第一方 AI 助手插件随程序发布。</span><span data-en>In-process or isolated-process loading, with a permission gate and capability APIs; the first-party AI assistant ships with the app.</span></p>
+        </div>
+        <div class="card">
+          <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 4.5v9L12 21 3 16.5v-9z"/><path d="M3 7.5L12 12l9-4.5M12 12v9"/></svg><span data-zh>堡垒机 / SSO 外部拉起</span><span data-en>Launched by jump servers / SSO</span></h3>
+          <p><span data-zh>按 Xshell 的调用约定被堡垒机或 SSO 门户外部拉起,替换现有客户端不必改门户。</span><span data-en>Launches from a bastion or SSO portal using Xshell's calling convention — swap the client without touching the portal.</span></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 插件 ================= -->
+  <section id="plugins">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Plugins</p>
+        <h2><span data-zh>一条命令建工程,一条命令发出去</span><span data-en>One command to scaffold, one to ship</span></h2>
+        <p>
+          <span data-zh>插件工程只引用一个 NuGet 包,契约程序集、与宿主一致的 Avalonia、清单校验与打包器都随它到位。</span>
+          <span data-en>A plugin project references a single NuGet package — the contract assembly, a host-matched Avalonia, manifest validation and the packer all come with it.</span>
+        </p>
+      </div>
+
+      <div class="snip">
+        <div><span class="d"># <span data-zh>装模板,建工程,打出 .vpx</span><span data-en>install the templates, scaffold, produce a .vpx</span></span></div>
+        <div><span class="p">$</span> dotnet new install VelaShell.Plugin.Templates</div>
+        <div><span class="p">$</span> dotnet new velaplugin-ui -n MyPlugin --publisher acme</div>
+        <div><span class="p">$</span> dotnet build -t:PackVpx</div>
+        <div>&nbsp;</div>
+        <div><span class="d"># <span data-zh>从插件商店装别人的插件</span><span data-en>install someone else's plugin from the marketplace</span></span></div>
+        <div><span class="p">$</span> dotnet tool install -g VelaShell.Plugin.Cli</div>
+        <div><span class="p">$</span> vela-plugin install velashell.redis</div>
+      </div>
+
+      <div class="repos">
+        <a class="repo" href="https://github.com/VelaShellLabs/velashell-docs">
+          <code>velashell-docs</code>
+          <span data-zh>全部文档:宿主设计、插件蓝图、SDK / CLI / 模板手册</span>
+          <span data-en>All documentation: host design, plugin blueprint, SDK / CLI / template manuals</span>
+        </a>
+        <a class="repo" href="https://github.com/VelaShellLabs/velashell-plugin-sdk">
+          <code>velashell-plugin-sdk</code>
+          <span data-zh>插件契约 SDK 与测试替身</span>
+          <span data-en>The plugin contract SDK and its test doubles</span>
+        </a>
+        <a class="repo" href="https://github.com/VelaShellLabs/velashell-plugin-cli">
+          <code>velashell-plugin-cli</code>
+          <span data-zh><code>vela-plugin</code> 命令行与构建支持包</span>
+          <span data-en>The <code>vela-plugin</code> CLI and MSBuild support package</span>
+        </a>
+        <a class="repo" href="https://github.com/VelaShellLabs/velashell-plugin-templates">
+          <code>velashell-plugin-templates</code>
+          <span data-zh><code>dotnet new</code> 模板与插件开发指南</span>
+          <span data-en>The <code>dotnet new</code> templates and the plugin dev guide</span>
+        </a>
+        <a class="repo" href="https://github.com/VelaShellLabs/velashell-plugins">
+          <code>velashell-plugins</code>
+          <span data-zh>第一方插件:Redis / S3 / Telnet / 串口</span>
+          <span data-en>First-party plugins: Redis / S3 / Telnet / serial</span>
+        </a>
+        <a class="repo" href="https://market.easilynet.top">
+          <code>market.easilynet.top</code>
+          <span data-zh>插件商店:上传、审核、检索与分发</span>
+          <span data-en>The marketplace: upload, review, search and distribution</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 规格 ================= -->
+  <section id="facts">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Specs</p>
+        <h2><span data-zh>规格速览</span><span data-en>At a glance</span></h2>
+      </div>
+
+      <dl class="facts">
+        <div class="fact">
+          <dt data-zh>读音</dt><dt data-en>Pronunciation</dt>
+          <dd>/ˈveɪlə ʃɛl/ <span data-zh>·「薇拉·谢尔」</span><span data-en>· VAY-la shell</span></dd>
+        </div>
+        <div class="fact">
+          <dt data-zh>平台</dt><dt data-en>Platforms</dt>
+          <dd>Windows 10 / 11 · Linux · macOS<br>x64 / arm64</dd>
+        </div>
+        <div class="fact">
+          <dt data-zh>运行时</dt><dt data-en>Runtime</dt>
+          <dd><span data-zh>.NET 11 + Avalonia 12.1,Self-contained 发布,免装 Runtime</span><span data-en>.NET 11 + Avalonia 12.1, self-contained — no runtime install</span></dd>
+        </div>
+        <div class="fact">
+          <dt data-zh>界面语言</dt><dt data-en>UI languages</dt>
+          <dd><span data-zh>简体中文 / English / 繁體中文 / 日本語 / 한국어</span><span data-en>Simplified Chinese / English / Traditional Chinese / Japanese / Korean</span></dd>
+        </div>
+        <div class="fact">
+          <dt data-zh>许可证</dt><dt data-en>Licence</dt>
+          <dd><a href="https://github.com/joesdu/VelaShell/blob/main/LICENSE">AGPL-3.0</a> <span data-zh>或</span><span data-en>or</span> <a href="https://github.com/joesdu/VelaShell/blob/main/LICENSE-COMMERCIAL.md"><span data-zh>商业授权</span><span data-en>commercial</span></a></dd>
+        </div>
+        <div class="fact">
+          <dt data-zh>最新版本</dt><dt data-en>Latest release</dt>
+          <dd id="fact-version"><a href="https://github.com/joesdu/VelaShell/releases/latest"><span data-zh>见 Releases</span><span data-en>see Releases</span></a></dd>
+        </div>
+      </dl>
+
+      <p class="note">
+        <span data-zh><strong>项目仍在活跃开发中。</strong>功能与界面可能在版本之间变动;证书认证、容器管理插件、系统密钥链与 sudo 凭据自动填充尚未开放。进度与待办以仓库的 <a href="https://github.com/joesdu/VelaShell/blob/main/plan.md">plan.md</a> 为准。</span>
+        <span data-en><strong>Under active development.</strong> Features and UI may change between releases; certificate authentication, the container-management plugin, and system-keychain / sudo credential autofill are not available yet. The repository's <a href="https://github.com/joesdu/VelaShell/blob/main/plan.md">plan.md</a> is the source of truth for progress and backlog.</span>
+      </p>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <div class="foot-col">
+        <h4 data-zh>项目</h4><h4 data-en>Project</h4>
+        <a href="https://github.com/joesdu/VelaShell">VelaShell</a>
+        <a href="https://github.com/joesdu/VelaShell/releases"><span data-zh>下载</span><span data-en>Releases</span></a>
+        <a href="https://github.com/joesdu/VelaShell/blob/main/CONTRIBUTING.md"><span data-zh>贡献指南</span><span data-en>Contributing</span></a>
+        <a href="https://github.com/joesdu/VelaShell/issues"><span data-zh>问题反馈</span><span data-en>Issues</span></a>
+      </div>
+      <div class="foot-col">
+        <h4 data-zh>文档</h4><h4 data-en>Documentation</h4>
+        <a href="https://github.com/VelaShellLabs/velashell-docs/tree/main/zh"><span data-zh>中文文档</span><span data-en>Chinese docs</span></a>
+        <a href="https://github.com/VelaShellLabs/velashell-docs/tree/main/en"><span data-zh>English docs</span><span data-en>English docs</span></a>
+        <a href="https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/templates/dev-guide.md"><span data-zh>插件开发指南</span><span data-en>Plugin dev guide</span></a>
+        <a href="https://github.com/VelaShellLabs/velashell-docs/tree/main/zh/plugins"><span data-zh>插件系统蓝图</span><span data-en>Plugin blueprint</span></a>
+      </div>
+      <div class="foot-col">
+        <h4 data-zh>生态</h4><h4 data-en>Ecosystem</h4>
+        <a href="https://github.com/VelaShellLabs">VelaShellLabs</a>
+        <a href="https://market.easilynet.top"><span data-zh>插件商店</span><span data-en>Plugin marketplace</span></a>
+        <a href="https://www.nuget.org/packages/VelaShell.Plugin.Cli">vela-plugin (NuGet)</a>
+        <a href="https://www.nuget.org/packages/VelaShell.Plugin.Templates">Templates (NuGet)</a>
+      </div>
+      <div class="foot-col">
+        <h4 data-zh>联系与合规</h4><h4 data-en>Contact &amp; legal</h4>
+        <a href="mailto:dygood@outlook.com">dygood@outlook.com</a>
+        <a href="https://github.com/joesdu/VelaShell/blob/main/SECURITY.md"><span data-zh>安全策略</span><span data-en>Security policy</span></a>
+        <a href="https://github.com/joesdu/VelaShell/blob/main/PRIVACY.md"><span data-zh>隐私说明</span><span data-en>Privacy</span></a>
+        <a href="https://github.com/joesdu/VelaShell/blob/main/LICENSE-COMMERCIAL.md"><span data-zh>商业授权</span><span data-en>Commercial licence</span></a>
+      </div>
+    </div>
+    <div class="copy">
+      <span>© 2026 VelaShell <span data-zh>作者及贡献者</span><span data-en>authors and contributors</span></span>
+      <span data-zh>AGPL-3.0 / 商业双许可 · 本站托管于 GitHub Pages</span>
+      <span data-en>Dual-licensed AGPL-3.0 / commercial · This site is hosted on GitHub Pages</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // ---- 语言 ----------------------------------------------------------
+  // 组织页与各仓库 README 都是中文为主、英文镜像,这里沿用同一默认。
+  var html = document.documentElement, btn = document.getElementById('lang');
+  function setLang(l) {
+    html.lang = l;
+    btn.textContent = l === 'en' ? '中文' : 'English';
+    try { localStorage.setItem('vela-lang', l); } catch (e) { /* 隐私模式下不可写,忽略 */ }
+  }
+  var saved = null;
+  try { saved = localStorage.getItem('vela-lang'); } catch (e) { /* 同上 */ }
+  // 记住过就用记住的;否则中文浏览器给中文,其余给英文。
+  var isZh = (navigator.language || '').slice(0, 2) === 'zh';
+  setLang(saved || (isZh ? 'zh-CN' : 'en'));
+  btn.addEventListener('click', function () { setLang(html.lang === 'en' ? 'zh-CN' : 'en'); });
+
+  // ---- 下载 ----------------------------------------------------------
+  // 资产名带版本号(VelaShell-1.4.2-win-x64.zip),写死每发一版就断;改为读 latest release。
+  // 取不到就保持按钮原样指向 releases/latest —— 降级而不是坏掉。
+  (function () {
+    var ua = navigator.userAgent, plat = 'win', arch = 'x64';
+    if (/Mac|Darwin/i.test(ua)) plat = 'osx';
+    else if (/Linux|X11/i.test(ua) && !/Android/i.test(ua)) plat = 'linux';
+    if (/arm64|aarch64/i.test(ua) || (plat === 'osx' && navigator.maxTouchPoints > 1)) arch = 'arm64';
+
+    var names = { win: 'Windows', osx: 'macOS', linux: 'Linux' };
+
+    fetch('https://api.github.com/repos/joesdu/VelaShell/releases/latest', {
+      headers: { Accept: 'application/vnd.github+json' }
+    }).then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); }).then(function (rel) {
+      var tag = rel.tag_name, assets = rel.assets || [];
+      var find = function (p, a, ext) {
+        return assets.filter(function (x) {
+          return x.name.indexOf('-' + p + '-' + a + '.') > 0 && x.name.slice(-ext.length) === ext;
+        })[0];
+      };
+
+      // 版本号写进规格表。
+      var fv = document.getElementById('fact-version');
+      if (fv && tag) {
+        fv.innerHTML = '<a href="' + rel.html_url + '">' + tag + '</a>';
+      }
+
+      // 主按钮:按识别出的平台给直链。macOS 优先 .dmg,其余用压缩包。
+      var mine = plat === 'osx' ? (find('osx', arch, '.dmg') || find('osx', arch, '.tar.gz'))
+               : plat === 'linux' ? find('linux', arch, '.tar.gz')
+               : find('win', arch, '.zip');
+      var main = document.getElementById('dl-main'), label = document.getElementById('dl-label');
+      if (mine && main && label) {
+        main.href = mine.browser_download_url;
+        label.innerHTML =
+          '<span data-zh>下载 ' + tag + ' · ' + names[plat] + ' ' + arch + '</span>' +
+          '<span data-en>Download ' + tag + ' · ' + names[plat] + ' ' + arch + '</span>';
+      }
+
+      // 其他平台列一行直链。
+      var alt = document.getElementById('alt-dl');
+      if (alt) {
+        var rows = [
+          ['win', 'x64', '.zip', 'Windows x64'], ['win', 'arm64', '.zip', 'Windows arm64'],
+          ['osx', 'arm64', '.dmg', 'macOS Apple Silicon'], ['osx', 'x64', '.dmg', 'macOS Intel'],
+          ['linux', 'x64', '.tar.gz', 'Linux x64'], ['linux', 'arm64', '.tar.gz', 'Linux arm64']
+        ].map(function (r) {
+          var a = find(r[0], r[1], r[2]);
+          return a ? '<a href="' + a.browser_download_url + '">' + r[3] + '</a>' : '';
+        }).filter(Boolean).join('');
+        if (rows) {
+          alt.innerHTML = '<span data-zh>其他平台:</span><span data-en>Other platforms:</span>' + rows +
+            '<a href="' + rel.html_url + '"><span data-zh>校验和与全部资产</span><span data-en>Checksums &amp; all assets</span></a>';
+        }
+      }
+    }).catch(function () { /* 离线或被限流:按钮维持指向 releases/latest */ });
+  })();
+</script>
+</body>
+</html>
