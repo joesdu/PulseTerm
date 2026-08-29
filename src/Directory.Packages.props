@@ -26,11 +26,11 @@
     <!-- FTP / FTPS 客户端(MIT,零依赖)。截至 54.2.0 最高只出到 net9.0 资产,
          本仓库 net11.0 会解析到那一份 —— 纯托管 DLL,且发布不裁剪、非单文件,无打包风险。
          注意:不要顺手引 FluentFTP.GnuTLS(LGPL-2.1-only),与商业授权冲突,
-         详见 docs/FTP客户端可行性调研.md §4.3。 -->
+         详见 velashell-docs 仓库 zh/host/FTP客户端可行性调研.md §4.3。 -->
     <PackageVersion Include="FluentFTP" Version="54.2.0" />
-    <!-- 插件契约程序集,由插件工具链仓库(joesdu/velashell-plugin-toolchain)发布到 nuget.org。
+    <!-- 插件契约程序集,由 VelaShellLabs/velashell-plugin-sdk 发布到 nuget.org。
          注意:S3 插件用的 AWSSDK.S3 曾经登记在这里 —— 那个插件在第一方插件仓库
-         (joesdu/velashell-plugins)里,版本由那边的中央包管理登记,别再加回来。
+         (VelaShellLabs/velashell-plugins)里,版本由那边的中央包管理登记,别再加回来。
          本仓库 plugins/ 下的自建插件(AI)不走中央包版本管理
          (根目录没有 Directory.Packages.props),依赖版本写在各自的 csproj 里。 -->
     <PackageVersion Include="VelaShell.PluginSdk" Version="1.5.0" />

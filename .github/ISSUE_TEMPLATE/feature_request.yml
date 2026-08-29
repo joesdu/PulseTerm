@@ -12,7 +12,7 @@ body:
         通常做成插件比进主程序更合适 —— 不是每个用户都要为用不上的功能付出体积和依赖。
         主程序保留的是**所有人都要用的终端与连接能力**。
 
-        如果你的想法属于前者,写[插件](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/dev-guide.md)
+        如果你的想法属于前者,写[插件](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/templates/dev-guide.md)
         会让它更快落地,也不必等这边排期。
 
   - type: checkboxes

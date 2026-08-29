@@ -10,11 +10,11 @@
 
 | 你想做的事 | 先读 |
 |---|---|
-| 改任何代码 | [`docs/architecture.md`](docs/architecture.md) —— 分层基线与**依赖方向**,这是本仓最硬的约束 |
-| 改界面 / 交互 | [`docs/交互与界面规格.md`](docs/交互与界面规格.md) |
-| 改终端引擎 | `docs/architecture.md` 的 Terminal Design Notes、[`docs/终端输入乱序问题分析与架构建议.md`](docs/终端输入乱序问题分析与架构建议.md) |
-| 改插件系统 | [`docs/plugins/`](docs/plugins/) 全 15 篇,尤其 [12-security-threat-model.md](docs/plugins/12-security-threat-model.md) |
-| 写第三方插件 | 不用改本仓库 —— 见[插件开发指南](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/dev-guide.md) |
+| 改任何代码 | [`velashell-docs zh/host/architecture.md`](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/host/architecture.md) —— 分层基线与**依赖方向**,这是本仓最硬的约束 |
+| 改界面 / 交互 | [`velashell-docs zh/host/交互与界面规格.md`](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/host/交互与界面规格.md) |
+| 改终端引擎 | `velashell-docs zh/host/architecture.md` 的 Terminal Design Notes、[`velashell-docs zh/host/终端输入乱序问题分析与架构建议.md`](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/host/终端输入乱序问题分析与架构建议.md) |
+| 改插件系统 | [`velashell-docs zh/plugins/`](https://github.com/VelaShellLabs/velashell-docs/tree/main/zh/plugins) 全 15 篇,尤其 [12-security-threat-model.md](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/plugins/12-security-threat-model.md) |
+| 写第三方插件 | 不用改本仓库 —— 见[插件开发指南](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/templates/dev-guide.md) |
 
 **动手前先开 Issue。** 尤其是涉及架构、新增依赖、改动终端引擎或插件契约的改动 —— 这些地方的取舍往往有历史原因(很多都写在代码注释里),先聊一句能省下双方大量返工。小修小补(拼写、明显 bug、文档)可以直接提 PR。
 
@@ -192,11 +192,16 @@ Strings.ko.resx
 
 ## 文档
 
-`docs/`(中文)与 `docs-en/`(英文)是**互为镜像**的两套。改了一份就要同步另一份,文件名一一对应:
+文档不在本仓库 —— 2026-08-30 起全部集中到 [VelaShellLabs/velashell-docs](https://github.com/VelaShellLabs/velashell-docs)。
+本仓库的那批在 [`zh/host/`](https://github.com/VelaShellLabs/velashell-docs/tree/main/zh/host) 与
+[`en/host/`](https://github.com/VelaShellLabs/velashell-docs/tree/main/en/host),插件系统蓝图在
+`zh/plugins/` 与 `en/plugins/`。改了代码要改文档的,去那个仓库开 PR。
+
+中英两棵树是**互为镜像**的,改了一份就要同步另一份,文件名一一对应:
 
 ```
-docs/交互与界面规格.md  ↔  docs-en/interaction-and-ui-specs.md
-docs/architecture.md    ↔  docs-en/architecture.md
+zh/host/交互与界面规格.md  ↔  en/host/interaction-and-ui-specs.md
+zh/host/architecture.md    ↔  en/host/architecture.md
 ```
 
 README 同理:`README.md` ↔ `README.en.md`。
@@ -205,9 +210,9 @@ README 同理:`README.md` ↔ `README.en.md`。
 
 ## 新增快捷键?先改目录
 
-快捷键有唯一事实来源:[`src/VelaShell/ViewModels/ShortcutCatalog.cs`](src/VelaShell/ViewModels/ShortcutCatalog.cs)。设置 → 快捷键页和 [`docs/快捷键参考.md`](docs/快捷键参考.md) 都从它取数。
+快捷键有唯一事实来源:[`src/VelaShell/ViewModels/ShortcutCatalog.cs`](src/VelaShell/ViewModels/ShortcutCatalog.cs)。设置 → 快捷键页和 [`velashell-docs zh/host/快捷键参考.md`](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/host/快捷键参考.md) 都从它取数。
 
-加了新键位却没登记,`ShortcutCatalogTests` 会直接失败并**打印出可粘贴的 Markdown 行**。完整规则见 [`docs/快捷键参考.md`](docs/快捷键参考.md) 的「维护约定」。
+加了新键位却没登记,`ShortcutCatalogTests` 会直接失败并**打印出可粘贴的 Markdown 行**。完整规则见 [`velashell-docs zh/host/快捷键参考.md`](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/host/快捷键参考.md) 的「维护约定」。
 
 ---
 

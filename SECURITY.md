@@ -63,7 +63,7 @@ You will be credited in the release notes and the advisory unless you prefer to 
 
 These are documented limitations, not undiscovered bugs. Reports about them will be closed with a pointer here.
 
-- **A plugin process calling the OS directly** to touch the local filesystem or the network, bypassing the Broker. The plugin trust model states this plainly: v1 guarantees *"a plugin cannot take your credentials, cannot touch your servers without authorization, and cannot crash the host"* — it does **not** guarantee "a malicious plugin cannot read your local disk". OS-level sandboxing is a v2 track. See [`docs/plugins/12-security-threat-model.md`](docs/plugins/12-security-threat-model.md) §1 and §3 (T13).
+- **A plugin process calling the OS directly** to touch the local filesystem or the network, bypassing the Broker. The plugin trust model states this plainly: v1 guarantees *"a plugin cannot take your credentials, cannot touch your servers without authorization, and cannot crash the host"* — it does **not** guarantee "a malicious plugin cannot read your local disk". OS-level sandboxing is a v2 track. See [`velashell-docs zh/plugins/12-security-threat-model.md`](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/plugins/12-security-threat-model.md) §1 and §3 (T13).
 - **Network egress from plugins** — declaration-based with SDK auditing in v1, no physical interception (T08, documented residual risk).
 - **macOS builds are unsigned and un-notarized.** This is stated in the release pipeline and is a known cost of the current distribution setup.
 - **Attacks requiring an already-compromised OS user account** — a process running as you can debug your processes; that is the platform's boundary, not ours (T12).
@@ -81,9 +81,9 @@ Please stay inside these lines: test only against your own machines and your own
 
 If you want to understand the intended boundaries before probing them:
 
-- [`docs/plugins/12-security-threat-model.md`](docs/plugins/12-security-threat-model.md) — trust model, threat list T01–T15, mitigation status, sandboxing roadmap
-- [`docs/plugins/06-permission-system.md`](docs/plugins/06-permission-system.md) — permission enforcement and the Broker
-- [`docs/plugins/05-ipc-protocol.md`](docs/plugins/05-ipc-protocol.md) — RPC channel and identity binding
+- [`velashell-docs zh/plugins/12-security-threat-model.md`](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/plugins/12-security-threat-model.md) — trust model, threat list T01–T15, mitigation status, sandboxing roadmap
+- [`velashell-docs zh/plugins/06-permission-system.md`](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/plugins/06-permission-system.md) — permission enforcement and the Broker
+- [`velashell-docs zh/plugins/05-ipc-protocol.md`](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/plugins/05-ipc-protocol.md) — RPC channel and identity binding
 - [`PRIVACY.md`](PRIVACY.md) — what data the application stores and where it goes
 
 ---
@@ -145,7 +145,7 @@ VelaShell 尚未到 1.0,处于活跃开发中。**不做向后移植** —— �
 
 以下是**已记录在案的设计取舍**,不是尚未发现的 bug。相关报告会被关闭并指向这里。
 
-- **插件进程直接调用系统 API** 访问本地文件或网络、绕过 Broker。插件信任模型对此有明确陈述:v1 的承诺是「**插件拿不走你的凭据、碰不了你的服务器(除非授权)、搞不垮你的主程序**」,**不包含**「恶意插件不能读你本地磁盘」。OS 级沙箱是 v2 的路线。见 [`docs/plugins/12-security-threat-model.md`](docs/plugins/12-security-threat-model.md) §1 与 §3(T13)。
+- **插件进程直接调用系统 API** 访问本地文件或网络、绕过 Broker。插件信任模型对此有明确陈述:v1 的承诺是「**插件拿不走你的凭据、碰不了你的服务器(除非授权)、搞不垮你的主程序**」,**不包含**「恶意插件不能读你本地磁盘」。OS 级沙箱是 v2 的路线。见 [`velashell-docs zh/plugins/12-security-threat-model.md`](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/plugins/12-security-threat-model.md) §1 与 §3(T13)。
 - **插件的网络出口** —— v1 是声明制 + SDK 审计,没有物理拦截(T08,已如实标注为残余风险)。
 - **macOS 产物未签名、未公证。** 发布流水线里已写明,这是当前分发方案的已知代价。
 - **需要攻击者已经控制同一 OS 用户账户**的场景 —— 以你的身份运行的进程可以调试你的进程,这是平台边界而非本项目的边界(T12)。
@@ -163,7 +163,7 @@ VelaShell 尚未到 1.0,处于活跃开发中。**不做向后移植** —— �
 
 想在动手之前先了解设计上的边界在哪:
 
-- [`docs/plugins/12-security-threat-model.md`](docs/plugins/12-security-threat-model.md) —— 信任模型、威胁清单 T01–T15、缓解状态、沙箱路线
-- [`docs/plugins/06-permission-system.md`](docs/plugins/06-permission-system.md) —— 权限强制与 Broker
-- [`docs/plugins/05-ipc-protocol.md`](docs/plugins/05-ipc-protocol.md) —— RPC 通道与身份绑定
+- [`velashell-docs zh/plugins/12-security-threat-model.md`](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/plugins/12-security-threat-model.md) —— 信任模型、威胁清单 T01–T15、缓解状态、沙箱路线
+- [`velashell-docs zh/plugins/06-permission-system.md`](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/plugins/06-permission-system.md) —— 权限强制与 Broker
+- [`velashell-docs zh/plugins/05-ipc-protocol.md`](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/plugins/05-ipc-protocol.md) —— RPC 通道与身份绑定
 - [`PRIVACY.md`](PRIVACY.md) —— 应用存了哪些数据、去了哪里

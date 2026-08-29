@@ -51,13 +51,13 @@ VelaShell 是一个使用 .NET 11 与 Avalonia 构建的桌面终端应用，支
   全局代理设置（设置 → 代理）：直连 / 跟随系统 / HTTP CONNECT / SOCKS5，支持代理认证，SOCKS5 可选由代理侧解析 DNS（不泄露目标域名）。作用于**全应用出站流量** —— SSH、FTP，以及云同步与更新检查等 HTTP 请求。
 
 - **Xshell 兼容登录（外部拉起）**  
-  可按 Xshell（及 SecureCRT / PuTTY）的调用约定被第三方安全客户端拉起：堡垒机 / SSO 门户网页上点「用终端打开」，一次性口令直接交给 VelaShell 完成登录，用户全程不接触密码。含 URL 协议注册与单实例转发；威胁模型与凭据处置见 [`docs/Xshell兼容登录.md`](docs/Xshell兼容登录.md)。
+  可按 Xshell（及 SecureCRT / PuTTY）的调用约定被第三方安全客户端拉起：堡垒机 / SSO 门户网页上点「用终端打开」，一次性口令直接交给 VelaShell 完成登录，用户全程不接触密码。含 URL 协议注册与单实例转发；威胁模型与凭据处置见 [`velashell-docs zh/host/Xshell兼容登录.md`](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/host/Xshell兼容登录.md)。
 
 - **ZMODEM（rz / sz）/ XMODEM（rx / sx）/ YMODEM（rb / sb）**  
   终端内直接收发文件，三种协议均为自研引擎、收发双向、传输无关（SSH / 本地 ConPTY 通用）。ZMODEM **自动接管**：从输出流中识别引导序列后接管通道，结束自动复位回终端；XMODEM / YMODEM 在链路上没有可识别的引导序列，只能从**命令面板**（Ctrl+P → 「文件传输」）手动发起——先在远端敲好 `sb`/`rb`，再点对应命令。YMODEM 支持批量与 YMODEM-G 流式变体。排障可置 `VELASHELL_TRANSFER_TRACE=1`（旧名 `VELASHELL_ZMODEM_TRACE=1` 仍可用）打开协议帧跟踪。
 
 - **FTP / FTPS**  
-  连接配置可选 FTP 类型：支持显式 / 隐式 FTPS 与明文 FTP、匿名登录、被动/主动模式；服务器证书未通过校验时给出 SHA-256 指纹交由用户确认，信任后按指纹固定。基于 [FluentFTP](https://github.com/robinrodricks/FluentFTP)（MIT），自带连接池以支持并发传输（FTP 一条控制连接同时只能跑一条命令），并复用与 SFTP 完全相同的双栏文件面板与传输栈。设计与取舍见 [`docs/FTP客户端可行性调研.md`](docs/FTP客户端可行性调研.md)。
+  连接配置可选 FTP 类型：支持显式 / 隐式 FTPS 与明文 FTP、匿名登录、被动/主动模式；服务器证书未通过校验时给出 SHA-256 指纹交由用户确认，信任后按指纹固定。基于 [FluentFTP](https://github.com/robinrodricks/FluentFTP)（MIT），自带连接池以支持并发传输（FTP 一条控制连接同时只能跑一条命令），并复用与 SFTP 完全相同的双栏文件面板与传输栈。设计与取舍见 [`velashell-docs zh/host/FTP客户端可行性调研.md`](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/host/FTP客户端可行性调研.md)。
 
 - **独立 SFTP 标签与远程文件编辑**  
   连接配置可选 SSH 或 SFTP 类型；SFTP 标签在停靠工作区内以独立文档呈现，支持本地/远程双栏浏览与拖拽互传、断点续传与传输队列。远程文件可在内置编辑器中打开（AvaloniaEdit，按扩展名自动语法高亮，另自建 Shell/YAML/INI/Log/Dockerfile 五种运维常用定义并统一换肤），保存即回传；也可交给外部编辑器并监听落盘回传。
@@ -80,7 +80,7 @@ VelaShell 是一个使用 .NET 11 与 Avalonia 构建的桌面终端应用，支
   远端主机的 CPU（总览/逐核/时间分布/主频/上下文切换）、内存（含 cache/buffers/swap）、磁盘（设备、挂载点、文件系统、容量）、网络连接与进程列表，图表实时刷新。
 
 - **进程管理器 / 路由追踪 / 连接诊断**  
-  远端进程查看与终止；`traceroute` 可视化（含地理信息，设计见 [`docs/路由追踪设计.md`](docs/路由追踪设计.md)）；连接失败时的分步诊断。
+  远端进程查看与终止；`traceroute` 可视化（含地理信息，设计见 [`velashell-docs zh/host/路由追踪设计.md`](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/host/路由追踪设计.md)）；连接失败时的分步诊断。
 
 - **快捷命令与命令面板**  
   常用命令片段一键下发到当前会话；`Ctrl+P` / `Ctrl+K` 呼出命令面板，支持模糊子序列搜索、最近会话、全部已保存会话与全局命令快速跳转。
@@ -100,7 +100,7 @@ VelaShell 是一个使用 .NET 11 与 Avalonia 构建的桌面终端应用，支
   插件经 `IPluginContext` 访问宿主能力：`Sessions`（会话枚举/状态）、`Terminal`（读输出/写输入）、`RemoteFs`（远端文件读写与目录列举）、`RemoteExec`（远端命令执行）、`Storage` 与 `TimeSeries`（插件私有的文档与时序存储）、`Secrets`（经宿主加密的机密）、`Commands`（注册命令与快捷入口）、`Events`（会话/语言/主题事件）、`Ui`（面板：停靠文档或独立窗口）、`Clipboard`、`Log`。危险能力经权限对话框逐项授权。
 
 - **打包与管理**  
-  插件以 `.vpx` 包分发，独立的插件管理窗口可安装/启停/卸载；卸载时其私有数据（SonnetDB 命名空间与数据目录）一并清理。SDK 另提供测试替身（`VelaShell.PluginSdk.Testing`），插件可在 headless 下自测。第三方开发者一条命令即可断点调试（`vela-plugin dev init` → F5），详见 [开发指南](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/dev-guide.md)、[命令行手册](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/cli.md)、[SDK 参考](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/sdk-reference.md)与[打包发布](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/publishing.md)；插件商店：<https://market.easilynet.top>。完整蓝图见 [`docs/plugins/`](docs/plugins/)（15 篇设计 + [进度总览](docs/plugins/STATUS.md)）。
+  插件以 `.vpx` 包分发，独立的插件管理窗口可安装/启停/卸载；卸载时其私有数据（SonnetDB 命名空间与数据目录）一并清理。SDK 另提供测试替身（`VelaShell.PluginSdk.Testing`），插件可在 headless 下自测。第三方开发者一条命令即可断点调试（`vela-plugin dev init` → F5），详见 [开发指南](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/templates/dev-guide.md)、[命令行手册](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/cli/cli.md)、[SDK 参考](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/sdk/sdk-reference.md)与[打包发布](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/templates/publishing.md)；插件商店：<https://market.easilynet.top>。完整蓝图见 [`velashell-docs zh/plugins/`](https://github.com/VelaShellLabs/velashell-docs/tree/main/zh/plugins)（15 篇设计 + [进度总览](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/plugins/STATUS.md)）。
 
 - **AI 助手插件（第一方）**  
   多提供商流式对话：OpenAI Responses / OpenAI Chat Completions 兼容 / Anthropic Messages 三种线协议，覆盖 OpenAI、Grok、Ollama 与各类中转站，Base URL 与 API Key 自填（Key 走宿主加密机密存储）。**Agent 模式**基于 Microsoft.Extensions.AI 的 `FunctionInvokingChatClient` 工具循环，工具桥接到 sessions / terminal / remoteExec / remoteFs，危险操作面板内逐条审批；可挂接自定义 **MCP 服务器**（stdio / HTTP）扩展工具集。另带**网页检索与抓取**工具（默认走公共 SearXNG 实例，可换成自建），让模型在回答前先查资料。Agent 跑动过程中还能**插话**：新消息进队列即时排上，不必等当前回合结束。对话落插件私有时序库，历史可翻回、可续聊、可删除；输入框 ↑↓ 调历史，`@` 唤出所选会话的远端文件选择器，发送时把文件内容随消息附给模型。输入框本身是带 **Markdown 着色**的编辑器，`@` 引用显示为主题色短名芯片（悬停给全路径），消息气泡按 Markdown 渲染。
@@ -114,7 +114,7 @@ VelaShell 是一个使用 .NET 11 与 Avalonia 构建的桌面终端应用，支
   应用设置、连接配置（含分组与端口转发隧道）与代码片段同步到你自己账号下的私密 Gist，多设备无缝漫游；每次同步即一个可回溯的历史版本，支持任意版本恢复；可选口令端到端加密（PBKDF2 + AES-256-GCM），未启用加密时凭据绝不上传。
 
 - **设置中心**  
-  十二个设置页面：常规、外观、终端、代理、密钥管理、快捷键、文件传输、安全审计、代码片段、云同步、关于、支持与捐赠。密钥管理可直接枚举 `~/.ssh` 密钥（类型 + SHA256 指纹）、生成 RSA 密钥对、导入与复制公钥。快捷键页由 `ShortcutCatalog` 单一来源生成，与 [`docs/快捷键参考.md`](docs/快捷键参考.md) 同源。
+  十二个设置页面：常规、外观、终端、代理、密钥管理、快捷键、文件传输、安全审计、代码片段、云同步、关于、支持与捐赠。密钥管理可直接枚举 `~/.ssh` 密钥（类型 + SHA256 指纹）、生成 RSA 密钥对、导入与复制公钥。快捷键页由 `ShortcutCatalog` 单一来源生成，与 [`velashell-docs zh/host/快捷键参考.md`](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/host/快捷键参考.md) 同源。
 
 - **深色 / 浅色 / 系统主题**  
   设计 Token 化，无硬编码颜色，支持运行时切换；终端配色未自定义时随主题联动（暗=Dracula / 亮=Solarized Light）。滚动条为 Windows 11 风格两态实现（静止细条，悬停出滑道与箭头）。
@@ -251,17 +251,21 @@ VelaShell/
 
 ### 🧩 三个仓库各管一摊
 
-插件相关的东西已经拆出去了，现在是三个仓库分工：
+插件相关的东西已经拆出去了，现在是五个仓库加一个文档仓库分工：
 
 | 仓库 | 管什么 | 怎么交付到本仓库 |
 | --- | --- | --- |
 | **joesdu/VelaShell**（本仓库） | 主程序 + 宿主侧插件运行时 + 自建的 AI 插件 | — |
-| **[joesdu/velashell-plugin-toolchain](https://github.com/joesdu/velashell-plugin-toolchain)** | 插件 SDK、`dotnet new` 模板、`vela-plugin` 命令行 | `VelaShell.PluginSdk` / `.Testing` **NuGet 包** |
-| **[joesdu/velashell-plugins](https://github.com/joesdu/velashell-plugins)** | Redis / S3 / Telnet 插件（及 HelloWorld 示例） | `velashell-plugins-<版本>.zip` **Release 资产** |
+| **[VelaShellLabs/velashell-plugin-sdk](https://github.com/VelaShellLabs/velashell-plugin-sdk)** | 插件契约 SDK | `VelaShell.PluginSdk` / `.Testing` **NuGet 包** |
+| **[VelaShellLabs/velashell-plugin-cli](https://github.com/VelaShellLabs/velashell-plugin-cli)** | `vela-plugin` 命令行、`VelaShell.PluginSdk.Build` | **NuGet 包**（插件作者用，本仓库不引用） |
+| **[VelaShellLabs/velashell-plugin-templates](https://github.com/VelaShellLabs/velashell-plugin-templates)** | `dotnet new velaplugin` 模板 | **NuGet 包**（插件作者用，本仓库不引用） |
+| **[VelaShellLabs/velashell-plugins](https://github.com/VelaShellLabs/velashell-plugins)** | Redis / S3 / Telnet / Serial 插件 | `velashell-plugins-<版本>.zip` **Release 资产** |
+| **[VelaShellLabs/velashell-docs](https://github.com/VelaShellLabs/velashell-docs)** | 上面所有仓库的**全部文档** | — |
 
-> 拆分是分两步走的：2026-08-21 先把 SDK、工具链与插件一起搬到工具链仓库，2026-08-22 又把插件
-> 从中独立出来 —— 工具链仓库从此只管 SDK 与工具链，不再产出插件分发包。老文档里「插件在工具链
-> 仓库」的说法已经作废。
+> 拆分是分几步走的：2026-08-21 先把 SDK、工具链与插件一起搬到 `velashell-plugin-toolchain`，
+> 2026-08-22 插件独立出来，2026-08-27 工具链仓库按发布节奏再拆成 sdk / cli / templates 三个，
+> 2026-08-30 所有文档集中到 `velashell-docs`。老文档里「插件在工具链仓库」「文档在各仓库的
+> `docs/`」的说法都已作废。
 
 **AI 插件是例外**：它留在本仓库的 [`plugins/VelaShell.Plugin.Ai/`](plugins/VelaShell.Plugin.Ai)，
 随主程序一起构建、一起发布 —— 它与宿主耦合最紧，且那些耦合点都是**编译期**的（借宿主的
@@ -272,7 +276,7 @@ SDK 契约的版本 pin 在 `src/Directory.Packages.props` 与 `tests/Directory.
 （都是具体版本号）。插件二进制本仓库不 pin —— 它们不进发行包，也就没有需要锁的版本。
 
 想在本机连同 Redis / S3 / Telnet 一起跑，把它们的插件目录铺进**暂存目录** `artifacts/plugins/`：
-可以解 [joesdu/velashell-plugins](https://github.com/joesdu/velashell-plugins) 的 Release 资产
+可以解 [VelaShellLabs/velashell-plugins](https://github.com/VelaShellLabs/velashell-plugins) 的 Release 资产
 `velashell-plugins-<版本>.zip`（包内布局就是安装包 `plugins/` 那一层），也可以直接指向那边的
 构建产物。要改指别处就传 `-p:VelaPluginsStageDir=<目录>`。
 
@@ -284,9 +288,8 @@ SDK 契约的版本 pin 在 `src/Directory.Packages.props` 与 `tests/Directory.
 `plugins/VelaShell.Plugin.Ai/VelaShell.Plugin.Ai.csproj` 里的 `VelaShell.PluginSdk`
 版本一起抬上去——本仓库一律走 NuGet 包，不做工程引用。
 
-**写插件请直接读工具链仓库的
-[`docs/dev-guide.md`](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/dev-guide.md)**；
-本仓库 `docs/plugins/` 下保留的是宿主侧的架构蓝图。
+**写插件请直接读[开发指南](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/templates/dev-guide.md)**；
+插件系统的架构蓝图在 [velashell-docs 的 `zh/plugins/`](https://github.com/VelaShellLabs/velashell-docs/tree/main/zh/plugins)，那是宿主侧的设计。
 
 ---
 
@@ -339,27 +342,21 @@ dotnet test --logger "console;verbosity=detailed"
 
 ## 📚 文档
 
-- [`docs/architecture.md`](docs/architecture.md) — 分层架构、依赖方向与 SonnetDB 持久化策略
-- [`docs/架构设计.md`](docs/架构设计.md) — 工程化重构蓝图
-- [`docs/plugins/`](docs/plugins/) — 插件系统蓝图 15 篇 + [开发指南](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/dev-guide.md) + [命令行手册](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/cli.md) + [SDK 参考](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/sdk-reference.md) + [打包发布](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/publishing.md) + [进度总览](docs/plugins/STATUS.md)
-- [`docs/dock-replacement-plan.md`](docs/dock-replacement-plan.md) — VelaDock 自研替换方案
-- [`docs/design-specs.md`](docs/design-specs.md) — UI 视觉规格（Pencil 逐帧提取）
-- [`DESIGN.md`](DESIGN.md) — 设计系统：色彩/字体/间距令牌与组件规范
-- [`docs/交互与界面规格.md`](docs/交互与界面规格.md) — 交互逻辑与设计 Token
-- [`docs/settings-audit.md`](docs/settings-audit.md) — 设置项审计台账与整改记录
-- [`docs/Xshell兼容登录.md`](docs/Xshell兼容登录.md) — 堡垒机/SSO 按 Xshell 方式拉起登录的兼容层与安全模型
-- [`docs/隧道功能规划.md`](docs/隧道功能规划.md) — 端口转发隧道设计
-- [`docs/路由追踪设计.md`](docs/路由追踪设计.md) — 路由追踪与地理可视化
-- [`docs/性能与内存优化-2026-07.md`](docs/性能与内存优化-2026-07.md) — 性能与内存优化批次记录
-- [`docs/终端输入乱序问题分析与架构建议.md`](docs/终端输入乱序问题分析与架构建议.md) — 终端输入串行化
-- [`docs/SFTP双栏与WinSCP差距分析.md`](docs/SFTP双栏与WinSCP差距分析.md) — 双栏 SFTP 与 WinSCP 的逐项差距决策清单
-- [`docs/FTP客户端可行性调研.md`](docs/FTP客户端可行性调研.md) — FTP / FTPS 支持的取舍
-- [`docs/Redis客户端插件化调研与设计.md`](docs/Redis客户端插件化调研与设计.md) — Redis 界面客户端：工作台连接类型、引擎取舍与界面设计
-- [`docs/S3协议插件化设计.md`](docs/S3协议插件化设计.md) — S3 对象存储接入插件的设计
-- [`docs/S3协议完整支持-实施报告-2026-08.md`](docs/S3协议完整支持-实施报告-2026-08.md) — S3 完整支持的实施记录
-- [`docs/Telnet与串口可行性调研.md`](docs/Telnet与串口可行性调研.md) — Telnet / 串口会话类型的可行性与改造清单
-- [`docs/系统密钥链与sudo凭据填充可行性调研.md`](docs/系统密钥链与sudo凭据填充可行性调研.md) — 三平台系统密钥链与 sudo 自动填充的可行性
-- [`docs/快捷键参考.md`](docs/快捷键参考.md) — 全部键盘快捷键与鼠标手势（与 `ShortcutCatalog` 同源，非手抄）
+全部文档已于 2026-08-30 集中到 **[VelaShellLabs/velashell-docs](https://github.com/VelaShellLabs/velashell-docs)** ——
+本仓库、SDK、CLI、模板四个仓库的 `docs/` 与 `docs-en/` 都在那里，互相之间用相对链接，不再跨仓库写绝对 URL。
+中文在 [`zh/`](https://github.com/VelaShellLabs/velashell-docs/tree/main/zh)，English in [`en/`](https://github.com/VelaShellLabs/velashell-docs/tree/main/en)。
+
+| 分区 | 内容 |
+| --- | --- |
+| [`zh/host/`](https://github.com/VelaShellLabs/velashell-docs/tree/main/zh/host) | **本仓库的文档**：[分层架构](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/host/architecture.md)、[工程化重构蓝图](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/host/架构设计.md)、[交互与界面规格](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/host/交互与界面规格.md)、[快捷键参考](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/host/快捷键参考.md)、[设置项审计](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/host/settings-audit.md)，以及 SFTP / FTP / Telnet / 串口 / Redis / S3 / 系统密钥链等可行性调研与实施记录 |
+| [`zh/plugins/`](https://github.com/VelaShellLabs/velashell-docs/tree/main/zh/plugins) | 插件系统设计蓝图 15 篇 + [进度总览](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/plugins/STATUS.md) |
+| [`zh/templates/`](https://github.com/VelaShellLabs/velashell-docs/tree/main/zh/templates) | [插件开发指南](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/templates/dev-guide.md)、[打包与发布](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/templates/publishing.md) |
+| [`zh/cli/`](https://github.com/VelaShellLabs/velashell-docs/tree/main/zh/cli) | [`vela-plugin` 手册](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/cli/cli.md) |
+| [`zh/sdk/`](https://github.com/VelaShellLabs/velashell-docs/tree/main/zh/sdk) | [SDK 参考](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/sdk/sdk-reference.md) |
+
+留在本仓库的两份，因为它们服务的是"在这个仓库里写代码"这件事：
+
+- [`DESIGN.md`](DESIGN.md) — 设计系统：色彩/字体/间距令牌与组件规范（XAML 注释与单元测试按章节号直接引用它）
 - [`plan.md`](plan.md) — 进展记录、已知问题与后续待办（开发跟进以此为准）
 
 ---
@@ -390,11 +387,11 @@ dotnet test --logger "console;verbosity=detailed"
 
 **已可用**：终端引擎、SSH/SFTP、FTP/FTPS、ZMODEM / XMODEM / YMODEM、本地终端、跳板机、会话管理与导入、身份验证、隧道、持久化、设置中心、云同步、会话录制、资源监视/进程管理/路由追踪，以及**插件系统框架层**（双宿主模式、完整能力面、UI 扩展、心跳自愈与空闲回收、插件私有存储与卸载清理、`.vpx` 装卸、SDK 测试替身与开发文档）与第一方 **AI 助手插件**。
 
-**由插件提供**：Telnet、串口（COM / USB 转串口）、Redis、S3 —— 都不随安装包预装，按需从[插件商店](https://market.easilynet.top)安装（源码在 [joesdu/velashell-plugins](https://github.com/joesdu/velashell-plugins)）。
+**由插件提供**：Telnet、串口（COM / USB 转串口）、Redis、S3 —— 都不随安装包预装，按需从[插件商店](https://market.easilynet.top)安装（源码在 [VelaShellLabs/velashell-plugins](https://github.com/VelaShellLabs/velashell-plugins)）。
 
-**未开放**：证书认证；容器管理插件尚未开始；系统密钥链与 sudo 凭据自动填充仍在调研（见 [`docs/系统密钥链与sudo凭据填充可行性调研.md`](docs/系统密钥链与sudo凭据填充可行性调研.md)）。部分设置项目前仅持久化、待接线到运行时。
+**未开放**：证书认证；容器管理插件尚未开始；系统密钥链与 sudo 凭据自动填充仍在调研（见 [`velashell-docs zh/host/系统密钥链与sudo凭据填充可行性调研.md`](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/host/系统密钥链与sudo凭据填充可行性调研.md)）。部分设置项目前仅持久化、待接线到运行时。
 
-完整完成情况与待办清单见 [`plan.md`](plan.md) §10–§12 与 [`docs/plugins/STATUS.md`](docs/plugins/STATUS.md)。
+完整完成情况与待办清单见 [`plan.md`](plan.md) §10–§12 与 [`velashell-docs zh/plugins/STATUS.md`](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/plugins/STATUS.md)。
 
 ---
 
@@ -402,7 +399,7 @@ dotnet test --logger "console;verbosity=detailed"
 
 欢迎提交 Issue 与 Pull Request。**动手前请先读 [`CONTRIBUTING.md`](CONTRIBUTING.md)** —— 里面写清了环境准备（SDK 为 preview 版、本地只能构建 Debug）、分支与提交约定、测试的两条硬约束,以及多语言与文档的同步要求。
 
-架构上的分层约定与依赖方向见 [`docs/architecture.md`](docs/architecture.md)；写插件请读 [插件开发指南](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/dev-guide.md)。
+架构上的分层约定与依赖方向见 [`velashell-docs zh/host/architecture.md`](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/host/architecture.md)；写插件请读 [插件开发指南](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/templates/dev-guide.md)。
 
 发现安全漏洞请**不要**开公开 Issue，按 [`SECURITY.md`](SECURITY.md) 的流程私下报告。
 

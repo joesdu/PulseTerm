@@ -13,7 +13,7 @@
 | .NET     | **net11.0**(2026-07 由 net10.0 切入;`global.json` 锁 `11.0.0` + `rollForward: latestFeature`,实际以 `11.0.100-preview.x` 构建。`Directory.Build.props` 对 net11 开启 `EnablePreviewFeatures` + `Features=runtime-async=on`,并 `NoWarn` 掉 CA2252/SYSLIB5007;`LangVersion=preview`) |
 | UI 框架  | **Avalonia 12.1.0**(已从 11.x → 12.0.5 → 12.1.0)                                                                                                     |
 | MVVM     | ReactiveUI 23.2.28 / ReactiveUI.Avalonia 12.0.3                                                                                                      |
-| 停靠框架 | **自研 VelaDock**(`src/VelaShell/Docking/`,零第三方依赖;已替换 Dock.Avalonia,见 `docs/dock-replacement-plan.md`)                                     |
+| 停靠框架 | **自研 VelaDock**(`src/VelaShell/Docking/`,零第三方依赖;已替换 Dock.Avalonia,见 `velashell-docs zh/host/dock-replacement-plan.md`)                                     |
 | SSH/SFTP | **Tmds.Ssh 0.23.0**(全托管 async-first;2026-07 由 SSH.NET 迁入,库类型只在 `Infrastructure/Ssh/` 出现,异常经 `TmdsSshInterop` 翻译为 `VelaSsh*Exception`) |
 | 持久化   | **SonnetDB.Core 3.0.1 嵌入式多模型数据库**(`~/.velashell/sonnetdb`;文档集合 + 时序 measurement;旧 JSON 首次运行一次性导入;LiteDB 已移除) |
 | 打包     | 便携压缩包(zip / tar.gz,6 RID)+ 自研应用内自更新(GitHub Releases `latest.json`;Velopack 已移除 2026-07-17;WiX MSI 定义保留但不随 CI 发布)            |
@@ -55,7 +55,7 @@ tests/  6 个 MSTest 项目(见 §7)
 
 ## 5. 停靠 / 分屏(自研 VelaDock,已替换 Dock.Avalonia)
 
-- **模型层** `Docking/Model/`(纯 INPC,可单测):`DockWorkspace`(结构操作 + `DocumentClosed`/`ActiveDocumentChanged` 事件)、`DockGroup`(标签组,主组不折叠)、`DockSplit`(分栏树)、`DockDocument`;空的次级组自动折叠、单子分栏自动提升。方案与集成面分析见 `docs/dock-replacement-plan.md`。
+- **模型层** `Docking/Model/`(纯 INPC,可单测):`DockWorkspace`(结构操作 + `DocumentClosed`/`ActiveDocumentChanged` 事件)、`DockGroup`(标签组,主组不折叠)、`DockSplit`(分栏树)、`DockDocument`;空的次级组自动折叠、单子分栏自动提升。方案与集成面分析见 `velashell-docs zh/host/dock-replacement-plan.md`。
 - **控件层** `Docking/Controls/`:`DockWorkspaceControl`(按树渲染 Grid+GridSplitter,star ↔ Proportion 回写;**按文档缓存视图**,切标签复用同一 `TerminalTabView`,取代原 ControlRecycling)、`DockGroupControl`(标签条 + 溢出三连钮 + 标签列表下拉)、`DockTabItem`(标签视觉 + 右键菜单:关闭系列/水平垂直拆分/标签位置)、`DockDragController` + `DockDropOverlay`(拖拽重排插入线、跨组并入、五区拖放分屏,Esc 取消;浮动窗口按产品决策不存在)。
 - `Docking/TerminalDocument.cs` 包装 `TerminalTabViewModel`,实现 `IDockViewProvider` 自建视图。
 - `MainWindow.axaml` 用 `<dockc:DockWorkspaceControl Workspace="{Binding Layout}" />` 承载;`TabBar`(Ctrl+Tab/W 逻辑集合)与工作区激活态**双向同步**(原 Dock 集成缺 TabBar→文档区半边)。
@@ -70,7 +70,7 @@ tests/  6 个 MSTest 项目(见 §7)
 - **命令面板(Ctrl+P / Ctrl+K)**:`ViewModels/CommandPaletteItem.cs`(+Group)、`CommandPaletteViewModel.cs`(模糊子序列搜索、分类分组、上下循环导航、执行/关闭)、`Views/CommandPaletteView.axaml(.cs)`;`MainWindow` 半透明遮罩浮层,条目=最近会话(Enter 连接)+ 全局命令。
 - **终端类型/编码设置项**:`AppSettings.TerminalType`(默认 xterm-256color)/`TerminalEncoding`(默认 UTF-8);`SettingsViewModel`/`SettingsView` 两个下拉;`Program.cs` 注册 `CodePagesEncodingProvider`(GBK/Big5);连接时 `MainWindowViewModel.ConfigureTerminal` 应用到 PTY 的 TERM 与控件。`ISettingsService`/`JsonDataStore` 已入 DI。
 - 快捷命令面板、隧道管理面板此前已有完整 View+VM。
-- **设置窗口现为 12 页**(2026-08-14,840×740):常规 / 外观 / 终端 / 密钥管理 / 快捷键参考(纯展示) / 文件传输 / 安全审计(含会话录制与已信任主机) / **网络代理(2026-08-14 新增,见 §12-10)** / 代码片段 / 云同步 / 关于(含贡献者) / 支持与捐赠;整改详情见 §13 与 `docs/settings-audit.md`。
+- **设置窗口现为 12 页**(2026-08-14,840×740):常规 / 外观 / 终端 / 密钥管理 / 快捷键参考(纯展示) / 文件传输 / 安全审计(含会话录制与已信任主机) / **网络代理(2026-08-14 新增,见 §12-10)** / 代码片段 / 云同步 / 关于(含贡献者) / 支持与捐赠;整改详情见 §13 与 `velashell-docs zh/host/settings-audit.md`。
 - **终端配色跟随主题**:未自定义时 暗=Dracula / 亮=Solarized Light 实时切换;配色方案下拉的“(默认)”后缀与选中项随主题动态联动,选默认方案 = 恢复出厂跟随态。
 
 ## 7. 测试(已全量迁移到 MSTest)
@@ -128,12 +128,12 @@ tests/  6 个 MSTest 项目(见 §7)
 | ~~会话录制 / 输入脱敏~~                       | 安全审计 | ✅ 2026-07-12 录制与回放已实现(SonnetDB 时序 + 回放中心,见 §13);输入脱敏确认不做(仅录输出流,密码无回显)                                                                                                                     |
 | 自动加载密钥到 Agent                          | 密钥管理 | **仍未实现**(2026-08-14 复核,字段无消费者,R-06):需集成 Windows OpenSSH ssh-agent(named pipe 协议)或 Pageant。注意 §17-A 的凭据装配已**刻意整体替换**默认凭据列表以排除 SshAgentCredentials(Windows 上 SSH_AUTH_SOCK 非命名管道会刷异常),实现本项时须同步调整该处 |
 
-❌ **确认当前架构不实现,已从设置界面与 `AppSettings` 移除**(2026-07-10,见 docs/架构设计.md §11):连字 Ligatures(自绘渲染器按单元格排版,无法跨字符连字)、自适应标题栏颜色(系统原生标题栏由 OS 托管)、系统通知 Toast(需 AppUserModelID/通知框架;常规页用「声音提示」、安全审计页告警通道改为「提示音」`Security.AlertSound` 替代)。
+❌ **确认当前架构不实现,已从设置界面与 `AppSettings` 移除**(2026-07-10,见 velashell-docs 的 zh/host/架构设计.md §11):连字 Ligatures(自绘渲染器按单元格排版,无法跨字符连字)、自适应标题栏颜色(系统原生标题栏由 OS 托管)、系统通知 Toast(需 AppUserModelID/通知框架;常规页用「声音提示」、安全审计页告警通道改为「提示音」`Security.AlertSound` 替代)。
 ✅ **上传方向冲突策略已实现**(2026-07-10):上传前 `ISftpService.ExistsAsync` stat 远端同名文件,按策略询问(弹窗:覆盖 or 跳过)/覆盖/跳过/重命名(`file (1).txt` 取首个可用名);「覆盖」策略下不额外 stat,沿用 SFTP 覆盖语义;编辑器保存回传属有意覆盖,不走冲突检查。
 
 **B. 功能缺口**
 
-- 非 SSH 协议:**SFTP 已开放**(`ConnectionType.SFTP`,独立 SFTP 标签,见 §12-14);**FTP / FTPS 已开放**(2026-08-13,`ConnectionType.FTP` + `SessionProfile.Ftp`,FluentFTP 后端 + 连接池 + 按会话分派的 `RoutingRemoteFileService`,见 docs/FTP客户端可行性调研.md);**Telnet 已开放**(2026-08-17,**以插件形式**:`plugins/VelaShell.Plugin.Telnet`,RFC 854 协商 + NAWS + 8 位透明;宿主为此新增「终端协议」能力 `IProtocolTerminal`,插件会话经 `PluginTerminalShellStream` 适配成 `IShellStreamWrapper`,复用既有的桥/VT 引擎/ZModem/重连;会话类型仍是 `ConnectionType.Plugin`,故调研文档里那套「协议泛化」改造整套免掉);**串口仍禁用**,将复用同一能力做成 `velashell.serial` 插件——见 [`docs/Telnet与串口可行性调研.md`](docs/Telnet与串口可行性调研.md) 顶部的落地说明。第 2 步"证书"认证仍禁用。
+- 非 SSH 协议:**SFTP 已开放**(`ConnectionType.SFTP`,独立 SFTP 标签,见 §12-14);**FTP / FTPS 已开放**(2026-08-13,`ConnectionType.FTP` + `SessionProfile.Ftp`,FluentFTP 后端 + 连接池 + 按会话分派的 `RoutingRemoteFileService`,见 velashell-docs 的 zh/host/FTP客户端可行性调研.md);**Telnet 已开放**(2026-08-17,**以插件形式**:`plugins/VelaShell.Plugin.Telnet`,RFC 854 协商 + NAWS + 8 位透明;宿主为此新增「终端协议」能力 `IProtocolTerminal`,插件会话经 `PluginTerminalShellStream` 适配成 `IShellStreamWrapper`,复用既有的桥/VT 引擎/ZModem/重连;会话类型仍是 `ConnectionType.Plugin`,故调研文档里那套「协议泛化」改造整套免掉);**串口仍禁用**,将复用同一能力做成 `velashell.serial` 插件——见 [`velashell-docs zh/host/Telnet与串口可行性调研.md`](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/host/Telnet与串口可行性调研.md) 顶部的落地说明。第 2 步"证书"认证仍禁用。
 - ✅ 快捷键展示表已与真实绑定逐条核对重建(2026-07-11,删除虚构项、补 Ctrl+N 绑定);**自定义键位确认不做**(产品决定,页面定位为"快捷键参考")。
 - 密钥生成仅 RSA(PEM+OpenSSH 公钥);ed25519 生成缺失(2026-08-14 复核仍缺:`ISshKeyService` 只有 `GenerateRsaKeyAsync`,ed25519/ecdsa 仅用于识别已有密钥类型;.NET 无内置 OpenSSH ed25519 私钥导出,需自行实现 OpenSSH 私钥封装或引入 BouncyCastle);导入不校验私钥有效性;删除无二次确认。
 - 审计日志已在写(connect/connect-failed),但**无查看界面**(2026-08-14 复核:`SonnetDbAuditLogService.QueryAsync` 在 UI 层零调用);`audit_log`/`conn_history` 无保留策略(retention),长期运行会累积。
@@ -186,7 +186,7 @@ tests/  6 个 MSTest 项目(见 §7)
 13. ✅**会话标签自定义颜色/图标**:多环境(生产红/测试绿)一眼区分;SessionProfile 加 color 字段 + 标签条着色。
 
 **P3 —— 锦上添花**
-14. ✅**SFTP 本地/远程双栏**:已落地为独立 SFTP 标签(`ConnectionType.SFTP` + `Docking/SftpDocument`),`SftpDocumentView` 左 `LocalFilePaneView` / 右 `FileBrowserView`,支持双栏互拖与 OS→远端拖放。**剩余差距逐项列在 [`docs/SFTP双栏与WinSCP差距分析.md`](docs/SFTP双栏与WinSCP差距分析.md)**(该文把差距分为「接线债 / 能力缺失 / 架构级缺失」三类,不要混在一起排期)。
+14. ✅**SFTP 本地/远程双栏**:已落地为独立 SFTP 标签(`ConnectionType.SFTP` + `Docking/SftpDocument`),`SftpDocumentView` 左 `LocalFilePaneView` / 右 `FileBrowserView`,支持双栏互拖与 OS→远端拖放。**剩余差距逐项列在 [`velashell-docs zh/host/SFTP双栏与WinSCP差距分析.md`](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/host/SFTP双栏与WinSCP差距分析.md)**(该文把差距分为「接线债 / 能力缺失 / 架构级缺失」三类,不要混在一起排期)。
 15. ⏳**用户自定义关键字高亮规则**(2026-08-14 复核仍缺):语义高亮已内置且为编译期硬编码 7 条规则(`SemanticMatcher` 的 `[GeneratedRegex]`:Url/Ip/Error/Warning/Success/Option/Number);开放用户正则+颜色规则表(WindTerm 卖点)需把规则集改为运行时可配 + 设置 UI,当前无任何用户规则机制。
 16. ✅**命令自动补全/历史建议**:输入时基于本地命令历史悬浮建议(WindTerm 式);已有 quick_commands 可作为数据源之一。
 17. ✅**OSC 52 剪贴板**:已实现(见 §10.C —— 只支持写方向,查询"?"一律不应答防剪贴板泄露,1MB 上限,含单测;此条为重复归档,2026-08-14 补标)。
@@ -198,7 +198,7 @@ tests/  6 个 MSTest 项目(见 §7)
 
 ## 13. 2026-07-11 ~ 07-12 批次(设置审计整改 + 四个新特性)
 
-**A. 设置审计整改**(台账与逐项状态见 `docs/settings-audit.md`,共三批):
+**A. 设置审计整改**(台账与逐项状态见 `velashell-docs zh/host/settings-audit.md`,共三批):
 BellMode/VisualBell 合并(旧配置经 `AppSettings.Normalize()` 迁移)、自动重连次数统一、默认值来源统一、显示隐藏文件写回持久化、恢复默认/清除历史加确认、误导性文案与九组相似命名修正、12+ 个未实现禁用控件隐藏或删除、选项类统一 `ObservableOptions`(INPC,从属设置条件显隐真正生效)、快捷键页与真实绑定核对重建(自定义键位确认不做)。
 
 **B. 主机指纹三选项确认 + 已信任主机管理**:
@@ -239,7 +239,7 @@ BellMode/VisualBell 合并(旧配置经 `AppSettings.Normalize()` 迁移)、自�
 
 > 本批以数个独立 PR 合入 `dev`/`main`(#3 replacedock、#5、#6)。多为架构/工程化收尾与使用体验修正。
 
-**A. 自研 VelaDock 正式落地(PR #3)**:详见 §5 与 `docs/dock-replacement-plan.md`(已补「已完成」横幅)。模型/控件/拖拽全套自研替换 `Dock.Avalonia`,零第三方停靠依赖;拆分对所有标签组一致生效(单标签次级组也可水平/垂直拆分);点击窗格内容区即激活该组文档(SFTP 面板与状态栏随焦点窗格切换)。关于页开源许可列表已删 Dock.Avalonia 条目。
+**A. 自研 VelaDock 正式落地(PR #3)**:详见 §5 与 `velashell-docs zh/host/dock-replacement-plan.md`(已补「已完成」横幅)。模型/控件/拖拽全套自研替换 `Dock.Avalonia`,零第三方停靠依赖;拆分对所有标签组一致生效(单标签次级组也可水平/垂直拆分);点击窗格内容区即激活该组文档(SFTP 面板与状态栏随焦点窗格切换)。关于页开源许可列表已删 Dock.Avalonia 条目。
 
 **B. 主窗自绘无边框标题栏 + 原生行为补齐(体验优化)**:详见 §6。主窗保持 `WindowDecorations="None"` 全自绘(`TitleBarView` 含 logo/名称 + 功能图标组 + 自绘 min/max/close),**未走原生 chrome**(extend/角色重定向在 Win32 不可用);改以 `BeginMoveDrag` 原生移动循环 + **WndProc 钩子处理 `HTMAXBUTTON` 实现 Win11 Snap Layouts**(`ce71b32`);并修 `c12a8ff`(Avalonia 12 `VisualRoot` 非 `Window`,取窗口须走逻辑树 `FindLogicalAncestorOfType<Window>`)。中途 `7580052` 试过原生 chrome 集成,因保真问题走回自绘+WndProc 方案。对话框同为自绘无边框。
 
@@ -249,7 +249,7 @@ BellMode/VisualBell 合并(旧配置经 `AppSettings.Normalize()` 迁移)、自�
 
 **E. 交互式提示下的补全判定**:密码类提示行(sudo/密码提示关键词命中)**不再弹出命令补全**弹层(sudo 密码提示下按键误弹智能提示);新增交互式判定单元测试。
 
-**F. 工程化收尾**:①**集中式包管理** `src/Directory.Packages.props`(`ManagePackageVersionsCentrally`,各 csproj 只写包名不写版本)+ 构建系统重构;②**Avalonia 12.0.5 → 12.1.0** 升级;③**全项目补充详细 XML 注释**(`GenerateDocumentationFile`);④为**每个 src / tests 项目新增独立 `README.md`**(架构、目录职责、依赖关系),根 `README.md` 与 `docs/architecture.md`/`架构设计.md` 同步刷新至当前状态(版本、VelaDock、原生标题栏、五语言、发布/安装包、命名 `Pulse*`→`Vela*`)。
+**F. 工程化收尾**:①**集中式包管理** `src/Directory.Packages.props`(`ManagePackageVersionsCentrally`,各 csproj 只写包名不写版本)+ 构建系统重构;②**Avalonia 12.0.5 → 12.1.0** 升级;③**全项目补充详细 XML 注释**(`GenerateDocumentationFile`);④为**每个 src / tests 项目新增独立 `README.md`**(架构、目录职责、依赖关系),根 `README.md` 与 `velashell-docs zh/host/architecture.md`/`架构设计.md` 同步刷新至当前状态(版本、VelaDock、原生标题栏、五语言、发布/安装包、命名 `Pulse*`→`Vela*`)。
 
 **已知遗留(延续)**:§13 末 QuickCommands 相关 12 个测试仍待与 `QuickCommandCatalog` 对齐(测试期望 11 个内置命令含 htop,目录只有 8 个);ConPTY 无头握手用例环境相关失败,均与本批改动无关。
 
@@ -268,7 +268,7 @@ Core 的中立抽象证明有效——**迁移一行 Core 代码都没改**,改�
 
 **B. 自研 ZMODEM(rz/sz)**:见 §12-8。
 
-**C. 独立 SFTP 标签 + 本地/远程双栏 + 断点续传**:见 §12-14 与 §10.A;差距清单见 `docs/SFTP双栏与WinSCP差距分析.md`。
+**C. 独立 SFTP 标签 + 本地/远程双栏 + 断点续传**:见 §12-14 与 §10.A;差距清单见 `velashell-docs zh/host/SFTP双栏与WinSCP差距分析.md`。
 
 **D. 远程文件编辑器语法高亮**:`App/Services/Syntax/`(`FileTypeDetector` + `SyntaxHighlightingService`)接 AvaloniaEdit,按扩展名对常见文件类型着色;保存即经 SFTP 回传(有意覆盖,不走冲突检查)。
 
@@ -280,22 +280,22 @@ Core 的中立抽象证明有效——**迁移一行 Core 代码都没改**,改�
 2. **续传探测逐文件打远端**。`TryResumeAsync` 走裸 `ExistsAsync`,绕开了本批已经预列举好的目录名单(`RemoteExistsAsync`,零往返)。拖入 N 个文件 = N 次额外往返,叠加第 1 点就是 N 次隐式重连。现已改走名单。
 3. **“覆盖”策略下不列举目录**,导致开启断点续传时第 2 点退化回逐文件探测。现改为「覆盖 **且** 不续传」才跳过列举。
 
-**G. 文档**:新增 `docs/SFTP双栏与WinSCP差距分析.md` 与 `docs/Telnet与串口可行性调研.md`(均为 2026-07-22 的决策清单,标注了每项的实现代价与"未核实"项)。
+**G. 文档**:新增 `velashell-docs zh/host/SFTP双栏与WinSCP差距分析.md` 与 `velashell-docs zh/host/Telnet与串口可行性调研.md`(均为 2026-07-22 的决策清单,标注了每项的实现代价与"未核实"项)。
 
 ## 18. 2026-07-24 ~ 08-14 批次盘点(2026-08-14 补记;此前均已落地但未入本文件)
 
 **A. 插件系统 v1 + AI 助手插件(08-10 ~ 08-13,本批最大特性)**
 - **双宿主模式**:manifest `hostMode` 选进程内(可收集 ALC + dock 标签页)或**隔离进程**(`src/VelaShell.PluginHost/`,命名管道自研轻量 RPC、令牌握手、心跳自愈、空闲回收、独立卡片窗口);插件源码两模式零改动。关键路径 `Infrastructure/Plugins/`(`PluginManager`/`PluginContext`/`Capabilities/`/`Isolated/`/`PluginPermissionGate`)。
 - **SDK**:`plugin-sdk/VelaShell.PluginSdk`(能力域 sessions/remoteFs/remoteExec/commands/events/storage/secrets/clipboard/terminal/timeSeries)+ `PluginSdk.Testing` 测试替身;管理页 `PluginManagerWindow` + 权限对话框。
-- **分发**:目录即插件 + `.vpx` 包(zip,含 zip-slip 防护)一键装卸;**无商店/签名 —— 用户决策不做/推迟**(见 `docs/plugins/STATUS.md`,权威进度页);发布形态因此改**摊开发布**(隔离插件需磁盘上真实 PluginHost 可执行,§15 已记)。
+- **分发**:目录即插件 + `.vpx` 包(zip,含 zip-slip 防护)一键装卸;**无商店/签名 —— 用户决策不做/推迟**(见 `velashell-docs zh/plugins/STATUS.md`,权威进度页);发布形态因此改**摊开发布**(隔离插件需磁盘上真实 PluginHost 可执行,§15 已记)。
 - **AI 助手插件**(`plugins/VelaShell.Plugin.Ai`):多提供商流式对话(OpenAI Responses / Chat Completions 兼容 / Anthropic Messages,自填 Base URL+Key 走 Secrets 加密);**Agent 模式**(M.E.AI 工具循环,桥接 sessions/terminal/remoteExec/remoteFs,危险操作面板内逐条审批);**自定义 MCP 服务器**(`McpManager` 把用户自配 MCP 工具并入工具箱,非只读工具走同一审批闸);会话持久化到插件私有时序库(历史列表/切换/删除、↑↓ 调取、`@` 远端文件引用)。示例插件 HelloWorld。
-- 文档:`docs/plugins/` 16 篇蓝图 + `STATUS.md` + `dev-guide.md`;英文镜像 `docs-en/`(08-14,31 个文件)。
+- 文档:`velashell-docs zh/plugins/` 16 篇蓝图 + `STATUS.md` + `dev-guide.md`;英文镜像 `docs-en/`(08-14,31 个文件)。
 
 **B. 系统资源监控窗口(08-01,08-29 修正)**:`ResourceMonitorWindow`(+状态栏内嵌弹层 `ResourceMonitorView`),六页 总览/CPU/GPU/内存/磁盘/网络;CPU 页热力图/迷你折线/列表三态,GPU 无卡自动隐藏;自研图表控件 `TimeSeriesChart`/`UsageHeatGrid`/`MeterBar`(`VelaShell.Controls`)。采集为**单条复合 shell 探针**分段解析(`Core/Services/SessionMetrics.cs`,`MetricsScope` 按页按需取 Basic/Detail/Gpu/Processes):CPU 含 user/sys/iowait/steal 与逐核、内存 htop 口径、磁盘逐分区 df + diskstats IO 速率、网络逐网卡 + `ss -ti` 逐连接速率、GPU nvidia-smi、进程 Top。入口:状态栏按钮。状态栏每秒轮询一次(`SessionMetricsService`),但只对 POSIX 远端发命令:`RemoteShellProbe` 判否即返回"无数据"。此前不拦,Windows 远端上每秒起一个 cmd.exe,而 cmd 把 `echo __P__; nproc; …` 整行原样回显,`Parse`(只在输出为空时返回 null)据此解出一份全 0 的假指标,状态栏一本正经地显示 CPU 0.00%。
 
 **C. 连接诊断中心(07-25 前后)**:`Presentation/Services/ConnectionDiagnosticsService` 四步诊断 **DNS 解析 → TCP 建链 → SSH 握手(读 banner)→ 用户认证**,输出问题标题/描述/修复建议(`DiagnosticReport`);跳板会话前三步针对第一跳、认证走完整链。UI `ConnectionDiagnosticsView` 独立窗口,入口:会话树右键"诊断"。(诊断的裸 TCP/DNS **有意不走全局代理** —— 诊断语义即测直连链路,§12-10。)
 
-**D. 路由/链路追踪 + 离线 IP 归属地(07-25)**:`PingTraceRouteService`(ICMP TTL 递增,免管理员;Linux TTL 不可用时抛可读异常而非假表)+ `MmdbIpGeolocationService`(本地 MMDB 离线库,默认 `~/.velashell/geoip/`,缺库静默降级、面板内引导下载);`TraceRouteWindow` 左侧 `TraceWorldMap` 世界地图落点 + 右侧 mtr 式跃点表(Loss/Sent/Last/Avg/Best/Worst、ECMP 额外地址)。入口:标题栏图标。设计文档 `docs/路由追踪设计.md`。
+**D. 路由/链路追踪 + 离线 IP 归属地(07-25)**:`PingTraceRouteService`(ICMP TTL 递增,免管理员;Linux TTL 不可用时抛可读异常而非假表)+ `MmdbIpGeolocationService`(本地 MMDB 离线库,默认 `~/.velashell/geoip/`,缺库静默降级、面板内引导下载);`TraceRouteWindow` 左侧 `TraceWorldMap` 世界地图落点 + 右侧 mtr 式跃点表(Loss/Sent/Last/Avg/Best/Worst、ECMP 额外地址)。入口:标题栏图标。设计文档 `velashell-docs zh/host/路由追踪设计.md`。
 
 **E. 远端任务管理器(07-25,08-29 修正)**:SSH 进程管理(`IRemoteProcessService`/`RemoteProcessService`),入口:标题栏"进程管理器"图标。采集前按 `RemoteShellProbe` 判定对端是否 POSIX shell,不是就直接报"不可用"而不发命令 —— cmd.exe 会把整行探测命令原样 echo 回来,`Parse` 只在输出为空时返回 null,于是面板显示的是一张 CPU 0.0%、0 进程的**假空表**而非那句"需要一个已连接的 Linux 会话"。
 
