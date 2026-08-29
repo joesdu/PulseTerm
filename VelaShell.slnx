@@ -5,17 +5,6 @@
   <Folder Name="/.github/workflows/">
     <File Path=".github/workflows/release.yml" />
   </Folder>
-  <Folder Name="/docs/">
-    <File Path="docs/architecture.md" />
-    <File Path="docs/design-specs.md" />
-    <File Path="docs/dock-replacement-plan.md" />
-    <File Path="docs/settings-audit.md" />
-    <File Path="docs/SFTP双栏与WinSCP差距分析.md" />
-    <File Path="docs/Telnet与串口可行性调研.md" />
-    <File Path="docs/交互与界面规格.md" />
-    <File Path="docs/架构设计.md" />
-    <File Path="docs/隧道功能规划.md" />
-  </Folder>
   <Folder Name="/Solution Items/">
     <File Path="Directory.Build.props" />
     <File Path="global.json" />
