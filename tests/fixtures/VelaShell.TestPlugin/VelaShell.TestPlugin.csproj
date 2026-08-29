@@ -29,7 +29,9 @@
   <ItemGroup>
     <!-- 契约由装载方(测试宿主)统一提供,不随夹具输出复制 —— 与真插件同一条规则:
          VelaShell.PluginSdk 必须与装载方是同一份程序集,复制过去就成了两份类型。 -->
-    <PackageReference Include="VelaShell.PluginSdk" PrivateAssets="all" ExcludeAssets="runtime" />
+    <PackageReference Include="VelaShell.PluginSdk" PrivateAssets="all" ExcludeAssets="runtime">
+      <IncludeAssets>compile; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
 
 </Project>
