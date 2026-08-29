@@ -10,11 +10,11 @@ Thanks for taking the time to improve VelaShell. This document records the conve
 
 | What you want to do | Read first |
 |---|---|
-| Change any code | [`docs-en/architecture.md`](docs-en/architecture.md) — layering baseline and **dependency direction**, the hardest constraint in this repo |
-| Change UI / interaction | [`docs-en/interaction-and-ui-specs.md`](docs-en/interaction-and-ui-specs.md) |
-| Change the terminal engine | The Terminal Design Notes in `docs-en/architecture.md`, plus [`docs-en/terminal-input-ordering-analysis.md`](docs-en/terminal-input-ordering-analysis.md) |
-| Change the plugin system | All 15 documents under [`docs/plugins/`](docs/plugins/), especially [12-security-threat-model.md](docs/plugins/12-security-threat-model.md) |
-| Write a third-party plugin | You do not need to change this repository — see the [plugin development guide](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/dev-guide.md) |
+| Change any code | [`velashell-docs en/host/architecture.md`](https://github.com/VelaShellLabs/velashell-docs/blob/main/en/host/architecture.md) — layering baseline and **dependency direction**, the hardest constraint in this repo |
+| Change UI / interaction | [`velashell-docs en/host/interaction-and-ui-specs.md`](https://github.com/VelaShellLabs/velashell-docs/blob/main/en/host/interaction-and-ui-specs.md) |
+| Change the terminal engine | The Terminal Design Notes in `velashell-docs en/host/architecture.md`, plus [`velashell-docs en/host/terminal-input-ordering-analysis.md`](https://github.com/VelaShellLabs/velashell-docs/blob/main/en/host/terminal-input-ordering-analysis.md) |
+| Change the plugin system | All 15 documents under [`velashell-docs zh/plugins/`](https://github.com/VelaShellLabs/velashell-docs/tree/main/zh/plugins), especially [12-security-threat-model.md](https://github.com/VelaShellLabs/velashell-docs/blob/main/en/plugins/12-security-threat-model.md) |
+| Write a third-party plugin | You do not need to change this repository — see the [plugin development guide](https://github.com/VelaShellLabs/velashell-docs/blob/main/en/templates/dev-guide.md) |
 
 **Open an issue before you start coding.** Especially for anything touching architecture, new dependencies, the terminal engine or plugin contracts — the trade-offs there usually have history behind them (much of it written in code comments), and a short conversation saves both sides a lot of rework. Small fixes (typos, obvious bugs, docs) can go straight to a PR.
 
@@ -187,11 +187,18 @@ Every user-visible string must go through resources: `{loc:Localize SomeKey}` in
 
 ## Documentation
 
-`docs/` (Chinese) and `docs-en/` (English) are **mirrors of each other**. Change one and you change the other; filenames correspond one to one:
+The documentation does not live here — since 2026-08-30 it is all in
+[VelaShellLabs/velashell-docs](https://github.com/VelaShellLabs/velashell-docs). This repository's
+share is under [`zh/host/`](https://github.com/VelaShellLabs/velashell-docs/tree/main/zh/host) and
+[`en/host/`](https://github.com/VelaShellLabs/velashell-docs/tree/main/en/host); the plugin blueprint
+is under `zh/plugins/` and `en/plugins/`. If a code change needs a doc change, open a PR there.
+
+The two language trees are **mirrors of each other**. Change one and you change the other;
+filenames correspond one to one:
 
 ```
-docs/交互与界面规格.md  ↔  docs-en/interaction-and-ui-specs.md
-docs/architecture.md    ↔  docs-en/architecture.md
+zh/host/交互与界面规格.md  ↔  en/host/interaction-and-ui-specs.md
+zh/host/architecture.md    ↔  en/host/architecture.md
 ```
 
 The same applies to `README.md` ↔ `README.en.md`.
@@ -200,9 +207,9 @@ The same applies to `README.md` ↔ `README.en.md`.
 
 ## Adding a keyboard shortcut? Update the catalog
 
-Shortcuts have a single source of truth: [`src/VelaShell/ViewModels/ShortcutCatalog.cs`](src/VelaShell/ViewModels/ShortcutCatalog.cs). Both Settings → Shortcuts and [`docs-en/keyboard-shortcuts.md`](docs-en/keyboard-shortcuts.md) read from it.
+Shortcuts have a single source of truth: [`src/VelaShell/ViewModels/ShortcutCatalog.cs`](src/VelaShell/ViewModels/ShortcutCatalog.cs). Both Settings → Shortcuts and [`velashell-docs en/host/keyboard-shortcuts.md`](https://github.com/VelaShellLabs/velashell-docs/blob/main/en/host/keyboard-shortcuts.md) read from it.
 
-Add a binding without registering it and `ShortcutCatalogTests` fails, printing **ready-to-paste Markdown rows**. Full rules are in the maintenance section of [`docs-en/keyboard-shortcuts.md`](docs-en/keyboard-shortcuts.md).
+Add a binding without registering it and `ShortcutCatalogTests` fails, printing **ready-to-paste Markdown rows**. Full rules are in the maintenance section of [`velashell-docs en/host/keyboard-shortcuts.md`](https://github.com/VelaShellLabs/velashell-docs/blob/main/en/host/keyboard-shortcuts.md).
 
 ---
 

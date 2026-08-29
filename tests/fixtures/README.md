@@ -6,8 +6,8 @@
 里装载一个独立 dll → 跨进程激活"这条真实路径。
 
 拆库之前这个角色由 `plugins/VelaShell.Plugin.HelloWorld` 和
-`plugins/VelaShell.Plugin.Telnet` 兼任。插件已于 2026-08-21 随工具链搬到
-<https://github.com/joesdu/velashell-plugin-toolchain>,本仓库拿不到它们了,
+`plugins/VelaShell.Plugin.Telnet` 兼任。插件已于 2026-08-21 搬到独立的插件仓库
+<https://github.com/VelaShellLabs/velashell-plugins>,本仓库拿不到它们了,
 于是把"当夹具"这件事**显式化**成这两个工程:
 
 | 工程 | id | 用途 |
@@ -19,6 +19,6 @@
 "只把入口 dll 复制到临时插件根"的铺法,多一个依赖就要多复制一个文件,
 而那不是这些用例要验的东西。
 
-它们不是示例代码 —— 想看插件怎么写,读工具链仓库的
-[`plugins/VelaShell.Plugin.HelloWorld`](https://github.com/joesdu/velashell-plugin-toolchain/tree/main/plugins/VelaShell.Plugin.HelloWorld)
-与 [`docs/dev-guide.md`](https://github.com/joesdu/velashell-plugin-toolchain/blob/main/docs/dev-guide.md)。
+它们不是示例代码 —— 想看插件怎么写,读第一方插件仓库的
+[`plugins/`](https://github.com/VelaShellLabs/velashell-plugins/tree/main/plugins)
+与 [开发指南](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/templates/dev-guide.md)。

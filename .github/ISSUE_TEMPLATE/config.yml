@@ -8,8 +8,8 @@ contact_links:
     about: 请勿开公开 Issue。按 SECURITY.md 的流程私下报告。/ Do not open a public issue — follow SECURITY.md.
 
   - name: 🧩 插件开发问题 / Plugin development
-    url: https://github.com/joesdu/velashell-plugin-toolchain
-    about: 插件 SDK、模板与 vela-plugin CLI 在另一个仓库。/ The plugin SDK, templates and CLI live in another repository.
+    url: https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/templates/dev-guide.md
+    about: 插件开发指南在 velashell-docs 文档仓库。/ The plugin dev guide lives in the velashell-docs repository.
 
   - name: 🛒 第三方插件本身的问题 / Third-party plugin issues
     url: https://market.easilynet.top
