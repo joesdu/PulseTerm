@@ -258,7 +258,7 @@ public class TunnelServiceTests
     [TestMethod]
     public async Task RefreshStatistics_CopiesCountersFromHandle()
     {
-        var handle = Substitute.For<IPortForwardHandle>();
+        IPortForwardHandle handle = Substitute.For<IPortForwardHandle>();
         handle.BytesTransferred.Returns(4096L);
         handle.TotalConnections.Returns(3);
         handle.ActiveConnections.Returns(1);
@@ -280,7 +280,7 @@ public class TunnelServiceTests
     [TestMethod]
     public async Task StopTunnelAsync_KeepsFinalCounters_AndClearsActive()
     {
-        var handle = Substitute.For<IPortForwardHandle>();
+        IPortForwardHandle handle = Substitute.For<IPortForwardHandle>();
         handle.BytesTransferred.Returns(8192L);
         handle.TotalConnections.Returns(5);
         handle.ActiveConnections.Returns(2);

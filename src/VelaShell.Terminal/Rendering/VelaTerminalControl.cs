@@ -2745,7 +2745,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
                 }
                 else
                 {
-                   _ = CopyAsync();
+                    _ = CopyAsync();
                 }
                 return;
 

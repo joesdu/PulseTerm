@@ -48,26 +48,26 @@ public class TerminalCellMemoryTests
         // 各 Kind 下未使用的位必须恒为 0,否则"比较 packed"就不再等价于逐字段比较。
         Assert.IsTrue(TerminalColor.Default.IsDefault);
         Assert.AreEqual(TerminalColorKind.Default, TerminalColor.Default.Kind);
-        Assert.AreEqual(0, (int)TerminalColor.Default.Index);
+        Assert.AreEqual(0, TerminalColor.Default.Index);
 
         var indexed = TerminalColor.FromIndex(196);
         Assert.AreEqual(TerminalColorKind.Indexed, indexed.Kind);
-        Assert.AreEqual(196, (int)indexed.Index);
-        Assert.AreEqual(0, (int)indexed.R, "Indexed 色的 RGB 通道必须读作 0(与打包前语义一致)。");
-        Assert.AreEqual(0, (int)indexed.G);
-        Assert.AreEqual(0, (int)indexed.B);
+        Assert.AreEqual(196, indexed.Index);
+        Assert.AreEqual(0, indexed.R, "Indexed 色的 RGB 通道必须读作 0(与打包前语义一致)。");
+        Assert.AreEqual(0, indexed.G);
+        Assert.AreEqual(0, indexed.B);
         Assert.IsFalse(indexed.IsDefault);
 
         var rgb = TerminalColor.FromRgb(0x12, 0x34, 0x56);
         Assert.AreEqual(TerminalColorKind.Rgb, rgb.Kind);
-        Assert.AreEqual(0x12, (int)rgb.R);
-        Assert.AreEqual(0x34, (int)rgb.G);
-        Assert.AreEqual(0x56, (int)rgb.B);
-        Assert.AreEqual(0, (int)rgb.Index, "Rgb 色的调色板索引必须读作 0。");
+        Assert.AreEqual(0x12, rgb.R);
+        Assert.AreEqual(0x34, rgb.G);
+        Assert.AreEqual(0x56, rgb.B);
+        Assert.AreEqual(0, rgb.Index, "Rgb 色的调色板索引必须读作 0。");
 
         // 索引钳制。
-        Assert.AreEqual(255, (int)TerminalColor.FromIndex(999).Index);
-        Assert.AreEqual(0, (int)TerminalColor.FromIndex(-5).Index);
+        Assert.AreEqual(255, TerminalColor.FromIndex(999).Index);
+        Assert.AreEqual(0, TerminalColor.FromIndex(-5).Index);
 
         // 跨 Kind 绝不相等,即使低位数值相同(Indexed 5 vs Rgb 0,0,5)。
         Assert.AreNotEqual(TerminalColor.FromIndex(5), TerminalColor.FromRgb(0, 0, 5));
@@ -98,7 +98,7 @@ public class TerminalCellMemoryTests
 
         cell.Combining = null;
         Assert.IsNull(cell.Combining);
-        Assert.AreEqual(0, (int)cell.CombiningIndex);
+        Assert.AreEqual(0, cell.CombiningIndex);
     }
 
     [TestMethod]

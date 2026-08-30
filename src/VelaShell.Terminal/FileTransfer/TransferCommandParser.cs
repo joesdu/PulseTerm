@@ -36,7 +36,7 @@ public static class TransferCommandParser
             return null;
         }
         string[] tokens = commandLine.Split(
-            (char[])[' ', '\t'],
+            [' ', '\t'],
             StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
         int i = SkipPrefixTokens(tokens);

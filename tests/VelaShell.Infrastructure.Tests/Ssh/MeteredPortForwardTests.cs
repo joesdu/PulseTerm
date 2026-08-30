@@ -21,7 +21,7 @@ public class MeteredPortForwardTests
     public async Task Relay_CountsBothDirections()
     {
         using CancellationTokenSource deadline = Deadline();
-        await using EchoServer echo = EchoServer.Start();
+        await using var echo = EchoServer.Start();
         using MeteredPortForwardHandle relay = StartRelay(echo, out int relayPort);
 
         byte[] payload = Encoding.ASCII.GetBytes("the quick brown fox");
@@ -46,11 +46,11 @@ public class MeteredPortForwardTests
     public async Task Relay_AggregatesAcrossConnections()
     {
         using CancellationTokenSource deadline = Deadline();
-        await using EchoServer echo = EchoServer.Start();
+        await using var echo = EchoServer.Start();
         using MeteredPortForwardHandle relay = StartRelay(echo, out int relayPort);
 
         byte[] payload = "0123456789"u8.ToArray();
-        for (var i = 0; i < 3; i++)
+        for (int i = 0; i < 3; i++)
         {
             using var client = new TcpClient();
             await client.ConnectAsync(IPAddress.Loopback, relayPort, deadline.Token);
@@ -99,7 +99,7 @@ public class MeteredPortForwardTests
     public async Task Stop_ReleasesListeningPort()
     {
         using CancellationTokenSource deadline = Deadline();
-        await using EchoServer echo = EchoServer.Start();
+        await using var echo = EchoServer.Start();
         MeteredPortForwardHandle relay = StartRelay(echo, out int relayPort);
         Assert.IsTrue(relay.IsStarted);
 
@@ -131,8 +131,8 @@ public class MeteredPortForwardTests
         var reported = new TaskCompletionSource<Exception>(TaskCreationOptions.RunContinuationsAsynchronously);
         var listener = new TcpListener(IPAddress.Loopback, 0);
         listener.Start();
-        var relayPort = ((IPEndPoint)listener.LocalEndpoint).Port;
-        using MeteredPortForwardHandle relay = MeteredPortForwardHandle.CreateRelay(listener, (_, _) =>
+        int relayPort = ((IPEndPoint)listener.LocalEndpoint).Port;
+        using var relay = MeteredPortForwardHandle.CreateRelay(listener, (_, _) =>
         {
             throw new SocketException((int)SocketError.ConnectionRefused);
         });

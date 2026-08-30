@@ -1,5 +1,4 @@
 using System.Text;
-using Avalonia.Headless;
 using VelaShell.Terminal.Rendering;
 
 namespace VelaShell.Terminal.Tests;

@@ -110,41 +110,41 @@ internal sealed class MeteredPortForwardHandle : IPortForwardHandle
         switch (request.Kind)
         {
             case PortForwardKind.Local:
-            {
-                string targetHost = request.TargetHost!;
-                var targetPort = (int)request.TargetPort!;
-                TcpListener listener = Listen(request.BoundHost, (int)request.BoundPort);
-                return new(listener,
-                    async (_, ct) => await client.OpenTcpConnectionAsync(targetHost, targetPort, ct).ConfigureAwait(false));
-            }
+                {
+                    string targetHost = request.TargetHost!;
+                    int targetPort = (int)request.TargetPort!;
+                    TcpListener listener = Listen(request.BoundHost, (int)request.BoundPort);
+                    return new(listener,
+                        async (_, ct) => await client.OpenTcpConnectionAsync(targetHost, targetPort, ct).ConfigureAwait(false));
+                }
             case PortForwardKind.Dynamic:
-            {
-                TcpListener listener = Listen(request.BoundHost, (int)request.BoundPort);
-                return new(listener, (inbound, ct) => OpenSocksTargetAsync(client, inbound, ct));
-            }
+                {
+                    TcpListener listener = Listen(request.BoundHost, (int)request.BoundPort);
+                    return new(listener, (inbound, ct) => OpenSocksTargetAsync(client, inbound, ct));
+                }
             case PortForwardKind.Remote:
-            {
-                // 服务器侧的监听只有库能开,所以让它把流量交到本机的一个临时端口上,
-                // 由本类接力到真正的目标 —— 这样远程转发也走同一条计量路径。
-                IPEndPoint target = ResolveOutboundEndPoint(request.TargetHost!, (int)request.TargetPort!);
-                TcpListener meter = Listen("127.0.0.1", 0);
-                var meterPort = ((IPEndPoint)meter.LocalEndpoint).Port;
-                try
                 {
-                    RemoteForward forward = await client.StartRemoteForwardAsync(
-                        new RemoteIPListenEndPoint(request.BoundHost, (int)request.BoundPort),
-                        new IPEndPoint(IPAddress.Loopback, meterPort),
-                        cancellationToken).ConfigureAwait(false);
-                    return new(meter,
-                        async (_, ct) => await ConnectLocalAsync(target, ct).ConfigureAwait(false),
-                        forward, forward.ThrowIfStopped, forward.Stopped);
+                    // 服务器侧的监听只有库能开,所以让它把流量交到本机的一个临时端口上,
+                    // 由本类接力到真正的目标 —— 这样远程转发也走同一条计量路径。
+                    IPEndPoint target = ResolveOutboundEndPoint(request.TargetHost!, (int)request.TargetPort!);
+                    TcpListener meter = Listen("127.0.0.1", 0);
+                    int meterPort = ((IPEndPoint)meter.LocalEndpoint).Port;
+                    try
+                    {
+                        RemoteForward forward = await client.StartRemoteForwardAsync(
+                            new RemoteIPListenEndPoint(request.BoundHost, (int)request.BoundPort),
+                            new IPEndPoint(IPAddress.Loopback, meterPort),
+                            cancellationToken).ConfigureAwait(false);
+                        return new(meter,
+                            async (_, ct) => await ConnectLocalAsync(target, ct).ConfigureAwait(false),
+                            forward, forward.ThrowIfStopped, forward.Stopped);
+                    }
+                    catch
+                    {
+                        try { meter.Stop(); } catch { }
+                        throw;
+                    }
                 }
-                catch
-                {
-                    try { meter.Stop(); } catch { }
-                    throw;
-                }
-            }
             default:
                 throw new ArgumentOutOfRangeException(nameof(request), request.Kind, @"Unknown port forward kind.");
         }
