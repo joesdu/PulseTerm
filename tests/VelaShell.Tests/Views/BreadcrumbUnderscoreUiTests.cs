@@ -144,7 +144,7 @@ public sealed class BreadcrumbUnderscoreUiTests
         // 扫描本身得先成立:一个面包屑都没找到时,下面两条断言会空转成永远通过的空壳。
         Assert.IsGreaterThanOrEqualTo(minimumSegments, crumbTexts.Length,
                                       "没找到面包屑分段 —— 扫描八成失效了,别让这条测试变成空壳。");
-        Assert.IsTrue(crumbTexts.Any(t => t.Text == UnderscoreSegment),
+        Assert.Contains(t => t.Text == UnderscoreSegment, crumbTexts,
                       $"面包屑里没有 {UnderscoreSegment},实际渲染:{string.Join(" | ", crumbTexts.Select(t => t.Text))}");
         Assert.IsEmpty(crumbTexts.OfType<AccessText>().Select(t => t.Text).ToArray(),
                        "面包屑走了助记符解析(AccessText),路径里的下划线会被当成访问键吃掉。");

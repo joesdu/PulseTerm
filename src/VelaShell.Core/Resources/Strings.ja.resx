@@ -3235,6 +3235,114 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   <data name="Msg_TunnelAutoReconnectFailed" xml:space="preserve">
     <value>自動再接続に失敗しました: {0}</value>
   </data>
+  <data name="Notify_Title" xml:space="preserve">
+    <value>メッセージ</value>
+  </data>
+  <data name="Notify_Empty" xml:space="preserve">
+    <value>メッセージはありません</value>
+  </data>
+  <data name="Notify_EmptyUnread" xml:space="preserve">
+    <value>未読はありません</value>
+  </data>
+  <data name="Notify_UnreadOnly" xml:space="preserve">
+    <value>未読</value>
+  </data>
+  <data name="Notify_UnreadOnlyTip" xml:space="preserve">
+    <value>未読のみ表示</value>
+  </data>
+  <data name="Notify_MarkAllRead" xml:space="preserve">
+    <value>すべて既読にする</value>
+  </data>
+  <data name="Notify_ClearAll" xml:space="preserve">
+    <value>すべてのメッセージを消去</value>
+  </data>
+  <data name="Notify_Close" xml:space="preserve">
+    <value>閉じる</value>
+  </data>
+  <data name="Notify_Remove" xml:space="preserve">
+    <value>このメッセージを削除</value>
+  </data>
+  <data name="Notify_KindNews" xml:space="preserve">
+    <value>お知らせ</value>
+  </data>
+  <data name="Notify_KindUpdate" xml:space="preserve">
+    <value>更新</value>
+  </data>
+  <data name="Notify_KindSecurity" xml:space="preserve">
+    <value>セキュリティ</value>
+  </data>
+  <data name="Notify_KindPromotion" xml:space="preserve">
+    <value>キャンペーン</value>
+  </data>
+  <data name="Notify_LinkOpen" xml:space="preserve">
+    <value>開く</value>
+  </data>
+  <data name="Notify_LinkExternal" xml:space="preserve">
+    <value>詳細を読む</value>
+  </data>
+  <data name="Notify_TimeJustNow" xml:space="preserve">
+    <value>たった今</value>
+  </data>
+  <data name="Notify_TimeMinutes" xml:space="preserve">
+    <value>{0}分前</value>
+  </data>
+  <data name="Notify_TimeHours" xml:space="preserve">
+    <value>{0}時間前</value>
+  </data>
+  <data name="Notify_TimeDays" xml:space="preserve">
+    <value>{0}日前</value>
+  </data>
+  <data name="Notify_TimeMonths" xml:space="preserve">
+    <value>{0}か月前</value>
+  </data>
+  <data name="Notify_UpdateTitle" xml:space="preserve">
+    <value>VelaShell {0} が利用可能です</value>
+  </data>
+  <data name="Notify_UpdateBody" xml:space="preserve">
+    <value>現在のバージョンは {0} です。「バージョン情報」で更新を確認・適用できます。</value>
+  </data>
+  <data name="Notify_UpdateAction" xml:space="preserve">
+    <value>バージョン情報を開く</value>
+  </data>
+  <data name="Cmd_OpenAbout" xml:space="preserve">
+    <value>バージョン情報を開く</value>
+  </data>
+  <data name="SetGeneral_CheckUpdatesOnStartup" xml:space="preserve">
+    <value>起動時に更新を確認</value>
+  </data>
+  <data name="SetGeneral_CheckUpdatesOnStartupDesc" xml:space="preserve">
+    <value>起動時に新しいバージョンを確認します。見つかるとメッセージセンターに表示されます。</value>
+  </data>
+  <data name="SetGeneral_MessagesSection" xml:space="preserve">
+    <value>メッセージセンター</value>
+  </data>
+  <data name="SetGeneral_NotifyUpdates" xml:space="preserve">
+    <value>更新をお知らせする</value>
+  </data>
+  <data name="SetGeneral_NotifyUpdatesDesc" xml:space="preserve">
+    <value>新しいバージョンが見つかったらメッセージを投稿します。クリックで「バージョン情報」が開きます。</value>
+  </data>
+  <data name="SetGeneral_FeedUrl" xml:space="preserve">
+    <value>ニュースフィード</value>
+  </data>
+  <data name="SetGeneral_FeedUrlDesc" xml:space="preserve">
+    <value>お知らせやセキュリティ情報を配信する https アドレス。空欄なら購読せず、通信も一切行いません。</value>
+  </data>
+  <data name="SetGeneral_FeedUrlPlaceholder" xml:space="preserve">
+    <value>https://example.com/velashell/feed.json</value>
+  </data>
+  <data name="SetGeneral_FeedInterval" xml:space="preserve">
+    <value>取得間隔（時間）</value>
+  </data>
+  <data name="SetGeneral_FeedIntervalDesc" xml:space="preserve">
+    <value>フィードを取得する間隔です。起動時にも一度取得します。</value>
+  </data>
+  <data name="SetGeneral_AllowPromotions" xml:space="preserve">
+    <value>キャンペーン情報を受け取る</value>
+  </data>
+  <data name="SetGeneral_AllowPromotionsDesc" xml:space="preserve">
+    <value>オフにするとフィード内のキャンペーン項目を破棄します。お知らせとセキュリティ情報は届きます。</value>
+  </data>
   <data name="Tunnel_HelpButtonTooltip" xml:space="preserve">
     <value>SSHトンネルについて</value>
   </data>

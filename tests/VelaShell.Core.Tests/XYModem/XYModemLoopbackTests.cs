@@ -77,12 +77,12 @@ public class XYModemLoopbackTests
 
         Assert.AreEqual(FileTransferState.Completed, send.Status);
         Assert.AreEqual(FileTransferState.Completed, receive.Status);
-        Assert.AreSequenceEqual(new[] { "first.bin", "second.bin", "三个.txt" }, sink.OfferedNames);
+        Assert.AreSequenceEqual(["first.bin", "second.bin", "三个.txt"], sink.OfferedNames);
         foreach ((string name, byte[] data) in files)
         {
             Assert.AreSequenceEqual(data, sink.Completed[name], $"{name} 内容不符");
         }
-        Assert.AreEqual(3, send.Items.Count);
+        Assert.HasCount(3, send.Items);
     }
 
     /// <summary>块号跨过 255 回绕后仍要正确对齐(1024 字节块 × 300 块 &gt; 256)。</summary>
@@ -150,7 +150,7 @@ public class XYModemLoopbackTests
             await RoundTripAsync(TerminalTransferProtocol.YModem, [("exact.bin", data)]);
 
         Assert.AreEqual(FileTransferState.Completed, receive.Status);
-        Assert.AreEqual(data.Length, sink.Completed["exact.bin"].Length);
+        Assert.HasCount(data.Length, sink.Completed["exact.bin"]);
         Assert.AreSequenceEqual(data, sink.Completed["exact.bin"]);
     }
 
@@ -163,7 +163,7 @@ public class XYModemLoopbackTests
 
         Assert.AreEqual(FileTransferState.Completed, send.Status);
         Assert.AreEqual(FileTransferState.Completed, receive.Status);
-        Assert.AreEqual(0, sink.Completed["empty.bin"].Length);
+        Assert.IsEmpty(sink.Completed["empty.bin"]);
     }
 
     /// <summary>
@@ -188,7 +188,7 @@ public class XYModemLoopbackTests
 
         Assert.AreEqual(FileTransferState.Cancelled, receive.Result.Status);
         Assert.AreEqual(FileTransferState.Cancelled, send.Result.Status);
-        Assert.AreEqual(0, sink.Completed.Count);
+        Assert.IsEmpty(sink.Completed);
     }
 
     /// <summary>用户在文件选择框里取消(空清单)时,发送端应干净地记为取消而不是失败。</summary>

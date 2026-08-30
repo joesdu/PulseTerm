@@ -58,7 +58,28 @@ public sealed class SidebarViewModel(
         set => this.RaiseAndSetIfChanged(ref field, value);
     }
 
-    /// <summary>打开通知的命令。</summary>
-    public ReactiveCommand<RxVoid, RxVoid> NotificationsCommand { get; } =
-        ReactiveCommand.Create(() => { });
+    /// <summary>
+    /// 消息中心的未读条数(底部栏铃铛角标);0 表示不显示角标。
+    /// 由宿主在 <see cref="Core.Notifications.INotificationCenter" /> 变化时推过来 ——
+    /// 侧边栏只负责显示这个数字,不关心它从哪来。
+    /// </summary>
+    public int NotificationUnreadCount
+    {
+        get;
+        set
+        {
+            this.RaiseAndSetIfChanged(ref field, value);
+            this.RaisePropertyChanged(nameof(HasUnreadNotifications));
+        }
+    }
+
+    /// <summary>是否有未读消息(控制角标显隐)。</summary>
+    public bool HasUnreadNotifications => NotificationUnreadCount > 0;
+
+    /// <summary>用户点击底部栏铃铛,请求打开消息中心。</summary>
+    public event EventHandler? NotificationsRequested;
+
+    /// <summary>打开消息中心的命令(底部栏铃铛)。</summary>
+    public ReactiveCommand<RxVoid, RxVoid> NotificationsCommand =>
+        field ??= ReactiveCommand.Create(() => NotificationsRequested?.Invoke(this, EventArgs.Empty));
 }

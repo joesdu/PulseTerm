@@ -1,0 +1,231 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:VelaShell.ViewModels"
+             xmlns:pc="using:VelaShell.Controls.Controls"
+             xmlns:loc="using:VelaShell.Localization"
+             mc:Ignorable="d" d:DesignWidth="360" d:DesignHeight="480"
+             x:Class="VelaShell.Views.NotificationPanelView"
+             x:DataType="vm:NotificationPanelViewModel"
+             ClipToBounds="False">
+
+  <!-- 消息中心:非模态浮层,由侧边栏底部铃铛切换。版式沿用隧道面板(规范 §10):
+       bg-surface、圆角 6、1px border-secondary、阴影 blur16 y+4。
+       铃铛在侧边栏左下角,所以这张卡片锚在左下(见 MainWindow.axaml)。 -->
+
+  <UserControl.Styles>
+    <Style Selector="Button.row-action">
+      <Setter Property="Width" Value="20" />
+      <Setter Property="Height" Value="20" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="CornerRadius" Value="3" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <!-- 悬停高亮挂在**整行**的外层容器上,而不是内层那个只占内容列的按钮 ——
+         挂在按钮上时删除键那一列不会跟着变色,整行被切成深浅两块,
+         中间那道边界看着就像凭空多了一条竖分割线。
+         两个 Background 都必须由样式来设:直接在元素上写 Background="Transparent"
+         是 local value,优先级高于样式,:pointerover 就再也盖不过去了。 -->
+    <Style Selector="Border.msg-row">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Border.msg-row:pointerover">
+      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+    </Style>
+    <!-- 整行可点 = 跳转。做成透明按钮而不是给 Border 挂手势:这样键盘 Tab 能走到,
+         焦点框与禁用态也都跟着 Avalonia 的按钮语义走。它自己不画背景,
+         悬停高亮由上面那条整行的样式负责。 -->
+    <Style Selector="Button.row">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Button.row:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <!-- 消息标题的读/未读两态。选择器限定在 .msg-title 上:写成裸的
+         TextBlock:not(.unread) 会把面板里每一个没显式设色的 TextBlock 都扫进来。 -->
+    <Style Selector="TextBlock.msg-title">
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextSecondary}" />
+    </Style>
+    <Style Selector="TextBlock.msg-title.unread">
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
+      <Setter Property="FontWeight" Value="Medium" />
+    </Style>
+  </UserControl.Styles>
+
+  <!-- ClipToBounds="False":卡片铺满 UserControl,BoxShadow 画在边界外,
+       裁剪会把它切成"四角有黑块"(与隧道面板同一个坑)。 -->
+  <Border Width="360"
+          Background="{DynamicResource VelaBgSurface}"
+          BorderBrush="{DynamicResource VelaBorderSecondary}"
+          BorderThickness="1"
+          CornerRadius="6"
+          BoxShadow="{DynamicResource VelaShadowWindow}">
+    <StackPanel>
+
+      <!-- 标题栏(36px):铃铛 + 消息 + 未读数 | 只看未读 · 全部已读 · 清空 · 关闭 -->
+      <Border Height="36" Padding="12,0"
+              BorderBrush="{DynamicResource VelaBorderPrimary}"
+              BorderThickness="0,0,0,1">
+        <Grid ColumnDefinitions="Auto,*,Auto,2,Auto,2,Auto,2,Auto">
+          <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+            <pc:LucideIcon Width="12" Height="12"
+                           Data="{StaticResource Icon.bell}"
+                           Foreground="{DynamicResource VelaAccent}" />
+            <TextBlock Text="{loc:Localize Notify_Title}"
+                       Foreground="{DynamicResource VelaTextPrimary}"
+                       FontFamily="{DynamicResource VelaUiMonoFont}"
+                       FontSize="{DynamicResource VelaFontSize11}" FontWeight="Medium"
+                       VerticalAlignment="Center" />
+            <Border Background="{DynamicResource VelaAccent}"
+                    CornerRadius="8" Padding="6,1" VerticalAlignment="Center"
+                    IsVisible="{Binding HasUnread}">
+              <TextBlock Text="{Binding UnreadCount}"
+                         Foreground="{DynamicResource VelaAccentText}"
+                         FontFamily="{DynamicResource VelaUiMonoFont}"
+                         FontSize="{DynamicResource VelaFontSize10}" FontWeight="Medium" />
+            </Border>
+          </StackPanel>
+          <ToggleButton Grid.Column="2" Height="20" Padding="6,0" CornerRadius="3"
+                        Background="Transparent" BorderThickness="0" Cursor="Hand"
+                        VerticalAlignment="Center"
+                        IsChecked="{Binding UnreadOnly}"
+                        ToolTip.Tip="{loc:Localize Notify_UnreadOnlyTip}">
+            <TextBlock Text="{loc:Localize Notify_UnreadOnly}"
+                       FontFamily="{DynamicResource VelaUiMonoFont}"
+                       FontSize="{DynamicResource VelaFontSize10}" />
+          </ToggleButton>
+          <Button Grid.Column="4" Classes="row-action"
+                  ToolTip.Tip="{loc:Localize Notify_MarkAllRead}"
+                  Command="{Binding MarkAllReadCommand}">
+            <pc:LucideIcon Width="12" Height="12"
+                           Data="{StaticResource Icon.circle-check}"
+                           Foreground="{DynamicResource VelaTextSecondary}" />
+          </Button>
+          <Button Grid.Column="6" Classes="row-action"
+                  ToolTip.Tip="{loc:Localize Notify_ClearAll}"
+                  Command="{Binding ClearCommand}">
+            <pc:LucideIcon Width="12" Height="12"
+                           Data="{StaticResource Icon.trash-2}"
+                           Foreground="{DynamicResource VelaTextTertiary}" />
+          </Button>
+          <Button Grid.Column="8" Classes="row-action"
+                  ToolTip.Tip="{loc:Localize Notify_Close}"
+                  Command="{Binding CloseCommand}">
+            <pc:LucideIcon Width="12" Height="12"
+                           Data="{StaticResource Icon.x}"
+                           Foreground="{DynamicResource VelaTextTertiary}" />
+          </Button>
+        </Grid>
+      </Border>
+
+      <!-- 空态 -->
+      <Border Padding="12,16" IsVisible="{Binding IsEmpty}">
+        <TextBlock Text="{Binding EmptyHint}"
+                   Foreground="{DynamicResource VelaTextMuted}"
+                   FontFamily="{DynamicResource VelaUiMonoFont}"
+                   FontSize="{DynamicResource VelaFontSize10}"
+                   HorizontalAlignment="Center" />
+      </Border>
+
+      <!-- 消息列表 -->
+      <ScrollViewer MaxHeight="380" VerticalScrollBarVisibility="Auto">
+        <ItemsControl ItemsSource="{Binding Items}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:NotificationItemViewModel">
+              <Border Classes="msg-row"
+                      BorderBrush="{DynamicResource VelaBorderPrimary}"
+                      BorderThickness="0,0,0,1">
+                <Grid ColumnDefinitions="2,*,Auto">
+                  <!-- 未读的左侧强调竖条:扫一眼就知道哪些还没读 -->
+                  <Border Grid.Column="0"
+                          Background="{DynamicResource VelaAccent}"
+                          IsVisible="{Binding IsUnread}" />
+                  <Button Grid.Column="1" Classes="row"
+                          Command="{Binding $parent[ItemsControl].((vm:NotificationPanelViewModel)DataContext).ActivateCommand}"
+                          CommandParameter="{Binding Id}">
+                    <StackPanel Margin="10,10,4,10" Spacing="4">
+                      <StackPanel Orientation="Horizontal" Spacing="6">
+                        <!-- 种类徽标:未读用强调色底,已读退成描边 -->
+                        <Border CornerRadius="2" Padding="5,1" VerticalAlignment="Center"
+                                Background="{DynamicResource VelaAccentDim}"
+                                IsVisible="{Binding !IsHighlighted}">
+                          <TextBlock Text="{Binding KindBadge}"
+                                     Foreground="{DynamicResource VelaAccent}"
+                                     FontFamily="{DynamicResource VelaUiMonoFont}"
+                                     FontSize="{DynamicResource VelaFontSize9}" FontWeight="Medium" />
+                        </Border>
+                        <Border CornerRadius="2" Padding="5,1" VerticalAlignment="Center"
+                                Background="Transparent"
+                                BorderBrush="{DynamicResource VelaWarning}" BorderThickness="1"
+                                IsVisible="{Binding IsHighlighted}">
+                          <TextBlock Text="{Binding KindBadge}"
+                                     Foreground="{DynamicResource VelaWarning}"
+                                     FontFamily="{DynamicResource VelaUiMonoFont}"
+                                     FontSize="{DynamicResource VelaFontSize9}" FontWeight="Medium" />
+                        </Border>
+                        <TextBlock Text="{Binding RelativeTime}"
+                                   Foreground="{DynamicResource VelaTextMuted}"
+                                   FontFamily="{DynamicResource VelaUiMonoFont}"
+                                   FontSize="{DynamicResource VelaFontSize9}"
+                                   VerticalAlignment="Center" />
+                      </StackPanel>
+                      <!-- 已读退到次要色且不加粗,未读保持主文本 + Medium:
+                           一列消息里,读没读过要能靠余光分出来,而不是逐条去找竖条。 -->
+                      <TextBlock Text="{Binding Title}"
+                                 Classes="msg-title" Classes.unread="{Binding IsUnread}"
+                                 FontFamily="{DynamicResource VelaUiFont}"
+                                 FontSize="{DynamicResource VelaFontSize11}"
+                                 TextWrapping="Wrap" />
+                      <TextBlock Text="{Binding Body}"
+                                 IsVisible="{Binding HasBody}"
+                                 Foreground="{DynamicResource VelaTextMuted}"
+                                 FontFamily="{DynamicResource VelaUiFont}"
+                                 FontSize="{DynamicResource VelaFontSize10}"
+                                 TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" />
+                      <!-- 去处:站内动作只显示文案;外链把主机名摆出来,
+                           让用户在点之前就知道自己会被带去哪个站点。 -->
+                      <StackPanel Orientation="Horizontal" Spacing="4"
+                                  IsVisible="{Binding HasLink}">
+                        <TextBlock Text="{Binding LinkLabel}"
+                                   Foreground="{DynamicResource VelaAccent}"
+                                   FontFamily="{DynamicResource VelaUiFont}"
+                                   FontSize="{DynamicResource VelaFontSize10}" FontWeight="Medium"
+                                   VerticalAlignment="Center" />
+                        <pc:LucideIcon Width="10" Height="10"
+                                       Data="{StaticResource Icon.chevron-right}"
+                                       Foreground="{DynamicResource VelaAccent}"
+                                       VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding LinkHost}"
+                                   IsVisible="{Binding HasLinkHost}"
+                                   Foreground="{DynamicResource VelaTextMuted}"
+                                   FontFamily="{DynamicResource VelaUiMonoFont}"
+                                   FontSize="{DynamicResource VelaFontSize9}"
+                                   VerticalAlignment="Center" />
+                      </StackPanel>
+                    </StackPanel>
+                  </Button>
+                  <Button Grid.Column="2" Classes="row-action" Margin="0,10,8,0"
+                          VerticalAlignment="Top"
+                          ToolTip.Tip="{loc:Localize Notify_Remove}"
+                          Command="{Binding $parent[ItemsControl].((vm:NotificationPanelViewModel)DataContext).RemoveCommand}"
+                          CommandParameter="{Binding Id}">
+                    <pc:LucideIcon Width="10" Height="10"
+                                   Data="{StaticResource Icon.x}"
+                                   Foreground="{DynamicResource VelaTextTertiary}" />
+                  </Button>
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+
+    </StackPanel>
+  </Border>
+</UserControl>

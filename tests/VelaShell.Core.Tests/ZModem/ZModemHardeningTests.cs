@@ -78,7 +78,7 @@ public class ZModemHardeningTests
             new ZModemSender(a, new InMemoryFileSource([("测试文件.txt", data)])).SendAsync(cts.Token);
         await Task.WhenAll(receive, send);
 
-        Assert.AreSequenceEqual(new[] { "测试文件.txt" }, sink.OfferedNames);
+        Assert.AreSequenceEqual(["测试文件.txt"], sink.OfferedNames);
         Assert.AreSequenceEqual(data, sink.Completed["测试文件.txt"]);
     }
 
@@ -242,7 +242,7 @@ public class ZModemHardeningTests
         FileTransferItem item = send.Result.Items.Single();
         Assert.AreEqual(FileTransferState.Failed, item.Status);
         StringAssert.Contains(item.ErrorMessage ?? string.Empty, "4 GiB");
-        Assert.AreEqual(0, sink.OfferedNames.Count, "超限文件根本不该被提供给对端");
+        Assert.IsEmpty(sink.OfferedNames, "超限文件根本不该被提供给对端");
     }
 
     /// <summary>谎称自己有 5 GiB 的文件来源(不会真的被读取,发送端应在打开前就拦下)。</summary>

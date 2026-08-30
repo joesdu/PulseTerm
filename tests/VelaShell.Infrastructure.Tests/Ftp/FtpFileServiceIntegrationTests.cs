@@ -225,7 +225,7 @@ public class FtpFileServiceIntegrationTests
             bool faulted = false;
             _service.SessionStateChanged += (_, change) => faulted |= change.State == FtpSessionState.Faulted;
 
-            byte[] payload = Enumerable.Range(0, 4096).Select(static i => (byte)(i % 251)).ToArray();
+            byte[] payload = [.. Enumerable.Range(0, 4096).Select(static i => (byte)(i % 251))];
             var sources = new List<string>();
             for (int i = 0; i < 5; i++)
             {
@@ -248,7 +248,7 @@ public class FtpFileServiceIntegrationTests
             {
                 string landed = Path.Combine(_root, Path.GetFileName(source));
                 Assert.IsTrue(File.Exists(landed), $"{Path.GetFileName(source)} 应已上传。");
-                CollectionAssert.AreEqual(payload, await File.ReadAllBytesAsync(landed, TestContext.CancellationToken));
+                Assert.AreSequenceEqual(payload, await File.ReadAllBytesAsync(landed, TestContext.CancellationToken));
             }
             Assert.IsFalse(faulted, "退化成单连接是正常降级,不该把整条会话标记为离线。");
         }
@@ -270,7 +270,7 @@ public class FtpFileServiceIntegrationTests
         Directory.CreateDirectory(outDir);
         try
         {
-            byte[] payload = Enumerable.Range(0, 8192).Select(static i => (byte)(i % 253)).ToArray();
+            byte[] payload = [.. Enumerable.Range(0, 8192).Select(static i => (byte)(i % 253))];
             var sources = new List<string>();
             for (int i = 0; i < 4; i++)
             {
@@ -292,7 +292,7 @@ public class FtpFileServiceIntegrationTests
             {
                 string landed = Path.Combine(_root, Path.GetFileName(source));
                 Assert.IsTrue(File.Exists(landed), $"{Path.GetFileName(source)} 应已上传。");
-                CollectionAssert.AreEqual(payload, await File.ReadAllBytesAsync(landed, TestContext.CancellationToken));
+                Assert.AreSequenceEqual(payload, await File.ReadAllBytesAsync(landed, TestContext.CancellationToken));
             }
         }
         finally

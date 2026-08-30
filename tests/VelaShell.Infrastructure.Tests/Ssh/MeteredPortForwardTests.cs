@@ -32,7 +32,7 @@ public class MeteredPortForwardTests
             await stream.WriteAsync(payload, deadline.Token);
             byte[] echoed = new byte[payload.Length];
             await stream.ReadExactlyAsync(echoed, deadline.Token);
-            CollectionAssert.AreEqual(payload, echoed);
+            Assert.AreSequenceEqual(payload, echoed);
         }
         await WaitForAsync(() => relay.BytesTransferred >= payload.Length * 2, deadline.Token);
 

@@ -162,7 +162,7 @@ public sealed class ConnectionProfileViewModelTests
             Assert.IsTrue(vm.HostIsEditableChoice, "可手输:枚举不到的设备也必须填得进去。");
             Assert.IsTrue(vm.HostIsDynamicChoice, "动态:USB 转串口是热插拔的,得给刷新按钮。");
             Assert.IsFalse(vm.HostIsText);
-            Assert.AreSequenceEqual(new[] { "COM3", "COM7" }, [.. vm.HostChoices.Select(choice => choice.Value)]);
+            Assert.AreSequenceEqual(["COM3", "COM7"], [.. vm.HostChoices.Select(choice => choice.Value)]);
             Assert.AreEqual("串口设备", vm.HostLabel);
         }
     }
@@ -181,7 +181,7 @@ public sealed class ConnectionProfileViewModelTests
 
             await vm.RefreshHostChoicesCommand.Execute().FirstAsync();
 
-            Assert.AreSequenceEqual(new[] { "COM3", "COM9" }, [.. vm.HostChoices.Select(choice => choice.Value)]);
+            Assert.AreSequenceEqual(["COM3", "COM9"], [.. vm.HostChoices.Select(choice => choice.Value)]);
             Assert.AreEqual(2, terminal.Queries, "刷新必须是真的重取,而不是拿缓存糊弄。");
         }
     }

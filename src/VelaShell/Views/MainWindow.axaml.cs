@@ -201,6 +201,8 @@ public partial class MainWindow : Window
             vm.TerminalFocusRequested += (_, _) => FocusActiveTerminal(vm);
             vm.NewConnectionRequested += (_, _) => _ = OpenProfileDialogAsync(null);
             vm.SettingsRequested += (_, _) => _ = OpenSettingsAsync();
+            vm.SettingsSectionRequested += (_, section) => _ = OpenSettingsAsync(section);
+            vm.ExternalUrlRequested += (_, url) => _ = OpenExternalUrlAsync(url);
             vm.InteractiveAuthenticator = PromptCredentialsAsync;
             // FTPS 与插件协议的 TLS 端点共用同一套「先拒绝 → 提示 → 记指纹后重连」的信任流程,
             // 因此也共用同一个对话框;两者的异常类型不同,这里各接一个薄适配。
@@ -1115,13 +1117,42 @@ public partial class MainWindow : Window
     }
 
     /// <summary>打开设置窗口(设计 §14):DI 单例 VM,打开时重新加载持久化设置。</summary>
-    private async Task OpenSettingsAsync()
+    /// <summary>
+    /// 在系统浏览器里打开一个网址(消息中心的外链条目)。
+    /// **只放行 https** —— 网址来自远端资讯源,这是它落地前的最后一道闸。
+    /// </summary>
+    private async Task OpenExternalUrlAsync(string url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out Uri? uri) || uri.Scheme != Uri.UriSchemeHttps)
+        {
+            return;
+        }
+        try
+        {
+            if (GetTopLevel(this) is { Launcher: { } launcher })
+            {
+                await launcher.LaunchUriAsync(uri);
+            }
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or PlatformNotSupportedException)
+        {
+            // 没有可用浏览器/被系统拒绝:面板本身仍然可用,不该因此崩掉窗口。
+        }
+    }
+
+    /// <summary>打开设置窗口;<paramref name="section" /> 非空时直接落到那一分区。</summary>
+    private async Task OpenSettingsAsync(SettingsSectionKey? section = null)
     {
         if (Application.Current is not App app || app.Services?.GetService<SettingsViewModel>() is not { } settingsViewModel)
         {
             return;
         }
         await settingsViewModel.LoadCommand.Execute().FirstAsync();
+        if (section is { } target)
+        {
+            // 在 Load 之后选:Load 会重建 Sections 并顺带复位选中项。
+            settingsViewModel.SelectSection(target);
+        }
         var dialog = new SettingsView { DataContext = settingsViewModel };
         await dialog.ShowDialog(this);
     }

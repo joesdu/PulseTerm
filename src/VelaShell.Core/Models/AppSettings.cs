@@ -66,6 +66,9 @@ public class AppSettings
     /// <summary>「网络代理」页的分组选项。</summary>
     public ProxyOptions Proxy { get; set; } = new();
 
+    /// <summary>消息中心(侧边栏铃铛)的分组选项。</summary>
+    public NotificationOptions Notifications { get; set; } = new();
+
     /// <summary>
     /// 载入后的规整(由设置服务在反序列化后调用):把旧字段迁移到唯一权威字段,
     /// 保证每个行为只有一个数据来源(设置审计 C-01/M-01)。
@@ -999,6 +1002,47 @@ public class ProxyOptions : ObservableOptions
     /// HTTP CONNECT 天然如此),本地不发 DNS 请求;关 = 本地先解析成 IP 再经代理连接。
     /// </summary>
     public bool ProxyDns
+    {
+        get;
+        set => Set(ref field, value);
+    } = true;
+}
+
+/// <summary>
+/// 消息中心(侧边栏铃铛)的选项。
+/// <para>
+/// 默认不订阅任何资讯源:<see cref="FeedUrl" /> 为空时一个网络请求都不发。
+/// 一个终端客户端默默定期外呼,在企业环境里是要被问责的事,得由用户或部署方明确开启。
+/// </para>
+/// </summary>
+public class NotificationOptions : ObservableOptions
+{
+    /// <summary>
+    /// 资讯源地址(**仅 https**)。留空 = 不订阅、不联网。格式见
+    /// <c>Core/Notifications/AnnouncementFeedDocument</c> 的契约说明。
+    /// </summary>
+    public string FeedUrl
+    {
+        get;
+        set => Set(ref field, value ?? "");
+    } = "";
+
+    /// <summary>拉取间隔(小时);启动时先拉一次,之后按此节奏。下限 1 小时。</summary>
+    public int FeedIntervalHours
+    {
+        get;
+        set => Set(ref field, value < 1 ? 1 : value);
+    } = 6;
+
+    /// <summary>是否把「有可用更新」投进消息中心(本地检查,不依赖资讯源)。</summary>
+    public bool NotifyUpdates
+    {
+        get;
+        set => Set(ref field, value);
+    } = true;
+
+    /// <summary>是否接收运营/推广类消息(资讯源里 kind = promotion 的条目)。</summary>
+    public bool AllowPromotions
     {
         get;
         set => Set(ref field, value);

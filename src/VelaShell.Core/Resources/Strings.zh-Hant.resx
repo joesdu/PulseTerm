@@ -3409,6 +3409,114 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   <data name="Msg_TunnelAutoReconnectFailed" xml:space="preserve">
     <value>自動重新連線失敗：{0}</value>
   </data>
+  <data name="Notify_Title" xml:space="preserve">
+    <value>訊息</value>
+  </data>
+  <data name="Notify_Empty" xml:space="preserve">
+    <value>暫無訊息</value>
+  </data>
+  <data name="Notify_EmptyUnread" xml:space="preserve">
+    <value>沒有未讀訊息</value>
+  </data>
+  <data name="Notify_UnreadOnly" xml:space="preserve">
+    <value>未讀</value>
+  </data>
+  <data name="Notify_UnreadOnlyTip" xml:space="preserve">
+    <value>只看未讀訊息</value>
+  </data>
+  <data name="Notify_MarkAllRead" xml:space="preserve">
+    <value>全部標為已讀</value>
+  </data>
+  <data name="Notify_ClearAll" xml:space="preserve">
+    <value>清空全部訊息</value>
+  </data>
+  <data name="Notify_Close" xml:space="preserve">
+    <value>關閉</value>
+  </data>
+  <data name="Notify_Remove" xml:space="preserve">
+    <value>刪除這則訊息</value>
+  </data>
+  <data name="Notify_KindNews" xml:space="preserve">
+    <value>資訊</value>
+  </data>
+  <data name="Notify_KindUpdate" xml:space="preserve">
+    <value>更新</value>
+  </data>
+  <data name="Notify_KindSecurity" xml:space="preserve">
+    <value>安全</value>
+  </data>
+  <data name="Notify_KindPromotion" xml:space="preserve">
+    <value>活動</value>
+  </data>
+  <data name="Notify_LinkOpen" xml:space="preserve">
+    <value>查看</value>
+  </data>
+  <data name="Notify_LinkExternal" xml:space="preserve">
+    <value>閱讀全文</value>
+  </data>
+  <data name="Notify_TimeJustNow" xml:space="preserve">
+    <value>剛剛</value>
+  </data>
+  <data name="Notify_TimeMinutes" xml:space="preserve">
+    <value>{0} 分鐘前</value>
+  </data>
+  <data name="Notify_TimeHours" xml:space="preserve">
+    <value>{0} 小時前</value>
+  </data>
+  <data name="Notify_TimeDays" xml:space="preserve">
+    <value>{0} 天前</value>
+  </data>
+  <data name="Notify_TimeMonths" xml:space="preserve">
+    <value>{0} 個月前</value>
+  </data>
+  <data name="Notify_UpdateTitle" xml:space="preserve">
+    <value>VelaShell {0} 已發布</value>
+  </data>
+  <data name="Notify_UpdateBody" xml:space="preserve">
+    <value>目前版本 {0}。到「關於」頁查看並安裝更新。</value>
+  </data>
+  <data name="Notify_UpdateAction" xml:space="preserve">
+    <value>前往關於頁</value>
+  </data>
+  <data name="Cmd_OpenAbout" xml:space="preserve">
+    <value>開啟關於頁</value>
+  </data>
+  <data name="SetGeneral_CheckUpdatesOnStartup" xml:space="preserve">
+    <value>啟動時檢查更新</value>
+  </data>
+  <data name="SetGeneral_CheckUpdatesOnStartupDesc" xml:space="preserve">
+    <value>啟動時查一次有沒有新版本；發現新版本會出現在訊息中心。</value>
+  </data>
+  <data name="SetGeneral_MessagesSection" xml:space="preserve">
+    <value>訊息中心</value>
+  </data>
+  <data name="SetGeneral_NotifyUpdates" xml:space="preserve">
+    <value>提醒可用更新</value>
+  </data>
+  <data name="SetGeneral_NotifyUpdatesDesc" xml:space="preserve">
+    <value>發現新版本時投一則訊息；點它直接開啟「關於」頁。</value>
+  </data>
+  <data name="SetGeneral_FeedUrl" xml:space="preserve">
+    <value>資訊來源</value>
+  </data>
+  <data name="SetGeneral_FeedUrlDesc" xml:space="preserve">
+    <value>發布公告與安全資訊的 https 位址。留空即不訂閱——一個網路請求都不會送出。</value>
+  </data>
+  <data name="SetGeneral_FeedUrlPlaceholder" xml:space="preserve">
+    <value>https://example.com/velashell/feed.json</value>
+  </data>
+  <data name="SetGeneral_FeedInterval" xml:space="preserve">
+    <value>擷取間隔（小時）</value>
+  </data>
+  <data name="SetGeneral_FeedIntervalDesc" xml:space="preserve">
+    <value>每隔多久擷取一次資訊來源；啟動時另外擷取一次。</value>
+  </data>
+  <data name="SetGeneral_AllowPromotions" xml:space="preserve">
+    <value>接收營運訊息</value>
+  </data>
+  <data name="SetGeneral_AllowPromotionsDesc" xml:space="preserve">
+    <value>關閉後丟棄資訊來源裡的營運類項目；公告與安全資訊照常接收。</value>
+  </data>
   <data name="Tunnel_HelpButtonTooltip" xml:space="preserve">
     <value>關於 SSH 隧道</value>
   </data>

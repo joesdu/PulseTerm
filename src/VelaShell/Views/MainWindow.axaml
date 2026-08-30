@@ -68,6 +68,14 @@
            IsVisible="{Binding IsTunnelPanelOpen}">
       <views:TunnelPanelView DataContext="{Binding TunnelPanel}" />
     </Panel>
+    <!-- 消息中心:非模态,由侧边栏底部铃铛切换。锚在左下贴着铃铛 —— 浮层从哪个按钮
+         开出来就该长在哪个按钮旁边,开在右上会让人一时找不到它和什么有关。 -->
+    <Panel Grid.Row="1" ZIndex="60"
+           HorizontalAlignment="Left" VerticalAlignment="Bottom"
+           Margin="12,0,0,48"
+           IsVisible="{Binding IsNotificationPanelOpen}">
+      <views:NotificationPanelView DataContext="{Binding NotificationPanel}" />
+    </Panel>
     <!-- 自绘标题栏:logo/名称 + 全局功能图标 + 最小化/最大化/关闭 -->
     <views:TitleBarView x:Name="TitleBarHost" Grid.Row="0" DataContext="{Binding}" />
 

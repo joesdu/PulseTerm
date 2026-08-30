@@ -6,6 +6,7 @@ using VelaShell.Core.Ftp;
 using VelaShell.Core.Import;
 using VelaShell.Core.Models;
 using VelaShell.Core.Net;
+using VelaShell.Core.Notifications;
 using VelaShell.Core.Processes;
 using VelaShell.Core.Protocols;
 using VelaShell.Core.Recording;
@@ -18,6 +19,7 @@ using VelaShell.Core.Tunnels;
 using VelaShell.Infrastructure.Ftp;
 using VelaShell.Infrastructure.Import;
 using VelaShell.Infrastructure.Net;
+using VelaShell.Infrastructure.Notifications;
 using VelaShell.Infrastructure.Persistence;
 using VelaShell.Infrastructure.Plugins.Protocols;
 using VelaShell.Infrastructure.Sftp;
@@ -93,6 +95,17 @@ public static class InfrastructureServiceCollectionExtensions
         // 统一代理解析:全部出站通道(SSH / FTP / HttpClient)共用的唯一代理出口。
         services.AddSingleton<IProxyResolver>(sp =>
             new ProxyResolver(sp.GetRequiredService<ISettingsService>()));
+
+        // 消息中心(侧边栏铃铛)与它订阅的资讯源。
+        services.AddSingleton<INotificationCenter>(sp =>
+            new NotificationCenter(sp.GetRequiredService<IAppDataStore>()));
+        services.AddSingleton<IAnnouncementFeed>(sp =>
+        {
+            ISettingsService settings = sp.GetRequiredService<ISettingsService>();
+            return new HttpAnnouncementFeed(
+                async () => (await settings.GetSettingsAsync().ConfigureAwait(false)).Notifications.FeedUrl,
+                HttpAnnouncementFeed.DescribeAudience);
+        });
 
         // SSH connection service
         services.AddSingleton<ISshConnectionService>(sp =>
