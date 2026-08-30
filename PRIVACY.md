@@ -1,6 +1,6 @@
 # VelaShell Privacy Policy / 隐私政策
 
-**Last updated / 最后更新:2026-07-26**
+**Last updated / 最后更新:2026-08-31**
 
 [English](#english) · [简体中文](#简体中文)
 
@@ -12,17 +12,25 @@
 
 VelaShell is an open-source SSH and SFTP client that runs entirely on your own computer.
 
-**The developer of VelaShell operates no servers and receives no data from you.** There is no
-account to create, no telemetry, no analytics, no crash reporting, and no advertising. Nothing
-you type, no host you connect to, and no file you transfer is ever sent to us — we have no
-infrastructure that could receive it.
+There is no account to create, no telemetry, no analytics, and no crash reporting. Nothing you
+type, no host you connect to, and no file you transfer is ever sent to us.
+
+The developer does operate **one** server that VelaShell talks to on its own: the news feed
+behind the message centre (`feeds.easilynet.top`), which publishes security advisories and
+product announcements. It is **on by default**, and VelaShell downloads a public JSON file from
+it at startup and every few hours after that. The request carries nothing about you or your
+installation — no account, no identifier, no version, no list of your hosts — so that server
+learns only what any web server learns from a plain download: your IP address and the time.
+Clearing the address in Settings → General → Message centre stops it completely: not "less
+often", but never again.
 
 Every network connection VelaShell makes is listed in full below.
 
 ### Information we collect
 
-**None.** VelaShell has no backend service. We do not collect, store, transmit, sell, or share
-any personal information.
+**None.** We do not collect, store, transmit, sell, or share any personal information. The news
+feed is a one-way download of a file that is identical for everyone: nothing is uploaded to it,
+it has no user accounts, and it cannot tell one VelaShell installation from another.
 
 ### Information stored on your device
 
@@ -64,16 +72,27 @@ VelaShell connects to the network only in these situations:
    stored on your computer; no address is ever sent to a lookup service. The world map is drawn
    from vector data bundled inside the application — no online map tiles are requested.
 
-3. **Update checks — manual only.** When you click "Check for updates" in Settings, VelaShell
-   requests a release manifest from GitHub. GitHub receives your IP address and the request, as
-   with any website visit. VelaShell never checks automatically in the background. **In the
+3. **The news feed — on by default.** VelaShell downloads
+   <https://feeds.easilynet.top/feed.json> (a public file, https only) when it starts and then
+   once every few hours, and shows what it finds — security advisories and announcements — in
+   the message centre. The request is a plain GET: it sends no account, no identifier, and no
+   information about your machine or your connections, so the server sees only your IP address,
+   the same as any website you visit. Which entries apply to your platform, language, and
+   version is decided **on your computer**, after the whole file is downloaded. You can point
+   the address at your own feed, or clear it in Settings → General → Message centre, in which
+   case no request is ever sent.
+
+4. **Update checks.** VelaShell asks GitHub for a release manifest when you click "Check for
+   updates" in Settings, and also once at startup while "Check for updates at startup" is on
+   (Settings → General; on by default) so that a new version can appear in the message centre.
+   GitHub receives your IP address and the request, as with any website visit. **In the
    Microsoft Store version this feature is disabled entirely**, because the Store handles updates.
 
-4. **Contributor avatars.** Opening the About page loads contributor profile pictures from
+5. **Contributor avatars.** Opening the About page loads contributor profile pictures from
    GitHub, which discloses your IP address to GitHub in the same way. If the request fails,
    placeholder initials are shown and nothing else is affected.
 
-5. **Cloud sync — off by default, entirely optional.** If you enable it, VelaShell stores your
+6. **Cloud sync — off by default, entirely optional.** If you enable it, VelaShell stores your
    settings, connection profiles, and snippets in a **secret GitHub Gist in your own GitHub
    account**, using a personal access token that you supply. The data goes to your GitHub
    account, never to us. You may additionally set an end-to-end encryption passphrase, in which
@@ -92,7 +111,7 @@ VelaShell has no third-party SDKs, trackers, or advertising libraries.
 The only third parties that can receive anything are those you direct it to:
 
 - **The SSH/SFTP servers you connect to**, which are yours or your organization's.
-- **GitHub**, for manual update checks, About-page avatars, and optional cloud sync into your
+- **GitHub**, for update checks, About-page avatars, and optional cloud sync into your
   own account. See the [GitHub Privacy Statement](https://docs.github.com/site-policy/privacy-policies/github-privacy-statement).
 - **DB-IP**, only if you choose to download their free offline database, and only through your
   own browser. See the [DB-IP privacy policy](https://db-ip.com/legal/privacy-policy).
@@ -135,15 +154,23 @@ Questions or concerns: <https://github.com/joesdu/VelaShell/issues>
 
 VelaShell 是一款开源的 SSH / SFTP 客户端,完全运行在你自己的计算机上。
 
-**VelaShell 的开发者不运营任何服务器,也不会收到你的任何数据。** 无需注册账号,没有遥测、
-没有数据分析、没有崩溃上报、没有广告。你输入的内容、连接的主机、传输的文件,都不会被发送
-给我们 —— 我们根本没有可以接收这些数据的基础设施。
+无需注册账号,没有遥测、没有数据分析、没有崩溃上报。你输入的内容、连接的主机、传输的文件,
+都不会被发送给我们。
+
+开发者确实运营着**一台** VelaShell 会主动访问的服务器:消息中心背后的资讯源
+(`feeds.easilynet.top`),发布安全资讯与产品公告。它**默认开启** —— 启动时拉一次,
+之后每隔几小时再拉一次,下载的是一个所有人都一样的公开 JSON 文件。请求里不带任何与你、
+与你这台机器有关的东西(没有账号、没有标识符、没有版本号、没有你的主机列表),因此那台
+服务器能知道的,和任何网站从一次普通下载里能知道的一样多:你的 IP 地址与访问时间。
+在「设置 → 常规 → 消息中心」把地址清空即可彻底停止 —— 不是"少发一点",而是一个请求都不再发。
 
 VelaShell 发起的每一个网络连接,都完整列在下方。
 
 ### 我们收集的信息
 
-**没有。** VelaShell 没有后端服务。我们不收集、不存储、不传输、不出售、不共享任何个人信息。
+**没有。** 我们不收集、不存储、不传输、不出售、不共享任何个人信息。资讯源是**单向下载**
+一份对所有人完全相同的文件:没有任何东西被上传给它,它没有用户账号,也分不出两个 VelaShell
+安装之间的区别。
 
 ### 存储在你设备上的信息
 
@@ -180,14 +207,23 @@ VelaShell 仅在以下情形联网:
    **完全离线**,基于保存在你计算机上的数据库文件完成,任何地址都不会被发往查询服务。
    世界地图由应用内置的矢量数据绘制,不请求任何在线地图瓦片。
 
-3. **检查更新 —— 仅手动触发。** 当你在设置中点击"检查更新"时,VelaShell 会向 GitHub 请求
-   发布清单。与访问任何网站一样,GitHub 会收到你的 IP 地址与该请求。VelaShell 从不在后台
-   自动检查。**Microsoft Store 版本完全禁用了该功能**,更新由商店接管。
+3. **资讯源 —— 默认开启。** VelaShell 在启动时以及此后每隔几小时,下载一次
+   <https://feeds.easilynet.top/feed.json>(公开文件,仅 https),把其中的安全资讯与公告
+   显示在消息中心。请求是一次普通的 GET:不带账号、不带标识符,也不带任何关于你这台机器
+   或你的连接的信息,那台服务器看到的只有你的 IP 地址 —— 与你访问任何网站时一样。
+   哪些条目适用于你的平台、语言与版本,是在**你的计算机上**、把整份文件下载完之后才判定的。
+   你可以把地址换成自建资讯源,也可以在「设置 → 常规 → 消息中心」把它清空,清空后一个请求
+   都不会发出。
 
-4. **贡献者头像。** 打开"关于"页面会从 GitHub 加载贡献者头像,同样会向 GitHub 暴露你的
+4. **检查更新。** 你在设置中点击"检查更新"时,以及"启动时检查更新"处于开启状态时
+   (「设置 → 常规」,默认开启)启动时的那一次,VelaShell 会向 GitHub 请求发布清单,
+   以便有新版本时投一条消息到消息中心。与访问任何网站一样,GitHub 会收到你的 IP 地址与
+   该请求。**Microsoft Store 版本完全禁用了该功能**,更新由商店接管。
+
+5. **贡献者头像。** 打开"关于"页面会从 GitHub 加载贡献者头像,同样会向 GitHub 暴露你的
    IP 地址。请求失败时显示首字母占位图,不影响其他功能。
 
-5. **云同步 —— 默认关闭,完全可选。** 若你启用,VelaShell 会使用你自己提供的个人访问令牌,
+6. **云同步 —— 默认关闭,完全可选。** 若你启用,VelaShell 会使用你自己提供的个人访问令牌,
    把设置、连接配置与代码片段保存到**你自己 GitHub 账户下的一个 secret Gist** 中。数据进入
    的是你的 GitHub 账户,而非我们。你还可以额外设置端到端加密口令,此时载荷会在你的设备上
    用 AES-GCM 加密后再上传,GitHub 只能拿到密文。同步范围由你勾选,可随时关闭或删除该 Gist。
@@ -202,7 +238,7 @@ VelaShell 不含任何第三方 SDK、追踪器或广告库。
 唯一可能接收到信息的第三方,都是由你指定的:
 
 - **你连接的 SSH/SFTP 服务器**,它们属于你或你的组织。
-- **GitHub**,用于手动检查更新、"关于"页头像,以及同步到你自己账户的可选云同步。参见
+- **GitHub**,用于检查更新、"关于"页头像,以及同步到你自己账户的可选云同步。参见
   [GitHub 隐私声明](https://docs.github.com/site-policy/privacy-policies/github-privacy-statement)。
 - **DB-IP**,仅当你选择下载其免费离线数据库时,且全程通过你自己的浏览器。参见
   [DB-IP 隐私政策](https://db-ip.com/legal/privacy-policy)。

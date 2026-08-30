@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Threading;
 using ReactiveUI;
 using ReactiveUI.Primitives;
+using VelaShell.Core.Data;
 using VelaShell.Core.Models;
 using VelaShell.Core.Notifications;
 using VelaShell.Core.Resources;
@@ -17,27 +18,41 @@ namespace VelaShell.ViewModels;
 /// 混进来只会把真正要读的东西淹掉。
 /// </para>
 /// </summary>
-public class NotificationPanelViewModel : ReactiveObject, IDisposable
+public class NotificationPanelViewModel : ReactiveObject, IDisposable, IDraggablePanel
 {
+    /// <summary>浮层位置的存放处;与文件传输提示同一个集合,各占一个文档 Id。</summary>
+    private const string LayoutCollection = "ui-layout";
+
+    private const string PanelPositionId = "notification-panel";
+
     private readonly INotificationCenter _center;
 
     /// <summary>执行站内跳转:传命令 id,返回是否跳成功。</summary>
     private readonly Func<string, bool>? _commandInvoker;
+
+    // 可空:无存储的宿主(单元测试)不提供,此时面板位置只在本次运行内保持。
+    private readonly IAppDataStore? _dataStore;
 
     private readonly DispatcherTimer? _relativeTimeTimer;
 
     /// <summary>在浏览器里打开外链。</summary>
     private readonly Func<string, Task>? _urlOpener;
 
-    /// <summary>构造消息中心面板;站内跳转与外链打开均可为空(便于测试)。</summary>
+    /// <summary>
+    /// 构造消息中心面板;站内跳转与外链打开均可为空(便于测试)。
+    /// <paramref name="dataStore" /> 为空时拖拽位置不跨重启保留。
+    /// </summary>
     public NotificationPanelViewModel(
         INotificationCenter center,
         Func<string, bool>? commandInvoker = null,
-        Func<string, Task>? urlOpener = null)
+        Func<string, Task>? urlOpener = null,
+        IAppDataStore? dataStore = null)
     {
         _center = center ?? throw new ArgumentNullException(nameof(center));
         _commandInvoker = commandInvoker;
         _urlOpener = urlOpener;
+        _dataStore = dataStore;
+        RestorePanelPosition();
         Items = [];
         MarkAllReadCommand = ReactiveCommand.CreateFromTask(async () => await _center.MarkAllReadAsync());
         ClearCommand = ReactiveCommand.CreateFromTask(async () => await _center.ClearAsync());
@@ -100,6 +115,75 @@ public class NotificationPanelViewModel : ReactiveObject, IDisposable
 
     /// <summary>收起面板。</summary>
     public ReactiveCommand<RxVoid, RxVoid> CloseCommand { get; }
+
+    // ---- 面板拖拽位置(与文件传输提示同一套:见 IDraggablePanel) ----
+
+    /// <summary>面板相对默认锚点(左下角贴着铃铛)的水平偏移(像素)。</summary>
+    public double PanelOffsetX
+    {
+        get;
+        set => this.RaiseAndSetIfChanged(ref field, value);
+    }
+
+    /// <summary>面板相对默认锚点的垂直偏移(像素,向上为负)。</summary>
+    public double PanelOffsetY
+    {
+        get;
+        set => this.RaiseAndSetIfChanged(ref field, value);
+    }
+
+    /// <summary>拖拽结束时由视图调用:把当前位置落盘,供下次打开恢复。失败不影响使用。</summary>
+    public void PersistPanelPosition()
+    {
+        if (_dataStore is null)
+        {
+            return;
+        }
+        var position = new PanelPosition { OffsetX = PanelOffsetX, OffsetY = PanelOffsetY };
+        _ = SaveAsync();
+
+        async Task SaveAsync()
+        {
+            try
+            {
+                await _dataStore.UpsertAsync(LayoutCollection, PanelPositionId, position).ConfigureAwait(false);
+            }
+            catch
+            {
+                // 位置记不住不该影响消息中心本身;下次拖动会再试一次。
+            }
+        }
+    }
+
+    /// <summary>启动时异步取回上次的位置。取不到就保持默认锚点。</summary>
+    private void RestorePanelPosition()
+    {
+        if (_dataStore is null)
+        {
+            return;
+        }
+        _ = LoadAsync();
+
+        async Task LoadAsync()
+        {
+            try
+            {
+                PanelPosition? saved = await _dataStore
+                                            .GetAsync<PanelPosition>(LayoutCollection, PanelPositionId)
+                                            .ConfigureAwait(true);
+                if (saved is null)
+                {
+                    return;
+                }
+                PanelOffsetX = saved.OffsetX;
+                PanelOffsetY = saved.OffsetY;
+            }
+            catch
+            {
+                // 读不出来就用默认位置,不打扰用户。
+            }
+        }
+    }
 
     /// <summary>释放面板资源:停表并退订消息中心。</summary>
     public void Dispose()

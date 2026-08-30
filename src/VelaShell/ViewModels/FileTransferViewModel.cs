@@ -14,7 +14,7 @@ namespace VelaShell.ViewModels;
 /// 文件传输面板(toast)的视图模型:聚合活动/历史传输项,驱动准备扫描、
 /// 可取消批量传输、徽标计数与自动隐藏等交互逻辑。
 /// </summary>
-public class FileTransferViewModel : ReactiveObject
+public class FileTransferViewModel : ReactiveObject, IDraggablePanel
 {
     /// <summary>面板位置的存储位置(IAppDataStore 的用途之一即 UI 配置)。</summary>
     private const string LayoutCollection = "ui-layout";
@@ -365,7 +365,7 @@ public class FileTransferViewModel : ReactiveObject
         {
             return;
         }
-        var position = new TransferPanelPosition { OffsetX = PanelOffsetX, OffsetY = PanelOffsetY };
+        var position = new PanelPosition { OffsetX = PanelOffsetX, OffsetY = PanelOffsetY };
         _ = SaveAsync();
 
         async Task SaveAsync()
@@ -394,8 +394,8 @@ public class FileTransferViewModel : ReactiveObject
         {
             try
             {
-                TransferPanelPosition? saved = await _dataStore
-                                                     .GetAsync<TransferPanelPosition>(LayoutCollection, PanelPositionId)
+                PanelPosition? saved = await _dataStore
+                                                     .GetAsync<PanelPosition>(LayoutCollection, PanelPositionId)
                                                      .ConfigureAwait(true);
                 if (saved is null)
                 {
@@ -535,17 +535,4 @@ public class FileTransferViewModel : ReactiveObject
             Transfers.Remove(item);
         }
     }
-}
-
-/// <summary>
-/// 传输面板拖拽位置的持久化载体(IAppDataStore 需要引用类型)。
-/// 存偏移而非绝对坐标,理由见 <see cref="FileTransferViewModel.PanelOffsetX" />。
-/// </summary>
-public sealed class TransferPanelPosition
-{
-    /// <summary>相对默认锚点的水平偏移(像素)。</summary>
-    public double OffsetX { get; set; }
-
-    /// <summary>相对默认锚点的垂直偏移(像素)。</summary>
-    public double OffsetY { get; set; }
 }

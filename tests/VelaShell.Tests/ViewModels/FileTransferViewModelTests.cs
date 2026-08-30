@@ -461,7 +461,7 @@ public class FileTransferViewModelTests
         store.Received(1).UpsertAsync(
             "ui-layout",
             "transfer-panel",
-            Arg.Is<TransferPanelPosition>(p => p.OffsetX == -320 && p.OffsetY == 180),
+            Arg.Is<PanelPosition>(p => p.OffsetX == -320 && p.OffsetY == 180),
             Arg.Any<CancellationToken>());
     }
 
@@ -470,8 +470,8 @@ public class FileTransferViewModelTests
     public async Task Construction_RestoresPersistedPanelPosition()
     {
         IAppDataStore store = Substitute.For<IAppDataStore>();
-        store.GetAsync<TransferPanelPosition>("ui-layout", "transfer-panel", Arg.Any<CancellationToken>())
-             .Returns(new TransferPanelPosition { OffsetX = -240, OffsetY = 96 });
+        store.GetAsync<PanelPosition>("ui-layout", "transfer-panel", Arg.Any<CancellationToken>())
+             .Returns(new PanelPosition { OffsetX = -240, OffsetY = 96 });
 
         var vm = new FileTransferViewModel(_transferManager, store);
 
@@ -545,8 +545,8 @@ public class FileTransferViewModelTests
     public async Task Construction_WhenStoreThrows_FallsBackToDefaultPosition()
     {
         IAppDataStore store = Substitute.For<IAppDataStore>();
-        store.GetAsync<TransferPanelPosition>("ui-layout", "transfer-panel", Arg.Any<CancellationToken>())
-             .Returns<TransferPanelPosition?>(_ => throw new InvalidOperationException("store offline"));
+        store.GetAsync<PanelPosition>("ui-layout", "transfer-panel", Arg.Any<CancellationToken>())
+             .Returns<PanelPosition?>(_ => throw new InvalidOperationException("store offline"));
 
         var vm = new FileTransferViewModel(_transferManager, store);
         await Task.Delay(50);

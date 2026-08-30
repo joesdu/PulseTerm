@@ -69,12 +69,15 @@
       <views:TunnelPanelView DataContext="{Binding TunnelPanel}" />
     </Panel>
     <!-- 消息中心:非模态,由侧边栏底部铃铛切换。锚在左下贴着铃铛 —— 浮层从哪个按钮
-         开出来就该长在哪个按钮旁边,开在右上会让人一时找不到它和什么有关。 -->
+         开出来就该长在哪个按钮旁边,开在右上会让人一时找不到它和什么有关。
+         外层 Panel **铺满整行**,对齐与边距落在里面那个视图上:面板可拖动,而拖拽的
+         参考坐标系就是它的父容器 —— 父容器若只贴着面板本身,能拖的范围就是零。
+         Panel 不设 Background,不参与命中测试,铺满也不会挡住底下的操作。 -->
     <Panel Grid.Row="1" ZIndex="60"
-           HorizontalAlignment="Left" VerticalAlignment="Bottom"
-           Margin="12,0,0,48"
            IsVisible="{Binding IsNotificationPanelOpen}">
-      <views:NotificationPanelView DataContext="{Binding NotificationPanel}" />
+      <views:NotificationPanelView DataContext="{Binding NotificationPanel}"
+                                   HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                                   Margin="12,0,0,48" />
     </Panel>
     <!-- 自绘标题栏:logo/名称 + 全局功能图标 + 最小化/最大化/关闭 -->
     <views:TitleBarView x:Name="TitleBarHost" Grid.Row="0" DataContext="{Binding}" />
