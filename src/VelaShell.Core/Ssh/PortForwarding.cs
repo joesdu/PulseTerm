@@ -40,6 +40,18 @@ public interface IPortForwardHandle : IDisposable
     /// <summary>转发是否处于已启动(监听中)状态。</summary>
     bool IsStarted { get; }
 
+    /// <summary>
+    /// 经该转发累计传输的字节数(上行 + 下行)。计数由宿主自己的中继累加,
+    /// 因此只统计真正流过转发的数据,不含 SSH 协议开销与 SOCKS 握手字节。
+    /// </summary>
+    long BytesTransferred { get; }
+
+    /// <summary>该转发自建立以来累计接受的连接数。</summary>
+    int TotalConnections { get; }
+
+    /// <summary>该转发当前仍在传输的连接数。</summary>
+    int ActiveConnections { get; }
+
     /// <summary>转发通道错误(每个经过的连接失败时触发,监听端口本身仍在)。</summary>
     event Action<Exception>? ChannelError;
 

@@ -3245,6 +3245,33 @@ Overwrite it?</value>
   <data name="Tunnel_RouteDynamic" xml:space="preserve">
     <value>This computer provides SOCKS5 at {0}:{1} → dynamic destinations</value>
   </data>
+  <data name="TunnelSvc_LocalPortInUse" xml:space="preserve">
+    <value>Local port {0} is already in use by another program. Stop that program, or pick a different local port.</value>
+  </data>
+  <data name="Tunnel_Stats" xml:space="preserve">
+    <value>{0} conns · {1}</value>
+  </data>
+  <data name="Tunnel_StatsLive" xml:space="preserve">
+    <value>{0} conns ({1} live) · {2}</value>
+  </data>
+  <data name="Tunnel_StatsNone" xml:space="preserve">
+    <value>No connections yet</value>
+  </data>
+  <data name="Tunnel_AutoBadge" xml:space="preserve">
+    <value>AUTO</value>
+  </data>
+  <data name="Tunnel_AutoReconnect" xml:space="preserve">
+    <value>Reconnect automatically after a dropout</value>
+  </data>
+  <data name="Tunnel_AutoReconnectTip" xml:space="preserve">
+    <value>If the background connection drops, reconnect and rebuild this tunnel automatically. Retries back off from 10s up to 5min.</value>
+  </data>
+  <data name="Msg_TunnelAutoReconnecting" xml:space="preserve">
+    <value>Reconnecting • restoring tunnels</value>
+  </data>
+  <data name="Msg_TunnelAutoReconnectFailed" xml:space="preserve">
+    <value>Automatic reconnect failed: {0}</value>
+  </data>
   <data name="Tunnel_HelpButtonTooltip" xml:space="preserve">
     <value>About SSH Tunneling</value>
   </data>

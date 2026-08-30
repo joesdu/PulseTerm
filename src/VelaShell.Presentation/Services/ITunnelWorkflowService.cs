@@ -13,6 +13,12 @@ public interface ITunnelWorkflowService
     IReadOnlyList<TunnelInfo> GetActiveTunnels(Guid sessionId);
 
     /// <summary>
+    /// 把底层转发句柄的连接数与流量读数同步到界面持有的 <see cref="TunnelInfo" /> 实例上。
+    /// 由隧道面板的状态时钟按秒级节奏调用。
+    /// </summary>
+    void RefreshStatistics();
+
+    /// <summary>
     /// 按 <see cref="TunnelConfig.Type" /> 自动路由到本地/远程/动态转发,
     /// 返回创建结果;配置中的 <see cref="TunnelConfig.Type" /> 不受支持时抛出
     /// <see cref="ArgumentOutOfRangeException" />。

@@ -12,6 +12,9 @@ public sealed class TunnelWorkflowService(ITunnelService tunnelService) : ITunne
     public IReadOnlyList<TunnelInfo> GetActiveTunnels(Guid sessionId) => [.. _tunnelService.GetActiveTunnels(sessionId)];
 
     /// <inheritdoc />
+    public void RefreshStatistics() => _tunnelService.RefreshStatistics();
+
+    /// <inheritdoc />
     public Task<TunnelInfo> CreateTunnelAsync(Guid sessionId, TunnelConfig config, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(config);

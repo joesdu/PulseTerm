@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -564,16 +564,36 @@
   <data name="QuickCommands" xml:space="preserve">
     <value>快捷命令</value>
   </data>
-  <data name="QuickCmd_SelectTargets" xml:space="preserve"><value>选择执行终端</value></data>
-  <data name="QuickCmd_SelectAll" xml:space="preserve"><value>全选</value></data>
-  <data name="QuickCmd_ClearSelection" xml:space="preserve"><value>清空</value></data>
-  <data name="QuickCmd_NoConnectedTerminals" xml:space="preserve"><value>暂无已连接终端</value></data>
-  <data name="QuickCmd_CurrentTerminal" xml:space="preserve"><value>当前终端</value></data>
-  <data name="QuickCmd_SelectedTerminals" xml:space="preserve"><value>个终端已选</value></data>
-  <data name="QuickCmd_Search" xml:space="preserve"><value>搜索代码片段</value></data>
-  <data name="QuickCmd_Ungrouped" xml:space="preserve"><value>未分组</value></data>
-  <data name="QuickCmd_GroupPlaceholder" xml:space="preserve"><value>分组名称</value></data>
-  <data name="QuickCmd_EditSnippet" xml:space="preserve"><value>编辑代码片段</value></data>
+  <data name="QuickCmd_SelectTargets" xml:space="preserve">
+    <value>选择执行终端</value>
+  </data>
+  <data name="QuickCmd_SelectAll" xml:space="preserve">
+    <value>全选</value>
+  </data>
+  <data name="QuickCmd_ClearSelection" xml:space="preserve">
+    <value>清空</value>
+  </data>
+  <data name="QuickCmd_NoConnectedTerminals" xml:space="preserve">
+    <value>暂无已连接终端</value>
+  </data>
+  <data name="QuickCmd_CurrentTerminal" xml:space="preserve">
+    <value>当前终端</value>
+  </data>
+  <data name="QuickCmd_SelectedTerminals" xml:space="preserve">
+    <value>个终端已选</value>
+  </data>
+  <data name="QuickCmd_Search" xml:space="preserve">
+    <value>搜索代码片段</value>
+  </data>
+  <data name="QuickCmd_Ungrouped" xml:space="preserve">
+    <value>未分组</value>
+  </data>
+  <data name="QuickCmd_GroupPlaceholder" xml:space="preserve">
+    <value>分组名称</value>
+  </data>
+  <data name="QuickCmd_EditSnippet" xml:space="preserve">
+    <value>编辑代码片段</value>
+  </data>
   <data name="AddCommand" xml:space="preserve">
     <value>添加命令</value>
   </data>
@@ -1259,7 +1279,7 @@
     <value>未知</value>
   </data>
   <data name="Main_CloseConfirmBody" xml:space="preserve">
-    <value>仍有活动的会话,关闭窗口将断开所有连接。确定退出吗?</value>
+    <value>仍有活动的会话，关闭窗口将断开所有连接。确定退出吗?</value>
   </data>
   <data name="Main_CloseConfirmTitle" xml:space="preserve">
     <value>关闭 VelaShell</value>
@@ -3233,19 +3253,45 @@ Windows 填 exe 完整路径或命令名(如 notepad);Linux 填命令名(如 ged
   <data name="ZModem_ChooseUploadFilesRetry" xml:space="preserve">
     <value>未选择文件——请选择文件,或再次取消以中止本次上传</value>
   </data>
-  <data name="SyncInput_Menu" xml:space="preserve"><value>同步输入</value></data>
-  <data name="SyncInput_JoinChannelA" xml:space="preserve"><value>加入频道 A</value></data>
-  <data name="SyncInput_JoinChannelB" xml:space="preserve"><value>加入频道 B</value></data>
-  <data name="SyncInput_JoinChannelC" xml:space="preserve"><value>加入频道 C</value></data>
-  <data name="SyncInput_JoinChannelD" xml:space="preserve"><value>加入频道 D</value></data>
-  <data name="SyncInput_LeaveAll" xml:space="preserve"><value>离开所有频道</value></data>
-  <data name="SyncInput_BannerPrefix" xml:space="preserve"><value>同步通道</value></data>
-  <data name="SyncInput_BannerSuffix" xml:space="preserve"><value>中的输入</value></data>
-  <data name="SyncInput_Paused" xml:space="preserve"><value>(已暂停)</value></data>
-  <data name="SyncInput_Pause" xml:space="preserve"><value>暂停</value></data>
-  <data name="SyncInput_Resume" xml:space="preserve"><value>恢复</value></data>
-  <data name="SyncInput_Leave" xml:space="preserve"><value>离开频道</value></data>
-  <data name="SyncInput_Close" xml:space="preserve"><value>关闭频道</value></data>
+  <data name="SyncInput_Menu" xml:space="preserve">
+    <value>同步输入</value>
+  </data>
+  <data name="SyncInput_JoinChannelA" xml:space="preserve">
+    <value>加入频道 A</value>
+  </data>
+  <data name="SyncInput_JoinChannelB" xml:space="preserve">
+    <value>加入频道 B</value>
+  </data>
+  <data name="SyncInput_JoinChannelC" xml:space="preserve">
+    <value>加入频道 C</value>
+  </data>
+  <data name="SyncInput_JoinChannelD" xml:space="preserve">
+    <value>加入频道 D</value>
+  </data>
+  <data name="SyncInput_LeaveAll" xml:space="preserve">
+    <value>离开所有频道</value>
+  </data>
+  <data name="SyncInput_BannerPrefix" xml:space="preserve">
+    <value>同步通道</value>
+  </data>
+  <data name="SyncInput_BannerSuffix" xml:space="preserve">
+    <value>中的输入</value>
+  </data>
+  <data name="SyncInput_Paused" xml:space="preserve">
+    <value>(已暂停)</value>
+  </data>
+  <data name="SyncInput_Pause" xml:space="preserve">
+    <value>暂停</value>
+  </data>
+  <data name="SyncInput_Resume" xml:space="preserve">
+    <value>恢复</value>
+  </data>
+  <data name="SyncInput_Leave" xml:space="preserve">
+    <value>离开频道</value>
+  </data>
+  <data name="SyncInput_Close" xml:space="preserve">
+    <value>关闭频道</value>
+  </data>
   <data name="Svc_CommonUsage" xml:space="preserve">
     <value>常用用法</value>
   </data>
@@ -3335,6 +3381,33 @@ Windows 填 exe 完整路径或命令名(如 notepad);Linux 填命令名(如 ged
   </data>
   <data name="Tunnel_RouteDynamic" xml:space="preserve">
     <value>本机 SOCKS5 {0}:{1} → 动态目标</value>
+  </data>
+  <data name="TunnelSvc_LocalPortInUse" xml:space="preserve">
+    <value>本地端口 {0} 已被其它程序占用。请关闭该程序，或改用别的本地端口。</value>
+  </data>
+  <data name="Tunnel_Stats" xml:space="preserve">
+    <value>{0} 连接 · {1}</value>
+  </data>
+  <data name="Tunnel_StatsLive" xml:space="preserve">
+    <value>{0} 连接（{1} 在传）· {2}</value>
+  </data>
+  <data name="Tunnel_StatsNone" xml:space="preserve">
+    <value>尚无连接</value>
+  </data>
+  <data name="Tunnel_AutoBadge" xml:space="preserve">
+    <value>自动</value>
+  </data>
+  <data name="Tunnel_AutoReconnect" xml:space="preserve">
+    <value>掉线后自动重连</value>
+  </data>
+  <data name="Tunnel_AutoReconnectTip" xml:space="preserve">
+    <value>后台连接掉线时自动重拨并重建这条隧道；重试间隔从 10 秒逐步拉长到 5 分钟。</value>
+  </data>
+  <data name="Msg_TunnelAutoReconnecting" xml:space="preserve">
+    <value>重连中 • 正在恢复隧道</value>
+  </data>
+  <data name="Msg_TunnelAutoReconnectFailed" xml:space="preserve">
+    <value>自动重连失败：{0}</value>
   </data>
   <data name="Tunnel_HelpButtonTooltip" xml:space="preserve">
     <value>关于 SSH 隧道</value>
@@ -3678,35 +3751,91 @@ Windows 填 exe 完整路径或命令名(如 notepad);Linux 填命令名(如 ged
   <data name="XImport_Duplicate" xml:space="preserve">
     <value>已存在</value>
   </data>
-
-  <data name="Plugins"><value>插件</value></data>
-  <data name="PluginManager_Title"><value>插件管理</value></data>
-  <data name="PluginManager_Empty"><value>未安装任何插件。</value></data>
-  <data name="PluginManager_Enable"><value>启用</value></data>
-  <data name="PluginManager_Disable"><value>禁用</value></data>
-  <data name="PluginManager_RevokePermission"><value>撤销终端授权</value></data>
-  <data name="PluginState_Active"><value>运行中</value></data>
-  <data name="PluginState_Discovered"><value>待激活</value></data>
-  <data name="PluginState_Disabled"><value>已禁用</value></data>
-  <data name="PluginState_Failed"><value>失败</value></data>
-  <data name="PluginState_Crashed"><value>重启中</value></data>
-  <data name="PluginState_Invalid"><value>无效</value></data>
-  <data name="PluginState_Incompatible"><value>不兼容</value></data>
-  <data name="PluginPerm_Title"><value>终端写入请求</value></data>
-  <data name="PluginPerm_Message"><value>插件“{0}”请求向终端 {1} 输入内容:</value></data>
-  <data name="PluginPerm_AllowOnce"><value>仅本次允许</value></data>
-  <data name="PluginPerm_AllowSession"><value>本次运行允许</value></data>
-  <data name="PluginPerm_AllowAlways"><value>始终允许</value></data>
-  <data name="PluginPerm_Deny"><value>拒绝</value></data>
-  <data name="PluginManager_Install"><value>安装 .vpx…</value></data>
-  <data name="PluginManager_Uninstall"><value>卸载</value></data>
-  <data name="PluginManager_Reload"><value>重新加载</value></data>
-  <data name="PluginManager_WaitingForDebugger"><value>插件“{0}”的宿主进程正在等待调试器附加,进程 id {1}。</value></data>
-  <data name="PluginManager_Installed"><value>已安装“{0}”。</value></data>
-  <data name="PluginManager_InstallFailed"><value>安装失败:{0}</value></data>
-  <data name="PluginManager_ConfirmUninstall"><value>卸载“{0}”?其数据将被清除。</value></data>
-  <data name="PluginManager_Author"><value>作者:{0}</value></data>
-  <data name="PluginManager_VpxFilter"><value>VelaShell 插件包</value></data>  <data name="Ftp_Encryption" xml:space="preserve">
+  <data name="Plugins" xml:space="preserve">
+    <value>插件</value>
+  </data>
+  <data name="PluginManager_Title" xml:space="preserve">
+    <value>插件管理</value>
+  </data>
+  <data name="PluginManager_Empty" xml:space="preserve">
+    <value>未安装任何插件。</value>
+  </data>
+  <data name="PluginManager_Enable" xml:space="preserve">
+    <value>启用</value>
+  </data>
+  <data name="PluginManager_Disable" xml:space="preserve">
+    <value>禁用</value>
+  </data>
+  <data name="PluginManager_RevokePermission" xml:space="preserve">
+    <value>撤销终端授权</value>
+  </data>
+  <data name="PluginState_Active" xml:space="preserve">
+    <value>运行中</value>
+  </data>
+  <data name="PluginState_Discovered" xml:space="preserve">
+    <value>待激活</value>
+  </data>
+  <data name="PluginState_Disabled" xml:space="preserve">
+    <value>已禁用</value>
+  </data>
+  <data name="PluginState_Failed" xml:space="preserve">
+    <value>失败</value>
+  </data>
+  <data name="PluginState_Crashed" xml:space="preserve">
+    <value>重启中</value>
+  </data>
+  <data name="PluginState_Invalid" xml:space="preserve">
+    <value>无效</value>
+  </data>
+  <data name="PluginState_Incompatible" xml:space="preserve">
+    <value>不兼容</value>
+  </data>
+  <data name="PluginPerm_Title" xml:space="preserve">
+    <value>终端写入请求</value>
+  </data>
+  <data name="PluginPerm_Message" xml:space="preserve">
+    <value>插件“{0}”请求向终端 {1} 输入内容:</value>
+  </data>
+  <data name="PluginPerm_AllowOnce" xml:space="preserve">
+    <value>仅本次允许</value>
+  </data>
+  <data name="PluginPerm_AllowSession" xml:space="preserve">
+    <value>本次运行允许</value>
+  </data>
+  <data name="PluginPerm_AllowAlways" xml:space="preserve">
+    <value>始终允许</value>
+  </data>
+  <data name="PluginPerm_Deny" xml:space="preserve">
+    <value>拒绝</value>
+  </data>
+  <data name="PluginManager_Install" xml:space="preserve">
+    <value>安装 .vpx…</value>
+  </data>
+  <data name="PluginManager_Uninstall" xml:space="preserve">
+    <value>卸载</value>
+  </data>
+  <data name="PluginManager_Reload" xml:space="preserve">
+    <value>重新加载</value>
+  </data>
+  <data name="PluginManager_WaitingForDebugger" xml:space="preserve">
+    <value>插件“{0}”的宿主进程正在等待调试器附加,进程 id {1}。</value>
+  </data>
+  <data name="PluginManager_Installed" xml:space="preserve">
+    <value>已安装“{0}”。</value>
+  </data>
+  <data name="PluginManager_InstallFailed" xml:space="preserve">
+    <value>安装失败:{0}</value>
+  </data>
+  <data name="PluginManager_ConfirmUninstall" xml:space="preserve">
+    <value>卸载“{0}”?其数据将被清除。</value>
+  </data>
+  <data name="PluginManager_Author" xml:space="preserve">
+    <value>作者:{0}</value>
+  </data>
+  <data name="PluginManager_VpxFilter" xml:space="preserve">
+    <value>VelaShell 插件包</value>
+  </data>
+  <data name="Ftp_Encryption" xml:space="preserve">
     <value>加密方式</value>
   </data>
   <data name="Ftp_EncryptionAuto" xml:space="preserve">
@@ -3901,118 +4030,331 @@ Windows 填 exe 完整路径或命令名(如 notepad);Linux 填命令名(如 ged
   <data name="SetTerm_RemoteClipboardDesc" xml:space="preserve">
     <value>默认关闭。仅对可信主机开启，否则终端输出可以替换本机剪贴板内容。</value>
   </data>
-  <data name="PluginManager_UntrustedTitle" xml:space="preserve"><value>不受信任的插件包</value></data>
-  <data name="PluginManager_UnsignedWarning" xml:space="preserve"><value>“{0}”没有签名。插件能以你的账户权限执行代码，请仅在信任其来源时安装。</value></data>
-  <data name="PluginManager_UntrustedWarning" xml:space="preserve"><value>“{0}”的签名有效，但此设备尚不信任其发布者。继续前请通过作者官网、GitHub 等独立渠道核对公钥指纹：
+  <data name="PluginManager_UntrustedTitle" xml:space="preserve">
+    <value>不受信任的插件包</value>
+  </data>
+  <data name="PluginManager_UnsignedWarning" xml:space="preserve">
+    <value>“{0}”没有签名。插件能以你的账户权限执行代码，请仅在信任其来源时安装。</value>
+  </data>
+  <data name="PluginManager_UntrustedWarning" xml:space="preserve">
+    <value>“{0}”的签名有效，但此设备尚不信任其发布者。继续前请通过作者官网、GitHub 等独立渠道核对公钥指纹：
 
 {1}
 
-信任后，同一密钥签署的后续包也会自动可信。插件能以你的账户权限执行代码。</value></data>
-  <data name="PluginManager_InstallAnyway" xml:space="preserve"><value>仍然安装</value></data>
-  <data name="PluginManager_TrustAndInstall" xml:space="preserve"><value>信任发布者并安装</value></data>
-  <data name="PluginManager_SecurityTip" xml:space="preserve"><value>插件以你的账户权限运行，可读写本地文件、会话与网络。安装前请核实插件来源并核对签名指纹，只安装来自可信发布者的插件，以免恶意插件窃取数据或破坏系统。</value></data>
-  <data name="PluginManager_Market" xml:space="preserve"><value>插件商店</value></data>
-  <data name="PluginManager_MarketTip" xml:space="preserve"><value>前往 market.easilynet.top 浏览已审核的插件</value></data>
-  <data name="Msg_PluginLoading" xml:space="preserve"><value>正在加载插件</value></data>
-  <data name="Msg_PluginActivating" xml:space="preserve"><value>正在启动插件</value></data>
-  <data name="Msg_PluginVerifying" xml:space="preserve"><value>正在校验插件</value></data>
-  <data name="Msg_PluginPrewarming" xml:space="preserve"><value>正在预热插件</value></data>
-  <data name="BackgroundTasks" xml:space="preserve"><value>后台任务</value></data>
-  <data name="BackgroundTasksIdle" xml:space="preserve"><value>暂无后台任务</value></data>
-  <data name="BackgroundTasksCount" xml:space="preserve"><value>{0} 项后台任务</value></data>
-  <data name="Msg_PluginInstalling" xml:space="preserve"><value>正在安装插件</value></data>
-  <data name="Sc_GroupGlobal" xml:space="preserve"><value>全局</value></data>
-  <data name="Sc_GroupCompletion" xml:space="preserve"><value>命令补全</value></data>
-  <data name="Sc_GroupMouse" xml:space="preserve"><value>终端鼠标手势</value></data>
-  <data name="Sc_GroupDialogs" xml:space="preserve"><value>对话框与窗口</value></data>
-  <data name="Sc_GroupAi" xml:space="preserve"><value>AI 助手插件</value></data>
-  <data name="Sc_KeyLeftClick" xml:space="preserve"><value>左键</value></data>
-  <data name="Sc_KeyRightClick" xml:space="preserve"><value>右键</value></data>
-  <data name="Sc_KeyDoubleClick" xml:space="preserve"><value>双击</value></data>
-  <data name="Sc_KeyDrag" xml:space="preserve"><value>拖拽</value></data>
-  <data name="Sc_KeyWheel" xml:space="preserve"><value>滚轮</value></data>
-  <data name="Sc_KeyTitleBar" xml:space="preserve"><value>标题栏</value></data>
-  <data name="Sc_KeyGutter" xml:space="preserve"><value>侧栏</value></data>
-  <data name="Sc_PasteShiftInsert" xml:space="preserve"><value>粘贴(经典 X11 键位)</value></data>
-  <data name="Sc_SearchNext" xml:space="preserve"><value>跳到下一个匹配</value></data>
-  <data name="Sc_SearchPrev" xml:space="preserve"><value>跳到上一个匹配</value></data>
-  <data name="Sc_SearchClose" xml:space="preserve"><value>关闭搜索栏</value></data>
-  <data name="Sc_ScrollPageUp" xml:space="preserve"><value>回滚历史上翻一页</value></data>
-  <data name="Sc_ScrollPageDown" xml:space="preserve"><value>回滚历史下翻一页</value></data>
-  <data name="Sc_LineStart" xml:space="preserve"><value>光标跳到行首</value></data>
-  <data name="Sc_LineEnd" xml:space="preserve"><value>光标跳到行尾</value></data>
-  <data name="Sc_CloseDisconnectedTab" xml:space="preserve"><value>关闭已断开的标签页</value></data>
-  <data name="Sc_SuggestNext" xml:space="preserve"><value>选择下一条建议</value></data>
-  <data name="Sc_SuggestPrev" xml:space="preserve"><value>选择上一条建议</value></data>
-  <data name="Sc_SuggestAccept" xml:space="preserve"><value>采用选中的建议</value></data>
-  <data name="Sc_SuggestDismiss" xml:space="preserve"><value>收起建议弹层</value></data>
-  <data name="Sc_SuggestNative" xml:space="preserve"><value>交给 shell 原生补全</value></data>
-  <data name="Sc_GhostAccept" xml:space="preserve"><value>接受行内幽灵补全</value></data>
-  <data name="Sc_OpenLink" xml:space="preserve"><value>打开指针下的链接</value></data>
-  <data name="Sc_SelectWord" xml:space="preserve"><value>选中单词</value></data>
-  <data name="Sc_AppendWord" xml:space="preserve"><value>追加选中一个单词</value></data>
-  <data name="Sc_ExtendSelection" xml:space="preserve"><value>从锚点扩展选区</value></data>
-  <data name="Sc_BlockSelection" xml:space="preserve"><value>矩形块选</value></data>
-  <data name="Sc_AppendSelection" xml:space="preserve"><value>追加一段不连续选区</value></data>
-  <data name="Sc_AppendBlockSelection" xml:space="preserve"><value>追加一段矩形块选</value></data>
-  <data name="Sc_BypassMouseReport" xml:space="preserve"><value>绕过鼠标上报以选中文本</value></data>
-  <data name="Sc_RightClickPaste" xml:space="preserve"><value>右键粘贴</value></data>
-  <data name="Sc_ZoomFont" xml:space="preserve"><value>缩放终端字号</value></data>
-  <data name="Sc_FastScroll" xml:space="preserve"><value>五倍速滚动回滚历史</value></data>
-  <data name="Sc_GutterMenu" xml:space="preserve"><value>打开侧栏设置菜单</value></data>
-  <data name="Sc_ToggleFold" xml:space="preserve"><value>折叠/展开输出块</value></data>
-  <data name="Sc_PaletteNext" xml:space="preserve"><value>选择下一条命令</value></data>
-  <data name="Sc_PalettePrev" xml:space="preserve"><value>选择上一条命令</value></data>
-  <data name="Sc_PaletteRun" xml:space="preserve"><value>执行选中的命令</value></data>
-  <data name="Sc_PaletteClose" xml:space="preserve"><value>关闭命令面板</value></data>
-  <data name="Sc_EditPath" xml:space="preserve"><value>编辑当前路径</value></data>
-  <data name="Sc_CommitPath" xml:space="preserve"><value>跳转到输入的路径</value></data>
-  <data name="Sc_CancelPath" xml:space="preserve"><value>取消路径编辑</value></data>
-  <data name="Sc_OpenEntry" xml:space="preserve"><value>打开选中的文件或目录</value></data>
-  <data name="Sc_CloseEditor" xml:space="preserve"><value>关闭编辑器</value></data>
-  <data name="Sc_RefreshProcesses" xml:space="preserve"><value>刷新进程列表</value></data>
-  <data name="Sc_EndTask" xml:space="preserve"><value>结束选中的进程</value></data>
-  <data name="Sc_CloseWindow" xml:space="preserve"><value>关闭窗口</value></data>
-  <data name="Sc_DialogCancel" xml:space="preserve"><value>取消并关闭当前对话框</value></data>
-  <data name="Sc_DialogConfirm" xml:space="preserve"><value>触发默认按钮</value></data>
-  <data name="Sc_MaximizeRestore" xml:space="preserve"><value>最大化/还原窗口</value></data>
-  <data name="Sc_CancelDockDrag" xml:space="preserve"><value>取消进行中的停靠拖拽</value></data>
-  <data name="Sc_PasswordPaste" xml:space="preserve"><value>在密码框中粘贴</value></data>
-  <data name="Sc_PasswordCopyBlocked" xml:space="preserve"><value>密码框中禁止复制</value></data>
-  <data name="Sc_AiSend" xml:space="preserve"><value>发送消息</value></data>
-  <data name="Sc_AiNewline" xml:space="preserve"><value>输入换行</value></data>
-  <data name="Sc_AiHistoryPrev" xml:space="preserve"><value>调出上一条输入</value></data>
-  <data name="Sc_AiHistoryNext" xml:space="preserve"><value>调出下一条输入</value></data>
-  <data name="Sc_AiRefNext" xml:space="preserve"><value>选择下一个文件候选</value></data>
-  <data name="Sc_AiRefPrev" xml:space="preserve"><value>选择上一个文件候选</value></data>
-  <data name="Sc_AiRefAccept" xml:space="preserve"><value>插入文件引用</value></data>
-  <data name="Sc_AiRefClose" xml:space="preserve"><value>关闭文件选择弹层</value></data>
-  <data name="Sc_AiRefDelete" xml:space="preserve"><value>整块删除文件引用</value></data>
-  <data name="Sc_AiRenameCommit" xml:space="preserve"><value>提交会话重命名</value></data>
-  <data name="Sc_AiRenameCancel" xml:space="preserve"><value>取消会话重命名</value></data>
-  <data name="Sc_AiClosePanel" xml:space="preserve"><value>关闭 AI 二级窗口</value></data>
-  <data name="Sc_NoteDisconnected" xml:space="preserve"><value>仅在会话已断开时</value></data>
-  <data name="Sc_NoteMainScreen" xml:space="preserve"><value>仅主屏且有回滚历史</value></data>
-  <data name="Sc_NoteAnyScreen" xml:space="preserve"><value>备用屏也生效</value></data>
-  <data name="Sc_NoteCtrlCCopies" xml:space="preserve"><value>开启选中时 Ctrl+C 复制且有选区时改为复制</value></data>
-  <data name="Sc_NoteSearchOpen" xml:space="preserve"><value>仅在搜索栏打开时</value></data>
-  <data name="Sc_NoteSuggestOpen" xml:space="preserve"><value>仅在建议弹层打开时</value></data>
-  <data name="Sc_NoteListFocused" xml:space="preserve"><value>仅在列表获得焦点时</value></data>
-  <data name="Sc_NoteMouseReporting" xml:space="preserve"><value>应用启用鼠标上报时需要</value></data>
-  <data name="Sc_NoteOptional" xml:space="preserve"><value>可在设置中关闭</value></data>
-  <data name="Sc_NoteRequiresSetting" xml:space="preserve"><value>需在设置中开启对应选项</value></data>
-  <data name="Sc_NotePasswordBlocked" xml:space="preserve"><value>Ctrl+X 同样被禁止</value></data>
-  <data name="Sc_NoteDragging" xml:space="preserve"><value>仅在停靠拖拽进行中</value></data>
-  <data name="Sc_NoteCaretFirstLine" xml:space="preserve"><value>仅当光标在首行时</value></data>
-  <data name="Sc_NoteCaretLastLine" xml:space="preserve"><value>仅当光标在末行时</value></data>
-  <data name="Sc_NoteRefPopup" xml:space="preserve"><value>仅在 @ 文件弹层打开时</value></data>
-  <data name="Sc_NoteAllDialogs" xml:space="preserve"><value>对所有对话框与二级窗口生效</value></data>
-  <data name="Sc_NoteEditorOnly" xml:space="preserve"><value>远程文件编辑器</value></data>
-  <data name="Sc_FilterPlaceholder" xml:space="preserve"><value>搜索快捷键</value></data>
-  <data name="Sc_NoMatch" xml:space="preserve"><value>没有匹配的快捷键。</value></data>
-  <data name="Sc_Count" xml:space="preserve"><value>共 {0} 条快捷键</value></data>
-  <data name="Sc_MacNote" xml:space="preserve"><value>在 macOS 上,终端内的复制/粘贴/新建标签/关闭标签/打开设置使用 Command 代替 Ctrl。</value></data>
-  <!-- Xshell 兼容登录:外部拉起确认弹窗与设置项 -->
+信任后，同一密钥签署的后续包也会自动可信。插件能以你的账户权限执行代码。</value>
+  </data>
+  <data name="PluginManager_InstallAnyway" xml:space="preserve">
+    <value>仍然安装</value>
+  </data>
+  <data name="PluginManager_TrustAndInstall" xml:space="preserve">
+    <value>信任发布者并安装</value>
+  </data>
+  <data name="PluginManager_SecurityTip" xml:space="preserve">
+    <value>插件以你的账户权限运行，可读写本地文件、会话与网络。安装前请核实插件来源并核对签名指纹，只安装来自可信发布者的插件，以免恶意插件窃取数据或破坏系统。</value>
+  </data>
+  <data name="PluginManager_Market" xml:space="preserve">
+    <value>插件商店</value>
+  </data>
+  <data name="PluginManager_MarketTip" xml:space="preserve">
+    <value>前往 market.easilynet.top 浏览已审核的插件</value>
+  </data>
+  <data name="Msg_PluginLoading" xml:space="preserve">
+    <value>正在加载插件</value>
+  </data>
+  <data name="Msg_PluginActivating" xml:space="preserve">
+    <value>正在启动插件</value>
+  </data>
+  <data name="Msg_PluginVerifying" xml:space="preserve">
+    <value>正在校验插件</value>
+  </data>
+  <data name="Msg_PluginPrewarming" xml:space="preserve">
+    <value>正在预热插件</value>
+  </data>
+  <data name="BackgroundTasks" xml:space="preserve">
+    <value>后台任务</value>
+  </data>
+  <data name="BackgroundTasksIdle" xml:space="preserve">
+    <value>暂无后台任务</value>
+  </data>
+  <data name="BackgroundTasksCount" xml:space="preserve">
+    <value>{0} 项后台任务</value>
+  </data>
+  <data name="Msg_PluginInstalling" xml:space="preserve">
+    <value>正在安装插件</value>
+  </data>
+  <data name="Sc_GroupGlobal" xml:space="preserve">
+    <value>全局</value>
+  </data>
+  <data name="Sc_GroupCompletion" xml:space="preserve">
+    <value>命令补全</value>
+  </data>
+  <data name="Sc_GroupMouse" xml:space="preserve">
+    <value>终端鼠标手势</value>
+  </data>
+  <data name="Sc_GroupDialogs" xml:space="preserve">
+    <value>对话框与窗口</value>
+  </data>
+  <data name="Sc_GroupAi" xml:space="preserve">
+    <value>AI 助手插件</value>
+  </data>
+  <data name="Sc_KeyLeftClick" xml:space="preserve">
+    <value>左键</value>
+  </data>
+  <data name="Sc_KeyRightClick" xml:space="preserve">
+    <value>右键</value>
+  </data>
+  <data name="Sc_KeyDoubleClick" xml:space="preserve">
+    <value>双击</value>
+  </data>
+  <data name="Sc_KeyDrag" xml:space="preserve">
+    <value>拖拽</value>
+  </data>
+  <data name="Sc_KeyWheel" xml:space="preserve">
+    <value>滚轮</value>
+  </data>
+  <data name="Sc_KeyTitleBar" xml:space="preserve">
+    <value>标题栏</value>
+  </data>
+  <data name="Sc_KeyGutter" xml:space="preserve">
+    <value>侧栏</value>
+  </data>
+  <data name="Sc_PasteShiftInsert" xml:space="preserve">
+    <value>粘贴(经典 X11 键位)</value>
+  </data>
+  <data name="Sc_SearchNext" xml:space="preserve">
+    <value>跳到下一个匹配</value>
+  </data>
+  <data name="Sc_SearchPrev" xml:space="preserve">
+    <value>跳到上一个匹配</value>
+  </data>
+  <data name="Sc_SearchClose" xml:space="preserve">
+    <value>关闭搜索栏</value>
+  </data>
+  <data name="Sc_ScrollPageUp" xml:space="preserve">
+    <value>回滚历史上翻一页</value>
+  </data>
+  <data name="Sc_ScrollPageDown" xml:space="preserve">
+    <value>回滚历史下翻一页</value>
+  </data>
+  <data name="Sc_LineStart" xml:space="preserve">
+    <value>光标跳到行首</value>
+  </data>
+  <data name="Sc_LineEnd" xml:space="preserve">
+    <value>光标跳到行尾</value>
+  </data>
+  <data name="Sc_CloseDisconnectedTab" xml:space="preserve">
+    <value>关闭已断开的标签页</value>
+  </data>
+  <data name="Sc_SuggestNext" xml:space="preserve">
+    <value>选择下一条建议</value>
+  </data>
+  <data name="Sc_SuggestPrev" xml:space="preserve">
+    <value>选择上一条建议</value>
+  </data>
+  <data name="Sc_SuggestAccept" xml:space="preserve">
+    <value>采用选中的建议</value>
+  </data>
+  <data name="Sc_SuggestDismiss" xml:space="preserve">
+    <value>收起建议弹层</value>
+  </data>
+  <data name="Sc_SuggestNative" xml:space="preserve">
+    <value>交给 shell 原生补全</value>
+  </data>
+  <data name="Sc_GhostAccept" xml:space="preserve">
+    <value>接受行内幽灵补全</value>
+  </data>
+  <data name="Sc_OpenLink" xml:space="preserve">
+    <value>打开指针下的链接</value>
+  </data>
+  <data name="Sc_SelectWord" xml:space="preserve">
+    <value>选中单词</value>
+  </data>
+  <data name="Sc_AppendWord" xml:space="preserve">
+    <value>追加选中一个单词</value>
+  </data>
+  <data name="Sc_ExtendSelection" xml:space="preserve">
+    <value>从锚点扩展选区</value>
+  </data>
+  <data name="Sc_BlockSelection" xml:space="preserve">
+    <value>矩形块选</value>
+  </data>
+  <data name="Sc_AppendSelection" xml:space="preserve">
+    <value>追加一段不连续选区</value>
+  </data>
+  <data name="Sc_AppendBlockSelection" xml:space="preserve">
+    <value>追加一段矩形块选</value>
+  </data>
+  <data name="Sc_BypassMouseReport" xml:space="preserve">
+    <value>绕过鼠标上报以选中文本</value>
+  </data>
+  <data name="Sc_RightClickPaste" xml:space="preserve">
+    <value>右键粘贴</value>
+  </data>
+  <data name="Sc_ZoomFont" xml:space="preserve">
+    <value>缩放终端字号</value>
+  </data>
+  <data name="Sc_FastScroll" xml:space="preserve">
+    <value>五倍速滚动回滚历史</value>
+  </data>
+  <data name="Sc_GutterMenu" xml:space="preserve">
+    <value>打开侧栏设置菜单</value>
+  </data>
+  <data name="Sc_ToggleFold" xml:space="preserve">
+    <value>折叠/展开输出块</value>
+  </data>
+  <data name="Sc_PaletteNext" xml:space="preserve">
+    <value>选择下一条命令</value>
+  </data>
+  <data name="Sc_PalettePrev" xml:space="preserve">
+    <value>选择上一条命令</value>
+  </data>
+  <data name="Sc_PaletteRun" xml:space="preserve">
+    <value>执行选中的命令</value>
+  </data>
+  <data name="Sc_PaletteClose" xml:space="preserve">
+    <value>关闭命令面板</value>
+  </data>
+  <data name="Sc_EditPath" xml:space="preserve">
+    <value>编辑当前路径</value>
+  </data>
+  <data name="Sc_CommitPath" xml:space="preserve">
+    <value>跳转到输入的路径</value>
+  </data>
+  <data name="Sc_CancelPath" xml:space="preserve">
+    <value>取消路径编辑</value>
+  </data>
+  <data name="Sc_OpenEntry" xml:space="preserve">
+    <value>打开选中的文件或目录</value>
+  </data>
+  <data name="Sc_CloseEditor" xml:space="preserve">
+    <value>关闭编辑器</value>
+  </data>
+  <data name="Sc_RefreshProcesses" xml:space="preserve">
+    <value>刷新进程列表</value>
+  </data>
+  <data name="Sc_EndTask" xml:space="preserve">
+    <value>结束选中的进程</value>
+  </data>
+  <data name="Sc_CloseWindow" xml:space="preserve">
+    <value>关闭窗口</value>
+  </data>
+  <data name="Sc_DialogCancel" xml:space="preserve">
+    <value>取消并关闭当前对话框</value>
+  </data>
+  <data name="Sc_DialogConfirm" xml:space="preserve">
+    <value>触发默认按钮</value>
+  </data>
+  <data name="Sc_MaximizeRestore" xml:space="preserve">
+    <value>最大化/还原窗口</value>
+  </data>
+  <data name="Sc_CancelDockDrag" xml:space="preserve">
+    <value>取消进行中的停靠拖拽</value>
+  </data>
+  <data name="Sc_PasswordPaste" xml:space="preserve">
+    <value>在密码框中粘贴</value>
+  </data>
+  <data name="Sc_PasswordCopyBlocked" xml:space="preserve">
+    <value>密码框中禁止复制</value>
+  </data>
+  <data name="Sc_AiSend" xml:space="preserve">
+    <value>发送消息</value>
+  </data>
+  <data name="Sc_AiNewline" xml:space="preserve">
+    <value>输入换行</value>
+  </data>
+  <data name="Sc_AiHistoryPrev" xml:space="preserve">
+    <value>调出上一条输入</value>
+  </data>
+  <data name="Sc_AiHistoryNext" xml:space="preserve">
+    <value>调出下一条输入</value>
+  </data>
+  <data name="Sc_AiRefNext" xml:space="preserve">
+    <value>选择下一个文件候选</value>
+  </data>
+  <data name="Sc_AiRefPrev" xml:space="preserve">
+    <value>选择上一个文件候选</value>
+  </data>
+  <data name="Sc_AiRefAccept" xml:space="preserve">
+    <value>插入文件引用</value>
+  </data>
+  <data name="Sc_AiRefClose" xml:space="preserve">
+    <value>关闭文件选择弹层</value>
+  </data>
+  <data name="Sc_AiRefDelete" xml:space="preserve">
+    <value>整块删除文件引用</value>
+  </data>
+  <data name="Sc_AiRenameCommit" xml:space="preserve">
+    <value>提交会话重命名</value>
+  </data>
+  <data name="Sc_AiRenameCancel" xml:space="preserve">
+    <value>取消会话重命名</value>
+  </data>
+  <data name="Sc_AiClosePanel" xml:space="preserve">
+    <value>关闭 AI 二级窗口</value>
+  </data>
+  <data name="Sc_NoteDisconnected" xml:space="preserve">
+    <value>仅在会话已断开时</value>
+  </data>
+  <data name="Sc_NoteMainScreen" xml:space="preserve">
+    <value>仅主屏且有回滚历史</value>
+  </data>
+  <data name="Sc_NoteAnyScreen" xml:space="preserve">
+    <value>备用屏也生效</value>
+  </data>
+  <data name="Sc_NoteCtrlCCopies" xml:space="preserve">
+    <value>开启选中时 Ctrl+C 复制且有选区时改为复制</value>
+  </data>
+  <data name="Sc_NoteSearchOpen" xml:space="preserve">
+    <value>仅在搜索栏打开时</value>
+  </data>
+  <data name="Sc_NoteSuggestOpen" xml:space="preserve">
+    <value>仅在建议弹层打开时</value>
+  </data>
+  <data name="Sc_NoteListFocused" xml:space="preserve">
+    <value>仅在列表获得焦点时</value>
+  </data>
+  <data name="Sc_NoteMouseReporting" xml:space="preserve">
+    <value>应用启用鼠标上报时需要</value>
+  </data>
+  <data name="Sc_NoteOptional" xml:space="preserve">
+    <value>可在设置中关闭</value>
+  </data>
+  <data name="Sc_NoteRequiresSetting" xml:space="preserve">
+    <value>需在设置中开启对应选项</value>
+  </data>
+  <data name="Sc_NotePasswordBlocked" xml:space="preserve">
+    <value>Ctrl+X 同样被禁止</value>
+  </data>
+  <data name="Sc_NoteDragging" xml:space="preserve">
+    <value>仅在停靠拖拽进行中</value>
+  </data>
+  <data name="Sc_NoteCaretFirstLine" xml:space="preserve">
+    <value>仅当光标在首行时</value>
+  </data>
+  <data name="Sc_NoteCaretLastLine" xml:space="preserve">
+    <value>仅当光标在末行时</value>
+  </data>
+  <data name="Sc_NoteRefPopup" xml:space="preserve">
+    <value>仅在 @ 文件弹层打开时</value>
+  </data>
+  <data name="Sc_NoteAllDialogs" xml:space="preserve">
+    <value>对所有对话框与二级窗口生效</value>
+  </data>
+  <data name="Sc_NoteEditorOnly" xml:space="preserve">
+    <value>远程文件编辑器</value>
+  </data>
+  <data name="Sc_FilterPlaceholder" xml:space="preserve">
+    <value>搜索快捷键</value>
+  </data>
+  <data name="Sc_NoMatch" xml:space="preserve">
+    <value>没有匹配的快捷键。</value>
+  </data>
+  <data name="Sc_Count" xml:space="preserve">
+    <value>共 {0} 条快捷键</value>
+  </data>
+  <data name="Sc_MacNote" xml:space="preserve">
+    <value>在 macOS 上,终端内的复制/粘贴/新建标签/关闭标签/打开设置使用 Command 代替 Ctrl。</value>
+  </data>
   <data name="ExtLaunch_Title" xml:space="preserve">
     <value>外部登录请求</value>
   </data>

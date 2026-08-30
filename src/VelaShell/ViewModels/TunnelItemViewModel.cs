@@ -94,6 +94,33 @@ public class TunnelItemViewModel(TunnelInfo tunnelInfo) : ReactiveObject
     /// <summary>累计流量的人类可读格式(如 1.2 MB)。</summary>
     public string FormattedBytes => FormatBytes(BytesTransferred);
 
+    /// <summary>累计接受的连接数(由服务侧写入共享 TunnelInfo)。</summary>
+    public int TotalConnections => _tunnelInfo.TotalConnections;
+
+    /// <summary>当前仍在传输的连接数。</summary>
+    public int ActiveConnections => _tunnelInfo.ActiveConnections;
+
+    /// <summary>
+    /// 流量统计行(设计 fuXS7 预留的说明行):没有连接过就直说,有在传的连接则把
+    /// 并发数一并点出 —— "3 连接"和"3 连接(2 在传)"对排查问题是两回事。
+    /// </summary>
+    public string StatsText =>
+        TotalConnections == 0
+            ? Strings.Get("Tunnel_StatsNone")
+            : ActiveConnections > 0
+                ? Strings.Format("Tunnel_StatsLive", TotalConnections, ActiveConnections, FormattedBytes)
+                : Strings.Format("Tunnel_Stats", TotalConnections, FormattedBytes);
+
+    /// <summary>承载会话掉线后是否自动重建这条隧道。</summary>
+    public bool AutoReconnect => _tunnelInfo.Config.AutoReconnect;
+
+    /// <summary>
+    /// 这条隧道是被用户按停的,而不是被掉线带停的。自动恢复据此放过它 ——
+    /// 「掉线后自动重连」说的是替用户扛住网络抖动,不是把他刚按下的停止键撤销掉。
+    /// 重建出来的条目是新对象,自然回到 false,所以手动启动后自动恢复照常生效。
+    /// </summary>
+    public bool StoppedByUser { get; set; }
+
     /// <summary>隧道是否处于活动状态。</summary>
     public bool IsActive => Status == TunnelStatus.Active;
 
@@ -125,6 +152,11 @@ public class TunnelItemViewModel(TunnelInfo tunnelInfo) : ReactiveObject
         this.RaisePropertyChanged(nameof(StatusText));
         this.RaisePropertyChanged(nameof(LastError));
         this.RaisePropertyChanged(nameof(HasError));
+        this.RaisePropertyChanged(nameof(BytesTransferred));
+        this.RaisePropertyChanged(nameof(FormattedBytes));
+        this.RaisePropertyChanged(nameof(TotalConnections));
+        this.RaisePropertyChanged(nameof(ActiveConnections));
+        this.RaisePropertyChanged(nameof(StatsText));
     }
 
     private static string FormatUptime(TimeSpan uptime)

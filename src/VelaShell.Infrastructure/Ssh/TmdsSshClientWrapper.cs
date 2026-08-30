@@ -374,7 +374,10 @@ public sealed class TmdsSshClientWrapper : ISshClientWrapper
     }
 
     /// <summary>
-    /// 在当前连接上异步启动端口转发,返回 <see cref="IPortForwardHandle" />。Tmds.Ssh 的 ForwardToRemoteAsync 只支持远程转发,本地转发被忽略。
+    /// 在当前连接上异步启动端口转发,返回 <see cref="IPortForwardHandle" />。
+    /// 转发的数据面走宿主自建的 <see cref="MeteredPortForwardHandle" />(而非直接用 Tmds.Ssh 的
+    /// LocalForward/SocksForward),因为库把搬运整个做在内部、不暴露任何计数,
+    /// 而隧道面板要显示每条隧道的连接数与累计流量。
     /// </summary>
     /// <param name="request"></param>
     /// <param name="cancellationToken"></param>
@@ -386,7 +389,7 @@ public sealed class TmdsSshClientWrapper : ISshClientWrapper
         if (_client is null) throw new InvalidOperationException("Not connected.");
         try
         {
-            return await TmdsSshPortForwardHandle.CreateAsync(_client, request, cancellationToken).ConfigureAwait(false);
+            return await MeteredPortForwardHandle.CreateAsync(_client, request, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex) when (TmdsSshInterop.Translate(ex, cancellationToken) is { } translated)
         {

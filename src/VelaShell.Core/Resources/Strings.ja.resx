@@ -3208,6 +3208,33 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   <data name="Tunnel_RouteDynamic" xml:space="preserve">
     <value>このコンピューターの SOCKS5 {0}:{1} → 動的な接続先</value>
   </data>
+  <data name="TunnelSvc_LocalPortInUse" xml:space="preserve">
+    <value>ローカルポート {0} は他のプログラムが使用中です。そのプログラムを停止するか、別のローカルポートを指定してください。</value>
+  </data>
+  <data name="Tunnel_Stats" xml:space="preserve">
+    <value>{0} 接続 · {1}</value>
+  </data>
+  <data name="Tunnel_StatsLive" xml:space="preserve">
+    <value>{0} 接続（{1} 転送中）· {2}</value>
+  </data>
+  <data name="Tunnel_StatsNone" xml:space="preserve">
+    <value>接続はまだありません</value>
+  </data>
+  <data name="Tunnel_AutoBadge" xml:space="preserve">
+    <value>自動</value>
+  </data>
+  <data name="Tunnel_AutoReconnect" xml:space="preserve">
+    <value>切断後に自動で再接続</value>
+  </data>
+  <data name="Tunnel_AutoReconnectTip" xml:space="preserve">
+    <value>バックグラウンド接続が切れたときに自動で再接続し、このトンネルを再構築します。再試行間隔は 10 秒から 5 分まで段階的に延びます。</value>
+  </data>
+  <data name="Msg_TunnelAutoReconnecting" xml:space="preserve">
+    <value>再接続中 • トンネルを復元しています</value>
+  </data>
+  <data name="Msg_TunnelAutoReconnectFailed" xml:space="preserve">
+    <value>自動再接続に失敗しました: {0}</value>
+  </data>
   <data name="Tunnel_HelpButtonTooltip" xml:space="preserve">
     <value>SSHトンネルについて</value>
   </data>
