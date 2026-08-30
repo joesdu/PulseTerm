@@ -180,10 +180,22 @@ StatusBar (24px, bg-sidebar)
 
 ### 4.5 Shadows
 
-| Type | Spec |
+One token, `VelaShadowWindow`, carries every float and self-drawn window card — the shadow
+language must not vary between overlays. It is two layers: a near one that firms up the edge and
+a far one that spreads.
+
+| Theme | Token value |
 |---|---|
-| Small float | `blur:16, color:#00000060, offsetY:4` |
-| Large dialog | `blur:32, color:#00000080, offsetY:8` |
+| Dark | `0 1 3 0 #40000000, 0 4 12 0 #66000000` |
+| Light | `0 1 3 0 #1A000000, 0 4 12 0 #33000000` |
+
+Two rules the values are constrained by:
+
+- **Reach (`offsetY + blur`) must stay ≤ 16**, matching the card margin. A self-drawn transparent
+  window can only paint its shadow inside the window rectangle, so anything past the margin is cut
+  off by the window edge — which reads as a smeared block, not a shadow. Change one, change both.
+- **Opacity is per theme.** The same 50%-black under a light card turns into a dirty grey
+  rectangle, so the light values are roughly 40% of the dark ones.
 
 ---
 
@@ -375,8 +387,12 @@ Windows Explorer semantics, both orientations, application-wide (ScrollViewer, l
 
 ### 7.3 Floats
 
-- **Small floats** (context menus, tooltips, tab dropdowns, transfer panel, tunnel panel): `VelaBgSurface` + `VelaBorderSecondary` + `CornerRadius:6` + shadow `blur:16 #00000060 y:4`
-- **Large dialogs** (settings, new connection, command palette): `VelaBgSurface`/`VelaBgPage` + `CornerRadius:8` + shadow `blur:32 #00000080 y:8` + optional modal overlay
+- **Small floats** (context menus, tooltips, tab dropdowns, transfer panel, tunnel panel, message centre): `VelaBgSurface` + `VelaBorderSecondary` + `CornerRadius:6` + `BoxShadow:VelaShadowWindow` (§4.5)
+- **Large dialogs** (settings, new connection, command palette): `VelaBgSurface`/`VelaBgPage` + `CornerRadius:8` + `BoxShadow:VelaShadowWindow` (§4.5) + optional modal overlay
+- **Rounded corners do not clip on their own.** A card that scrolls or paints content to its own
+  edge (a list, a full-height accent bar) needs an inner `Border` with `ClipToBounds:True` and the
+  *inner* radius (outer − 1px stroke) wrapping that content; putting `ClipToBounds` on the card
+  itself would clip away its own `BoxShadow`.
 - **All floats**: Position-aware edge avoidance, theme-synced at runtime
 
 ---

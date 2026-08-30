@@ -8,7 +8,7 @@
 
     <!-- 自绘窗体卡片的外投影,几何与暗色一致(见 DarkTheme 的说明),只把不透明度降一档:
          同样的纯黑投影压在亮底上会显脏,亮色主题里靠更浅的投影 + 1px 描边区分层级。 -->
-    <BoxShadows x:Key="VelaShadowWindow">0 2 4 0 #26000000, 0 6 10 0 #4D000000</BoxShadows>
+    <BoxShadows x:Key="VelaShadowWindow">0 1 3 0 #1A000000, 0 4 12 0 #33000000</BoxShadows>
 
     <!-- 语义标记 -->
     <SolidColorBrush x:Key="VelaWarning" Color="#846E15" />
