@@ -27,7 +27,7 @@ public class ResizePreservationTests
         // reflow 会把旧行对象回收复用(避免每次重排为整个缓冲区重新分配上万个单元格数组)。
         // 这类复用出错的典型症状就是"同一个行对象被塞进缓冲区两处":一处改写会连带另一处
         // 一起变,画面上表现为某一行的内容莫名其妙复制到别处。这里直接按引用identity 查重。
-        var e = New(40, 8);
+        TerminalEmulator e = New(40, 8);
         for (int i = 0; i < 40; i++)
         {
             Feed(e, $"line-{i} with enough text to wrap when the terminal gets narrow\r\n");
@@ -56,7 +56,7 @@ public class ResizePreservationTests
         // 它不是内容,重排时必须丢掉 —— 否则每经一次 reflow 就在断点处凭空多出一个空格。
         //
         // 宽度 5:'a','b' 占 0,1;'中' 占 2,3;'文' 需要两列而只剩第 4 列 → 换行,第 4 列成为填充格。
-        var e = New(5, 4);
+        TerminalEmulator e = New(5, 4);
         Feed(e, "ab中文");
 
         TerminalRow wrapped = e.Screen.ViewLine(0);
@@ -78,7 +78,7 @@ public class ResizePreservationTests
     {
         // 反向保险:修填充格时不能顺手把宽字符的尾格也砍了 —— 砍掉的话前导格会被当成
         // 单宽字符,重排后宽字符只占一列,后面所有内容跟着错位。
-        var e = New(8, 4);
+        TerminalEmulator e = New(8, 4);
         Feed(e, "ab中");
 
         e.Resize(20, 4);
@@ -95,7 +95,7 @@ public class ResizePreservationTests
         // 行回收之后的内容回归:反复改宽再回到原宽,文本必须逐字不变。
         // 混排宽字符:它们曾经会在每次重排的换行断点处多攒一个空格(见
         // Reflow_WideCharWrapPadding_IsNotCarriedAsContent),这条用例连带把那个回归也压住。
-        var e = New(60, 6);
+        TerminalEmulator e = New(60, 6);
         string[] written =
         [
             "alpha bravo charlie delta echo foxtrot golf hotel india juliet",

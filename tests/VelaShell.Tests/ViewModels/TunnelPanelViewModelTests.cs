@@ -42,8 +42,8 @@ public class TunnelPanelViewModelTests
     [TestCategory("TunnelUI")]
     public async Task RefreshLiveState_SessionDropped_RebuildsAutoReconnectTunnel()
     {
-        var alive = true;
-        Guid reconnectedSession = Guid.NewGuid();
+        bool alive = true;
+        var reconnectedSession = Guid.NewGuid();
         TunnelPanelViewModel vm = CreateVm(() => alive, _ => Task.FromResult(reconnectedSession));
         await SeedTunnelAsync(vm, autoReconnect: true);
 
@@ -65,7 +65,7 @@ public class TunnelPanelViewModelTests
     [TestCategory("TunnelUI")]
     public async Task RefreshLiveState_SessionDropped_LeavesManualTunnelStopped()
     {
-        var alive = true;
+        bool alive = true;
         TunnelPanelViewModel vm = CreateVm(() => alive, _ => Task.FromResult(Guid.NewGuid()));
         await SeedTunnelAsync(vm, autoReconnect: false);
         _workflowService.ClearReceivedCalls();
@@ -87,9 +87,9 @@ public class TunnelPanelViewModelTests
     [TestCategory("TunnelUI")]
     public async Task RefreshLiveState_ReconnectFailure_BacksOffBeforeRetrying()
     {
-        var alive = true;
-        var serverIsDown = false;
-        var attempts = 0;
+        bool alive = true;
+        bool serverIsDown = false;
+        int attempts = 0;
         TunnelPanelViewModel vm = CreateVm(() => alive, _ =>
         {
             if (!serverIsDown)
@@ -123,7 +123,7 @@ public class TunnelPanelViewModelTests
     [TestCategory("TunnelUI")]
     public async Task RefreshLiveState_DoesNotRebuild_TunnelTheUserStopped()
     {
-        var alive = true;
+        bool alive = true;
         TunnelPanelViewModel vm = CreateVm(() => alive, _ => Task.FromResult(_sessionId));
         await SeedTunnelAsync(vm, autoReconnect: true);
         await vm.StopTunnelCommand.Execute(vm.Tunnels[0].Id).FirstAsync();

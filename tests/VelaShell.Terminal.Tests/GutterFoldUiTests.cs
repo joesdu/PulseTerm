@@ -3,7 +3,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Input;
-using Avalonia.Themes.Fluent;
 using Avalonia.Threading;
 using VelaShell.Terminal.Rendering;
 

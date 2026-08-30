@@ -222,7 +222,7 @@ public class FtpFileServiceIntegrationTests
         Directory.CreateDirectory(outDir);
         try
         {
-            var faulted = false;
+            bool faulted = false;
             _service.SessionStateChanged += (_, change) => faulted |= change.State == FtpSessionState.Faulted;
 
             byte[] payload = Enumerable.Range(0, 4096).Select(static i => (byte)(i % 251)).ToArray();
