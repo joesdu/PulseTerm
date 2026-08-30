@@ -34,8 +34,51 @@
       </StackPanel>
       <ToggleSwitch Grid.Column="1" IsChecked="{Binding General.MinimizeToTray}" VerticalAlignment="Center" />
     </Grid>
-    <!-- 启动时检查更新 / 更新频道 / 自动下载:更新服务尚未接入,暂不展示(设置审计 R-01~R-03);
-         字段仍持久化,功能实现后恢复展示。 -->
+    <!-- 「启动时检查更新」恢复展示:它此前被判为"更新服务尚未接入"而隐藏(设置审计 R-01),
+         但这个开关已经有实际消费者 —— 消息中心据它决定要不要在启动时查一次新版本。
+         更新频道 / 自动下载仍未接线,继续隐藏。 -->
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetGeneral_CheckUpdatesOnStartup}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetGeneral_CheckUpdatesOnStartupDesc}" />
+      </StackPanel>
+      <ToggleSwitch Grid.Column="1" IsChecked="{Binding General.CheckUpdatesOnStartup}" VerticalAlignment="Center" />
+    </Grid>
+
+    <Border Classes="sep" />
+
+    <!-- 消息中心(侧边栏铃铛) -->
+    <TextBlock Classes="section-title" Text="{loc:Localize SetGeneral_MessagesSection}" />
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetGeneral_NotifyUpdates}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetGeneral_NotifyUpdatesDesc}" />
+      </StackPanel>
+      <ToggleSwitch Grid.Column="1" IsChecked="{Binding Notifications.NotifyUpdates}" VerticalAlignment="Center" />
+    </Grid>
+    <StackPanel Spacing="4">
+      <TextBlock Classes="row-label" Text="{loc:Localize SetGeneral_FeedUrl}" />
+      <TextBlock Classes="row-desc" Text="{loc:Localize SetGeneral_FeedUrlDesc}" />
+      <TextBox Text="{Binding Notifications.FeedUrl}"
+               PlaceholderText="{loc:Localize SetGeneral_FeedUrlPlaceholder}" />
+    </StackPanel>
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetGeneral_FeedInterval}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetGeneral_FeedIntervalDesc}" />
+      </StackPanel>
+      <NumericUpDown Grid.Column="1" Width="110" Minimum="1" Maximum="168" Increment="1"
+                     FormatString="0"
+                     Value="{Binding Notifications.FeedIntervalHours}"
+                     VerticalAlignment="Center" />
+    </Grid>
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="row-label" Text="{loc:Localize SetGeneral_AllowPromotions}" />
+        <TextBlock Classes="row-desc" Text="{loc:Localize SetGeneral_AllowPromotionsDesc}" />
+      </StackPanel>
+      <ToggleSwitch Grid.Column="1" IsChecked="{Binding Notifications.AllowPromotions}" VerticalAlignment="Center" />
+    </Grid>
 
     <Border Classes="sep" />
 

@@ -497,7 +497,7 @@ public class SettingsViewModelTests
 
         vm.ShortcutFilter = "   ";
 
-        Assert.AreEqual(vm.ShortcutGroups.Length, vm.FilteredShortcutGroups.Length, "只有空白的搜索词等于没搜");
+        Assert.HasCount(vm.ShortcutGroups.Length, vm.FilteredShortcutGroups, "只有空白的搜索词等于没搜");
         Assert.AreEqual(total, vm.FilteredShortcutGroups.Sum(group => group.FilteredItems.Count));
     }
 

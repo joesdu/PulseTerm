@@ -21,6 +21,52 @@ namespace VelaShell.ViewModels;
 /// <summary>设置左侧导航项(图标为 PathIcon 几何)。</summary>
 public sealed record SettingsSection(string Name, string Icon);
 
+/// <summary>
+/// 设置页左侧分区的稳定标识,供"直接跳到某一页"的入口(消息中心、命令注册表)使用。
+/// <para>
+/// 用它而不是下标:分区顺序是会调整的,一旦有谁记住了「关于页 = 10」,
+/// 中间插一页就静默跳错地方,而且没有任何东西会报错。
+/// </para>
+/// </summary>
+public enum SettingsSectionKey
+{
+    /// <summary>常规。</summary>
+    General,
+
+    /// <summary>外观。</summary>
+    Appearance,
+
+    /// <summary>终端。</summary>
+    Terminal,
+
+    /// <summary>密钥管理。</summary>
+    Keys,
+
+    /// <summary>快捷键。</summary>
+    Shortcuts,
+
+    /// <summary>文件传输。</summary>
+    Transfer,
+
+    /// <summary>安全审计。</summary>
+    Security,
+
+    /// <summary>网络代理。</summary>
+    Proxy,
+
+    /// <summary>代码片段。</summary>
+    Snippets,
+
+    /// <summary>云同步。</summary>
+    Sync,
+
+    /// <summary>关于(含检查更新)。</summary>
+    About,
+
+    /// <summary>支持与捐赠。</summary>
+    Support
+}
+
 /// <summary>关于页的开源依赖条目(项目主页 + 许可证页面可点击跳转)。</summary>
 public sealed record DependencyInfo(string Name, string License, string Url, string LicenseUrl);
 
@@ -336,6 +382,13 @@ public class SettingsViewModel : ReactiveObject
         private set => this.RaiseAndSetIfChanged(ref field, value);
     } = new();
 
+    /// <summary>消息中心选项(资讯源、更新提醒)。</summary>
+    public NotificationOptions Notifications
+    {
+        get;
+        private set => this.RaiseAndSetIfChanged(ref field, value);
+    } = new();
+
     /// <summary>密钥管理页。</summary>
     public SshKeyManagerViewModel SshKeys { get; }
 
@@ -458,6 +511,20 @@ public class SettingsViewModel : ReactiveObject
     {
         get;
         set => this.RaiseAndSetIfChanged(ref field, value);
+    }
+
+    /// <summary>
+    /// 跳到指定分区。<see cref="SettingsSectionKey" /> 的顺序与 <see cref="BuildSections" />
+    /// 的产出一一对应,由 <c>SettingsSectionKeyTests</c> 钉住 —— 往中间插一页就会有测试失败,
+    /// 而不是让"跳到关于页"悄悄跳去别处。
+    /// </summary>
+    public void SelectSection(SettingsSectionKey key)
+    {
+        int index = (int)key;
+        if (index >= 0 && index < Sections.Length)
+        {
+            SelectedSectionIndex = index;
+        }
     }
 
     /// <summary>支持的界面语言(顺序即语言下拉的条目顺序)。</summary>
@@ -1272,6 +1339,7 @@ public class SettingsViewModel : ReactiveObject
         Security = settings.Security;
         Keys = settings.Keys;
         Proxy = settings.Proxy;
+        Notifications = settings.Notifications;
         RefreshTrustedLaunchTargets();
 
         // 配色方案下拉:重算“(默认)”标注与选中项(出厂值折射到当前主题默认方案;
@@ -1461,6 +1529,7 @@ public class SettingsViewModel : ReactiveObject
         _loaded.Security = Security;
         _loaded.Keys = Keys;
         _loaded.Proxy = Proxy;
+        _loaded.Notifications = Notifications;
         await _settingsService.SaveSettingsAsync(_loaded);
 
         // 即时生效 —— 主题、强调色与语言均无需重启即可应用(#2/#3/#4)。

@@ -29,7 +29,7 @@ public class Socks5NegotiationTests
 
         Assert.AreEqual("db.internal", host);
         Assert.AreEqual(5432, port);
-        CollectionAssert.AreEqual(new byte[] { 0x05, 0x00 }, stream.ReadOutbound(2), "应先回一条选定 NO-AUTH 的方法应答。");
+        Assert.AreSequenceEqual(new byte[] { 0x05, 0x00 }, stream.ReadOutbound(2), "应先回一条选定 NO-AUTH 的方法应答。");
     }
 
     /// <summary>IPv4 目标解析:地址按四字节网络序还原。</summary>
@@ -58,7 +58,7 @@ public class Socks5NegotiationTests
         await Assert.ThrowsExactlyAsync<Socks5ProtocolException>(
             async () => await Socks5Negotiation.AcceptRequestAsync(stream, deadline.Token));
 
-        CollectionAssert.AreEqual(new byte[] { 0x05, 0xFF }, stream.ReadOutbound(2));
+        Assert.AreSequenceEqual(new byte[] { 0x05, 0xFF }, stream.ReadOutbound(2));
     }
 
     /// <summary>非 CONNECT 命令(BIND / UDP ASSOCIATE)回 0x07,并把请求判死。</summary>
@@ -112,7 +112,7 @@ public class Socks5NegotiationTests
         await Socks5Negotiation.WriteReplyAsync(stream, Socks5Negotiation.ReplySucceeded, deadline.Token);
 
         byte[] reply = stream.ReadOutbound(10);
-        CollectionAssert.AreEqual(new byte[] { 0x05, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0 }, reply);
+        Assert.AreSequenceEqual(new byte[] { 0x05, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0 }, reply);
         Assert.AreEqual(0, BinaryPrimitives.ReadUInt16BigEndian(reply.AsSpan(8)));
     }
 

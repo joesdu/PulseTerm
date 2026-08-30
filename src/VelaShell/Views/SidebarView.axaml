@@ -232,11 +232,20 @@
         </StackPanel>
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"
                     VerticalAlignment="Center">
+          <!-- 消息中心入口。未读角标叠在铃铛右上角:侧边栏底部只有 24px 见方,
+               放不下数字标签,而"有没有新东西"本来也只需要一个点就能说清。 -->
           <Button Width="24" Height="24" Background="Transparent" Padding="0"
                   CornerRadius="3" Command="{Binding NotificationsCommand}"
                   ToolTip.Tip="{x:Static res:Strings.Notifications}" ToolTip.Placement="Right" Cursor="Hand">
-            <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.bell}"
-                           Foreground="{DynamicResource VelaTextTertiary}" />
+            <Panel>
+              <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.bell}"
+                             Foreground="{DynamicResource VelaTextTertiary}" />
+              <Ellipse Width="6" Height="6"
+                       HorizontalAlignment="Right" VerticalAlignment="Top"
+                       Margin="0,-1,-1,0"
+                       Fill="{DynamicResource VelaAccent}"
+                       IsVisible="{Binding HasUnreadNotifications}" />
+            </Panel>
           </Button>
           <Button Width="24" Height="24" Background="Transparent" Padding="0"
                   CornerRadius="3" Click="OpenPlugins_Click"

@@ -61,7 +61,7 @@ public class XYModemInteropTests
     private static async Task<byte> ReadByteAsync(XYModemByteReader reader, CancellationToken ct)
     {
         int b = await reader.ReadByteAsync(ct);
-        Assert.IsTrue(b >= 0, "对端提前关闭了通道");
+        Assert.IsGreaterThanOrEqualTo(0, b, "对端提前关闭了通道");
         return (byte)b;
     }
 
@@ -114,7 +114,7 @@ public class XYModemInteropTests
         FileTransferSession session = await receiving;
 
         Assert.AreEqual(FileTransferState.Completed, session.Status);
-        Assert.AreSequenceEqual(new[] { "中文名.txt" }, sink.OfferedNames, "0 号块的 UTF-8 文件名应原样解出");
+        Assert.AreSequenceEqual(["中文名.txt"], sink.OfferedNames, "0 号块的 UTF-8 文件名应原样解出");
         Assert.AreEqual(content.Length, sink.OfferedSizes[0], "0 号块声明的大小应被解析");
         Assert.AreSequenceEqual(content, sink.Completed["中文名.txt"], "末块的 SUB 填充必须按声明大小裁掉");
     }
@@ -150,7 +150,7 @@ public class XYModemInteropTests
         FileTransferSession session = await receiving;
 
         Assert.AreEqual(FileTransferState.Completed, session.Status);
-        Assert.AreSequenceEqual(new[] { "download.bin" }, sink.OfferedNames);
+        Assert.AreSequenceEqual(["download.bin"], sink.OfferedNames);
         Assert.AreSequenceEqual(content, sink.Completed["download.bin"]);
     }
 
@@ -265,7 +265,7 @@ public class XYModemInteropTests
         await receiving;
 
         byte[] landed = sink.Completed["dup.bin"];
-        Assert.AreEqual(256, landed.Length, "重复块被写了两遍就会超过声明的 256 字节");
+        Assert.HasCount(256, landed, "重复块被写了两遍就会超过声明的 256 字节");
         Assert.AreSequenceEqual(first, landed[..4]);
         Assert.AreSequenceEqual(second, landed[128..132]);
     }
@@ -322,7 +322,7 @@ public class XYModemInteropTests
 
         FileTransferSession session = await receiving;
         Assert.AreEqual(FileTransferState.Cancelled, session.Status);
-        Assert.AreEqual(0, sink.Completed.Count);
+        Assert.IsEmpty(sink.Completed);
     }
 
     /// <summary>

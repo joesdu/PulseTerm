@@ -16,6 +16,7 @@ using VelaShell.Core.Diagnostics;
 using VelaShell.Core.FileTransfer.Model;
 using VelaShell.Core.Ftp;
 using VelaShell.Core.Models;
+using VelaShell.Core.Notifications;
 using VelaShell.Core.Processes;
 using VelaShell.Core.Protocols;
 using VelaShell.Core.Recording;
@@ -196,7 +197,10 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         PluginProtocolRegistry? protocolRegistry = null,
         PluginWorkspaceLauncher? workspaceLauncher = null,
         IGistSyncService? gistSyncService = null,
-        IBackgroundActivityService? backgroundActivity = null
+        IBackgroundActivityService? backgroundActivity = null,
+        INotificationCenter? notificationCenter = null,
+        IAnnouncementFeed? announcementFeed = null,
+        IUpdateService? updateService = null
     )
     {
         // 注册表可注入(DI 里与插件命令桥共享同一单例);无 UI 单测传 null 时自建。
@@ -341,6 +345,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                 }
             });
         StartStatusMetricsPolling();
+        SetUpNotificationCenter(notificationCenter, announcementFeed, updateService);
         OpenSettingsCommand = ReactiveCommand.Create(() =>
             SettingsRequested?.Invoke(this, EventArgs.Empty)
         );
@@ -389,6 +394,20 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
 
     /// <summary>隧道面板当前是否展开显示。</summary>
     public bool IsTunnelPanelOpen
+    {
+        get;
+        set => this.RaiseAndSetIfChanged(ref field, value);
+    }
+
+    /// <summary>消息中心面板(侧边栏铃铛)。</summary>
+    public NotificationPanelViewModel? NotificationPanel
+    {
+        get;
+        private set => this.RaiseAndSetIfChanged(ref field, value);
+    }
+
+    /// <summary>消息中心面板当前是否展开显示。</summary>
+    public bool IsNotificationPanelOpen
     {
         get;
         set => this.RaiseAndSetIfChanged(ref field, value);
@@ -783,6 +802,15 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                 () => OpenSettingsCommand.Execute().Subscribe(),
                 Shortcut: "Ctrl+,",
                 Icon: "Icon.settings"
+            )
+        );
+        Commands.Register(
+            new(
+                "app.settings.about",
+                Strings.Get("Cmd_OpenAbout"),
+                Strings.Get("CmdCat_Edit"),
+                () => SettingsSectionRequested?.Invoke(this, SettingsSectionKey.About),
+                Icon: "Icon.info"
             )
         );
         Commands.Register(
@@ -1275,6 +1303,13 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     /// <summary>Ctrl+, / 菜单 / 侧边栏齿轮“打开设置” —— 由窗口打开设置窗口。</summary>
     public event EventHandler? SettingsRequested;
 
+    /// <summary>
+    /// 打开设置并直接落到某一分区 —— 由窗口打开设置窗口后调 <c>SelectSection</c>。
+    /// 消息中心的「有可用更新」就走这条路进「关于」页,用户点完通知即可就地更新,
+    /// 而不是被丢在设置首页自己去找。
+    /// </summary>
+    public event EventHandler<SettingsSectionKey>? SettingsSectionRequested;
+
     /// <summary>工具菜单“连接诊断”(针对当前标签的配置)—— 由窗口打开诊断中心弹窗。</summary>
     public event Action<SessionProfile>? DiagnosticsRequested;
 
@@ -1324,6 +1359,162 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         _ = TunnelPanel.OpenAsync(preselect?.Id ?? ActiveTerminalTab?.Profile?.Id);
         IsTunnelPanelOpen = true;
     }
+
+    // ---- 消息中心(侧边栏铃铛) ----
+
+    private INotificationCenter? _notificationCenter;
+
+    /// <summary>
+    /// 装配消息中心:面板、铃铛角标,以及两个内容来源(本地的更新检查 + 订阅的资讯源)。
+    /// 无消息中心(单元测试)时整块跳过。
+    /// </summary>
+    private void SetUpNotificationCenter(
+        INotificationCenter? center, IAnnouncementFeed? feed, IUpdateService? updateService)
+    {
+        if (center is null)
+        {
+            return;
+        }
+        _notificationCenter = center;
+        var panel = new NotificationPanelViewModel(center, Commands.Execute, OpenExternalUrlAsync);
+        panel.CloseRequested += (_, _) => IsNotificationPanelOpen = false;
+        NotificationPanel = panel;
+
+        // 铃铛角标:未读数由消息中心推给侧边栏,侧边栏不关心它从哪来。
+        center.Changed += () => RxSchedulers.MainThreadScheduler.Schedule(() =>
+            Sidebar.NotificationUnreadCount = center.UnreadCount);
+        Sidebar.NotificationsRequested += (_, _) => IsNotificationPanelOpen = !IsNotificationPanelOpen;
+
+        _ = InitializeNotificationsAsync(center, feed, updateService);
+
+        // 周期拉取。计时器按固定的半小时跳,真正拉不拉由 FeedIntervalHours 决定 ——
+        // 这样用户在设置里改完间隔,下一跳就生效,不用重启也不用去重设计时器。
+        // 无 Avalonia 应用(单元测试)时不起表。
+        if (Application.Current is null || feed is null)
+        {
+            return;
+        }
+        _feedTimer = new()
+        {
+            Interval = TimeSpan.FromMinutes(30)
+        };
+        _feedTimer.Tick += (_, _) =>
+        {
+            AppSettings settings = _latestSettings ?? new();
+            var due = TimeSpan.FromHours(Math.Max(1, settings.Notifications.FeedIntervalHours));
+            if (DateTime.UtcNow - _lastFeedFetch < due)
+            {
+                return;
+            }
+            _lastFeedFetch = DateTime.UtcNow;
+            _ = RefreshNotificationSourcesAsync(center, feed, updateService: null);
+        };
+        _feedTimer.Start();
+    }
+
+    private DispatcherTimer? _feedTimer;
+
+    /// <summary>上次拉取资讯源的时刻,用于按 <c>FeedIntervalHours</c> 判断是否到点。</summary>
+    private DateTime _lastFeedFetch = DateTime.UtcNow;
+
+    /// <summary>
+    /// 载入历史消息,再拉一次内容源。整段吞异常:消息中心是锦上添花的东西,
+    /// 它出问题不该拦住应用启动。
+    /// </summary>
+    private async Task InitializeNotificationsAsync(
+        INotificationCenter center, IAnnouncementFeed? feed, IUpdateService? updateService)
+    {
+        try
+        {
+            await center.LoadAsync().ConfigureAwait(true);
+            Sidebar.NotificationUnreadCount = center.UnreadCount;
+            await RefreshNotificationSourcesAsync(center, feed, updateService).ConfigureAwait(true);
+        }
+        catch
+        {
+            // 载入/拉取失败时铃铛照常可用,只是没有新内容。
+        }
+    }
+
+    /// <summary>把「有可用更新」与订阅资讯源的内容投进消息中心。</summary>
+    private async Task RefreshNotificationSourcesAsync(
+        INotificationCenter center, IAnnouncementFeed? feed, IUpdateService? updateService)
+    {
+        AppSettings settings = _latestSettings ?? new();
+        List<NotificationItem> incoming = [];
+        if (updateService is not null && settings.Notifications.NotifyUpdates && settings.General.CheckUpdatesOnStartup)
+        {
+            if (await BuildUpdateNotificationAsync(updateService).ConfigureAwait(true) is { } update)
+            {
+                incoming.Add(update);
+            }
+        }
+        if (feed is not null)
+        {
+            IReadOnlyList<NotificationItem> fetched = await feed.FetchAsync().ConfigureAwait(true);
+            incoming.AddRange(settings.Notifications.AllowPromotions
+                                  ? fetched
+                                  : fetched.Where(item => item.Kind != NotificationKind.Promotion));
+        }
+        if (incoming.Count > 0)
+        {
+            await center.PublishAsync(incoming).ConfigureAwait(true);
+        }
+    }
+
+    /// <summary>
+    /// 检查更新,有新版本就攒一条消息。
+    /// <para>
+    /// 商店版直接跳过:安装目录只读、更新由 Microsoft Store 接管,推一条"去关于页更新"
+    /// 只会把用户送到一个什么也做不了的页面。
+    /// </para>
+    /// </summary>
+    private static async Task<NotificationItem?> BuildUpdateNotificationAsync(IUpdateService updateService)
+    {
+        if (updateService.IsStoreManaged)
+        {
+            return null;
+        }
+        bool hasUpdate;
+        try
+        {
+            hasUpdate = await updateService.CheckForUpdateAsync().ConfigureAwait(true);
+        }
+        catch
+        {
+            // 离线或更新源不可达是常态。
+            return null;
+        }
+        if (!hasUpdate || updateService.AvailableVersion is not { Length: > 0 } available)
+        {
+            return null;
+        }
+        return new()
+        {
+            // id 里带上版本号:同一个版本每次启动都会重投,靠它去重并保住已读状态;
+            // 真出了新版本则是一条新 id,会重新亮起未读。
+            Id = $"update:{available}",
+            Kind = NotificationKind.Update,
+            Title = Strings.Format("Notify_UpdateTitle", available),
+            Body = Strings.Format("Notify_UpdateBody", updateService.CurrentVersion ?? "?"),
+            PublishedAt = DateTime.UtcNow,
+            Link = new()
+            {
+                Label = Strings.Get("Notify_UpdateAction"),
+                CommandId = "app.settings.about"
+            }
+        };
+    }
+
+    /// <summary>在系统浏览器里打开外链(由消息中心的外链条目调用)。</summary>
+    private Task OpenExternalUrlAsync(string url)
+    {
+        ExternalUrlRequested?.Invoke(this, url);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>请求在系统浏览器中打开一个网址 —— 由窗口层执行(ViewModel 不碰 TopLevel)。</summary>
+    public event EventHandler<string>? ExternalUrlRequested;
 
     /// <summary>为隧道面板后台建立 SSH 连接:不开终端标签,凭据缺失时走登录验证弹窗。</summary>
     private async Task<Guid> ConnectTunnelHostAsync(

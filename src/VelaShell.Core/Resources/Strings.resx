@@ -3272,6 +3272,114 @@ Overwrite it?</value>
   <data name="Msg_TunnelAutoReconnectFailed" xml:space="preserve">
     <value>Automatic reconnect failed: {0}</value>
   </data>
+  <data name="Notify_Title" xml:space="preserve">
+    <value>Messages</value>
+  </data>
+  <data name="Notify_Empty" xml:space="preserve">
+    <value>No messages</value>
+  </data>
+  <data name="Notify_EmptyUnread" xml:space="preserve">
+    <value>Nothing unread</value>
+  </data>
+  <data name="Notify_UnreadOnly" xml:space="preserve">
+    <value>Unread</value>
+  </data>
+  <data name="Notify_UnreadOnlyTip" xml:space="preserve">
+    <value>Show unread messages only</value>
+  </data>
+  <data name="Notify_MarkAllRead" xml:space="preserve">
+    <value>Mark all as read</value>
+  </data>
+  <data name="Notify_ClearAll" xml:space="preserve">
+    <value>Clear all messages</value>
+  </data>
+  <data name="Notify_Close" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="Notify_Remove" xml:space="preserve">
+    <value>Remove this message</value>
+  </data>
+  <data name="Notify_KindNews" xml:space="preserve">
+    <value>NEWS</value>
+  </data>
+  <data name="Notify_KindUpdate" xml:space="preserve">
+    <value>UPDATE</value>
+  </data>
+  <data name="Notify_KindSecurity" xml:space="preserve">
+    <value>SECURITY</value>
+  </data>
+  <data name="Notify_KindPromotion" xml:space="preserve">
+    <value>OFFER</value>
+  </data>
+  <data name="Notify_LinkOpen" xml:space="preserve">
+    <value>Open</value>
+  </data>
+  <data name="Notify_LinkExternal" xml:space="preserve">
+    <value>Read more</value>
+  </data>
+  <data name="Notify_TimeJustNow" xml:space="preserve">
+    <value>just now</value>
+  </data>
+  <data name="Notify_TimeMinutes" xml:space="preserve">
+    <value>{0}m ago</value>
+  </data>
+  <data name="Notify_TimeHours" xml:space="preserve">
+    <value>{0}h ago</value>
+  </data>
+  <data name="Notify_TimeDays" xml:space="preserve">
+    <value>{0}d ago</value>
+  </data>
+  <data name="Notify_TimeMonths" xml:space="preserve">
+    <value>{0}mo ago</value>
+  </data>
+  <data name="Notify_UpdateTitle" xml:space="preserve">
+    <value>VelaShell {0} is available</value>
+  </data>
+  <data name="Notify_UpdateBody" xml:space="preserve">
+    <value>You are on {0}. Open About to review and install the update.</value>
+  </data>
+  <data name="Notify_UpdateAction" xml:space="preserve">
+    <value>Go to About</value>
+  </data>
+  <data name="Cmd_OpenAbout" xml:space="preserve">
+    <value>Open About</value>
+  </data>
+  <data name="SetGeneral_CheckUpdatesOnStartup" xml:space="preserve">
+    <value>Check for updates on startup</value>
+  </data>
+  <data name="SetGeneral_CheckUpdatesOnStartupDesc" xml:space="preserve">
+    <value>Look for a newer version at launch. A found update appears in the message center.</value>
+  </data>
+  <data name="SetGeneral_MessagesSection" xml:space="preserve">
+    <value>Message center</value>
+  </data>
+  <data name="SetGeneral_NotifyUpdates" xml:space="preserve">
+    <value>Announce available updates</value>
+  </data>
+  <data name="SetGeneral_NotifyUpdatesDesc" xml:space="preserve">
+    <value>Post a message when a newer version is found. Clicking it opens the About page.</value>
+  </data>
+  <data name="SetGeneral_FeedUrl" xml:space="preserve">
+    <value>News feed</value>
+  </data>
+  <data name="SetGeneral_FeedUrlDesc" xml:space="preserve">
+    <value>An https address publishing announcements and security news. Leave empty to subscribe to nothing — no request is sent at all.</value>
+  </data>
+  <data name="SetGeneral_FeedUrlPlaceholder" xml:space="preserve">
+    <value>https://example.com/velashell/feed.json</value>
+  </data>
+  <data name="SetGeneral_FeedInterval" xml:space="preserve">
+    <value>Fetch interval (hours)</value>
+  </data>
+  <data name="SetGeneral_FeedIntervalDesc" xml:space="preserve">
+    <value>How often the feed is fetched. It is also fetched once at startup.</value>
+  </data>
+  <data name="SetGeneral_AllowPromotions" xml:space="preserve">
+    <value>Receive promotional messages</value>
+  </data>
+  <data name="SetGeneral_AllowPromotionsDesc" xml:space="preserve">
+    <value>Turn off to drop promotional items from the feed. Announcements and security news still arrive.</value>
+  </data>
   <data name="Tunnel_HelpButtonTooltip" xml:space="preserve">
     <value>About SSH Tunneling</value>
   </data>
