@@ -32,6 +32,229 @@ public class TunnelPanelViewModelTests
         _vm.SelectedServer = _server;
     }
 
+    // ———— 断线自动恢复 ————
+
+    /// <summary>
+    /// 承载会话掉线后,勾了「自动重连」的隧道会被自动重拨并重建 ——
+    /// 这正是这个开关存在的意义,不然用户还是得手动点启动。
+    /// </summary>
+    [TestMethod]
+    [TestCategory("TunnelUI")]
+    public async Task RefreshLiveState_SessionDropped_RebuildsAutoReconnectTunnel()
+    {
+        var alive = true;
+        Guid reconnectedSession = Guid.NewGuid();
+        TunnelPanelViewModel vm = CreateVm(() => alive, _ => Task.FromResult(reconnectedSession));
+        await SeedTunnelAsync(vm, autoReconnect: true);
+
+        alive = false;
+        TunnelInfo rebuilt = CreateTunnelInfo();
+        _workflowService.CreateTunnelAsync(reconnectedSession, Arg.Any<TunnelConfig>(), Arg.Any<CancellationToken>())
+                        .Returns(Task.FromResult(rebuilt));
+
+        vm.RefreshLiveState();
+
+        await WaitForAsync(() => vm.Tunnels.Count == 1 && vm.Tunnels[0].IsActive);
+        Assert.AreEqual(rebuilt.Id, vm.Tunnels[0].Id, "条目应换成重建后的那条隧道。");
+        // 重建前先清掉服务侧停止状态的旧记录,否则列表里会越积越多。
+        await _workflowService.Received().RemoveTunnelAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>没勾自动重连的隧道掉线后只标记为已停止,等用户自己决定 —— 默认不替用户重拨。</summary>
+    [TestMethod]
+    [TestCategory("TunnelUI")]
+    public async Task RefreshLiveState_SessionDropped_LeavesManualTunnelStopped()
+    {
+        var alive = true;
+        TunnelPanelViewModel vm = CreateVm(() => alive, _ => Task.FromResult(Guid.NewGuid()));
+        await SeedTunnelAsync(vm, autoReconnect: false);
+        _workflowService.ClearReceivedCalls();
+
+        alive = false;
+        vm.RefreshLiveState();
+        await Task.Delay(150);
+
+        Assert.HasCount(1, vm.Tunnels);
+        Assert.IsFalse(vm.Tunnels[0].IsActive);
+        await _workflowService.DidNotReceive().CreateTunnelAsync(Arg.Any<Guid>(), Arg.Any<TunnelConfig>(), Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>
+    /// 重拨失败后要退避,不能每一拍时钟都重来一次 —— 服务器真的下线时,
+    /// 每 5 秒一次的重连会把凭据提示刷满屏幕。
+    /// </summary>
+    [TestMethod]
+    [TestCategory("TunnelUI")]
+    public async Task RefreshLiveState_ReconnectFailure_BacksOffBeforeRetrying()
+    {
+        var alive = true;
+        var serverIsDown = false;
+        var attempts = 0;
+        TunnelPanelViewModel vm = CreateVm(() => alive, _ =>
+        {
+            if (!serverIsDown)
+            {
+                return Task.FromResult(_sessionId);
+            }
+            Interlocked.Increment(ref attempts);
+            return Task.FromException<Guid>(new InvalidOperationException("host down"));
+        });
+        await SeedTunnelAsync(vm, autoReconnect: true);
+
+        alive = false;
+        serverIsDown = true;
+        vm.RefreshLiveState();
+        await WaitForAsync(() => Volatile.Read(ref attempts) == 1);
+
+        // 紧接着的几拍都落在退避窗口内,不该再拨。
+        vm.RefreshLiveState();
+        vm.RefreshLiveState();
+        await Task.Delay(150);
+
+        Assert.AreEqual(1, Volatile.Read(ref attempts), "退避窗口内不该重复重拨。");
+        Assert.IsNotNull(vm.ErrorMessage, "失败原因要让用户看得到。");
+    }
+
+    /// <summary>
+    /// 用户按停过的隧道,后来会话掉线也不该被自动恢复拉起来 ——
+    /// 「掉线后自动重连」扛的是网络抖动,不是把用户刚按下的停止键撤销掉。
+    /// </summary>
+    [TestMethod]
+    [TestCategory("TunnelUI")]
+    public async Task RefreshLiveState_DoesNotRebuild_TunnelTheUserStopped()
+    {
+        var alive = true;
+        TunnelPanelViewModel vm = CreateVm(() => alive, _ => Task.FromResult(_sessionId));
+        await SeedTunnelAsync(vm, autoReconnect: true);
+        await vm.StopTunnelCommand.Execute(vm.Tunnels[0].Id).FirstAsync();
+        _workflowService.ClearReceivedCalls();
+
+        alive = false;
+        vm.RefreshLiveState();
+        await Task.Delay(150);
+
+        Assert.IsFalse(vm.Tunnels[0].IsActive);
+        await _workflowService.DidNotReceive().CreateTunnelAsync(Arg.Any<Guid>(), Arg.Any<TunnelConfig>(), Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>自动重连开关随隧道配置往返:编辑既有隧道时表单要把它填回来。</summary>
+    [TestMethod]
+    [TestCategory("TunnelUI")]
+    public async Task EditTunnel_RestoresAutoReconnectIntoForm()
+    {
+        TunnelPanelViewModel vm = CreateVm(() => true, _ => Task.FromResult(_sessionId));
+        await SeedTunnelAsync(vm, autoReconnect: true, status: TunnelStatus.Stopped);
+
+        await vm.EditTunnelCommand.Execute(vm.Tunnels[0].Id).FirstAsync();
+
+        Assert.IsTrue(vm.NewAutoReconnect);
+    }
+
+    /// <summary>新建表单里勾上自动重连,要原样落到隧道配置上。</summary>
+    [TestMethod]
+    [TestCategory("TunnelUI")]
+    public async Task CreateTunnel_CarriesAutoReconnectIntoConfig()
+    {
+        TunnelConfig? captured = null;
+        _workflowService.CreateTunnelAsync(_sessionId, Arg.Do<TunnelConfig>(c => captured = c), Arg.Any<CancellationToken>())
+                        .Returns(Task.FromResult(CreateTunnelInfo()));
+        FillValidLocalForm();
+        _vm.NewAutoReconnect = true;
+
+        await _vm.CreateTunnelCommand.Execute().FirstAsync();
+
+        Assert.IsTrue(captured?.AutoReconnect);
+    }
+
+    /// <summary>取消/重置表单后自动重连开关回到默认的关闭。</summary>
+    [TestMethod]
+    [TestCategory("TunnelUI")]
+    public async Task ResetForm_ClearsAutoReconnect()
+    {
+        _vm.NewAutoReconnect = true;
+
+        await _vm.ResetFormCommand.Execute().FirstAsync();
+
+        Assert.IsFalse(_vm.NewAutoReconnect);
+    }
+
+    // ———— 流量统计 ————
+
+    /// <summary>统计行:没连接过就直说,有连接则给出连接数与可读的流量。</summary>
+    [TestMethod]
+    [TestCategory("TunnelUI")]
+    public void TunnelItemViewModel_StatsText_ReflectsCounters()
+    {
+        TunnelInfo info = CreateTunnelInfo();
+        var item = new TunnelItemViewModel(info);
+        Assert.AreEqual(Strings.Get("Tunnel_StatsNone"), item.StatsText);
+
+        info.TotalConnections = 3;
+        info.BytesTransferred = 1536;
+        item.RefreshLive();
+        Assert.AreEqual(Strings.Format("Tunnel_Stats", 3, "1.5 KB"), item.StatsText);
+
+        info.ActiveConnections = 2;
+        item.RefreshLive();
+        Assert.AreEqual(Strings.Format("Tunnel_StatsLive", 3, 2, "1.5 KB"), item.StatsText);
+    }
+
+    /// <summary>时钟每拍都要让服务把底层读数同步到界面持有的 TunnelInfo 上。</summary>
+    [TestMethod]
+    [TestCategory("TunnelUI")]
+    public void RefreshLiveState_PullsStatisticsFromService()
+    {
+        _vm.RefreshLiveState();
+
+        _workflowService.Received().RefreshStatistics();
+    }
+
+    /// <summary>装一个独立的面板,便于用例自己控制会话存活与重拨结果。</summary>
+    private TunnelPanelViewModel CreateVm(Func<bool> isAlive, Func<SessionProfile, Task<Guid>> connector)
+    {
+        var vm = new TunnelPanelViewModel(_workflowService,
+            () => Task.FromResult<IReadOnlyList<SessionProfile>>([_server]),
+            (profile, _) => connector(profile),
+            _ => isAlive(),
+            _ => Task.CompletedTask);
+        vm.Servers.Add(_server);
+        vm.SelectedServer = _server;
+        return vm;
+    }
+
+    /// <summary>通过表单建出一条隧道,让面板处于"这台服务器上有一条隧道"的状态。</summary>
+    private async Task SeedTunnelAsync(TunnelPanelViewModel vm, bool autoReconnect, TunnelStatus status = TunnelStatus.Active)
+    {
+        _workflowService.CreateTunnelAsync(Arg.Any<Guid>(), Arg.Any<TunnelConfig>(), Arg.Any<CancellationToken>())
+                        .Returns(callInfo => Task.FromResult(new TunnelInfo
+                        {
+                            Id = Guid.NewGuid(),
+                            Config = callInfo.Arg<TunnelConfig>(),
+                            Status = status,
+                            SessionId = callInfo.Arg<Guid>(),
+                            CreatedAt = DateTime.UtcNow
+                        }));
+        vm.NewTunnelName = "seeded";
+        vm.NewLocalHost = "127.0.0.1";
+        vm.NewLocalPort = 3306;
+        vm.NewRemotePort = 3306;
+        vm.NewTunnelType = TunnelType.LocalForward;
+        vm.NewAutoReconnect = autoReconnect;
+        await vm.CreateTunnelCommand.Execute().FirstAsync();
+        Assert.HasCount(1, vm.Tunnels);
+    }
+
+    /// <summary>等待某个条件成立(自动恢复是后台任务,不能建完就断言)。</summary>
+    private static async Task WaitForAsync(Func<bool> condition)
+    {
+        DateTime deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+        while (!condition())
+        {
+            Assert.IsLessThanOrEqualTo(deadline, DateTime.UtcNow, "等待条件成立超时。");
+            await Task.Delay(20);
+        }
+    }
+
     private static TunnelInfo CreateTunnelInfo(
         TunnelType type = TunnelType.LocalForward,
         TunnelStatus status = TunnelStatus.Active,

@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using System.Net;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using Microsoft.Extensions.Logging;
 using VelaShell.Core.Models;
@@ -12,12 +14,21 @@ namespace VelaShell.Infrastructure.Tunnels;
 /// 端口转发通道管理服务:在指定 SSH 会话上创建本地/远程/动态转发,跟踪各通道的活动状态,
 /// 并在停止或会话拆除时释放底层监听端口。以 <see cref="Guid" /> 会话为单位维护可观察的通道列表。
 /// </summary>
+/// <param name="connectionService">会话查询,用于确认目标会话仍然连着。</param>
+/// <param name="clientFactory">按会话取 SSH 客户端。</param>
+/// <param name="logger">可选日志。</param>
+/// <param name="isLocalPortInUse">
+/// 本地端口占用探测,默认查询系统的 TCP 监听表。做成可注入是为了让测试不必看
+/// 运行机器上恰好有没有 PostgreSQL 在监听 5432 —— 那种依赖会让测试时灵时不灵。
+/// </param>
 public class TunnelService(
     ISshConnectionService connectionService,
     Func<Guid, ISshClientWrapper> clientFactory,
-    ILogger<TunnelService>? logger = null) : ITunnelService
+    ILogger<TunnelService>? logger = null,
+    Func<string, uint, bool>? isLocalPortInUse = null) : ITunnelService
 {
     private readonly Func<Guid, ISshClientWrapper> _clientFactory = clientFactory ?? throw new ArgumentNullException(nameof(clientFactory));
+    private readonly Func<string, uint, bool> _isLocalPortInUse = isLocalPortInUse ?? IsLocalPortInUse;
     private readonly ISshConnectionService _connectionService = connectionService ?? throw new ArgumentNullException(nameof(connectionService));
     /// <summary>
     /// 会话 → 该会话的通道列表。每个 <see cref="List{T}" /> 实例自身即为其内容的锁对象:
@@ -30,10 +41,23 @@ public class TunnelService(
     /// <summary>获取指定会话当前所有转发通道的列表快照(锁内复制,遍历期间不受并发增删影响)。</summary>
     public IReadOnlyList<TunnelInfo> GetActiveTunnels(Guid sessionId)
     {
+        RefreshStatistics();
         List<TunnelInfo> tunnels = _sessionTunnels.GetOrAdd(sessionId, _ => []);
         lock (tunnels)
         {
             return [.. tunnels];
+        }
+    }
+
+    /// <summary>把各活动转发句柄的连接数与流量读数同步到对应的 <see cref="TunnelInfo" />。</summary>
+    public void RefreshStatistics()
+    {
+        foreach ((IPortForwardHandle handle, TunnelInfo info) in _tunnelPorts.Values)
+        {
+            // 停止的隧道其句柄已被移出 _tunnelPorts,读数就停在最后一次同步的值上。
+            info.BytesTransferred = handle.BytesTransferred;
+            info.TotalConnections = handle.TotalConnections;
+            info.ActiveConnections = handle.ActiveConnections;
         }
     }
 
@@ -44,6 +68,7 @@ public class TunnelService(
         {
             throw new ArgumentException(@"Config type must be LocalForward", nameof(config));
         }
+        EnsureLocalPortAvailable(config.LocalHost, config.LocalPort);
         return await CreateForwardAsync(sessionId,
                    config,
                    new(PortForwardKind.Local, config.LocalHost, config.LocalPort, config.RemoteHost, config.RemotePort),
@@ -72,6 +97,7 @@ public class TunnelService(
         {
             throw new ArgumentException(@"Config type must be DynamicForward", nameof(config));
         }
+        EnsureLocalPortAvailable(config.LocalHost, config.LocalPort);
         return await CreateForwardAsync(sessionId,
                    config,
                    new(PortForwardKind.Dynamic, config.LocalHost, config.LocalPort),
@@ -139,8 +165,14 @@ public class TunnelService(
         (IPortForwardHandle handle, TunnelInfo info) = tunnelData;
         try
         {
-            // Stop 幂等且自带"客户端已随会话释放"的容错(见 IPortForwardHandle 契约)。
-            // handle.Dispose 是纯内存操作(标记 + 字典移除),直接调用即可。
+            // 先把最后一次读数取下来:句柄一释放,这条隧道这辈子搬了多少字节就再也问不到了,
+            // 而界面在"已停止"状态下仍要显示它跑过的总量。
+            info.BytesTransferred = handle.BytesTransferred;
+            info.TotalConnections = handle.TotalConnections;
+            info.ActiveConnections = 0;
+
+            // Stop 幂等且自带"客户端已随会话释放"的容错(见 IPortForwardHandle 契约),
+            // 且只做取消令牌 + 关监听这类同步收尾,直接调用即可。
             handle.Dispose();
             info.Status = TunnelStatus.Stopped;
             if (_sessionTunnels.TryGetValue(info.SessionId, out List<TunnelInfo>? tunnels))
@@ -187,6 +219,69 @@ public class TunnelService(
         _sessionTunnels.Clear();
         GC.SuppressFinalize(this);
     }
+
+    /// <summary>
+    /// 创建本机监听前的端口占用预检:命中就抛 <see cref="TunnelPortInUseException" />,
+    /// 让用户看到"27017 被占用"而不是底层套接字的错误码。
+    /// <para>
+    /// 预检与真正的绑定之间存在竞态(检查完到绑定前端口可能刚被抢走),这不是问题:
+    /// 预检负责把最常见的情形讲清楚,真绑不上时底层异常仍会照常抛出。
+    /// </para>
+    /// </summary>
+    private void EnsureLocalPortAvailable(string host, uint port)
+    {
+        if (_isLocalPortInUse(host, port))
+        {
+            throw new TunnelPortInUseException(Strings.Format("TunnelSvc_LocalPortInUse", port), port);
+        }
+    }
+
+    /// <summary>默认的占用探测:比对系统 TCP 监听表。</summary>
+    private static bool IsLocalPortInUse(string host, uint port)
+    {
+        IPAddress requested;
+        try
+        {
+            requested = ParseBindAddress(host);
+        }
+        catch (FormatException)
+        {
+            // 监听地址本身不合法,交给真正的绑定去报错,预检不越俎代庖。
+            return false;
+        }
+        IPEndPoint[] listeners;
+        try
+        {
+            listeners = IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners();
+        }
+        catch (NetworkInformationException)
+        {
+            // 平台不给监听表(部分容器/受限环境)时跳过预检,退回底层异常。
+            return false;
+        }
+        catch (PlatformNotSupportedException)
+        {
+            return false;
+        }
+        return listeners.Any(listener => listener.Port == port && Overlaps(listener.Address, requested));
+    }
+
+    /// <summary>
+    /// 两个监听地址是否会撞车:任一方绑在"所有接口"上就与同端口的一切监听冲突,
+    /// 否则只有地址完全相同才算冲突(不同网卡的同一端口可以并存)。
+    /// </summary>
+    private static bool Overlaps(IPAddress existing, IPAddress requested) =>
+        IsAnyAddress(existing) || IsAnyAddress(requested) || existing.Equals(requested);
+
+    private static bool IsAnyAddress(IPAddress address) =>
+        address.Equals(IPAddress.Any) || address.Equals(IPAddress.IPv6Any);
+
+    /// <summary>把配置里的监听主机翻译成绑定地址(与转发句柄的解析保持一致)。</summary>
+    private static IPAddress ParseBindAddress(string host) =>
+        host is "0.0.0.0" or "*" ? IPAddress.Any :
+        host == "::" ? IPAddress.IPv6Any :
+        host is "localhost" or "127.0.0.1" ? IPAddress.Loopback :
+        IPAddress.Parse(host);
 
     /// <summary>
     /// 把转发通道异常翻译成用户可理解的提示;最常见的是把目标填成了服务器的

@@ -29,7 +29,7 @@
     <Style Selector="TextBlock.form-label">
       <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />
       <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
-      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize9}" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
     </Style>
     <Style Selector="Button.row-action">
       <Setter Property="Width" Value="20" />
@@ -74,7 +74,7 @@
               <TextBlock Text="{Binding Tunnels.Count}"
                          Foreground="{DynamicResource VelaAccentText}"
                          FontFamily="{DynamicResource VelaUiMonoFont}"
-                         FontSize="{DynamicResource VelaFontSize9}" FontWeight="Medium" />
+                         FontSize="{DynamicResource VelaFontSize10}" FontWeight="Medium" />
             </Border>
           </StackPanel>
           <Button Grid.Column="2" Classes="row-action" Name="HelpButton"
@@ -135,7 +135,7 @@
             <TextBlock Text="{Binding ServerStatusText}"
                        Foreground="{DynamicResource VelaTextMuted}"
                        FontFamily="{DynamicResource VelaUiMonoFont}"
-                       FontSize="{DynamicResource VelaFontSize9}" VerticalAlignment="Center" />
+                       FontSize="{DynamicResource VelaFontSize10}" VerticalAlignment="Center" />
           </StackPanel>
         </StackPanel>
       </Border>
@@ -184,7 +184,18 @@
                       <TextBlock Text="{Binding TypeBadge}"
                                  Foreground="{DynamicResource VelaAccent}"
                                  FontFamily="{DynamicResource VelaUiMonoFont}"
-                                 FontSize="{DynamicResource VelaFontSize8}" FontWeight="Medium" />
+                                 FontSize="{DynamicResource VelaFontSize9}" FontWeight="Medium" />
+                    </Border>
+                    <!-- 掉线自动重建的隧道:标出来,否则用户看到它自己"活过来"会以为见了鬼 -->
+                    <Border Background="Transparent"
+                            BorderBrush="{DynamicResource VelaBorderSecondary}" BorderThickness="1"
+                            CornerRadius="2" Padding="5,0" VerticalAlignment="Center"
+                            IsVisible="{Binding AutoReconnect}"
+                            ToolTip.Tip="{loc:Localize Tunnel_AutoReconnectTip}">
+                      <TextBlock Text="{loc:Localize Tunnel_AutoBadge}"
+                                 Foreground="{DynamicResource VelaTextTertiary}"
+                                 FontFamily="{DynamicResource VelaUiMonoFont}"
+                                 FontSize="{DynamicResource VelaFontSize9}" FontWeight="Medium" />
                     </Border>
                   </StackPanel>
                   <!-- 编辑:把配置填回表单,保存后按新配置重建 -->
@@ -226,26 +237,33 @@
                                    Foreground="{DynamicResource VelaStatusDisconnected}" />
                   </Button>
                 </Grid>
+                <!-- 中文文案在 340px 面板里已经铺满一行,而界面字号是用户可调的(设置 → 外观);
+                     不给换行的话,基准字号一调大这行就被硬裁,而它正是"这条隧道通向哪"的说明。 -->
                 <TextBlock Text="{Binding DisplayRoute}"
                            Foreground="{DynamicResource VelaTextMuted}"
                            FontFamily="{DynamicResource VelaUiMonoFont}"
-                           FontSize="{DynamicResource VelaFontSize10}" />
+                           FontSize="{DynamicResource VelaFontSize10}" TextWrapping="Wrap" />
                 <TextBlock Text="{Binding EndpointSummary}"
                            Foreground="{DynamicResource VelaTextMuted}"
                            FontFamily="{DynamicResource VelaUiMonoFont}"
-                           FontSize="{DynamicResource VelaFontSize9}"
+                           FontSize="{DynamicResource VelaFontSize10}"
                            MaxWidth="320" TextTrimming="CharacterEllipsis"
                            ToolTip.Tip="{Binding EndpointSummary}" />
                 <TextBlock Text="{Binding StatusText}"
                            Foreground="{DynamicResource VelaTextTertiary}"
                            FontFamily="{DynamicResource VelaUiMonoFont}"
-                           FontSize="{DynamicResource VelaFontSize9}" />
+                           FontSize="{DynamicResource VelaFontSize10}" />
+                <!-- 流量统计(设计 fuXS7 预留的说明行):连接数 · 累计字节 -->
+                <TextBlock Text="{Binding StatsText}"
+                           Foreground="{DynamicResource VelaTextMuted}"
+                           FontFamily="{DynamicResource VelaUiMonoFont}"
+                           FontSize="{DynamicResource VelaFontSize10}" />
                 <!-- 转发通道错误(如目标拒绝连接):隧道虽在运行,但连接会失败 -->
                 <TextBlock Text="{Binding LastError, StringFormat='⚠ {0}'}"
                            IsVisible="{Binding HasError}"
                            Foreground="{DynamicResource VelaWarning}"
                            FontFamily="{DynamicResource VelaUiMonoFont}"
-                           FontSize="{DynamicResource VelaFontSize9}" TextWrapping="Wrap" />
+                           FontSize="{DynamicResource VelaFontSize10}" TextWrapping="Wrap" />
               </StackPanel>
             </Border>
           </DataTemplate>
@@ -306,9 +324,18 @@
                      FontSize="{DynamicResource VelaFontSize10}" Margin="6,0,0,0" />
         </CheckBox>
 
+        <!-- 承载会话掉线后自动重拨并重建这条隧道;默认关闭,因为重拨可能弹凭据提示。 -->
+        <CheckBox IsChecked="{Binding NewAutoReconnect}"
+                  ToolTip.Tip="{loc:Localize Tunnel_AutoReconnectTip}"
+                  Padding="0" MinHeight="0">
+          <TextBlock Text="{loc:Localize Tunnel_AutoReconnect}"
+                     Foreground="{DynamicResource VelaTextSecondary}"
+                     FontSize="{DynamicResource VelaFontSize10}" Margin="6,0,0,0" />
+        </CheckBox>
+
         <TextBlock Text="{Binding ErrorMessage}"
                    Foreground="{DynamicResource VelaError}"
-                   FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize9}"
+                   FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize10}"
                    TextWrapping="Wrap"
                    IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
 

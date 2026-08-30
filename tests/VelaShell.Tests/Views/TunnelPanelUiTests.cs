@@ -47,6 +47,8 @@ public sealed class TunnelPanelUiTests
             try
             {
                 var vm = new TunnelPanelViewModel(Substitute.For<ITunnelWorkflowService>());
+                // 视觉 QA 的样本要带上统计行与「自动」徽标 —— 行内最小的那几档字号正长在这两处,
+                // 截图里没有它们,字号回归就看不出来。
                 vm.Tunnels.Add(new(new TunnelInfo
                 {
                     Id = Guid.NewGuid(),
@@ -57,11 +59,15 @@ public sealed class TunnelPanelUiTests
                         LocalHost = "127.0.0.1",
                         LocalPort = 5432,
                         RemoteHost = "127.0.0.1",
-                        RemotePort = 5432
+                        RemotePort = 5432,
+                        AutoReconnect = true
                     },
                     Status = TunnelStatus.Active,
                     SessionId = Guid.NewGuid(),
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.UtcNow,
+                    BytesTransferred = 1_468_006,
+                    TotalConnections = 3,
+                    ActiveConnections = 2
                 }));
 
                 var view = new TunnelPanelView { DataContext = vm };

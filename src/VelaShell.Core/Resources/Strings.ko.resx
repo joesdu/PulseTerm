@@ -3208,6 +3208,33 @@ Windows는 exe 전체 경로 또는 명령 이름(예: notepad), Linux는 명령
   <data name="Tunnel_RouteDynamic" xml:space="preserve">
     <value>이 컴퓨터의 SOCKS5 {0}:{1} → 동적 대상</value>
   </data>
+  <data name="TunnelSvc_LocalPortInUse" xml:space="preserve">
+    <value>로컬 포트 {0}은(는) 다른 프로그램이 사용 중입니다. 해당 프로그램을 중지하거나 다른 로컬 포트를 지정하세요.</value>
+  </data>
+  <data name="Tunnel_Stats" xml:space="preserve">
+    <value>{0} 연결 · {1}</value>
+  </data>
+  <data name="Tunnel_StatsLive" xml:space="preserve">
+    <value>{0} 연결({1} 전송 중) · {2}</value>
+  </data>
+  <data name="Tunnel_StatsNone" xml:space="preserve">
+    <value>아직 연결 없음</value>
+  </data>
+  <data name="Tunnel_AutoBadge" xml:space="preserve">
+    <value>자동</value>
+  </data>
+  <data name="Tunnel_AutoReconnect" xml:space="preserve">
+    <value>연결이 끊기면 자동으로 재연결</value>
+  </data>
+  <data name="Tunnel_AutoReconnectTip" xml:space="preserve">
+    <value>백그라운드 연결이 끊기면 자동으로 재연결하여 이 터널을 다시 만듭니다. 재시도 간격은 10초에서 최대 5분까지 늘어납니다.</value>
+  </data>
+  <data name="Msg_TunnelAutoReconnecting" xml:space="preserve">
+    <value>재연결 중 • 터널 복원 중</value>
+  </data>
+  <data name="Msg_TunnelAutoReconnectFailed" xml:space="preserve">
+    <value>자동 재연결 실패: {0}</value>
+  </data>
   <data name="Tunnel_HelpButtonTooltip" xml:space="preserve">
     <value>SSH 터널링 정보</value>
   </data>

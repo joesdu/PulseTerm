@@ -1,5 +1,110 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
   </resheader>
@@ -12,510 +117,8 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <!-- App Shell -->
-  <!-- Sidebar (5) -->
-  <!-- Terminal (7) -->
-  <!-- File Browser (7) -->
-  <!-- Tunnel (6) -->
-  <!-- Quick Commands (5) -->
-  <!-- Status Bar (4) -->
-  <!-- Session Tree -->
-  <!-- General (9) -->
-  <!-- Settings (5) -->
-  <!-- Auth (7) -->
-  <!-- Settings Dialog -->
-  <!-- File Browser / SFTP (§6) -->
-  <data name="AddCommand" xml:space="preserve">
-    <value>新增命令</value>
-  </data>
   <data name="AppName" xml:space="preserve">
     <value>VelaShell</value>
-  </data>
-  <data name="Auth_AesBadge" xml:space="preserve">
-    <value>AES-256 加密儲存</value>
-  </data>
-  <data name="Auth_Back" xml:space="preserve">
-    <value>上一步</value>
-  </data>
-  <data name="Auth_Certificate" xml:space="preserve">
-    <value>憑證</value>
-  </data>
-  <data name="Auth_ConnectingTo" xml:space="preserve">
-    <value>正在連線 {0}</value>
-  </data>
-  <data name="Auth_EnterUsername" xml:space="preserve">
-    <value>輸入使用者名稱</value>
-  </data>
-  <data name="Auth_FingerprintFirstConnect" xml:space="preserve">
-    <value>指紋: 首次連線,將於交握時記錄</value>
-  </data>
-  <data name="Auth_FingerprintTrusted" xml:space="preserve">
-    <value>指紋: {0}(已信任)</value>
-  </data>
-  <data name="Auth_HeaderTitle" xml:space="preserve">
-    <value>身分驗證 - 第 {0} 步</value>
-  </data>
-  <data name="Auth_Key" xml:space="preserve">
-    <value>金鑰</value>
-  </data>
-  <data name="Auth_Login" xml:space="preserve">
-    <value>登入</value>
-  </data>
-  <data name="Auth_Next" xml:space="preserve">
-    <value>下一步</value>
-  </data>
-  <data name="Auth_SelectMethod" xml:space="preserve">
-    <value>選擇驗證方式</value>
-  </data>
-  <data name="Auth_Title" xml:space="preserve">
-    <value>身分驗證</value>
-  </data>
-  <data name="Auth_UsernameLine" xml:space="preserve">
-    <value>使用者名稱: {0}</value>
-  </data>
-  <data name="AuthMethodLabel" xml:space="preserve">
-    <value>驗證方式</value>
-  </data>
-  <data name="Boot_AlreadyRunning" xml:space="preserve">
-    <value>VelaShell 已在執行中。
-
-請切換至已開啟的視窗;同一時間只能執行一個實例。</value>
-  </data>
-  <data name="Boot_StartupErrorTitle" xml:space="preserve">
-    <value>VelaShell - 啟動錯誤</value>
-  </data>
-  <data name="Boot_StartupFailed" xml:space="preserve">
-    <value>VelaShell 啟動失敗。
-
-{0}
-
-若反覆出現,請嘗試關閉其他 VelaShell 視窗後重試。</value>
-  </data>
-  <data name="BrowseKeyFile" xml:space="preserve">
-    <value>瀏覽…</value>
-  </data>
-  <data name="Cancel" xml:space="preserve">
-    <value>取消</value>
-  </data>
-  <data name="Close" xml:space="preserve">
-    <value>關閉</value>
-  </data>
-  <data name="Category" xml:space="preserve">
-    <value>分類</value>
-  </data>
-  <data name="CloseTab" xml:space="preserve">
-    <value>關閉分頁</value>
-  </data>
-  <data name="Cmd_ClearScreen" xml:space="preserve">
-    <value>清除畫面</value>
-  </data>
-  <data name="Cmd_ToggleLineGutter" xml:space="preserve">
-    <value>切換行號/時間側欄</value>
-  </data>
-  <data name="Cmd_CloneSession" xml:space="preserve">
-    <value>複製工作階段</value>
-  </data>
-  <data name="Cmd_CloseCurrentSession" xml:space="preserve">
-    <value>關閉目前工作階段</value>
-  </data>
-  <data name="Cmd_CommandPalette" xml:space="preserve">
-    <value>命令面板</value>
-  </data>
-  <data name="Cmd_ConnectionDiagnostics" xml:space="preserve">
-    <value>連線診斷</value>
-  </data>
-  <data name="Cmd_ExportTerminalOutput" xml:space="preserve">
-    <value>匯出終端機輸出至檔案</value>
-  </data>
-  <data name="Cmd_FindInTerminal" xml:space="preserve">
-    <value>終端機內尋找</value>
-  </data>
-  <data name="Cmd_NewSshConnection" xml:space="preserve">
-    <value>新增 SSH 連線</value>
-  </data>
-  <data name="Cmd_OpenLocalTerminal" xml:space="preserve">
-    <value>開啟本機終端機:{0}</value>
-  </data>
-  <data name="Cmd_OpenSettings" xml:space="preserve">
-    <value>開啟設定</value>
-  </data>
-  <data name="Cmd_Paste" xml:space="preserve">
-    <value>貼上</value>
-  </data>
-  <data name="Cmd_Reconnect" xml:space="preserve">
-    <value>重新連線</value>
-  </data>
-  <data name="Cmd_SftpFileManager" xml:space="preserve">
-    <value>SFTP 檔案管理器</value>
-  </data>
-  <data name="Cmd_TunnelManager" xml:space="preserve">
-    <value>隧道管理</value>
-  </data>
-  <data name="Cmd_XModemReceive" xml:space="preserve">
-    <value>XMODEM:接收檔案(遠端 sx)</value>
-  </data>
-  <data name="Cmd_XModemSend" xml:space="preserve">
-    <value>XMODEM:傳送檔案(遠端 rx)</value>
-  </data>
-  <data name="Cmd_XModem1KSend" xml:space="preserve">
-    <value>XMODEM-1K:傳送檔案(遠端 rx)</value>
-  </data>
-  <data name="Cmd_YModemReceive" xml:space="preserve">
-    <value>YMODEM:接收檔案(遠端 sb)</value>
-  </data>
-  <data name="Cmd_YModemSend" xml:space="preserve">
-    <value>YMODEM:傳送檔案(遠端 rb)</value>
-  </data>
-  <data name="Cmd_YModemGReceive" xml:space="preserve">
-    <value>YMODEM-G:接收檔案(高速,不重傳)</value>
-  </data>
-  <data name="CmdCat_Transfer" xml:space="preserve">
-    <value>檔案傳輸</value>
-  </data>
-  <data name="CmdCat_Actions" xml:space="preserve">
-    <value>操作</value>
-  </data>
-  <data name="CmdCat_Edit" xml:space="preserve">
-    <value>編輯</value>
-  </data>
-  <data name="CmdCat_Search" xml:space="preserve">
-    <value>搜尋</value>
-  </data>
-  <data name="CmdCat_Session" xml:space="preserve">
-    <value>工作階段</value>
-  </data>
-  <data name="CmdCat_Tools" xml:space="preserve">
-    <value>工具</value>
-  </data>
-  <data name="Command" xml:space="preserve">
-    <value>命令</value>
-  </data>
-  <data name="ConfirmDeleteFile" xml:space="preserve">
-    <value>確定要刪除檔案「{0}」嗎?此操作無法復原。</value>
-  </data>
-  <data name="ConfirmDeleteFolder" xml:space="preserve">
-    <value>確定要刪除資料夾「{0}」及其全部內容嗎?此操作無法復原。</value>
-  </data>
-  <data name="ConfirmDeleteMultiple" xml:space="preserve">
-    <value>確定要刪除選取的 {0} 個項目嗎?此操作無法復原。</value>
-  </data>
-  <data name="ConfirmDeleteTitle" xml:space="preserve">
-    <value>確認刪除</value>
-  </data>
-  <data name="Connect" xml:space="preserve">
-    <value>連線</value>
-  </data>
-  <data name="Connected" xml:space="preserve">
-    <value>已連線</value>
-  </data>
-  <data name="Connecting" xml:space="preserve">
-    <value>連線中</value>
-  </data>
-  <data name="ConnectionProfile" xml:space="preserve">
-    <value>連線設定</value>
-  </data>
-  <data name="Copy" xml:space="preserve">
-    <value>複製</value>
-  </data>
-  <data name="CopyFileName" xml:space="preserve">
-    <value>複製名稱</value>
-  </data>
-  <data name="CopyCurrentFolderPath" xml:space="preserve">
-    <value>複製目前資料夾路徑</value>
-  </data>
-  <data name="CopyFilePath" xml:space="preserve">
-    <value>複製路徑</value>
-  </data>
-  <data name="DefaultPort" xml:space="preserve">
-    <value>預設連接埠</value>
-  </data>
-  <data name="Delete" xml:space="preserve">
-    <value>刪除</value>
-  </data>
-  <data name="Deleting" xml:space="preserve">
-    <value>刪除中…</value>
-  </data>
-  <data name="DeletingProgress" xml:space="preserve">
-    <value>刪除中… 已刪除 {0}/{1} 個</value>
-  </data>
-  <data name="Description" xml:space="preserve">
-    <value>描述</value>
-  </data>
-  <data name="Diag_AllPassed" xml:space="preserve">
-    <value>未發現問題,各項檢測均通過,可正常連線。</value>
-  </data>
-  <data name="Diag_CloseTip" xml:space="preserve">
-    <value>關閉</value>
-  </data>
-  <data name="Diag_ExportReport" xml:space="preserve">
-    <value>匯出診斷報告</value>
-  </data>
-  <data name="Diag_Header" xml:space="preserve">
-    <value>連線診斷中心</value>
-  </data>
-  <data name="Diag_IssueFound" xml:space="preserve">
-    <value>發現問題:</value>
-  </data>
-  <data name="Diag_Rerun" xml:space="preserve">
-    <value>重新檢測</value>
-  </data>
-  <data name="Diag_Running" xml:space="preserve">
-    <value>// 正在逐項檢測,請稍候…</value>
-  </data>
-  <data name="Diag_Steps" xml:space="preserve">
-    <value>診斷步驟</value>
-  </data>
-  <data name="Diag_Title" xml:space="preserve">
-    <value>連線診斷</value>
-  </data>
-  <data name="DiagSvc_AuthFailed" xml:space="preserve">
-    <value>身分驗證失敗</value>
-  </data>
-  <data name="DiagSvc_AuthFailedDesc" xml:space="preserve">
-    <value>伺服器拒絕了 {0} 的登入:{1}</value>
-  </data>
-  <data name="DiagSvc_ConnectTimeout" xml:space="preserve">
-    <value>連線逾時</value>
-  </data>
-  <data name="DiagSvc_ConnFailed" xml:space="preserve">
-    <value>連線建立失敗</value>
-  </data>
-  <data name="DiagSvc_DnsFailed" xml:space="preserve">
-    <value>DNS 解析失敗</value>
-  </data>
-  <data name="DiagSvc_DnsFailedDesc" xml:space="preserve">
-    <value>無法解析主機名稱 {0}:{1}</value>
-  </data>
-  <data name="DiagSvc_HostKeyFailed" xml:space="preserve">
-    <value>主機金鑰驗證未通過</value>
-  </data>
-  <data name="DiagSvc_IpLiteral" xml:space="preserve">
-    <value>IP 直連,無需解析</value>
-  </data>
-  <data name="DiagSvc_JumpChainConfigError" xml:space="preserve">
-    <value>跳板鏈設定異常</value>
-  </data>
-  <data name="DiagSvc_JumpChainFailed" xml:space="preserve">
-    <value>跳板鏈建立失敗</value>
-  </data>
-  <data name="DiagSvc_JumpChainLoop" xml:space="preserve">
-    <value>跳板設定形成了循環引用,請檢查各設定的跳板主機設定。</value>
-  </data>
-  <data name="DiagSvc_JumpChainTooLong" xml:space="preserve">
-    <value>跳板鏈超過 5 跳,請精簡跳板層級。</value>
-  </data>
-  <data name="DiagSvc_JumpConfigError" xml:space="preserve">
-    <value>跳板設定異常</value>
-  </data>
-  <data name="DiagSvc_JumpSuffix" xml:space="preserve">
-    <value>(跳板 {0})</value>
-  </data>
-  <data name="DiagSvc_LoginSuccess" xml:space="preserve">
-    <value>{0}@{1} 登入成功</value>
-  </data>
-  <data name="DiagSvc_NoBanner" xml:space="preserve">
-    <value>未收到伺服器回應</value>
-  </data>
-  <data name="DiagSvc_NoBannerDesc" xml:space="preserve">
-    <value>{0}:{1} 可連通,但在 {2} 秒內未回傳 SSH 服務識別。</value>
-  </data>
-  <data name="DiagSvc_NoCredsSkip" xml:space="preserve">
-    <value>未儲存憑證,跳過驗證測試</value>
-  </data>
-  <data name="DiagSvc_NonSshBanner" xml:space="preserve">
-    <value>非 SSH 回應:{0}</value>
-  </data>
-  <data name="DiagSvc_NonSshDesc" xml:space="preserve">
-    <value>{0}:{1} 回傳了非 SSH 協定回應:{2}</value>
-  </data>
-  <data name="DiagSvc_NotSshPort" xml:space="preserve">
-    <value>連接埠未執行 SSH 服務</value>
-  </data>
-  <data name="DiagSvc_SshBannerReadError" xml:space="preserve">
-    <value>讀取 SSH 服務識別時發生錯誤:{0}</value>
-  </data>
-  <data name="DiagSvc_SshHandshakeFailed" xml:space="preserve">
-    <value>SSH 交握失敗</value>
-  </data>
-  <data name="DiagSvc_StepAuth" xml:space="preserve">
-    <value>使用者驗證</value>
-  </data>
-  <data name="DiagSvc_StepAuthFullChain" xml:space="preserve">
-    <value>使用者驗證(完整跳板鏈)</value>
-  </data>
-  <data name="DiagSvc_StepDns" xml:space="preserve">
-    <value>DNS 解析</value>
-  </data>
-  <data name="DiagSvc_StepSsh" xml:space="preserve">
-    <value>SSH 交握</value>
-  </data>
-  <data name="DiagSvc_StepTcp" xml:space="preserve">
-    <value>TCP 連線</value>
-  </data>
-  <data name="DiagSvc_SuggestCheckCreds" xml:space="preserve">
-    <value>檢查使用者名稱與密碼/私鑰是否正確,注意大小寫。</value>
-  </data>
-  <data name="DiagSvc_SuggestCheckDns" xml:space="preserve">
-    <value>檢查本機 DNS 設定,或直接改用 IP 位址連線。</value>
-  </data>
-  <data name="DiagSvc_SuggestCheckHostname" xml:space="preserve">
-    <value>檢查主機名稱拼寫是否正確。</value>
-  </data>
-  <data name="DiagSvc_SuggestCheckPort" xml:space="preserve">
-    <value>確認連接埠 {0} 正確,且伺服器上的 SSH 服務正在執行。</value>
-  </data>
-  <data name="DiagSvc_SuggestCheckSshd" xml:space="preserve">
-    <value>網路與連接埠均正常,失敗發生在 SSH 協商階段;檢查伺服器 sshd 日誌(/var/log/auth.log)取得具體原因。</value>
-  </data>
-  <data name="DiagSvc_SuggestDefaultPort" xml:space="preserve">
-    <value>確認連接埠號:SSH 預設 22,目前設定為 {0}。</value>
-  </data>
-  <data name="DiagSvc_SuggestDiagnoseJump" xml:space="preserve">
-    <value>可先對跳板機單獨執行一次連線診斷,逐跳定位問題。</value>
-  </data>
-  <data name="DiagSvc_SuggestFirewall" xml:space="preserve">
-    <value>檢查伺服器防火牆/雲端安全群組是否放行了該連接埠。</value>
-  </data>
-  <data name="DiagSvc_SuggestHostOnline" xml:space="preserve">
-    <value>確認主機在線(可嘗試 ping 或從其他網路存取)。</value>
-  </data>
-  <data name="DiagSvc_SuggestJumpCreds" xml:space="preserve">
-    <value>跳板機的設定需已儲存憑證才能免互動連上,請檢查各跳板設定。</value>
-  </data>
-  <data name="DiagSvc_SuggestKeyMatch" xml:space="preserve">
-    <value>確認私鑰檔案與伺服器上的公鑰相符,私鑰通關密語(passphrase)正確。</value>
-  </data>
-  <data name="DiagSvc_SuggestMitm" xml:space="preserve">
-    <value>若非預期變更,請警惕中間人攻擊,先與伺服器管理員核實。</value>
-  </data>
-  <data name="DiagSvc_SuggestPasswordDisabled" xml:space="preserve">
-    <value>伺服器可能停用了密碼登入(PasswordAuthentication no),可嘗試改用金鑰驗證。</value>
-  </data>
-  <data name="DiagSvc_SuggestPortOccupied" xml:space="preserve">
-    <value>該連接埠可能被其他服務(HTTP/資料庫等)佔用,請核對伺服器設定。</value>
-  </data>
-  <data name="DiagSvc_SuggestRecreateJump" xml:space="preserve">
-    <value>若跳板設定已刪除,請改為直連或重建跳板設定。</value>
-  </data>
-  <data name="DiagSvc_SuggestReselectJump" xml:space="preserve">
-    <value>開啟該連線的編輯視窗 → 進階選項,重新選擇跳板主機。</value>
-  </data>
-  <data name="DiagSvc_SuggestSaveCreds" xml:space="preserve">
-    <value>該設定未儲存密碼/金鑰,連線時會彈出登入驗證;如需自動驗證測試,請在編輯視窗儲存憑證。</value>
-  </data>
-  <data name="DiagSvc_SuggestTrustNewKey" xml:space="preserve">
-    <value>伺服器主機金鑰與本機記錄不一致:若伺服器確實重裝過,請在提示中信任新指紋。</value>
-  </data>
-  <data name="DiagSvc_SuggestVpn" xml:space="preserve">
-    <value>若目標在內網,確認已接入公司網路或 VPN。</value>
-  </data>
-  <data name="DiagSvc_TcpFailed" xml:space="preserve">
-    <value>無法建立 TCP 連線</value>
-  </data>
-  <data name="DiagSvc_TcpFailedDesc" xml:space="preserve">
-    <value>到 {0}:{1} 的 TCP 連線失敗:{2}</value>
-  </data>
-  <data name="DiagSvc_UnknownError" xml:space="preserve">
-    <value>未知錯誤</value>
-  </data>
-  <data name="DiagSvc_WaitFix" xml:space="preserve">
-    <value>等待修復後重試</value>
-  </data>
-  <data name="Disconnect" xml:space="preserve">
-    <value>中斷連線</value>
-  </data>
-  <data name="Disconnected" xml:space="preserve">
-    <value>已中斷</value>
-  </data>
-  <data name="Dock_AllTabs" xml:space="preserve">
-    <value>所有分頁</value>
-  </data>
-  <data name="Dock_Close" xml:space="preserve">
-    <value>關閉</value>
-  </data>
-  <data name="Dock_CloseAll" xml:space="preserve">
-    <value>關閉所有分頁</value>
-  </data>
-  <data name="Dock_CloseLeft" xml:space="preserve">
-    <value>關閉左側分頁</value>
-  </data>
-  <data name="Dock_CloseOthers" xml:space="preserve">
-    <value>關閉其他分頁</value>
-  </data>
-  <data name="Dock_CloseRight" xml:space="preserve">
-    <value>關閉右側分頁</value>
-  </data>
-  <data name="Dock_DropTabHere" xml:space="preserve">
-    <value>將分頁拖曳至此</value>
-  </data>
-  <data name="Dock_SplitHorizontal" xml:space="preserve">
-    <value>水平分割</value>
-  </data>
-  <data name="Dock_SplitVertical" xml:space="preserve">
-    <value>垂直分割</value>
-  </data>
-  <data name="Dock_TabsLeft" xml:space="preserve">
-    <value>左側</value>
-  </data>
-  <data name="Dock_TabsPosition" xml:space="preserve">
-    <value>分頁位置</value>
-  </data>
-  <data name="Dock_TabsRight" xml:space="preserve">
-    <value>右側</value>
-  </data>
-  <data name="Dock_TabsTop" xml:space="preserve">
-    <value>頂端</value>
-  </data>
-  <data name="Docker" xml:space="preserve">
-    <value>Docker</value>
-  </data>
-  <data name="Download" xml:space="preserve">
-    <value>下載</value>
-  </data>
-  <data name="Edit" xml:space="preserve">
-    <value>編輯</value>
-  </data>
-  <data name="Editor_DiscardAndClose" xml:space="preserve">
-    <value>捨棄並關閉</value>
-  </data>
-  <data name="Editor_LoadedStatus" xml:space="preserve">
-    <value>UTF 文字 · {0} B · 已就緒</value>
-  </data>
-  <data name="Editor_MaximizeTip" xml:space="preserve">
-    <value>最大化/還原</value>
-  </data>
-  <data name="Editor_SavedStatus" xml:space="preserve">
-    <value>已儲存並同步到伺服器 · {0}</value>
-  </data>
-  <data name="Editor_SaveFailed" xml:space="preserve">
-    <value>儲存失敗:{0}</value>
-  </data>
-  <data name="Editor_Saving" xml:space="preserve">
-    <value>儲存中…</value>
-  </data>
-  <data name="Editor_Unsaved" xml:space="preserve">
-    <value>● 未儲存的變更</value>
-  </data>
-  <data name="Editor_UnsavedBody" xml:space="preserve">
-    <value>檔案有未儲存的修改,關閉將捨棄這些變更。</value>
-  </data>
-  <data name="Editor_UnsavedTitle" xml:space="preserve">
-    <value>未儲存的變更</value>
-  </data>
-  <data name="Error" xml:space="preserve">
-    <value>錯誤</value>
-  </data>
-  <data name="File" xml:space="preserve">
-    <value>檔案</value>
-  </data>
-  <data name="FileName" xml:space="preserve">
-    <value>檔案名稱</value>
-  </data>
-  <data name="FilePath" xml:space="preserve">
-    <value>路徑</value>
-  </data>
-  <data name="FileType" xml:space="preserve">
-    <value>類型</value>
   </data>
   <data name="Monitor_CacheBuffers" xml:space="preserve">
     <value>快取 / 緩衝</value>
@@ -865,14 +468,200 @@
   <data name="Monitor_WindowSeconds" xml:space="preserve">
     <value>{0} 秒前</value>
   </data>
-  <data name="Sftp_FileTypeExt" xml:space="preserve">
-    <value>{0} 檔案</value>
+  <data name="Ready" xml:space="preserve">
+    <value>就緒</value>
   </data>
-  <data name="Fingerprint" xml:space="preserve">
-    <value>指紋</value>
+  <data name="QuickConnect" xml:space="preserve">
+    <value>快速連線</value>
   </data>
-  <data name="Folder" xml:space="preserve">
-    <value>資料夾</value>
+  <data name="RecentConnections" xml:space="preserve">
+    <value>最近連線</value>
+  </data>
+  <data name="Settings" xml:space="preserve">
+    <value>設定</value>
+  </data>
+  <data name="Notifications" xml:space="preserve">
+    <value>通知</value>
+  </data>
+  <data name="NewTab" xml:space="preserve">
+    <value>新分頁</value>
+  </data>
+  <data name="CloseTab" xml:space="preserve">
+    <value>關閉分頁</value>
+  </data>
+  <data name="Search" xml:space="preserve">
+    <value>搜尋</value>
+  </data>
+  <data name="Copy" xml:space="preserve">
+    <value>複製</value>
+  </data>
+  <data name="Split" xml:space="preserve">
+    <value>分割</value>
+  </data>
+  <data name="StatusBar_OpenMonitor" xml:space="preserve">
+    <value>開啟資源監視器</value>
+  </data>
+  <data name="FileName" xml:space="preserve">
+    <value>檔案名稱</value>
+  </data>
+  <data name="Size" xml:space="preserve">
+    <value>大小</value>
+  </data>
+  <data name="Permissions" xml:space="preserve">
+    <value>權限</value>
+  </data>
+  <data name="Modified" xml:space="preserve">
+    <value>修改時間</value>
+  </data>
+  <data name="Upload" xml:space="preserve">
+    <value>上傳</value>
+  </data>
+  <data name="Download" xml:space="preserve">
+    <value>下載</value>
+  </data>
+  <data name="Refresh" xml:space="preserve">
+    <value>重新整理</value>
+  </data>
+  <data name="Sftp_RefreshLocalPane" xml:space="preserve">
+    <value>重新整理本機欄</value>
+  </data>
+  <data name="Sftp_RefreshRemotePane" xml:space="preserve">
+    <value>重新整理遠端欄</value>
+  </data>
+  <data name="Sftp_FollowTerminal" xml:space="preserve">
+    <value>跟隨終端機目錄(同步到終端機目前路徑)</value>
+  </data>
+  <data name="Sftp_FollowTerminalNoReport" xml:space="preserve">
+    <value>終端機還沒有回報過工作目錄。Windows 遠端(cmd.exe / PowerShell)無法回報;其他 shell 可在自己的提示字元掛鉤中送出 OSC 7。</value>
+  </data>
+  <data name="Sftp_EditPath" xml:space="preserve">
+    <value>編輯路徑 (Ctrl+L)</value>
+  </data>
+  <data name="Sftp_PathInputHint" xml:space="preserve">
+    <value>輸入路徑後按 Enter 跳轉</value>
+  </data>
+  <data name="TransferHistory" xml:space="preserve">
+    <value>傳輸記錄</value>
+  </data>
+  <data name="LocalForward" xml:space="preserve">
+    <value>本機轉發</value>
+  </data>
+  <data name="RemoteForward" xml:space="preserve">
+    <value>遠端轉發</value>
+  </data>
+  <data name="LocalPort" xml:space="preserve">
+    <value>本機連接埠</value>
+  </data>
+  <data name="NewTunnel" xml:space="preserve">
+    <value>新增隧道</value>
+  </data>
+  <data name="Network" xml:space="preserve">
+    <value>網路</value>
+  </data>
+  <data name="Docker" xml:space="preserve">
+    <value>Docker</value>
+  </data>
+  <data name="QuickCommands" xml:space="preserve">
+    <value>快速命令</value>
+  </data>
+  <data name="QuickCmd_SelectTargets" xml:space="preserve">
+    <value>選擇執行終端</value>
+  </data>
+  <data name="QuickCmd_SelectAll" xml:space="preserve">
+    <value>全選</value>
+  </data>
+  <data name="QuickCmd_ClearSelection" xml:space="preserve">
+    <value>清除</value>
+  </data>
+  <data name="QuickCmd_NoConnectedTerminals" xml:space="preserve">
+    <value>暫無已連線終端</value>
+  </data>
+  <data name="QuickCmd_CurrentTerminal" xml:space="preserve">
+    <value>目前終端</value>
+  </data>
+  <data name="QuickCmd_SelectedTerminals" xml:space="preserve">
+    <value>個終端已選</value>
+  </data>
+  <data name="QuickCmd_Search" xml:space="preserve">
+    <value>搜尋程式碼片段</value>
+  </data>
+  <data name="QuickCmd_Ungrouped" xml:space="preserve">
+    <value>未分組</value>
+  </data>
+  <data name="QuickCmd_GroupPlaceholder" xml:space="preserve">
+    <value>分組名稱</value>
+  </data>
+  <data name="QuickCmd_EditSnippet" xml:space="preserve">
+    <value>編輯程式碼片段</value>
+  </data>
+  <data name="AddCommand" xml:space="preserve">
+    <value>新增命令</value>
+  </data>
+  <data name="Description" xml:space="preserve">
+    <value>描述</value>
+  </data>
+  <data name="Command" xml:space="preserve">
+    <value>命令</value>
+  </data>
+  <data name="Category" xml:space="preserve">
+    <value>分類</value>
+  </data>
+  <data name="System" xml:space="preserve">
+    <value>系統</value>
+  </data>
+  <data name="Connected" xml:space="preserve">
+    <value>已連線</value>
+  </data>
+  <data name="Connecting" xml:space="preserve">
+    <value>連線中</value>
+  </data>
+  <data name="Disconnected" xml:space="preserve">
+    <value>已中斷</value>
+  </data>
+  <data name="Latency" xml:space="preserve">
+    <value>延遲</value>
+  </data>
+  <data name="Sessions" xml:space="preserve">
+    <value>工作階段</value>
+  </data>
+  <data name="MoveToGroup" xml:space="preserve">
+    <value>移動到群組</value>
+  </data>
+  <data name="Connect" xml:space="preserve">
+    <value>連線</value>
+  </data>
+  <data name="Disconnect" xml:space="preserve">
+    <value>中斷連線</value>
+  </data>
+  <data name="Save" xml:space="preserve">
+    <value>儲存</value>
+  </data>
+  <data name="Cancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="Close" xml:space="preserve">
+    <value>關閉</value>
+  </data>
+  <data name="Delete" xml:space="preserve">
+    <value>刪除</value>
+  </data>
+  <data name="Edit" xml:space="preserve">
+    <value>編輯</value>
+  </data>
+  <data name="OK" xml:space="preserve">
+    <value>確定</value>
+  </data>
+  <data name="Error" xml:space="preserve">
+    <value>錯誤</value>
+  </data>
+  <data name="Warning" xml:space="preserve">
+    <value>警告</value>
+  </data>
+  <data name="Language" xml:space="preserve">
+    <value>語言</value>
+  </data>
+  <data name="Theme" xml:space="preserve">
+    <value>主題</value>
   </data>
   <data name="Font" xml:space="preserve">
     <value>字型</value>
@@ -880,17 +669,44 @@
   <data name="FontSize" xml:space="preserve">
     <value>字型大小</value>
   </data>
-  <data name="Group" xml:space="preserve">
-    <value>群組</value>
+  <data name="ScrollbackLines" xml:space="preserve">
+    <value>回捲行數</value>
+  </data>
+  <data name="TerminalType" xml:space="preserve">
+    <value>終端機類型</value>
+  </data>
+  <data name="TerminalEncoding" xml:space="preserve">
+    <value>字元編碼</value>
+  </data>
+  <data name="Password" xml:space="preserve">
+    <value>密碼</value>
+  </data>
+  <data name="PrivateKey" xml:space="preserve">
+    <value>私鑰</value>
+  </data>
+  <data name="Username" xml:space="preserve">
+    <value>使用者名稱</value>
   </data>
   <data name="Host" xml:space="preserve">
     <value>主機</value>
   </data>
-  <data name="HostKey_TrustOnceTip" xml:space="preserve">
-    <value>放行本次連線,但不寫入已信任主機;應用程式重新啟動後將再次詢問</value>
+  <data name="Port" xml:space="preserve">
+    <value>連接埠</value>
   </data>
-  <data name="HostKey_TrustPermanentlyTip" xml:space="preserve">
-    <value>記錄該指紋,之後連線不再詢問;可在 設定 → 安全稽核 → 已信任主機 中刪除</value>
+  <data name="HostKeyVerification" xml:space="preserve">
+    <value>主機金鑰驗證</value>
+  </data>
+  <data name="BrowseKeyFile" xml:space="preserve">
+    <value>瀏覽…</value>
+  </data>
+  <data name="ConnectionProfile" xml:space="preserve">
+    <value>連線設定</value>
+  </data>
+  <data name="AuthMethodLabel" xml:space="preserve">
+    <value>驗證方式</value>
+  </data>
+  <data name="DefaultPort" xml:space="preserve">
+    <value>預設連接埠</value>
   </data>
   <data name="HostKeyChanged" xml:space="preserve">
     <value>警告:主機金鑰已變更!</value>
@@ -898,8 +714,548 @@
   <data name="HostKeyUnknown" xml:space="preserve">
     <value>首次連線到此主機</value>
   </data>
-  <data name="HostKeyVerification" xml:space="preserve">
-    <value>主機金鑰驗證</value>
+  <data name="Fingerprint" xml:space="preserve">
+    <value>指紋</value>
+  </data>
+  <data name="KeyType" xml:space="preserve">
+    <value>金鑰類型</value>
+  </data>
+  <data name="Reject" xml:space="preserve">
+    <value>拒絕</value>
+  </data>
+  <data name="TrustPermanently" xml:space="preserve">
+    <value>永久信任</value>
+  </data>
+  <data name="TrustOnce" xml:space="preserve">
+    <value>僅信任本次</value>
+  </data>
+  <data name="Name" xml:space="preserve">
+    <value>名稱</value>
+  </data>
+  <data name="Group" xml:space="preserve">
+    <value>群組</value>
+  </data>
+  <data name="Passphrase" xml:space="preserve">
+    <value>金鑰密碼</value>
+  </data>
+  <data name="UploadHere" xml:space="preserve">
+    <value>上傳到目前目錄</value>
+  </data>
+  <data name="Sftp_PickUploadTitle" xml:space="preserve">
+    <value>選擇要上傳的檔案與資料夾</value>
+  </data>
+  <data name="Sftp_PickUploadHint" xml:space="preserve">
+    <value>選擇檔案與資料夾 —— 兩者可以一起選</value>
+  </data>
+  <data name="Sftp_PickUploadSelected" xml:space="preserve">
+    <value>已選 {0} 個檔案、{1} 個資料夾</value>
+  </data>
+  <data name="Sftp_GoUp" xml:space="preserve">
+    <value>上一層</value>
+  </data>
+  <data name="NewFolder" xml:space="preserve">
+    <value>新增資料夾</value>
+  </data>
+  <data name="NewFile" xml:space="preserve">
+    <value>新增檔案</value>
+  </data>
+  <data name="Rename" xml:space="preserve">
+    <value>重新命名</value>
+  </data>
+  <data name="MoveTo" xml:space="preserve">
+    <value>移動到…</value>
+  </data>
+  <data name="MoveToPrompt" xml:space="preserve">
+    <value>移動到(目的地完整路徑)</value>
+  </data>
+  <data name="MoveSelectedToPrompt" xml:space="preserve">
+    <value>將選取項目移動到(目標資料夾)</value>
+  </data>
+  <data name="CopySelectedToPrompt" xml:space="preserve">
+    <value>將選取項目複製到(目標資料夾)</value>
+  </data>
+  <data name="BatchOpPartialFailure" xml:space="preserve">
+    <value>{0} 項失敗,首個錯誤:{1}</value>
+  </data>
+  <data name="CopyTo" xml:space="preserve">
+    <value>複製到…</value>
+  </data>
+  <data name="SftpCopyToPrompt" xml:space="preserve">
+    <value>輸入複製目標路徑</value>
+  </data>
+  <data name="CopyCurrentFolderPath" xml:space="preserve">
+    <value>複製目前資料夾路徑</value>
+  </data>
+  <data name="CopyFilePath" xml:space="preserve">
+    <value>複製路徑</value>
+  </data>
+  <data name="CopyFileName" xml:space="preserve">
+    <value>複製名稱</value>
+  </data>
+  <data name="Properties" xml:space="preserve">
+    <value>屬性</value>
+  </data>
+  <data name="PermissionOwner" xml:space="preserve">
+    <value>擁有者</value>
+  </data>
+  <data name="PermissionGroup" xml:space="preserve">
+    <value>群組</value>
+  </data>
+  <data name="PermissionOthers" xml:space="preserve">
+    <value>其他</value>
+  </data>
+  <data name="PermissionRead" xml:space="preserve">
+    <value>讀取</value>
+  </data>
+  <data name="PermissionWrite" xml:space="preserve">
+    <value>寫入</value>
+  </data>
+  <data name="PermissionExecute" xml:space="preserve">
+    <value>執行</value>
+  </data>
+  <data name="ShowHiddenFiles" xml:space="preserve">
+    <value>顯示隱藏檔案</value>
+  </data>
+  <data name="ConfirmDeleteTitle" xml:space="preserve">
+    <value>確認刪除</value>
+  </data>
+  <data name="ConfirmDeleteFile" xml:space="preserve">
+    <value>確定要刪除檔案「{0}」嗎?此操作無法復原。</value>
+  </data>
+  <data name="ConfirmDeleteFolder" xml:space="preserve">
+    <value>確定要刪除資料夾「{0}」及其全部內容嗎?此操作無法復原。</value>
+  </data>
+  <data name="ConfirmDeleteMultiple" xml:space="preserve">
+    <value>確定要刪除選取的 {0} 個項目嗎?此操作無法復原。</value>
+  </data>
+  <data name="Loading" xml:space="preserve">
+    <value>載入中…</value>
+  </data>
+  <data name="Deleting" xml:space="preserve">
+    <value>刪除中…</value>
+  </data>
+  <data name="DeletingProgress" xml:space="preserve">
+    <value>刪除中… 已刪除 {0}/{1} 個</value>
+  </data>
+  <data name="SelectDownloadFolder" xml:space="preserve">
+    <value>選擇儲存位置</value>
+  </data>
+  <data name="SaveToLocal" xml:space="preserve">
+    <value>儲存到本機</value>
+  </data>
+  <data name="FileType" xml:space="preserve">
+    <value>類型</value>
+  </data>
+  <data name="Sftp_FileTypeExt" xml:space="preserve">
+    <value>{0} 檔案</value>
+  </data>
+  <data name="File" xml:space="preserve">
+    <value>檔案</value>
+  </data>
+  <data name="Folder" xml:space="preserve">
+    <value>資料夾</value>
+  </data>
+  <data name="FilePath" xml:space="preserve">
+    <value>路徑</value>
+  </data>
+  <data name="Reconnect" xml:space="preserve">
+    <value>重新連線</value>
+  </data>
+  <data name="TerminalDisconnectedNotice" xml:space="preserve">
+    <value>連線已中斷。</value>
+  </data>
+  <data name="TerminalReconnectHint" xml:space="preserve">
+    <value>按 Enter 重新連線。</value>
+  </data>
+  <data name="Auth_AesBadge" xml:space="preserve">
+    <value>AES-256 加密儲存</value>
+  </data>
+  <data name="Auth_Back" xml:space="preserve">
+    <value>上一步</value>
+  </data>
+  <data name="Auth_Certificate" xml:space="preserve">
+    <value>憑證</value>
+  </data>
+  <data name="Auth_ConnectingTo" xml:space="preserve">
+    <value>正在連線 {0}</value>
+  </data>
+  <data name="Auth_EnterUsername" xml:space="preserve">
+    <value>輸入使用者名稱</value>
+  </data>
+  <data name="Auth_FingerprintFirstConnect" xml:space="preserve">
+    <value>指紋: 首次連線,將於交握時記錄</value>
+  </data>
+  <data name="Auth_FingerprintTrusted" xml:space="preserve">
+    <value>指紋: {0}(已信任)</value>
+  </data>
+  <data name="Auth_HeaderTitle" xml:space="preserve">
+    <value>身分驗證 - 第 {0} 步</value>
+  </data>
+  <data name="Auth_Key" xml:space="preserve">
+    <value>金鑰</value>
+  </data>
+  <data name="Auth_Login" xml:space="preserve">
+    <value>登入</value>
+  </data>
+  <data name="Auth_Next" xml:space="preserve">
+    <value>下一步</value>
+  </data>
+  <data name="Auth_SelectMethod" xml:space="preserve">
+    <value>選擇驗證方式</value>
+  </data>
+  <data name="Auth_Title" xml:space="preserve">
+    <value>身分驗證</value>
+  </data>
+  <data name="Auth_UsernameLine" xml:space="preserve">
+    <value>使用者名稱: {0}</value>
+  </data>
+  <data name="Boot_AlreadyRunning" xml:space="preserve">
+    <value>VelaShell 已在執行中。
+
+請切換至已開啟的視窗;同一時間只能執行一個實例。</value>
+  </data>
+  <data name="Boot_StartupErrorTitle" xml:space="preserve">
+    <value>VelaShell - 啟動錯誤</value>
+  </data>
+  <data name="Boot_StartupFailed" xml:space="preserve">
+    <value>VelaShell 啟動失敗。
+
+{0}
+
+若反覆出現,請嘗試關閉其他 VelaShell 視窗後重試。</value>
+  </data>
+  <data name="Cmd_ClearScreen" xml:space="preserve">
+    <value>清除畫面</value>
+  </data>
+  <data name="Cmd_ToggleLineGutter" xml:space="preserve">
+    <value>切換行號/時間側欄</value>
+  </data>
+  <data name="Cmd_CloneSession" xml:space="preserve">
+    <value>複製工作階段</value>
+  </data>
+  <data name="Cmd_CloseCurrentSession" xml:space="preserve">
+    <value>關閉目前工作階段</value>
+  </data>
+  <data name="Cmd_CommandPalette" xml:space="preserve">
+    <value>命令面板</value>
+  </data>
+  <data name="Cmd_ConnectionDiagnostics" xml:space="preserve">
+    <value>連線診斷</value>
+  </data>
+  <data name="Cmd_ExportTerminalOutput" xml:space="preserve">
+    <value>匯出終端機輸出至檔案</value>
+  </data>
+  <data name="Cmd_FindInTerminal" xml:space="preserve">
+    <value>終端機內尋找</value>
+  </data>
+  <data name="Cmd_NewSshConnection" xml:space="preserve">
+    <value>新增 SSH 連線</value>
+  </data>
+  <data name="Cmd_OpenLocalTerminal" xml:space="preserve">
+    <value>開啟本機終端機:{0}</value>
+  </data>
+  <data name="Cmd_OpenSettings" xml:space="preserve">
+    <value>開啟設定</value>
+  </data>
+  <data name="Cmd_Paste" xml:space="preserve">
+    <value>貼上</value>
+  </data>
+  <data name="Cmd_Reconnect" xml:space="preserve">
+    <value>重新連線</value>
+  </data>
+  <data name="Cmd_SftpFileManager" xml:space="preserve">
+    <value>SFTP 檔案管理器</value>
+  </data>
+  <data name="Cmd_TunnelManager" xml:space="preserve">
+    <value>隧道管理</value>
+  </data>
+  <data name="Cmd_XModemReceive" xml:space="preserve">
+    <value>XMODEM:接收檔案(遠端 sx)</value>
+  </data>
+  <data name="Cmd_XModemSend" xml:space="preserve">
+    <value>XMODEM:傳送檔案(遠端 rx)</value>
+  </data>
+  <data name="Cmd_XModem1KSend" xml:space="preserve">
+    <value>XMODEM-1K:傳送檔案(遠端 rx)</value>
+  </data>
+  <data name="Cmd_YModemReceive" xml:space="preserve">
+    <value>YMODEM:接收檔案(遠端 sb)</value>
+  </data>
+  <data name="Cmd_YModemSend" xml:space="preserve">
+    <value>YMODEM:傳送檔案(遠端 rb)</value>
+  </data>
+  <data name="Cmd_YModemGReceive" xml:space="preserve">
+    <value>YMODEM-G:接收檔案(高速,不重傳)</value>
+  </data>
+  <data name="CmdCat_Transfer" xml:space="preserve">
+    <value>檔案傳輸</value>
+  </data>
+  <data name="CmdCat_Actions" xml:space="preserve">
+    <value>操作</value>
+  </data>
+  <data name="CmdCat_Edit" xml:space="preserve">
+    <value>編輯</value>
+  </data>
+  <data name="CmdCat_Search" xml:space="preserve">
+    <value>搜尋</value>
+  </data>
+  <data name="CmdCat_Session" xml:space="preserve">
+    <value>工作階段</value>
+  </data>
+  <data name="CmdCat_Tools" xml:space="preserve">
+    <value>工具</value>
+  </data>
+  <data name="Diag_AllPassed" xml:space="preserve">
+    <value>未發現問題,各項檢測均通過,可正常連線。</value>
+  </data>
+  <data name="Diag_CloseTip" xml:space="preserve">
+    <value>關閉</value>
+  </data>
+  <data name="Diag_ExportReport" xml:space="preserve">
+    <value>匯出診斷報告</value>
+  </data>
+  <data name="Diag_Header" xml:space="preserve">
+    <value>連線診斷中心</value>
+  </data>
+  <data name="Diag_IssueFound" xml:space="preserve">
+    <value>發現問題:</value>
+  </data>
+  <data name="Diag_Rerun" xml:space="preserve">
+    <value>重新檢測</value>
+  </data>
+  <data name="Diag_Running" xml:space="preserve">
+    <value>// 正在逐項檢測,請稍候…</value>
+  </data>
+  <data name="Diag_Steps" xml:space="preserve">
+    <value>診斷步驟</value>
+  </data>
+  <data name="Diag_Title" xml:space="preserve">
+    <value>連線診斷</value>
+  </data>
+  <data name="DiagSvc_AuthFailed" xml:space="preserve">
+    <value>身分驗證失敗</value>
+  </data>
+  <data name="DiagSvc_AuthFailedDesc" xml:space="preserve">
+    <value>伺服器拒絕了 {0} 的登入:{1}</value>
+  </data>
+  <data name="DiagSvc_ConnectTimeout" xml:space="preserve">
+    <value>連線逾時</value>
+  </data>
+  <data name="DiagSvc_ConnFailed" xml:space="preserve">
+    <value>連線建立失敗</value>
+  </data>
+  <data name="DiagSvc_DnsFailed" xml:space="preserve">
+    <value>DNS 解析失敗</value>
+  </data>
+  <data name="DiagSvc_DnsFailedDesc" xml:space="preserve">
+    <value>無法解析主機名稱 {0}:{1}</value>
+  </data>
+  <data name="DiagSvc_HostKeyFailed" xml:space="preserve">
+    <value>主機金鑰驗證未通過</value>
+  </data>
+  <data name="DiagSvc_IpLiteral" xml:space="preserve">
+    <value>IP 直連,無需解析</value>
+  </data>
+  <data name="DiagSvc_JumpChainConfigError" xml:space="preserve">
+    <value>跳板鏈設定異常</value>
+  </data>
+  <data name="DiagSvc_JumpChainFailed" xml:space="preserve">
+    <value>跳板鏈建立失敗</value>
+  </data>
+  <data name="DiagSvc_JumpChainLoop" xml:space="preserve">
+    <value>跳板設定形成了循環引用,請檢查各設定的跳板主機設定。</value>
+  </data>
+  <data name="DiagSvc_JumpChainTooLong" xml:space="preserve">
+    <value>跳板鏈超過 5 跳,請精簡跳板層級。</value>
+  </data>
+  <data name="DiagSvc_JumpConfigError" xml:space="preserve">
+    <value>跳板設定異常</value>
+  </data>
+  <data name="DiagSvc_JumpSuffix" xml:space="preserve">
+    <value>(跳板 {0})</value>
+  </data>
+  <data name="DiagSvc_LoginSuccess" xml:space="preserve">
+    <value>{0}@{1} 登入成功</value>
+  </data>
+  <data name="DiagSvc_NoBanner" xml:space="preserve">
+    <value>未收到伺服器回應</value>
+  </data>
+  <data name="DiagSvc_NoBannerDesc" xml:space="preserve">
+    <value>{0}:{1} 可連通,但在 {2} 秒內未回傳 SSH 服務識別。</value>
+  </data>
+  <data name="DiagSvc_NoCredsSkip" xml:space="preserve">
+    <value>未儲存憑證,跳過驗證測試</value>
+  </data>
+  <data name="DiagSvc_NonSshBanner" xml:space="preserve">
+    <value>非 SSH 回應:{0}</value>
+  </data>
+  <data name="DiagSvc_NonSshDesc" xml:space="preserve">
+    <value>{0}:{1} 回傳了非 SSH 協定回應:{2}</value>
+  </data>
+  <data name="DiagSvc_NotSshPort" xml:space="preserve">
+    <value>連接埠未執行 SSH 服務</value>
+  </data>
+  <data name="DiagSvc_SshBannerReadError" xml:space="preserve">
+    <value>讀取 SSH 服務識別時發生錯誤:{0}</value>
+  </data>
+  <data name="DiagSvc_SshHandshakeFailed" xml:space="preserve">
+    <value>SSH 交握失敗</value>
+  </data>
+  <data name="DiagSvc_StepAuth" xml:space="preserve">
+    <value>使用者驗證</value>
+  </data>
+  <data name="DiagSvc_StepAuthFullChain" xml:space="preserve">
+    <value>使用者驗證(完整跳板鏈)</value>
+  </data>
+  <data name="DiagSvc_StepDns" xml:space="preserve">
+    <value>DNS 解析</value>
+  </data>
+  <data name="DiagSvc_StepSsh" xml:space="preserve">
+    <value>SSH 交握</value>
+  </data>
+  <data name="DiagSvc_StepTcp" xml:space="preserve">
+    <value>TCP 連線</value>
+  </data>
+  <data name="DiagSvc_SuggestCheckCreds" xml:space="preserve">
+    <value>檢查使用者名稱與密碼/私鑰是否正確,注意大小寫。</value>
+  </data>
+  <data name="DiagSvc_SuggestCheckDns" xml:space="preserve">
+    <value>檢查本機 DNS 設定,或直接改用 IP 位址連線。</value>
+  </data>
+  <data name="DiagSvc_SuggestCheckHostname" xml:space="preserve">
+    <value>檢查主機名稱拼寫是否正確。</value>
+  </data>
+  <data name="DiagSvc_SuggestCheckPort" xml:space="preserve">
+    <value>確認連接埠 {0} 正確,且伺服器上的 SSH 服務正在執行。</value>
+  </data>
+  <data name="DiagSvc_SuggestCheckSshd" xml:space="preserve">
+    <value>網路與連接埠均正常,失敗發生在 SSH 協商階段;檢查伺服器 sshd 日誌(/var/log/auth.log)取得具體原因。</value>
+  </data>
+  <data name="DiagSvc_SuggestDefaultPort" xml:space="preserve">
+    <value>確認連接埠號:SSH 預設 22,目前設定為 {0}。</value>
+  </data>
+  <data name="DiagSvc_SuggestDiagnoseJump" xml:space="preserve">
+    <value>可先對跳板機單獨執行一次連線診斷,逐跳定位問題。</value>
+  </data>
+  <data name="DiagSvc_SuggestFirewall" xml:space="preserve">
+    <value>檢查伺服器防火牆/雲端安全群組是否放行了該連接埠。</value>
+  </data>
+  <data name="DiagSvc_SuggestHostOnline" xml:space="preserve">
+    <value>確認主機在線(可嘗試 ping 或從其他網路存取)。</value>
+  </data>
+  <data name="DiagSvc_SuggestJumpCreds" xml:space="preserve">
+    <value>跳板機的設定需已儲存憑證才能免互動連上,請檢查各跳板設定。</value>
+  </data>
+  <data name="DiagSvc_SuggestKeyMatch" xml:space="preserve">
+    <value>確認私鑰檔案與伺服器上的公鑰相符,私鑰通關密語(passphrase)正確。</value>
+  </data>
+  <data name="DiagSvc_SuggestMitm" xml:space="preserve">
+    <value>若非預期變更,請警惕中間人攻擊,先與伺服器管理員核實。</value>
+  </data>
+  <data name="DiagSvc_SuggestPasswordDisabled" xml:space="preserve">
+    <value>伺服器可能停用了密碼登入(PasswordAuthentication no),可嘗試改用金鑰驗證。</value>
+  </data>
+  <data name="DiagSvc_SuggestPortOccupied" xml:space="preserve">
+    <value>該連接埠可能被其他服務(HTTP/資料庫等)佔用,請核對伺服器設定。</value>
+  </data>
+  <data name="DiagSvc_SuggestRecreateJump" xml:space="preserve">
+    <value>若跳板設定已刪除,請改為直連或重建跳板設定。</value>
+  </data>
+  <data name="DiagSvc_SuggestReselectJump" xml:space="preserve">
+    <value>開啟該連線的編輯視窗 → 進階選項,重新選擇跳板主機。</value>
+  </data>
+  <data name="DiagSvc_SuggestSaveCreds" xml:space="preserve">
+    <value>該設定未儲存密碼/金鑰,連線時會彈出登入驗證;如需自動驗證測試,請在編輯視窗儲存憑證。</value>
+  </data>
+  <data name="DiagSvc_SuggestTrustNewKey" xml:space="preserve">
+    <value>伺服器主機金鑰與本機記錄不一致:若伺服器確實重裝過,請在提示中信任新指紋。</value>
+  </data>
+  <data name="DiagSvc_SuggestVpn" xml:space="preserve">
+    <value>若目標在內網,確認已接入公司網路或 VPN。</value>
+  </data>
+  <data name="DiagSvc_TcpFailed" xml:space="preserve">
+    <value>無法建立 TCP 連線</value>
+  </data>
+  <data name="DiagSvc_TcpFailedDesc" xml:space="preserve">
+    <value>到 {0}:{1} 的 TCP 連線失敗:{2}</value>
+  </data>
+  <data name="DiagSvc_UnknownError" xml:space="preserve">
+    <value>未知錯誤</value>
+  </data>
+  <data name="DiagSvc_WaitFix" xml:space="preserve">
+    <value>等待修復後重試</value>
+  </data>
+  <data name="Dock_AllTabs" xml:space="preserve">
+    <value>所有分頁</value>
+  </data>
+  <data name="Dock_Close" xml:space="preserve">
+    <value>關閉</value>
+  </data>
+  <data name="Dock_CloseAll" xml:space="preserve">
+    <value>關閉所有分頁</value>
+  </data>
+  <data name="Dock_CloseLeft" xml:space="preserve">
+    <value>關閉左側分頁</value>
+  </data>
+  <data name="Dock_CloseOthers" xml:space="preserve">
+    <value>關閉其他分頁</value>
+  </data>
+  <data name="Dock_CloseRight" xml:space="preserve">
+    <value>關閉右側分頁</value>
+  </data>
+  <data name="Dock_DropTabHere" xml:space="preserve">
+    <value>將分頁拖曳至此</value>
+  </data>
+  <data name="Dock_SplitHorizontal" xml:space="preserve">
+    <value>水平分割</value>
+  </data>
+  <data name="Dock_SplitVertical" xml:space="preserve">
+    <value>垂直分割</value>
+  </data>
+  <data name="Dock_TabsLeft" xml:space="preserve">
+    <value>左側</value>
+  </data>
+  <data name="Dock_TabsPosition" xml:space="preserve">
+    <value>分頁位置</value>
+  </data>
+  <data name="Dock_TabsRight" xml:space="preserve">
+    <value>右側</value>
+  </data>
+  <data name="Dock_TabsTop" xml:space="preserve">
+    <value>頂端</value>
+  </data>
+  <data name="Editor_DiscardAndClose" xml:space="preserve">
+    <value>捨棄並關閉</value>
+  </data>
+  <data name="Editor_LoadedStatus" xml:space="preserve">
+    <value>UTF 文字 · {0} B · 已就緒</value>
+  </data>
+  <data name="Editor_MaximizeTip" xml:space="preserve">
+    <value>最大化/還原</value>
+  </data>
+  <data name="Editor_SavedStatus" xml:space="preserve">
+    <value>已儲存並同步到伺服器 · {0}</value>
+  </data>
+  <data name="Editor_SaveFailed" xml:space="preserve">
+    <value>儲存失敗:{0}</value>
+  </data>
+  <data name="Editor_Saving" xml:space="preserve">
+    <value>儲存中…</value>
+  </data>
+  <data name="Editor_Unsaved" xml:space="preserve">
+    <value>● 未儲存的變更</value>
+  </data>
+  <data name="Editor_UnsavedBody" xml:space="preserve">
+    <value>檔案有未儲存的修改,關閉將捨棄這些變更。</value>
+  </data>
+  <data name="Editor_UnsavedTitle" xml:space="preserve">
+    <value>未儲存的變更</value>
+  </data>
+  <data name="HostKey_TrustOnceTip" xml:space="preserve">
+    <value>放行本次連線,但不寫入已信任主機;應用程式重新啟動後將再次詢問</value>
+  </data>
+  <data name="HostKey_TrustPermanentlyTip" xml:space="preserve">
+    <value>記錄該指紋,之後連線不再詢問;可在 設定 → 安全稽核 → 已信任主機 中刪除</value>
   </data>
   <data name="KeySvc_AlertChangedAccepted" xml:space="preserve">
     <value>{0} 的主機指紋已變更,使用者確認永久信任新指紋:{1}</value>
@@ -922,26 +1278,8 @@
   <data name="KeySvc_UnknownType" xml:space="preserve">
     <value>未知</value>
   </data>
-  <data name="KeyType" xml:space="preserve">
-    <value>金鑰類型</value>
-  </data>
-  <data name="Language" xml:space="preserve">
-    <value>語言</value>
-  </data>
-  <data name="Latency" xml:space="preserve">
-    <value>延遲</value>
-  </data>
-  <data name="Loading" xml:space="preserve">
-    <value>載入中…</value>
-  </data>
-  <data name="LocalForward" xml:space="preserve">
-    <value>本機轉發</value>
-  </data>
-  <data name="LocalPort" xml:space="preserve">
-    <value>本機連接埠</value>
-  </data>
   <data name="Main_CloseConfirmBody" xml:space="preserve">
-    <value>仍有使用中的工作階段,關閉視窗將中斷所有連線。確定結束嗎?</value>
+    <value>仍有使用中的工作階段，關閉視窗將中斷所有連線。確定結束嗎?</value>
   </data>
   <data name="Main_CloseConfirmTitle" xml:space="preserve">
     <value>關閉 VelaShell</value>
@@ -980,9 +1318,6 @@
   <data name="Menu_TunnelTip" xml:space="preserve">
     <value>隧道 (Ctrl+Shift+T)</value>
   </data>
-  <data name="Modified" xml:space="preserve">
-    <value>修改時間</value>
-  </data>
   <data name="Monitor_Kernel" xml:space="preserve">
     <value>核心</value>
   </data>
@@ -991,30 +1326,6 @@
   </data>
   <data name="Monitor_Unavailable" xml:space="preserve">
     <value>資料無法使用</value>
-  </data>
-  <data name="MoveTo" xml:space="preserve">
-    <value>移動到…</value>
-  </data>
-  <data name="MoveToGroup" xml:space="preserve">
-    <value>移動到群組</value>
-  </data>
-  <data name="MoveToPrompt" xml:space="preserve">
-    <value>移動到(目的地完整路徑)</value>
-  </data>
-  <data name="MoveSelectedToPrompt" xml:space="preserve">
-    <value>將選取項目移動到(目標資料夾)</value>
-  </data>
-  <data name="CopySelectedToPrompt" xml:space="preserve">
-    <value>將選取項目複製到(目標資料夾)</value>
-  </data>
-  <data name="BatchOpPartialFailure" xml:space="preserve">
-    <value>{0} 項失敗,首個錯誤:{1}</value>
-  </data>
-  <data name="CopyTo" xml:space="preserve">
-    <value>複製到…</value>
-  </data>
-  <data name="SftpCopyToPrompt" xml:space="preserve">
-    <value>輸入複製目標路徑</value>
   </data>
   <data name="Msg_AuthFailed" xml:space="preserve">
     <value>驗證失敗：{0} 的使用者名稱、密碼或金鑰不正確。</value>
@@ -1364,30 +1675,6 @@
   <data name="Msg_ViaJumpHost" xml:space="preserve">
     <value>經由跳板</value>
   </data>
-  <data name="Name" xml:space="preserve">
-    <value>名稱</value>
-  </data>
-  <data name="Network" xml:space="preserve">
-    <value>網路</value>
-  </data>
-  <data name="NewFile" xml:space="preserve">
-    <value>新增檔案</value>
-  </data>
-  <data name="NewFolder" xml:space="preserve">
-    <value>新增資料夾</value>
-  </data>
-  <data name="NewTab" xml:space="preserve">
-    <value>新分頁</value>
-  </data>
-  <data name="NewTunnel" xml:space="preserve">
-    <value>新增隧道</value>
-  </data>
-  <data name="Notifications" xml:space="preserve">
-    <value>通知</value>
-  </data>
-  <data name="OK" xml:space="preserve">
-    <value>確定</value>
-  </data>
   <data name="Palette_Close" xml:space="preserve">
     <value>關閉</value>
   </data>
@@ -1402,39 +1689,6 @@
   </data>
   <data name="Palette_SearchPlaceholder" xml:space="preserve">
     <value>輸入命令或搜尋工作階段…</value>
-  </data>
-  <data name="Passphrase" xml:space="preserve">
-    <value>金鑰密碼</value>
-  </data>
-  <data name="Password" xml:space="preserve">
-    <value>密碼</value>
-  </data>
-  <data name="PermissionExecute" xml:space="preserve">
-    <value>執行</value>
-  </data>
-  <data name="PermissionGroup" xml:space="preserve">
-    <value>群組</value>
-  </data>
-  <data name="PermissionOthers" xml:space="preserve">
-    <value>其他</value>
-  </data>
-  <data name="PermissionOwner" xml:space="preserve">
-    <value>擁有者</value>
-  </data>
-  <data name="PermissionRead" xml:space="preserve">
-    <value>讀取</value>
-  </data>
-  <data name="Permissions" xml:space="preserve">
-    <value>權限</value>
-  </data>
-  <data name="PermissionWrite" xml:space="preserve">
-    <value>寫入</value>
-  </data>
-  <data name="Port" xml:space="preserve">
-    <value>連接埠</value>
-  </data>
-  <data name="PrivateKey" xml:space="preserve">
-    <value>私鑰</value>
   </data>
   <data name="Profile_AdvancedOptions" xml:space="preserve">
     <value>進階選項</value>
@@ -1508,9 +1762,6 @@
   <data name="Profile_Title" xml:space="preserve">
     <value>新增連線</value>
   </data>
-  <data name="Properties" xml:space="preserve">
-    <value>屬性</value>
-  </data>
   <data name="QuickCmd_DockerPrune" xml:space="preserve">
     <value>清除未使用的 Docker 資料</value>
   </data>
@@ -1534,31 +1785,6 @@
   </data>
   <data name="QuickCmd_SystemdStatus" xml:space="preserve">
     <value>檢視 systemd 服務狀態</value>
-  </data>
-  <data name="QuickCommands" xml:space="preserve">
-    <value>快速命令</value>
-  </data>
-  <data name="QuickCmd_SelectTargets" xml:space="preserve"><value>選擇執行終端</value></data>
-  <data name="QuickCmd_SelectAll" xml:space="preserve"><value>全選</value></data>
-  <data name="QuickCmd_ClearSelection" xml:space="preserve"><value>清除</value></data>
-  <data name="QuickCmd_NoConnectedTerminals" xml:space="preserve"><value>暫無已連線終端</value></data>
-  <data name="QuickCmd_CurrentTerminal" xml:space="preserve"><value>目前終端</value></data>
-  <data name="QuickCmd_SelectedTerminals" xml:space="preserve"><value>個終端已選</value></data>
-  <data name="QuickCmd_Search" xml:space="preserve"><value>搜尋程式碼片段</value></data>
-  <data name="QuickCmd_Ungrouped" xml:space="preserve"><value>未分組</value></data>
-  <data name="QuickCmd_GroupPlaceholder" xml:space="preserve"><value>分組名稱</value></data>
-  <data name="QuickCmd_EditSnippet" xml:space="preserve"><value>編輯程式碼片段</value></data>
-  <data name="QuickConnect" xml:space="preserve">
-    <value>快速連線</value>
-  </data>
-  <data name="Ready" xml:space="preserve">
-    <value>就緒</value>
-  </data>
-  <data name="RecentConnections" xml:space="preserve">
-    <value>最近連線</value>
-  </data>
-  <data name="Reconnect" xml:space="preserve">
-    <value>重新連線</value>
   </data>
   <data name="Recorder_AutoRecordTip" xml:space="preserve">
     <value>即 設定 → 安全稽核 → 工作階段錄製;對之後建立的連線生效</value>
@@ -1592,42 +1818,6 @@
   </data>
   <data name="Recorder_Title" xml:space="preserve">
     <value>工作階段錄製與回放</value>
-  </data>
-  <data name="Refresh" xml:space="preserve">
-    <value>重新整理</value>
-  </data>
-  <data name="Sftp_RefreshLocalPane" xml:space="preserve">
-    <value>重新整理本機欄</value>
-  </data>
-  <data name="Sftp_RefreshRemotePane" xml:space="preserve">
-    <value>重新整理遠端欄</value>
-  </data>
-  <data name="Reject" xml:space="preserve">
-    <value>拒絕</value>
-  </data>
-  <data name="RemoteForward" xml:space="preserve">
-    <value>遠端轉發</value>
-  </data>
-  <data name="Rename" xml:space="preserve">
-    <value>重新命名</value>
-  </data>
-  <data name="Save" xml:space="preserve">
-    <value>儲存</value>
-  </data>
-  <data name="SaveToLocal" xml:space="preserve">
-    <value>儲存到本機</value>
-  </data>
-  <data name="ScrollbackLines" xml:space="preserve">
-    <value>回捲行數</value>
-  </data>
-  <data name="Search" xml:space="preserve">
-    <value>搜尋</value>
-  </data>
-  <data name="SelectDownloadFolder" xml:space="preserve">
-    <value>選擇儲存位置</value>
-  </data>
-  <data name="Sessions" xml:space="preserve">
-    <value>工作階段</value>
   </data>
   <data name="SetAbout_Changelog" xml:space="preserve">
     <value>更新日誌</value>
@@ -1697,6 +1887,30 @@
   </data>
   <data name="SetAppear_AccentColorDesc" xml:space="preserve">
     <value>// 應用程式的強調色(留空使用主題預設)</value>
+  </data>
+  <data name="SetAppear_BackgroundImage" xml:space="preserve">
+    <value>背景圖片</value>
+  </data>
+  <data name="SetAppear_BackgroundImageDesc" xml:space="preserve">
+    <value>// 鋪在應用程式背後的圖片,可搭配下方的不透明度滑桿調整</value>
+  </data>
+  <data name="SetAppear_BackgroundImageBrowse" xml:space="preserve">
+    <value>瀏覽…</value>
+  </data>
+  <data name="SetAppear_BackgroundImageClear" xml:space="preserve">
+    <value>清除</value>
+  </data>
+  <data name="SetAppear_BackgroundImageOpacity" xml:space="preserve">
+    <value>背景圖不透明度</value>
+  </data>
+  <data name="SetAppear_BackgroundImageOpacityDesc" xml:space="preserve">
+    <value>// 越低圖片越淡</value>
+  </data>
+  <data name="SetAppear_ContentBgOpacity" xml:space="preserve">
+    <value>內容背景不透明度</value>
+  </data>
+  <data name="SetAppear_ContentBgOpacityDesc" xml:space="preserve">
+    <value>// 遮罩整個視窗內容(終端機、SFTP、側邊欄等)後的背景圖,越低越能透出背景圖</value>
   </data>
   <data name="SetAppear_Ansi16" xml:space="preserve">
     <value>終端機 ANSI 16 色</value>
@@ -2478,9 +2692,6 @@
   <data name="SetTerm_TypeEncodingSection" xml:space="preserve">
     <value>終端機類型與編碼</value>
   </data>
-  <data name="Settings" xml:space="preserve">
-    <value>設定</value>
-  </data>
   <data name="Settings_ResetConfirmMessage" xml:space="preserve">
     <value>將把所有頁面的設定還原為出廠值(點擊「儲存設定」後才會寫入磁碟)。確定繼續嗎?</value>
   </data>
@@ -2730,9 +2941,6 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   <data name="Shell_Cmd" xml:space="preserve">
     <value>命令提示字元 (CMD)</value>
   </data>
-  <data name="ShowHiddenFiles" xml:space="preserve">
-    <value>顯示隱藏檔案</value>
-  </data>
   <data name="Sidebar_ClearRecent" xml:space="preserve">
     <value>清除最近連線</value>
   </data>
@@ -2747,15 +2955,6 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   </data>
   <data name="Sidebar_ToggleSection" xml:space="preserve">
     <value>摺疊或展開此區域</value>
-  </data>
-  <data name="Size" xml:space="preserve">
-    <value>大小</value>
-  </data>
-  <data name="Split" xml:space="preserve">
-    <value>分割</value>
-  </data>
-  <data name="StatusBar_OpenMonitor" xml:space="preserve">
-    <value>開啟資源監視器</value>
   </data>
   <data name="Svc_Active" xml:space="preserve">
     <value>活躍</value>
@@ -2904,9 +3103,6 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   <data name="SyncSvc_WrongPassphrase" xml:space="preserve">
     <value>同步口令不正確,無法解密雲端資料。</value>
   </data>
-  <data name="System" xml:space="preserve">
-    <value>系統</value>
-  </data>
   <data name="Term_NoMatches" xml:space="preserve">
     <value>無相符項</value>
   </data>
@@ -2922,21 +3118,6 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   <data name="Term_SearchPrev" xml:space="preserve">
     <value>上一個 (Shift+Enter)</value>
   </data>
-  <data name="TerminalDisconnectedNotice" xml:space="preserve">
-    <value>連線已中斷。</value>
-  </data>
-  <data name="TerminalEncoding" xml:space="preserve">
-    <value>字元編碼</value>
-  </data>
-  <data name="TerminalReconnectHint" xml:space="preserve">
-    <value>按 Enter 重新連線。</value>
-  </data>
-  <data name="TerminalType" xml:space="preserve">
-    <value>終端機類型</value>
-  </data>
-  <data name="Theme" xml:space="preserve">
-    <value>主題</value>
-  </data>
   <data name="Transfer_CancelRemainingTip" xml:space="preserve">
     <value>取消剩餘傳輸</value>
   </data>
@@ -2945,9 +3126,6 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   </data>
   <data name="Transfer_Title" xml:space="preserve">
     <value>傳輸</value>
-  </data>
-  <data name="TransferHistory" xml:space="preserve">
-    <value>傳輸記錄</value>
   </data>
   <data name="Tray_ExitApp" xml:space="preserve">
     <value>結束 VelaShell</value>
@@ -2984,12 +3162,6 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   </data>
   <data name="Tree_SessionSettings" xml:space="preserve">
     <value>工作階段設定</value>
-  </data>
-  <data name="TrustOnce" xml:space="preserve">
-    <value>僅信任本次</value>
-  </data>
-  <data name="TrustPermanently" xml:space="preserve">
-    <value>永久信任</value>
   </data>
   <data name="Tunnel_AliasLabel" xml:space="preserve">
     <value>別名(可選)</value>
@@ -3060,30 +3232,6 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   <data name="TunnelSvc_TargetUnreachable" xml:space="preserve">
     <value>目標無法連線:請確認目標主機從伺服器可以存取(內網位址/防火牆)。</value>
   </data>
-  <data name="Upload" xml:space="preserve">
-    <value>上傳</value>
-  </data>
-  <data name="UploadHere" xml:space="preserve">
-    <value>上傳到目前目錄</value>
-  </data>
-  <data name="Sftp_PickUploadTitle" xml:space="preserve">
-    <value>選擇要上傳的檔案與資料夾</value>
-  </data>
-  <data name="Sftp_PickUploadHint" xml:space="preserve">
-    <value>選擇檔案與資料夾 —— 兩者可以一起選</value>
-  </data>
-  <data name="Sftp_PickUploadSelected" xml:space="preserve">
-    <value>已選 {0} 個檔案、{1} 個資料夾</value>
-  </data>
-  <data name="Sftp_GoUp" xml:space="preserve">
-    <value>上一層</value>
-  </data>
-  <data name="Username" xml:space="preserve">
-    <value>使用者名稱</value>
-  </data>
-  <data name="Warning" xml:space="preserve">
-    <value>警告</value>
-  </data>
   <data name="SetGeneral_FollowActiveTerminal" xml:space="preserve">
     <value>作用中終端跟隨資源管理器</value>
   </data>
@@ -3105,19 +3253,45 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   <data name="ZModem_ChooseUploadFilesRetry" xml:space="preserve">
     <value>未選擇檔案——請選擇檔案,或再次取消以中止本次上傳</value>
   </data>
-  <data name="SyncInput_Menu" xml:space="preserve"><value>同步輸入</value></data>
-  <data name="SyncInput_JoinChannelA" xml:space="preserve"><value>加入頻道 A</value></data>
-  <data name="SyncInput_JoinChannelB" xml:space="preserve"><value>加入頻道 B</value></data>
-  <data name="SyncInput_JoinChannelC" xml:space="preserve"><value>加入頻道 C</value></data>
-  <data name="SyncInput_JoinChannelD" xml:space="preserve"><value>加入頻道 D</value></data>
-  <data name="SyncInput_LeaveAll" xml:space="preserve"><value>離開所有頻道</value></data>
-  <data name="SyncInput_BannerPrefix" xml:space="preserve"><value>同步通道</value></data>
-  <data name="SyncInput_BannerSuffix" xml:space="preserve"><value>中的輸入</value></data>
-  <data name="SyncInput_Paused" xml:space="preserve"><value>(已暫停)</value></data>
-  <data name="SyncInput_Pause" xml:space="preserve"><value>暫停</value></data>
-  <data name="SyncInput_Resume" xml:space="preserve"><value>恢復</value></data>
-  <data name="SyncInput_Leave" xml:space="preserve"><value>離開頻道</value></data>
-  <data name="SyncInput_Close" xml:space="preserve"><value>關閉頻道</value></data>
+  <data name="SyncInput_Menu" xml:space="preserve">
+    <value>同步輸入</value>
+  </data>
+  <data name="SyncInput_JoinChannelA" xml:space="preserve">
+    <value>加入頻道 A</value>
+  </data>
+  <data name="SyncInput_JoinChannelB" xml:space="preserve">
+    <value>加入頻道 B</value>
+  </data>
+  <data name="SyncInput_JoinChannelC" xml:space="preserve">
+    <value>加入頻道 C</value>
+  </data>
+  <data name="SyncInput_JoinChannelD" xml:space="preserve">
+    <value>加入頻道 D</value>
+  </data>
+  <data name="SyncInput_LeaveAll" xml:space="preserve">
+    <value>離開所有頻道</value>
+  </data>
+  <data name="SyncInput_BannerPrefix" xml:space="preserve">
+    <value>同步通道</value>
+  </data>
+  <data name="SyncInput_BannerSuffix" xml:space="preserve">
+    <value>中的輸入</value>
+  </data>
+  <data name="SyncInput_Paused" xml:space="preserve">
+    <value>(已暫停)</value>
+  </data>
+  <data name="SyncInput_Pause" xml:space="preserve">
+    <value>暫停</value>
+  </data>
+  <data name="SyncInput_Resume" xml:space="preserve">
+    <value>恢復</value>
+  </data>
+  <data name="SyncInput_Leave" xml:space="preserve">
+    <value>離開頻道</value>
+  </data>
+  <data name="SyncInput_Close" xml:space="preserve">
+    <value>關閉頻道</value>
+  </data>
   <data name="Svc_CommonUsage" xml:space="preserve">
     <value>常用用法</value>
   </data>
@@ -3208,6 +3382,33 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   <data name="Tunnel_RouteDynamic" xml:space="preserve">
     <value>本機 SOCKS5 {0}:{1} → 動態目標</value>
   </data>
+  <data name="TunnelSvc_LocalPortInUse" xml:space="preserve">
+    <value>本機連接埠 {0} 已被其他程式佔用。請關閉該程式，或改用別的本機連接埠。</value>
+  </data>
+  <data name="Tunnel_Stats" xml:space="preserve">
+    <value>{0} 連線 · {1}</value>
+  </data>
+  <data name="Tunnel_StatsLive" xml:space="preserve">
+    <value>{0} 連線（{1} 傳輸中）· {2}</value>
+  </data>
+  <data name="Tunnel_StatsNone" xml:space="preserve">
+    <value>尚無連線</value>
+  </data>
+  <data name="Tunnel_AutoBadge" xml:space="preserve">
+    <value>自動</value>
+  </data>
+  <data name="Tunnel_AutoReconnect" xml:space="preserve">
+    <value>斷線後自動重新連線</value>
+  </data>
+  <data name="Tunnel_AutoReconnectTip" xml:space="preserve">
+    <value>背景連線斷線時自動重撥並重建這條隧道；重試間隔從 10 秒逐步拉長到 5 分鐘。</value>
+  </data>
+  <data name="Msg_TunnelAutoReconnecting" xml:space="preserve">
+    <value>重新連線中 • 正在復原隧道</value>
+  </data>
+  <data name="Msg_TunnelAutoReconnectFailed" xml:space="preserve">
+    <value>自動重新連線失敗：{0}</value>
+  </data>
   <data name="Tunnel_HelpButtonTooltip" xml:space="preserve">
     <value>關於 SSH 隧道</value>
   </data>
@@ -3264,42 +3465,6 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   </data>
   <data name="Transfer_ClearCompleted" xml:space="preserve">
     <value>清除已結束</value>
-  </data>
-  <data name="SetAppear_BackgroundImage" xml:space="preserve">
-    <value>背景圖片</value>
-  </data>
-  <data name="SetAppear_BackgroundImageBrowse" xml:space="preserve">
-    <value>瀏覽…</value>
-  </data>
-  <data name="SetAppear_BackgroundImageClear" xml:space="preserve">
-    <value>清除</value>
-  </data>
-  <data name="SetAppear_BackgroundImageDesc" xml:space="preserve">
-    <value>// 鋪在應用程式背後的圖片,可搭配下方的不透明度滑桿調整</value>
-  </data>
-  <data name="SetAppear_BackgroundImageOpacity" xml:space="preserve">
-    <value>背景圖不透明度</value>
-  </data>
-  <data name="SetAppear_BackgroundImageOpacityDesc" xml:space="preserve">
-    <value>// 越低圖片越淡</value>
-  </data>
-  <data name="SetAppear_ContentBgOpacity" xml:space="preserve">
-    <value>內容背景不透明度</value>
-  </data>
-  <data name="SetAppear_ContentBgOpacityDesc" xml:space="preserve">
-    <value>// 遮罩整個視窗內容(終端機、SFTP、側邊欄等)後的背景圖,越低越能透出背景圖</value>
-  </data>
-  <data name="Sftp_FollowTerminal" xml:space="preserve">
-    <value>跟隨終端機目錄(同步到終端機目前路徑)</value>
-  </data>
-  <data name="Sftp_FollowTerminalNoReport" xml:space="preserve">
-    <value>終端機還沒有回報過工作目錄。Windows 遠端(cmd.exe / PowerShell)無法回報;其他 shell 可在自己的提示字元掛鉤中送出 OSC 7。</value>
-  </data>
-  <data name="Sftp_EditPath" xml:space="preserve">
-    <value>編輯路徑 (Ctrl+L)</value>
-  </data>
-  <data name="Sftp_PathInputHint" xml:space="preserve">
-    <value>輸入路徑後按 Enter 跳轉</value>
   </data>
   <data name="Cmd_ProcessManager" xml:space="preserve">
     <value>工作管理員</value>
@@ -3586,35 +3751,91 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   <data name="XImport_Duplicate" xml:space="preserve">
     <value>已存在</value>
   </data>
-
-  <data name="Plugins"><value>外掛程式</value></data>
-  <data name="PluginManager_Title"><value>外掛程式管理</value></data>
-  <data name="PluginManager_Empty"><value>未安裝任何外掛程式。</value></data>
-  <data name="PluginManager_Enable"><value>啟用</value></data>
-  <data name="PluginManager_Disable"><value>停用</value></data>
-  <data name="PluginManager_RevokePermission"><value>撤銷終端授權</value></data>
-  <data name="PluginState_Active"><value>執行中</value></data>
-  <data name="PluginState_Discovered"><value>待啟用</value></data>
-  <data name="PluginState_Disabled"><value>已停用</value></data>
-  <data name="PluginState_Failed"><value>失敗</value></data>
-  <data name="PluginState_Crashed"><value>重新啟動中</value></data>
-  <data name="PluginState_Invalid"><value>無效</value></data>
-  <data name="PluginState_Incompatible"><value>不相容</value></data>
-  <data name="PluginPerm_Title"><value>終端寫入請求</value></data>
-  <data name="PluginPerm_Message"><value>外掛程式「{0}」請求向終端 {1} 輸入內容：</value></data>
-  <data name="PluginPerm_AllowOnce"><value>僅本次允許</value></data>
-  <data name="PluginPerm_AllowSession"><value>本次執行允許</value></data>
-  <data name="PluginPerm_AllowAlways"><value>一律允許</value></data>
-  <data name="PluginPerm_Deny"><value>拒絕</value></data>
-  <data name="PluginManager_Install"><value>安裝 .vpx…</value></data>
-  <data name="PluginManager_Uninstall"><value>解除安裝</value></data>
-  <data name="PluginManager_Reload"><value>重新載入</value></data>
-  <data name="PluginManager_WaitingForDebugger"><value>外掛「{0}」的宿主行程正在等待偵錯工具附加,行程 id {1}。</value></data>
-  <data name="PluginManager_Installed"><value>已安裝「{0}」。</value></data>
-  <data name="PluginManager_InstallFailed"><value>安裝失敗：{0}</value></data>
-  <data name="PluginManager_ConfirmUninstall"><value>解除安裝「{0}」？其資料將被清除。</value></data>
-  <data name="PluginManager_Author"><value>作者：{0}</value></data>
-  <data name="PluginManager_VpxFilter"><value>VelaShell 外掛程式套件</value></data>  <data name="Ftp_Encryption" xml:space="preserve">
+  <data name="Plugins" xml:space="preserve">
+    <value>外掛程式</value>
+  </data>
+  <data name="PluginManager_Title" xml:space="preserve">
+    <value>外掛程式管理</value>
+  </data>
+  <data name="PluginManager_Empty" xml:space="preserve">
+    <value>未安裝任何外掛程式。</value>
+  </data>
+  <data name="PluginManager_Enable" xml:space="preserve">
+    <value>啟用</value>
+  </data>
+  <data name="PluginManager_Disable" xml:space="preserve">
+    <value>停用</value>
+  </data>
+  <data name="PluginManager_RevokePermission" xml:space="preserve">
+    <value>撤銷終端授權</value>
+  </data>
+  <data name="PluginState_Active" xml:space="preserve">
+    <value>執行中</value>
+  </data>
+  <data name="PluginState_Discovered" xml:space="preserve">
+    <value>待啟用</value>
+  </data>
+  <data name="PluginState_Disabled" xml:space="preserve">
+    <value>已停用</value>
+  </data>
+  <data name="PluginState_Failed" xml:space="preserve">
+    <value>失敗</value>
+  </data>
+  <data name="PluginState_Crashed" xml:space="preserve">
+    <value>重新啟動中</value>
+  </data>
+  <data name="PluginState_Invalid" xml:space="preserve">
+    <value>無效</value>
+  </data>
+  <data name="PluginState_Incompatible" xml:space="preserve">
+    <value>不相容</value>
+  </data>
+  <data name="PluginPerm_Title" xml:space="preserve">
+    <value>終端寫入請求</value>
+  </data>
+  <data name="PluginPerm_Message" xml:space="preserve">
+    <value>外掛程式「{0}」請求向終端 {1} 輸入內容：</value>
+  </data>
+  <data name="PluginPerm_AllowOnce" xml:space="preserve">
+    <value>僅本次允許</value>
+  </data>
+  <data name="PluginPerm_AllowSession" xml:space="preserve">
+    <value>本次執行允許</value>
+  </data>
+  <data name="PluginPerm_AllowAlways" xml:space="preserve">
+    <value>一律允許</value>
+  </data>
+  <data name="PluginPerm_Deny" xml:space="preserve">
+    <value>拒絕</value>
+  </data>
+  <data name="PluginManager_Install" xml:space="preserve">
+    <value>安裝 .vpx…</value>
+  </data>
+  <data name="PluginManager_Uninstall" xml:space="preserve">
+    <value>解除安裝</value>
+  </data>
+  <data name="PluginManager_Reload" xml:space="preserve">
+    <value>重新載入</value>
+  </data>
+  <data name="PluginManager_WaitingForDebugger" xml:space="preserve">
+    <value>外掛「{0}」的宿主行程正在等待偵錯工具附加,行程 id {1}。</value>
+  </data>
+  <data name="PluginManager_Installed" xml:space="preserve">
+    <value>已安裝「{0}」。</value>
+  </data>
+  <data name="PluginManager_InstallFailed" xml:space="preserve">
+    <value>安裝失敗：{0}</value>
+  </data>
+  <data name="PluginManager_ConfirmUninstall" xml:space="preserve">
+    <value>解除安裝「{0}」？其資料將被清除。</value>
+  </data>
+  <data name="PluginManager_Author" xml:space="preserve">
+    <value>作者：{0}</value>
+  </data>
+  <data name="PluginManager_VpxFilter" xml:space="preserve">
+    <value>VelaShell 外掛程式套件</value>
+  </data>
+  <data name="Ftp_Encryption" xml:space="preserve">
     <value>加密方式</value>
   </data>
   <data name="Ftp_EncryptionAuto" xml:space="preserve">
@@ -3809,118 +4030,331 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   <data name="SetTerm_RemoteClipboardDesc" xml:space="preserve">
     <value>預設關閉。僅對可信任主機開啟，否則終端輸出可以取代本機剪貼簿內容。</value>
   </data>
-  <data name="PluginManager_UntrustedTitle" xml:space="preserve"><value>不受信任的外掛套件</value></data>
-  <data name="PluginManager_UnsignedWarning" xml:space="preserve"><value>「{0}」沒有簽章。外掛能以你的帳戶權限執行程式碼，請僅在信任其來源時安裝。</value></data>
-  <data name="PluginManager_UntrustedWarning" xml:space="preserve"><value>「{0}」的簽章有效，但此裝置尚不信任其發行者。繼續前請透過作者官網、GitHub 等獨立管道核對公鑰指紋：
+  <data name="PluginManager_UntrustedTitle" xml:space="preserve">
+    <value>不受信任的外掛套件</value>
+  </data>
+  <data name="PluginManager_UnsignedWarning" xml:space="preserve">
+    <value>「{0}」沒有簽章。外掛能以你的帳戶權限執行程式碼，請僅在信任其來源時安裝。</value>
+  </data>
+  <data name="PluginManager_UntrustedWarning" xml:space="preserve">
+    <value>「{0}」的簽章有效，但此裝置尚不信任其發行者。繼續前請透過作者官網、GitHub 等獨立管道核對公鑰指紋：
 
 {1}
 
-信任後，同一密鑰簽署的後續套件也會自動可信。外掛能以你的帳戶權限執行程式碼。</value></data>
-  <data name="PluginManager_InstallAnyway" xml:space="preserve"><value>仍要安裝</value></data>
-  <data name="PluginManager_TrustAndInstall" xml:space="preserve"><value>信任發行者並安裝</value></data>
-  <data name="PluginManager_SecurityTip" xml:space="preserve"><value>外掛以你的帳戶權限執行，可讀寫本機檔案、工作階段與網路。安裝前請核實外掛來源並核對簽章指紋，只安裝來自可信發行者的外掛，以免惡意外掛竊取資料或破壞系統。</value></data>
-  <data name="PluginManager_Market" xml:space="preserve"><value>外掛商店</value></data>
-  <data name="PluginManager_MarketTip" xml:space="preserve"><value>前往 market.easilynet.top 瀏覽已審核的外掛</value></data>
-  <data name="Msg_PluginLoading" xml:space="preserve"><value>正在載入外掛</value></data>
-  <data name="Msg_PluginActivating" xml:space="preserve"><value>正在啟動外掛</value></data>
-  <data name="Msg_PluginVerifying" xml:space="preserve"><value>正在驗證外掛</value></data>
-  <data name="Msg_PluginPrewarming" xml:space="preserve"><value>正在預熱外掛</value></data>
-  <data name="BackgroundTasks" xml:space="preserve"><value>背景工作</value></data>
-  <data name="BackgroundTasksIdle" xml:space="preserve"><value>目前沒有背景工作</value></data>
-  <data name="BackgroundTasksCount" xml:space="preserve"><value>{0} 項背景工作</value></data>
-  <data name="Msg_PluginInstalling" xml:space="preserve"><value>正在安裝外掛</value></data>
-  <data name="Sc_GroupGlobal" xml:space="preserve"><value>全域</value></data>
-  <data name="Sc_GroupCompletion" xml:space="preserve"><value>命令補全</value></data>
-  <data name="Sc_GroupMouse" xml:space="preserve"><value>終端機滑鼠手勢</value></data>
-  <data name="Sc_GroupDialogs" xml:space="preserve"><value>對話方塊與視窗</value></data>
-  <data name="Sc_GroupAi" xml:space="preserve"><value>AI 助理外掛</value></data>
-  <data name="Sc_KeyLeftClick" xml:space="preserve"><value>左鍵</value></data>
-  <data name="Sc_KeyRightClick" xml:space="preserve"><value>右鍵</value></data>
-  <data name="Sc_KeyDoubleClick" xml:space="preserve"><value>按兩下</value></data>
-  <data name="Sc_KeyDrag" xml:space="preserve"><value>拖曳</value></data>
-  <data name="Sc_KeyWheel" xml:space="preserve"><value>滾輪</value></data>
-  <data name="Sc_KeyTitleBar" xml:space="preserve"><value>標題列</value></data>
-  <data name="Sc_KeyGutter" xml:space="preserve"><value>側欄</value></data>
-  <data name="Sc_PasteShiftInsert" xml:space="preserve"><value>貼上(傳統 X11 鍵位)</value></data>
-  <data name="Sc_SearchNext" xml:space="preserve"><value>跳到下一個相符項</value></data>
-  <data name="Sc_SearchPrev" xml:space="preserve"><value>跳到上一個相符項</value></data>
-  <data name="Sc_SearchClose" xml:space="preserve"><value>關閉搜尋列</value></data>
-  <data name="Sc_ScrollPageUp" xml:space="preserve"><value>捲動歷程上翻一頁</value></data>
-  <data name="Sc_ScrollPageDown" xml:space="preserve"><value>捲動歷程下翻一頁</value></data>
-  <data name="Sc_LineStart" xml:space="preserve"><value>游標跳到行首</value></data>
-  <data name="Sc_LineEnd" xml:space="preserve"><value>游標跳到行尾</value></data>
-  <data name="Sc_CloseDisconnectedTab" xml:space="preserve"><value>關閉已中斷的分頁</value></data>
-  <data name="Sc_SuggestNext" xml:space="preserve"><value>選取下一個建議</value></data>
-  <data name="Sc_SuggestPrev" xml:space="preserve"><value>選取上一個建議</value></data>
-  <data name="Sc_SuggestAccept" xml:space="preserve"><value>採用選取的建議</value></data>
-  <data name="Sc_SuggestDismiss" xml:space="preserve"><value>收合建議彈出層</value></data>
-  <data name="Sc_SuggestNative" xml:space="preserve"><value>交給 shell 原生補全</value></data>
-  <data name="Sc_GhostAccept" xml:space="preserve"><value>接受行內幽靈補全</value></data>
-  <data name="Sc_OpenLink" xml:space="preserve"><value>開啟指標下的連結</value></data>
-  <data name="Sc_SelectWord" xml:space="preserve"><value>選取單字</value></data>
-  <data name="Sc_AppendWord" xml:space="preserve"><value>追加選取一個單字</value></data>
-  <data name="Sc_ExtendSelection" xml:space="preserve"><value>從錨點延伸選取範圍</value></data>
-  <data name="Sc_BlockSelection" xml:space="preserve"><value>矩形區塊選取</value></data>
-  <data name="Sc_AppendSelection" xml:space="preserve"><value>追加一段不連續選取範圍</value></data>
-  <data name="Sc_AppendBlockSelection" xml:space="preserve"><value>追加一段矩形區塊選取</value></data>
-  <data name="Sc_BypassMouseReport" xml:space="preserve"><value>略過滑鼠回報以選取文字</value></data>
-  <data name="Sc_RightClickPaste" xml:space="preserve"><value>右鍵貼上</value></data>
-  <data name="Sc_ZoomFont" xml:space="preserve"><value>縮放終端機字型大小</value></data>
-  <data name="Sc_FastScroll" xml:space="preserve"><value>五倍速捲動歷程</value></data>
-  <data name="Sc_GutterMenu" xml:space="preserve"><value>開啟側欄設定選單</value></data>
-  <data name="Sc_ToggleFold" xml:space="preserve"><value>摺疊/展開輸出區塊</value></data>
-  <data name="Sc_PaletteNext" xml:space="preserve"><value>選取下一個命令</value></data>
-  <data name="Sc_PalettePrev" xml:space="preserve"><value>選取上一個命令</value></data>
-  <data name="Sc_PaletteRun" xml:space="preserve"><value>執行選取的命令</value></data>
-  <data name="Sc_PaletteClose" xml:space="preserve"><value>關閉命令選擇區</value></data>
-  <data name="Sc_EditPath" xml:space="preserve"><value>編輯目前路徑</value></data>
-  <data name="Sc_CommitPath" xml:space="preserve"><value>前往輸入的路徑</value></data>
-  <data name="Sc_CancelPath" xml:space="preserve"><value>取消路徑編輯</value></data>
-  <data name="Sc_OpenEntry" xml:space="preserve"><value>開啟選取的檔案或資料夾</value></data>
-  <data name="Sc_CloseEditor" xml:space="preserve"><value>關閉編輯器</value></data>
-  <data name="Sc_RefreshProcesses" xml:space="preserve"><value>重新整理處理程序清單</value></data>
-  <data name="Sc_EndTask" xml:space="preserve"><value>結束選取的處理程序</value></data>
-  <data name="Sc_CloseWindow" xml:space="preserve"><value>關閉視窗</value></data>
-  <data name="Sc_DialogCancel" xml:space="preserve"><value>取消並關閉目前對話方塊</value></data>
-  <data name="Sc_DialogConfirm" xml:space="preserve"><value>觸發預設按鈕</value></data>
-  <data name="Sc_MaximizeRestore" xml:space="preserve"><value>最大化/還原視窗</value></data>
-  <data name="Sc_CancelDockDrag" xml:space="preserve"><value>取消進行中的停駐拖曳</value></data>
-  <data name="Sc_PasswordPaste" xml:space="preserve"><value>在密碼欄位中貼上</value></data>
-  <data name="Sc_PasswordCopyBlocked" xml:space="preserve"><value>密碼欄位中禁止複製</value></data>
-  <data name="Sc_AiSend" xml:space="preserve"><value>傳送訊息</value></data>
-  <data name="Sc_AiNewline" xml:space="preserve"><value>插入換行</value></data>
-  <data name="Sc_AiHistoryPrev" xml:space="preserve"><value>叫出上一則輸入</value></data>
-  <data name="Sc_AiHistoryNext" xml:space="preserve"><value>叫出下一則輸入</value></data>
-  <data name="Sc_AiRefNext" xml:space="preserve"><value>選取下一個檔案候選</value></data>
-  <data name="Sc_AiRefPrev" xml:space="preserve"><value>選取上一個檔案候選</value></data>
-  <data name="Sc_AiRefAccept" xml:space="preserve"><value>插入檔案參照</value></data>
-  <data name="Sc_AiRefClose" xml:space="preserve"><value>關閉檔案選擇彈出層</value></data>
-  <data name="Sc_AiRefDelete" xml:space="preserve"><value>整塊刪除檔案參照</value></data>
-  <data name="Sc_AiRenameCommit" xml:space="preserve"><value>提交工作階段重新命名</value></data>
-  <data name="Sc_AiRenameCancel" xml:space="preserve"><value>取消工作階段重新命名</value></data>
-  <data name="Sc_AiClosePanel" xml:space="preserve"><value>關閉 AI 次要視窗</value></data>
-  <data name="Sc_NoteDisconnected" xml:space="preserve"><value>僅在工作階段已中斷時</value></data>
-  <data name="Sc_NoteMainScreen" xml:space="preserve"><value>僅主畫面且有捲動歷程</value></data>
-  <data name="Sc_NoteAnyScreen" xml:space="preserve"><value>備用畫面也有效</value></data>
-  <data name="Sc_NoteCtrlCCopies" xml:space="preserve"><value>開啟選取時 Ctrl+C 複製且有選取範圍時改為複製</value></data>
-  <data name="Sc_NoteSearchOpen" xml:space="preserve"><value>僅在搜尋列開啟時</value></data>
-  <data name="Sc_NoteSuggestOpen" xml:space="preserve"><value>僅在建議彈出層開啟時</value></data>
-  <data name="Sc_NoteListFocused" xml:space="preserve"><value>僅在清單取得焦點時</value></data>
-  <data name="Sc_NoteMouseReporting" xml:space="preserve"><value>應用程式啟用滑鼠回報時需要</value></data>
-  <data name="Sc_NoteOptional" xml:space="preserve"><value>可在設定中關閉</value></data>
-  <data name="Sc_NoteRequiresSetting" xml:space="preserve"><value>需在設定中開啟對應選項</value></data>
-  <data name="Sc_NotePasswordBlocked" xml:space="preserve"><value>Ctrl+X 同樣被禁止</value></data>
-  <data name="Sc_NoteDragging" xml:space="preserve"><value>僅在停駐拖曳進行中</value></data>
-  <data name="Sc_NoteCaretFirstLine" xml:space="preserve"><value>僅當游標在首行時</value></data>
-  <data name="Sc_NoteCaretLastLine" xml:space="preserve"><value>僅當游標在末行時</value></data>
-  <data name="Sc_NoteRefPopup" xml:space="preserve"><value>僅在 @ 檔案彈出層開啟時</value></data>
-  <data name="Sc_NoteAllDialogs" xml:space="preserve"><value>對所有對話方塊與次要視窗有效</value></data>
-  <data name="Sc_NoteEditorOnly" xml:space="preserve"><value>遠端檔案編輯器</value></data>
-  <data name="Sc_FilterPlaceholder" xml:space="preserve"><value>搜尋快速鍵</value></data>
-  <data name="Sc_NoMatch" xml:space="preserve"><value>沒有符合的快速鍵。</value></data>
-  <data name="Sc_Count" xml:space="preserve"><value>共 {0} 個快速鍵</value></data>
-  <data name="Sc_MacNote" xml:space="preserve"><value>在 macOS 上,終端機內的複製/貼上/新增分頁/關閉分頁/開啟設定改用 Command 取代 Ctrl。</value></data>
-  <!-- Xshell 兼容登录:外部拉起确认弹窗与设置项 -->
+信任後，同一密鑰簽署的後續套件也會自動可信。外掛能以你的帳戶權限執行程式碼。</value>
+  </data>
+  <data name="PluginManager_InstallAnyway" xml:space="preserve">
+    <value>仍要安裝</value>
+  </data>
+  <data name="PluginManager_TrustAndInstall" xml:space="preserve">
+    <value>信任發行者並安裝</value>
+  </data>
+  <data name="PluginManager_SecurityTip" xml:space="preserve">
+    <value>外掛以你的帳戶權限執行，可讀寫本機檔案、工作階段與網路。安裝前請核實外掛來源並核對簽章指紋，只安裝來自可信發行者的外掛，以免惡意外掛竊取資料或破壞系統。</value>
+  </data>
+  <data name="PluginManager_Market" xml:space="preserve">
+    <value>外掛商店</value>
+  </data>
+  <data name="PluginManager_MarketTip" xml:space="preserve">
+    <value>前往 market.easilynet.top 瀏覽已審核的外掛</value>
+  </data>
+  <data name="Msg_PluginLoading" xml:space="preserve">
+    <value>正在載入外掛</value>
+  </data>
+  <data name="Msg_PluginActivating" xml:space="preserve">
+    <value>正在啟動外掛</value>
+  </data>
+  <data name="Msg_PluginVerifying" xml:space="preserve">
+    <value>正在驗證外掛</value>
+  </data>
+  <data name="Msg_PluginPrewarming" xml:space="preserve">
+    <value>正在預熱外掛</value>
+  </data>
+  <data name="BackgroundTasks" xml:space="preserve">
+    <value>背景工作</value>
+  </data>
+  <data name="BackgroundTasksIdle" xml:space="preserve">
+    <value>目前沒有背景工作</value>
+  </data>
+  <data name="BackgroundTasksCount" xml:space="preserve">
+    <value>{0} 項背景工作</value>
+  </data>
+  <data name="Msg_PluginInstalling" xml:space="preserve">
+    <value>正在安裝外掛</value>
+  </data>
+  <data name="Sc_GroupGlobal" xml:space="preserve">
+    <value>全域</value>
+  </data>
+  <data name="Sc_GroupCompletion" xml:space="preserve">
+    <value>命令補全</value>
+  </data>
+  <data name="Sc_GroupMouse" xml:space="preserve">
+    <value>終端機滑鼠手勢</value>
+  </data>
+  <data name="Sc_GroupDialogs" xml:space="preserve">
+    <value>對話方塊與視窗</value>
+  </data>
+  <data name="Sc_GroupAi" xml:space="preserve">
+    <value>AI 助理外掛</value>
+  </data>
+  <data name="Sc_KeyLeftClick" xml:space="preserve">
+    <value>左鍵</value>
+  </data>
+  <data name="Sc_KeyRightClick" xml:space="preserve">
+    <value>右鍵</value>
+  </data>
+  <data name="Sc_KeyDoubleClick" xml:space="preserve">
+    <value>按兩下</value>
+  </data>
+  <data name="Sc_KeyDrag" xml:space="preserve">
+    <value>拖曳</value>
+  </data>
+  <data name="Sc_KeyWheel" xml:space="preserve">
+    <value>滾輪</value>
+  </data>
+  <data name="Sc_KeyTitleBar" xml:space="preserve">
+    <value>標題列</value>
+  </data>
+  <data name="Sc_KeyGutter" xml:space="preserve">
+    <value>側欄</value>
+  </data>
+  <data name="Sc_PasteShiftInsert" xml:space="preserve">
+    <value>貼上(傳統 X11 鍵位)</value>
+  </data>
+  <data name="Sc_SearchNext" xml:space="preserve">
+    <value>跳到下一個相符項</value>
+  </data>
+  <data name="Sc_SearchPrev" xml:space="preserve">
+    <value>跳到上一個相符項</value>
+  </data>
+  <data name="Sc_SearchClose" xml:space="preserve">
+    <value>關閉搜尋列</value>
+  </data>
+  <data name="Sc_ScrollPageUp" xml:space="preserve">
+    <value>捲動歷程上翻一頁</value>
+  </data>
+  <data name="Sc_ScrollPageDown" xml:space="preserve">
+    <value>捲動歷程下翻一頁</value>
+  </data>
+  <data name="Sc_LineStart" xml:space="preserve">
+    <value>游標跳到行首</value>
+  </data>
+  <data name="Sc_LineEnd" xml:space="preserve">
+    <value>游標跳到行尾</value>
+  </data>
+  <data name="Sc_CloseDisconnectedTab" xml:space="preserve">
+    <value>關閉已中斷的分頁</value>
+  </data>
+  <data name="Sc_SuggestNext" xml:space="preserve">
+    <value>選取下一個建議</value>
+  </data>
+  <data name="Sc_SuggestPrev" xml:space="preserve">
+    <value>選取上一個建議</value>
+  </data>
+  <data name="Sc_SuggestAccept" xml:space="preserve">
+    <value>採用選取的建議</value>
+  </data>
+  <data name="Sc_SuggestDismiss" xml:space="preserve">
+    <value>收合建議彈出層</value>
+  </data>
+  <data name="Sc_SuggestNative" xml:space="preserve">
+    <value>交給 shell 原生補全</value>
+  </data>
+  <data name="Sc_GhostAccept" xml:space="preserve">
+    <value>接受行內幽靈補全</value>
+  </data>
+  <data name="Sc_OpenLink" xml:space="preserve">
+    <value>開啟指標下的連結</value>
+  </data>
+  <data name="Sc_SelectWord" xml:space="preserve">
+    <value>選取單字</value>
+  </data>
+  <data name="Sc_AppendWord" xml:space="preserve">
+    <value>追加選取一個單字</value>
+  </data>
+  <data name="Sc_ExtendSelection" xml:space="preserve">
+    <value>從錨點延伸選取範圍</value>
+  </data>
+  <data name="Sc_BlockSelection" xml:space="preserve">
+    <value>矩形區塊選取</value>
+  </data>
+  <data name="Sc_AppendSelection" xml:space="preserve">
+    <value>追加一段不連續選取範圍</value>
+  </data>
+  <data name="Sc_AppendBlockSelection" xml:space="preserve">
+    <value>追加一段矩形區塊選取</value>
+  </data>
+  <data name="Sc_BypassMouseReport" xml:space="preserve">
+    <value>略過滑鼠回報以選取文字</value>
+  </data>
+  <data name="Sc_RightClickPaste" xml:space="preserve">
+    <value>右鍵貼上</value>
+  </data>
+  <data name="Sc_ZoomFont" xml:space="preserve">
+    <value>縮放終端機字型大小</value>
+  </data>
+  <data name="Sc_FastScroll" xml:space="preserve">
+    <value>五倍速捲動歷程</value>
+  </data>
+  <data name="Sc_GutterMenu" xml:space="preserve">
+    <value>開啟側欄設定選單</value>
+  </data>
+  <data name="Sc_ToggleFold" xml:space="preserve">
+    <value>摺疊/展開輸出區塊</value>
+  </data>
+  <data name="Sc_PaletteNext" xml:space="preserve">
+    <value>選取下一個命令</value>
+  </data>
+  <data name="Sc_PalettePrev" xml:space="preserve">
+    <value>選取上一個命令</value>
+  </data>
+  <data name="Sc_PaletteRun" xml:space="preserve">
+    <value>執行選取的命令</value>
+  </data>
+  <data name="Sc_PaletteClose" xml:space="preserve">
+    <value>關閉命令選擇區</value>
+  </data>
+  <data name="Sc_EditPath" xml:space="preserve">
+    <value>編輯目前路徑</value>
+  </data>
+  <data name="Sc_CommitPath" xml:space="preserve">
+    <value>前往輸入的路徑</value>
+  </data>
+  <data name="Sc_CancelPath" xml:space="preserve">
+    <value>取消路徑編輯</value>
+  </data>
+  <data name="Sc_OpenEntry" xml:space="preserve">
+    <value>開啟選取的檔案或資料夾</value>
+  </data>
+  <data name="Sc_CloseEditor" xml:space="preserve">
+    <value>關閉編輯器</value>
+  </data>
+  <data name="Sc_RefreshProcesses" xml:space="preserve">
+    <value>重新整理處理程序清單</value>
+  </data>
+  <data name="Sc_EndTask" xml:space="preserve">
+    <value>結束選取的處理程序</value>
+  </data>
+  <data name="Sc_CloseWindow" xml:space="preserve">
+    <value>關閉視窗</value>
+  </data>
+  <data name="Sc_DialogCancel" xml:space="preserve">
+    <value>取消並關閉目前對話方塊</value>
+  </data>
+  <data name="Sc_DialogConfirm" xml:space="preserve">
+    <value>觸發預設按鈕</value>
+  </data>
+  <data name="Sc_MaximizeRestore" xml:space="preserve">
+    <value>最大化/還原視窗</value>
+  </data>
+  <data name="Sc_CancelDockDrag" xml:space="preserve">
+    <value>取消進行中的停駐拖曳</value>
+  </data>
+  <data name="Sc_PasswordPaste" xml:space="preserve">
+    <value>在密碼欄位中貼上</value>
+  </data>
+  <data name="Sc_PasswordCopyBlocked" xml:space="preserve">
+    <value>密碼欄位中禁止複製</value>
+  </data>
+  <data name="Sc_AiSend" xml:space="preserve">
+    <value>傳送訊息</value>
+  </data>
+  <data name="Sc_AiNewline" xml:space="preserve">
+    <value>插入換行</value>
+  </data>
+  <data name="Sc_AiHistoryPrev" xml:space="preserve">
+    <value>叫出上一則輸入</value>
+  </data>
+  <data name="Sc_AiHistoryNext" xml:space="preserve">
+    <value>叫出下一則輸入</value>
+  </data>
+  <data name="Sc_AiRefNext" xml:space="preserve">
+    <value>選取下一個檔案候選</value>
+  </data>
+  <data name="Sc_AiRefPrev" xml:space="preserve">
+    <value>選取上一個檔案候選</value>
+  </data>
+  <data name="Sc_AiRefAccept" xml:space="preserve">
+    <value>插入檔案參照</value>
+  </data>
+  <data name="Sc_AiRefClose" xml:space="preserve">
+    <value>關閉檔案選擇彈出層</value>
+  </data>
+  <data name="Sc_AiRefDelete" xml:space="preserve">
+    <value>整塊刪除檔案參照</value>
+  </data>
+  <data name="Sc_AiRenameCommit" xml:space="preserve">
+    <value>提交工作階段重新命名</value>
+  </data>
+  <data name="Sc_AiRenameCancel" xml:space="preserve">
+    <value>取消工作階段重新命名</value>
+  </data>
+  <data name="Sc_AiClosePanel" xml:space="preserve">
+    <value>關閉 AI 次要視窗</value>
+  </data>
+  <data name="Sc_NoteDisconnected" xml:space="preserve">
+    <value>僅在工作階段已中斷時</value>
+  </data>
+  <data name="Sc_NoteMainScreen" xml:space="preserve">
+    <value>僅主畫面且有捲動歷程</value>
+  </data>
+  <data name="Sc_NoteAnyScreen" xml:space="preserve">
+    <value>備用畫面也有效</value>
+  </data>
+  <data name="Sc_NoteCtrlCCopies" xml:space="preserve">
+    <value>開啟選取時 Ctrl+C 複製且有選取範圍時改為複製</value>
+  </data>
+  <data name="Sc_NoteSearchOpen" xml:space="preserve">
+    <value>僅在搜尋列開啟時</value>
+  </data>
+  <data name="Sc_NoteSuggestOpen" xml:space="preserve">
+    <value>僅在建議彈出層開啟時</value>
+  </data>
+  <data name="Sc_NoteListFocused" xml:space="preserve">
+    <value>僅在清單取得焦點時</value>
+  </data>
+  <data name="Sc_NoteMouseReporting" xml:space="preserve">
+    <value>應用程式啟用滑鼠回報時需要</value>
+  </data>
+  <data name="Sc_NoteOptional" xml:space="preserve">
+    <value>可在設定中關閉</value>
+  </data>
+  <data name="Sc_NoteRequiresSetting" xml:space="preserve">
+    <value>需在設定中開啟對應選項</value>
+  </data>
+  <data name="Sc_NotePasswordBlocked" xml:space="preserve">
+    <value>Ctrl+X 同樣被禁止</value>
+  </data>
+  <data name="Sc_NoteDragging" xml:space="preserve">
+    <value>僅在停駐拖曳進行中</value>
+  </data>
+  <data name="Sc_NoteCaretFirstLine" xml:space="preserve">
+    <value>僅當游標在首行時</value>
+  </data>
+  <data name="Sc_NoteCaretLastLine" xml:space="preserve">
+    <value>僅當游標在末行時</value>
+  </data>
+  <data name="Sc_NoteRefPopup" xml:space="preserve">
+    <value>僅在 @ 檔案彈出層開啟時</value>
+  </data>
+  <data name="Sc_NoteAllDialogs" xml:space="preserve">
+    <value>對所有對話方塊與次要視窗有效</value>
+  </data>
+  <data name="Sc_NoteEditorOnly" xml:space="preserve">
+    <value>遠端檔案編輯器</value>
+  </data>
+  <data name="Sc_FilterPlaceholder" xml:space="preserve">
+    <value>搜尋快速鍵</value>
+  </data>
+  <data name="Sc_NoMatch" xml:space="preserve">
+    <value>沒有符合的快速鍵。</value>
+  </data>
+  <data name="Sc_Count" xml:space="preserve">
+    <value>共 {0} 個快速鍵</value>
+  </data>
+  <data name="Sc_MacNote" xml:space="preserve">
+    <value>在 macOS 上,終端機內的複製/貼上/新增分頁/關閉分頁/開啟設定改用 Command 取代 Ctrl。</value>
+  </data>
   <data name="ExtLaunch_Title" xml:space="preserve">
     <value>外部登入請求</value>
   </data>

@@ -38,6 +38,15 @@ public class TunnelPanelViewModel : ReactiveObject, IDisposable
 
     private readonly HashSet<Guid> _deletingTunnelIds = [];
 
+    /// <summary>正在自动恢复的服务器,防止时钟每 5 秒重复排一次同样的恢复。</summary>
+    private readonly HashSet<Guid> _autoReconnectingProfiles = [];
+
+    /// <summary>自动恢复的连续失败次数,用于按 <see cref="BackoffFor" /> 拉长重试间隔。</summary>
+    private readonly Dictionary<Guid, int> _autoReconnectFailures = [];
+
+    /// <summary>自动恢复的下次可尝试时刻(退避窗口)。</summary>
+    private readonly Dictionary<Guid, DateTime> _autoReconnectNotBefore = [];
+
     private readonly Lock _deletingTunnelIdsGate = new();
 
     private readonly DispatcherTimer? _liveTimer;
@@ -145,6 +154,10 @@ public class TunnelPanelViewModel : ReactiveObject, IDisposable
             {
                 return Strings.Get("Msg_SelectServer");
             }
+            if (_autoReconnectingProfiles.Contains(SelectedServer.Id))
+            {
+                return Strings.Get("Msg_TunnelAutoReconnecting");
+            }
             if (_isConnectingHost)
             {
                 return Strings.Get("Msg_ConnectingInBackground");
@@ -239,6 +252,16 @@ public class TunnelPanelViewModel : ReactiveObject, IDisposable
         get;
         set => this.RaiseAndSetIfChanged(ref field, value);
     } = 27017;
+
+    /// <summary>
+    /// 表单中的「承载会话掉线后自动重连并重建」开关。默认关闭:自动重拨可能弹凭据提示,
+    /// 也可能对着一台真的下线了的服务器反复重试,该由用户按隧道自己决定。
+    /// </summary>
+    public bool NewAutoReconnect
+    {
+        get;
+        set => this.RaiseAndSetIfChanged(ref field, value);
+    }
 
     /// <summary>表单中的隧道别名(可选,留空时用路由描述兜底)。</summary>
     public string NewTunnelName
@@ -466,16 +489,25 @@ public class TunnelPanelViewModel : ReactiveObject, IDisposable
         this.RaisePropertyChanged(nameof(IsServerConnected));
     }
 
-    /// <summary>时钟:刷新条目运行时长与服务侧状态;后台会话掉线时把条目标为已停止。</summary>
-    private void RefreshLiveState()
+    /// <summary>
+    /// 状态时钟的一拍:同步流量读数、刷新条目运行时长与服务侧状态;后台会话掉线时把条目
+    /// 标为已停止,并为勾了「自动重连」的隧道排一次恢复。
+    /// <para>
+    /// 由面板自己的 5 秒计时器驱动。无 Avalonia 应用(单元测试)时没有计时器,
+    /// 测试直接调它来推进一拍。
+    /// </para>
+    /// </summary>
+    internal void RefreshLiveState()
     {
-        if (SelectedServer is { } server && _hostSessions.TryGetValue(server.Id, out Guid sessionId) && _isSessionAlive?.Invoke(sessionId) == false)
+        DetectDroppedSessions();
+        ScheduleAutoReconnect();
+        try
         {
-            _hostSessions.Remove(server.Id);
-            foreach (TunnelItemViewModel tunnel in Tunnels)
-            {
-                tunnel.Status = TunnelStatus.Stopped;
-            }
+            _workflowService.RefreshStatistics();
+        }
+        catch
+        {
+            // 读数同步失败(服务正在拆除)不该让整个时钟停摆。
         }
         foreach (TunnelItemViewModel tunnel in Tunnels)
         {
@@ -483,6 +515,133 @@ public class TunnelPanelViewModel : ReactiveObject, IDisposable
         }
         RefreshServerStatus();
     }
+
+    /// <summary>
+    /// 检出掉线的后台会话并把其隧道条目标为已停止。
+    /// <para>
+    /// 查的是面板持有的**每一台**服务器,而不只是当前选中的那台:隧道跑在后台,
+    /// 用户不会为了让某台的隧道被照看到而一直停在它的页面上。
+    /// </para>
+    /// </summary>
+    private void DetectDroppedSessions()
+    {
+        if (_isSessionAlive is null)
+        {
+            return;
+        }
+        foreach (Guid profileId in _hostSessions.Keys.ToList())
+        {
+            if (!_hostSessions.TryGetValue(profileId, out Guid sessionId) || _isSessionAlive(sessionId))
+            {
+                continue;
+            }
+            _hostSessions.Remove(profileId);
+            if (!_itemsByProfile.TryGetValue(profileId, out ObservableCollection<TunnelItemViewModel>? items))
+            {
+                continue;
+            }
+            foreach (TunnelItemViewModel tunnel in items)
+            {
+                tunnel.Status = TunnelStatus.Stopped;
+            }
+        }
+    }
+
+    // ---- 断线自动恢复 ----
+
+    /// <summary>
+    /// 为每台「有隧道勾了自动重连、且后台连接已断」的服务器排一次恢复。
+    /// 失败按指数退避,避免服务器真的下线时每 5 秒重拨一次、把凭据提示刷满屏幕。
+    /// </summary>
+    private void ScheduleAutoReconnect()
+    {
+        if (_backgroundConnector is null)
+        {
+            return;
+        }
+        foreach ((Guid profileId, ObservableCollection<TunnelItemViewModel> items) in _itemsByProfile)
+        {
+            if (_autoReconnectingProfiles.Contains(profileId) || ResolveLiveSession(profileId) is not null)
+            {
+                continue;
+            }
+            if (!items.Any(t => t is { AutoReconnect: true, IsActive: false, StoppedByUser: false }))
+            {
+                continue;
+            }
+            if (_autoReconnectNotBefore.TryGetValue(profileId, out DateTime notBefore) && DateTime.UtcNow < notBefore)
+            {
+                continue;
+            }
+            SessionProfile? profile = Servers.FirstOrDefault(p => p.Id == profileId);
+            if (profile is null)
+            {
+                continue;
+            }
+            _autoReconnectingProfiles.Add(profileId);
+            _ = AutoReconnectAsync(profile, items);
+        }
+    }
+
+    /// <summary>重连服务器并按原配置重建其勾了自动重连的隧道。</summary>
+    private async Task AutoReconnectAsync(SessionProfile profile, ObservableCollection<TunnelItemViewModel> items)
+    {
+        bool isSelected = SelectedServer?.Id == profile.Id;
+        try
+        {
+            if (isSelected)
+            {
+                RefreshServerStatus();
+            }
+            Guid sessionId = await EnsureSessionAsync(profile, CancellationToken.None).ConfigureAwait(true);
+            foreach (TunnelItemViewModel tunnel in items.Where(t => t is { AutoReconnect: true, IsActive: false, StoppedByUser: false }).ToList())
+            {
+                // 服务侧还留着停止状态的旧记录,先清掉再重建,避免列表里越积越多。
+                await _workflowService.RemoveTunnelAsync(tunnel.Id, CancellationToken.None).ConfigureAwait(true);
+                TunnelInfo result = await _workflowService.CreateTunnelAsync(sessionId, tunnel.Config, CancellationToken.None).ConfigureAwait(true);
+                int index = items.IndexOf(tunnel);
+                if (index >= 0)
+                {
+                    items[index] = new(result);
+                }
+            }
+            _autoReconnectNotBefore.Remove(profile.Id);
+            _autoReconnectFailures.Remove(profile.Id);
+            if (isSelected)
+            {
+                ErrorMessage = null;
+            }
+        }
+        catch (Exception ex)
+        {
+            int failures = _autoReconnectFailures.GetValueOrDefault(profile.Id) + 1;
+            _autoReconnectFailures[profile.Id] = failures;
+            _autoReconnectNotBefore[profile.Id] = DateTime.UtcNow + BackoffFor(failures);
+            if (isSelected)
+            {
+                ErrorMessage = Strings.Format("Msg_TunnelAutoReconnectFailed", FriendlyError(ex));
+            }
+        }
+        finally
+        {
+            _autoReconnectingProfiles.Remove(profile.Id);
+            if (isSelected)
+            {
+                RefreshServerStatus();
+            }
+        }
+    }
+
+    /// <summary>失败重试的退避间隔:10s → 30s → 1min → 2min → 5min 封顶。</summary>
+    private static TimeSpan BackoffFor(int failures) =>
+        failures switch
+        {
+            1 => TimeSpan.FromSeconds(10),
+            2 => TimeSpan.FromSeconds(30),
+            3 => TimeSpan.FromMinutes(1),
+            4 => TimeSpan.FromMinutes(2),
+            _ => TimeSpan.FromMinutes(5)
+        };
 
     // ---- 配置持久化(仅配置,不含运行状态;重启后恢复为"已停止",由用户手动启动) ----
 
@@ -583,6 +742,7 @@ public class TunnelPanelViewModel : ReactiveObject, IDisposable
             NewRemoteHost = item.Config.RemoteHost;
         }
         NewRemotePort = (int)item.Config.RemotePort;
+        NewAutoReconnect = item.Config.AutoReconnect;
         ErrorMessage = null;
         RaiseEditingChanged();
     }
@@ -668,7 +828,8 @@ public class TunnelPanelViewModel : ReactiveObject, IDisposable
                              : loopback
                                  ? "127.0.0.1"
                                  : NewRemoteHost.Trim(),
-            RemotePort = isDynamic ? 0u : (uint)NewRemotePort
+            RemotePort = isDynamic ? 0u : (uint)NewRemotePort,
+            AutoReconnect = NewAutoReconnect
         };
     }
 
@@ -679,7 +840,12 @@ public class TunnelPanelViewModel : ReactiveObject, IDisposable
             ErrorMessage = null;
             await _workflowService.StopTunnelAsync(tunnelId, ct).ConfigureAwait(true);
             TunnelItemViewModel? tunnel = Tunnels.FirstOrDefault(t => t.Id == tunnelId);
-            tunnel?.Status = TunnelStatus.Stopped;
+            if (tunnel is not null)
+            {
+                tunnel.Status = TunnelStatus.Stopped;
+                // 记下"是用户按停的",免得自动恢复过一会儿把它又拉起来。
+                tunnel.StoppedByUser = true;
+            }
         }
         catch (Exception ex)
         {
@@ -787,6 +953,7 @@ public class TunnelPanelViewModel : ReactiveObject, IDisposable
         NewLocalHost = "127.0.0.1";
         NewLocalPort = 27017;
         NewRemotePort = 27017;
+        NewAutoReconnect = false;
         NewTunnelTypeIndex = 0;
         ForwardToServerLoopback = true; // 同时把目标主机复位为 127.0.0.1
         RaiseEditingChanged();
