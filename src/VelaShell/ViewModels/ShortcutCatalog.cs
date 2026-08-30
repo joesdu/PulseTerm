@@ -130,6 +130,10 @@ public static class ShortcutCatalog
                     Item("Sc_SuggestPrev", ["Up"], "Sc_NoteSuggestOpen"),
                     Item("Sc_SuggestAccept", ["Enter"], "Sc_NoteSuggestOpen"),
                     Item("Sc_SuggestDismiss", ["Esc"], "Sc_NoteSuggestOpen"),
+                    // Ctrl+C(取消当前行)与点击终端正文同样收起弹层:按键/点击照常
+                    // 下发给终端,只是顺手收口面板(#315)。
+                    Item("Sc_SuggestDismiss", [Ctrl, "C"], "Sc_NoteSuggestOpen"),
+                    Item("Sc_SuggestDismiss", [K("Sc_KeyLeftClick")], "Sc_NoteSuggestOpen"),
                     Item("Sc_SuggestNative", ["Tab"]),
                     Item("Sc_GhostAccept", ["Right"]),
                     Item("Sc_GhostAccept", ["End"]),
