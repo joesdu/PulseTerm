@@ -1,9 +1,13 @@
+using System.Runtime.InteropServices;
 using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
+using Avalonia.Layout;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
+using Avalonia.Styling;
 using Avalonia.VisualTree;
 using VelaShell.Core.Localization;
 using VelaShell.Core.Models;
@@ -237,6 +241,113 @@ public sealed class NotificationPanelUiTests
                 return Math.Round(corner?.X ?? throw new InvalidOperationException("控件未参与布局。"), 2);
             };
         });
+    }
+
+    /// <summary>
+    /// 卡片的下圆角不许被最后一行盖成方角(用户反馈:左侧未读竖条把左下角顶方了)。
+    /// <para>
+    /// Avalonia 的 <c>ClipToBounds</c> 只裁矩形、不按圆角裁子元素(见 <c>CardCornerRadiusTests</c>),
+    /// 所以贴着卡片下沿、又有不透明背景的东西必须自己带上内圆角 —— 未读竖条是通高的实心色块,
+    /// 正是最容易顶方角的那一个。这里直接量渲染出来的像素:卡片左下角那一格必须仍是卡片外的底色。
+    /// </para>
+    /// </summary>
+    [TestMethod]
+    public void CardBottomCorner_IsNotSquaredByUnreadBar()
+    {
+        OnUi(() =>
+        {
+            ThemeVariant previousTheme = Application.Current!.RequestedThemeVariant;
+            Application.Current.RequestedThemeVariant = ThemeVariant.Dark;
+            try
+            {
+                var center = new NotificationCenter();
+                // 条数要足够把列表填到卡片下沿 —— 列表填不满时下沿是空白,根本测不到。
+                center.PublishAsync([.. Enumerable.Range(0, 12).Select(index => new NotificationItem
+                {
+                    Id = $"cve-{index}",
+                    Kind = NotificationKind.Security,
+                    Title = $"CVE-2026-{index:0000} (CVSS 7.5)",
+                    Body = "未读条目的左侧有一条通高的强调色竖条,它正是顶方左下角的那个色块。",
+                    PublishedAt = DateTime.UtcNow.AddHours(-index),
+                    Link = new() { Label = "阅读全文", Url = "https://nvd.nist.gov/vuln/detail/CVE" }
+                })]).GetAwaiter().GetResult();
+
+                // 与 MainWindow 里的摆法一致:视图靠边对齐、按内容收缩,卡片下沿才落在列表末尾
+                // —— 若让它纵向铺满窗口,下沿会跑到列表下方的空白处,那里根本没有竖条,测了个寂寞。
+                var view = new NotificationPanelView
+                {
+                    DataContext = new NotificationPanelViewModel(center),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                // 卡片四周留白,让"卡片外"的底色有地方可量。
+                var window = new Window { Width = 420, Height = 560, Content = view };
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+                window.UpdateLayout();
+
+                Border card = view.GetVisualDescendants().OfType<Border>().First(border => border.BoxShadow.Count > 0);
+                Point origin = card.TranslatePoint(new(0, 0), window)
+                               ?? throw new InvalidOperationException("卡片未参与布局。");
+                using WriteableBitmap frame = window.CaptureRenderedFrame()
+                                              ?? throw new InvalidOperationException("headless 渲染器没出帧。");
+
+                uint accent = ((Application.Current.FindResource(ThemeVariant.Dark, "VelaAccent") as ISolidColorBrush)
+                               ?? throw new InvalidOperationException("取不到 VelaAccent。")).Color.ToUInt32();
+
+                // 左下角 6px 圆角**弧线之外**的那一小块三角区:里面不该出现竖条的强调色。
+                // (最外一列是卡片自己的 1px 描边,所以从 left+1 起量。)
+                int left = (int)Math.Round(origin.X);
+                int bottom = (int)Math.Round(origin.Y + card.Bounds.Height) - 1;
+                List<string> squared = [];
+                for (int dy = 1; dy <= 3; dy++)
+                {
+                    for (int dx = 1; dx <= 4 - dy; dx++)
+                    {
+                        if (PixelAt(frame, left + dx, bottom - dy + 1) == accent)
+                        {
+                            squared.Add($"({left + dx},{bottom - dy + 1})");
+                        }
+                    }
+                }
+                Assert.IsEmpty(squared,
+                               "卡片左下角的圆角弧外出现强调色 —— 未读竖条把圆角顶成了方角:"
+                               + string.Join(" ", squared));
+
+                SaveFrame(window, "notification-panel-bottom-corner.png");
+                window.Close();
+            }
+            finally
+            {
+                Application.Current.RequestedThemeVariant = previousTheme;
+            }
+        });
+    }
+
+    /// <summary>取渲染帧上某一点的 ARGB(headless 帧是 BGRA 排布)。</summary>
+    private static uint PixelAt(WriteableBitmap frame, int x, int y)
+    {
+        int width = frame.PixelSize.Width;
+        int height = frame.PixelSize.Height;
+        const int stride = 4;
+        int size = checked(width * height * stride);
+        IntPtr buffer = Marshal.AllocHGlobal(size);
+        try
+        {
+            frame.CopyPixels(new PixelRect(0, 0, width, height), buffer, size, width * stride);
+            int offset = (y * width + x) * stride;
+            // headless 帧是 RGBA 排布(拿已知的强调色对过账),按 ARGB 拼回来与
+            // Color.ToUInt32() 同口径。
+            byte red = Marshal.ReadByte(buffer, offset);
+            byte green = Marshal.ReadByte(buffer, offset + 1);
+            byte blue = Marshal.ReadByte(buffer, offset + 2);
+            byte alpha = Marshal.ReadByte(buffer, offset + 3);
+            return ((uint)alpha << 24) | ((uint)red << 16) | ((uint)green << 8) | blue;
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(buffer);
+        }
     }
 
     private static void SaveFrame(TopLevel topLevel, string fileName)

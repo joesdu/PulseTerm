@@ -78,6 +78,12 @@
           BorderThickness="1"
           CornerRadius="6"
           BoxShadow="{DynamicResource VelaShadowWindow}">
+    <!-- 内层只负责把内容裁进圆角。两点要留意:
+         ① 不能把 ClipToBounds 写在外层卡片上 —— 那会连它自己的 BoxShadow 一起裁掉;
+         ② 半径 5 = 外层 6 − 1px 描边(子元素被布局在描边内侧,照抄 6 会盖住描边的圆弧段)。
+         没有这一层时,列表最后一行的未读竖条(通高实心色块)会一直画到卡片下沿,
+         把左下角顶成方角(用户反馈)。 -->
+    <Border CornerRadius="5" ClipToBounds="True">
     <StackPanel>
 
       <!-- 标题栏(36px,兼拖拽手柄):铃铛 + 消息 + 未读数 | 只看未读 · 全部已读 · 清空 · 关闭。
@@ -263,5 +269,6 @@
       </ScrollViewer>
 
     </StackPanel>
+    </Border>
   </Border>
 </UserControl>
