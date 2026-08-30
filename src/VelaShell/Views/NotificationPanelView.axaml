@@ -14,10 +14,17 @@
        bg-surface、圆角 6、1px border-secondary、阴影 blur16 y+4。
        铃铛在侧边栏左下角,所以这张卡片锚在左下(见 MainWindow.axaml)。 -->
 
+  <!-- 拖表头挪位置(与文件传输提示同一套:PanelDragHandler)。位移相对默认锚点
+       (左下角)而非绝对坐标,窗口缩放后面板仍贴着相对位置;越界夹紧在 handler 里
+       (只有它知道父容器与自身的实际尺寸)。 -->
+  <UserControl.RenderTransform>
+    <TranslateTransform X="{Binding PanelOffsetX}" Y="{Binding PanelOffsetY}" />
+  </UserControl.RenderTransform>
+
   <UserControl.Styles>
     <Style Selector="Button.row-action">
-      <Setter Property="Width" Value="20" />
-      <Setter Property="Height" Value="20" />
+      <Setter Property="Width" Value="22" />
+      <Setter Property="Height" Value="22" />
       <Setter Property="Padding" Value="0" />
       <Setter Property="CornerRadius" Value="3" />
       <Setter Property="Background" Value="Transparent" />
@@ -41,6 +48,11 @@
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderThickness" Value="0" />
       <Setter Property="Padding" Value="0" />
+      <!-- 这两条**都要**:Button 的默认 HorizontalAlignment 是 Left(不是 Stretch),
+           只设 HorizontalContentAlignment 的话按钮自己就先按内容缩成一团 ——
+           里面再怎么"靠右"也只是靠在那团东西的右边,于是每行的动作各停一处。
+           行内右对齐要成立,先得让按钮真的铺满它那一列。 -->
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
       <Setter Property="HorizontalContentAlignment" Value="Stretch" />
       <Setter Property="Cursor" Value="Hand" />
     </Style>
@@ -68,8 +80,15 @@
           BoxShadow="{DynamicResource VelaShadowWindow}">
     <StackPanel>
 
-      <!-- 标题栏(36px):铃铛 + 消息 + 未读数 | 只看未读 · 全部已读 · 清空 · 关闭 -->
-      <Border Height="36" Padding="12,0"
+      <!-- 标题栏(36px,兼拖拽手柄):铃铛 + 消息 + 未读数 | 只看未读 · 全部已读 · 清空 · 关闭。
+           Background 必须显式给(哪怕是 Transparent):null 背景的 Border 不参与命中测试,
+           拖拽事件根本到不了手柄上。 -->
+      <!-- 右侧内边距 16(左 12):列表的悬浮滚动条展开后约占 12px,压在右边缘的按钮上。
+           标题栏与每行的 x 用同一个右留白,滚动条出现时既不遮挡,两处也仍然对齐。 -->
+      <Border Name="DragHandle"
+              Height="36" Padding="12,0,16,0"
+              Cursor="SizeAll"
+              Background="Transparent"
               BorderBrush="{DynamicResource VelaBorderPrimary}"
               BorderThickness="0,0,0,1">
         <Grid ColumnDefinitions="Auto,*,Auto,2,Auto,2,Auto,2,Auto">
@@ -80,7 +99,7 @@
             <TextBlock Text="{loc:Localize Notify_Title}"
                        Foreground="{DynamicResource VelaTextPrimary}"
                        FontFamily="{DynamicResource VelaUiMonoFont}"
-                       FontSize="{DynamicResource VelaFontSize11}" FontWeight="Medium"
+                       FontSize="{DynamicResource VelaFontSize12}" FontWeight="Medium"
                        VerticalAlignment="Center" />
             <Border Background="{DynamicResource VelaAccent}"
                     CornerRadius="8" Padding="6,1" VerticalAlignment="Center"
@@ -88,17 +107,17 @@
               <TextBlock Text="{Binding UnreadCount}"
                          Foreground="{DynamicResource VelaAccentText}"
                          FontFamily="{DynamicResource VelaUiMonoFont}"
-                         FontSize="{DynamicResource VelaFontSize10}" FontWeight="Medium" />
+                         FontSize="{DynamicResource VelaFontSize11}" FontWeight="Medium" />
             </Border>
           </StackPanel>
-          <ToggleButton Grid.Column="2" Height="20" Padding="6,0" CornerRadius="3"
+          <ToggleButton Grid.Column="2" Height="22" Padding="6,0" CornerRadius="3"
                         Background="Transparent" BorderThickness="0" Cursor="Hand"
                         VerticalAlignment="Center"
                         IsChecked="{Binding UnreadOnly}"
                         ToolTip.Tip="{loc:Localize Notify_UnreadOnlyTip}">
             <TextBlock Text="{loc:Localize Notify_UnreadOnly}"
                        FontFamily="{DynamicResource VelaUiMonoFont}"
-                       FontSize="{DynamicResource VelaFontSize10}" />
+                       FontSize="{DynamicResource VelaFontSize11}" />
           </ToggleButton>
           <Button Grid.Column="4" Classes="row-action"
                   ToolTip.Tip="{loc:Localize Notify_MarkAllRead}"
@@ -129,12 +148,17 @@
         <TextBlock Text="{Binding EmptyHint}"
                    Foreground="{DynamicResource VelaTextMuted}"
                    FontFamily="{DynamicResource VelaUiMonoFont}"
-                   FontSize="{DynamicResource VelaFontSize10}"
+                   FontSize="{DynamicResource VelaFontSize11}"
                    HorizontalAlignment="Center" />
       </Border>
 
       <!-- 消息列表 -->
-      <ScrollViewer MaxHeight="380" VerticalScrollBarVisibility="Auto">
+      <!-- 字号加大后每行更高,列表上限跟着抬一档,可见条数与改字号前基本持平。
+           横向滚动必须显式关掉:开着的话每行按"不换行的理想宽度"量出各自不同的宽度,
+           行内靠右的元素就会各停在各自的右边缘 —— 一列本该对齐的动作变成参差不齐。 -->
+      <ScrollViewer MaxHeight="440"
+                    VerticalScrollBarVisibility="Auto"
+                    HorizontalScrollBarVisibility="Disabled">
         <ItemsControl ItemsSource="{Binding Items}">
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:NotificationItemViewModel">
@@ -158,7 +182,7 @@
                           <TextBlock Text="{Binding KindBadge}"
                                      Foreground="{DynamicResource VelaAccent}"
                                      FontFamily="{DynamicResource VelaUiMonoFont}"
-                                     FontSize="{DynamicResource VelaFontSize9}" FontWeight="Medium" />
+                                     FontSize="{DynamicResource VelaFontSize10}" FontWeight="Medium" />
                         </Border>
                         <Border CornerRadius="2" Padding="5,1" VerticalAlignment="Center"
                                 Background="Transparent"
@@ -167,12 +191,12 @@
                           <TextBlock Text="{Binding KindBadge}"
                                      Foreground="{DynamicResource VelaWarning}"
                                      FontFamily="{DynamicResource VelaUiMonoFont}"
-                                     FontSize="{DynamicResource VelaFontSize9}" FontWeight="Medium" />
+                                     FontSize="{DynamicResource VelaFontSize10}" FontWeight="Medium" />
                         </Border>
                         <TextBlock Text="{Binding RelativeTime}"
                                    Foreground="{DynamicResource VelaTextMuted}"
                                    FontFamily="{DynamicResource VelaUiMonoFont}"
-                                   FontSize="{DynamicResource VelaFontSize9}"
+                                   FontSize="{DynamicResource VelaFontSize10}"
                                    VerticalAlignment="Center" />
                       </StackPanel>
                       <!-- 已读退到次要色且不加粗,未读保持主文本 + Medium:
@@ -180,42 +204,54 @@
                       <TextBlock Text="{Binding Title}"
                                  Classes="msg-title" Classes.unread="{Binding IsUnread}"
                                  FontFamily="{DynamicResource VelaUiFont}"
-                                 FontSize="{DynamicResource VelaFontSize11}"
+                                 FontSize="{DynamicResource VelaFontSize13}"
                                  TextWrapping="Wrap" />
                       <TextBlock Text="{Binding Body}"
                                  IsVisible="{Binding HasBody}"
                                  Foreground="{DynamicResource VelaTextMuted}"
                                  FontFamily="{DynamicResource VelaUiFont}"
-                                 FontSize="{DynamicResource VelaFontSize10}"
+                                 FontSize="{DynamicResource VelaFontSize12}"
                                  TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" />
                       <!-- 去处:站内动作只显示文案;外链把主机名摆出来,
-                           让用户在点之前就知道自己会被带去哪个站点。 -->
-                      <StackPanel Orientation="Horizontal" Spacing="4"
-                                  IsVisible="{Binding HasLink}">
-                        <TextBlock Text="{Binding LinkLabel}"
-                                   Foreground="{DynamicResource VelaAccent}"
-                                   FontFamily="{DynamicResource VelaUiFont}"
-                                   FontSize="{DynamicResource VelaFontSize10}" FontWeight="Medium"
-                                   VerticalAlignment="Center" />
-                        <pc:LucideIcon Width="10" Height="10"
-                                       Data="{StaticResource Icon.chevron-right}"
-                                       Foreground="{DynamicResource VelaAccent}"
-                                       VerticalAlignment="Center" />
-                        <TextBlock Text="{Binding LinkHost}"
+                           让用户在点之前就知道自己会被带去哪个站点。
+                           **两端对齐**(主机名钉左、动作钉右)而不是整条靠右:动作贴右边缘,
+                           是因为指针本来就多停在那侧(每行的删除键、滚动条都在那边),
+                           "看到→点到"的路最短;而主机名长短不一,若跟着挤在动作左边,
+                           动作的左沿就会一行一个位置 —— 一列扫下来全是参差。
+                           两端各钉一边,两条竖直边就都是齐的。 -->
+                      <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasLink}">
+                        <TextBlock Grid.Column="0"
+                                   Text="{Binding LinkHost}"
                                    IsVisible="{Binding HasLinkHost}"
                                    Foreground="{DynamicResource VelaTextMuted}"
                                    FontFamily="{DynamicResource VelaUiMonoFont}"
-                                   FontSize="{DynamicResource VelaFontSize9}"
+                                   FontSize="{DynamicResource VelaFontSize10}"
+                                   TextTrimming="CharacterEllipsis"
                                    VerticalAlignment="Center" />
-                      </StackPanel>
+                        <!-- link-action:布局回归测试按这个类找到动作组,断言各行右沿共线。 -->
+                        <StackPanel Grid.Column="1" Classes="link-action"
+                                    Orientation="Horizontal" Spacing="4"
+                                    Margin="8,0,0,0">
+                          <TextBlock Text="{Binding LinkLabel}"
+                                     Foreground="{DynamicResource VelaAccent}"
+                                     FontFamily="{DynamicResource VelaUiFont}"
+                                     FontSize="{DynamicResource VelaFontSize12}" FontWeight="Medium"
+                                     VerticalAlignment="Center" />
+                          <pc:LucideIcon Width="12" Height="12"
+                                         Data="{StaticResource Icon.chevron-right}"
+                                         Foreground="{DynamicResource VelaAccent}"
+                                         VerticalAlignment="Center" />
+                        </StackPanel>
+                      </Grid>
                     </StackPanel>
                   </Button>
-                  <Button Grid.Column="2" Classes="row-action" Margin="0,10,8,0"
+                  <!-- 右留白 16:与标题栏的关闭键同一条竖线,且让开展开后的悬浮滚动条。 -->
+                  <Button Grid.Column="2" Classes="row-action" Margin="0,10,16,0"
                           VerticalAlignment="Top"
                           ToolTip.Tip="{loc:Localize Notify_Remove}"
                           Command="{Binding $parent[ItemsControl].((vm:NotificationPanelViewModel)DataContext).RemoveCommand}"
                           CommandParameter="{Binding Id}">
-                    <pc:LucideIcon Width="10" Height="10"
+                    <pc:LucideIcon Width="12" Height="12"
                                    Data="{StaticResource Icon.x}"
                                    Foreground="{DynamicResource VelaTextTertiary}" />
                   </Button>

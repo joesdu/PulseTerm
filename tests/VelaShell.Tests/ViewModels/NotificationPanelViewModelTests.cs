@@ -1,4 +1,6 @@
+using NSubstitute;
 using ReactiveUI.Primitives;
+using VelaShell.Core.Data;
 using VelaShell.Core.Models;
 using VelaShell.Infrastructure.Notifications;
 using VelaShell.ViewModels;
@@ -177,6 +179,62 @@ public class NotificationPanelViewModelTests
         Assert.IsTrue(external.HasLinkHost);
         Assert.IsNull(inApp.LinkHost, "站内跳转没有外部主机可显示。");
         Assert.IsFalse(inApp.HasLinkHost);
+    }
+
+    /// <summary>
+    /// 拖动后的位置落在 <c>ui-layout/notification-panel</c> —— 与文件传输提示同集合、
+    /// 各占一个文档 Id。两个浮层写进同一个 Id 会互相踩,这条钉住 Id 不被写错。
+    /// </summary>
+    [TestMethod]
+    public async Task PersistPanelPosition_WritesCurrentOffsetToStore()
+    {
+        NotificationCenter center = await SeededCenterAsync(Item("a"));
+        IAppDataStore store = Substitute.For<IAppDataStore>();
+        var vm = new NotificationPanelViewModel(center, dataStore: store)
+        {
+            PanelOffsetX = 240,
+            PanelOffsetY = -180
+        };
+
+        vm.PersistPanelPosition();
+
+        // 断言本身返回 Task(方法是 async 的),丢弃它以免 CS4014 —— 调用记录是同步的。
+        _ = store.Received(1).UpsertAsync(
+            "ui-layout",
+            "notification-panel",
+            Arg.Is<PanelPosition>(p => p.OffsetX == 240 && p.OffsetY == -180),
+            Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>构造时从存储恢复上次的位置 —— 这就是「再次打开回到原有位置」。</summary>
+    [TestMethod]
+    public async Task Construction_RestoresPersistedPanelPosition()
+    {
+        NotificationCenter center = await SeededCenterAsync(Item("a"));
+        IAppDataStore store = Substitute.For<IAppDataStore>();
+        store.GetAsync<PanelPosition>("ui-layout", "notification-panel", Arg.Any<CancellationToken>())
+             .Returns(new PanelPosition { OffsetX = 120, OffsetY = -64 });
+
+        var vm = new NotificationPanelViewModel(center, dataStore: store);
+
+        // 恢复是异步的,给它一次调度机会。
+        await Task.Yield();
+        await Task.Delay(50);
+
+        Assert.AreEqual(120, vm.PanelOffsetX);
+        Assert.AreEqual(-64, vm.PanelOffsetY);
+    }
+
+    /// <summary>没有存储(单元测试/精简宿主)时不该炸,位置退回默认锚点。</summary>
+    [TestMethod]
+    public async Task WithoutStore_PanelPositionDefaultsToAnchorAndPersistIsHarmless()
+    {
+        NotificationCenter center = await SeededCenterAsync(Item("a"));
+        var vm = new NotificationPanelViewModel(center);
+
+        Assert.AreEqual(0, vm.PanelOffsetX);
+        Assert.AreEqual(0, vm.PanelOffsetY);
+        vm.PersistPanelPosition();
     }
 
     /// <summary>相对时间按量级切换单位;源端时钟偏到未来时一律当作「刚刚」。</summary>

@@ -1011,21 +1011,31 @@ public class ProxyOptions : ObservableOptions
 /// <summary>
 /// 消息中心(侧边栏铃铛)的选项。
 /// <para>
-/// 默认不订阅任何资讯源:<see cref="FeedUrl" /> 为空时一个网络请求都不发。
-/// 一个终端客户端默默定期外呼,在企业环境里是要被问责的事,得由用户或部署方明确开启。
+/// 默认订阅官方资讯源(<see cref="OfficialFeedUrl" />):安全资讯的价值在于「用户没去找的时候
+/// 它自己到」,默认关掉等于绝大多数人永远收不到 CISA KEV 那几条「现在就有人在打这个洞」。
+/// 代价必须说清楚,不能藏:每 <see cref="FeedIntervalHours" /> 小时一次的定期外呼是**默认发生**的,
+/// 因而写进了 <c>PRIVACY.md</c> 的「网络连接」清单。**把地址清空,一个网络请求都不会发出** ——
+/// 企业环境里要求客户端零外呼是正当诉求,那个退出口必须一直留着。
 /// </para>
 /// </summary>
 public class NotificationOptions : ObservableOptions
 {
     /// <summary>
-    /// 资讯源地址(**仅 https**)。留空 = 不订阅、不联网。格式见
+    /// 官方资讯源(<see href="https://github.com/joesdu/velashell-feeds">velashell-feeds</see>):
+    /// 聚合 CISA KEV + NVD 的漏洞情报,外加公告投放。<see cref="FeedUrl" /> 的默认值。
+    /// </summary>
+    public const string OfficialFeedUrl = "https://feeds.easilynet.top/feed.json";
+
+    /// <summary>
+    /// 资讯源地址(**仅 https**)。默认为 <see cref="OfficialFeedUrl" />;
+    /// 留空 = 不订阅、不联网。可换成自建源,格式见
     /// <c>Core/Notifications/AnnouncementFeedDocument</c> 的契约说明。
     /// </summary>
     public string FeedUrl
     {
         get;
         set => Set(ref field, value ?? "");
-    } = "";
+    } = OfficialFeedUrl;
 
     /// <summary>拉取间隔(小时);启动时先拉一次,之后按此节奏。下限 1 小时。</summary>
     public int FeedIntervalHours

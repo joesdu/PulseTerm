@@ -384,6 +384,7 @@ Tmds.Ssh 把 LocalForward / SocksForward 的搬运整个做在内部,**不暴露
 `AnnouncementFeedDocumentTests` 逐条钉住,那份用例同时也是契约的可执行说明。
 **默认不订阅**:`Notifications.FeedUrl` 为空时一个网络请求都不发 ——
 终端客户端默默定期外呼在企业环境里是要被问责的事,得由用户或部署方明确开启。
+(**08-31 改为默认订阅官方源**,见 §22。)
 
 **C. 快捷跳转走 `ICommandRegistry`**:通知带 `commandId` 就执行注册表里的命令,
 带 `url` 就用系统浏览器开(仅 https);**站内优先**,命令没注册(返回 false)时退回外链。
@@ -442,3 +443,70 @@ Tmds.Ssh 把 LocalForward / SocksForward 的搬运整个做在内部,**不暴露
 登记进 `ShortcutCatalog` 的补全分组并同步 `velashell-docs` 的中英快捷键参考(收起建议弹层:
 `Esc` / `Ctrl+C` / 左键)。回归测试 `TerminalInputTrackerTests.CtrlC_OnAlreadyEmptyLine_StillRaisesInputChanged`
 钉住 A;B 是视图层指针接线,本仓暂无宿主视图的 headless 会话,未加用例。
+
+## 22. 2026-08-31 资讯源默认订阅官方源
+
+`velashell-feeds` 上线后,`Notifications.FeedUrl` 的默认值从空串改为
+`NotificationOptions.OfficialFeedUrl`(`https://feeds.easilynet.top/feed.json`)。
+理由是安全资讯的价值在于「用户没去找的时候它自己到」:默认关闭的源几乎没人会去打开,
+CISA KEV 那几条「现在就有人在打这个洞」就等于谁也收不到。
+
+**这是一次「默认行为」变更,不是一个配置项调整**,因此三处必须跟着改,否则文档开始骗人:
+
+- `PRIVACY.md`(中英两份正文):概述里「开发者不运营任何服务器」不再成立 —— 改成如实说明
+  开发者运营**一台**服务器、默认每几小时下载一次公开 JSON、请求里不带任何标识,
+  服务端能拿到的只有 IP 与时间,以及「清空地址即彻底不发」。同时在「网络连接」清单里
+  新增资讯源一条。**顺手修正了上一批留下的失真**:该清单第 3 条仍写着「检查更新 —— 仅手动
+  触发……从不在后台自动检查」,而 08-30 起 `CheckUpdatesOnStartup`(默认开)会在启动时查一次。
+- `velashell-docs` 的消息中心文档(中英):默认值表与「留空即不订阅」段落。
+- 本文件 §20-B 的「默认不订阅」结论。
+
+**存量用户不受影响**:设置整份 JSON 持久化在 `app_config/settings`,老文档里已经存着
+`FeedUrl: ""`,反序列化会把空串照原样带回来 —— 新默认只对全新安装(以及消息中心发布前
+从未存过该字段的配置)生效。消息中心尚未随版本发布,因此实际上没有需要迁移的存量。
+
+## 23. 2026-08-31 消息中心:可拖动、加大字号、动作靠右(用户反馈)
+
+**A. 拖拽逻辑抽成一份共用实现**:消息中心成为第二个可拖动浮层,而拖拽那套东西细到
+「按在标题栏的按钮上不许起拖」「`Bounds` 不含渲染变换所以它就是锚定位置」这一层 ——
+复制第二份必然漂。于是从 `FileTransferView` 原样抽出 `Behaviors/PanelDragHandler`
+(捕获/位移/越界夹紧/松手落盘)与 `ViewModels/IDraggablePanel`(两个偏移量 + 落盘),
+两个视图各一行 `PanelDragHandler.Attach(this, DragHandle)`。持久化载体
+`TransferPanelPosition` 随之更名 `PanelPosition` 并独立成文件:同一个 `ui-layout` 集合里,
+文件传输是 `transfer-panel`、消息中心是 `notification-panel`,类型名不该再绑着其中一个。
+
+**B. 拖拽空间是父容器,所以外层 Panel 必须铺满**:`MainWindow.axaml` 里消息中心原先包在一个
+`HorizontalAlignment=Left/VerticalAlignment=Bottom` 的 `Panel` 里 —— 那个 Panel 紧紧贴着面板本身,
+而 `PanelDragHandler` 的参考坐标系正是父容器,于是可拖范围会是零。改为**外层 Panel 铺满整行、
+对齐与边距落到里面的视图上**(与 `FileTransferView` 的摆法一致)。Panel 不设 `Background`
+即不参与命中测试,铺满也不会挡住底下的操作 —— 这与标题栏手柄必须显式写
+`Background="Transparent"` 是同一条规则的两面。
+
+**C. 字号加大一档**:正文 10→12、标题 11→13、徽标/时间/主机名 9→10、标题栏 11→12,
+全部走 `VelaFontSize*` 令牌(仍跟随「设置 → 外观 → 界面字号」缩放)。行高随之增加,
+列表 `MaxHeight` 380→440,可见条数与改字号前基本持平;每行的删除键 20→22px、图标 10→12px。
+
+**D. 「去处」一行改为两端对齐**(用户反馈两轮):动作原先贴左边缘,而指针本来就多停在右侧
+(每行删除键、滚动条都在那边),一次跳转要横穿整张卡片。第一版直接把整条靠右,用户当场
+反馈「参差不齐」—— 确实:主机名长短不一(站内跳转那行根本没有),整条靠右时动作的左沿
+一行一个位置。最终做成**两端对齐**:主机名钉左、`动作 + ›` 钉右,两条竖直边都是齐的。
+
+**D-1. 但真正让它参差的是另一件事**:`Button` 的默认 `HorizontalAlignment` 是
+**`Left` 而非 `Stretch`**。整行那个透明按钮因此按自己的内容缩成一团(实测三行分别
+295 / 284 / 309px,而它那一列是 318px),里面再怎么"靠右"也只是靠在那团东西的右边。
+只设 `HorizontalContentAlignment="Stretch"` 不够 —— 那管的是内容在按钮里怎么摆,
+管不到按钮自己有多宽。补上 `HorizontalAlignment="Stretch"` 后三行按钮齐齐 318px,
+右沿才真的共线。顺带:这也让内容列的空白处变成可点区域,与「整行可点 = 跳转」的原意一致。
+(同时给列表显式关掉横向滚动:开着的话每行按"不换行的理想宽度"各量各的,行宽本身就不一样。)
+
+**E. 右留白 16,给悬浮滚动条让位**(用户反馈):列表的悬浮滚动条展开后约 12px,
+压在贴着右边缘的每行删除键上。标题栏右内边距与每行删除键的右外边距统一改成 16
+(左仍是 12),滚动条出现时既不遮挡,两处的 x 也仍然对齐。
+
+回归测试:`NotificationPanelViewModelTests` 补三条(落盘到 `ui-layout/notification-panel`、
+构造时恢复、无存储时不炸);`NotificationPanelUiTests.DestinationLine_ActionsShareOneRightEdge`
+在真实 Avalonia 布局里钉住 D/D-1/E —— 用「无主机名 / 短主机名 / 超长主机名」三行,
+断言各行等宽、整行按钮铺满内容列、动作右沿共线、删除键与标题栏关闭键共线。
+这条用例在写下时**是红的**(实测 314 / 303 / 328),D-1 那行 `Stretch` 才让它变绿,
+不是先有结论再补的用例。拖拽手柄本身是指针接线,未加用例 —— 但那份逻辑现在只有一处,
+`FileTransferViewModelTests` 的位置用例仍覆盖着它的另一半。

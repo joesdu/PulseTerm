@@ -1376,7 +1376,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
             return;
         }
         _notificationCenter = center;
-        var panel = new NotificationPanelViewModel(center, Commands.Execute, OpenExternalUrlAsync);
+        var panel = new NotificationPanelViewModel(center, Commands.Execute, OpenExternalUrlAsync, _appDataStore);
         panel.CloseRequested += (_, _) => IsNotificationPanelOpen = false;
         NotificationPanel = panel;
 

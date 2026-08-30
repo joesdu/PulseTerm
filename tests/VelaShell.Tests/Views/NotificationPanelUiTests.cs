@@ -141,6 +141,104 @@ public sealed class NotificationPanelUiTests
         });
     }
 
+    /// <summary>
+    /// 「去处」一行两端对齐:主机名钉左、动作钉右,**动作的右沿逐行共线**。
+    /// <para>
+    /// 用户反馈:动作刚挪到右边时一列扫下来参差不齐。两个成因都在这里钉住 ——
+    /// ① 整条靠右时,主机名长短不一会把动作推到各自不同的位置(站内跳转那行根本没有主机名);
+    /// ② 列表若开着横向滚动,每行按"不换行的理想宽度"各量各的,行宽本身就不一样。
+    /// 因此同时断言:各行等宽,且动作右沿共线。
+    /// </para>
+    /// </summary>
+    [TestMethod]
+    public void DestinationLine_ActionsShareOneRightEdge()
+    {
+        OnUi(() =>
+        {
+            var center = new NotificationCenter();
+            DateTime now = DateTime.UtcNow;
+            center.PublishAsync([
+                // 站内跳转:没有主机名,动作左边空空如也。
+                new NotificationItem
+                {
+                    Id = "in-app",
+                    Kind = NotificationKind.Update,
+                    Title = "VelaShell 1.4.2 已发布",
+                    Body = "当前版本 0.0.1-dev。到「关于」页查看并安装更新。",
+                    PublishedAt = now.AddMinutes(-16),
+                    Link = new() { Label = "前往关于页", CommandId = "app.settings.about" }
+                },
+                // 外链:主机名短。
+                new NotificationItem
+                {
+                    Id = "short-host",
+                    Kind = NotificationKind.Security,
+                    Title = "CVE-2026-82644 (CVSS 7.5)",
+                    Body = "WWBN AVideo contains a brute-force rate limiting bypass in enforceRateLimit().",
+                    PublishedAt = now.AddHours(-3),
+                    Link = new() { Label = "阅读全文", Url = "https://nvd.nist.gov/vuln/detail/CVE-2026-82644" }
+                },
+                // 外链:主机名长得多 —— 若动作跟着主机名走,这一行会被推得最远。
+                new NotificationItem
+                {
+                    Id = "long-host",
+                    Kind = NotificationKind.News,
+                    Title = "八月产品月报",
+                    Body = "SFTP 双栏、资源监控与插件市场的进展。",
+                    PublishedAt = now.AddDays(-2),
+                    Link = new() { Label = "阅读全文", Url = "https://blog.a-very-long-host-name.example.com/2026-08" }
+                }
+            ]).GetAwaiter().GetResult();
+
+            var view = new NotificationPanelView { DataContext = new NotificationPanelViewModel(center) };
+            var window = new Window { Width = 400, Height = 560, Content = view };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            List<Border> rows = [.. view.GetVisualDescendants().OfType<Border>()
+                                        .Where(border => border.Classes.Contains("msg-row"))];
+            Assert.HasCount(3, rows);
+
+            double[] widths = [.. rows.Select(row => Math.Round(row.Bounds.Width, 2)).Distinct()];
+            Assert.HasCount(1, widths, "各行必须等宽 —— 宽度不一,行内靠右的元素就不可能对齐。");
+
+            // 行内右对齐的前提:整行按钮真的铺满了它那一列(Button 默认是 Left,不是 Stretch)。
+            foreach (Border row in rows)
+            {
+                Grid outer = row.GetVisualDescendants().OfType<Grid>().First();
+                Button rowButton = row.GetVisualDescendants().OfType<Button>()
+                                      .First(button => button.Classes.Contains("row"));
+                Assert.AreEqual(outer.ColumnDefinitions[1].ActualWidth, rowButton.Bounds.Width, 0.5,
+                                "整行按钮必须铺满内容列,否则里面的右对齐是相对它自己那一团内容。");
+            }
+
+            double[] actionRightEdges = [.. rows.Select(RightEdgeOf("link-action")).Distinct()];
+            Assert.HasCount(1, actionRightEdges,
+                            $"动作的右沿必须逐行共线,实测 {string.Join(" / ", rows.Select(RightEdgeOf("link-action")))}。");
+
+            // 每行的删除键与标题栏的关闭键同一条竖线(右留白 16,给悬浮滚动条让位)。
+            Border header = view.GetVisualDescendants().OfType<Border>().First(b => b.Name == "DragHandle");
+            double headerCloseRight = RightEdgeOf("row-action")(header);
+            Assert.AreEqual(headerCloseRight, RightEdgeOf("row-action")(rows[0]), 0.5,
+                            "行内删除键应与标题栏关闭键右沿对齐。");
+
+            SaveFrame(window, "notification-panel-destination-alignment.png");
+            window.Close();
+
+            // 取容器内**最后一个**带该类的控件(标题栏里有三个 row-action,关闭键在最右),
+            // 换算到窗口坐标后的右沿。
+            Func<Visual, double> RightEdgeOf(string className) => container =>
+            {
+                Visual target = container.GetVisualDescendants()
+                                         .OfType<Control>()
+                                         .Last(control => control.Classes.Contains(className));
+                Point? corner = target.TranslatePoint(new(target.Bounds.Width, 0), window);
+                return Math.Round(corner?.X ?? throw new InvalidOperationException("控件未参与布局。"), 2);
+            };
+        });
+    }
+
     private static void SaveFrame(TopLevel topLevel, string fileName)
     {
         string? directory = Environment.GetEnvironmentVariable("VELASHELL_VISUAL_QA_DIR");
