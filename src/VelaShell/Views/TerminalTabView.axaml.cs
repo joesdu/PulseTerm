@@ -74,6 +74,25 @@ public partial class TerminalTabView : UserControl
         SearchClose.Click += (_, _) => CloseSearch();
         SearchBox.KeyDown += OnSearchBoxKeyDown;
         SuggestList.Tapped += (_, _) => AcceptSuggestion();
+
+        // 点终端正文即收起补全弹层(#315)。弹层刻意不开 light-dismiss(那会吞掉
+        // 关闭它的那一次点击),而点击一个**已经聚焦**的终端不产生 LostFocus,
+        // 于是原先没有任何路径能收口它 —— 面板会一直悬在旧光标处。
+        // Tunnel 抢在终端控件消费指针之前拿到,且不置 Handled:选区/光标行为不变。
+        TerminalHost.AddHandler(
+            PointerPressedEvent,
+            OnTerminalHostPointerPressed,
+            RoutingStrategies.Tunnel
+        );
+    }
+
+    /// <summary>点击终端正文:收起补全弹层与幽灵,按键不消费(终端照常处理选区)。</summary>
+    private void OnTerminalHostPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (SuggestPopup.IsOpen)
+        {
+            DismissSuggestions(suppress: false);
+        }
     }
 
     private void OnPreviewKeyDown(object? sender, KeyEventArgs e)
@@ -648,6 +667,12 @@ public partial class TerminalTabView : UserControl
                 CloseSuggestPopup(suppress: true);
                 e.Handled = true;
                 return true;
+            case Key.C when e.KeyModifiers == Avalonia.Input.KeyModifiers.Control:
+                // Ctrl+C = 取消当前行,面板一并收口(#315)。不置 Handled、返回 false:
+                // 按键必须照常下发(中断前台进程;开了「有选区时 Ctrl+C 复制」则是复制)。
+                // 走 InputChanged 那条路收口在这里不够 —— 复制语义下根本没有字节发往 PTY。
+                DismissSuggestions(suppress: false);
+                return false;
             case Key.Enter when e.KeyModifiers == Avalonia.Input.KeyModifiers.None:
                 // 弹层存在时 Enter 始终输入当前选中项(VS 语义,无需先按方向键;
                 // 不想要建议按 Esc 退出)。唯一例外:选中项与已输入完全相同

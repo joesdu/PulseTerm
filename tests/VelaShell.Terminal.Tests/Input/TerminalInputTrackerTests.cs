@@ -59,6 +59,22 @@ public class TerminalInputTrackerTests
     }
 
     [TestMethod]
+    public void CtrlC_OnAlreadyEmptyLine_StillRaisesInputChanged()
+    {
+        // #315:空行上 Alt+Enter 召出全量补全面板后按 Ctrl+C。行内容前后都是空串,
+        // 若只按「字面内容变了才通知」,消费方收不到任何一拍,面板就永远关不掉。
+        var tracker = new TerminalInputTracker();
+        int changes = 0;
+        tracker.InputChanged += () => changes++;
+        tracker.Process([0x03]);
+        Assert.AreEqual(1, changes, "Ctrl+C 取消空行也必须通知消费方");
+        Assert.AreEqual(string.Empty, tracker.CurrentInput);
+
+        tracker.Process([0x15]); // Ctrl+U(kill line)同理。
+        Assert.AreEqual(2, changes);
+    }
+
+    [TestMethod]
     public void ArrowKey_EscSequence_MarksUnknownUntilReset()
     {
         var tracker = new TerminalInputTracker();

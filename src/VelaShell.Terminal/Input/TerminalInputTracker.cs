@@ -43,7 +43,11 @@ public sealed class TerminalInputTracker
     /// </summary>
     public string TentativeRun => _unknown ? _tentative.ToString() : string.Empty;
 
-    /// <summary>行内容(或未知态/试探段)变化时触发,在输入线程(UI 线程)上同步回调。</summary>
+    /// <summary>
+    /// 行内容(或未知态/试探段)变化时触发,在输入线程(UI 线程)上同步回调。
+    /// Ctrl+C / Ctrl+U 这类「取消当前行」无条件触发,即使行本来就是确定的空行 ——
+    /// 消费方(补全弹层)要靠它收口,只比较字面内容会漏掉空行上的取消。
+    /// </summary>
     public event Action? InputChanged;
 
     /// <summary>
@@ -93,7 +97,12 @@ public sealed class TerminalInputTracker
                     }
                     break;
                 case 0x03 or 0x15: // Ctrl+C / Ctrl+U:shell 把行清掉,回到确定的空行。
-                    changed |= ResetToKnownEmpty();
+                    ResetToKnownEmpty();
+                    // 无条件记为「变化」:行本就是确定的空行时字面内容确实没变,但
+                    // 「取消当前行」是消费方必须收到的一拍 —— 补全弹层靠 InputChanged
+                    // 收口,吞掉这一拍就会出现「空行 Alt+Enter 召出全量面板后 Ctrl+C
+                    // 关不掉」(#315)。
+                    changed = true;
                     break;
                 case 0x1B: // ESC:进入序列吞噬模式,整行不可知。
                     changed |= MarkUnknown();
