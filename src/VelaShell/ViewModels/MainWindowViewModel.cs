@@ -149,6 +149,8 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     /// 标签关闭或连接断开时经 <see cref="EvictFileBrowser" /> 驱逐。
     /// </summary>
     private readonly Dictionary<Guid, FileBrowserViewModel> _fileBrowserCache = [];
+    private readonly object _fileBrowserPreferenceSaveSync = new();
+    private Task _fileBrowserPreferenceSaveTail = Task.CompletedTask;
     private readonly Lock _sftpCloseTasksSync = new();
     private readonly Dictionary<SftpDocument, Task> _sftpCloseTasks = [];
     private FileTransferViewModel _fileTransfer;
@@ -1214,6 +1216,48 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
             .OfType<TerminalTabViewModel>()
             .FirstOrDefault(t => t.SessionId == sessionId);
         owner?.FileBrowserOpen = visible;
+        PersistAutoOpenFileBrowser(visible);
+    }
+
+    /// <summary>
+    /// 用户手动开/关底部文件浏览器后,把最后选择写回设置,供下次启动与之后的新连接作为默认值。
+    /// </summary>
+    private void PersistAutoOpenFileBrowser(bool visible)
+    {
+        if (_settingsService is null)
+        {
+            return;
+        }
+        lock (_fileBrowserPreferenceSaveSync)
+        {
+            _fileBrowserPreferenceSaveTail = _fileBrowserPreferenceSaveTail
+                .ContinueWith(
+                    _ => PersistAutoOpenFileBrowserAsync(visible),
+                    CancellationToken.None,
+                    TaskContinuationOptions.ExecuteSynchronously,
+                    TaskScheduler.Default)
+                .Unwrap();
+        }
+    }
+
+    private async Task PersistAutoOpenFileBrowserAsync(bool visible)
+    {
+        try
+        {
+            AppSettings settings = await _settingsService!
+                .GetSettingsAsync()
+                .ConfigureAwait(false);
+            if (settings.TerminalBehavior.AutoOpenFileBrowser == visible)
+            {
+                return;
+            }
+            settings.TerminalBehavior.AutoOpenFileBrowser = visible;
+            await _settingsService.SaveSettingsAsync(settings).ConfigureAwait(false);
+        }
+        catch
+        {
+            // 写回失败只影响下次启动的默认开关,不打断当前标签的面板状态。
+        }
     }
 
     /// <summary>SFTP「使用默认编辑器打开」读取的编辑器命令(设置 → 文件传输 → 默认编辑器)。</summary>

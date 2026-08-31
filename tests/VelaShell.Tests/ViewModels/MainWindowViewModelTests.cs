@@ -433,6 +433,17 @@ public class MainWindowViewModelTests
         return vm;
     }
 
+    private static async Task<MainWindowViewModel> CreateInitializedVmAsync(
+        ISettingsService settingsService)
+    {
+        var vm = new MainWindowViewModel(
+            settingsService: settingsService,
+            sftpService: Substitute.For<ISftpService>()
+        );
+        await vm.InitializeAsync();
+        return vm;
+    }
+
     private static TerminalTabViewModel CreateConnectedSshTab() =>
         new(Substitute.For<ITerminalEmulator>())
         {
@@ -488,25 +499,79 @@ public class MainWindowViewModelTests
 
     [TestMethod]
     [TestCategory("UI")]
-    public async Task FileBrowser_PanelCloseOnOneTab_DoesNotAffectOtherTabs()
+    public async Task FileBrowser_PanelClose_PersistsNextLaunchDefaultButKeepsTabState()
     {
-        MainWindowViewModel vm = await CreateInitializedVmAsync(autoOpenFileBrowser: true);
+        var settingsService = new MemorySettingsService(
+            new AppSettings { TerminalBehavior = new() { AutoOpenFileBrowser = true } });
+        MainWindowViewModel vm = await CreateInitializedVmAsync(settingsService);
 
         TerminalTabViewModel first = CreateConnectedSshTab();
         vm.TabBar.AddTab(first);
         Assert.IsTrue(vm.FileBrowser.IsVisible);
 
-        // 模拟面板右上角关闭按钮:直接改当前面板实例的可见性,只影响所属标签。
+        // 模拟面板右上角关闭按钮:直接改当前面板实例的可见性。
         vm.FileBrowser.IsVisible = false;
+        Assert.IsTrue(
+            SpinWait.SpinUntil(
+                () => settingsService.Current.TerminalBehavior.AutoOpenFileBrowser == false,
+                TimeSpan.FromSeconds(5)),
+            "手动关闭后,下次启动默认值要落成关闭。");
 
         TerminalTabViewModel second = CreateConnectedSshTab();
         vm.TabBar.AddTab(second);
-        Assert.IsTrue(vm.FileBrowser.IsVisible, "其他标签关闭面板不影响新标签按设置打开。");
+        Assert.IsFalse(vm.FileBrowser.IsVisible, "保存后的默认值会影响之后的新标签。");
 
         vm.TabBar.ActiveTab = first;
         Assert.IsFalse(vm.FileBrowser.IsVisible, "切回关闭过面板的标签:保持关闭。");
         vm.TabBar.ActiveTab = second;
-        Assert.IsTrue(vm.FileBrowser.IsVisible, "切回面板开着的标签:自动恢复显示。");
+        Assert.IsFalse(vm.FileBrowser.IsVisible, "切回按关闭默认值创建的标签:保持关闭。");
+    }
+
+    [TestMethod]
+    [TestCategory("UI")]
+    public async Task FileBrowser_PanelOpen_PersistsNextLaunchDefault()
+    {
+        var settingsService = new MemorySettingsService(
+            new AppSettings { TerminalBehavior = new() { AutoOpenFileBrowser = false } });
+        MainWindowViewModel vm = await CreateInitializedVmAsync(settingsService);
+
+        TerminalTabViewModel first = CreateConnectedSshTab();
+        vm.TabBar.AddTab(first);
+        Assert.IsFalse(vm.FileBrowser.IsVisible);
+
+        vm.ToggleFileBrowser();
+
+        Assert.IsTrue(vm.FileBrowser.IsVisible);
+        Assert.IsTrue(
+            SpinWait.SpinUntil(
+                () => settingsService.Current.TerminalBehavior.AutoOpenFileBrowser,
+                TimeSpan.FromSeconds(5)),
+            "手动打开后,下次启动默认值要落成打开。");
+    }
+
+    [TestMethod]
+    [TestCategory("UI")]
+    public async Task FileBrowser_RapidCloseThenOpen_PersistsLastState()
+    {
+        var settingsService = new MemorySettingsService(
+            new AppSettings { TerminalBehavior = new() { AutoOpenFileBrowser = true } },
+            TimeSpan.FromMilliseconds(50));
+        MainWindowViewModel vm = await CreateInitializedVmAsync(settingsService);
+
+        vm.TabBar.AddTab(CreateConnectedSshTab());
+        Assert.IsTrue(vm.FileBrowser.IsVisible);
+
+        vm.FileBrowser.IsVisible = false;
+        vm.ToggleFileBrowser();
+
+        Assert.IsTrue(vm.FileBrowser.IsVisible);
+        Assert.IsTrue(
+            SpinWait.SpinUntil(
+                () =>
+                    settingsService.SaveCount >= 2
+                    && settingsService.Current.TerminalBehavior.AutoOpenFileBrowser,
+                TimeSpan.FromSeconds(5)),
+            "连续关再开时,最后落盘的必须是最后一次打开。");
     }
 
     [TestMethod]
@@ -573,5 +638,35 @@ public class MainWindowViewModelTests
         );
 
         Assert.IsNull(vm.Sidebar.SessionTree?.SelectedNode);
+    }
+
+    private sealed class MemorySettingsService(
+        AppSettings initial,
+        TimeSpan? saveDelay = null) : ISettingsService
+    {
+        private int _saveCount;
+
+        public event Action<AppSettings>? SettingsSaved;
+
+        public AppSettings Current { get; private set; } = initial;
+
+        public int SaveCount => Volatile.Read(ref _saveCount);
+
+        public Task<AppSettings> GetSettingsAsync() => Task.FromResult(Current);
+
+        public async Task SaveSettingsAsync(AppSettings settings)
+        {
+            if (saveDelay is { } delay)
+            {
+                await Task.Delay(delay);
+            }
+            Current = settings;
+            Interlocked.Increment(ref _saveCount);
+            SettingsSaved?.Invoke(settings);
+        }
+
+        public Task<AppState> GetStateAsync() => Task.FromResult(new AppState());
+
+        public Task SaveStateAsync(AppState state) => Task.CompletedTask;
     }
 }
