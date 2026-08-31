@@ -64,6 +64,11 @@ public class App : Application
             // 插件的 {DynamicResource VelaXxx} 跨进程同样生效(进程内天然可用)。
             .AddSingleton<Func<Task<IReadOnlyList<PluginSdk.Rpc.ThemeTokenDto>>>>(_ =>
                 VelaShell.Services.Plugins.PluginThemeTokens.CollectAsync)
+            // "跟随系统"落到明还是暗,只有 Avalonia 知道(Core 与 Infrastructure 都不引用它)。
+            // 插件的主题身份靠这一支把 "system" 解析掉。
+            // 读的是缓存字段而不是 ActualThemeVariant 本身:调用方(插件上下文的构造、
+            // 主题快照的刷新)在后台线程上,而 Avalonia 的属性读取是有线程归属的。
+            .AddSingleton<SystemDarkModeProbe>(_ => () => _systemPrefersDark)
             // 插件剪贴板能力:经主窗口系统剪贴板(隔离插件经 RPC 路由到同一实现)。
             .AddSingleton<PluginSdk.Clipboard.IClipboardApi>(new Services.Plugins.HostClipboard())
             // 隔离插件的停靠请求默认回退为独立卡片窗口(跨进程 dock 嵌入与 dock reparenting
@@ -137,14 +142,26 @@ public class App : Application
         // 不贴的话界面会停在上一套配色上,只有 Fluent 控件跟着变,看上去像半边换了主题。
         ActualThemeVariantChanged += (_, _) =>
         {
+            _systemPrefersDark = ActualThemeVariant != ThemeVariant.Light;
             if (UiThemeCatalog.Find(_themeService?.CurrentTheme) is null)
             {
                 ApplyThemeTokens();
+                // 主题 id 没变(还是 "system"),所以 ThemeChanged 不会响 —— 但整套颜色换了。
+                // 不吆喝这一声,隔离插件的令牌快照就停在上一套配色上,而插件里一次性取色的
+                // 地方(转换器、语法高亮定义)在进程内也一样停着。
+                _themeService?.NotifySystemVariantChanged();
             }
         };
         ApplyThemeVariant(_themeService.CurrentTheme);
         ApplyAccent(_themeService.AccentColor);
+        _systemPrefersDark = ActualThemeVariant != ThemeVariant.Light;
     }
+
+    /// <summary>
+    /// 系统当前是否偏好暗色。在 UI 线程上随 <c>ActualThemeVariantChanged</c> 更新,
+    /// 供后台线程(插件的主题解析)无锁读取 —— 直接去读 <c>ActualThemeVariant</c> 会踩线程归属。
+    /// </summary>
+    private volatile bool _systemPrefersDark = true;
 
     /// <summary>框架初始化完成后应用已持久化的偏好并创建主窗口。</summary>
     public override void OnFrameworkInitializationCompleted()

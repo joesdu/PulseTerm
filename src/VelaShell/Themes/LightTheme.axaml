@@ -15,6 +15,13 @@
     <SolidColorBrush x:Key="VelaError" Color="#CB3A2A" />
     <SolidColorBrush x:Key="VelaInfo" Color="#036A96" />
 
+    <!-- 压在实心语义色上的字/图标(与暗色同义,亮色这边语义色是深色,故取奶白)。
+         注意这一支**不是**每套亮色主题都能用自己的近白:One Light 的红 #E45649 配近白
+         只有 3.7:1,那种情况下展开器会退到纯黑。运行时按各主题重算。 -->
+    <SolidColorBrush x:Key="VelaErrorForeground"   Color="#FFFBEB" />
+    <SolidColorBrush x:Key="VelaWarningForeground" Color="#FFFBEB" />
+    <SolidColorBrush x:Key="VelaSuccessForeground" Color="#FFFBEB" />
+
     <!-- 终端颜色标记(Alucard 口径)。原先只在暗色主题里定义,亮色下资源图表会拿不到画刷。 -->
     <SolidColorBrush x:Key="VelaShellWhite"   Color="#1F1F1F" />
     <SolidColorBrush x:Key="VelaShellGreen"   Color="#14710A" />

@@ -124,6 +124,14 @@ public sealed class PluginManagerOptions
     public Func<Task<IReadOnlyList<ThemeTokenDto>>>? ThemeTokensProvider { get; init; }
 
     /// <summary>
+    /// 系统是否偏好暗色(由 UI 层提供:Avalonia 的 <c>ActualThemeVariant</c>)。
+    /// 只在用户选了“跟随系统”时用得到 —— 那时 <see cref="IThemeService.CurrentTheme" />
+    /// 是字面量 <c>system</c>,光看它不知道此刻该报哪一套主题给插件。
+    /// 缺席时按暗色兜底(与 <c>UiThemeCatalog.Resolve</c> 对未知值的兜底一致)。
+    /// </summary>
+    public SystemDarkModeProbe? SystemPrefersDark { get; init; }
+
+    /// <summary>
     /// 插件数据后端(SonnetDB):KV 与机密按插件 id 命名空间化落库,卸载可整体清除。
     /// 缺席时退回插件数据目录下的 JSON/加密 JSON 文件(headless 测试路径)。
     /// </summary>

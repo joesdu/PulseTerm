@@ -139,8 +139,8 @@ internal static class Program
                                       new HandshakeRequest(token, pluginId, pluginVersion, [VelaPluginApi.Level]),
                                       TimeSpan.FromSeconds(10)).ConfigureAwait(false)
                                   ?? throw new InvalidOperationException("Empty handshake response.");
+        // 构造上下文时即按握手带来的主题身份把明暗基底贴好(见 RemotePluginContext)。
         context = new(connection, pluginId, pluginVersion, dataDirectory, hello, shutdownSource.Token);
-        PluginHostApp.ApplyHostTheme(hello.Theme); // 明暗跟随宿主
 
         int code = await ExitCode.Task.ConfigureAwait(false);
         await connection.DisposeAsync().ConfigureAwait(false);
@@ -149,10 +149,13 @@ internal static class Program
 
     private static void DispatchNotification(RemotePluginContext? context, string method, JsonElement? payload)
     {
-        // 主题令牌在激活流程前就会下发(宿主握手后立即推送),不依赖上下文。
-        if (method == PluginRpc.ThemeTokens && Deserialize<ThemeTokensNotification>(payload) is { } tokens)
+        // 主题状态在激活流程前就会下发(宿主握手后立即推送),令牌那一半不依赖上下文。
+        if (method == PluginRpc.ThemeTokens && Deserialize<ThemeTokensNotification>(payload) is { } theme)
         {
-            PluginHostThemeTokens.Apply(tokens);
+            PluginHostThemeTokens.Apply(theme);
+            // 身份那一半要有上下文才有处安放;握手前那一发只有令牌有意义,
+            // 身份的初值本来就在握手应答里。
+            context?.ThemeHub.OnThemeState(theme);
             return;
         }
         if (context is null)

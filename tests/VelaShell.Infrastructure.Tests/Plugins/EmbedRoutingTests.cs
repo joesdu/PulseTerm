@@ -73,6 +73,7 @@ public class EmbedRoutingTests
         TerminalView = new FakeTerminalViewApi(),
         Commands = new RecordingCommands(),
         Events = new PluginEventHub(new CollectingLogger(), null, null, null),
+        Theme = new StaticHostTheme(),
         Ui = new FakeUi(),
         Secrets = new FakeSecrets(),
         Clipboard = new FakeClipboard(),

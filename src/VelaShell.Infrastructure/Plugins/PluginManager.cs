@@ -84,6 +84,12 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
     }
 
     private readonly List<PluginRuntime> _plugins = [];
+    /// <summary>
+    /// 主题快照的共享采集点。惰性:一个插件都没有的宿主不该为此订阅主题服务、
+    /// 更不该去遍历资源树。见 <see cref="HostThemeSource" />。
+    /// </summary>
+    private readonly Lazy<HostThemeSource> _themeSource = new(() =>
+        new(options.Theme, options.SystemPrefersDark, options.ThemeTokensProvider));
     private readonly Lock _gate = new();
     private readonly CancellationTokenSource _shutdown = new();
     private readonly List<FileSystemWatcher> _devWatchers = [];
@@ -1903,6 +1909,11 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
                 : new UnavailableRemoteTunnel(),
             Commands = GetOrCreateCommandsApi(runtime),
             Events = new PluginEventHub(log, options.Connections, options.Theme, options.Localization),
+            // 主题能力挂在共享采集点上(每次换肤只采一份快照,全部插件共用)。
+            // 没有主题服务的宿主(headless 测试)退化成一套固定的默认主题。
+            Theme = options.Theme is null
+                ? new StaticHostTheme()
+                : new HostThemeCapability(log, _themeSource.Value),
             Ui = options.UiFactory?.Invoke(manifest.Id, log) ?? new NullUiApi(log),
             Secrets = options.DataStore is { } dataStore
                 ? dataStore.CreateSecrets(manifest.Id)
@@ -1949,6 +1960,10 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         {
             (runtime.CommandsApi as IDisposable)?.Dispose();
             runtime.CommandsApi = null;
+        }
+        if (_themeSource.IsValueCreated)
+        {
+            _themeSource.Value.Dispose();
         }
         _shutdown.Dispose();
     }

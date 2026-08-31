@@ -45,13 +45,30 @@ internal sealed class RemotePluginContext : IPluginContext, IDisposable
         Clipboard = new RpcClipboard(rpc);
         Terminal = new RpcTerminal(rpc);
 
-        // 语言/主题事件顺带刷新 HostInfo 的实时值;主题同步给本进程 Avalonia。
+        // 主题:身份的初值来自握手。老宿主不带 ThemeInfo 时按粗粒度的明暗名兜一个 ——
+        // 认不出是哪套具名主题,但至少明暗与强调色的占位是对的。
+        ThemeHub = new(Log, hello.ThemeInfo ?? FallbackThemeInfo(hello.Theme));
+        // 生效配色变了就把本进程的明暗基底也跟过去(Fluent 控件模板认的是 ThemeVariant,
+        // 它不看 Vela* 令牌)。认 IsDark 而不是解析主题名 —— "tokyo-night" 里既没有 dark
+        // 也没有 light,靠字符串匹配的老写法会把它判成"跟随系统"。
+        ThemeHub.Changed += info => PluginHostApp.ApplyHostTheme(info.IsDark);
+        PluginHostApp.ApplyHostTheme(ThemeHub.Current.IsDark);
+
+        // 语言/主题事件顺带刷新 HostInfo 的实时值(粗粒度那一档,保留兼容)。
         EventsHub.LocaleChanged += locale => HostInfo.Locale = locale;
-        EventsHub.ThemeChanged += theme =>
-        {
-            HostInfo.Theme = theme;
-            PluginHostApp.ApplyHostTheme(theme);
-        };
+        EventsHub.ThemeChanged += theme => HostInfo.Theme = theme;
+    }
+
+    /// <summary>
+    /// 握手应答没带主题身份时的兜底(宿主比本 PluginHost 旧)。
+    /// <c>system</c> 落到暗色,与宿主 <c>UiThemeCatalog.Resolve</c> 对未知值的兜底一致。
+    /// </summary>
+    private static PluginSdk.Theming.HostThemeInfo FallbackThemeInfo(string variant)
+    {
+        bool isDark = !string.Equals(variant, "light", StringComparison.OrdinalIgnoreCase);
+        bool followsSystem = string.Equals(variant, "system", StringComparison.OrdinalIgnoreCase);
+        return new(isDark ? "dark" : "light", isDark ? "VelaDark" : "VelaLight", isDark, followsSystem,
+            isDark ? "#BD93F9" : "#644AC9");
     }
 
     public string PluginId { get; }
@@ -66,6 +83,7 @@ internal sealed class RemotePluginContext : IPluginContext, IDisposable
     public IRemoteExecApi RemoteExec { get; }
     public ICommandsApi Commands => CommandsProxy;
     public IHostEvents Events => EventsHub;
+    public PluginSdk.Theming.IHostThemeApi Theme => ThemeHub;
     public IUiApi Ui => UiLocal;
     public PluginSdk.Secrets.ISecretsApi Secrets { get; }
     public PluginSdk.Clipboard.IClipboardApi Clipboard { get; }
@@ -176,6 +194,9 @@ internal sealed class RemotePluginContext : IPluginContext, IDisposable
 
     /// <inheritdoc cref="HostInfo" />
     internal RemoteEventHub EventsHub { get; }
+
+    /// <summary>主题状态接收端;<c>Program</c> 把 <c>theme/tokens</c> 通知喂给它。</summary>
+    internal RemoteHostTheme ThemeHub { get; }
 
     /// <inheritdoc cref="HostInfo" />
     internal PluginHostUi UiLocal { get; }

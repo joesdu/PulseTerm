@@ -69,6 +69,9 @@ public static class PluginServiceCollectionExtensions
                 CommandsFactory = sp.GetService<Func<string, IPluginLogger, ICommandsApi>>(),
                 UiFactory = sp.GetService<Func<string, IPluginLogger, IUiApi>>(),
                 ThemeTokensProvider = sp.GetService<Func<Task<IReadOnlyList<PluginSdk.Rpc.ThemeTokenDto>>>>(),
+                // "跟随系统"时把系统明暗问出来:插件的 IHostThemeApi.Current 要报一套
+                // **已解析**的主题,不能把 "system" 原样丢给插件(那正是老契约的毛病)。
+                SystemPrefersDark = sp.GetService<SystemDarkModeProbe>(),
                 DataStore = sp.GetService<IPluginDataStore>(),
                 SecretProtector = sp.GetService<Core.Data.ISecretProtector>(),
                 Clipboard = sp.GetService<PluginSdk.Clipboard.IClipboardApi>(),

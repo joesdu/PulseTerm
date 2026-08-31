@@ -24,6 +24,13 @@
     <SolidColorBrush x:Key="VelaError"   Color="#FF5555" />
     <SolidColorBrush x:Key="VelaInfo"    Color="#8BE9FD" />
 
+    <!-- 压在实心语义色上的字/图标。暗色主题的语义色本身是**亮**色,白字压上去只有 3:1
+         左右 —— 危险按钮上的"删除"两个字就是这么消失的。这里取 Dracula 的近黑,
+         与强调色实底上的字同一支。运行时由 ThemeTokenApplier 按各主题重算。 -->
+    <SolidColorBrush x:Key="VelaErrorForeground"   Color="#0A0E14" />
+    <SolidColorBrush x:Key="VelaWarningForeground" Color="#0A0E14" />
+    <SolidColorBrush x:Key="VelaSuccessForeground" Color="#0A0E14" />
+
     <!-- 终端颜色标记 -->
     <SolidColorBrush x:Key="VelaShellWhite"   Color="#F8F8F2" />
     <SolidColorBrush x:Key="VelaShellGreen"   Color="#50FA7B" />

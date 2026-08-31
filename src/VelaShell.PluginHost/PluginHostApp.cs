@@ -18,20 +18,20 @@ internal sealed class PluginHostApp : Application
         Styles.Add(new FluentTheme());
     }
 
-    /// <summary>把宿主主题名映射到明暗变体并应用(任意线程可调)。</summary>
-    public static void ApplyHostTheme(string theme)
+    /// <summary>
+    /// 把宿主的明暗基底应用到本进程(任意线程可调)。
+    /// <para>
+    /// 参数是**已解析**的布尔而不是主题名。老实现按主题名里有没有 "light"/"dark" 猜,
+    /// 那在只有明暗两套时碰巧成立;宿主长出具名主题之后就错了 —— "tokyo-night"、"nord"、
+    /// "sakura" 里一个关键字都没有,会被判成"跟随系统"从而去跟**插件进程自己**的系统设置,
+    /// 而 "one-light" 又会碰巧蒙对。解析归宿主,这里只负责贴。
+    /// </para>
+    /// </summary>
+    public static void ApplyHostTheme(bool isDark)
     {
         Dispatcher.UIThread.Post(() =>
         {
-            if (Current is null)
-            {
-                return;
-            }
-            Current.RequestedThemeVariant = theme.Contains("light", StringComparison.OrdinalIgnoreCase)
-                ? ThemeVariant.Light
-                : theme.Contains("dark", StringComparison.OrdinalIgnoreCase)
-                    ? ThemeVariant.Dark
-                    : ThemeVariant.Default;
+            Current?.RequestedThemeVariant = isDark ? ThemeVariant.Dark : ThemeVariant.Light;
         });
     }
 }

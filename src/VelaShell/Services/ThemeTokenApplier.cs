@@ -108,6 +108,12 @@ internal static class ThemeTokenApplier
         Color textTertiary = Parse(p.TextTertiary);
         Color bgPage = Parse(p.BgPage);
         Color bgTerminal = Parse(p.BgTerminal);
+        Color accentForeground = Parse(p.AccentForeground);
+
+        // 遮罩:模态浮层压住底下的界面。一律偏黑 —— 亮色主题上铺一层浅遮罩读不出"下面那层
+        // 不可点了",而这正是遮罩唯一要传达的事。掺三成窗口底色是为了不让它在带色相的主题
+        // (Sakura 的粉、Gruvbox 的棕)上显得是一块外来的死黑。
+        Color scrim = Blend(bgPage, Colors.Black, 0.3);
 
         // 图表面积填充的不透明度:亮底上要更淡一档,否则几条曲线糊成一片。
         byte dim = dark ? (byte)0x38 : (byte)0x28;
@@ -134,6 +140,19 @@ internal static class ThemeTokenApplier
             ["VelaWarning"] = warning,
             ["VelaError"] = error,
             ["VelaInfo"] = info,
+
+            // 压在实心语义色上的文字/图标(危险按钮的字、状态徽标的字)。
+            // 不能一律用白:暗色主题的语义色本身就是**亮**色(VelaDark 的红 #FF5555、
+            // Obsidian 的 #F87171),白字压上去只有 2.7~3.1:1,读不出来 —— 那些位置
+            // 需要的是**深**字。派生规则见 OnSolid。
+            ["VelaErrorForeground"] = OnSolid(error, accentForeground),
+            ["VelaWarningForeground"] = OnSolid(warning, accentForeground),
+            ["VelaSuccessForeground"] = OnSolid(success, accentForeground),
+
+            // ——— 遮罩 ———
+            // 两档:轻(点空白处即关的浮层)与重(模态抽屉/对话框)。
+            ["VelaScrim"] = WithAlpha(scrim, 0x99),
+            ["VelaScrimStrong"] = WithAlpha(scrim, 0xCC),
 
             // ——— 文件浏览器行(设计 dyuii) ———
             ["VelaFileFolderIcon"] = Parse(p.FolderIcon),
@@ -199,7 +218,61 @@ internal static class ThemeTokenApplier
             ["VelaHeat3"] = WithAlpha(accent, dark ? (byte)0x55 : (byte)0x44),
             ["VelaHeat4"] = WithAlpha(yellow, dark ? (byte)0x55 : (byte)0x44),
             ["VelaHeat5"] = WithAlpha(error, dark ? (byte)0x66 : (byte)0x55),
+
+            // ——— 滚动条(ScrollBarThemes.axaml 的控件模板按这几个键取色) ———
+            // 滑道是**唯一**带主题色的一支:它是正文底上凹下去的一道槽,必须跟着底色走。
+            // 原先它在 axaml 里按明暗写死两个值(Dracula 的 #232532 / Alucard 的 #EDE7D0),
+            // 于是 Tokyo Night、Nord、Sakura… 的滚动条槽都顶着别人的颜色。
+            // 取法:正文底压暗一档(暗色 15%、亮色 7%)。
+            // 不从窗口铬色/描边色去推 —— 那两支与正文底的关系逐主题不同,Gruvbox 的
+            // 铬色掺描边正好等于它自己的正文底 #282828,槽就此消失。压暗才是与底色**恒定**
+            // 的关系,十二套主题一视同仁。亮色那一档更浅是照 Windows 的比例(#FFFFFF → #F0F0F0)。
+            ["VelaScrollBarTrackFill"] = Blend(bgTerminal, Colors.Black, dark ? 0.85 : 0.93),
+            // 滑块与箭头**故意**不跟主题:它们是 Windows 滚动条那套中性灰(逐像素量的,
+            // 见 ScrollBarThemes.axaml 的文件头)。滚动条是覆盖在内容之上的系统级构件,
+            // 染上主题色反而会跟正文抢注意力 —— 这里只按明暗分两套。
+            ["VelaScrollBarThumbFill"] = Parse(dark ? "#959595" : "#8C8C8C"),
+            ["VelaScrollBarThumbFillPointerOver"] = Parse(dark ? "#B9B9B9" : "#6B6B6B"),
+            ["VelaScrollBarThumbFillPressed"] = Parse(dark ? "#D6D6D6" : "#4A4A4A"),
+            ["VelaScrollBarThumbFillDisabled"] = Parse("#00000000"),
+            ["VelaScrollBarArrowFill"] = Parse(dark ? "#959595" : "#5D5D5D"),
+            ["VelaScrollBarArrowFillPointerOver"] = Parse(dark ? "#E8E8E8" : "#1F1F1F"),
+            ["VelaScrollBarArrowFillDisabled"] = Parse(dark ? "#5A5A5A" : "#AFAFAF"),
+            ["VelaScrollBarButtonBackgroundPointerOver"] = Parse(dark ? "#1AFFFFFF" : "#14000000"),
+            ["VelaScrollBarButtonBackgroundPressed"] = Parse(dark ? "#2EFFFFFF" : "#26000000"),
         };
+    }
+
+    /// <summary>
+    /// 压在**实心**语义色上的文字/图标色。
+    /// <para>
+    /// 先用主题自己指定的「实心底上的字」色 <see cref="UiThemePalette.AccentForeground" /> ——
+    /// 它本来就是为强调色实底挑的(暗色主题是近黑、亮色主题是近白),用它能保住主题的调子。
+    /// 那一支够不到 AA(4.5:1)时才退到纯黑/纯白里对比更高的一边:One Light 的红 #E45649
+    /// 配它自己的近白只有 3.7:1,而配纯黑有 5.7:1 —— 这种情况下"保调子"就是让人读不见字。
+    /// </para>
+    /// </summary>
+    private static Color OnSolid(Color fill, Color accentForeground) =>
+        Contrast(fill, accentForeground) >= 4.5
+            ? accentForeground
+            : Contrast(fill, Colors.Black) >= Contrast(fill, Colors.White) ? Colors.Black : Colors.White;
+
+    /// <summary>WCAG 相对对比度(1:1 ~ 21:1)。</summary>
+    private static double Contrast(Color a, Color b)
+    {
+        double la = RelativeLuminance(a);
+        double lb = RelativeLuminance(b);
+        return (Math.Max(la, lb) + 0.05) / (Math.Min(la, lb) + 0.05);
+    }
+
+    /// <summary>WCAG 相对亮度。</summary>
+    private static double RelativeLuminance(Color color) =>
+        (0.2126 * Linearize(color.R)) + (0.7152 * Linearize(color.G)) + (0.0722 * Linearize(color.B));
+
+    private static double Linearize(byte channel)
+    {
+        double value = channel / 255.0;
+        return value <= 0.03928 ? value / 12.92 : Math.Pow((value + 0.055) / 1.055, 2.4);
     }
 
     /// <summary>解析 <c>#RRGGBB</c> / <c>#AARRGGBB</c>;种子色都是常量,解析失败即是写错了色值。</summary>
