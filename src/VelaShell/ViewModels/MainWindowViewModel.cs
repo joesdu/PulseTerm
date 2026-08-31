@@ -122,6 +122,13 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     private readonly TerminalTargetSelectorViewModel _terminalTargetSelector;
     private readonly Dictionary<TerminalTabViewModel, IDisposable> _quickCommandTargetSubscriptions = [];
 
+    /// <summary>
+    /// 每个终端标签的连接状态订阅,用于重算它那条配置在会话树上的状态标签
+    /// (见 <see cref="RefreshSessionStatus" />)。与快捷命令目标订阅同生命周期:
+    /// 在 <see cref="OnTabsCollectionChanged" /> 里随标签进出标签栏挂上与退订。
+    /// </summary>
+    private readonly Dictionary<TerminalTabViewModel, IDisposable> _sessionStatusSubscriptions = [];
+
     /// <summary>同步输入频道的对等转发中枢(标签右键菜单 → 同步输入)。</summary>
     private readonly SyncInputCoordinator _syncInput = new();
 
@@ -1942,11 +1949,31 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         {
             _quickCommandTargetSubscriptions.Remove(removed, out IDisposable? subscription);
             subscription?.Dispose();
+            _sessionStatusSubscriptions.Remove(removed, out IDisposable? statusSubscription);
+            statusSubscription?.Dispose();
             _syncInput.Detach(removed);
+            // 标签离开标签栏(关闭、连接失败或取消后静默移除)→ 重算它那条配置的树上状态,
+            // 否则节点会停在这个已经不存在的标签留下的状态上(#321)。
+            if (removed.Profile is { Id: var removedProfileId } && removedProfileId != Guid.Empty)
+            {
+                RefreshSessionStatus(removedProfileId);
+            }
         }
         foreach (TerminalTabViewModel added in currentTabs)
         {
             _syncInput.Attach(added);
+            // 资源管理器树的状态圆点与「活跃/连接中/离线」标签(设计 FrJPu)跟随该配置
+            // 名下**所有**标签的合并状态;订阅随标签在标签栏里的存续期存在。
+            if (
+                !_sessionStatusSubscriptions.ContainsKey(added)
+                && added.Profile is { Id: var addedProfileId }
+                && addedProfileId != Guid.Empty
+            )
+            {
+                _sessionStatusSubscriptions[added] = added
+                    .WhenAnyValue(tab => tab.ConnectionStatus)
+                    .Subscribe(_ => RefreshSessionStatus(addedProfileId));
+            }
             if (_quickCommandTargetSubscriptions.ContainsKey(added))
             {
                 continue;
@@ -1976,6 +2003,43 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
             channel?.ToString() ?? string.Empty
         );
     }
+
+    /// <summary>
+    /// 重算某配置在会话树里的状态标签:一条配置可以同时开着多个标签(复制会话、
+    /// 对同一台机器再开一个),而树上只有一个节点 —— 取这些标签里"最活跃"的那个状态,
+    /// 而不是最后一次变更的那个标签的状态。
+    /// <para>
+    /// 合并优先级 Connected &gt; Connecting &gt; Error &gt; Disconnected:一条已经连上的会话
+    /// 不该因为旁边多了个正在握手或握手失败的标签而被写成「连接中」/「离线」。
+    /// 按"最后一次变更"来更新会留下一个走不出去的状态(#321:在已连上的会话上再开一个
+    /// 标签、趁它还在连接时立刻关掉,节点会永远停在「连接中」)。
+    /// </para>
+    /// <para>没有任何标签属于该配置时归零为 Disconnected —— 最后一个标签关掉即回到未连接。</para>
+    /// </summary>
+    private void RefreshSessionStatus(Guid profileId)
+    {
+        SessionStatus status = TabBar
+            .Tabs.OfType<TerminalTabViewModel>()
+            .Where(tab => tab.Profile?.Id == profileId)
+            .Aggregate(
+                SessionStatus.Disconnected,
+                (best, tab) =>
+                    SessionStatusRank(tab.ConnectionStatus) > SessionStatusRank(best)
+                        ? tab.ConnectionStatus
+                        : best
+            );
+        Sidebar.SessionTree?.SetSessionStatus(profileId, status);
+    }
+
+    /// <summary>多标签合并时的状态优先级,数值越大越"活跃"(见 <see cref="RefreshSessionStatus" />)。</summary>
+    private static int SessionStatusRank(SessionStatus status) =>
+        status switch
+        {
+            SessionStatus.Connected => 3,
+            SessionStatus.Connecting => 2,
+            SessionStatus.Error => 1,
+            _ => 0,
+        };
 
     private void RefreshQuickCommandTargets()
     {
@@ -2171,11 +2235,9 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         WireZModemDownload(terminalTab);
         terminalTab.CommandLineSubmitted += CommandHistory.Record;
 
-        // 资源管理器树的状态圆点与「活跃/连接中/离线」标签(设计 FrJPu)跟随该配置
-        // 最新标签的连接状态;重连复用同一标签,订阅随标签生命周期存续。
-        terminalTab
-            .WhenAnyValue(x => x.ConnectionStatus)
-            .Subscribe(status => Sidebar.SessionTree?.SetSessionStatus(profile.Id, status));
+        // 树上的状态圆点与「活跃/连接中/离线」标签不在这里订阅:一条配置可能同时开着
+        // 多个标签,得取合并结果而不是某一个标签的状态。订阅随标签进出标签栏在
+        // OnTabsCollectionChanged 里挂上与退订(#321)。
 
         // 资源管理器树节点名前的同步输入频道字母跟随该配置任一标签的频道归属;
         // 标签关闭时经 SyncInputCoordinator.Detach → LeaveSyncChannel 同样走到这里复位。
@@ -4387,22 +4449,13 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         // Dispose 只拆终端传输;底层 SSH 客户端也要断开释放。
         TeardownSshSession(tab.SessionId);
 
-        // 关闭标签不会再触发 ConnectionStatus 变更(已 Dispose),这里显式把树上的
-        // 状态圆点复位;同配置还有其他已连接标签时保持"活跃"。
-        if (tab.Profile is not { } profile)
+        // 关闭标签不会再触发 ConnectionStatus 变更(已 Dispose),这里按剩下的标签重算
+        // 树上的状态:同配置还有其他标签时取它们的合并状态,一个不剩才回到未连接。
+        // 标签从标签栏移除时 OnTabsCollectionChanged 已经算过一次,这里是幂等兜底
+        // ——文档关闭时标签可能已经不在标签栏里了。
+        if (tab.Profile is { Id: var profileId } && profileId != Guid.Empty)
         {
-            return;
-        }
-        bool stillConnected = TabBar
-            .Tabs.OfType<TerminalTabViewModel>()
-            .Any(other =>
-                !ReferenceEquals(other, tab)
-                && other.Profile?.Id == profile.Id
-                && other.ConnectionStatus == SessionStatus.Connected
-            );
-        if (!stillConnected)
-        {
-            Sidebar.SessionTree?.SetSessionStatus(profile.Id, SessionStatus.Disconnected);
+            RefreshSessionStatus(profileId);
         }
     }
 
