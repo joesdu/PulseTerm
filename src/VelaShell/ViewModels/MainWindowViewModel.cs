@@ -246,7 +246,16 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
             // 每个都往共用的 Application 上挂一个再也不会摘掉的处理器。
             if (Avalonia.Application.Current is { } themeHost)
             {
-                themeHost.ActualThemeVariantChanged += (_, _) => RefreshTerminalThemePalette();
+                themeHost.ActualThemeVariantChanged += (_, _) =>
+                {
+                    // 只管「跟随系统」这一种情形。选具名主题时变体也会跟着变,那条路上
+                    // ThemeChanged 已经重下发过一次 —— 不判断的话每次跨明暗切主题都要把
+                    // 所有终端标签的设置刷两遍(每个标签一次全量重排 + 重绘)。
+                    if (UiThemeCatalog.Find(_themeService?.CurrentTheme) is null)
+                    {
+                        RefreshTerminalThemePalette();
+                    }
+                };
             }
         }
         _settingsService = settingsService;

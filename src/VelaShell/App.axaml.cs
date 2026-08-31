@@ -503,12 +503,18 @@ public class App : Application
     private void ApplyThemeVariant(string themeName)
     {
         UiTheme? selected = UiThemeCatalog.Find(themeName);
-        RequestedThemeVariant = selected is null
-            ? ThemeVariant.Default
-            : selected.IsDark
-                ? ThemeVariant.Dark
-                : ThemeVariant.Light;
-        ApplyThemeTokens();
+        if (selected is null)
+        {
+            // 「跟随系统」:先把基底交给系统,才知道该往哪一格贴令牌。
+            RequestedThemeVariant = ThemeVariant.Default;
+            ApplyThemeTokens();
+            return;
+        }
+        // 具名主题:**先贴令牌再换基底**。反过来的话,切到那一格时它还装着上一套主题的调色板,
+        // 整棵树要先按旧色重解析一遍、下一句再重解析一遍 —— 白白多一次全树解析,还会闪一下旧色。
+        ThemeTokenApplier.Apply(this, selected);
+        RequestedThemeVariant = selected.IsDark ? ThemeVariant.Dark : ThemeVariant.Light;
+        ApplyAccent(_themeService?.AccentColor);
     }
 
     /// <summary>当前实际生效的主题:“跟随系统”按应用的实际变体落到 VelaDark / VelaLight。</summary>
@@ -518,7 +524,7 @@ public class App : Application
     /// <summary>把当前主题的令牌贴到应用资源;强调色覆盖必须随后重贴,否则被主题的 accent 盖掉。</summary>
     private void ApplyThemeTokens()
     {
-        ThemeTokenApplier.Apply(Resources, CurrentUiTheme);
+        ThemeTokenApplier.Apply(this, CurrentUiTheme);
         ApplyAccent(_themeService?.AccentColor);
     }
 

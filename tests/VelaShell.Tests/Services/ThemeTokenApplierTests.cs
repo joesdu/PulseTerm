@@ -31,7 +31,7 @@ public sealed class ThemeTokenApplierTests
         foreach (UiTheme theme in UiThemeCatalog.All)
         {
             var resources = new ResourceDictionary();
-            ThemeTokenApplier.Apply(resources, theme);
+            ThemeTokenApplier.Fill(resources, theme);
             string[] actual =
             [
                 .. resources.Keys.OfType<string>()
@@ -48,11 +48,11 @@ public sealed class ThemeTokenApplierTests
     public void SwitchingThemes_LeavesNoStaleValues()
     {
         var resources = new ResourceDictionary();
-        ThemeTokenApplier.Apply(resources, UiThemeCatalog.Get("dark"));
-        ThemeTokenApplier.Apply(resources, UiThemeCatalog.Get("github-light"));
+        ThemeTokenApplier.Fill(resources, UiThemeCatalog.Get("dark"));
+        ThemeTokenApplier.Fill(resources, UiThemeCatalog.Get("github-light"));
 
         var expected = new ResourceDictionary();
-        ThemeTokenApplier.Apply(expected, UiThemeCatalog.Get("github-light"));
+        ThemeTokenApplier.Fill(expected, UiThemeCatalog.Get("github-light"));
         foreach (string key in ThemeTokenApplier.TokenKeys)
         {
             Assert.AreEqual(
@@ -74,7 +74,7 @@ public sealed class ThemeTokenApplierTests
     {
         UiTheme midnight = UiThemeCatalog.Get("tokyo-night");
         var resources = new ResourceDictionary();
-        ThemeTokenApplier.Apply(resources, midnight);
+        ThemeTokenApplier.Fill(resources, midnight);
 
         // 用户挑了个自定义强调色,随后又清空。
         resources["VelaAccent"] = new SolidColorBrush(Colors.Red);
@@ -107,7 +107,7 @@ public sealed class ThemeTokenApplierTests
         Assert.IsNotEmpty(axaml, "令牌 axaml 没被复制到测试输出目录。");
 
         var applied = new ResourceDictionary();
-        ThemeTokenApplier.Apply(applied, UiThemeCatalog.Get(themeId));
+        ThemeTokenApplier.Fill(applied, UiThemeCatalog.Get(themeId));
 
         var failures = new List<string>();
         foreach ((string key, string literal) in axaml)

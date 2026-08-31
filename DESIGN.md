@@ -53,12 +53,19 @@ resolved once, by the old rule, in `TerminalColorScheme.FollowsTheme`.
 
 **Where the values live.** Each theme is a ~25-colour **seed palette**
 (`UiThemePalette` in `src/VelaShell.Core/Models/UiTheme.cs`); the sixty-odd `Vela*` tokens below
-are *derived* from that seed by `ThemeTokenApplier` (`src/VelaShell/Services/`), which writes them
-into `Application.Resources` — top-level entries shadow the `ThemeDictionaries` in
-`VelaTokens.axaml` / `VelaShellTokens.axaml` / `DarkTheme.axaml` / `LightTheme.axaml`, so every
-`{DynamicResource}` follows the switch with no restart. Those axaml files remain the compile-time
-defaults for `VelaDark` / `VelaLight` (designer, headless tests, the instant before the applier
-runs) and are pinned equal to the applier's output by `ThemeTokenApplierTests`.
+are *derived* from that seed by `ThemeTokenApplier` (`src/VelaShell/Services/`). It fills a
+**detached** dictionary and swaps it into `Application.Resources.ThemeDictionaries` for the active
+variant in one move, so every `{DynamicResource}` follows the switch with no restart. Those axaml
+files remain the compile-time defaults for `VelaDark` / `VelaLight` (designer, headless tests, the
+instant before the applier runs) and are pinned equal to the applier's output by
+`ThemeTokenApplierTests`.
+
+**Never write tokens one at a time into a live dictionary.** Each write walks the tree and
+re-resolves every `DynamicResource` on it, so the cost scales with the number of writes: 64 tokens
+measured 40–57 ms per switch against a 400-binding tree, versus 1.65 ms for the single swap. The
+count (not the timing) is pinned by `ThemeTokenShadowingUiTests`. The same rule is why
+`VelaTerminalControl.FontFamily`/`FontSize` return early when the value is unchanged — they drop
+the glyph cache and relayout the grid.
 
 Adding a theme therefore means adding one seed palette — never sixty hand-copied literals.
 `UiThemeCatalog` and `ThemeTokenApplier` are the **only** places colour literals belong in C#.
