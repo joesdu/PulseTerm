@@ -513,6 +513,14 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         get;
         set
         {
+            // 同名即什么都不做:重算度量会连字形缓存一起丢,下一帧整屏重新塑形,
+            // 再加一次全网格重排 —— 实测比一次普通重绘多出 2~7ms/标签。
+            // 宿主的"把当前设置刷到所有终端"是一条通用路径(保存设置、换主题、插件面板都会走),
+            // 字体多半根本没变,这个判断是它们不掉帧的前提。
+            if (field == value)
+            {
+                return;
+            }
             field = value;
             RecomputeMetrics();
             RelayoutFromBounds();
@@ -526,6 +534,11 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         get;
         set
         {
+            // 同 FontFamily:值没变就别丢字形缓存、别重排网格。
+            if (Math.Abs(field - value) < 0.001)
+            {
+                return;
+            }
             field = value;
             RecomputeMetrics();
             RelayoutFromBounds();
