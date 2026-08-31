@@ -75,6 +75,13 @@ dotnet test  VelaShell.slnx
   `HeadlessUnitTestSession` 没有 `Func<Task>` 重载,写成无返回值会拿到一个从未被等待的
   `Task<Task>`,测试跑到第一个 `await` 就"通过",断言失败全部丢失。
 - **插件 SDK 一律走 NuGet 包**,不做工程引用。版本在 `src/Directory.Packages.props`。
+- **不要自己决定 SDK 版本号,也不要造本地包**。宿主的改动需要 SDK 的新契约时,正确做法是:
+  在 velashell-plugin-sdk 里把契约写好(那边**同样**不动版本号),然后**明确交代**
+  「需要发一版 SDK,发完把 `src/Directory.Packages.props` 与 `tests/Directory.Packages.props`
+  抬上去」。在那之前宿主编译不过是**预期内的**,不是要绕过的障碍。
+  绝不要 `dotnet pack` 一个本地包、往 `nuget.config` 塞本地源、或者把包版本指到一个
+  还不存在的号 —— 下一版发什么号是排期决定的,你猜一个就把所有下游都钉死在那个号上了;
+  何况本地包未签名(`VelaShell.snk` 不在仓库里),一编译就是一片 `CS0012` 假错误。
 
 ### 相关仓库
 
