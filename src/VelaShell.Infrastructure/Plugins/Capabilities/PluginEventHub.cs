@@ -39,7 +39,9 @@ internal sealed class PluginEventHub : IHostEvents, IDisposable
         _localization = localization;
         _onConnected = session => Forward(SessionConnected, SessionsCapability.Map(session));
         _onDisconnected = session => Forward(SessionDisconnected, SessionsCapability.Map(session));
-        _onThemeChanged = themeName => Forward(ThemeChanged, themeName);
+        // 插件契约里的主题只有 dark / light / system 三个值:具名主题(Tokyo Night…)
+        // 不能直接漏给插件 —— 插件拿到一个没见过的字符串,多半会落到自己的兜底分支上。
+        _onThemeChanged = themeName => Forward(ThemeChanged, Core.Models.UiThemeCatalog.VariantName(themeName));
         _onLanguageChanged = language => Forward(LocaleChanged, language);
         if (_connections is not null)
         {

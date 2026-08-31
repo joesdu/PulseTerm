@@ -28,6 +28,20 @@
              Link="Ftp\LoopbackFtpServer.cs" />
   </ItemGroup>
 
+  <!-- 令牌 axaml 以纯文本读入:ThemeTokenApplier 展开出来的 VelaDark / VelaLight
+       必须与这两份编译期缺省逐值一致(见 ThemeTokenApplierTests),否则贴主题之前
+       那一瞬间的界面与贴完之后是两套颜色。 -->
+  <ItemGroup>
+    <Content Include="..\..\src\VelaShell.Controls\Themes\VelaTokens.axaml"
+             Link="Themes\VelaTokens.axaml" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\src\VelaShell.Controls\Themes\VelaShellTokens.axaml"
+             Link="Themes\VelaShellTokens.axaml" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\src\VelaShell\Themes\DarkTheme.axaml"
+             Link="Themes\DarkTheme.axaml" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\src\VelaShell\Themes\LightTheme.axaml"
+             Link="Themes\LightTheme.axaml" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\src\VelaShell\VelaShell.csproj" />
     <ProjectReference Include="..\..\src\VelaShell.Infrastructure\VelaShell.Infrastructure.csproj" />

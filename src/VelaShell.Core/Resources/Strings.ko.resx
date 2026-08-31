@@ -1764,17 +1764,11 @@
   <data name="SetAppear_TerminalColorsSection" xml:space="preserve">
     <value>터미널 색상</value>
   </data>
-  <data name="SetAppear_ThemeDark" xml:space="preserve">
-    <value>다크 모드</value>
-  </data>
-  <data name="SetAppear_ThemeLight" xml:space="preserve">
-    <value>라이트 모드</value>
-  </data>
   <data name="SetAppear_ThemeMode" xml:space="preserve">
     <value>테마 모드</value>
   </data>
   <data name="SetAppear_ThemeModeDesc" xml:space="preserve">
-    <value>// 라이트, 다크 또는 시스템 따르기 선택</value>
+    <value>// 이름이 있는 테마를 선택하거나 시스템을 따릅니다</value>
   </data>
   <data name="SetAppear_ThemeSystem" xml:space="preserve">
     <value>시스템 따르기</value>
@@ -2597,6 +2591,9 @@
   </data>
   <data name="SetTransfer_ZeroUnlimited" xml:space="preserve">
     <value>// 0은 무제한</value>
+  </data>
+  <data name="SetVm_FollowThemeScheme" xml:space="preserve">
+    <value>테마 따르기({0})</value>
   </data>
   <data name="SetVm_DefaultSuffix" xml:space="preserve">
     <value>(기본값)</value>

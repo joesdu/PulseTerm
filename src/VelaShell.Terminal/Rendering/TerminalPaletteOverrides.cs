@@ -36,7 +36,10 @@ public sealed class TerminalPaletteOverrides
             {
                 return false;
             }
-            return Ansi.Length == 0;
+            // 曾经写的是 Ansi.Length == 0 —— 数组恒为 16 个槽位,于是 IsEmpty 恒为 false,
+            // "一色未改"也会被当成有覆盖。叠加一份全 null 的覆盖不改变画面,所以从没露头;
+            // 但它使"跟随主题"与"钉死配色"这两种状态在外部看来无从区分。
+            return Array.TrueForAll(Ansi, color => color is null);
         }
     }
 }

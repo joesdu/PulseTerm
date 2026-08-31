@@ -467,6 +467,24 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     }
 
     /// <summary>
+    /// 当前界面主题配套的**整套**终端配色(前景/背景/光标/选区 + ANSI 16 色),由宿主随
+    /// 主题切换下发。null = 用控件自带的明暗缺省。
+    /// <para>
+    /// 为什么不能只看 <see cref="Avalonia.Styling.ThemeVariant" />:具名主题里有五套暗色、
+    /// 四套亮色,VelaDark 换到 Tokyo Night 时变体根本没变,控件无从得知该换配色。
+    /// </para>
+    /// </summary>
+    public TerminalPaletteOverrides? ThemePalette
+    {
+        get;
+        set
+        {
+            field = value;
+            ApplyThemePalette();
+        }
+    }
+
+    /// <summary>
     /// 用户自定义终端配色(设置 → 外观 → 终端颜色/ANSI 调色板):只包含用户实际
     /// 改过的颜色,叠加在主题调色板之上;null 或空对象 = 完全跟随主题。
     /// </summary>
@@ -728,14 +746,19 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
 
     private void ApplyThemePalette()
     {
+        // 三层叠加,后者盖前者:
+        //   ① 控件自带的明暗缺省(宿主没下发主题配色时的兜底,也是 headless 测试看到的那套)
+        //   ② 当前界面主题配套的整套终端配色(宿主按具名主题下发)
+        //   ③ 用户在设置里改过的单色(稀疏覆盖)
         ApplyDesignPalette(Emulator.Palette, ActualThemeVariant == ThemeVariant.Light);
-        ApplyPaletteOverrides(Emulator.Palette);
+        ApplyPaletteOverrides(Emulator.Palette, ThemePalette);
+        ApplyPaletteOverrides(Emulator.Palette, PaletteOverrides);
         InvalidateTerminal();
     }
 
-    private void ApplyPaletteOverrides(TerminalPalette palette)
+    private static void ApplyPaletteOverrides(TerminalPalette palette, TerminalPaletteOverrides? overrides)
     {
-        if (PaletteOverrides is not { } o)
+        if (overrides is not { } o)
         {
             return;
         }
@@ -872,6 +895,9 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     }
 
     /// <summary>本控件正文(不含叠加层)的累计渲染次数,仅供 headless 测试断言重绘范围。</summary>
+    /// <summary>当前生效的调色板(主题底 + 用户覆盖叠加后的结果),供叠加顺序的用例断言。</summary>
+    internal TerminalPalette PaletteForTest => Emulator.Palette;
+
     internal int BodyRenderCountForTest { get; private set; }
 
     /// <summary>光标/幽灵叠加层的累计渲染次数,仅供 headless 测试断言重绘范围。</summary>

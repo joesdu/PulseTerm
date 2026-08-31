@@ -114,6 +114,9 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     /// <summary>工作台会话 id → 为它建的隧道 id(文档关闭时要拆掉,否则本地端口一直占着)。</summary>
     private readonly ConcurrentDictionary<Guid, Guid> _workspaceTunnels = new();
     private readonly ISshConnectionService? _sshConnectionService;
+
+    /// <summary>当前界面主题(具名主题目录),用于给终端下发配套的终端配色。</summary>
+    private readonly IThemeService? _themeService;
     private readonly Func<ITerminalEmulator> _terminalEmulatorFactory;
     private readonly ITunnelService? _tunnelService;
     private readonly ITunnelWorkflowService? _tunnelWorkflowService;
@@ -207,7 +210,8 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         IBackgroundActivityService? backgroundActivity = null,
         INotificationCenter? notificationCenter = null,
         IAnnouncementFeed? announcementFeed = null,
-        IUpdateService? updateService = null
+        IUpdateService? updateService = null,
+        IThemeService? themeService = null
     )
     {
         // 注册表可注入(DI 里与插件命令桥共享同一单例);无 UI 单测传 null 时自建。
@@ -229,6 +233,20 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         _suggestionProvider = new(CommandHistory, quickCommandRepository);
         _connectionWorkflowService = connectionWorkflowService;
         _sshConnectionService = sshConnectionService;
+        _themeService = themeService;
+        // 切主题 → 终端画面跟着换整套配色。不能只靠控件自己听 ThemeVariant:
+        // 具名主题里有多套暗色,VelaDark 换到 Tokyo Night 时变体压根没变(#主题目录)。
+        if (themeService is not null)
+        {
+            themeService.ThemeChanged += _ => RefreshTerminalThemePalette();
+            // 「跟随系统」下系统明暗翻转:主题服务不动,只有实际变体变了,同样要重下发。
+            // 只在有主题服务时才挂:没有它的那些单测会造出成百个视图模型,
+            // 每个都往共用的 Application 上挂一个再也不会摘掉的处理器。
+            if (Avalonia.Application.Current is { } themeHost)
+            {
+                themeHost.ActualThemeVariantChanged += (_, _) => RefreshTerminalThemePalette();
+            }
+        }
         _settingsService = settingsService;
         _sessionRepository = sessionRepository;
         _sftpService = sftpService;
@@ -4037,11 +4055,31 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         // (主机显式 CSI 12 l 要求终端回显时仍然生效,不受本项影响。)
         control.PeerEchoesInput = true;
 
-        // 用户自定义的终端配色(仅覆盖改过的颜色,其余跟随主题)。
+        // 当前具名主题配套的整套终端配色(VelaDark→Dracula、Nord→Nord…),
+        // 再叠上用户自定义的那几个单色(没改过的颜色一律跟随主题)。
+        control.ThemePalette = TerminalAppearanceMapper.BuildThemePalette(ActiveUiTheme.Terminal);
         control.PaletteOverrides = TerminalAppearanceMapper.BuildPaletteOverrides(
             settings.Appearance
         );
     }
+
+    /// <summary>
+    /// 当前实际生效的界面主题:「跟随系统」按应用的实际变体落到 VelaDark / VelaLight。
+    /// 没有主题服务(单测)时同样按变体兜底。
+    /// </summary>
+    private static UiTheme ActiveUiThemeFor(IThemeService? themeService) =>
+        UiThemeCatalog.Resolve(
+            themeService?.CurrentTheme,
+            Avalonia.Application.Current?.ActualThemeVariant != Avalonia.Styling.ThemeVariant.Light
+        );
+
+    private UiTheme ActiveUiTheme => ActiveUiThemeFor(_themeService);
+
+    /// <summary>主题变了 → 把新主题的终端配色下发到所有已打开的终端标签。</summary>
+    private void RefreshTerminalThemePalette() =>
+        RxSchedulers.MainThreadScheduler.Schedule(() =>
+            ApplyLiveSettingsToOpenTabs(_latestSettings ?? new AppSettings())
+        );
 
     /// <summary>
     /// 把终端默认背景不透明度实时应用到所有已打开的终端标签(背景图即时预览用:拖动滑杆时视图层直接调,

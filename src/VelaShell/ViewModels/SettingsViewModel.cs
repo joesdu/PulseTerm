@@ -166,6 +166,9 @@ public class SettingsViewModel : ReactiveObject
                 PreviewThemeLive();
                 if (!_suppressPreview)
                 {
+                    // 跟随态:色块跟着新主题的配套方案走(载入阶段 _suppressPreview 为真,
+                    // 不会在这里改动刚读进来的设置)。
+                    SyncFollowedSchemeColors();
                     RefreshColorSchemeDisplay();
                 }
             });
@@ -530,8 +533,18 @@ public class SettingsViewModel : ReactiveObject
     /// <summary>支持的界面语言(顺序即语言下拉的条目顺序)。</summary>
     public string[] AvailableLanguages { get; } = ["zh-CN", "en", "zh-TW", "ja", "ko"];
 
-    /// <summary>主题下拉可选值。</summary>
-    public string[] AvailableThemes { get; } = ["dark", "light", "system"];
+    /// <summary>主题下拉可选值(具名主题的 Id,末项为“跟随系统”)。</summary>
+    public string[] AvailableThemes { get; } = UiThemeCatalog.SelectableIds;
+
+    /// <summary>
+    /// 主题下拉显示的名称,与 <see cref="AvailableThemes" /> 一一对应。
+    /// 主题名是品牌名(VelaDark / Tokyo Night…),不本地化;只有末项“跟随系统”跟随语言。
+    /// </summary>
+    public string[] AvailableThemeNames { get; } =
+        [
+            .. UiThemeCatalog.All.Select(theme => theme.Name),
+            Strings.Get("SetAppear_ThemeSystem"),
+        ];
 
     // xterm-256color 是首选/推荐配置,排在最前。
     /// <summary>终端类型下拉可选值(推荐项 xterm-256color 置首)。</summary>
@@ -801,48 +814,48 @@ public class SettingsViewModel : ReactiveObject
     // ———— 终端配色方案预设(§12.5) ————
 
     /// <summary>
-    /// 方案名列表,当前主题的默认方案带“(默认)”后缀
-    /// (暗 = Dracula,亮 = Solarized Light),随主题切换动态刷新。
+    /// 方案下拉的条目:**首项是「跟随主题(配套方案名)」**,其后是全部内置方案,
+    /// 当前主题的配套方案带“(默认)”后缀。随主题切换动态刷新。
+    /// <para>
+    /// 「跟随」必须是它自己的一项。老实现把它藏在带“(默认)”后缀的那个方案上 ——
+    /// 于是「选中 Dracula」与「跟随主题」是同一个动作,在配套方案不是 Dracula 的主题上
+    /// 选 Dracula 就毫无反应,选完还会跳回配套方案那一项。
+    /// </para>
     /// </summary>
     public string[] AvailableColorSchemes
     {
         get;
         private set => this.RaiseAndSetIfChanged(ref field, value);
-    } = BuildSchemeNames(0);
+    } = BuildSchemeNames(UiThemeCatalog.All[0]);
+
+    /// <summary>下拉里「跟随主题」那一项的下标(恒为 0,其后才是内置方案)。</summary>
+    private const int FollowThemeSchemeIndex = 0;
 
     /// <summary>程序化刷新选中项(主题切换/载入)时抑制“套用方案”写回,防止把跟随态钉死。</summary>
     private bool _suppressSchemeApply;
 
-    /// <summary>当前主题下的默认方案下标:暗 = Dracula(0),亮 = Solarized Light。</summary>
-    private int ThemeDefaultSchemeIndex =>
-        IsLightThemeActive
-            ? Math.Max(
-                0,
-                Array.FindIndex(TerminalColorScheme.BuiltIn, s => s.Name == "Solarized Light")
-            )
-            : 0;
-
-    /// <summary>“跟随系统”时以应用实际生效的主题变体判定亮/暗。</summary>
-    private bool IsLightThemeActive =>
-        Theme == "light"
-        || (
-            Theme == "system"
-            && Avalonia.Application.Current?.ActualThemeVariant
-                == Avalonia.Styling.ThemeVariant.Light
+    /// <summary>“跟随系统”时以应用实际生效的主题变体解析,其余按选中的具名主题。</summary>
+    private UiTheme ActiveUiTheme =>
+        UiThemeCatalog.Resolve(
+            Theme,
+            Avalonia.Application.Current?.ActualThemeVariant
+                != Avalonia.Styling.ThemeVariant.Light
         );
 
-    private static string[] BuildSchemeNames(int defaultIndex) =>
+    private static string[] BuildSchemeNames(UiTheme theme) =>
         [
-            .. TerminalColorScheme.BuiltIn.Select(
-                (s, i) =>
-                    i == defaultIndex ? $"{s.Name}{Strings.Get("SetVm_DefaultSuffix")}" : s.Name
+            Strings.Format("SetVm_FollowThemeScheme", theme.TerminalSchemeName),
+            .. TerminalColorScheme.BuiltIn.Select(scheme =>
+                scheme.Name == theme.TerminalSchemeName
+                    ? $"{scheme.Name}{Strings.Get("SetVm_DefaultSuffix")}"
+                    : scheme.Name
             ),
         ];
 
     /// <summary>
-    /// 选择预设即把整套颜色写入 Appearance(保存后生效);-1 = 未选择(改过单色)。
-    /// 选择带“(默认)”的方案 = 恢复出厂值、终端跟随主题;跟随态下选中项随主题
-    /// 自动落在对应主题的默认方案上(暗 Dracula / 亮 Solarized Light)。
+    /// 选择条目即写回 Appearance(保存后生效):首项 = 跟随主题(不产生任何覆盖),
+    /// 其余 = 明确选定该方案(整套颜色写入,主题切换不再改变终端配色);
+    /// -1 = 未选择(用户改过单色,与任何方案都不一致)。
     /// </summary>
     public int ColorSchemeIndex
     {
@@ -850,7 +863,7 @@ public class SettingsViewModel : ReactiveObject
         set
         {
             this.RaiseAndSetIfChanged(ref _colorSchemeIndex, value);
-            if (_suppressSchemeApply || value < 0 || value >= TerminalColorScheme.BuiltIn.Length)
+            if (_suppressSchemeApply || value < 0 || value > TerminalColorScheme.BuiltIn.Length)
             {
                 return;
             }
@@ -859,34 +872,50 @@ public class SettingsViewModel : ReactiveObject
                 JsonSerializer.Deserialize<AppearanceOptions>(JsonSerializer.Serialize(Appearance))
                 ?? new AppearanceOptions();
 
-            // 选中当前主题的默认方案 = 回到出厂值(Dracula 色值,零覆盖,跟随主题);
-            // 其余方案按其色值写入(与出厂差异成为覆盖,主题切换不再改变终端配色)。
-            TerminalColorScheme
-                .BuiltIn[value == ThemeDefaultSchemeIndex ? 0 : value]
-                .ApplyTo(updated);
+            bool follow = value == FollowThemeSchemeIndex;
+            updated.TerminalColorsFollowTheme = follow;
+            // 跟随:把配套方案的色值一并写进去 —— 下面那几个色块与输入框显示的,
+            // 就是屏幕上真正在用的颜色(它们不参与判定,判定只看上面那个标志)。
+            (follow ? ActiveUiTheme.Terminal : TerminalColorScheme.BuiltIn[value - 1]).ApplyTo(updated);
             Appearance = updated;
 
-            // 写回后重算显示:出厂值命中会折射到当前主题的默认方案位。
             RefreshColorSchemeDisplay();
         }
     }
 
+    /// <summary>跟随态下随主题切换重灌色块:切到 Nord,下面显示的就该是 Nord 的颜色。</summary>
+    private void SyncFollowedSchemeColors()
+    {
+        if (!TerminalColorScheme.FollowsTheme(Appearance))
+        {
+            return;
+        }
+        AppearanceOptions updated =
+            JsonSerializer.Deserialize<AppearanceOptions>(JsonSerializer.Serialize(Appearance))
+            ?? new AppearanceOptions();
+        updated.TerminalColorsFollowTheme = true;
+        ActiveUiTheme.Terminal.ApplyTo(updated);
+        Appearance = updated;
+    }
+
     /// <summary>
-    /// 重算方案下拉的条目后缀与选中项:出厂值(跟随主题)显示为当前主题默认方案,
-    /// 显式方案按整套颜色反向匹配,改过单色则显示“未选择”(-1)。
+    /// 重算方案下拉的条目与选中项:跟随态选中首项,显式方案按整套颜色反向匹配,
+    /// 改过单色则显示“未选择”(-1)。
     /// </summary>
     private void RefreshColorSchemeDisplay()
     {
-        int defaultIndex = ThemeDefaultSchemeIndex;
-        bool following = TerminalColorScheme.BuiltIn[0].Matches(Appearance); // 出厂值 = Dracula 色值
-        int desired = following
-            ? defaultIndex
-            : Array.FindIndex(TerminalColorScheme.BuiltIn, s => s.Matches(Appearance));
+        UiTheme theme = ActiveUiTheme;
+        int matched = Array.FindIndex(TerminalColorScheme.BuiltIn, s => s.Matches(Appearance));
+        int desired = TerminalColorScheme.FollowsTheme(Appearance)
+            ? FollowThemeSchemeIndex
+            : matched < 0
+                ? -1
+                : matched + 1;
         _suppressSchemeApply = true;
         try
         {
             // 先换条目再定选中:ItemsSource 替换会让 ComboBox 短暂把 -1 写回来,抑制期内无害。
-            AvailableColorSchemes = BuildSchemeNames(defaultIndex);
+            AvailableColorSchemes = BuildSchemeNames(theme);
             _colorSchemeIndex = desired;
             this.RaisePropertyChanged(nameof(ColorSchemeIndex));
         }
@@ -1001,24 +1030,15 @@ public class SettingsViewModel : ReactiveObject
 
     // ———— 下拉的索引映射(POCO 字符串 ↔ ComboBox SelectedIndex) ————
 
-    /// <summary>主题下拉选中项与 <see cref="Theme" /> 字符串之间的索引映射。</summary>
+    /// <summary>主题下拉选中项与 <see cref="Theme" /> 字符串(主题 Id)之间的索引映射。</summary>
     public int ThemeIndex
     {
-        get =>
-            Theme switch
-            {
-                "light" => 1,
-                "system" => 2,
-                _ => 0,
-            };
+        get => Math.Max(0, Array.IndexOf(AvailableThemes, Theme));
         set
         {
-            Theme = value switch
-            {
-                1 => "light",
-                2 => "system",
-                _ => "dark",
-            };
+            Theme = value >= 0 && value < AvailableThemes.Length
+                ? AvailableThemes[value]
+                : UiThemeCatalog.All[0].Id;
             this.RaisePropertyChanged();
         }
     }
@@ -1412,8 +1432,30 @@ public class SettingsViewModel : ReactiveObject
 
     private Avalonia.Threading.DispatcherTimer? _previewDebounce;
 
+    /// <summary>用户能逐色改的四项(ANSI 16 色在设置页上是只读色块)。</summary>
+    private static readonly string[] TerminalColorProperties =
+    [
+        nameof(AppearanceOptions.TerminalForeground),
+        nameof(AppearanceOptions.TerminalBackground),
+        nameof(AppearanceOptions.CursorColor),
+        nameof(AppearanceOptions.SelectionColor),
+    ];
+
     private void OnAppearanceItemChanged(object? sender, PropertyChangedEventArgs e)
     {
+        // 在跟随态下手改某一个颜色 = 用户要自己定配色了:就此脱离跟随,否则这次修改
+        // 不会产生任何覆盖,输入框里改完了终端却一动不动。
+        // (套用方案走的是"克隆 → 改 → 整体替换"那条路,改的是尚未挂钩的新对象,不会走到这里。)
+        // 判定不能反过来问 FollowsTheme:事件到达时新色值**已经**写进去了,
+        // 而老配置(标志为 null)的跟随与否恰恰是按色值推断的 —— 一改就自己翻成了"不跟随",
+        // 于是这里永远看不到"改之前在跟随"这个事实。直接置标志,幂等。
+        if (!_suppressPreview
+            && e.PropertyName is { } changed
+            && Array.IndexOf(TerminalColorProperties, changed) >= 0)
+        {
+            Appearance.TerminalColorsFollowTheme = false;
+            RefreshColorSchemeDisplay();
+        }
         if (e.PropertyName == nameof(AppearanceOptions.WindowOpacityPercent))
         {
             if (_suppressPreview || _previewService is null)

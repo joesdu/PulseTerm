@@ -1867,17 +1867,11 @@ Paste anyway?</value>
   <data name="SetAppear_TerminalColorsSection" xml:space="preserve">
     <value>Terminal Colors</value>
   </data>
-  <data name="SetAppear_ThemeDark" xml:space="preserve">
-    <value>Dark</value>
-  </data>
-  <data name="SetAppear_ThemeLight" xml:space="preserve">
-    <value>Light</value>
-  </data>
   <data name="SetAppear_ThemeMode" xml:space="preserve">
     <value>Theme mode</value>
   </data>
   <data name="SetAppear_ThemeModeDesc" xml:space="preserve">
-    <value>// Choose light, dark, or follow system</value>
+    <value>// Pick a named theme, or follow the system</value>
   </data>
   <data name="SetAppear_ThemeSystem" xml:space="preserve">
     <value>Follow system</value>
@@ -2697,6 +2691,9 @@ Paste anyway?</value>
   </data>
   <data name="SetTransfer_ZeroUnlimited" xml:space="preserve">
     <value>// 0 means unlimited</value>
+  </data>
+  <data name="SetVm_FollowThemeScheme" xml:space="preserve">
+    <value>Follow theme ({0})</value>
   </data>
   <data name="SetVm_DefaultSuffix" xml:space="preserve">
     <value>(default)</value>

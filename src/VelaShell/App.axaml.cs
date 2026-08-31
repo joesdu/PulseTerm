@@ -133,6 +133,15 @@ public class App : Application
             });
         _themeService.ThemeChanged += OnThemeChanged;
         _themeService.AccentChanged += ApplyAccent;
+        // 「跟随系统」下系统明暗翻转时,基底变体由 Avalonia 自己换,但令牌得我们重贴 ——
+        // 不贴的话界面会停在上一套配色上,只有 Fluent 控件跟着变,看上去像半边换了主题。
+        ActualThemeVariantChanged += (_, _) =>
+        {
+            if (UiThemeCatalog.Find(_themeService?.CurrentTheme) is null)
+            {
+                ApplyThemeTokens();
+            }
+        };
         ApplyThemeVariant(_themeService.CurrentTheme);
         ApplyAccent(_themeService.AccentColor);
     }
@@ -431,7 +440,10 @@ public class App : Application
             _serviceProvider
                 .GetRequiredService<ILocalizationService>()
                 .SetLanguage(settings.Language);
-            if (!string.IsNullOrWhiteSpace(settings.Theme))
+            // 先验再设:配置里存着一个本版本不认识的主题 Id 时(用新版选过 Tokyo Night
+            // 再退回旧版就是这个情形),SetTheme 会抛,连带把后面的强调色一起跳过。
+            // 认不出来就退回默认主题,启动照常。
+            if (UiThemeCatalog.IsValidId(settings.Theme))
             {
                 _themeService?.SetTheme(settings.Theme);
             }
@@ -480,14 +492,34 @@ public class App : Application
         ApplyThemeVariant(themeName);
     }
 
+    /// <summary>
+    /// 应用一套具名主题:先定明暗基底(Fluent 控件与 axaml 里的 ThemeDictionaries 跟着它走),
+    /// 再把该主题的整套 <c>Vela*</c> 令牌写到应用级资源上遮蔽掉基底的缺省值。
+    /// <para>
+    /// "system" 不是一套配色,而是"按系统明暗落到 VelaDark / VelaLight":
+    /// 此时基底交给 <see cref="ThemeVariant.Default" />,令牌按解析结果贴。
+    /// </para>
+    /// </summary>
     private void ApplyThemeVariant(string themeName)
     {
-        RequestedThemeVariant = themeName.ToLowerInvariant() switch
-        {
-            "light" => ThemeVariant.Light,
-            "system" => ThemeVariant.Default,
-            _ => ThemeVariant.Dark,
-        };
+        UiTheme? selected = UiThemeCatalog.Find(themeName);
+        RequestedThemeVariant = selected is null
+            ? ThemeVariant.Default
+            : selected.IsDark
+                ? ThemeVariant.Dark
+                : ThemeVariant.Light;
+        ApplyThemeTokens();
+    }
+
+    /// <summary>当前实际生效的主题:“跟随系统”按应用的实际变体落到 VelaDark / VelaLight。</summary>
+    private UiTheme CurrentUiTheme =>
+        UiThemeCatalog.Resolve(_themeService?.CurrentTheme, ActualThemeVariant != ThemeVariant.Light);
+
+    /// <summary>把当前主题的令牌贴到应用资源;强调色覆盖必须随后重贴,否则被主题的 accent 盖掉。</summary>
+    private void ApplyThemeTokens()
+    {
+        ThemeTokenApplier.Apply(Resources, CurrentUiTheme);
+        ApplyAccent(_themeService?.AccentColor);
     }
 
     /// <summary>
@@ -499,9 +531,10 @@ public class App : Application
     {
         if (string.IsNullOrWhiteSpace(hex))
         {
-            Resources.Remove("VelaAccent");
-            Resources.Remove("VelaAccentDim");
-            Resources.Remove("VelaAccentForeground");
+            // 回到当前主题自己的强调色。**不能删键** —— 删了会掉到 axaml 的编译期缺省
+            // (VelaDark / VelaLight 的紫),Tokyo Night 之类的主题就会顶着一个不属于
+            // 自己的强调色跑。
+            ThemeTokenApplier.ResetAccent(Resources, CurrentUiTheme);
             return;
         }
         if (!Color.TryParse(hex, out Color color))
