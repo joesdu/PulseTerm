@@ -1,17 +1,21 @@
+using VelaShell.Core.Models;
+
 namespace VelaShell.Core.Services;
 
 /// <summary>
-/// <see cref="IThemeService"/> 的默认实现,跟踪当前活动主题("dark"、"light" 或 "system")
-/// 与可选的强调色,任一方更新时抛出变更事件。
+/// <see cref="IThemeService"/> 的默认实现,跟踪当前活动主题(<see cref="UiThemeCatalog" />
+/// 里的主题 Id,或 "system" = 跟随系统)与可选的强调色,任一方更新时抛出变更事件。
 /// </summary>
 public class ThemeService(string initialTheme = "dark", string? initialAccent = null) : IThemeService
 {
-    private static readonly HashSet<string> ValidThemes = [with(StringComparer.OrdinalIgnoreCase), "dark", "light", "system"];
-
     /// <summary>
-    /// 当前活动的主题名称("dark"、"light" 或 "system")。
+    /// 当前活动的主题 Id("dark"、"light"、"tokyo-night"…,或 "system")。
+    /// <para>
+    /// "dark" / "light" 是 VelaDark / VelaLight 的 Id —— 历史值,老配置直接沿用,不做迁移。
+    /// </para>
     /// </summary>
-    public string CurrentTheme { get; private set; } = ValidThemes.Contains(initialTheme) ? initialTheme.ToLowerInvariant() : "dark";
+    public string CurrentTheme { get; private set; } =
+        UiThemeCatalog.IsValidId(initialTheme) ? initialTheme.ToLowerInvariant() : "dark";
 
     /// <summary>
     /// 活动主题变更时触发,携带新的主题名称。
@@ -50,9 +54,11 @@ public class ThemeService(string initialTheme = "dark", string? initialAccent = 
     public void SetTheme(string themeName)
     {
         string normalized = themeName.ToLowerInvariant();
-        if (!ValidThemes.Contains(normalized))
+        if (!UiThemeCatalog.IsValidId(normalized))
         {
-            throw new ArgumentException($@"Invalid theme: '{themeName}'. Valid themes: dark, light, system.", nameof(themeName));
+            throw new ArgumentException(
+                $@"Invalid theme: '{themeName}'. Valid themes: {string.Join(", ", UiThemeCatalog.SelectableIds)}.",
+                nameof(themeName));
         }
         if (CurrentTheme == normalized)
         {

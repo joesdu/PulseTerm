@@ -1978,17 +1978,11 @@
   <data name="SetAppear_TerminalColorsSection" xml:space="preserve">
     <value>终端颜色</value>
   </data>
-  <data name="SetAppear_ThemeDark" xml:space="preserve">
-    <value>暗色模式</value>
-  </data>
-  <data name="SetAppear_ThemeLight" xml:space="preserve">
-    <value>亮色模式</value>
-  </data>
   <data name="SetAppear_ThemeMode" xml:space="preserve">
     <value>主题模式</value>
   </data>
   <data name="SetAppear_ThemeModeDesc" xml:space="preserve">
-    <value>// 选择亮色、暗色或跟随系统</value>
+    <value>// 选择一套具名主题,或跟随系统明暗</value>
   </data>
   <data name="SetAppear_ThemeSystem" xml:space="preserve">
     <value>跟随系统</value>
@@ -2808,6 +2802,9 @@
   </data>
   <data name="SetTransfer_ZeroUnlimited" xml:space="preserve">
     <value>// 0 表示不限制</value>
+  </data>
+  <data name="SetVm_FollowThemeScheme" xml:space="preserve">
+    <value>跟随主题({0})</value>
   </data>
   <data name="SetVm_DefaultSuffix" xml:space="preserve">
     <value>(默认)</value>

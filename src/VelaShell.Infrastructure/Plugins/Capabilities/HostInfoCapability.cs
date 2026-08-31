@@ -14,5 +14,6 @@ internal sealed class HostInfoCapability(string appVersion, IThemeService? theme
 
     public string Locale => localization?.CurrentLanguage ?? "en";
 
-    public string Theme => theme?.CurrentTheme ?? "system";
+    // 具名主题不外泄:插件只认 dark / light / system(见 PluginEventHub 的同一处处理)。
+    public string Theme => VelaShell.Core.Models.UiThemeCatalog.VariantName(theme?.CurrentTheme);
 }

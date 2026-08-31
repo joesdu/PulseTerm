@@ -408,6 +408,24 @@ public class AppearanceOptions : ObservableOptions
         set => Set(ref field, value);
     }
 
+    /// <summary>
+    /// 终端配色是否跟随当前界面主题(即用主题配套的那套终端方案)。
+    /// <para>
+    /// <c>null</c> = 配置里没有这一项(1.4.x 及更早):按老口径推断 —— 那时"跟随"是**隐式**
+    /// 编码为「颜色与出厂 Dracula 完全一致」。判定见 <see cref="TerminalColorScheme.FollowsTheme" />。
+    /// 因此这里**不能**给初值:给了 true,老用户自定义过的配色会被当成跟随态一并丢掉。
+    /// </para>
+    /// <para>
+    /// 这一项之所以必须显式存在:老口径下「用户明确选了 Dracula」与「跟随主题」写出来的设置
+    /// 一模一样,于是在配套方案不是 Dracula 的主题(VelaLight、Nord…)上选 Dracula 会毫无反应。
+    /// </para>
+    /// </summary>
+    public bool? TerminalColorsFollowTheme
+    {
+        get;
+        set => Set(ref field, value);
+    }
+
     // 终端颜色(默认 = Dracula 官方 Windows Terminal 方案)
     /// <summary>终端前景(文本)颜色(十六进制)。</summary>
     public string TerminalForeground

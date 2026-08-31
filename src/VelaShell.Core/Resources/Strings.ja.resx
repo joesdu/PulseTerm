@@ -1764,17 +1764,11 @@
   <data name="SetAppear_TerminalColorsSection" xml:space="preserve">
     <value>ターミナルの配色</value>
   </data>
-  <data name="SetAppear_ThemeDark" xml:space="preserve">
-    <value>ダークモード</value>
-  </data>
-  <data name="SetAppear_ThemeLight" xml:space="preserve">
-    <value>ライトモード</value>
-  </data>
   <data name="SetAppear_ThemeMode" xml:space="preserve">
     <value>テーマモード</value>
   </data>
   <data name="SetAppear_ThemeModeDesc" xml:space="preserve">
-    <value>// ライト、ダーク、またはシステムに従うを選択</value>
+    <value>// 名前付きテーマを選ぶか、システムに従います</value>
   </data>
   <data name="SetAppear_ThemeSystem" xml:space="preserve">
     <value>システムに従う</value>
@@ -2597,6 +2591,9 @@
   </data>
   <data name="SetTransfer_ZeroUnlimited" xml:space="preserve">
     <value>// 0 は無制限</value>
+  </data>
+  <data name="SetVm_FollowThemeScheme" xml:space="preserve">
+    <value>テーマに従う({0})</value>
   </data>
   <data name="SetVm_DefaultSuffix" xml:space="preserve">
     <value>(デフォルト)</value>

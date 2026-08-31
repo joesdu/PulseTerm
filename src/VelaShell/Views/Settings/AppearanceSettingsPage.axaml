@@ -19,11 +19,11 @@
         <TextBlock Classes="row-label" Text="{loc:Localize SetAppear_ThemeMode}" />
         <TextBlock Classes="row-desc" Text="{loc:Localize SetAppear_ThemeModeDesc}" />
       </StackPanel>
-      <ComboBox Grid.Column="1" Width="140" SelectedIndex="{Binding ThemeIndex}" VerticalAlignment="Center">
-        <ComboBoxItem Content="{loc:Localize SetAppear_ThemeDark}" />
-        <ComboBoxItem Content="{loc:Localize SetAppear_ThemeLight}" />
-        <ComboBoxItem Content="{loc:Localize SetAppear_ThemeSystem}" />
-      </ComboBox>
+      <!-- 条目来自主题目录(UiThemeCatalog),末项是「跟随系统」。写死三个 ComboBoxItem
+           的老写法在具名主题上线后就成了瓶颈:每加一套主题都要同时改这里与索引映射。 -->
+      <ComboBox Grid.Column="1" Width="140" VerticalAlignment="Center"
+                ItemsSource="{Binding AvailableThemeNames}"
+                SelectedIndex="{Binding ThemeIndex}" />
     </Grid>
     <Grid ColumnDefinitions="*,Auto">
       <StackPanel Spacing="2">

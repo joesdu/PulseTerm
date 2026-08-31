@@ -20,9 +20,63 @@ VelaShell is a keyboard-first, high-density SSH/SFTP terminal client for ops and
 
 All colors are `SolidColorBrush` resources keyed by semantic name. XAML binds via `{DynamicResource VelaXxx}`. Never use hex literals.
 
+### 2.0 Named themes
+
+VelaShell ships **nine named themes**. A theme is not a variant switch — it is a full palette
+that replaces every `Vela*` token at runtime.
+
+Themes carry the name of the palette they come from — only the two house themes are Vela-branded.
+
+| Theme | Base | Paired terminal scheme |
+|---|---|---|
+| `VelaDark` (id `dark`, factory default; Dracula) | dark | `Dracula` |
+| `Tokyo Night` (`tokyo-night`) | dark | `Tokyo Night` |
+| `Nord` (`nord`) | dark | `Nord` |
+| `Everforest` (`everforest`) | dark | `Everforest Dark` |
+| `Obsidian` (`obsidian`; neutral near-black, OLED) | dark | `Obsidian` |
+| `Gruvbox` (`gruvbox`) | dark | `Gruvbox Bright` |
+| `VelaLight` (`light`; Alucard) | light | `Alucard` |
+| `Rosé Pine Dawn` (`rose-pine-dawn`) | light | `Rosé Pine Dawn` |
+| `GitHub Light` (`github-light`) | light | `GitHub Light` |
+
+Plus the pseudo-theme `system`, which resolves to `VelaDark` / `VelaLight` by OS appearance.
+
+**Following vs. pinning.** `AppearanceOptions.TerminalColorsFollowTheme` is the *explicit* record of
+which one the user chose; the terminal color-scheme dropdown's first entry is "follow theme", the
+rest pin a scheme. Never re-derive "following" by comparing colors against a scheme — that is what
+made picking `Dracula` under a non-Dracula theme a no-op (the comparison could not tell "picked
+Dracula" from "following"). `null` on that field means a pre-1.5 config that predates it; it is
+resolved once, by the old rule, in `TerminalColorScheme.FollowsTheme`.
+
+**Where the values live.** Each theme is a ~25-colour **seed palette**
+(`UiThemePalette` in `src/VelaShell.Core/Models/UiTheme.cs`); the sixty-odd `Vela*` tokens below
+are *derived* from that seed by `ThemeTokenApplier` (`src/VelaShell/Services/`), which writes them
+into `Application.Resources` — top-level entries shadow the `ThemeDictionaries` in
+`VelaTokens.axaml` / `VelaShellTokens.axaml` / `DarkTheme.axaml` / `LightTheme.axaml`, so every
+`{DynamicResource}` follows the switch with no restart. Those axaml files remain the compile-time
+defaults for `VelaDark` / `VelaLight` (designer, headless tests, the instant before the applier
+runs) and are pinned equal to the applier's output by `ThemeTokenApplierTests`.
+
+Adding a theme therefore means adding one seed palette — never sixty hand-copied literals.
+`UiThemeCatalog` and `ThemeTokenApplier` are the **only** places colour literals belong in C#.
+
+Derivation rules worth knowing (the rest are 1:1):
+
+- `VelaAccentDim` / `VelaBgActive`(light) / `VelaShell*Dim` / `VelaHeat*` = a seed colour at a fixed alpha.
+  Alpha is `#AARRGGBB`; writing it last silently yields a different colour (issue #246), so these
+  are derived rather than typed.
+- `VelaGaugeCpu` = `Info`, `VelaGaugeMemory` = `Accent`, `VelaGaugeTrack` = `BorderSecondary`.
+- `VelaTraceLineDim` = `Info` blended 50% into `BgPage`.
+- Heat grid ladder = `TextTertiary → Info → Accent → Yellow → Error` (idle → full).
+- `VelaShadowWindow` has exactly two forms, keyed on the theme's base (see §4.5).
+
+Every theme is held to WCAG AA for body text on every surface, and 3:1 for status glyphs, by
+`UiThemeCatalogTests`. The paired terminal scheme's background **must equal** `VelaBgTerminal` —
+the terminal canvas and the UI around it are one plane; a mismatch shows up as a visible seam.
+
 ### 2.1 Backgrounds (`VelaShellTokens.axaml`)
 
-| Token | Dark (Dracula) | Light (Alucard) | Usage |
+| Token | VelaDark | VelaLight | Usage |
 |---|---|---|---|
 | `VelaBgPage` | `#191A21` | `#F2EDDA` | Window base layer |
 | `VelaBgSidebar` | `#252734` | `#F8F4E4` | Sidebar, status bar |
@@ -36,7 +90,7 @@ All colors are `SolidColorBrush` resources keyed by semantic name. XAML binds vi
 
 ### 2.2 Text & Icon (`VelaTokens.axaml`)
 
-| Token | Dark | Light | Usage |
+| Token | VelaDark | VelaLight | Usage |
 |---|---|---|---|
 | `VelaTextPrimary` | `#F8F8F2` | `#1F1F1F` | Primary text |
 | `VelaTextSecondary` | `#B0B8D6` | `#4A4636` | Secondary text, session names |
@@ -45,14 +99,14 @@ All colors are `SolidColorBrush` resources keyed by semantic name. XAML binds vi
 
 ### 2.3 Borders (`VelaTokens.axaml`)
 
-| Token | Dark | Light | Usage |
+| Token | VelaDark | VelaLight | Usage |
 |---|---|---|---|
 | `VelaBorderPrimary` | `#3B3E51` | `#E3DCBF` | Standard dividers, row bottom borders |
 | `VelaBorderSecondary` | `#44475A` | `#D3CBA9` | Float/tooltip borders |
 
 ### 2.4 Accent (`VelaTokens.axaml`)
 
-| Token | Dark | Light | Usage |
+| Token | VelaDark | VelaLight | Usage |
 |---|---|---|---|
 | `VelaAccent` | `#BD93F9` | `#644AC9` | Primary brand color (Dracula purple) |
 | `VelaAccentDim` | `#BD93F930` | `#644AC91A` | Accent at low opacity (badge/tag backgrounds) |
@@ -61,7 +115,7 @@ All colors are `SolidColorBrush` resources keyed by semantic name. XAML binds vi
 
 ### 2.5 Semantic Status (`DarkTheme.axaml` / `LightTheme.axaml`)
 
-| Token | Dark | Light | Usage |
+| Token | VelaDark | VelaLight | Usage |
 |---|---|---|---|
 | `VelaStatusConnected` | `#50FA7B` | `#14710A` | Connected state dot |
 | `VelaStatusConnecting` | `#F1FA8C` | `#846E15` | Connecting state dot |
@@ -72,14 +126,19 @@ All colors are `SolidColorBrush` resources keyed by semantic name. XAML binds vi
 
 ### 2.6 File Browser Specific (`VelaTokens.axaml`)
 
-| Token | Dark | Light | Usage |
+| Token | VelaDark | VelaLight | Usage |
 |---|---|---|---|
 | `VelaFileFolderIcon` | `#FFB86C` | `#9E841A` | Folder icon fill |
 | `VelaFileDirName` | `#8BE9FD` | `#036A96` | Directory name text |
 
 ### 2.7 Terminal ANSI Palette (`DarkTheme.axaml`)
 
-| Token | Dark | Usage |
+These are **UI-side** markers (charts, badges, gutter glyphs) that borrow the terminal hues — they
+are derived from the same seed as everything else. The terminal canvas itself does not read them:
+it gets the theme's paired `TerminalColorScheme`, pushed down as `VelaTerminalControl.ThemePalette`
+with the user's per-colour overrides layered on top.
+
+| Token | VelaDark | Usage |
 |---|---|---|
 | `VelaShellWhite` | `#F8F8F2` | Default foreground |
 | `VelaShellGreen` | `#50FA7B` | ANSI green |

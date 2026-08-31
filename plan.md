@@ -566,3 +566,155 @@ CISA KEV 那几条「现在就有人在打这个洞」就等于谁也收不到�
 **留了一处没动**:SFTP / FTP / 插件协议 / 工作台文档也往同一个节点写状态(`SetTreeSessionStatus`),
 它们与终端标签之间仍是「后写的赢」。本次只把终端标签这一侧收成合并语义 —— 与既有行为等价,不是新洞,
 但要彻底,得把这些来源一起纳入同一个合并器。
+
+## 25. 2026-08-31 具名主题:九套配色 + 终端配色配对
+
+此前"主题"只有三个值:`dark` / `light` / `system`,颜色写死在两份 axaml 的 ThemeDictionaries 里;
+终端那边同样只认明暗两套(暗 Dracula / 亮 Solarized Light,硬编码在 `VelaTerminalControl`)。
+本批把它改成**具名主题目录**:六套暗色 + 三套亮色,各自带一套配套的终端配色。
+
+**改名**:原亮色 → **VelaLight**,原暗色 → **VelaDark**。持久化的 Id 仍是 `light` / `dark`
+—— 老配置一行不用迁,`ThemeServiceSwitchTests` / `HeadlessUiTests` 也不用改。
+
+**新增七套**(名字取自"Vela=船帆座"的星空与自然一系,各有明确的使用场景,不是换个色相凑数):
+
+| 主题 | 基底 | 血统 | 配套终端方案 |
+| --- | --- | --- | --- |
+| Tokyo Night | 暗 | Tokyo Night | Tokyo Night |
+| Nord | 暗 | Nord | Nord |
+| Everforest | 暗 | Everforest | Everforest Dark |
+| Obsidian | 暗 | 中性近黑(OLED) | Obsidian |
+| Gruvbox | 暗 | Gruvbox | Gruvbox Bright |
+| Rosé Pine Dawn | 亮 | Rosé Pine Dawn | Rosé Pine Dawn |
+| GitHub Light | 亮 | GitHub Light | GitHub Light |
+
+### 一、六十多个令牌,只写二十几个种子色
+
+`UiThemePalette`(Core)是一套主题需要人来定的全部内容 —— 底色阶梯、四档文字、两档描边、
+强调色与语义色,二十五个。其余令牌(`*Dim`、`VelaHeat1-5`、`VelaGauge*`、`VelaTrace*`、
+`VelaShell*` 等)由 `ThemeTokenApplier`(宿主侧)按固定规则派生。
+
+理由是**手抄会错,而且错了看不出来**:`#644AC922` 这种把透明度写在末尾的错拼,编译期无感、
+运行期是一片绿(issue #246 的原始症状)。派生出来的令牌天生自洽,加一套主题只需要填种子色。
+
+**运行时怎么生效**:Avalonia 的资源查找先看字典自身的条目,再看 ThemeDictionaries 与合并字典 ——
+所以写进 `Application.Resources` 顶层的键会**遮蔽** axaml 里同名的主题条目,全部
+`DynamicResource` 立刻跟着变(强调色覆盖 #3 一直就是这么做的,这次把它推广到整套令牌)。
+axaml 那两套保留为 VelaDark / VelaLight 的编译期缺省,`ThemeTokenApplierTests` 钉住两边逐值一致。
+这条遮蔽假设本身也有用例:`ThemeTokenShadowingUiTests` 在真 Avalonia 资源栈上验证"贴上去盖得住、
+摘下来落得回"。
+
+**踩到的一个坑**:清空自定义强调色的老实现是把 `VelaAccent` 三件套从资源里**删掉**,让它落回
+axaml 缺省。在只有明暗两套时这是对的;有了具名主题就成了错的 —— Tokyo Night 的蓝会变成VelaDark 的紫。改为 `ThemeTokenApplier.ResetAccent` 写回**当前主题自己**的强调色。
+
+### 二、终端配色跟着主题走
+
+`VelaTerminalControl` 原来只听 `ActualThemeVariant`。具名主题里有六套暗色,VelaDark 换到
+Tokyo Night 时变体压根没变 —— 光听变体,终端画面会原地不动,和换过颜色的界面拼在一起。
+
+改为三层叠加:**控件自带的明暗缺省 → 宿主下发的整套主题配色(新增的 `ThemePalette`)→
+用户改过的单色(原有的稀疏 `PaletteOverrides`)**。宿主在 `ApplyLiveTerminalSettings` 里按当前
+主题下发,并订阅 `IThemeService.ThemeChanged` 与 `Application.ActualThemeVariantChanged`
+(后者是"跟随系统"下系统明暗翻转的那条路)。
+
+配对的硬约束:**方案背景色必须等于该主题的 `VelaBgTerminal`**。亮色主题此前配 Solarized Light
+(终端底 #FDF6E3)而界面底是 #FFFBEB,终端边缘一直挂着一道看得见的拼缝 —— 这次 VelaLight 改配
+**Alucard**(Dracula 官方亮色),缝消失了。`UiThemeCatalogTests` 逐主题钉住这一条。
+
+新增五套终端方案:Alucard、Everforest Dark、Obsidian、Rosé Pine Dawn、GitHub Light,外加 Gruvbox Bright
+—— 最后这套是因为原版 Gruvbox 的 normal 红(#CC241D)压在 #282828 上只有 2.7:1,报错信息比正文
+还难读;Gruvbox Bright 的常规八色取官方 bright 一档,原汁原味的 "Gruvbox Dark" 仍留在列表里。
+
+### 三、配色不是"看着顺眼"就算数
+
+`UiThemeCatalogTests` 对**每一套**主题跑:正文两档压在七种底色(含半透明选中底压在浮层上的
+观感色)上 ≥ 4.5:1;按钮文字压在强调色上 ≥ 4.5:1;状态点与语义色 ≥ 3:1;强调色淡底的 RGB 必须
+等于强调色本身;配套终端方案的前景 ≥ 4.5:1、ANSI 1–6 ≥ 3:1。
+
+这把尺子真的拦下了东西:Nord 原色红压在面板上只有 2.5:1(提亮到 #D4757F)、Rosé Pine 的
+iris 压白底只有 3.7:1(压深到 #7C5F9F)、Tokyo Night 的选中底让次要文字掉到 4.3:1(压暗一档)、
+Everforest 的选中底同样偏亮。Rosé Pine 原版**没有绿**,补了一支同调森林绿 —— 没有绿,
+`ls` 的目录与可执行位就分不开。
+
+### 四、顺手修掉的一个静默 bug
+
+`TerminalPaletteOverrides.IsEmpty` 写的是 `Ansi.Length == 0`,而数组恒为 16 个槽位 ——
+于是它**恒为 false**,"一色未改"也被当成有覆盖。叠加一份全 null 的覆盖不改变画面,所以从没露头;
+但它让"跟随主题"与"钉死配色"这两种状态在外部无从区分。改为逐槽位判空。
+
+### 五、界面与插件侧
+
+设置 → 外观 → 主题模式的下拉从写死的三个 `ComboBoxItem` 改为绑定 `AvailableThemeNames`
+(主题目录 + 末项"跟随系统"),`SetAppear_ThemeDark` / `SetAppear_ThemeLight` 两个 resx 键随之
+从五份资源里删除,说明文案改写。终端配色方案下拉的"(默认)"后缀现在跟着**当前主题的配套方案**走。
+
+插件契约里的 `IHostInfo.Theme` 与 `HostEvents.ThemeChanged` 仍然只给 `dark` / `light` / `system`
+—— 具名主题不外泄(`UiThemeCatalog.VariantName`)。插件拿到一个没见过的字符串,多半会落到自己的
+兜底分支上;而插件真正需要的信息只有明暗。隔离插件的令牌快照走 `PluginThemeTokens`,读的就是
+应用资源,自动拿到新主题的颜色,无需改动。
+
+启动读配置时先验 Id 再 `SetTheme`:用新版选过 Tokyo Night 再退回旧版,老版本不认识这个 Id,
+`SetTheme` 会抛 —— 验一下就退回默认主题,启动照常。
+
+## 26. 2026-08-31 主题命名收敛 + 「跟随主题」不再是隐式状态(用户反馈)
+
+两处,都是上一节留下的账。
+
+### 一、主题名改回各自调色板本来的名字
+
+上一批给每套主题都套了 `Vela` 前缀(VelaMidnight / VelaGlacier / …),用户反馈**没必要**:
+一套源自 Tokyo Night 的配色就叫 Tokyo Night,认得出的名字比统一的品牌前缀有用。现在只有两套
+自家配色保留品牌名 —— **VelaDark**(Dracula)与 **VelaLight**(Alucard),其余一律用血统名:
+
+| 主题(Id) | 基底 | 配套终端方案 |
+| --- | --- | --- |
+| VelaDark(`dark`,出厂默认) | 暗 | Dracula |
+| Tokyo Night(`tokyo-night`) | 暗 | Tokyo Night |
+| Nord(`nord`) | 暗 | Nord |
+| Everforest(`everforest`) | 暗 | Everforest Dark |
+| Obsidian(`obsidian`) | 暗 | Obsidian |
+| Gruvbox(`gruvbox`) | 暗 | Gruvbox Bright |
+| VelaLight(`light`) | 亮 | Alucard |
+| Rosé Pine Dawn(`rose-pine-dawn`) | 亮 | Rosé Pine Dawn |
+| GitHub Light(`github-light`) | 亮 | GitHub Light |
+
+Id 一并对齐到名字(`midnight` → `tokyo-night` 等);`dark` / `light` 仍是历史值不动。
+调过的那套 Gruvbox 终端方案改名 **Gruvbox Bright** —— 它与原版的差别就是常规八色取了官方的
+bright 一档,名字直接把这件事说出来,原版 "Gruvbox Dark" 仍在列表里。
+
+### 二、选 Dracula 没反应:「跟随主题」不能再是隐式状态
+
+用户报的:在配套方案不是 Dracula 的主题(Nord、VelaLight…)下,配色方案下拉里选 **Dracula
+毫无反应**,终端仍是主题自带的那套,选中项还会自己跳回去。
+
+根因是一处**语义重载**。老实现把「跟随主题」隐式编码成「设置里的颜色 == 出厂默认」,
+而出厂默认的色值就是 Dracula:
+
+- `ColorSchemeIndex` 的 setter 里,选中当前主题的配套方案 = 写回出厂值(= Dracula 色值);
+- `BuildPaletteOverrides` 与出厂值逐色做差,全同 ⇒ 无覆盖 ⇒ 跟随主题;
+- 于是**「用户明确选了 Dracula」与「跟随主题」写出来的设置一模一样**,分不开。
+
+在 VelaDark 上这个洞看不见(它的配套方案本来就是 Dracula,两种解释同色);具名主题一上来,
+除 VelaDark 之外的每一套都会踩到。
+
+改法是把跟随与否变成**显式**的一项:
+
+- `AppearanceOptions.TerminalColorsFollowTheme`(`bool?`)。**不给初值**:`null` 表示配置里
+  没有这一项(1.4.x 及更早),由 `TerminalColorScheme.FollowsTheme` 按老口径推断
+  (颜色 == 出厂 Dracula ⇒ 跟随)。给了初值 `true`,老用户自定义过的配色会被当成跟随态丢掉。
+- `BuildPaletteOverrides`:跟随 → 返回 null(一个槽位都不覆盖);不跟随 → **整套**下发,
+  不再与出厂值做差。用户在设置页上看到的那套颜色,就是终端要用的那套。
+- 下拉首项独立为 **「跟随主题(配套方案名)」**(`SetVm_FollowThemeScheme`,五份 resx 齐),
+  其后是全部内置方案,配套的那个仍带「(默认)」后缀标明出处。选首项 = 跟随,
+  并把配套方案的色值写进去 —— 下面那几个色块显示的就是屏幕上真正在用的颜色。
+- 跟随态下手改前景/背景/光标/选区任一色 = 用户要自己定配色,就此脱离跟随。
+  **判定不能反过来问 `FollowsTheme`**:PropertyChanged 到达时新色值已经写进去了,
+  而老配置的跟随与否恰恰是按色值推断的 —— 一改就自己翻成「不跟随」,永远看不到
+  「改之前在跟随」这个事实。直接置标志,幂等。(这一版第一次写就踩了,用例是红的。)
+- 换主题时若处于跟随态,顺带把色块重灌成新主题配套方案的颜色(载入阶段 `_suppressPreview`
+  为真,不会改动刚读进来的设置)。
+
+回归用例 `TerminalColorSchemeSelectionTests` 五条:非 Dracula 主题下选 Dracula 真的生效且不跳回、
+配套方案本身也能被钉住、选回「跟随主题」清空覆盖并显示配套色、跟随态下改单色即脱离跟随、
+老配置(无标志)按老口径判定 —— 最后一条同时钉住「没改过的老用户仍跟随」与
+「改过配色的老用户覆盖不丢」。

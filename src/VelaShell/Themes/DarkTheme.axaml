@@ -47,8 +47,8 @@
     <SolidColorBrush x:Key="VelaChartLabelBg" Color="#C0282A36" />
 
     <!-- 逻辑处理器热力网格的五级色阶:空闲 → 低 → 中 → 高 → 满。 -->
-    <SolidColorBrush x:Key="VelaHeat1" Color="#6644475A" />
-    <SolidColorBrush x:Key="VelaHeat2" Color="#666272A4" />
+    <SolidColorBrush x:Key="VelaHeat1" Color="#506272A4" />
+    <SolidColorBrush x:Key="VelaHeat2" Color="#558BE9FD" />
     <SolidColorBrush x:Key="VelaHeat3" Color="#55BD93F9" />
     <SolidColorBrush x:Key="VelaHeat4" Color="#55F1FA8C" />
     <SolidColorBrush x:Key="VelaHeat5" Color="#66FF5555" />
