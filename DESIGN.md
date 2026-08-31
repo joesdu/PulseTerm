@@ -22,22 +22,25 @@ All colors are `SolidColorBrush` resources keyed by semantic name. XAML binds vi
 
 ### 2.0 Named themes
 
-VelaShell ships **nine named themes**. A theme is not a variant switch — it is a full palette
-that replaces every `Vela*` token at runtime.
+VelaShell ships **twelve named themes** — seven dark, five light. A theme is not a variant switch —
+it is a full palette that replaces every `Vela*` token at runtime.
 
 Themes carry the name of the palette they come from — only the two house themes are Vela-branded.
 
 | Theme | Base | Paired terminal scheme |
 |---|---|---|
 | `VelaDark` (id `dark`, factory default; Dracula) | dark | `Dracula` |
+| `One Dark` (`one-dark`) | dark | `One Dark` |
 | `Tokyo Night` (`tokyo-night`) | dark | `Tokyo Night` |
 | `Nord` (`nord`) | dark | `Nord` |
 | `Everforest` (`everforest`) | dark | `Everforest Dark` |
 | `Obsidian` (`obsidian`; neutral near-black, OLED) | dark | `Obsidian` |
 | `Gruvbox` (`gruvbox`) | dark | `Gruvbox Bright` |
 | `VelaLight` (`light`; Alucard) | light | `Alucard` |
-| `Rosé Pine Dawn` (`rose-pine-dawn`) | light | `Rosé Pine Dawn` |
+| `One Light` (`one-light`) | light | `One Light` |
 | `GitHub Light` (`github-light`) | light | `GitHub Light` |
+| `Rosé Pine Dawn` (`rose-pine-dawn`) | light | `Rosé Pine Dawn` |
+| `Sakura` (`sakura`; pink) | light | `Sakura` |
 
 Plus the pseudo-theme `system`, which resolves to `VelaDark` / `VelaLight` by OS appearance.
 

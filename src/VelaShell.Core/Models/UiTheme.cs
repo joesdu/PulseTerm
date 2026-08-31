@@ -204,6 +204,19 @@ public static class UiThemeCatalog
             Info = "#83A598", Magenta = "#D3869B", FolderIcon = "#FABD2F",
             TraceLand = "#3C3836", TraceBorder = "#665C54",
         }),
+        new("one-dark", "One Dark", true, "One Dark", new UiThemePalette
+        {
+            // Atom 的 One Dark —— 编辑器暗色主题里装机量最大的一套,蓝强调、灰蓝底,
+            // 谁都认得出。底色阶梯照它自己那套:#181A1F 边框 / #21252B 侧栏 / #282C34 编辑区。
+            Accent = "#61AFEF", AccentForeground = "#0E1116",
+            BgPage = "#1B1F24", BgSidebar = "#21252B", BgTerminal = "#282C34", BgSurface = "#2F343E",
+            BgActive = "#3E4451", BgHover = "#333842", BgInput = "#282C34", BgTabInactive = "#1B1F24",
+            TextPrimary = "#D7DAE0", TextSecondary = "#ABB2BF", TextTertiary = "#7F848E", TextMuted = "#5C6370",
+            BorderPrimary = "#333842", BorderSecondary = "#3E4451",
+            Success = "#98C379", Warning = "#D19A66", Yellow = "#E5C07B", Error = "#E06C75",
+            Info = "#56B6C2", Magenta = "#C678DD", FolderIcon = "#D19A66",
+            TraceLand = "#333842", TraceBorder = "#4B5263",
+        }),
         // ——— 亮色 ———————————————————————————————————————————————————————
         new("light", "VelaLight", false, "Alucard", new UiThemePalette
         {
@@ -243,6 +256,34 @@ public static class UiThemeCatalog
             Success = "#1A7F37", Warning = "#9A6700", Yellow = "#9A6700", Error = "#CF222E",
             Info = "#1B7C83", Magenta = "#8250DF", FolderIcon = "#9A6700",
             TraceLand = "#EAEEF2", TraceBorder = "#C4CDD5",
+        }),
+        new("one-light", "One Light", false, "One Light", new UiThemePalette
+        {
+            // One Dark 的亮色孪生:同一套语法色搬到白底上,两套主题换着用不换性格。
+            // 原版的绿(#50A14F)与黄(#C18401)压在自家侧栏底上只有 2.8:1,
+            // 状态点认不出来 —— 这两支压深了一档,其余照抄。
+            Accent = "#3568D4", AccentForeground = "#FFFFFF",
+            BgPage = "#EAEAEB", BgSidebar = "#F0F0F1", BgTerminal = "#FAFAFA", BgSurface = "#FFFFFF",
+            BgActive = "#1A3568D4", BgHover = "#F0F0F1", BgInput = "#FCFCFC", BgTabInactive = "#E5E5E6",
+            TextPrimary = "#383A42", TextSecondary = "#4F525D", TextTertiary = "#71737C", TextMuted = "#A0A1A7",
+            BorderPrimary = "#E1E1E2", BorderSecondary = "#C9C9CB",
+            Success = "#3F8B3E", Warning = "#A87300", Yellow = "#A87300", Error = "#E45649",
+            Info = "#0184BC", Magenta = "#A626A4", FolderIcon = "#A87300",
+            TraceLand = "#F0F0F1", TraceBorder = "#C9C9CB",
+        }),
+        new("sakura", "Sakura", false, "Sakura", new UiThemePalette
+        {
+            // 粉樱亮色:底是带粉调的近白,强调色取深玫瑰红。
+            // 粉色主题最容易翻车的地方是把语义色也调得又粉又淡 —— 那样一屏字全糊在一起,
+            // 而且错误与强调两种红分不开。这里错误取偏橙的深红(#D84315),与玫瑰强调拉开色相。
+            Accent = "#C2185B", AccentForeground = "#FFF5F8",
+            BgPage = "#FDEFF4", BgSidebar = "#FEF6F9", BgTerminal = "#FFFBFD", BgSurface = "#FFFBFD",
+            BgActive = "#1AC2185B", BgHover = "#FBE8EF", BgInput = "#FEF8FA", BgTabInactive = "#F7DFE8",
+            TextPrimary = "#4A2C38", TextSecondary = "#6B4152", TextTertiary = "#8B6172", TextMuted = "#B08D9C",
+            BorderPrimary = "#F3D9E3", BorderSecondary = "#E3BECC",
+            Success = "#2E7D32", Warning = "#B26A00", Yellow = "#B26A00", Error = "#D84315",
+            Info = "#0277BD", Magenta = "#8E24AA", FolderIcon = "#B26A00",
+            TraceLand = "#F7E7EE", TraceBorder = "#DDBFCB",
         }),
     ];
 
