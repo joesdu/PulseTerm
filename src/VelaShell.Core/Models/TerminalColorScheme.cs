@@ -25,10 +25,10 @@ public sealed record TerminalColorScheme(
     /// <summary>
     /// 内置方案;首项 Dracula 色值等同出厂默认(不产生覆盖、跟随主题)。
     /// <para>
-    /// 前九项与九套界面主题一一配对(见 <see cref="UiTheme.TerminalSchemeName" />):
-    /// 每一项的背景色都等于对应主题的 <c>VelaBgTerminal</c> —— 终端画面和它周围的界面
-    /// 是同一个平面,背景差一档就会在终端边缘看出一道拼缝。其余几项是无配对的经典方案,
-    /// 供用户单独挑选。
+    /// 其中若干项与界面主题一一配对(配对关系见 <see cref="UiTheme.TerminalSchemeName" />):
+    /// 配对项的背景色**必须**等于对应主题的 <c>VelaBgTerminal</c> —— 终端画面和它周围的界面
+    /// 是同一个平面,背景差一档就会在终端边缘看出一道拼缝(由 <c>UiThemeCatalogTests</c> 钉住)。
+    /// 其余几项是无配对的经典方案,供用户单独挑选。
     /// </para>
     /// </summary>
     public static readonly TerminalColorScheme[] BuiltIn =
@@ -83,6 +83,18 @@ public sealed record TerminalColorScheme(
             "#1F2328", "#FFFFFF", "#0969DA", "#CFE4FB",
             ["#24292F", "#CF222E", "#1A7F37", "#9A6700", "#0969DA", "#8250DF", "#1B7C83", "#6E7781"],
             ["#57606A", "#A40E26", "#116329", "#7D4E00", "#0550AE", "#6639BA", "#136061", "#8C959F"]),
+        // One Light:Atom / One Dark Pro 那一脉的亮色版。绿与黄按原版(#50A14F / #C18401)
+        // 压在自家侧栏底上只有 2.8:1,状态点认不出来,压深了一档。
+        new("One Light",
+            "#383A42", "#FAFAFA", "#3568D4", "#E5E5E6",
+            ["#383A42", "#E45649", "#3F8B3E", "#A87300", "#3568D4", "#A626A4", "#0184BC", "#A0A1A7"],
+            ["#696C77", "#D33C2E", "#2F7B2E", "#8C5F00", "#2A57B8", "#8B1F8A", "#0173A3", "#383A42"]),
+        // Sakura:粉樱亮色。底是带粉调的近白,ANSI 全部压到白底上读得出的深度 ——
+        // 粉色主题最容易翻车的地方就是把 ANSI 也调得又粉又淡,一屏字全糊在一起。
+        new("Sakura",
+            "#4A2C38", "#FFFBFD", "#C2185B", "#F7D9E5",
+            ["#4A2C38", "#D84315", "#2E7D32", "#B26A00", "#0277BD", "#C2185B", "#00796B", "#E0C4CF"],
+            ["#8B6172", "#E85D2A", "#3D9142", "#C97F14", "#1288D4", "#D81B60", "#0F8C7E", "#FFFBFD"]),
         new("Solarized Dark",
             "#839496", "#002B36", "#839496", "#073642",
             ["#073642", "#DC322F", "#859900", "#B58900", "#268BD2", "#D33682", "#2AA198", "#EEE8D5"],
