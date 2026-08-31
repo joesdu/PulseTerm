@@ -24,16 +24,24 @@
                                           不是一条更亮的带子(这一点最容易做反);
          滑块 #959595,6px 宽,滑道共 17px(左 6 右 5 的留白,即居中);
          箭头 #959595,约 6~7px 宽的实心细人字纹。
-       故本主题:滑道取比各深色面板底暗一格的 #232532,滑块/箭头取中性灰 #959595。 -->
+       故本主题:滑道取各主题正文底压暗一档的结果(VelaDark 是 #22242E),
+       滑块/箭头取中性灰 #959595。 -->
 
   <ResourceDictionary.ThemeDictionaries>
     <ResourceDictionary x:Key="Dark">
       <!-- 滑道底/滑块/箭头三支色是照着 Windows 11 深色滚动条逐像素取的(见文件头注释):
            滑道并不比正文底更亮,而是【略暗一格】—— 参考图里正文 #191919、滑道 #171717,
            差一两级,几乎只是一条"凹槽"的暗示;滑块与箭头则是中性灰 #959595。
-           这里的 #232532 相对侧栏 #252734、终端 #282A36 正好也是暗一格的关系。
-           不透明:滚动条是覆盖式的,半透明会让正文文字从滑道里透出来。 -->
-      <SolidColorBrush x:Key="VelaScrollBarTrackFill" Color="#232532" />
+           这里的 #22242E 就是终端底 #282A36 压暗 15% 的结果。
+           不透明:滚动条是覆盖式的,半透明会让正文文字从滑道里透出来。
+
+           【滑道跟主题走】滑道原先按明暗写死两个值,于是 Tokyo Night / Nord / Sakura 之类
+           具名主题的滚动条槽全顶着 Dracula / Alucard 的颜色。现在它由 ThemeTokenApplier
+           从各主题的正文底派生(压暗 15%,亮色那档 7%),这里这两行只是**编译期缺省**
+           (设计器、headless 测试、贴令牌之前的那一瞬间),值必须与展开器对 VelaDark /
+           VelaLight 算出来的一致 —— ThemeTokenApplierTests 会核对。
+           滑块与箭头是中性灰,故意不跟主题(理由见展开器里的注释),照旧写死。 -->
+      <SolidColorBrush x:Key="VelaScrollBarTrackFill" Color="#22242E" />
       <SolidColorBrush x:Key="VelaScrollBarThumbFill" Color="#959595" />
       <SolidColorBrush x:Key="VelaScrollBarThumbFillPointerOver" Color="#B9B9B9" />
       <SolidColorBrush x:Key="VelaScrollBarThumbFillPressed" Color="#D6D6D6" />
@@ -46,8 +54,8 @@
     </ResourceDictionary>
     <ResourceDictionary x:Key="Light">
       <!-- 浅色同理:滑道比正文底暗一格(Windows 浅色是白底 #FFFFFF 配 #F0F0F0 滑道),
-           滑块/箭头是中性灰。 -->
-      <SolidColorBrush x:Key="VelaScrollBarTrackFill" Color="#EDE7D0" />
+           滑块/箭头是中性灰。滑道同样只是编译期缺省,运行时由展开器按主题派生。 -->
+      <SolidColorBrush x:Key="VelaScrollBarTrackFill" Color="#EDE9DB" />
       <SolidColorBrush x:Key="VelaScrollBarThumbFill" Color="#8C8C8C" />
       <SolidColorBrush x:Key="VelaScrollBarThumbFillPointerOver" Color="#6B6B6B" />
       <SolidColorBrush x:Key="VelaScrollBarThumbFillPressed" Color="#4A4A4A" />

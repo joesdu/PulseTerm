@@ -24,6 +24,10 @@
       <SolidColorBrush x:Key="VelaBgInput" Color="#282A36" />
       <SolidColorBrush x:Key="VelaTabActiveBg" Color="#282A36" />
       <SolidColorBrush x:Key="VelaTabInactiveBg" Color="#191A21" />
+      <!-- 遮罩两档:轻(点空白即关的浮层)与重(模态抽屉/对话框)。窗口铬色掺七成黑,
+           再按档位给不透明度 —— 派生规则在 ThemeTokenApplier,这里是编译期缺省。 -->
+      <SolidColorBrush x:Key="VelaScrim" Color="#9908080A" />
+      <SolidColorBrush x:Key="VelaScrimStrong" Color="#CC08080A" />
     </ResourceDictionary>
     <!-- Alucard 亮色(dracula/foot 官方亮色方案):奶油底 #FFFBEB 家族。 -->
     <ResourceDictionary x:Key="Light">
@@ -41,6 +45,10 @@
       <SolidColorBrush x:Key="VelaBgInput" Color="#F7F2DF" />
       <SolidColorBrush x:Key="VelaTabActiveBg" Color="#FFFBEB" />
       <SolidColorBrush x:Key="VelaTabInactiveBg" Color="#EBE5CC" />
+      <!-- 亮色主题的遮罩同样偏黑:铺一层浅遮罩读不出"下面那层不可点了",
+           而这正是遮罩唯一要传达的事。 -->
+      <SolidColorBrush x:Key="VelaScrim" Color="#99494741" />
+      <SolidColorBrush x:Key="VelaScrimStrong" Color="#CC494741" />
     </ResourceDictionary>
   </ResourceDictionary.ThemeDictionaries>
 </ResourceDictionary>

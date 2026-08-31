@@ -85,10 +85,132 @@ public sealed class ThemeTokenApplierTests
             Color.Parse(midnight.Palette.AccentForeground),
             ColorOf(resources, "VelaAccentForeground"));
         Color dim = ColorOf(resources, "VelaAccentDim")!.Value;
-        Color accent = Color.Parse(midnight.Palette.Accent);
+        var accent = Color.Parse(midnight.Palette.Accent);
         Assert.AreEqual((accent.R, accent.G, accent.B), (dim.R, dim.G, dim.B),
             "淡底只能改透明度,不能改色相。");
         Assert.AreNotEqual(0xFF, dim.A, "淡底必须是半透明的。");
+    }
+
+    /// <summary>
+    /// 压在实心语义色上的字必须在**每一套**主题上都达到 AA(4.5:1)。
+    /// <para>
+    /// 这条不是形式主义:危险按钮上的 <c>#FFFFFF</c> 曾经是硬编码的,而暗色主题的红是**亮**红
+    /// (VelaDark 的 #FF5555、Obsidian 的 #F87171),白字压上去只有 2.7~3.1:1 —— 那几个字
+    /// 在屏幕上是糊的。派生规则(OnSolid)优先用主题自己的近黑/近白,够不到才退纯黑/纯白。
+    /// </para>
+    /// </summary>
+    [TestMethod]
+    public void OnSolidForegrounds_MeetWcagAaOnEveryTheme()
+    {
+        (string Fill, string Foreground)[] pairs =
+        [
+            ("VelaError", "VelaErrorForeground"),
+            ("VelaWarning", "VelaWarningForeground"),
+            ("VelaStatusConnected", "VelaSuccessForeground"),
+        ];
+        var failures = new List<string>();
+        foreach (UiTheme theme in UiThemeCatalog.All)
+        {
+            var resources = new ResourceDictionary();
+            ThemeTokenApplier.Fill(resources, theme);
+            foreach ((string fill, string foreground) in pairs)
+            {
+                double ratio = Contrast(ColorOf(resources, fill)!.Value, ColorOf(resources, foreground)!.Value);
+                if (ratio < 4.5)
+                {
+                    failures.Add($"{theme.Name} {foreground} 压在 {fill} 上只有 {ratio:F2}:1");
+                }
+            }
+        }
+        Assert.IsEmpty(failures, string.Join(Environment.NewLine, failures));
+    }
+
+    /// <summary>
+    /// 遮罩必须**真的**能压暗底下的界面。
+    /// <para>
+    /// 核的是相对亮度的**跌幅**而不是对比度:暗色主题的正文底本来就接近黑,一层深色遮罩
+    /// 压上去算出来的对比度永远只有 1.x —— 但它确实把界面压暗了,而这正是模态遮罩要做的事。
+    /// 跌幅在明暗两侧都说得通:亮色主题上"铺了一层浅色什么也没发生"会被这一条抓住。
+    /// </para>
+    /// <para>按最亮的一层平面(终端底)核 —— 遮罩在那一层上最不容易起作用。</para>
+    /// </summary>
+    [TestMethod]
+    public void Scrims_ActuallyDarkenTheBrightestSurface()
+    {
+        var failures = new List<string>();
+        foreach (UiTheme theme in UiThemeCatalog.All)
+        {
+            var resources = new ResourceDictionary();
+            ThemeTokenApplier.Fill(resources, theme);
+            var under = Color.Parse(theme.Palette.BgTerminal);
+            double baseline = Luminance(under);
+            double previous = double.MaxValue;
+            foreach (string key in new[] { "VelaScrim", "VelaScrimStrong" })
+            {
+                Color scrim = ColorOf(resources, key)!.Value;
+                Assert.AreNotEqual(0xFF, scrim.A, $"{theme.Name} 的 {key} 必须是半透明的。");
+                double lit = Luminance(Over(scrim, under));
+                double drop = 1 - (lit / baseline);
+                if (drop < 0.35)
+                {
+                    failures.Add($"{theme.Name} 的 {key} 压在 {theme.Palette.BgTerminal} 上只压暗了 {drop:P0}");
+                }
+                // 重的那一档必须比轻的更暗,否则两个令牌就没有分别。
+                if (lit >= previous)
+                {
+                    failures.Add($"{theme.Name} 的 VelaScrimStrong 没有比 VelaScrim 更暗。");
+                }
+                previous = lit;
+            }
+        }
+        Assert.IsEmpty(failures, string.Join(Environment.NewLine, failures));
+    }
+
+    /// <summary>滚动条滑道要跟着主题走 —— 12 套主题不该共用两个值。</summary>
+    [TestMethod]
+    public void ScrollBarTrack_FollowsEachTheme()
+    {
+        var byTrack = new Dictionary<Color, List<string>>();
+        foreach (UiTheme theme in UiThemeCatalog.All)
+        {
+            var resources = new ResourceDictionary();
+            ThemeTokenApplier.Fill(resources, theme);
+            Color track = ColorOf(resources, "VelaScrollBarTrackFill")!.Value;
+            (byTrack.TryGetValue(track, out List<string>? names) ? names : byTrack[track] = []).Add(theme.Name);
+            // 槽必须与它所在的正文底分得开,否则未填充段看不见,滚动条变成一颗孤零零的胶囊。
+            Assert.AreNotEqual(Color.Parse(theme.Palette.BgTerminal), track,
+                $"{theme.Name} 的滚动条滑道与终端底同色。");
+        }
+        Assert.HasCount(UiThemeCatalog.All.Length, byTrack,
+            "各主题的滚动条滑道应互不相同(说明它是派生的,不是写死的两个值)。");
+    }
+
+    /// <summary>把半透明色压在不透明底色上(源覆盖合成)。</summary>
+    private static Color Over(Color top, Color bottom)
+    {
+        double a = top.A / 255.0;
+        return new(
+            0xFF,
+            (byte)Math.Round((top.R * a) + (bottom.R * (1 - a))),
+            (byte)Math.Round((top.G * a) + (bottom.G * (1 - a))),
+            (byte)Math.Round((top.B * a) + (bottom.B * (1 - a))));
+    }
+
+    private static double Contrast(Color a, Color b)
+    {
+        double la = Luminance(a);
+        double lb = Luminance(b);
+        return (Math.Max(la, lb) + 0.05) / (Math.Min(la, lb) + 0.05);
+    }
+
+    private static double Luminance(Color color)
+    {
+        static double Channel(byte value)
+        {
+            double c = value / 255.0;
+            return c <= 0.03928 ? c / 12.92 : Math.Pow((c + 0.055) / 1.055, 2.4);
+        }
+        return (0.2126 * Channel(color.R)) + (0.7152 * Channel(color.G)) + (0.0722 * Channel(color.B));
     }
 
     [TestMethod]
@@ -117,7 +239,7 @@ public sealed class ThemeTokenApplierTests
                 failures.Add($"{key}:axaml 里有,展开器没写");
                 continue;
             }
-            Color expected = Color.Parse(literal);
+            var expected = Color.Parse(literal);
             if (color != expected)
             {
                 failures.Add($"{key}:axaml={literal} 展开器={color}");
@@ -136,7 +258,7 @@ public sealed class ThemeTokenApplierTests
     {
         var tokens = new Dictionary<string, string>(StringComparer.Ordinal);
         XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
-        foreach (string file in new[] { "VelaTokens.axaml", "VelaShellTokens.axaml" })
+        foreach (string file in new[] { "VelaTokens.axaml", "VelaShellTokens.axaml", "ScrollBarThemes.axaml" })
         {
             string path = Path.Combine(AppContext.BaseDirectory, "Themes", file);
             Assert.IsTrue(File.Exists(path), $"令牌文件未复制到输出目录:{path}");

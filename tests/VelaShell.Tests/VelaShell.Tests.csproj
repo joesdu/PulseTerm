@@ -40,6 +40,11 @@
              Link="Themes\DarkTheme.axaml" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\src\VelaShell\Themes\LightTheme.axaml"
              Link="Themes\LightTheme.axaml" CopyToOutputDirectory="PreserveNewest" />
+    <!-- 滚动条的滑道色现在也由展开器按主题派生(原先按明暗写死两个 Dracula/Alucard 值,
+         于是具名主题的滚动条槽全顶着别人的颜色);这一份跟着进来,让同一条"缺省不许漂"
+         的核对也罩住它。 -->
+    <Content Include="..\..\src\VelaShell\Themes\ScrollBarThemes.axaml"
+             Link="Themes\ScrollBarThemes.axaml" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

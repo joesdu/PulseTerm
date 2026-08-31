@@ -34,6 +34,7 @@ internal sealed class PluginContext : IPluginContext, IDisposable
     public required IRemoteTunnelApi RemoteTunnel { get; init; }
     public required ICommandsApi Commands { get; init; }
     public required IHostEvents Events { get; init; }
+    public required PluginSdk.Theming.IHostThemeApi Theme { get; init; }
     public required IUiApi Ui { get; init; }
     public required ISecretsApi Secrets { get; init; }
     public required IClipboardApi Clipboard { get; init; }
@@ -47,6 +48,7 @@ internal sealed class PluginContext : IPluginContext, IDisposable
     {
         (Commands as IDisposable)?.Dispose();
         (Events as IDisposable)?.Dispose();
+        (Theme as IDisposable)?.Dispose();
         (Ui as IDisposable)?.Dispose();
         // 协议/工作台注册要在这里撤:它们握着插件实现的引用,不撤 ALC 就回收不掉,
         // 而且用户还会在连接页看到一个再也连不上的页签。

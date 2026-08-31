@@ -32,6 +32,12 @@ public class ThemeService(string initialTheme = "dark", string? initialAccent = 
     /// </summary>
     public event Action<string?>? AccentChanged;
 
+    /// <inheritdoc />
+    public event Action? EffectiveThemeChanged;
+
+    /// <inheritdoc />
+    public void NotifySystemVariantChanged() => EffectiveThemeChanged?.Invoke();
+
     /// <summary>
     /// 根据给定十六进制字符串设置强调色(经过校验与规范化),
     /// 仅当值确实变化时抛出 <see cref="AccentChanged"/>。
@@ -45,6 +51,9 @@ public class ThemeService(string initialTheme = "dark", string? initialAccent = 
         }
         AccentColor = normalized;
         AccentChanged?.Invoke(AccentColor);
+        // 次序要紧:AccentChanged 的处理器(App.ApplyAccent)刚把新强调色贴到应用资源上,
+        // 这一句之后订阅方去取色才取得到新值。
+        EffectiveThemeChanged?.Invoke();
     }
 
     /// <summary>
@@ -66,6 +75,9 @@ public class ThemeService(string initialTheme = "dark", string? initialAccent = 
         }
         CurrentTheme = normalized;
         ThemeChanged?.Invoke(CurrentTheme);
+        // 同 SetAccent:ThemeChanged 的处理器(App.ApplyThemeVariant)已把整套令牌换好,
+        // 这一句之后订阅方取到的才是新主题的颜色。
+        EffectiveThemeChanged?.Invoke();
     }
 
     /// <summary>

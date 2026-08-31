@@ -48,38 +48,50 @@ internal sealed class PluginCapabilityRouter : IDisposable
         context.Events.SessionDisconnected += session =>
             _ = rpc.NotifyAsync(PluginRpc.HostEvent, new HostEventNotification("sessionDisconnected", session, null));
         context.Events.ThemeChanged += theme =>
-        {
             _ = rpc.NotifyAsync(PluginRpc.HostEvent, new HostEventNotification("themeChanged", null, theme));
-            // 主题切换重推令牌快照。稍等一拍:宿主应用新明暗变体与令牌重解析都在 UI
-            // 线程队列里,等它落定再取值,插件拿到的才是新主题的颜色。
-            _ = Task.Run(async () =>
-            {
-                await Task.Delay(100).ConfigureAwait(false);
-                await PushThemeTokensAsync().ConfigureAwait(false);
-            });
-        };
+        // 令牌快照跟的是**生效配色**而不是 themeChanged。三条理由,每条都对应一个真实的漏推:
+        //   · 换具名主题时 themeChanged 的参数不变(VelaDark→Tokyo Night 都报 "dark"),
+        //     它作为信号还在,但插件侧没法拿参数判断;
+        //   · "跟随系统"下系统明暗翻转根本不经过 themeChanged —— 主题 id 一直是 "system";
+        //   · 用户改强调色同样不经过它。
+        // 后两种情况下隔离插件原本会一直停在上一套配色上。IHostThemeApi.Changed 是三者的并集,
+        // 而且它在触发前已经把新快照采好了 —— 从前那个"等 100ms 让 UI 线程落定"的权宜也就
+        // 不需要了(HostThemeSource 采集时自己会跳 UI 线程,天然排在贴令牌之后)。
+        context.Theme.Changed += info => { _ = PushThemeTokensAsync(); };
         context.Events.LocaleChanged += locale =>
             _ = rpc.NotifyAsync(PluginRpc.HostEvent, new HostEventNotification("localeChanged", null, locale));
     }
 
-    /// <summary>下发主题令牌快照(尽力而为:无提供者或采集失败则跳过)。</summary>
+    /// <summary>
+    /// 下发主题状态(整套令牌 + 主题身份)。
+    /// <para>
+    /// 身份**总是**发,即使宿主没有令牌提供者(headless):隔离插件的
+    /// <see cref="PluginSdk.Theming.IHostThemeApi.Current" /> 靠它更新,没有令牌不等于没有主题。
+    /// 令牌采集失败时只是发一份空表,插件侧会保留上一份颜色。
+    /// </para>
+    /// </summary>
     public async Task PushThemeTokensAsync()
     {
-        if (_themeTokens is null)
+        ThemeTokenDto[] tokens = [];
+        if (_themeTokens is not null)
         {
-            return;
+            try
+            {
+                tokens = [.. await _themeTokens().ConfigureAwait(false)];
+            }
+            catch (Exception ex)
+            {
+                _context.Log.Warn($"Theme token collection failed: {ex.Message}");
+            }
         }
         try
         {
-            IReadOnlyList<ThemeTokenDto> tokens = await _themeTokens().ConfigureAwait(false);
-            if (tokens.Count > 0)
-            {
-                await _rpc.NotifyAsync(PluginRpc.ThemeTokens, new ThemeTokensNotification([.. tokens])).ConfigureAwait(false);
-            }
+            await _rpc.NotifyAsync(PluginRpc.ThemeTokens,
+                new ThemeTokensNotification(tokens, _context.Theme.Current)).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            _context.Log.Warn($"Theme token push failed: {ex.Message}");
+            _context.Log.Warn($"Theme state push failed: {ex.Message}");
         }
     }
 
@@ -457,7 +469,10 @@ internal sealed class PluginCapabilityRouter : IDisposable
         _handshakeDone = true;
         _handshake.TrySetResult();
         return new(VelaPluginApi.Level, _hostVersion, _context.Host.Locale, _context.Host.Theme,
-            SupportsEmbedding: _embedHost is { IsSupported: true });
+            SupportsEmbedding: _embedHost is { IsSupported: true },
+            // 主题身份握手就给:插件在 Activate 里建界面时就要知道自己长在哪套主题上,
+            // 等第一条 theme/tokens 通知就晚了。
+            ThemeInfo: _context.Theme.Current);
     }
 
     /// <summary>取已打开的 measurement 句柄;插件必须先 <see cref="PluginRpc.TimeSeriesOpen" />。</summary>
