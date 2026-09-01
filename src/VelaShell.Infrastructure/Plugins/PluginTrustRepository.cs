@@ -9,7 +9,11 @@ public sealed class PluginTrustState
 {
     /// <summary>持久化结构版本。</summary>
     public int SchemaVersion { get; set; } = 1;
-    /// <summary>是否已经为升级前存在的插件目录建立过一次基线。</summary>
+    /// <summary>
+    /// 老版本用来记"是否已经为升级前存在的插件目录一次性建立过基线"。
+    /// 现在收养是按目录随用随做的(见 PluginManager 的 VerifyOrAdoptInstallReceiptAsync),
+    /// 这个字段不再被读;字段本身留着,免得旧状态反序列化时凭空多出一次格式变更。
+    /// </summary>
     public bool LegacyInstallMigrationCompleted { get; set; }
     /// <summary>用户明确信任的发布者。</summary>
     public List<TrustedPluginPublisher> Publishers { get; set; } = [];
