@@ -16,8 +16,7 @@ namespace VelaShell.PluginHost;
 internal sealed class RemoteHostTheme(IPluginLogger log, HostThemeInfo initial) : IHostThemeApi
 {
     private volatile HostThemeInfo _current = initial;
-    private volatile IReadOnlyDictionary<string, string> _colors =
-        new Dictionary<string, string>(StringComparer.Ordinal);
+    private volatile Dictionary<string, string> _colors = [with(StringComparer.Ordinal)];
 
     /// <inheritdoc />
     public HostThemeInfo Current => _current;
