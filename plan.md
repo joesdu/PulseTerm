@@ -802,3 +802,48 @@ bright 一档,名字直接把这件事说出来,原版 "Gruvbox Dark" 仍在列�
 
 `ThemeTokenShadowingUiTests.ApplyingATheme_NotifiesTheTreeAConstantNumberOfTimes` 数的是**通知次数**
 (≤ 4)而不是耗时 —— 耗时断言在 CI 上必然抖,而次数一旦回到逐个写就会线性涨到六十多,一测就红。
+
+## 29. 2026-09-01 命令行装的插件被判「收据缺失」(用户反馈)
+
+`vela-plugin install velashell.redis` 一路正常(下载、摘要、验签、兼容性都过,末尾打印
+`signature Valid`),重启后插件管理页却把它标成**无效**:
+
+> Protected installation receipt is missing. Reinstall this plugin through the plugin manager.
+
+### 一、错在宿主,不在命令行
+
+安装收据落在宿主进程的信任库里(SonnetDB + `ISecretProtector` 认证加密),命令行够不着 ——
+这一点 CLI 手册、dev-guide、publishing 三处都写明了,而且都写的是「代价仅仅是没有事后防篡改」。
+但 `PluginManager` 把「没有收据」实现成了**拒绝装载**,收养只在升级后第一次启动做一轮
+(`LegacyInstallMigrationCompleted`)。于是那一轮之后新出现的目录永远拿不到基线:
+命令行装的、以及 dev-guide 里「方式三:直接放目录」,全部卡在这条错误上。
+
+### 二、收养改成随用随做
+
+`PluginManager.ValidateInstallReceipt` → `VerifyOrAdoptInstallReceiptAsync`,两种收据给出的保证
+第一次被明确区分:
+
+| 收据来源 | 内容变了怎么办 |
+| --- | --- |
+| 管理页安装(`LegacyAdopted == false`) | 宿主在解包后亲手落的,确实等于「目录出自那个包」;变了一律拒装载 |
+| 旁装(命令行 / 直接放目录) | 第一次见到时记的 TOFU 基线;变了(多半是 `vela-plugin update`)重记一遍 + 一条日志 |
+
+基线写不进信任库时**不放行** —— 否则每次启动都要重新收养一遍,这份保护等于不存在。
+
+### 三、顺手清掉孤儿收据
+
+`vela-plugin uninstall` 只删目录,够不着信任库。留着那份收据,同一个 id 下次装回来时内容必然
+与旧收据对不上,插件会以「文件被改过」被拒,而用户什么都没改过。启动加载信任状态时,
+把目录已经不存在的收据清掉(`PruneReceiptsWithoutDirectory`)。
+
+### 四、代价说清楚
+
+安全上没有让步:值钱的是第一种收据,一个字没动。旁装目录先于宿主存在,没有任何东西能证明它
+出自哪个包,拒绝它挡不住「能往插件目录写文件的进程」(那种进程本就以用户身份在跑),
+却会把文档写明支持的两条安装路径全堵死。**但同一个插件别把两条路混着用**:用命令行覆盖一个
+经管理页装的插件,宿主只会看到内容变了,仍会标 Invalid —— 先在管理页卸载再装即可。
+
+测试:`PluginInstallUninstallTests` 新增/改写三条(直接放进去的目录被收养并激活、旁装内容变了
+重记基线不标红、目录被外部删掉后收据清掉且同 id 能重装),原有两条防篡改用例保持通过;
+`TestCategory=Plugins` 127 条全绿。文档已在 velashell-docs 同步(`{zh,en}/cli/cli.md`、
+`{zh,en}/templates/dev-guide.md`、`{zh,en}/plugins/STATUS.md`)。

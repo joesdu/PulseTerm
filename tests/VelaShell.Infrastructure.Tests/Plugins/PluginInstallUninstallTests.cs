@@ -325,12 +325,14 @@ public class PluginInstallUninstallTests
     }
 
     [TestMethod]
-    public async Task Restart_DirectlyDroppedPlugin_IsRejectedWhenReceiptIsMissing()
+    public async Task Restart_DirectlyDroppedPlugin_IsAdoptedAsItsOwnBaseline()
     {
+        // 命令行 vela-plugin install 与"直接把目录放进插件根"落到的都是这条路径:
+        // 目录先于宿主存在,没有受保护收据。文档写明这两条路都能装,宿主必须收养它而不是拒绝。
         using var engine = new SonnetDbEngine(Path.Combine(_dataRoot, "direct-drop-db"));
         var repository = new PluginTrustRepository(engine, new TestSecretProtector());
         PluginManager firstRun = CreateManager(repository);
-        await firstRun.StartAsync(); // 完成一次空目录迁移；此后不再自动收养新目录。
+        await firstRun.StartAsync(); // 先建一次空的信任状态。
         await firstRun.DisposeAsync();
 
         const string id = "acme.direct-drop";
@@ -339,8 +341,73 @@ public class PluginInstallUninstallTests
         await restarted.StartAsync();
 
         PluginDescriptor descriptor = Assert.ContainsSingle(plugin => plugin.Id == id, restarted.Plugins);
-        Assert.AreEqual(PluginState.Invalid, descriptor.State);
-        Assert.Contains("receipt is missing", descriptor.Error);
+        Assert.AreEqual(PluginState.Active, descriptor.State, descriptor.Error);
+        await restarted.DisposeAsync();
+
+        // 收养必须真的落进了信任库:下一次启动不该再收养一遍。
+        PluginTrustState state = await repository.LoadAsync();
+        InstalledPluginReceipt receipt = state.Receipts[id];
+        Assert.IsTrue(receipt.LegacyAdopted, "旁装目录建立的是 TOFU 基线,不是管理页那份收据。");
+        Assert.IsNull(receipt.PackageSha256, "没有包可以证明它出自哪儿,不该伪造一个包摘要。");
+    }
+
+    [TestMethod]
+    public async Task Restart_SideLoadedPluginChangedOnDisk_IsRebaselinedNotRejected()
+    {
+        // 旁装换来的代价就是没有事后防篡改(CLI 手册明写)。这里的内容变化通常是
+        // `vela-plugin update` 换了版本 —— 把它判成"被人动过"会让更新完的插件全变红。
+        using var engine = new SonnetDbEngine(Path.Combine(_dataRoot, "sideload-update-db"));
+        var repository = new PluginTrustRepository(engine, new TestSecretProtector());
+        const string id = "acme.sideload-update";
+        Directory.Move(StagePlugin(id), Path.Combine(_userRoot, id));
+
+        PluginManager first = CreateManager(repository);
+        await first.StartAsync();
+        Assert.AreEqual(PluginState.Active, first.Plugins.Single(p => p.Id == id).State);
+        await first.DisposeAsync();
+
+        await File.AppendAllTextAsync(Path.Combine(_userRoot, id, "extra.txt"), "updated");
+        PluginManager restarted = CreateManager(repository);
+        await restarted.StartAsync();
+
+        PluginDescriptor descriptor = restarted.Plugins.Single(p => p.Id == id);
+        Assert.AreEqual(PluginState.Active, descriptor.State, descriptor.Error);
+        await restarted.DisposeAsync();
+    }
+
+    [TestMethod]
+    public async Task Restart_ReceiptWithoutDirectory_IsDroppedSoTheIdCanBeInstalledAgain()
+    {
+        // vela-plugin uninstall 只删目录,够不着宿主进程里的信任库。留着那份孤儿收据,
+        // 同一个 id 再装回来时内容必然与旧收据对不上,插件会以"文件被改过"被拒。
+        using var engine = new SonnetDbEngine(Path.Combine(_dataRoot, "orphan-receipt-db"));
+        var repository = new PluginTrustRepository(engine, new TestSecretProtector());
+        const string id = "acme.reinstalled";
+        // 懒激活:入口 dll 始终没被装载,测试才能像命令行那样把目录整个删掉。
+        const string lazy = """, "activationEvents": ["onWorkspace:acme.reinstalled.ws"], "contributes": { "workspaces": [ { "id": "acme.reinstalled.ws", "displayName": "WS", "defaultPort": 6379 } ] }""";
+
+        PluginManager manager = CreateManager(repository);
+        await manager.StartAsync();
+        await manager.InstallFromVpxAsync(BuildVpx(id, lazy), allowUntrustedPackage: true);
+        await manager.DisposeAsync();
+
+        // 宿主之外把目录删掉 —— 命令行 uninstall 就是这个形状,它够不着信任库。
+        Directory.Delete(Path.Combine(_userRoot, id), recursive: true);
+        PluginManager afterUninstall = CreateManager(repository);
+        await afterUninstall.StartAsync();
+        await afterUninstall.DisposeAsync();
+        Assert.IsFalse((await repository.LoadAsync()).Receipts.ContainsKey(id), "目录没了,收据该跟着清掉。");
+
+        // 同一个 id 再装回来(内容与上一次不同)时必须能正常装载。
+        string replacement = StagePlugin(id, lazy);
+        await File.WriteAllTextAsync(Path.Combine(replacement, "extra.txt"), "second install");
+        Directory.Move(replacement, Path.Combine(_userRoot, id));
+
+        PluginManager restarted = CreateManager(repository);
+        await restarted.StartAsync();
+
+        PluginDescriptor descriptor = restarted.Plugins.Single(p => p.Id == id);
+        Assert.AreEqual(PluginState.Discovered, descriptor.State, descriptor.Error);
         await restarted.DisposeAsync();
     }
 

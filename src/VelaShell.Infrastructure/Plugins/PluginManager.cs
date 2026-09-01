@@ -587,10 +587,8 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
                         _trustedPackageKeys.Add(publisher.PublicKey);
                     }
                 }
-                if (!_trustState.LegacyInstallMigrationCompleted)
+                if (PruneReceiptsWithoutDirectory(_trustState))
                 {
-                    AdoptExistingUserPlugins(_trustState);
-                    _trustState.LegacyInstallMigrationCompleted = true;
                     await options.TrustRepository.SaveAsync(_trustState, cancellationToken).ConfigureAwait(false);
                 }
                 _trustInitialized = true;
@@ -617,30 +615,27 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         }
     }
 
-    private void AdoptExistingUserPlugins(PluginTrustState state)
+    /// <summary>
+    /// 丢掉目录已经不在了的收据。返回是否真的改动过状态。
+    /// <para>
+    /// 卸载有两条路:管理页那条会顺手删收据,命令行 <c>vela-plugin uninstall</c> 只删目录 ——
+    /// 它够不着宿主进程里的信任库。留着那份孤儿收据的后果是:同一个 id 下次再装回来时,
+    /// 内容哈希必然与旧收据对不上,插件会以"文件被改过"被拒,而用户什么都没改过。
+    /// 目录都不在了,收据保护的东西也就不在了,启动时清掉是安全的。
+    /// </para>
+    /// </summary>
+    private bool PruneReceiptsWithoutDirectory(PluginTrustState state)
     {
         if (options.UserPluginRoot is not { } root || !Directory.Exists(root))
         {
-            return;
+            return false;
         }
-        foreach (string directory in Directory.EnumerateDirectories(root))
+        string[] orphans = [.. state.Receipts.Keys.Where(id => !Directory.Exists(Path.Combine(root, id)))];
+        foreach (string id in orphans)
         {
-            string manifestPath = Path.Combine(directory, PluginManifestReader.FileName);
-            if (!File.Exists(manifestPath))
-            {
-                continue;
-            }
-            try
-            {
-                PluginManifest manifest = PluginManifestReader.Load(manifestPath);
-                state.Receipts[manifest.Id] = new(manifest.Id, ComputePluginContentSha256(directory), null, null,
-                    LegacyAdopted: true, DateTimeOffset.UtcNow);
-            }
-            catch (PluginManifestException)
-            {
-                // 原本就无效的遗留目录不建立可信基线，发现阶段仍会给出清单错误。
-            }
+            state.Receipts.Remove(id);
         }
+        return orphans.Length > 0;
     }
 
     private async Task SaveInstallReceiptAsync(
@@ -1188,10 +1183,10 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
             {
                 // 校验读的是信任仓储里的凭据,仓储没初始化就无从比对。
                 await EnsureTrustInitializedAsync(_shutdown.Token).ConfigureAwait(false);
-                bool ok = ValidateInstallReceipt(runtime.Descriptor.Id, runtime.Descriptor.Directory,
-                    out string? error);
+                string? error = await VerifyOrAdoptInstallReceiptAsync(
+                    runtime.Descriptor.Id, runtime.Descriptor.Directory).ConfigureAwait(false);
                 runtime.ContentRead = true; // 刚把整个目录读了一遍 —— 预热不必再来一次。
-                return ok ? null : error;
+                return error;
             });
         }
     }
@@ -1637,38 +1632,98 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
     private bool IsUserPluginDirectory(string directory) =>
         options.UserPluginRoot is { } root && IsUnder(directory, root);
 
-    private bool ValidateInstallReceipt(string pluginId, string directory, out string? error)
+    /// <summary>
+    /// 比对插件目录内容与安装收据;没有收据的旁装目录在这里被**收养**成基线。
+    /// 通过返回 <see langword="null" />,否则返回面向用户的拒绝原因。
+    /// <para>
+    /// 收据分两种,给出的保证也不同:
+    /// </para>
+    /// <list type="bullet">
+    /// <item>
+    /// 管理页装的(<c>LegacyAdopted == false</c>):收据是宿主亲手在解包之后立刻落下的,
+    /// 它确实等于"这个目录出自那个包"。此后内容变了就是被别的程序动过,一律拒装载。
+    /// </item>
+    /// <item>
+    /// 旁装的(命令行 <c>vela-plugin install</c>,或者直接把目录放进插件根):
+    /// 宿主第一次看见它时目录已经在那儿了,没有任何东西能证明它出自哪个包 ——
+    /// 此时建立的基线只是"我第一次见到它时长这样",TOFU 而已。
+    /// 这类收据不作为拒装载的依据(命令行手册写明旁装换来的代价就是没有事后防篡改),
+    /// 内容变了就重新记一遍并留一条日志。
+    /// </item>
+    /// </list>
+    /// <para>
+    /// 之所以要收养而不是直接拒绝:装载前的把关(签名、清单、apiLevel、容器摘要)命令行一条不少,
+    /// 拒绝旁装目录并不能挡住"能往插件目录写文件的进程"—— 那种进程本来就以用户身份在跑 ——
+    /// 却会把文档里写明支持的两条安装路径全部堵死。真正值钱的是第一种收据,它没有被削弱。
+    /// </para>
+    /// </summary>
+    private async Task<string?> VerifyOrAdoptInstallReceiptAsync(string pluginId, string directory)
     {
         if (_trustLoadError is not null)
         {
-            error = $"Plugin trust store is unavailable; refusing to load user plugin ({_trustLoadError}).";
-            return false;
+            return $"Plugin trust store is unavailable; refusing to load user plugin ({_trustLoadError}).";
         }
-        InstalledPluginReceipt? receipt = null;
-        _trustState?.Receipts.TryGetValue(pluginId, out receipt);
-        if (receipt is null)
+        if (options.TrustRepository is null || _trustState is null)
         {
-            error = "Protected installation receipt is missing. Reinstall this plugin through the plugin manager.";
-            return false;
+            return "Plugin trust store is unavailable; refusing to load user plugin.";
         }
+        string actual;
         try
         {
-            string actual = ComputePluginContentSha256(directory);
-            if (!CryptographicOperations.FixedTimeEquals(
-                    Encoding.ASCII.GetBytes(actual), Encoding.ASCII.GetBytes(receipt.ContentSha256)))
-            {
-                error = "Installed plugin files changed after installation. Reinstall the original package.";
-                return false;
-            }
+            actual = ComputePluginContentSha256(directory);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
         {
-            error = $"Installed plugin files could not be verified: {ex.Message}";
-            return false;
+            return $"Installed plugin files could not be verified: {ex.Message}";
         }
-        error = null;
-        return true;
+
+        // 读与写都在同一把锁里:写收据的那几条路径(装、卸、这里)会就地改同一个字典。
+        await _trustStateGate.WaitAsync(_shutdown.Token).ConfigureAwait(false);
+        try
+        {
+            InstalledPluginReceipt? receipt = _trustState.Receipts.GetValueOrDefault(pluginId);
+            if (receipt is not null && ContentMatches(actual, receipt.ContentSha256))
+            {
+                return null;
+            }
+            if (receipt is { LegacyAdopted: false })
+            {
+                return "Installed plugin files changed after installation. Reinstall the original package "
+                       + "from the plugin manager.";
+            }
+            _trustState.Receipts[pluginId] = new(pluginId, actual, null, null,
+                LegacyAdopted: true, DateTimeOffset.UtcNow);
+            try
+            {
+                await options.TrustRepository.SaveAsync(_trustState, _shutdown.Token).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                if (receipt is null)
+                {
+                    _trustState.Receipts.Remove(pluginId);
+                }
+                else
+                {
+                    _trustState.Receipts[pluginId] = receipt;
+                }
+                // 记不下基线就不放行:否则每次启动都要重新收养,等于这份保护根本不存在。
+                return $"Installation baseline for this plugin could not be recorded: {ex.Message}";
+            }
+            Log(receipt is null
+                ? $"Adopted side-loaded plugin '{pluginId}' as its own installation baseline "
+                  + "(installed outside the plugin manager; no post-install tamper detection)."
+                : $"Side-loaded plugin '{pluginId}' changed on disk; installation baseline re-recorded.");
+            return null;
+        }
+        finally
+        {
+            _trustStateGate.Release();
+        }
     }
+
+    private static bool ContentMatches(string actual, string expected) =>
+        CryptographicOperations.FixedTimeEquals(Encoding.ASCII.GetBytes(actual), Encoding.ASCII.GetBytes(expected));
 
     /// <summary>宿主版本是否低于要求(数字段比较,忽略预发布后缀;不可解析时不拦)。</summary>
     private bool IsHostOlderThan(string minHostVersion) => IsOlder(options.HostVersion, minHostVersion);
