@@ -90,6 +90,14 @@ public class App : Application
             .AddSingleton(sp => new Infrastructure.Plugins.PluginPermissionGate(
                 sp.GetService<IAppDataStore>(),
                 sp.GetService<Infrastructure.Plugins.IPluginPermissionPrompt>()))
+            // 插件「按已保存配置开一条会话」能力:授权闸 → 宿主既有连接流程 → 一个真实的标签页。
+            // 没有它,插件只能操作用户此刻已经连着的机器 —— 值班的人昨晚关了那个标签页,
+            // IM 桥接就只能回一句"你先去连一台"。
+            .AddSingleton<Infrastructure.Plugins.IPluginSessionOpener>(sp =>
+                new Services.Plugins.HostSessionOpener(
+                    () => sp.GetService<MainWindowViewModel>(),
+                    sp.GetRequiredService<Core.Ssh.ISshConnectionService>(),
+                    sp.GetRequiredService<Infrastructure.Plugins.PluginPermissionGate>()))
             // 插件终端能力:读取/搜索终端缓冲 + 授权回写(经主窗口视图模型解析会话仿真器)。
             .AddSingleton<Func<string, IPluginLogger, PluginSdk.Terminal.ITerminalApi>>(sp =>
                 (pluginId, log) => new Services.Plugins.HostTerminal(pluginId, log,

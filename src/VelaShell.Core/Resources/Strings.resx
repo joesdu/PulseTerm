@@ -3745,6 +3745,8 @@ Overwrite it?</value>
   <data name="PluginPerm_AllowSession"><value>Allow this session</value></data>
   <data name="PluginPerm_AllowAlways"><value>Always allow</value></data>
   <data name="PluginPerm_Deny"><value>Deny</value></data>
+  <data name="PluginPermSession_Title"><value>Connection request</value></data>
+  <data name="PluginPermSession_Message"><value>Plugin "{0}" wants to open a connection to {1}. Its stated reason:</value></data>
   <data name="PluginManager_Install"><value>Install .vpx…</value></data>
   <data name="PluginManager_Uninstall"><value>Uninstall</value></data>
   <data name="PluginManager_Reload"><value>Reload</value></data>

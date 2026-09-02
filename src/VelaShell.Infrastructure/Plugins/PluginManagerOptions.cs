@@ -95,6 +95,18 @@ public sealed class PluginManagerOptions
     /// <summary>SSH 连接服务(会话/远程执行能力与会话事件的来源)。</summary>
     public ISshConnectionService? Connections { get; init; }
 
+    /// <summary>
+    /// 已保存连接配置的仓储(<c>ISessionsApi.ListSavedAsync</c> 与
+    /// <c>OpenAsync</c> 的 id 解析)。缺席时已保存列表为空、开会话一律报"找不到这条配置"。
+    /// </summary>
+    public Core.Data.ISessionRepository? SessionProfiles { get; init; }
+
+    /// <summary>
+    /// 「按已保存配置开一条会话」的实现(由 UI 层提供:确认框 + 凭据弹窗 + 开标签页)。
+    /// 缺席时 <c>ISessionsApi.OpenAsync</c> 一律拒绝 —— 没人可问不等于可以自己放行。
+    /// </summary>
+    public IPluginSessionOpener? SessionOpener { get; init; }
+
     /// <summary>SFTP 服务(远程文件能力的来源)。</summary>
     public ISftpService? Sftp { get; init; }
 

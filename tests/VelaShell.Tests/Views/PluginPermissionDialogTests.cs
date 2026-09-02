@@ -28,14 +28,18 @@ public sealed class PluginPermissionDialogTests
             // 私有的带参构造会给 TitleText/MessageText/… 赋文本;字段没被 XAML 填充就 NRE。
             ConstructorInfo ctor = typeof(PluginPermissionDialog).GetConstructor(
                 BindingFlags.NonPublic | BindingFlags.Instance, null,
-                [typeof(string), typeof(string), typeof(string)], null)!;
-            object dialog = ctor.Invoke(["acme.plugin", "prod-1", "echo hi"]);
+                [typeof(string), typeof(string), typeof(string), typeof(string)], null)!;
+            object dialog = ctor.Invoke(["Terminal write request", "acme.plugin → prod-1", "echo hi", "Icon.terminal"]);
 
             // 命名控件应已由编译器生成的填充逻辑绑定(非 null),且带上了文案。
             var title = (TextBlock)typeof(PluginPermissionDialog)
                 .GetField("TitleText", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(dialog)!;
             Assert.IsNotNull(title);
             Assert.IsFalse(string.IsNullOrEmpty(title.Text));
+
+            // 开会话那一版换的是图标 —— 它也是个 x:Name 控件,同样会因填充缺失而 NRE。
+            Assert.IsNotNull(typeof(PluginPermissionDialog)
+                .GetField("HeaderIcon", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(dialog));
 
             ((Window)dialog).Close();
         }, CancellationToken.None).GetAwaiter().GetResult();

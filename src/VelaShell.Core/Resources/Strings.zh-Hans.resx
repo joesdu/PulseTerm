@@ -3919,6 +3919,12 @@ Windows 填 exe 完整路径或命令名(如 notepad);Linux 填命令名(如 ged
   <data name="PluginPerm_Deny" xml:space="preserve">
     <value>拒绝</value>
   </data>
+  <data name="PluginPermSession_Title" xml:space="preserve">
+    <value>连接请求</value>
+  </data>
+  <data name="PluginPermSession_Message" xml:space="preserve">
+    <value>插件“{0}”请求连接 {1}。它给出的理由:</value>
+  </data>
   <data name="PluginManager_Install" xml:space="preserve">
     <value>安装 .vpx…</value>
   </data>

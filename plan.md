@@ -1050,6 +1050,9 @@ Ollama 走它的 OpenAI 兼容层。回应认三种形状:`{"data":[…]}`、裸
 操作"用户已经连上的机器";没有连上的,只能回一句让人去 VelaShell 里连。要让它自己按保存的
 配置连一台,得给 SDK 加契约(按 AGENTS.md 走 velashell-plugin-sdk 的发版流程)。
 
+> **已解(宿主侧,2026-09-03)**:SDK 2.0.2 补上了 `ListSavedAsync` / `OpenAsync` / `CloseAsync`,
+> 宿主实现见第 35 节。AI 插件的 `AgentToolbox` 尚未接上,所以本节描述的现象暂时还在。
+
 ### 六、踩到的坑
 
 **`TextWrapping="Wrap"` 的多行 TextBox + 竖滚动条 Auto = 布局死循环。**外层 ScrollViewer 的
@@ -1304,3 +1307,69 @@ IM 那条改名 `BridgeApprovalTimedOut`。
 另有一条钉住"报错必须点名哪个模型"。
 
 `VelaShell.Plugin.Ai.Tests` 469 条全绿。
+
+## 35. 2026-09-03 插件能按已保存配置自己连一台机器(SDK 2.0.2 的宿主侧落地)
+
+第 33 节 §5 记的那条"已知限制"到期了:SDK 2.0.2 给 `ISessionsApi` 补上了
+`ListSavedAsync` / `OpenAsync` / `CloseAsync`,宿主这边三个 `ISessionsApi` 实现
+(`SessionsCapability`、`PluginManager.EmptySessionsApi`、PluginHost 的 `RpcSessions`)
+一起 `CS0535` —— 这不是要绕过的障碍,是该动手实现的信号。
+
+### 一、闸门全部焊在宿主这一侧
+
+"插件能自己连机器"是一次实打实的权限扩张,所以契约里的每一条约束都在
+`SessionsCapability` 里有对应的代码,而不是留给实现自觉:
+
+- **只能开已保存的配置**。参数是配置 id,不是主机名端口 —— 连哪些机器由用户先在
+  会话树里定下来。列表还刻意只报 `ConnectionType.SSH` 的那些:SFTP / FTP / 插件协议
+  开不出 `SessionInfo` 来,列出去只是发一个注定失败的 id。
+- **凭据一个字节不经过插件**。`IPluginSessionOpener` 传的是宿主自己查出来的
+  `SessionProfile`,插件那边自始至终只有一个不透明 id。
+- **宿主可以拒绝**,且拒绝与失败是两种结局:`PluginPermissionDeniedException`
+  (用户说了不,重试没有意义)vs `PluginSessionOpenException`(放行了但没连上,
+  换个时间可能就好了)。合成一个异常,插件就只能靠读消息文本去猜。
+- **`Reason` 原样进确认框**,空理由直接判成插件的编码错误 —— 一个没有理由的确认框
+  只是一个让人盲点的按钮。
+- **只关得掉自己开的**。归属账本按插件计;**复用**拿到的那条(用户自己开的标签页)
+  不进账本,`CloseAsync` 对它一律拒绝。一个能挂断别人正在用的终端的接口,不该存在。
+
+### 二、为什么走 `TryConnectProfileAsync` 而不是直接 `ConnectAsync`
+
+直接调连接服务也能连上,但连出来的是一条**用户在界面上看不见**的会话:没有标签页,
+关不掉,断了也没人知道。用户点"同意"时期待的是屏幕上多出一台机器,而不是后台多了一条
+自己无从察觉的 SSH。顺带,凭据弹窗、跳板链、主机指纹确认、连接历史与审计全都在那条路上,
+复用它等于这些一件都没漏。代价是这件事只能在 UI 层做,于是 Infrastructure 侧只留一个
+`IPluginSessionOpener`(与 `IPluginPermissionPrompt` / `ITerminalResolver` 同一体例),
+`HostSessionOpener` 在 `VelaShell` 工程里实现;headless 宿主不挂它,于是开会话一律拒绝 ——
+**没人可问不等于可以自己放行**。
+
+### 三、授权闸拆成两本账
+
+`PluginPermissionGate` 原本只管终端回写。开会话另起一本(落库另一个文档,内存另一套):
+合成一本就意味着"允许它替我敲一行命令"顺带把"允许它自己连生产机"也批了 ——
+这两件事的分量差得远,用户在确认框上点的也不是同一个"是"。管理页的"撤销"仍是一刀切,
+两本一起清。确认框复用 `PluginPermissionDialog`(换标题/图标,预览框里放理由),
+四选一不变。
+
+### 四、超时按"人要看一眼再点"给
+
+`RpcSessions.OpenAsync` 用 5 分钟而不是普通能力调用的 30 秒。按 30 秒给的话,
+用户还没抬头看见确认框,插件那边就已经把请求判死了 —— 而宿主这边的连接照开不误,
+于是留下一条谁都不认领的会话。
+
+### 五、验收
+
+`SessionsCapabilityTests`(闸门语义:未知 id / 无 opener 即拒 / 拒绝与失败分型 /
+空理由前置拒 / 理由原样透传 / 复用不再问 / 只关得掉自己开的 / 幂等 / 跨插件不许关)、
+`SessionRoutingTests`(隔离模式真管道往返:listSaved → open → close,以及**拒绝要以
+`PluginPermissionDeniedException` 的身份到达插件那一侧** —— 跨进程只剩一个错误码,
+码丢了"用户说了不"就退化成一个笼统的调用失败,插件于是换个姿势再试一次)、
+`PluginPermissionGateTests` 新增两本账互不串门与撤销一刀切。
+`dotnet build VelaShell.slnx` 无警告;Infrastructure 147 条、Core 416 条、
+Presentation 55 条、VelaShell.Tests 963 条通过。
+
+**已知遗留**:`ShortcutCatalogTests.Doc_ListsEveryCatalogEntry` 读的是
+`docs/快捷键参考.md`,而文档已在 `f0f492a` 搬去 velashell-docs —— 与本次改动无关的既存失败。
+
+**待办**:AI 插件的 `AgentToolbox` 还没长出对应的工具,所以 IM 桥接与对外 MCP
+暂时仍只操作用户已经连上的机器。宿主这一层已经备好。

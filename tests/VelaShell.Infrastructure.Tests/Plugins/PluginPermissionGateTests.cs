@@ -35,10 +35,19 @@ public class PluginPermissionGateTests
     {
         public int Calls { get; private set; }
 
+        public int SessionOpenCalls { get; private set; }
+
         public Task<PluginPermissionDecision> RequestTerminalWriteAsync(string pluginId, string sessionLabel,
             string inputPreview, CancellationToken cancellationToken)
         {
             Calls++;
+            return Task.FromResult(decision);
+        }
+
+        public Task<PluginPermissionDecision> RequestSessionOpenAsync(string pluginId, string target, string reason,
+            CancellationToken cancellationToken)
+        {
+            SessionOpenCalls++;
             return Task.FromResult(decision);
         }
     }
@@ -106,5 +115,43 @@ public class PluginPermissionGateTests
     {
         var gate = new PluginPermissionGate(new MemoryStore(), prompt: null);
         Assert.IsFalse(await gate.CheckTerminalWriteAsync("acme.p", "prod", "ls", default));
+        Assert.IsFalse(await gate.CheckSessionOpenAsync("acme.p", "prod (root@10.0.0.1:22)", "机器人要看 nginx 日志", default));
+    }
+
+    /// <summary>
+    /// 两类能力各记各的账。合成一本的话,“允许它替我敲一行命令”会顺带把
+    /// “允许它自己连生产机”也批了 —— 用户在确认框上点的从来不是同一个“是”。
+    /// </summary>
+    [TestMethod]
+    public async Task TerminalWriteGrant_DoesNotCarryOverToOpeningSessions()
+    {
+        var prompt = new ScriptedPrompt(PluginPermissionDecision.AllowAlways);
+        var gate = new PluginPermissionGate(new MemoryStore(), prompt);
+
+        Assert.IsTrue(await gate.CheckTerminalWriteAsync("acme.p", "prod", "ls", default));
+        Assert.AreEqual(0, prompt.SessionOpenCalls);
+
+        Assert.IsTrue(await gate.CheckSessionOpenAsync("acme.p", "prod (root@10.0.0.1:22)", "查磁盘", default));
+        Assert.AreEqual(1, prompt.SessionOpenCalls, "开会话是另一件事,必须另问一次");
+    }
+
+    [TestMethod]
+    public async Task SessionOpen_AllowAlways_PersistsAndIsRevokedTogether()
+    {
+        var store = new MemoryStore();
+        var prompt = new ScriptedPrompt(PluginPermissionDecision.AllowAlways);
+        var gate = new PluginPermissionGate(store, prompt);
+        Assert.IsTrue(await gate.CheckSessionOpenAsync("acme.p", "prod", "查磁盘", default));
+
+        var afterRestart = new PluginPermissionGate(store, prompt);
+        Assert.IsTrue(await afterRestart.CheckSessionOpenAsync("acme.p", "prod", "查磁盘", default));
+        Assert.AreEqual(1, prompt.SessionOpenCalls, "始终允许已持久,不再问");
+        Assert.IsTrue(await afterRestart.HasGrantAsync("acme.p"), "管理页要看得见这条授权");
+
+        // 管理页的“撤销”是一刀切:两类账本一起清,不留一半。
+        await afterRestart.RevokeAsync("acme.p");
+        Assert.IsFalse(await afterRestart.HasGrantAsync("acme.p"));
+        Assert.IsTrue(await afterRestart.CheckSessionOpenAsync("acme.p", "prod", "查磁盘", default));
+        Assert.AreEqual(2, prompt.SessionOpenCalls);
     }
 }

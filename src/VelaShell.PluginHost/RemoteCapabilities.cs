@@ -38,12 +38,39 @@ internal sealed class RpcSessions(RpcConnection rpc) : ISessionsApi
 {
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(30);
 
+    /// <summary>
+    /// 打开会话的超时。<b>不能用上面那 30 秒</b>:这一条中间夹着一个给用户看的确认框,
+    /// 后面还有真正的建连(带跳板链时更慢)。按普通能力调用的档位给,结果是用户还没抬头
+    /// 看见确认框,插件这边就已经把请求判死了 —— 而宿主那边的连接照开不误,
+    /// 于是留下一条谁都不认领的会话。所以按"人要看一眼再点"来给。
+    /// </summary>
+    private static readonly TimeSpan OpenTimeout = TimeSpan.FromMinutes(5);
+
     public async Task<IReadOnlyList<SessionInfo>> ListAsync(CancellationToken cancellationToken = default)
         => await rpc.RequestAsync<SessionInfo[]>(PluginRpc.SessionsList, null, Timeout, cancellationToken)
                .ConfigureAwait(false) ?? [];
 
     public Task<SessionInfo?> GetAsync(string sessionId, CancellationToken cancellationToken = default)
         => rpc.RequestAsync<SessionInfo?>(PluginRpc.SessionsGet, new SessionRef(sessionId), Timeout, cancellationToken);
+
+    public async Task<IReadOnlyList<SavedSessionInfo>> ListSavedAsync(CancellationToken cancellationToken = default)
+        => await rpc.RequestAsync<SavedSessionInfo[]>(PluginRpc.SessionsListSaved, null, Timeout, cancellationToken)
+               .ConfigureAwait(false) ?? [];
+
+    public async Task<SessionInfo> OpenAsync(string savedSessionId, SessionOpenOptions options,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        // 宿主的拒绝(permission-denied)与连不上(session-open-failed)在应答里各有错误码,
+        // RpcConnection 还原成对应异常抛出 —— 这里不需要也不应该把它们抹平。
+        return await rpc.RequestAsync<SessionInfo>(PluginRpc.SessionsOpen,
+                   new SessionOpenRequest(savedSessionId, options.Reason, options.ReuseConnected),
+                   OpenTimeout, cancellationToken).ConfigureAwait(false)
+               ?? throw new PluginSessionOpenException(savedSessionId, "The host returned no session.");
+    }
+
+    public Task CloseAsync(string sessionId, CancellationToken cancellationToken = default)
+        => rpc.RequestAsync<object>(PluginRpc.SessionsClose, new SessionRef(sessionId), Timeout, cancellationToken);
 }
 
 /// <summary>远程执行能力的 RPC 代理(超时随选项放宽,留 15s 往返余量)。</summary>

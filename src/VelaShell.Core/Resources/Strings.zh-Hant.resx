@@ -3919,6 +3919,12 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   <data name="PluginPerm_Deny" xml:space="preserve">
     <value>拒絕</value>
   </data>
+  <data name="PluginPermSession_Title" xml:space="preserve">
+    <value>連線請求</value>
+  </data>
+  <data name="PluginPermSession_Message" xml:space="preserve">
+    <value>外掛「{0}」請求連線 {1}。它給出的理由:</value>
+  </data>
   <data name="PluginManager_Install" xml:space="preserve">
     <value>安裝 .vpx…</value>
   </data>
