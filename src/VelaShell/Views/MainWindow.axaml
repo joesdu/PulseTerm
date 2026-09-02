@@ -37,6 +37,8 @@
     <KeyBinding Gesture="Ctrl+Shift+T" Command="{Binding RunCommand}" CommandParameter="tools.tunnel" />
     <KeyBinding Gesture="Ctrl+Shift+F" Command="{Binding RunCommand}" CommandParameter="tools.files" />
     <KeyBinding Gesture="Ctrl+Shift+L" Command="{Binding RunCommand}" CommandParameter="terminal.linegutter" />
+    <!-- Ctrl+B:折叠/展开左侧资源管理器(与 VS Code / Zed 同键位)。 -->
+    <KeyBinding Gesture="Ctrl+B" Command="{Binding ToggleSidebarCommand}" />
   </Window.KeyBindings>
 
   <!-- 无边框窗体:与本应用全部对话框同款的 WindowDecorations="None" 全自绘模式
@@ -95,10 +97,12 @@
       <!-- Sidebar -->
       <views:SidebarView x:Name="SidebarHost" Grid.Column="0" DataContext="{Binding Sidebar}" />
 
-      <!-- 侧栏拖拽条:5px 透明抓取区画成 1px 细线,使侧栏宽度可拖拽调整。 -->
-      <Border Grid.Column="1" Width="1" HorizontalAlignment="Center"
+      <!-- 侧栏拖拽条:5px 透明抓取区画成 1px 细线,使侧栏宽度可拖拽调整。
+           折叠成图标细条时整条隐藏 —— 40px 的细条没有可调的宽度,留着只会让人
+           拖出一个既不是细条也不是侧栏的中间态。 -->
+      <Border x:Name="SidebarSplitterLine" Grid.Column="1" Width="1" HorizontalAlignment="Center"
               Background="{DynamicResource VelaBorderPrimary}" />
-      <GridSplitter Grid.Column="1" Background="Transparent" ResizeDirection="Columns"
+      <GridSplitter x:Name="SidebarSplitter" Grid.Column="1" Background="Transparent" ResizeDirection="Columns"
                     HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
 
       <!-- 主区域(终端、文件浏览器)。文件行初始折叠(0),当 FileBrowser.IsVisible

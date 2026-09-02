@@ -16,6 +16,7 @@ public partial class SidebarView : UserControl
     private const double MinimumExpandedHeight = 100;
     private const double MaximumRememberedHeight = 1200;
     private SidebarViewModel? _viewModel;
+    private SessionTreeViewModel? _sessionTree;
 
     /// <summary>创建侧边栏视图并加载其可视组件。</summary>
     public SidebarView()
@@ -48,7 +49,34 @@ public partial class SidebarView : UserControl
         _viewModel?.PropertyChanged += OnViewModelPropertyChanged;
         ApplyQuickCommandsVisibility();
         ApplyRecentConnectionsState();
+        ApplyCollapsedState();
+        HookSessionTree();
     }
+
+    /// <summary>
+    /// 订阅会话树的连接事件,只为在折叠态浮层里连上之后把浮层收起来。
+    /// 会话树视图模型是宿主后建的(<c>SidebarViewModel.SessionTree</c> 可被整体替换),
+    /// 故随属性变化重新接线,并先摘掉旧的 —— 否则每换一次就多留一条订阅。
+    /// </summary>
+    private void HookSessionTree()
+    {
+        if (_sessionTree is not null)
+        {
+            _sessionTree.ConnectRequested -= OnSessionConnectRequested;
+        }
+        _sessionTree = _viewModel?.SessionTree;
+        if (_sessionTree is not null)
+        {
+            _sessionTree.ConnectRequested += OnSessionConnectRequested;
+        }
+    }
+
+    /// <summary>
+    /// 连上就收起会话浮层。折叠态图的就是别让侧栏占着宽度,连完还杵在那儿挡着终端
+    /// 就本末倒置了。展开态没有浮层,Hide 是空操作,不必分情况。
+    /// </summary>
+    private void OnSessionConnectRequested(SessionProfile profile) =>
+        RailSessionsButton.Flyout?.Hide();
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
@@ -68,6 +96,33 @@ public partial class SidebarView : UserControl
         )
         {
             ApplyRecentConnectionsState();
+        }
+        if (e.PropertyName is nameof(SidebarViewModel.IsCollapsed))
+        {
+            ApplyCollapsedState();
+        }
+        if (e.PropertyName is nameof(SidebarViewModel.SessionTree))
+        {
+            HookSessionTree();
+        }
+    }
+
+    /// <summary>
+    /// 在完整侧栏与 40px 图标细条之间切换。两副面孔互斥显示,列宽由宿主窗口
+    /// (<see cref="MainWindow" />)收放 —— 这里只管显示哪一副。
+    /// </summary>
+    private void ApplyCollapsedState()
+    {
+        bool collapsed = _viewModel?.IsCollapsed == true;
+        SidebarGrid.IsVisible = !collapsed;
+        CollapsedRail.IsVisible = collapsed;
+    }
+
+    private void ExpandSidebar_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_viewModel is not null)
+        {
+            _viewModel.IsCollapsed = false;
         }
     }
 

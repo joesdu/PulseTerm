@@ -26,6 +26,12 @@ public class AppState
 
     /// <summary>最近连接侧栏区域上次展开时的高度。</summary>
     public double SidebarRecentConnectionsHeight { get; set; } = 180;
+
+    /// <summary>
+    /// 整条左侧资源管理器是否处于折叠状态(标题栏折叠按钮 / Ctrl+B)。
+    /// 与上面两个区域内的展开状态是两码事:那两个折的是侧栏**里面**的分区,这个折的是侧栏本身。
+    /// </summary>
+    public bool SidebarCollapsed { get; set; }
 }
 
 /// <summary>窗口在屏幕上的位置坐标。</summary>

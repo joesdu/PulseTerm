@@ -96,7 +96,7 @@
           BorderBrush="{DynamicResource VelaBorderPrimary}"
           BorderThickness="0,0,0,1"
           PointerPressed="Bar_PointerPressed">
-    <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+    <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto">
 
       <!-- 左:logo + 产品名(不参与命中,拖动透传到底层 Border)。 -->
       <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8"
@@ -109,9 +109,25 @@
                    VerticalAlignment="Center" />
       </StackPanel>
 
+      <!-- 折叠资源管理器(Ctrl+B):按钮长在它控制的那片区域这一侧,一眼知道管的是左边;
+           右边那组图标全是"打开某个东西",布局开关混进去会让那一排变成杂物抽屉。
+           折叠态图标转强调色,与文件浏览器按钮同一套高亮语言。 -->
+      <Button Grid.Column="1" Theme="{StaticResource VelaTitleActionButton}"
+              ToolTip.Tip="{loc:Localize Cmd_ToggleSidebar}"
+              Command="{Binding ToggleSidebarCommand}">
+        <Panel>
+          <pc:LucideIcon Width="12" Height="12" Data="{StaticResource Icon.panel-left}"
+                         Foreground="{DynamicResource VelaTextMuted}"
+                         IsVisible="{Binding !Sidebar.IsCollapsed}" />
+          <pc:LucideIcon Width="12" Height="12" Data="{StaticResource Icon.panel-left}"
+                         Foreground="{DynamicResource VelaAccent}"
+                         IsVisible="{Binding Sidebar.IsCollapsed}" />
+        </Panel>
+      </Button>
+
       <!-- 右:全局功能图标组(与命令注册表同源;多终端同步输入已移至标签右键菜单
            “同步输入”频道,不再占用标题栏图标)。 -->
-      <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4"
+      <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="4"
                   VerticalAlignment="Center" Margin="0,0,10,0">
         <Button Theme="{StaticResource VelaTitleActionButton}"
                 ToolTip.Tip="{loc:Localize Menu_SearchTerminalTip}"
@@ -161,7 +177,7 @@
       </StackPanel>
 
       <!-- 窗口控制:最小化 / 最大化(还原) / 关闭(常规 Click,纯客户区必然可点)。 -->
-      <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Top">
+      <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Top">
         <Button Theme="{StaticResource VelaCaptionButton}" Click="Minimize_Click">
           <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.minus}"
                          Foreground="{DynamicResource VelaTextTertiary}" />

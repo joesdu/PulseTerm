@@ -96,6 +96,7 @@ public static class ShortcutCatalog
                     Item("CloseTab", [Ctrl, "W"]),
                     Item("Sc_NextTab", [Ctrl, "Tab"]),
                     Item("Sc_PrevTab", [Ctrl, Shift, "Tab"]),
+                    Item("Cmd_ToggleSidebar", [Ctrl, "B"]),
                     Item("Sc_ToggleFileBrowser", [Ctrl, Shift, "F"]),
                     Item("Cmd_TunnelManager", [Ctrl, Shift, "T"]),
                     Item("Cmd_ToggleLineGutter", [Ctrl, Shift, "L"]),

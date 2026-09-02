@@ -49,6 +49,7 @@ public partial class MainWindow : Window
     private readonly Dictionary<string, TraceRouteWindow> _traceWindows = [with(StringComparer.OrdinalIgnoreCase)];
 
     private IDisposable? _fileBrowserVisibilitySub;
+    private IDisposable? _sidebarCollapsedSub;
     private bool _forceClose;
     private bool _confirmationInProgress;
     private bool _standaloneSftpShutdownInProgress;
@@ -97,6 +98,20 @@ public partial class MainWindow : Window
     /// </summary>
     private double _lastFileRowHeight = 360;
 
+    /// <summary>折叠态侧栏的图标细条宽度(与 SidebarView 的 CollapsedRail 一致)。</summary>
+    private const double SidebarRailWidth = 40;
+
+    /// <summary>展开态侧栏的最小宽度,与 MainWindow.axaml 的 ColumnDefinition 保持一致。</summary>
+    private const double SidebarMinWidth = 180;
+
+    /// <summary>
+    /// 侧栏展开时的宽度。**必须存在字段里**:折叠后列宽是 40,此时若去设置里切换
+    /// 侧栏左右位置,ApplySidebarPosition 从列上读到的就是 40,展开回来会缩成细条。
+    /// </summary>
+    private double _lastSidebarWidth = 260;
+
+    private bool _sidebarCollapsed;
+
     private AppSettings? _settings;
 
     private ISettingsService? _settingsService;
@@ -120,7 +135,11 @@ public partial class MainWindow : Window
             sidebar.PluginsRequested += (_, _) => OpenPluginManager();
             sidebar.ImportSessionsRequested += (_, _) => _ = OpenSessionImportDialogAsync();
         }
-        DataContextChanged += (_, _) => HookFileBrowserVisibility();
+        DataContextChanged += (_, _) =>
+        {
+            HookFileBrowserVisibility();
+            HookSidebarCollapsed();
+        };
         // 主题(暗/亮)切换时,按新主题色重建背景令牌覆盖画刷。否则之前设的覆盖仍持旧主题色、
         // 一直 shadow 掉换主题后的令牌值,导致终端/SFTP/侧栏等背景停在旧色,须再动一次滑杆才同步。
         ActualThemeVariantChanged += (_, _) =>
@@ -182,6 +201,61 @@ public partial class MainWindow : Window
             fileRow.Height = new(0);
             splitterRow.Height = new(0);
         }
+    }
+
+    /// <summary>
+    /// 随 Sidebar.IsCollapsed 收放侧栏列宽。与 <see cref="HookFileBrowserVisibility" /> 同一套写法:
+    /// WhenAnyValue 跟踪 Sidebar 属性本身,侧栏视图模型整体替换时会自动重新订阅。
+    /// </summary>
+    private void HookSidebarCollapsed()
+    {
+        _sidebarCollapsedSub?.Dispose();
+        _sidebarCollapsedSub = null;
+        if (DataContext is not MainWindowViewModel vm)
+        {
+            return;
+        }
+        _sidebarCollapsedSub = vm.WhenAnyValue(x => x.Sidebar.IsCollapsed)
+            .Subscribe(collapsed => Dispatcher.UIThread.Post(() => SetSidebarCollapsed(collapsed)));
+    }
+
+    /// <summary>
+    /// 把侧栏列在「展开宽度」与「40px 图标细条」之间切换,并连带收起拖拽条 ——
+    /// 细条没有可调的宽度,留着分隔条只会让人拖出一个既不是细条也不是侧栏的中间态。
+    /// 侧栏里显示哪一副面孔由 SidebarView 自己按同一个状态位决定。
+    /// </summary>
+    private void SetSidebarCollapsed(bool collapsed)
+    {
+        if (
+            this.FindControl<SidebarView>("SidebarHost") is not { Parent: Grid contentGrid }
+            || contentGrid.ColumnDefinitions.Count < 3
+        )
+        {
+            return;
+        }
+        _sidebarCollapsed = collapsed;
+        ColumnDefinitions cols = contentGrid.ColumnDefinitions;
+        ColumnDefinition sidebarCol = cols[_sidebarOnRight ? 2 : 0];
+        if (collapsed)
+        {
+            // 记住用户拖出来的宽度,以便展开时恢复(与文件区 _lastFileRowHeight 同一处置)。
+            if (sidebarCol.Width is { IsAbsolute: true } width && width.Value >= SidebarMinWidth)
+            {
+                _lastSidebarWidth = width.Value;
+            }
+            // MinWidth 必须先归零:它是 180,不清掉的话 40 的宽度会被顶回 180。
+            sidebarCol.MinWidth = 0;
+            sidebarCol.Width = new(SidebarRailWidth);
+            cols[1].Width = new(0);
+        }
+        else
+        {
+            sidebarCol.MinWidth = SidebarMinWidth;
+            sidebarCol.Width = new(_lastSidebarWidth);
+            cols[1].Width = new(5);
+        }
+        SidebarSplitterLine.IsVisible = !collapsed;
+        SidebarSplitter.IsVisible = !collapsed;
     }
 
     private async void OnWindowOpened(object? sender, EventArgs e)
@@ -618,14 +692,15 @@ public partial class MainWindow : Window
         int sidebarCol = right ? 2 : 0;
         int mainCol = right ? 0 : 2;
 
-        // 保留用户拖出来的侧边栏宽度。
+        // 保留用户拖出来的侧边栏宽度。**只认展开态的列宽**:折叠时列宽是 40(细条),
+        // 拿它当"用户宽度"记下来,展开回去侧栏就缩成一条 40px 的残条了。
         GridLength sidebarWidth = cols[right ? 0 : 2].Width;
-        if (!sidebarWidth.IsAbsolute)
+        if (!_sidebarCollapsed && sidebarWidth is { IsAbsolute: true } dragged && dragged.Value >= SidebarMinWidth)
         {
-            sidebarWidth = new(260);
+            _lastSidebarWidth = dragged.Value;
         }
-        cols[sidebarCol].Width = sidebarWidth;
-        cols[sidebarCol].MinWidth = 180;
+        cols[sidebarCol].Width = new(_sidebarCollapsed ? SidebarRailWidth : _lastSidebarWidth);
+        cols[sidebarCol].MinWidth = _sidebarCollapsed ? 0 : SidebarMinWidth;
         cols[sidebarCol].MaxWidth = 520;
         cols[mainCol].Width = new(1, GridUnitType.Star);
         cols[mainCol].MinWidth = 400;

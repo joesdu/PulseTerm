@@ -966,6 +966,9 @@
   <data name="Cmd_SftpFileManager" xml:space="preserve">
     <value>SFTP 文件管理器</value>
   </data>
+  <data name="Cmd_ToggleSidebar" xml:space="preserve">
+    <value>折叠/展开资源管理器</value>
+  </data>
   <data name="Cmd_TunnelManager" xml:space="preserve">
     <value>隧道管理</value>
   </data>

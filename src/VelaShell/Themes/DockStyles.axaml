@@ -126,6 +126,21 @@
         <Setter Property="Opacity" Value="0.35" />
     </Style>
 
+    <!-- 裸浮层(Flyout FlyoutPresenterClasses="bare"):把 presenter 剥成纯定位容器,
+         外观全部交给内容自己那一层 Border。默认的 FlyoutPresenter 自带底色、描边、
+         内边距与圆角,套在内容已有的 Border 外面就是两层框 —— 浮层外面多一圈黑边
+         (会话浮层实测)。MinWidth 也得清:Fluent 默认给了下限,窄浮层会被撑宽。
+         【只作用于挂了 bare 类的浮层】:状态栏后台任务浮层的内容是裸 StackPanel,
+         靠的正是 presenter 这层底,全局剥掉它会变成一块没有背景的悬空文字。 -->
+    <Style Selector="FlyoutPresenter.bare">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="MinHeight" Value="0" />
+    </Style>
+
     <!-- 标签列表下拉框(以及任意 MenuFlyout):与右键菜单相同的 small-flyout 外观。 -->
     <Style Selector="MenuFlyoutPresenter">
         <Setter Property="Background" Value="{DynamicResource VelaBgSurface}" />
