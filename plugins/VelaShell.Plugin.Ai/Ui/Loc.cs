@@ -402,6 +402,211 @@ public sealed class Loc(string locale)
         ["DotPassed"] = ["Test passed", "测试通过", "測試通過", "テスト成功", "테스트 통과"],
         ["DotFailed"] = ["Test failed", "测试失败", "測試失敗", "テスト失敗", "테스트 실패"],
         // 上下文占用条的悬停说明(条只给量感,数字仍在用量提示里)
-        ["MeterTip"] = ["Share of the context window taken by the last turn.", "上一轮占掉了多大比例的上下文窗口。", "上一輪佔掉了多大比例的上下文視窗。", "直近のターンがコンテキスト長のどれだけを占めたか。", "직전 턴이 컨텍스트 창을 얼마나 차지했는지."]
+        ["MeterTip"] = ["Share of the context window taken by the last turn.", "上一轮占掉了多大比例的上下文窗口。", "上一輪佔掉了多大比例的上下文視窗。", "直近のターンがコンテキスト長のどれだけを占めたか。", "직전 턴이 컨텍스트 창을 얼마나 차지했는지."],
+
+        // ── 协作接入设置页 ──
+        ["CmdCollaboration"] = ["AI: Collaboration (chat bridge & MCP server)", "AI: 协作接入(IM 桥接与 MCP 服务端)", "AI: 協作接入(IM 橋接與 MCP 伺服器)", "AI: 連携設定(チャット連携と MCP サーバー)", "AI: 협업 연동(채팅 브리지 및 MCP 서버)"],
+        ["Collaboration"] = ["Collaboration", "协作接入", "協作接入", "連携", "협업 연동"],
+        ["SecBridge"] = ["Chat bridge", "IM 桥接", "IM 橋接", "チャット連携", "채팅 브리지"],
+        ["BridgeEnabled"] = ["Let the team talk to this assistant from a chat app", "允许团队从 IM 里指使这个助手", "允許團隊從 IM 裡指使這個助手", "チャットアプリからこのアシスタントを使えるようにする", "채팅 앱에서 이 어시스턴트를 쓸 수 있게 합니다"],
+        ["BridgeEnabledHint"] = [
+            "Runs while VelaShell is running (minimise to tray to stay online). Tools act on the SSH sessions you already have open.",
+            "只在 VelaShell 开着时在线(可最小化到托盘)。工具作用于你已经连上的那些 SSH 会话。",
+            "只在 VelaShell 開著時在線(可最小化到系統匣)。工具作用於你已經連上的那些 SSH 工作階段。",
+            "VelaShell の起動中のみ動作します(トレイに最小化で常駐)。ツールは既に接続済みの SSH セッションに作用します。",
+            "VelaShell이 실행 중일 때만 동작합니다(트레이로 최소화하면 계속 온라인). 도구는 이미 연결된 SSH 세션에 작용합니다."
+        ],
+        ["BridgeMode"] = ["Mode", "挡位", "擋位", "モード", "모드"],
+        ["BridgeApproval"] = ["Approval", "审批方式", "審批方式", "承認方式", "승인 방식"],
+        ["BridgeModeHint"] = [
+            "Plan is read-only and is the safe default for a chat room. Approvals are asked in the chat: reply y or n.",
+            "计划档只读,是聊天场景下的安全默认。审批就问在聊天里 —— 回 y 或 n。",
+            "計劃檔唯讀,是聊天場景下的安全預設。審批就問在聊天裡 —— 回 y 或 n。",
+            "計画モードは読み取り専用で、チャット用の安全な既定値です。承認はチャット内で尋ねます(y / n で返答)。",
+            "계획 모드는 읽기 전용이며 채팅에 안전한 기본값입니다. 승인은 대화에서 y 또는 n으로 답하면 됩니다."
+        ],
+        ["BridgeEscalation"] = ["Allow /mode to raise the mode from chat", "允许在聊天里用 /mode 提高挡位", "允許在聊天裡用 /mode 提高擋位", "チャットの /mode でモードを引き上げることを許可", "대화의 /mode로 모드를 올리는 것을 허용"],
+        ["BridgeEscalationHint"] = [
+            "Off by default: anyone allowed to talk could otherwise turn the read-only bridge into one that runs commands.",
+            "默认关:否则任何能说话的人都能把只读的桥接变成能敲命令的。",
+            "預設關:否則任何能說話的人都能把唯讀的橋接變成能敲命令的。",
+            "既定はオフ:許可された誰もが読み取り専用の連携をコマンド実行可能にできてしまうためです。",
+            "기본값은 꺼짐: 그렇지 않으면 대화 허용된 누구나 읽기 전용 브리지를 명령 실행형으로 바꿀 수 있습니다."
+        ],
+        ["BridgeTurnTimeout"] = ["Turn timeout (s)", "单轮超时(秒)", "單輪逾時(秒)", "1 ターンのタイムアウト(秒)", "턴 제한 시간(초)"],
+        ["BridgeApprovalTimeout"] = ["Approval timeout (s)", "审批超时(秒)", "審批逾時(秒)", "承認のタイムアウト(秒)", "승인 제한 시간(초)"],
+        ["BridgeConcurrency"] = ["Concurrent turns", "并发轮次", "並發輪次", "同時実行ターン数", "동시 실행 턴 수"],
+        ["BridgeModel"] = ["Model", "模型", "模型", "モデル", "모델"],
+        ["BridgeModelFollow"] = ["Follow the chat panel", "跟随聊天面板", "跟隨聊天面板", "チャットパネルに従う", "채팅 패널을 따름"],
+        ["BridgeModelHint"] = [
+            "Pin one so a failure names the right provider — an \"unauthorised\" from the model looks nothing like one from the chat platform, but both land in the same chat message.",
+            "指定一个,出错时才知道该查哪家的密钥 —— 模型返回的「未授权」和 IM 平台返回的「未授权」是两回事,但在群里长得一模一样。",
+            "指定一個,出錯時才知道該查哪家的密鑰 —— 模型回傳的「未授權」和 IM 平台回傳的「未授權」是兩回事,但在群裡長得一模一樣。",
+            "モデルを固定しておくと、失敗時にどの接続を確認すべきか分かります。モデル側の「未認証」とチャット基盤側の「未認証」は別物ですが、チャットには同じように出ます。",
+            "모델을 고정해 두면 실패했을 때 어느 연결을 확인해야 할지 알 수 있습니다. 모델의 \"인증 실패\"와 채팅 플랫폼의 \"인증 실패\"는 다르지만 대화에는 똑같이 표시됩니다."
+        ],
+        ["ChannelAddBotFeishu"] = [
+            "Feishu has no link for this: in the Feishu client open the group → Settings → Group bots → Add bot, and search for your app name.",
+            "飞书没有对应的链接:在飞书客户端里打开群 → 设置 → 群机器人 → 添加机器人,搜你的应用名。",
+            "飛書沒有對應的連結:在飛書用戶端裡打開群 → 設定 → 群機器人 → 新增機器人,搜你的應用名。",
+            "Feishu には該当するリンクがありません。Feishu クライアントでグループを開き、設定 → グループボット → ボットを追加 から、アプリ名で検索してください。",
+            "Feishu에는 해당 링크가 없습니다. Feishu 클라이언트에서 그룹 → 설정 → 그룹 봇 → 봇 추가로 이동해 앱 이름으로 검색하세요."
+        ],
+        ["SecChannels"] = ["Channels", "渠道", "渠道", "チャンネル", "채널"],
+        ["ChannelAdd"] = ["Add", "添加", "新增", "追加", "추가"],
+        ["ChannelRemove"] = ["Remove", "移除", "移除", "削除", "제거"],
+        ["ChannelNone"] = ["No channels yet — pick a platform above and add one.", "还没有渠道 —— 在上面选一个平台添加。", "還沒有渠道 —— 在上面選一個平台新增。", "チャンネルがありません。上でプラットフォームを選んで追加してください。", "채널이 없습니다. 위에서 플랫폼을 선택해 추가하세요."],
+        ["ChannelEnabled"] = ["Enabled", "启用", "啟用", "有効", "사용"],
+        ["ChannelName"] = ["Display name", "显示名", "顯示名", "表示名", "표시 이름"],
+        ["ChannelInternational"] = ["International edition (larksuite.com)", "国际版(larksuite.com)", "國際版(larksuite.com)", "国際版(larksuite.com)", "국제판(larksuite.com)"],
+        ["ChannelChats"] = ["Allowed chats (one id per line)", "允许的聊天(每行一个 id)", "允許的聊天(每行一個 id)", "許可するチャット(1 行に 1 つの ID)", "허용할 대화(한 줄에 ID 하나)"],
+        ["ChannelChatsHint"] = [
+            "Empty means nobody is served. Message the bot once and its reply tells you the chat id.",
+            "留空 = 谁都不理。先在群里 @ 一下机器人,它会回一句告诉你这个群的 id。",
+            "留空 = 誰都不理。先在群裡 @ 一下機器人,它會回一句告訴你這個群的 id。",
+            "空欄なら誰にも応答しません。まずボットにメッセージを送ると、返信でチャット ID がわかります。",
+            "비워 두면 아무에게도 응답하지 않습니다. 봇에게 한 번 말을 걸면 답장에 대화 ID가 표시됩니다."
+        ],
+        ["ChannelUsers"] = ["Allowed users (blank = anyone in those chats)", "允许的用户(留空 = 白名单聊天里的任何人)", "允許的使用者(留空 = 白名單聊天裡的任何人)", "許可するユーザー(空欄 = 上記チャットの全員)", "허용할 사용자(비우면 해당 대화의 모든 사람)"],
+        ["ChannelApprovers"] = ["Approvers (blank = same as allowed users)", "审批人(留空 = 与允许的用户相同)", "審批人(留空 = 與允許的使用者相同)", "承認者(空欄 = 許可ユーザーと同じ)", "승인자(비우면 허용 사용자와 동일)"],
+        ["ChannelTarget"] = ["Default server (user@host:port)", "默认服务器(user@host:port)", "預設伺服器(user@host:port)", "既定のサーバー(user@host:port)", "기본 서버(user@host:port)"],
+        ["ChannelTest"] = ["Test", "测试", "測試", "テスト", "테스트"],
+        ["ChannelTesting"] = ["Testing…", "正在测试…", "正在測試…", "テスト中…", "테스트 중…"],
+        ["ChannelInviteHint"] = [
+            "Scan with your phone to add the bot to a group — no need to search for it by name.",
+            "手机扫这个码直接把机器人加进群 —— 不用在手机上按名字搜。",
+            "手機掃這個碼直接把機器人加進群 —— 不用在手機上按名字搜。",
+            "スマホでこのコードを読み取ると、ボットをそのままグループに追加できます(名前で検索する必要はありません)。",
+            "휴대폰으로 이 코드를 스캔하면 봇을 바로 그룹에 추가할 수 있습니다(이름으로 검색할 필요 없음)."
+        ],
+        // ── 授权聊天(配对码 / 一键放行)──
+        ["SecPairing"] = ["Authorising chats", "授权聊天", "授權聊天", "チャットの許可", "대화 허용"],
+        ["PairCode"] = ["Pairing code", "配对码", "配對碼", "ペアリングコード", "페어링 코드"],
+        ["PairIssue"] = ["Generate", "生成", "產生", "生成", "생성"],
+        ["PairExpiresIn"] = ["(expires in {0}m {1}s)", "({0} 分 {1} 秒后过期)", "({0} 分 {1} 秒後過期)", "(あと {0} 分 {1} 秒で失効)", "({0}분 {1}초 후 만료)"],
+        ["PairHint"] = [
+            "Generate a code, then send \"/pair <code>\" in the chat you want to authorise — no need to copy chat ids around. One use, ten minutes, five wrong tries and it dies. It only lets that chat talk to the bot; the mode and approval settings above still apply.",
+            "点生成拿一个码,然后在想授权的那个聊天里发「/pair 码」—— 不用再来回抄群 id。一次性、十分钟过期、猜错五次作废。它只决定「这个聊天能不能跟机器人说话」,能不能动服务器仍旧由上面的挡位与审批管。",
+            "點產生拿一個碼,然後在想授權的那個聊天裡發「/pair 碼」—— 不用再來回抄群 id。一次性、十分鐘過期、猜錯五次作廢。它只決定「這個聊天能不能跟機器人說話」,能不能動伺服器仍舊由上面的擋位與審批管。",
+            "コードを生成し、許可したいチャットで「/pair コード」と送るだけです(チャット ID を書き写す必要はありません)。1 回限り・10 分で失効・5 回間違えると無効。許可するのは「そのチャットがボットと話せる」ことだけで、サーバー操作は上のモードと承認方式に従います。",
+            "코드를 생성한 뒤 허용할 대화에서 \"/pair 코드\"를 보내세요(대화 ID를 옮겨 적을 필요 없음). 일회용, 10분 만료, 5회 틀리면 폐기됩니다. 허용되는 것은 \"그 대화가 봇과 대화할 수 있다\"는 것뿐이며 서버 조작은 위의 모드와 승인 방식을 따릅니다."
+        ],
+        ["PairNeedsBridge"] = [
+            "Turn the chat bridge on and save first — a pairing code is only useful while the bot is online.",
+            "先把 IM 桥接打开并保存 —— 机器人不在线的时候,配对码没有意义。",
+            "先把 IM 橋接打開並儲存 —— 機器人不在線的時候,配對碼沒有意義。",
+            "先にチャット連携を有効にして保存してください。ボットがオンラインでなければペアリングコードは意味がありません。",
+            "먼저 채팅 브리지를 켜고 저장하세요. 봇이 온라인이 아니면 페어링 코드는 의미가 없습니다."
+        ],
+        ["PairPending"] = ["Chats that tried to talk to the bot", "敲过门的聊天", "敲過門的聊天", "ボットに話しかけてきたチャット", "봇에게 말을 건 대화"],
+        ["PairNoPending"] = [
+            "Nothing yet. Add the bot to a group and say something — it will show up here.",
+            "还没有。把机器人加进群里说句话,它就会出现在这。",
+            "還沒有。把機器人加進群裡說句話,它就會出現在這。",
+            "まだありません。ボットをグループに追加して何か話しかけると、ここに出てきます。",
+            "아직 없습니다. 봇을 그룹에 추가하고 말을 걸면 여기에 나타납니다."
+        ],
+        ["PairAllow"] = ["Allow", "允许", "允許", "許可", "허용"],
+        ["PairIgnore"] = ["Ignore", "忽略", "忽略", "無視", "무시"],
+        ["PairGroup"] = ["group", "群聊", "群聊", "グループ", "그룹"],
+        ["PairDirect"] = ["direct", "单聊", "單聊", "個別", "개인"],
+        ["PairAllowed"] = ["{0} is now allowed.", "已放行 {0}。", "已放行 {0}。", "{0} を許可しました。", "{0}을(를) 허용했습니다."],
+        ["ChannelWeComHint"] = [
+            "WeCom is the odd one out: it can only push to a public callback URL, so this listener needs a tunnel or reverse proxy in front of it.",
+            "企业微信和另外三家不一样:它只能往一个公网回调地址推消息,所以这个监听口前面得有一条隧道或反向代理。",
+            "企業微信和另外三家不一樣:它只能往一個公網回呼位址推訊息,所以這個監聽埠前面得有一條隧道或反向代理。",
+            "WeCom だけは公開コールバック URL にしか送れないため、この待ち受けの前にトンネルかリバースプロキシが必要です。",
+            "WeCom만 예외입니다. 공개 콜백 URL로만 전송하므로 이 수신 포트 앞에 터널이나 리버스 프록시가 필요합니다."
+        ],
+        ["ChannelCallbackToken"] = ["Callback Token", "回调 Token", "回呼 Token", "コールバック Token", "콜백 Token"],
+        ["ChannelWebhookPort"] = ["Callback port (127.0.0.1)", "回调端口(127.0.0.1)", "回呼連接埠(127.0.0.1)", "コールバックポート(127.0.0.1)", "콜백 포트(127.0.0.1)"],
+        ["ChannelWebhookPath"] = ["Callback path", "回调路径", "回呼路徑", "コールバックパス", "콜백 경로"],
+        ["ChannelWeComCallbackHint"] = [
+            "Only 127.0.0.1 is bound. Point WeCom at a public HTTPS address and forward it here — VelaShell's own remote port forwarding (Session → Tunnels) can do that leg.",
+            "只绑 127.0.0.1。把企业微信的回调地址指向一个公网 HTTPS 入口,再转发到这里 —— 这一段可以直接用 VelaShell 自己的远程端口转发(会话 → 隧道)。",
+            "只綁 127.0.0.1。把企業微信的回呼位址指向一個公網 HTTPS 入口,再轉發到這裡 —— 這一段可以直接用 VelaShell 自己的遠端連接埠轉發(工作階段 → 隧道)。",
+            "127.0.0.1 のみにバインドします。WeCom には公開 HTTPS のアドレスを設定し、そこからここへ転送してください。この区間は VelaShell のリモートポート転送(セッション → トンネル)で賄えます。",
+            "127.0.0.1에만 바인딩합니다. WeCom에는 공개 HTTPS 주소를 설정하고 이곳으로 전달하세요. 이 구간은 VelaShell의 원격 포트 포워딩(세션 → 터널)으로 해결할 수 있습니다."
+        ],
+        // ── 对外 MCP 服务端 ──
+        ["SecMcpServer"] = ["MCP server (for other agents)", "对外 MCP 服务端(给别的 agent 用)", "對外 MCP 伺服器(給別的 agent 用)", "MCP サーバー(他のエージェント向け)", "MCP 서버(다른 에이전트용)"],
+        ["McpServerEnabled"] = ["Let Claude Code / Codex call VelaShell's tools", "让 Claude Code / Codex 调用 VelaShell 的工具", "讓 Claude Code / Codex 呼叫 VelaShell 的工具", "Claude Code / Codex から VelaShell のツールを呼べるようにする", "Claude Code / Codex가 VelaShell 도구를 호출하도록 허용"],
+        ["McpServerEnabledHint"] = [
+            "Listens on 127.0.0.1 only, and every request must carry the token below.",
+            "只监听 127.0.0.1,而且每个请求都必须带下面那个令牌。",
+            "只監聽 127.0.0.1,而且每個請求都必須帶下面那個權杖。",
+            "127.0.0.1 のみで待ち受け、すべてのリクエストに下のトークンが必要です。",
+            "127.0.0.1에서만 수신하며 모든 요청에 아래 토큰이 필요합니다."
+        ],
+        ["McpServerPort"] = ["Port", "端口", "連接埠", "ポート", "포트"],
+        ["McpServerApprovalHint"] = [
+            "An external agent has no window to show an approval card in, so \"ask every time\" refuses writes outright. Pick read-only auto or bypass to let it change things.",
+            "外部 agent 那边没有能弹审批卡的界面,所以「每次询问」在这条路上等于直接拒绝写操作。要让它能改东西,得选只读放行或绕过审批。",
+            "外部 agent 那邊沒有能彈審批卡的介面,所以「每次詢問」在這條路上等於直接拒絕寫操作。要讓它能改東西,得選唯讀放行或繞過審批。",
+            "外部エージェント側に承認カードを出す画面がないため、「毎回確認」は書き込みを即拒否します。変更を許すには読み取り自動許可かバイパスを選んでください。",
+            "외부 에이전트에는 승인 카드를 띄울 화면이 없어 \"매번 확인\"은 쓰기를 즉시 거부합니다. 변경을 허용하려면 읽기 전용 자동 또는 우회를 선택하세요."
+        ],
+        ["McpServerTargets"] = ["Allowed servers (one user@host:port per line; blank = all connected)", "允许操作的服务器(每行一个 user@host:port;留空 = 全部已连会话)", "允許操作的伺服器(每行一個 user@host:port;留空 = 全部已連工作階段)", "許可するサーバー(1 行に 1 つ user@host:port、空欄 = 接続中すべて)", "허용할 서버(한 줄에 user@host:port 하나, 비우면 연결된 전체)"],
+        ["McpServerTargetsHint"] = ["The external agent can only pick from this list.", "外部 agent 只能在这个名单里挑。", "外部 agent 只能在這個名單裡挑。", "外部エージェントはこの一覧からのみ選べます。", "외부 에이전트는 이 목록에서만 고를 수 있습니다."],
+        ["McpServerToken"] = ["Access token", "访问令牌", "存取權杖", "アクセストークン", "액세스 토큰"],
+        ["McpServerTokenHint"] = [
+            "Anything running on this machine can reach a local port — this token is the only thing that stops it.",
+            "本机上任何程序都能敲本地端口,拦住它们的只有这个令牌。",
+            "本機上任何程式都能敲本地連接埠,攔住它們的只有這個權杖。",
+            "ローカルポートはこの端末上のどのプログラムからも叩けます。それを止めるのはこのトークンだけです。",
+            "이 컴퓨터의 어떤 프로그램도 로컬 포트에 접근할 수 있습니다. 이를 막는 것은 이 토큰뿐입니다."
+        ],
+        ["McpServerCommand"] = ["How to connect", "接入方式", "接入方式", "接続方法", "연결 방법"],
+        ["McpServerRotate"] = ["Regenerate", "重新生成", "重新產生", "再生成", "재생성"],
+        ["McpServerRotated"] = ["New token generated — update your agent's config.", "已生成新令牌 —— 记得同步改你 agent 那边的配置。", "已產生新權杖 —— 記得同步改你 agent 那邊的設定。", "新しいトークンを生成しました。エージェント側の設定も更新してください。", "새 토큰을 생성했습니다. 에이전트 설정도 업데이트하세요."],
+
+        // ── IM 桥接:发进聊天里的那些话。跟随宿主语言,不跟随发消息的人 ──
+        ["BridgeThinking"] = ["Working on it…", "正在处理…", "正在處理…", "処理中…", "처리 중…"],
+        ["BridgeBusy"] = ["Still on the previous request — queued.", "上一条还没跑完,已排队。", "上一條還沒跑完,已排隊。", "前の依頼を処理中です。順番待ちに入れました。", "이전 요청을 처리 중입니다. 대기열에 넣었습니다."],
+        ["BridgeRunningTool"] = ["running {0}…", "正在调用 {0}…", "正在呼叫 {0}…", "{0} を実行中…", "{0} 실행 중…"],
+        ["BridgeFooter"] = ["— {0} · {1}s · {2} tool call(s)", "— {0} · {1}s · {2} 次工具调用", "— {0} · {1}s · {2} 次工具呼叫", "— {0} · {1}s · ツール {2} 回", "— {0} · {1}s · 도구 {2}회"],
+        ["BridgeNoModel"] = ["No AI model is configured in VelaShell yet.", "VelaShell 里还没配置模型。", "VelaShell 裡還沒設定模型。", "VelaShell にモデルが設定されていません。", "VelaShell에 모델이 설정되지 않았습니다."],
+        ["BridgeEmptyReply"] = ["(the model returned nothing)", "(模型没有返回内容)", "(模型沒有回傳內容)", "(モデルの応答が空でした)", "(모델이 아무것도 반환하지 않았습니다)"],
+        ["BridgeTurnFailed"] = ["Failed: {0}", "出错了:{0}", "出錯了:{0}", "失敗しました:{0}", "실패했습니다: {0}"],
+        ["BridgeTimeout"] = ["Timed out — stopped this turn.", "超时,已中止这一轮。", "逾時,已中止這一輪。", "タイムアウトしたため中断しました。", "시간이 초과되어 이번 턴을 중단했습니다."],
+        ["BridgeUnauthorized"] = [
+            "This chat is not authorised yet. Generate a pairing code in VelaShell (Collaboration) and send \"/pair <code>\" here — or allow it from that page. Chat id: {0}",
+            "这个聊天还没被授权。到 VelaShell 的「协作接入」生成配对码,在这里发「/pair 码」即可 —— 或者直接在那一页点允许。聊天 id:{0}",
+            "這個聊天還沒被授權。到 VelaShell 的「協作接入」產生配對碼,在這裡發「/pair 碼」即可 —— 或者直接在那一頁點允許。聊天 id:{0}",
+            "このチャットは未許可です。VelaShell の「連携」でペアリングコードを生成し、ここで「/pair コード」と送ってください(その画面から許可することもできます)。チャット ID:{0}",
+            "이 대화는 아직 허용되지 않았습니다. VelaShell의 「협업 연동」에서 페어링 코드를 생성한 뒤 여기서 \"/pair 코드\"를 보내세요(해당 화면에서 바로 허용할 수도 있습니다). 대화 ID: {0}"
+        ],
+        ["BridgePairUsage"] = ["Usage: /pair <code> — the code is in VelaShell under Collaboration.", "用法:/pair 码 —— 码在 VelaShell 的「协作接入」页里。", "用法:/pair 碼 —— 碼在 VelaShell 的「協作接入」頁裡。", "使い方:/pair コード —— コードは VelaShell の「連携」画面にあります。", "사용법: /pair 코드 — 코드는 VelaShell의 「협업 연동」 화면에 있습니다."],
+        ["BridgePairRejected"] = ["That code is not valid. Generate a fresh one in VelaShell.", "这个码不对。到 VelaShell 里重新生成一个。", "這個碼不對。到 VelaShell 裡重新產生一個。", "そのコードは使えません。VelaShell で新しく生成してください。", "이 코드는 사용할 수 없습니다. VelaShell에서 새로 생성하세요."],
+        ["BridgePaired"] = ["Paired — this chat can talk to me now. Try /help.", "配对成功,这个聊天现在可以跟我说话了。试试 /help。", "配對成功,這個聊天現在可以跟我說話了。試試 /help。", "ペアリングできました。このチャットから話しかけられます。/help を試してください。", "페어링에 성공했습니다. 이제 이 대화에서 말을 걸 수 있습니다. /help를 사용해 보세요."],
+        // ── 斜杠命令 ──
+        ["BridgeHelp"] = [
+            "/sessions — list connected servers\n/use <user@host:port> — bind this chat to one\n/mode chat|plan|agent — change the mode\n/new — start a fresh conversation\n/stop — stop the current turn\n/status — show what this chat is set to",
+            "/sessions — 列出已连上的服务器\n/use <user@host:port> — 把本聊天绑到某一台\n/mode chat|plan|agent — 换挡位\n/new — 开一段新对话\n/stop — 中止当前这一轮\n/status — 看本聊天的当前设定",
+            "/sessions — 列出已連上的伺服器\n/use <user@host:port> — 把本聊天綁到某一台\n/mode chat|plan|agent — 換擋位\n/new — 開一段新對話\n/stop — 中止目前這一輪\n/status — 看本聊天的目前設定",
+            "/sessions — 接続中のサーバー一覧\n/use <user@host:port> — このチャットを 1 台に紐付け\n/mode chat|plan|agent — モード変更\n/new — 会話をやり直す\n/stop — 実行中のターンを中止\n/status — このチャットの設定を表示",
+            "/sessions — 연결된 서버 목록\n/use <user@host:port> — 이 대화를 서버에 연결\n/mode chat|plan|agent — 모드 변경\n/new — 새 대화 시작\n/stop — 현재 턴 중단\n/status — 이 대화의 설정 보기"
+        ],
+        ["BridgeNewChat"] = ["Started a fresh conversation.", "已开一段新对话。", "已開一段新對話。", "会話をやり直しました。", "새 대화를 시작했습니다."],
+        ["BridgeStopped"] = ["Stopped the current turn.", "已中止当前这一轮。", "已中止目前這一輪。", "実行中のターンを中止しました。", "현재 턴을 중단했습니다."],
+        ["BridgeNothingRunning"] = ["Nothing is running.", "当前没有正在跑的轮次。", "目前沒有正在跑的輪次。", "実行中のターンはありません。", "실행 중인 턴이 없습니다."],
+        ["BridgeStatus"] = ["{0} · mode {1} · approval {2} · bound to {3} ({4})", "{0} · 挡位 {1} · 审批 {2} · 绑定 {3}({4})", "{0} · 擋位 {1} · 審批 {2} · 綁定 {3}({4})", "{0} · モード {1} · 承認 {2} · 接続先 {3}({4})", "{0} · 모드 {1} · 승인 {2} · 대상 {3}({4})"],
+        ["BridgeSessionOnline"] = ["connected", "在线", "在線", "接続中", "연결됨"],
+        ["BridgeSessionOffline"] = ["not connected right now", "当前未连接", "目前未連線", "現在未接続", "현재 연결 안 됨"],
+        ["BridgeNoSessions"] = ["No connected sessions. Connect to a server in VelaShell first.", "当前没有连上的会话。先在 VelaShell 里连一台。", "目前沒有連上的工作階段。先在 VelaShell 裡連一台。", "接続中のセッションがありません。まず VelaShell で接続してください。", "연결된 세션이 없습니다. 먼저 VelaShell에서 서버에 연결하세요."],
+        ["BridgeSessions"] = ["Connected sessions:\n{0}", "已连上的会话:\n{0}", "已連上的工作階段:\n{0}", "接続中のセッション:\n{0}", "연결된 세션:\n{0}"],
+        ["BridgeBound"] = ["Bound this chat to {0}.", "已把本聊天绑定到 {0}。", "已把本聊天綁定到 {0}。", "このチャットを {0} に紐付けました。", "이 대화를 {0}에 연결했습니다."],
+        ["BridgeBindUsage"] = ["Usage: /use user@host:port", "用法:/use user@host:port", "用法:/use user@host:port", "使い方:/use user@host:port", "사용법: /use user@host:port"],
+        ["BridgeBindNotFound"] = ["No connected session matches {0}. Try /sessions.", "没有连着的会话匹配 {0}。先看 /sessions。", "沒有連著的工作階段符合 {0}。先看 /sessions。", "{0} に一致する接続中のセッションがありません。/sessions を確認してください。", "{0}과(와) 일치하는 연결된 세션이 없습니다. /sessions를 확인하세요."],
+        ["BridgeModeSet"] = ["Mode is now {0}.", "挡位已切到 {0}。", "擋位已切到 {0}。", "モードを {0} にしました。", "모드를 {0}(으)로 변경했습니다."],
+        ["BridgeModeUsage"] = ["Usage: /mode chat|plan|agent (or /mode reset)", "用法:/mode chat|plan|agent(或 /mode reset)", "用法:/mode chat|plan|agent(或 /mode reset)", "使い方:/mode chat|plan|agent(または /mode reset)", "사용법: /mode chat|plan|agent (또는 /mode reset)"],
+        ["BridgeModeLocked"] = ["Raising the mode from chat is turned off. The bridge is fixed at {0} — change it in VelaShell.", "不允许在聊天里提高挡位。桥接固定为 {0},要改请到 VelaShell 里改。", "不允許在聊天裡提高擋位。橋接固定為 {0},要改請到 VelaShell 裡改。", "チャットからモードを上げることは無効です。ブリッジは {0} 固定です。VelaShell 側で変更してください。", "대화에서 모드를 올릴 수 없습니다. 브리지는 {0}으로 고정되어 있으며 VelaShell에서 변경하세요."],
+        // ── 审批 ──
+        ["BridgeApprovalAsk"] = ["⚠️ Approval needed — {0}\n{1}\n\nReply y to allow, n to refuse{2} ({3}s until it is refused automatically).", "⚠️ 需要审批 — {0}\n{1}\n\n回复 y 放行,n 拒绝{2}({3} 秒后自动拒绝)。", "⚠️ 需要審批 — {0}\n{1}\n\n回覆 y 放行,n 拒絕{2}({3} 秒後自動拒絕)。", "⚠️ 承認が必要です — {0}\n{1}\n\ny で許可、n で拒否{2}({3} 秒で自動的に拒否)。", "⚠️ 승인이 필요합니다 — {0}\n{1}\n\ny는 허용, n은 거부{2} ({3}초 후 자동 거부)."],
+        ["BridgeApprovalAlways"] = [", a to always allow it in this conversation", ",a 表示本次对话内总是放行", ",a 表示本次對話內總是放行", "、a でこの会話中は常に許可", ", a는 이 대화에서 항상 허용"],
+        ["BridgeApprovalGranted"] = ["Approved.", "已放行。", "已放行。", "承認しました。", "승인했습니다."],
+        ["BridgeApprovalDenied"] = ["Refused.", "已拒绝。", "已拒絕。", "拒否しました。", "거부했습니다."],
+        ["BridgeApprovalTimedOut"] = ["Nobody answered in time — refused.", "没人应答,按拒绝处理。", "沒人應答,按拒絕處理。", "応答がなかったため拒否しました。", "응답이 없어 거부했습니다."],
+        ["BridgeApprovalNotAllowed"] = ["You are not on the approver list for this bridge.", "你不在这个桥接的审批人名单里。", "你不在這個橋接的審批人名單裡。", "このブリッジの承認者リストに含まれていません。", "이 브리지의 승인자 목록에 없습니다."]
     };
 }

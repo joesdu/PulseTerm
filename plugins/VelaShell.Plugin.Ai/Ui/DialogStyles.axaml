@@ -26,6 +26,46 @@
     <Setter Property="Margin" Value="0,3,0,0" />
     <Setter Property="TextWrapping" Value="Wrap" />
   </Style>
+  <!-- ═══ 按钮 ═══
+       用 class 而不是在每个按钮上写 Theme="{DynamicResource …}",原因有两条,都是踩出来的:
+
+       1. **`VelaAccentPillButtonTheme` 没有 `HorizontalContentAlignment` 这个 setter**
+          (`VelaOutlineButtonTheme` 有)。它只在模板里 TemplateBinding,而 ContentControl 的默认值
+          是 Stretch —— 于是纯文字内容被拉开、看起来就是"没居中"。宿主自己那几个 pill 按钮都塞了
+          带 VerticalAlignment 的 StackPanel 当内容,恰好把这一点盖住了,所以一直没暴露。
+          这里显式补上,不依赖那边哪天会不会加。
+
+       2. **代码里 new 出来的按钮不能用 `TryFindResource` 取主题**:资源查找要沿逻辑树往上走,
+          而那时控件还没被挂进树,一律取不到,结果是静默地不挂主题。写成 Style 就没这个问题 ——
+          样式是在控件<b>进树时</b>套上去的,DynamicResource 那时才解析。 -->
+  <Style Selector="Button.host">
+    <Setter Property="Theme" Value="{DynamicResource VelaOutlineButtonTheme}" />
+    <Setter Property="Height" Value="26" />
+    <Setter Property="Padding" Value="12,0" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button.primary">
+    <Setter Property="Theme" Value="{DynamicResource VelaAccentPillButtonTheme}" />
+    <Setter Property="Height" Value="26" />
+    <Setter Property="Padding" Value="12,0" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <!-- 勾选框同理:AiCheckBoxTheme 只管那个方块怎么画,旁边那行字用的是控件自己的字号与前景色。 -->
+  <Style Selector="CheckBox.host">
+    <Setter Property="Theme" Value="{DynamicResource AiCheckBoxTheme}" />
+    <Setter Property="FontSize" Value="{DynamicResource VelaFontSize12}" />
+    <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
+  </Style>
+
+  <!-- 卡片里的正文一行(比如待放行清单里"哪个渠道 · 群聊 · 谁在说话")。
+       在这之前这种行只能靠不写 class 蒙混过去 —— 那样拿到的是 Fluent 的默认前景色,
+       而不是这套令牌里的 Primary,换主题时它不跟着走。 -->
+  <Style Selector="TextBlock.body">
+    <Setter Property="FontSize" Value="{DynamicResource VelaFontSize12}" />
+    <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
+  </Style>
   <Style Selector="TextBlock.toolName">
     <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
     <Setter Property="FontSize" Value="{DynamicResource VelaFontSize12}" />

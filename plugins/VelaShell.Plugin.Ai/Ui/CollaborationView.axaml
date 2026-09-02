@@ -1,0 +1,196 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="VelaShell.Plugin.Ai.Ui.CollaborationView">
+
+  <!-- 协作接入:两条方向相反的路合在一页。
+       上半页「IM 桥接」是往外接 —— 飞书 / 钉钉 / Telegram 里的人指使 VelaShell 的 agent;
+       下半页「对外 MCP 服务端」是往内接 —— Claude Code / Codex 这类外部 agent 调 VelaShell 的工具。
+       两者共用同一套安全观念(白名单、挡位、审批),摆在一页里才看得出这一点。
+       版式沿用模型配置页:节标题 + 描边卡片 + 末行操作。 -->
+
+  <UserControl.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="avares://VelaShell.Plugin.Ai/Ui/AiTheme.axaml" />
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </UserControl.Resources>
+
+  <UserControl.Styles>
+    <StyleInclude Source="avares://VelaShell.Plugin.Ai/Ui/DialogStyles.axaml" />
+  </UserControl.Styles>
+
+  <Border Background="{DynamicResource VelaBgTerminal}" CornerRadius="0,0,7,7">
+    <DockPanel>
+
+      <!-- 末行操作:保存并把两条服务按新配置重起 -->
+      <Border DockPanel.Dock="Bottom" Padding="24,12"
+              Background="{DynamicResource VelaBgSurface}"
+              BorderBrush="{DynamicResource VelaBorderPrimary}" BorderThickness="0,1,0,0"
+              CornerRadius="0,0,7,7">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock x:Name="StatusText" Classes="hint" VerticalAlignment="Center" TextWrapping="Wrap" />
+          <Button x:Name="SaveButton" Grid.Column="1" MinWidth="96" Classes="primary" />
+        </Grid>
+      </Border>
+
+      <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="24,18" Spacing="8">
+
+          <!-- ═══ IM 桥接 ═══ -->
+          <TextBlock x:Name="SectionBridgeTitle" Classes="section-title" />
+          <Border Classes="section">
+            <StackPanel Spacing="10">
+              <StackPanel>
+                <CheckBox x:Name="BridgeEnabledCheck" Classes="host" />
+                <TextBlock x:Name="BridgeEnabledHint" Classes="hint" />
+              </StackPanel>
+
+              <StackPanel x:Name="BridgeDetailPanel" Spacing="10">
+                <Grid ColumnDefinitions="*,12,*">
+                  <StackPanel>
+                    <TextBlock x:Name="BridgeModeLabel" Classes="label" />
+                    <ComboBox x:Name="BridgeModeCombo" HorizontalAlignment="Stretch" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="2">
+                    <TextBlock x:Name="BridgeApprovalLabel" Classes="label" />
+                    <ComboBox x:Name="BridgeApprovalCombo" HorizontalAlignment="Stretch" />
+                  </StackPanel>
+                </Grid>
+                <TextBlock x:Name="BridgeModeHint" Classes="hint" />
+
+                <!-- 桥接用哪个模型。原来只能默默跟着聊天面板当前选中的那个 ——
+                     结果是群里报一句 401,而人完全不知道那是哪个接入的密钥出了问题。 -->
+                <StackPanel>
+                  <TextBlock x:Name="BridgeModelLabel" Classes="label" />
+                  <ComboBox x:Name="BridgeModelCombo" HorizontalAlignment="Stretch" />
+                  <TextBlock x:Name="BridgeModelHint" Classes="hint" />
+                </StackPanel>
+
+                <StackPanel>
+                  <CheckBox x:Name="EscalationCheck" Classes="host" />
+                  <TextBlock x:Name="EscalationHint" Classes="hint" />
+                </StackPanel>
+
+                <Grid ColumnDefinitions="*,12,*,12,*">
+                  <StackPanel>
+                    <TextBlock x:Name="TurnTimeoutLabel" Classes="label" />
+                    <TextBox x:Name="TurnTimeoutBox" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="2">
+                    <TextBlock x:Name="ApprovalTimeoutLabel" Classes="label" />
+                    <TextBox x:Name="ApprovalTimeoutBox" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="4">
+                    <TextBlock x:Name="ConcurrencyLabel" Classes="label" />
+                    <TextBox x:Name="ConcurrencyBox" />
+                  </StackPanel>
+                </Grid>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <!-- ═══ 渠道 ═══ -->
+          <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,6,0,0">
+            <TextBlock x:Name="SectionChannelsTitle" Classes="section-title" VerticalAlignment="Center" />
+            <ComboBox x:Name="AddKindCombo" Grid.Column="1" MinWidth="130" Margin="0,0,8,0" />
+            <Button x:Name="AddChannelButton" Grid.Column="2" MinWidth="72" Classes="host" />
+          </Grid>
+          <StackPanel x:Name="ChannelsPanel" Spacing="8" />
+          <TextBlock x:Name="NoChannelsHint" Classes="hint" />
+
+          <!-- ═══ 授权聊天 ═══
+               原来要人肉抄群 id:加机器人进群 → 发一句 → 看它回的 id → 复制 → 回电脑粘进白名单。
+               这一节把那趟路砍掉:要么在群里发 /pair <码>,要么在下面点一下「允许」。 -->
+          <TextBlock x:Name="SectionPairingTitle" Classes="section-title" Margin="0,10,0,0" />
+          <Border Classes="section">
+            <StackPanel Spacing="10">
+              <StackPanel>
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                  <TextBlock x:Name="PairCodeLabel" Classes="label" VerticalAlignment="Center" />
+                  <TextBlock x:Name="PairCodeText" Grid.Column="1" Margin="10,0,0,0"
+                             VerticalAlignment="Center"
+                             FontFamily="{DynamicResource VelaUiMonoFont}"
+                             FontSize="{DynamicResource VelaFontSize16}"
+                             Foreground="{DynamicResource VelaTextPrimary}" />
+                  <Button x:Name="IssuePairCodeButton" Grid.Column="2" MinWidth="96" Classes="host" />
+                </Grid>
+                <TextBlock x:Name="PairCodeHint" Classes="hint" TextWrapping="Wrap" />
+              </StackPanel>
+
+              <Border Classes="sep" />
+
+              <StackPanel>
+                <TextBlock x:Name="PendingLabel" Classes="label" />
+                <StackPanel x:Name="PendingPanel" Spacing="6" />
+                <TextBlock x:Name="NoPendingHint" Classes="hint" TextWrapping="Wrap" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <!-- ═══ 对外 MCP 服务端 ═══ -->
+          <TextBlock x:Name="SectionMcpTitle" Classes="section-title" Margin="0,10,0,0" />
+          <Border Classes="section">
+            <StackPanel Spacing="10">
+              <StackPanel>
+                <CheckBox x:Name="McpEnabledCheck" Classes="host" />
+                <TextBlock x:Name="McpEnabledHint" Classes="hint" />
+              </StackPanel>
+
+              <StackPanel x:Name="McpDetailPanel" Spacing="10">
+                <Grid ColumnDefinitions="*,12,*,12,*">
+                  <StackPanel>
+                    <TextBlock x:Name="McpPortLabel" Classes="label" />
+                    <TextBox x:Name="McpPortBox" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="2">
+                    <TextBlock x:Name="McpModeLabel" Classes="label" />
+                    <ComboBox x:Name="McpModeCombo" HorizontalAlignment="Stretch" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="4">
+                    <TextBlock x:Name="McpApprovalLabel" Classes="label" />
+                    <ComboBox x:Name="McpApprovalCombo" HorizontalAlignment="Stretch" />
+                  </StackPanel>
+                </Grid>
+                <TextBlock x:Name="McpApprovalHint" Classes="hint" />
+
+                <StackPanel>
+                  <TextBlock x:Name="McpTargetsLabel" Classes="label" />
+                  <TextBox x:Name="McpTargetsBox" AcceptsReturn="True" MinHeight="56" TextWrapping="NoWrap" />
+                  <TextBlock x:Name="McpTargetsHint" Classes="hint" />
+                </StackPanel>
+
+                <!-- 令牌与接入命令:这两行是用户唯一要复制走的东西,所以给按钮而不是让他手抄 -->
+                <StackPanel>
+                  <TextBlock x:Name="McpTokenLabel" Classes="label" />
+                  <Grid ColumnDefinitions="*,Auto,Auto">
+                    <TextBox x:Name="McpTokenBox" IsReadOnly="True" />
+                    <Button x:Name="CopyTokenButton" Grid.Column="1" Margin="8,0,0,0" MinWidth="64" Classes="host" />
+                    <Button x:Name="RotateTokenButton" Grid.Column="2" Margin="8,0,0,0" MinWidth="80" Classes="host" />
+                  </Grid>
+                  <TextBlock x:Name="McpTokenHint" Classes="hint" />
+                </StackPanel>
+
+                <!-- 复制键放在标题行上,文本框自己占满一行。
+                     **这里刻意用 NoWrap,别改成 Wrap。**外层 ScrollViewer 的竖滚动条是 Auto:
+                     会换行的文本一旦让内容高度正好卡在"要不要出滚动条"的边界上,出滚动条 → 可用宽度变窄
+                     → 文本重排变高 → 还是要滚动条 → 收回滚动条…… measure/arrange 就这么来回震荡,
+                     表现是窗口整个卡死(headless 测试里是一分钟超时,连异常都没有)。
+                     实测:同一个框内容为空时没事,填上接入命令(两行长串)就必挂。
+                     这里的内容本来就是给人整段复制走的,横向滚动完全够用。 -->
+                <StackPanel>
+                  <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,4">
+                    <TextBlock x:Name="McpCommandLabel" Classes="label" VerticalAlignment="Center" />
+                    <Button x:Name="CopyCommandButton" Grid.Column="1" MinWidth="64" Classes="host" />
+                  </Grid>
+                  <TextBox x:Name="McpCommandBox" IsReadOnly="True" TextWrapping="NoWrap" AcceptsReturn="True"
+                           MinHeight="64" FontFamily="{DynamicResource VelaUiMonoFont}" />
+                </StackPanel>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+    </DockPanel>
+  </Border>
+</UserControl>
