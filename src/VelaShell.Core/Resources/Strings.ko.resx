@@ -81,6 +81,9 @@
 
 열려 있는 창으로 전환하세요. 한 번에 하나의 인스턴스만 실행할 수 있습니다.</value>
   </data>
+  <data name="Boot_DatabaseLocked" xml:space="preserve">
+    <value>VelaShell 데이터베이스를 다른 프로세스가 사용 중입니다. 실행 중인 다른 VelaShell을 종료한 뒤(시스템 트레이 확인) 다시 시도하세요.</value>
+  </data>
   <data name="Boot_StartupErrorTitle" xml:space="preserve">
     <value>VelaShell - 시작 오류</value>
   </data>

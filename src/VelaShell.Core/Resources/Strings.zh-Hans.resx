@@ -914,6 +914,9 @@
 
 请切换到已打开的窗口;同一时间只能运行一个实例。</value>
   </data>
+  <data name="Boot_DatabaseLocked" xml:space="preserve">
+    <value>VelaShell 的数据库正被另一个进程占用。请关闭其他正在运行的 VelaShell(留意系统托盘),然后重试。</value>
+  </data>
   <data name="Boot_StartupErrorTitle" xml:space="preserve">
     <value>VelaShell - 启动错误</value>
   </data>

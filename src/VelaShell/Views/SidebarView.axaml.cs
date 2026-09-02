@@ -60,15 +60,9 @@ public partial class SidebarView : UserControl
     /// </summary>
     private void HookSessionTree()
     {
-        if (_sessionTree is not null)
-        {
-            _sessionTree.ConnectRequested -= OnSessionConnectRequested;
-        }
+        _sessionTree?.ConnectRequested -= OnSessionConnectRequested;
         _sessionTree = _viewModel?.SessionTree;
-        if (_sessionTree is not null)
-        {
-            _sessionTree.ConnectRequested += OnSessionConnectRequested;
-        }
+        _sessionTree?.ConnectRequested += OnSessionConnectRequested;
     }
 
     /// <summary>
@@ -120,10 +114,13 @@ public partial class SidebarView : UserControl
 
     private void ExpandSidebar_Click(object? sender, RoutedEventArgs e)
     {
-        if (_viewModel is not null)
-        {
-            _viewModel.IsCollapsed = false;
-        }
+        _viewModel?.IsCollapsed = false;
+    }
+
+    /// <summary>工具栏折叠按钮。只出现在展开态,所以直接置位而不是取反。</summary>
+    private void CollapseSidebar_Click(object? sender, RoutedEventArgs e)
+    {
+        _viewModel?.IsCollapsed = true;
     }
 
     private void OpenConnectionProfile_Click(object? sender, RoutedEventArgs e)

@@ -51,6 +51,18 @@ public class App : Application
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
+
+        // 设计期(Avalonia 预览器 / VS 设计器)到此为止,绝不往下建 DI 容器。
+        // 预览器是通过 Program.BuildAvaloniaApp() 实例化本类并调用 Initialize() 的,
+        // 但它**不走 Program.Main**,因此从不获取单实例互斥锁。若继续往下走,它就会以
+        // 真实用户数据根打开 SonnetDB 并独占 WAL —— 此后正常启动应用时,互斥锁是空的、
+        // 守卫放行,却在 Tsdb.Open 撞上「SDBWAL 被另一进程占用」的 IOException 崩溃。
+        // 编辑 .axaml 时预览器常驻后台,这条路径极易踩到。
+        // 预览渲染只需要上面那行加载出来的资源与样式,不需要任何运行期服务。
+        if (Design.IsDesignMode)
+        {
+            return;
+        }
         _serviceProvider = new ServiceCollection()
             .AddVelaShellPresentation()
             .AddVelaShellControls()

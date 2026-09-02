@@ -77,6 +77,15 @@ internal static partial class Program
             FinalizePendingUpdate();
             BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
         }
+        catch (Exception ex) when (IsDatabaseLockedFailure(ex))
+        {
+            // 数据库被别的进程占着,是可预期且用户自己能处理的情况,不该以崩溃收场。
+            // 上面的单实例守卫挡不住这一类:持锁者可能压根不是一个正常实例(Avalonia 预览器 /
+            // VS 设计器曾经就会 —— 见 App.Initialize 的设计期守卫),也可能是上一个实例
+            // 尚未退干净;两种情况下互斥锁都是空的。给一句说得清的提示后干净退出,不再 rethrow。
+            Trace.WriteLine($"[VelaShell] Database locked at startup: {ex}");
+            ShowMessage(Strings.Get("Boot_DatabaseLocked"), Strings.Get("Boot_StartupErrorTitle"));
+        }
         catch (Exception ex)
         {
             // 最后手段:向测试人员弹出可读对话框,而非原始的 .NET 崩溃框。
@@ -162,6 +171,27 @@ internal static partial class Program
     /// SeCreateGlobalPrivilege);罕见的同用户跨会话冲突,会在之后由 SonnetDB 的文件锁与启动错误
     /// 对话框捕获,而非静默继续直至崩溃。
     /// </summary>
+    /// <summary>
+    /// 判断启动失败是否源于「数据库文件被其他进程占用」(SonnetDB 对其 WAL 持独占锁)。
+    /// </summary>
+    /// <remarks>
+    /// 按 <c>.SDBWAL</c> 这个扩展名匹配而不是比对异常文本:共享冲突的 IOException 消息本身
+    /// 会随系统语言变化,但消息里带的那个文件路径不会 —— 用路径判断才跨语言可靠。
+    /// 逐层看 InnerException:DI 是在工厂委托里构造引擎的,异常常被包了一层。
+    /// </remarks>
+    private static bool IsDatabaseLockedFailure(Exception exception)
+    {
+        for (Exception? current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is IOException
+                && current.Message.Contains(".SDBWAL", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static bool TryAcquireSingleInstanceLock(TimeSpan waitTimeout)
     {
         try

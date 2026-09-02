@@ -464,12 +464,13 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     /// <summary>显示或隐藏当前 SSH 会话的远程文件面板。</summary>
     public ReactiveCommand<RxVoid, RxVoid> ToggleFileBrowserCommand { get; }
 
-    /// <summary>把左侧资源管理器折叠成 40px 图标细条,或还原成完整侧栏(标题栏按钮 / Ctrl+B)。</summary>
+    /// <summary>把左侧资源管理器折叠成 40px 图标细条,或还原成完整侧栏(Ctrl+B / 命令面板)。</summary>
     public ReactiveCommand<RxVoid, RxVoid> ToggleSidebarCommand { get; }
 
     /// <summary>
     /// 折叠/展开左侧资源管理器。列宽的收放在 <see cref="Views.MainWindow" /> 里做,
-    /// 这里只翻状态位 —— 标题栏按钮、Ctrl+B、命令面板与细条上的展开按钮共用这一处。
+    /// 这里只翻状态位 —— Ctrl+B 与命令面板走这条;侧栏工具栏的折叠按钮与细条顶部的
+    /// 展开按钮各自直接置位(它们只出现在其中一态,取反反而绕)。
     /// </summary>
     public void ToggleSidebar() => Sidebar.IsCollapsed = !Sidebar.IsCollapsed;
 
