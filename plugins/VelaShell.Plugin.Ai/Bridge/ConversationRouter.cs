@@ -1,0 +1,496 @@
+using System.Text;
+using VelaShell.Plugin.Ai.Agent;
+using VelaShell.Plugin.Ai.Configuration;
+using VelaShell.Plugin.Ai.Ui;
+using VelaShell.PluginSdk;
+using VelaShell.PluginSdk.Sessions;
+
+namespace VelaShell.Plugin.Ai.Bridge;
+
+/// <summary>
+/// 策略层:谁能说话、这句话是命令还是提问、一个聊天同时跑几轮、回复怎么发回去。
+/// 渠道只管收发,agent 只管跑,"要不要理你"全在这里。
+/// </summary>
+public sealed class ConversationRouter(
+    IPluginContext context,
+    ChannelHub hub,
+    BridgeAgentRunner runner,
+    ImApprovalBroker approvals,
+    BridgeSettingsStore bridgeStore,
+    PairingService pairing)
+{
+    /// <summary>两次"改同一条消息"之间至少隔这么久 —— 各家平台的编辑接口都有限流。</summary>
+    private static readonly TimeSpan EditInterval = TimeSpan.FromMilliseconds(1200);
+
+    private readonly Dictionary<string, BridgeConversation> _conversations = [];
+    private readonly HashSet<string> _unauthorizedNotified = new(StringComparer.Ordinal);
+    private readonly Lock _sync = new();
+    private SemaphoreSlim _turnGate = new(2, 2);
+
+    /// <summary>当前生效的桥接设置(由 <see cref="BridgeService" /> 在重载时换掉)。</summary>
+    public BridgeSettings Settings { get; private set; } = new();
+
+    /// <summary>界面语言(跟随宿主)。</summary>
+    public Loc Loc { get; private set; } = new("en");
+
+    /// <summary>
+    /// 换一套桥接设置(总并发跟着变)。
+    /// </summary>
+    /// <remarks>
+    /// <b>这里刻意不缓存 AI 设置</b>(模型、供应商、MCP)—— 那一份由
+    /// <see cref="BridgeAgentRunner" /> 每轮现读。缓存过一次,代价是用户在面板里
+    /// 登录订阅制供应商或换模型之后桥接毫不知情,详见那边的注释。
+    /// </remarks>
+    public void Apply(BridgeSettings bridge, Loc loc)
+    {
+        Settings = bridge;
+        Loc = loc;
+        int limit = Math.Clamp(bridge.MaxConcurrentTurns, 1, 16);
+        SemaphoreSlim old = _turnGate;
+        _turnGate = new SemaphoreSlim(limit, limit);
+        old.Dispose();
+    }
+
+    /// <summary>处理一条入站消息。<b>不抛</b> —— 上游那条读循环不该被一条消息带崩。</summary>
+    public async Task HandleAsync(InboundMessage message)
+    {
+        if (Settings.Channels.FirstOrDefault(c => c.Id == message.ChannelId) is not { } config)
+        {
+            return;
+        }
+        if (!IsChatAllowed(config, message))
+        {
+            // 配对码要在白名单之前处理 —— 它存在的全部意义就是"我还不在白名单里,请把我加进去"
+            if (await TryPairAsync(config, message).ConfigureAwait(false))
+            {
+                return;
+            }
+            pairing.Remember(new PendingChat(message.ChannelId, message.ChatId, message.IsGroup,
+                message.UserName, DateTimeOffset.UtcNow));
+            await NotifyUnauthorizedOnceAsync(message).ConfigureAwait(false);
+            return;
+        }
+        // 群里没 @ 就当没听见 —— 机器人不该插进同事之间的正常对话
+        if (message.IsGroup && !message.MentionsBot)
+        {
+            return;
+        }
+        if (config.AllowedUsers.Count > 0 && !config.AllowedUsers.Contains(message.UserId))
+        {
+            context.Log.Info($"Bridge: ignoring {message.UserName} ({message.UserId}) — not in the user allowlist.");
+            return;
+        }
+        // 审批回复优先:这句话是在回上一条"要不要放行",不该被当成新问题
+        if (approvals.TryConsume(message, config, Loc))
+        {
+            return;
+        }
+        BridgeConversation conversation = GetOrCreate(config, message);
+        conversation.LastActivity = DateTimeOffset.UtcNow;
+        string text = message.Text.Trim();
+        if (text.StartsWith('/') && await TryCommandAsync(conversation, config, message, text).ConfigureAwait(false))
+        {
+            return;
+        }
+        if (text.Length == 0)
+        {
+            return;
+        }
+        await RunTurnAsync(conversation, config, message).ConfigureAwait(false);
+    }
+
+    /// <summary>丢掉闲置太久的会话上下文(由 <see cref="BridgeService" /> 定时调)。</summary>
+    public void EvictIdle()
+    {
+        DateTimeOffset cutoff = DateTimeOffset.UtcNow.AddMinutes(-Math.Max(5, Settings.ConversationIdleMinutes));
+        lock (_sync)
+        {
+            foreach (string key in _conversations
+                         .Where(kv => kv.Value.LastActivity < cutoff && kv.Value.Running is null)
+                         .Select(kv => kv.Key)
+                         .ToArray())
+            {
+                _conversations.Remove(key);
+            }
+        }
+    }
+
+    /// <summary>掐掉全部正在跑的轮次(停桥接时)。</summary>
+    public void CancelAll()
+    {
+        lock (_sync)
+        {
+            foreach (BridgeConversation conversation in _conversations.Values)
+            {
+                conversation.Running?.Cancel();
+                approvals.Cancel(conversation.ChatKey);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 处理未授权聊天里的 <c>/pair &lt;码&gt;</c>。认下来了返回 true。
+    /// </summary>
+    /// <remarks>
+    /// <b>这里刻意不要求群里先 @ 机器人。</b>此刻它还不在白名单里,而"要不要理你"这一关就在
+    /// 前面 —— 再叠一条"先 @ 我"等于把配对本身也挡在门外。配对码本身足够窄:一次性、
+    /// 十分钟过期、猜错五次作废,而且只能把聊天加进白名单,动不了挡位与审批。
+    /// </remarks>
+    private async Task<bool> TryPairAsync(ChannelConfig config, InboundMessage message)
+    {
+        string text = message.Text.Trim();
+        if (!text.StartsWith("/pair", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+        var target = new OutboundTarget(message.ChatId, message.ThreadId);
+        string code = text[5..].Trim();
+        if (code.Length == 0)
+        {
+            await hub.SendAsync(message.ChannelId, target, Loc["BridgePairUsage"], CancellationToken.None)
+                .ConfigureAwait(false);
+            return true;
+        }
+        if (!pairing.TryRedeem(code))
+        {
+            // 只记日志,不在群里说"码错了还是过期了" —— 那等于告诉试探的人他离对还有多远
+            context.Log.Warn($"Bridge: a wrong or expired pairing code was presented in {message.ChatKey}.");
+            await hub.SendAsync(message.ChannelId, target, Loc["BridgePairRejected"], CancellationToken.None)
+                .ConfigureAwait(false);
+            return true;
+        }
+        await AllowChatAsync(config, message.ChatId).ConfigureAwait(false);
+        context.Log.Info($"Bridge: {message.ChatKey} was paired by {message.UserName}.");
+        await hub.SendAsync(message.ChannelId, target, Loc["BridgePaired"], CancellationToken.None)
+            .ConfigureAwait(false);
+        return true;
+    }
+
+    /// <summary>
+    /// 把一个聊天加进白名单:<b>内存里立刻生效</b>,同时落盘。
+    /// </summary>
+    /// <remarks>
+    /// 两处都要写。只写库的话得等下一次重载才认;只写内存的话重启就没了。
+    /// 落盘走"读—改—写"而不是把内存那份整个盖上去 —— 设置页可能正开着,
+    /// 用它内存里的快照覆盖会把用户刚改的别的字段抹掉。
+    /// </remarks>
+    public async Task AllowChatAsync(ChannelConfig config, string chatId)
+    {
+        ArgumentNullException.ThrowIfNull(config);
+        if (!config.AllowedChats.Contains(chatId))
+        {
+            config.AllowedChats.Add(chatId);
+        }
+        BridgeSettings stored = await bridgeStore.LoadAsync().ConfigureAwait(false);
+        if (stored.Channels.FirstOrDefault(c => c.Id == config.Id) is { } persisted)
+        {
+            if (!persisted.AllowedChats.Contains(chatId))
+            {
+                persisted.AllowedChats.Add(chatId);
+                await bridgeStore.SaveAsync(stored).ConfigureAwait(false);
+            }
+        }
+        else
+        {
+            // 库里没有这个渠道(多半是设置页加了但还没点保存):内存里已经放行了,
+            // 但重启就会没。说一声,别让它静默地只活到下次重启。
+            context.Log.Warn($"Bridge: {chatId} was allowed for a channel that is not saved yet; " +
+                             "it will be forgotten on restart until the settings are saved.");
+        }
+        pairing.Forget(config.Id, chatId);
+        lock (_sync)
+        {
+            // 放行之后那句"未授权"的提醒也该复位:万一以后又被移出白名单,还得再提示一次
+            _unauthorizedNotified.Remove($"{config.Id}/{chatId}");
+        }
+    }
+
+    private async Task RunTurnAsync(BridgeConversation conversation, ChannelConfig config, InboundMessage message)
+    {
+        // 同一个聊天串行:后来的排队,而不是插进上一轮的工具循环中间
+        bool queued = conversation.Gate.CurrentCount == 0;
+        if (queued)
+        {
+            await hub.SendAsync(conversation.ChannelId, conversation.Reply, Loc["BridgeBusy"], CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+        await conversation.Gate.WaitAsync().ConfigureAwait(false);
+        await _turnGate.WaitAsync().ConfigureAwait(false);
+        using var turn = new CancellationTokenSource(TimeSpan.FromSeconds(Math.Clamp(Settings.TurnTimeoutSeconds, 30, 3600)));
+        conversation.Running = turn;
+        string? placeholder = null;
+        var lastEdit = DateTimeOffset.MinValue;
+        try
+        {
+            ChannelCapabilities capabilities = hub.CapabilitiesOf(conversation.ChannelId);
+            placeholder = await hub.SendAsync(conversation.ChannelId, conversation.Reply, Loc["BridgeThinking"], turn.Token)
+                .ConfigureAwait(false);
+
+            void OnProgress(string accumulated)
+            {
+                if (!capabilities.CanEdit || placeholder is null || accumulated.Length == 0)
+                {
+                    return;
+                }
+                DateTimeOffset now = DateTimeOffset.UtcNow;
+                if (now - lastEdit < EditInterval)
+                {
+                    return;
+                }
+                lastEdit = now;
+                // 故意不 await:进度是锦上添花,改慢了、改失败了都不该拖住模型那条流
+                _ = hub.EditAsync(conversation.ChannelId, conversation.Reply, placeholder,
+                    Clip(accumulated, capabilities.MaxMessageChars), CancellationToken.None);
+            }
+
+            BridgeTurn result = await runner.RunAsync(
+                conversation, Settings, message,
+                request => approvals.RequestAsync(conversation, config, request,
+                    Settings.ApprovalTimeoutSeconds, Loc, turn.Token),
+                Loc, OnProgress, turn.Token).ConfigureAwait(false);
+
+            await DeliverAsync(conversation, placeholder, Compose(result), turn.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            await DeliverAsync(conversation, placeholder, Loc["BridgeTimeout"], CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            context.Log.Error($"Bridge: a turn in {conversation.ChatKey} failed: {ex}");
+            await DeliverAsync(conversation, placeholder, Loc.F("BridgeTurnFailed", ex.Message), CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            conversation.Running = null;
+            approvals.Cancel(conversation.ChatKey);
+            _turnGate.Release();
+            conversation.Gate.Release();
+        }
+    }
+
+    /// <summary>回复落地:能改就改回那条占位消息,不能改就再发一条;超长切段。</summary>
+    private async Task DeliverAsync(BridgeConversation conversation, string? placeholder, string text,
+        CancellationToken cancellationToken)
+    {
+        ChannelCapabilities capabilities = hub.CapabilitiesOf(conversation.ChannelId);
+        List<string> parts = Split(text, capabilities.MaxMessageChars);
+        for (int i = 0; i < parts.Count; i++)
+        {
+            if (i == 0 && capabilities.CanEdit && placeholder is not null)
+            {
+                await hub.EditAsync(conversation.ChannelId, conversation.Reply, placeholder, parts[i], cancellationToken)
+                    .ConfigureAwait(false);
+                continue;
+            }
+            await hub.SendAsync(conversation.ChannelId, conversation.Reply, parts[i], cancellationToken)
+                .ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>回复末尾那行小字:哪个模型、跑了多久、动了几次工具。</summary>
+    private string Compose(BridgeTurn turn)
+        => turn.Model.Length == 0
+            ? turn.Text
+            : $"{turn.Text}\n\n{Loc.F("BridgeFooter", turn.Model, turn.Elapsed.TotalSeconds.ToString("0.0"), turn.ToolCalls)}";
+
+    private async Task<bool> TryCommandAsync(BridgeConversation conversation, ChannelConfig config,
+        InboundMessage message, string text)
+    {
+        string[] parts = text.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        string command = parts[0].ToLowerInvariant();
+        string argument = parts.Length > 1 ? parts[1] : "";
+        string? reply = command switch
+        {
+            "/help" or "/?" => Loc["BridgeHelp"],
+            "/new" or "/reset" => Reset(conversation),
+            "/stop" => Stop(conversation),
+            "/status" => await StatusAsync(conversation, config).ConfigureAwait(false),
+            "/sessions" => await ListSessionsAsync().ConfigureAwait(false),
+            "/use" => await BindAsync(conversation, argument).ConfigureAwait(false),
+            "/mode" => SetMode(conversation, argument),
+            _ => null
+        };
+        if (reply is null)
+        {
+            return false;
+        }
+        await hub.SendAsync(message.ChannelId, conversation.Reply, reply, CancellationToken.None).ConfigureAwait(false);
+        return true;
+    }
+
+    private string Reset(BridgeConversation conversation)
+    {
+        conversation.Running?.Cancel();
+        approvals.Cancel(conversation.ChatKey);
+        conversation.Reset();
+        return Loc["BridgeNewChat"];
+    }
+
+    private string Stop(BridgeConversation conversation)
+    {
+        if (conversation.Running is not { } running)
+        {
+            return Loc["BridgeNothingRunning"];
+        }
+        running.Cancel();
+        return Loc["BridgeStopped"];
+    }
+
+    private async Task<string> StatusAsync(BridgeConversation conversation, ChannelConfig config)
+    {
+        ChatMode mode = conversation.ModeOverride ?? Settings.Mode;
+        string target = conversation.BoundTarget.Length > 0 ? conversation.BoundTarget : "—";
+        SessionInfo? session = conversation.BoundTarget.Length > 0
+            ? await SessionTargets.ResolveAsync(context, conversation.BoundTarget, CancellationToken.None).ConfigureAwait(false)
+            : null;
+        return Loc.F("BridgeStatus", config.Label, mode, Settings.Approval, target,
+            session is null ? Loc["BridgeSessionOffline"] : Loc["BridgeSessionOnline"]);
+    }
+
+    private async Task<string> ListSessionsAsync()
+    {
+        string list = await SessionTargets.DescribeAsync(context, CancellationToken.None).ConfigureAwait(false);
+        return list.Length == 0 ? Loc["BridgeNoSessions"] : Loc.F("BridgeSessions", list);
+    }
+
+    private async Task<string> BindAsync(BridgeConversation conversation, string argument)
+    {
+        if (argument.Length == 0)
+        {
+            return Loc["BridgeBindUsage"];
+        }
+        if (await SessionTargets.ResolveAsync(context, argument, CancellationToken.None).ConfigureAwait(false) is not { } session)
+        {
+            return Loc.F("BridgeBindNotFound", argument);
+        }
+        conversation.BoundTarget = SessionTargets.Format(session);
+        // 绑定要过夜:存进设置里,VelaShell 重开、会话重连之后群里不用再绑一次
+        BridgeSettings settings = await bridgeStore.LoadAsync().ConfigureAwait(false);
+        settings.ChatBindings[conversation.ChatKey] = conversation.BoundTarget;
+        await bridgeStore.SaveAsync(settings).ConfigureAwait(false);
+        Settings.ChatBindings[conversation.ChatKey] = conversation.BoundTarget;
+        return Loc.F("BridgeBound", conversation.BoundTarget);
+    }
+
+    /// <summary>
+    /// <c>/mode</c>:换这个聊天的挡位。<b>默认只让往低了换。</b>
+    /// </summary>
+    /// <remarks>
+    /// 白名单里的任何人都能发 <c>/mode agent</c> 的话,设置页里那个"桥接默认只读"就形同虚设 ——
+    /// 拉高权限这件事应该在 VelaShell 里做,不该在群里做。要开放得去设置页勾
+    /// <see cref="BridgeSettings.AllowModeEscalation" />。
+    /// </remarks>
+    private string SetMode(BridgeConversation conversation, string argument)
+    {
+        ChatMode? requested;
+        switch (argument.Trim().ToLowerInvariant())
+        {
+            case "chat":
+                requested = ChatMode.Chat;
+                break;
+            case "plan":
+                requested = ChatMode.Plan;
+                break;
+            case "agent":
+                requested = ChatMode.Agent;
+                break;
+            case "" or "reset" or "default":
+                requested = null;
+                break;
+            default:
+                return Loc["BridgeModeUsage"];
+        }
+        if (requested is { } mode && Rank(mode) > Rank(Settings.Mode) && !Settings.AllowModeEscalation)
+        {
+            return Loc.F("BridgeModeLocked", Settings.Mode);
+        }
+        conversation.ModeOverride = requested;
+        return Loc.F("BridgeModeSet", conversation.ModeOverride ?? Settings.Mode);
+
+        static int Rank(ChatMode mode) => mode switch
+        {
+            ChatMode.Agent => 2,
+            ChatMode.Plan => 1,
+            _ => 0
+        };
+    }
+
+    private BridgeConversation GetOrCreate(ChannelConfig config, InboundMessage message)
+    {
+        lock (_sync)
+        {
+            if (_conversations.TryGetValue(message.ChatKey, out BridgeConversation? existing))
+            {
+                return existing;
+            }
+            var created = new BridgeConversation(message.ChannelId, message.ChatId)
+            {
+                ThreadId = message.ThreadId,
+                BoundTarget = Settings.ChatBindings.TryGetValue(message.ChatKey, out string? bound)
+                    ? bound
+                    : config.DefaultTarget
+            };
+            _conversations[message.ChatKey] = created;
+            return created;
+        }
+    }
+
+    private static bool IsChatAllowed(ChannelConfig config, InboundMessage message)
+        => config.AllowedChats.Contains(message.ChatId);
+
+    /// <summary>
+    /// 没授权的聊天回一次(且只回一次)带 id 的提示。
+    /// </summary>
+    /// <remarks>
+    /// 沉默是更"安全"的做法,但它把用户卡在第一步:群 id 在飞书/钉钉的界面上根本看不到,
+    /// 不回这一句,人就只能去翻日志。机器人已经在群里了,回一句并不多暴露什么。
+    /// </remarks>
+    private async Task NotifyUnauthorizedOnceAsync(InboundMessage message)
+    {
+        lock (_sync)
+        {
+            if (!_unauthorizedNotified.Add(message.ChatKey))
+            {
+                return;
+            }
+        }
+        context.Log.Info($"Bridge: chat {message.ChatId} is not in the allowlist (channel {message.ChannelId}).");
+        if (message.IsGroup && !message.MentionsBot)
+        {
+            return; // 群里没 @ 就别自说自话
+        }
+        await hub.SendAsync(message.ChannelId, new OutboundTarget(message.ChatId, message.ThreadId),
+            Loc.F("BridgeUnauthorized", message.ChatId), CancellationToken.None).ConfigureAwait(false);
+    }
+
+    private static string Clip(string text, int max)
+        => text.Length <= max ? text : string.Concat(text.AsSpan(0, Math.Max(0, max - 1)), "…");
+
+    /// <summary>超长回复切段。尽量断在换行处,断不了才硬切。</summary>
+    private static List<string> Split(string text, int max)
+    {
+        if (text.Length <= max)
+        {
+            return [text];
+        }
+        var parts = new List<string>();
+        ReadOnlySpan<char> rest = text;
+        while (rest.Length > max)
+        {
+            int cut = rest[..max].LastIndexOf('\n');
+            if (cut < max / 2)
+            {
+                cut = max;
+            }
+            parts.Add(rest[..cut].ToString());
+            rest = rest[cut..].TrimStart('\n');
+        }
+        if (rest.Length > 0)
+        {
+            parts.Add(rest.ToString());
+        }
+        return parts;
+    }
+}

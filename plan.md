@@ -985,3 +985,322 @@ Ollama 走它的 OpenAI 兼容层。回应认三种形状:`{"data":[…]}`、裸
 > **一处与本条无关的既有失败**:`ShortcutCatalogTests.Doc_ListsEveryCatalogEntry` 读
 > `docs/快捷键参考.md`,而该文件在 `f0f492a`(文档搬去 velashell-docs)时已从本仓库删除,
 > 测试没跟着改 —— 现在必然抛 `FileNotFoundException`。不在本次改动范围内,单独处理。
+## 33. 2026-09-02 协作接入:IM 桥接(飞书/钉钉/Telegram/企微)+ 对外 MCP 服务端
+
+两件事一起做,因为它们是同一个能力的两个方向,而且共用同一套安全观念:
+
+- **往外**:团队在飞书/钉钉/Telegram/企微里 @ 机器人,VelaShell 的 agent 在**已连上的**
+  SSH 会话上干活,结果回帖到群里 —— 对齐 Hermes Agent 的消息网关那一层;
+- **往内**:Claude Code / Codex 这类外部 agent 把 VelaShell 当 MCP 服务端调,
+  用的就是 `AgentToolbox` 里那套工具。
+
+全部落在 `plugins/VelaShell.Plugin.Ai/`(`Bridge/` 与 `Interop/`)。**AI 插件因此改为
+`onStartup` 激活** —— 桥接必须常驻,不能等用户点开面板才建连;换来的代价是启动多一次
+程序集装载与一次配置读取(两条服务都关着时立刻返回)。
+
+### 一、四个渠道,四种入站传输
+
+抽象是 `IMessageChannel`:只管收发,"跑到断为止";重连退避统一在 `ChannelHub`。
+四家刻意各选一种传输,把抽象压到位:
+
+| 渠道 | 入站 | 能改已发消息 | 备注 |
+| --- | --- | --- | --- |
+| 飞书 / Lark | 官方长连接(WebSocket + pbbp2 帧) | 能 | 帧格式官方未公开,照 `larksuite/oapi-sdk-go` 的 `ws/pbbp2.pb.go` **手写**编解码,不引 protobuf 运行时 |
+| 钉钉 | Stream 模式(WebSocket + JSON 帧) | 不能 | 协议官方有公开文档;发消息走带令牌的接口,**不用 sessionWebhook**(只能发 5 条、1.5 小时过期) |
+| Telegram | Bot API 长轮询 | 能 | 走宿主全局代理 |
+| 企业微信 | 公网回调(本机 HTTP 监听) | 不能 | 唯一需要公网入口的一家;只绑 127.0.0.1,前面自己接隧道 / 反代 |
+
+飞书那条长连接有两个坑写在代码注释里:一个应用最多 50 条连接,而且多客户端时平台按
+**集群**投递(随机挑一个)—— 同一套凭证别在两台机器上同时跑。
+
+### 二、安全默认:能少给就少给
+
+- **白名单为空 = 谁都不理**。群 id 在飞书/钉钉界面上看不到,所以第一次被 @ 时回一句
+  (且只回一句)带 id 的提示,否则用户根本没法完成配置;
+- 桥接默认**计划档(只读)**,比面板保守一档 —— 面板前面坐着人,IM 那头的人可能在地铁上;
+- `/mode` **默认只能往低了调**。白名单里任何人都能 `/mode agent` 的话,设置页那个"只读"
+  就形同虚设;要放开得去设置页勾 `AllowModeEscalation`;
+- 审批走**文本回复**(`y`/`n`/`a`)而不是交互卡片:四家的卡片回传各有各的坑
+  (飞书 `card.action.trigger` 在长连接上并不总能收到,上游项目挂着同样的 issue),
+  文本是唯一四家都稳的通道。审批人可与"能说话的人"分开配;
+- 绑定存 `user@host:port` 而**不是 SessionId** —— 后者断线重连就换一个,存它的话群里的绑定
+  过夜就失效。
+
+### 三、无头 agent 回合另起一条,不动聊天面板
+
+`Bridge/BridgeAgentRunner`。`ChatPanelView.SendAsync` 把装配、流式渲染、审批卡片、插话与压缩
+缝在一起、每一步都直接写 UI 控件;把它抽成界面无关要动那个 2500 行文件的骨架,风险远大于
+并排写一条只做桥接需要的路。真正值钱的零件(`AgentToolbox` / `ContextBuilder` /
+`AiSettingsStore` / `McpManager` / `ChatHistoryStore`)本来就界面无关,直接复用,重复的只有编排。
+
+### 四、对外 MCP 服务端
+
+`Interop/McpEndpoint`:Streamable HTTP(不是 stdio —— stdio 的前提是客户端能把服务端拉起来,
+而 VelaShell 是一个已经开着的桌面程序)。只绑 127.0.0.1,**每个请求必须带令牌**:本机端口
+同机任何进程(包括浏览器里的页面)都能敲,令牌是唯一的门。工具直接由 `AgentToolbox` 产出,
+外加一个 `use_session` 让外部 agent 挑机器(工具箱靠 `SessionIdProvider` 拿会话,签名里没有这个参数)。
+
+**审批在这条路上没有界面**,所以 `ApprovalMode.Ask` 等于一律拒绝写操作(工具箱在
+`ApprovalHandler` 为 null 时就是这个行为)。要让外部 agent 能改东西,用户得显式选只读放行
+或绕过审批 —— 这是一个明摆着的选择,而不是一个悄悄的默认。
+
+### 五、已知限制(需要 SDK 新契约才能解)
+
+`ISessionsApi` 只有 `ListAsync` / `GetAsync`,**开不了新会话**。所以两条路上的 agent 都只能
+操作"用户已经连上的机器";没有连上的,只能回一句让人去 VelaShell 里连。要让它自己按保存的
+配置连一台,得给 SDK 加契约(按 AGENTS.md 走 velashell-plugin-sdk 的发版流程)。
+
+### 六、踩到的坑
+
+**`TextWrapping="Wrap"` 的多行 TextBox + 竖滚动条 Auto = 布局死循环。**外层 ScrollViewer 的
+滚动条一旦出现就压窄可用宽度 → 文本重排变高 → 还是要滚动条 → 收回…… measure/arrange 无限
+震荡,窗口整个卡死;headless 测试里表现为一分钟超时,**连异常都没有**。内容为空时不发作,
+填上内容才挂 —— 所以它很容易溜过第一版用例。协作页那个"接入方式"框因此固定 NoWrap
+(内容本来就是整段复制走的,横向滚动够用),注释已留在 `CollaborationView.axaml`。
+
+测试:`Pbbp2Tests`(帧编解码,含未知字段跳过与截断报错)、`WeComCryptoTests`(验签与报文布局)、
+`McpEndpointTests`(真起 HTTP:initialize / tools/list / tools/call / 鉴权拒绝)、
+`BridgeRouterTests`(白名单、群里没 @ 不理、斜杠命令、`/mode` 不许提权)、`SessionTargetsTests`、
+`CollaborationViewUiTests`(headless 真装载)、`LocTableTests`(插件那张多语言表必须齐五语 ——
+少一项是运行时 `IndexOutOfRangeException`,而且只有切到日/韩才撞得到)。
+`VelaShell.Plugin.Ai.Tests` 256 条全绿,全仓 `dotnet build` 无警告。
+
+**待办**:velashell-docs 尚未同步 —— 需要新增 `{zh,en}/plugins/协作接入.md`(渠道配置步骤、
+安全模型、MCP 接入方式),并在 `{zh,en}/plugins/STATUS.md` 登记。
+
+## 34. 2026-09-02 协作接入的配置流程返工(用户反馈:"要填一堆文本框")
+
+第一版把开发者后台的东西原样誊了一遍。真正费事的其实不是那两个凭证(各复制一次而已),
+而是后面那趟:**加机器人进群 → 发一句 → 看它回的群 id → 复制 → 回电脑粘进白名单 → 保存 → 重连**。
+人在手机跟前,电脑在工位上,这一趟纯属受罪。
+
+### 一、先说清楚 Hermes 的"扫码"是什么
+
+用户提到 Hermes 可以扫码接入。它其实是两件不同的事:
+
+- **WhatsApp / Signal**:设备链接 —— agent 挂成你账号的一台已链接设备,压根没有"应用"要注册,
+  所以确实一扫就完;
+- **飞书/钉钉/企微**:bot 的 `app_secret` 只能从开发者后台拿,**没有任何扫码能变出它来**。
+
+(中文教程里流传的"扫码自动创建飞书应用"未经官方文档证实,没有照它实现。)
+
+所以这一版不去做"扫码替代填凭证",而是把真正冗长的那一段砍掉。
+
+### 二、配对码:授权一个群不用再回电脑
+
+`Bridge/PairingService.cs`。设置页点一下生成六位码,在要授权的聊天里发 `/pair 428913` 即可。
+
+- 一次性、十分钟过期、**猜错五次直接作废**,随机数走 `RandomNumberGenerator`(它在有效期内
+  是一个能把陌生聊天放进白名单的凭据,用 `Random` 等于给知道规律的人留门);
+- **只能加白名单**,动不了挡位与审批 —— 能不能在服务器上干活仍旧归那两项管;
+- `/pair` 刻意**不要求群里先 @ 机器人**:此刻它还不在白名单里,再叠一条"先 @ 我"
+  等于把配对本身也挡在门外;
+- 放行同时写内存与库:只写库要等重载才认,只写内存重启就没。库里还没有这个渠道
+  (设置页加了没保存)时给一条 warn,不让它静默地只活到下次重启。
+
+### 三、一键放行:敲过门的聊天直接列出来
+
+被白名单挡掉的聊天会被记下(`PendingChat`),设置页一行一个卡片:哪个渠道、群还是单聊、
+谁在说话、聊天 id,右侧 [允许] / [忽略]。点允许即时生效并落盘,同时把 id 填进上面那个
+白名单框 —— 否则用户接着点保存,反而把刚放行的又抹掉了。
+
+清单挂在 `BridgeService` 而不是路由器上:设置页一保存就整体重建路由器,
+"刚才有个群敲过门"这条线索不该被那一下抹掉。
+
+### 四、[测试] 按钮:填完当场验,不用保存再翻日志
+
+`Bridge/ChannelProbe.cs`,用界面上**当前**填的值去试(不保存)。飞书那条特意多走一步:
+换到令牌之后再问一次长连接接入点 —— 接飞书最常见的两种翻车不是密钥填错,而是
+**事件订阅没改成长连接**与**改完没发布版本**,这两种情况下密钥完全正确却一条消息都收不到。
+探测全程只读:换令牌、查自身信息、问接入点,不发消息不改配置。
+
+### 五、二维码用在真正省事的地方
+
+测试通过后,如果拿得到"把机器人加进群"的链接就渲染成二维码(飞书 `applink.feishu.cn`、
+Telegram `t.me/<bot>?startgroup=true`),手机扫一下直接跳过去,省掉在手机上按名字搜应用。
+新引 `QRCoder`(MIT、netstandard2.0、无传递依赖),走 `PngByteQRCode` 出字节流交给
+Avalonia 的 `Bitmap` —— 不碰 `System.Drawing`,Linux/macOS 上不需要 libgdiplus。
+
+自己写 QR 编码器要 Reed-Solomon 与掩码评分,几百行且没有额外价值:与自研 VT/ZMODEM 不同,
+这里没有需要拿捏的协议细节。
+
+### 六、顺手修的一处 UX
+
+设置页原来要等三秒(定时器)才刷出待放行清单,现在加载完就先刷一次;定时器只负责
+"页面开着时后来又有人敲门"。
+
+于是整条链路变成:**填两个框 → 点测试 → 扫码把机器人拉进群 → 群里发一句 `/pair` → 完事**,
+全程不用抄任何 id。
+
+测试:`PairingServiceTests` 8 条(六位数字、一次性、猜错五次作废、重发作废旧码、待放行去重与排序)、
+`BridgeRouterTests` 新增 6 条(有效码放行且落盘、错码不放行、没发过码不放行、缺参数给用法、
+陌生聊天被记下、放行后从清单消失)、`CollaborationViewUiTests` 新增 4 条
+(配对码显示、没开桥接时说明原因、待放行卡片带「允许」、**二维码真的画得出 Bitmap** ——
+新依赖里这条最可能"编译得过、运行才炸")。
+`VelaShell.Plugin.Ai.Tests` 275 条全绿,全仓 `dotnet build` 无警告。
+
+### 七、真机联调抓到的第一个 bug:`PostAsJsonAsync` 把字段名 camelCase 掉了
+
+用户拿真凭证一测,报 `credentials OK, but the long-connection endpoint was refused:
+Feishu endpoint request failed: Bad Request (code 9499)`。
+
+拿真凭证对同一个接口打两次,把两种写法并排比:
+
+```
+camelCase   → HTTP 400  {"code":9499,"msg":"Bad Request"}
+PascalCase  → HTTP 200  {"code":0,...,"URL":"wss://msg-frontier.feishu.cn/..."}
+```
+
+`HttpClient.PostAsJsonAsync` 用的是 `JsonSerializerDefaults.Web`,它会把属性名转成
+camelCase —— 匿名对象里写 `AppID` 发出去是 `appID`,而飞书这个接口要的是逐字的
+`AppID` / `AppSecret`。
+
+**阴险的是同一个类里换令牌那条用的是 `app_id`(本来就小写开头),camelCase 动不了它。**
+于是症状是"凭证明明是对的,只有接入点这一步被拒" —— 最不容易往序列化上想的那种组合。
+
+修法不是"调用时记得传对 options",而是把字段名用 `[JsonPropertyName]` 钉在类型上
+(`FeishuApi.EndpointRequest`):选项跟着每一个调用点走,特性跟着类型走,下次谁再加一个
+调用点也不会中。回归用例 `FeishuApiTests` 刻意**按 Web 默认值**序列化一次 ——
+用 `JsonSerializerOptions.Default` 是测不出这个 bug 的,那正是当初漏掉它的原因。
+
+其余三家不受影响:钉钉本来就是 camelCase(平台也要 camelCase),Telegram 与飞书发消息用
+snake_case,企微用全小写,camelCase 策略对这些名字都是恒等变换。
+
+### 八、协作接入页没吃上主题(用户反馈:"逐个检查处理")
+
+不是"按钮没居中"一处,是我建这一页时**整体没照 `DESIGN.md` 走**。逐个控件对完之后:
+
+| 问题 | 后果 |
+| --- | --- |
+| 六个按钮都没挂宿主的按钮主题 | `VelaOutlineButtonTheme` 里带着 `HorizontalContentAlignment="Center"` —— 不挂就是文字不居中(用户先看出来的那一条),配色也不是同一套 |
+| 保存栏写了 `VelaBorderSubtle` | **这个令牌根本不存在**(只有 `VelaBorderPrimary` / `VelaBorderSecondary`)。那条分隔线从落地起就没画出来过 |
+| 代码建的两个勾选框只挂了 `AiCheckBoxTheme` | 那个主题只管方块的画法,旁边那行字仍旧用控件自己的 `FontSize` / `Foreground` —— 于是比 XAML 里的大一号、颜色也不跟主题走 |
+| 待放行卡片里的标题 `TextBlock` 没有 class | 拿到的是 Fluent 默认前景色,换主题不跟着变 |
+| 卡片自己另写了 `Padding`、标签自己另写了 `Margin` | 把 `Border.card` / `TextBlock.label` 里定好的那一档盖掉了 |
+| 二维码是张裸的黑白图 | 直接糊在深色卡片上;现在套一层 `Border.card`(码本身不跟着主题反色 —— 反色的 QR 很多扫码器读不出来) |
+
+顺带:平台名补上拉丁写法(`钉钉 / DingTalk`)—— 界面能切日/韩,"钉钉"两个字对那边的用户不是可读的品牌名。
+`DialogStyles.axaml` 新增一档 `TextBlock.body`(12 / Primary):在这之前"卡片里的正文一行"只能靠不写 class 蒙混过去。
+
+### 九、加两道守门用例,免得再漂回去
+
+**`{DynamicResource Xxx}` 拼错不会报错,只是什么都不做。** 而 headless 用例挡不住这一类:
+测试进程里压根没装载宿主的令牌字典,所有键都解析不到,拼对拼错看起来一模一样。
+所以 `ThemeTokenUsageTests` 按**文本**比对:
+
+- `EveryResourceKeyUsedByThePluginIsDefinedSomewhere` —— 扫插件全部 `Ui/*.axaml` 引用的资源键,
+  必须能在 `src` / `plugins` 的 axaml(`x:Key`)或 C#(`Resources["…"] =`,本地化提示就是这么给的)里
+  找到定义。剥掉 XML 注释,否则注释里举例用的键会被算成引用。
+- `EveryButtonOnTheCollaborationPageWearsAHostTheme` —— 这一页 XAML 里的每个 `<Button>` 都必须挂
+  `Vela*ButtonTheme`。
+
+两条都**先把 bug 放回去验过会红**:一条点名 `VelaBorderSubtle`,一条把没挂主题的那个按钮整行打印出来。
+守门用例不验证它抓得住,和没有是一回事。
+
+找不到仓库根时这两条**失败**而不是跳过 —— MSTest 把跳过记成通过,一条永远绿的守门用例比没有更糟。
+
+**顺带发现但没动**:宿主自己的 axaml 里 `VelaBgPrimary` 与 `VelaStatusError` 两个键也找不到定义
+(`StringScrollBar*` 是 Avalonia 内置的,不算)。不在本次范围内,单独记一笔。
+
+`VelaShell.Plugin.Ai.Tests` 279 条全绿,全仓 `dotnet build` 无警告。
+
+### 十、按钮居中:前两次都没修对(用户第三次反馈)
+
+前两次都是"看着像对的"就交了,实际没解决。真原因有两条,单看代码都看不出来:
+
+1. **`VelaAccentPillButtonTheme` 没有 `HorizontalContentAlignment` 这个 setter**
+   (`VelaOutlineButtonTheme` 第 85 行有)。它只在模板里 `TemplateBinding`,而 `ContentControl`
+   的默认值是 `Stretch` —— 纯文字内容被拉开,看起来就是没居中。保存按钮用的正是这个主题。
+   宿主自己那几个 pill 按钮都塞了带 `VerticalAlignment` 的 `StackPanel` 当内容,恰好盖住了这一点。
+2. **代码里 `new` 出来的按钮不能用 `TryFindResource` 取主题**:资源查找沿逻辑树往上走,
+   而那时控件还没进树,一律落空,**而且是静默落空**。`测试` / `移除` / `允许` / `忽略`
+   四个按钮从来没挂上过主题。
+
+改法:不再在每个按钮上写 `Theme=`,改成样式表里的 `Button.host` / `Button.primary` / `CheckBox.host`
+三档 class。样式是在控件**进树时**套上去的,`DynamicResource` 那时才解析 —— 时序问题自然消失;
+两档里都显式补了 `HorizontalContentAlignment="Center"`,不指望宿主哪天会给 pill 补上。
+
+### 十一、这次是渲染出来看过的
+
+前两次的教训是:**headless 用例证明不了主题真的挂上了** —— 测试进程里宿主的资源字典根本没装载,
+`VelaAccentPillButtonTheme` 解析不到,于是按钮退回 Fluent 默认主题(它自带居中),
+"修了"和"没修"在 headless 里长得一模一样。文本级用例更弱,只能看出 XAML 里写没写。
+
+所以在 scratchpad 起了一个 Skia 控制台工程,merge 宿主真实的令牌与 `ButtonThemes.axaml`,
+把整页渲染成 PNG 看。做法记进了记忆(`previewing-plugin-ui-headlessly`),其中最坑的一步:
+**必须挂到真正的 `Window` 上再 `CaptureRenderedFrame()`** —— 对脱离 TopLevel 的控件手工
+`Measure/Arrange` 再 `RenderTargetBitmap.Render`,出来的是纯白图。
+
+图上确认:添加 / 测试 / 移除 / 生成 / 允许 / 忽略 / 保存,七个按钮的文字全部居中,描边与配色一致。
+
+### 十二、渲染顺手抓出另一个 bug:`Loc` 表里两个同名键
+
+图上"单轮超时(秒)"旁边那个标签显示成了一整句 **"没人应答,按拒绝处理。"**。
+
+`Loc.Table` 是用索引器 `["key"] = […]` 初始化的,**重复键是静默覆盖**(换成集合初始化器的 `Add`
+才会抛)。设置页的「审批超时(秒)」标签与 IM 里那句超时提示都叫 `BridgeApprovalTimeout`,
+后写的把前面盖掉。编译、测试、启动全都正常 —— 只有把界面画出来才看得见。
+IM 那条改名 `BridgeApprovalTimedOut`。
+
+### 十三、这一轮加的守门用例
+
+- `EveryButtonCentresItsLabel`(headless)—— 遍历页面上每个 `Button`(排掉 `ToggleButton`,
+  勾选框的文字本来就该左对齐),断言 `HorizontalContentAlignment == Center`。
+  这条在 headless 里**成立**,因为样式表里那个 setter 的值是字面量,不依赖宿主资源。
+  验证过:抽掉 `Button.primary` 的那一行,它精确报出 `SaveButton:Save`。
+- `EveryButtonAndCheckBoxOnTheCollaborationPageCarriesItsClass`(文本级)—— 挡住"退回去每个按钮
+  自己写 `Theme=`"那种改法。
+- `NoKeyIsDefinedTwice`(源码级)—— 只能按源码查,运行时的字典里看不出曾经有过两条。
+
+`VelaShell.Plugin.Ai.Tests` 281 条全绿。
+
+**过程教训**:中间还有一次"注入 bug 验证守门用例"的 perl 替换没匹配上,于是"用例仍然通过"被我
+当成了证据 —— 注入之后要先确认文件真的变了,再看用例的结果。
+
+### 十四、过程问题:整轮功能是在落后 18 个提交的基线上做的(用户反馈)
+
+这一整轮从头到尾没有 `git fetch` 过。做完才发现落后 `origin/main` **18 个提交**,
+而且其中好几个正好动 AI 插件:订阅登录(`Auth/`)、思考档位下拉、供应商目录、
+自定义供应商拉模型清单 —— 与本次改动的文件高度重叠。
+
+补救:`git stash --include-untracked` → `git merge --ff-only origin/main` → `git stash pop`。
+新增文件都是未跟踪的,不参与合并;四个被同时改过的文件里只有 `plan.md` 真冲突
+(两边都往文件尾追加小节),上游占 30/31/32,本次的两节顺延为 33/34。
+`DialogStyles.axaml` / `Loc.cs` / `plugin.json` 自动合上 —— 但"文本能合"不等于"语义没坏",
+所以在新基线上重跑了一遍:全仓 `dotnet build` 无警告,`VelaShell.Plugin.Ai.Tests`
+**466 条全绿**(本次 281 + 上游新增),协作页也重新渲染确认过外观没被上游的
+`DialogStyles` 改动(新增了一条 `ListBox.nav ListBoxItem TextBlock.count`)影响。
+
+**教训**:动手之前先 `git fetch` 看一眼落后多少。这次运气好只撞了一个文件;
+如果上游重构了 `AiSettingsStore` 或 `AgentToolbox`(这两个都在本次依赖里),
+返工量会大得多。
+
+### 十五、飞书里 401,而面板同一刻好好的:桥接吃的是启动时那份 AI 设置快照
+
+现象:群里报
+`OpenAI Codex / gpt-5.6-sol: Service request failed. Status: 401 — {"detail":"Could not parse your authentication token."}`,
+而 VelaShell 里的 AI 助手用同一个模型完全正常。
+
+(顺带说明上一轮"把模型名带进错误里"那个改动是值得的 —— 没有那句 `OpenAI Codex / gpt-5.6-sol`,
+这条线索根本立不起来:光看 401 会以为是飞书的凭证问题。)
+
+面板与桥接走的是**同一个** `AiSettingsStore.CreateClientAsync`,里面刷新令牌、附加头、
+账户级 BaseUrl 一应俱全。差别在传进去的那个 `AiProvider` 对象:
+
+- 面板在设置窗口登录之后会刷新自己的 `AiSettings`;
+- **桥接的那份是启动时读的,之后再没更新过**(只在设置页保存触发 `ReloadAsync` 时才换)。
+
+于是用户登录订阅制供应商之后,桥接手里那份 provider 还是登录之前的形态(`Auth` 仍是 `ApiKey`、
+没有 `OAuth` 配置),`ResolveCredentialAsync` 走了"取 API Key"那条岔路,把一个空 Key 发了出去 ——
+服务端回的正是"解析不了你的认证令牌"。
+
+改法:`BridgeAgentRunner` **每轮现读** `AiSettings`,`ConversationRouter` 不再缓存它
+(`Apply` 只收桥接设置与语言)。代价是每轮多读一次 JSON,与一次模型调用比可以忽略;
+换来的是"面板里改了什么,桥接下一句就跟上" —— 换模型、重新登录、改 MCP 配置都不必重启桥接。
+
+回归用例 `BridgeAgentRunnerTests.RunAsync_RereadsTheAiSettingsEveryTurn`:**先**造 runner、
+**之后**才往库里写供应商,第一轮必须说"没配模型",第二轮的报错里必须带上刚写进去的模型名。
+快照式实现连编译都过不去(`ai` 是参数),所以这条用例是结构性的。
+另有一条钉住"报错必须点名哪个模型"。
+
+`VelaShell.Plugin.Ai.Tests` 469 条全绿。

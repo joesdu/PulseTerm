@@ -1,4 +1,6 @@
+using VelaShell.Plugin.Ai.Bridge;
 using VelaShell.Plugin.Ai.Configuration;
+using VelaShell.Plugin.Ai.Interop;
 using VelaShell.Plugin.Ai.Ui;
 using VelaShell.PluginSdk;
 using VelaShell.PluginSdk.Commands;
@@ -8,8 +10,8 @@ using VelaShell.PluginSdk.Ui;
 namespace VelaShell.Plugin.Ai;
 
 /// <summary>
-/// AI 助手插件入口。经 manifest 的 <c>onCommand</c> 惰性激活:
-/// 用户第一次触发 AI 命令才装载本程序集。
+/// AI 助手插件入口。<b>启动即激活</b>(见 <c>plugin.json</c> 的 <c>onStartup</c>)——
+/// IM 桥接要常驻,不能等用户点开面板才建连;聊天面板本身仍是首次触发命令才构造。
 /// 命令:打开聊天(标签页/窗口)、解释当前终端输出。
 /// </summary>
 [VelaPlugin]
@@ -18,8 +20,17 @@ public sealed class AiPlugin : IVelaPlugin
     private IPluginContext? _context;
     private AiSettingsStore? _store;
     private IPluginPanel? _panel;
+    private IPluginPanel? _collaborationPanel;
     private ChatPanelView? _view;
+    private BridgeService? _bridge;
+    private McpEndpoint? _mcpServer;
     private readonly List<IDisposable> _commands = [];
+
+    /// <summary>IM 桥接(设置页保存后调它的 <c>ReloadAsync</c>)。</summary>
+    public BridgeService? Bridge => _bridge;
+
+    /// <summary>对外的 MCP 服务端(设置页保存后调它的 <c>ReloadAsync</c>)。</summary>
+    public McpEndpoint? McpServer => _mcpServer;
 
     /// <inheritdoc />
     public Task ActivateAsync(IPluginContext context, CancellationToken cancellationToken)
@@ -29,19 +40,63 @@ public sealed class AiPlugin : IVelaPlugin
         RegisterCommands();
         // 命令标题本地化:语言切换时按同 id 重注册替换
         context.Events.LocaleChanged += _ => RegisterCommands();
+        StartServices(context, cancellationToken);
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// 拉起两条常驻服务:IM 桥接(往外接飞书/钉钉/Telegram)与 MCP 服务端
+    /// (往内让 Claude Code / Codex 这类外部 agent 调 VelaShell)。
+    /// </summary>
+    /// <remarks>
+    /// <b>不 await。</b>建连与监听都要碰系统资源,而插件激活是在启动路径上 ——
+    /// 一台连不上的飞书、一个被占用的端口,都不该把 VelaShell 的启动拖住。
+    /// 两者关着时各自读一次配置就返回。
+    /// </remarks>
+    private void StartServices(IPluginContext context, CancellationToken cancellationToken)
+    {
+        _bridge = new BridgeService(context, _store!);
+        _mcpServer = new McpEndpoint(context, new McpServerSettingsStore(context));
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _bridge.ReloadAsync(cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                context.Log.Error($"Starting the IM bridge failed: {ex}");
+            }
+            try
+            {
+                await _mcpServer.ReloadAsync(cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                context.Log.Error($"Starting the MCP server failed: {ex}");
+            }
+        }, cancellationToken);
+    }
+
     /// <inheritdoc />
-    public Task DeactivateAsync(CancellationToken cancellationToken)
+    public async Task DeactivateAsync(CancellationToken cancellationToken)
     {
         // 命令、事件订阅与面板由宿主自动清理;这里只拆自己的引用。
         _view?.Detach();
         _view = null;
         _panel = null;
         _commands.Clear();
+        if (_bridge is { } bridge)
+        {
+            await bridge.DisposeAsync();
+            _bridge = null;
+        }
+        if (_mcpServer is { } mcp)
+        {
+            await mcp.DisposeAsync();
+            _mcpServer = null;
+        }
         _context = null;
-        return Task.CompletedTask;
     }
 
     private void RegisterCommands()
@@ -62,6 +117,50 @@ public sealed class AiPlugin : IVelaPlugin
         _commands.Add(context.Commands.Register(new PluginCommandDescriptor(
             $"{context.PluginId}.explain-terminal", loc["CmdExplain"], "AI",
             ExplainTerminalAsync)));
+        _commands.Add(context.Commands.Register(new PluginCommandDescriptor(
+            $"{context.PluginId}.collaboration", loc["CmdCollaboration"], "AI",
+            _ => OpenCollaborationAsync())));
+    }
+
+    /// <summary>
+    /// 打开「协作接入」设置窗口(IM 桥接 + 对外 MCP 服务端)。
+    /// </summary>
+    /// <remarks>
+    /// 这一页<b>不挂在聊天面板下面</b>:它配的是两条常驻服务,与"当前这段对话"无关,
+    /// 而且用户很可能根本没开过聊天面板就想去配它。所以入口在命令面板上,自己一个窗口。
+    /// </remarks>
+    private async Task OpenCollaborationAsync()
+    {
+        IPluginContext context = _context!;
+        if (_collaborationPanel is { IsOpen: true } opened)
+        {
+            await opened.ActivateAsync();
+            return;
+        }
+        var loc = new Loc(context.Host.Locale);
+        _collaborationPanel = await context.Ui.ShowPanelAsync(
+            new PanelOptions
+            {
+                Title = loc["Collaboration"],
+                DisplayMode = PanelDisplayMode.Window,
+                WindowWidth = 860,
+                WindowHeight = 780
+            },
+            () => new CollaborationView(context, loc, RestartServicesAsync, _bridge));
+        _collaborationPanel.Closed += () => _collaborationPanel = null;
+    }
+
+    /// <summary>设置页保存后按新配置重起两条服务。</summary>
+    private async Task RestartServicesAsync()
+    {
+        if (_bridge is { } bridge)
+        {
+            await bridge.ReloadAsync();
+        }
+        if (_mcpServer is { } mcp)
+        {
+            await mcp.ReloadAsync();
+        }
     }
 
     private async Task<ChatPanelView?> OpenPanelAsync(PanelDisplayMode mode)
