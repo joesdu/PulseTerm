@@ -63,6 +63,18 @@ public partial class ChatPanelView : UserControl
     private SettingsView? _settingsView;
     private GlobalSettingsView? _globalSettingsView;
     private List<ResolvedModel> _providers = [];
+
+    /// <summary>
+    /// 输入框旁边那个下拉设的临时思考档位;<c>null</c> = 就用模型自己配的那个。
+    /// </summary>
+    /// <remarks>
+    /// <b>不落盘,也不写回模型配置</b>:"这一问要不要多想想"是逐条变的,
+    /// 而设置页里那个值代表的是这个模型平常怎么用。换模型时清掉(见 ProviderCombo 的处理)。
+    /// </remarks>
+    private ReasoningLevel? _reasoningOverride;
+
+    /// <summary>正在由代码回填下拉选中项(别把这一下当成用户在选)。</summary>
+    private bool _syncingReasoning;
     private List<SessionInfo> _sessions = [];
     private CancellationTokenSource? _cts;
     private bool _busy;
@@ -167,8 +179,26 @@ public partial class ChatPanelView : UserControl
                 _settings.ActiveModelId = _providers[ProviderCombo.SelectedIndex].Id;
                 _ = PersistSettingsAsync();
             }
+            // 换了模型,上一个模型的临时档位就不作数了 —— 各家的档位含义与默认值本来就不同,
+            // 留着它等于把"我为 Codex 选的高"悄悄套到 Claude 头上
+            _reasoningOverride = null;
+            SyncReasoningUi();
             // 上下文窗口是按接入配的,换模型就得按新分母重算占比
             UpdateUsageText();
+        };
+        ReasoningCombo.SelectionChanged += (_, _) =>
+        {
+            if (_syncingReasoning || ReasoningCombo.SelectedIndex < 0)
+            {
+                return;
+            }
+            // 选回模型自己配的那一档 = 取消覆盖(而不是"覆盖成同一个值")——
+            // 否则芯片会一直亮着,而它本该只在"这一轮不一样"时才亮
+            var picked = (ReasoningLevel)ReasoningCombo.SelectedIndex;
+            _reasoningOverride = picked == (ActiveProvider?.Config.Reasoning ?? ReasoningLevel.Default)
+                ? null
+                : picked;
+            SyncReasoningUi();
         };
 
         _context.Events.SessionConnected += OnSessionEvent;
@@ -254,6 +284,15 @@ public partial class ChatPanelView : UserControl
         ReloadApprovalItems();
         ModeCombo.SelectedIndex = mode;
         ApprovalCombo.SelectedIndex = approval;
+        // 顺序与 ReasoningLevel 一一对应(默认 / 关 / 低 / 中 / 高),下面按索引强转回枚举
+        _syncingReasoning = true;
+        ReasoningCombo.ItemsSource = (string[])
+        [
+            _loc["ReasoningAuto"], _loc["ReasoningOff"],
+            _loc["ReasoningLow"], _loc["ReasoningMedium"], _loc["ReasoningHigh"]
+        ];
+        _syncingReasoning = false;
+        SyncReasoningUi();
         SyncModeUi();
         // 「新会话」也是纯图标钮了(顶栏四枚统一 26×30),文案只剩提示这一处
         ToolTip.SetTip(NewChatButton, $"{_loc["NewChat"]} — {_loc["NewChatTip"]}");
@@ -557,6 +596,45 @@ public partial class ChatPanelView : UserControl
             ? _providers[ProviderCombo.SelectedIndex]
             : null;
 
+    /// <summary>这一轮真正要用的接入:带上输入框旁边那个临时档位(没改过就是原样)。</summary>
+    private ResolvedModel? ActiveProviderForRequest => ActiveProvider?.WithReasoning(_reasoningOverride);
+
+    /// <summary>
+    /// 把下拉的选中项、可用性与外观同步到当前状态。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 改过档就挂 <c>.overridden</c> 点亮成芯片,否则一个属性都不设 ——
+    /// 「这一轮和我平常设的不一样」得能被余光看见,不然过几条消息就忘了自己动过它。
+    /// </para>
+    /// <para>
+    /// <b>外观走样式类而不是在这里取色写属性。</b>本插件允许在拿不到宿主主题令牌的环境下装载
+    /// (见 <c>Panel_Loads_WithoutHostThemeTokens</c>),那时 <c>FindResource</c> 返回 null,
+    /// 把前景色设成 null 会让文字整个消失、只剩一个下拉箭头 —— 真机上就是这么撞见的。
+    /// </para>
+    /// </remarks>
+    private void SyncReasoningUi()
+    {
+        ResolvedModel? active = ActiveProvider;
+        ReasoningLevel effective = _reasoningOverride ?? active?.Config.Reasoning ?? ReasoningLevel.Default;
+        _syncingReasoning = true;
+        ReasoningCombo.SelectedIndex = (int)effective;
+        _syncingReasoning = false;
+
+        // 只有 models.dev 明说"不会思考"时才灰掉。不知道就放开 ——
+        // 凭"默认不支持"去灰掉一个其实能思考的模型,比多给一个无效档位糟得多
+        bool adjustable = active?.ReasoningAdjustable ?? true;
+        ReasoningCombo.IsEnabled = adjustable;
+
+        bool overridden = _reasoningOverride is not null;
+        ReasoningCombo.Classes.Set("overridden", overridden);
+        ToolTip.SetTip(ReasoningCombo, _loc[!adjustable
+            ? "ReasoningUnsupportedTip"
+            : overridden
+                ? "ReasoningOverrideTip"
+                : "ReasoningTip"]);
+    }
+
     /// <summary>
     /// 刷新输入框下方那块用量:可见文字只留最要紧的一项(知道上下文窗口就给占比,
     /// 否则给累计的进/出),完整明细压进悬停提示 —— 工具条那点宽度经不起铺开。
@@ -856,7 +934,8 @@ public partial class ChatPanelView : UserControl
             await QueueWhileBusyAsync(text, fromUser);
             return;
         }
-        if (ActiveProvider is not { } provider)
+        // 取带临时档位的那一份:输入框旁边选的"这一问想多深"就是在这儿生效的
+        if (ActiveProviderForRequest is not { } provider)
         {
             // 这次是用户主动发消息才撞上"没配接入",直接把设置窗口开给他
             StatusText.Text = _loc["NoProvider"];

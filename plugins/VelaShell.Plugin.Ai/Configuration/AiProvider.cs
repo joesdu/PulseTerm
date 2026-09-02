@@ -256,6 +256,16 @@ public sealed class AiModelConfig
     /// </remarks>
     public ReasoningLevel Reasoning { get; set; } = ReasoningLevel.Default;
 
+    /// <summary>
+    /// 这个模型会不会思考(来自 models.dev 的 <c>reasoning</c>);<c>null</c> = 还不知道。
+    /// </summary>
+    /// <remarks>
+    /// 三态而不是布尔:<b>"没拉过规格库"和"拉过、答案是不会"是两回事</b>。
+    /// 手工添加的模型、中转站的私有型号都落在 null 上 —— 那时界面照常放开档位选择,
+    /// 因为我们确实不知道,凭"默认 false"去灰掉一个其实能思考的模型才是更糟的错。
+    /// </remarks>
+    public bool? SupportsReasoning { get; set; }
+
     /// <summary>界面上显示的名字:名称,没填就退回模型 id。</summary>
     [JsonIgnore]
     public string DisplayName => string.IsNullOrWhiteSpace(Name) ? Model : Name;
@@ -336,8 +346,28 @@ public sealed class ResolvedModel
     /// <inheritdoc cref="AiModelConfig.CachedInputPricePerMillion" />
     public double CachedInputPricePerMillion => Config.CachedInputPricePerMillion;
 
+    /// <summary>
+    /// 这一轮临时用的思考档位;<c>null</c> = 用模型自己配的那个。
+    /// </summary>
+    /// <remarks>
+    /// 输入框旁边那个下拉设的就是它。<b>不落盘</b> —— "这一问要不要多想想"往往是逐条变的,
+    /// 让它改写设置页里的值,下次打开就会发现档位莫名其妙换了,而用户根本不记得动过设置。
+    /// </remarks>
+    public ReasoningLevel? ReasoningOverride { get; init; }
+
     /// <inheritdoc cref="AiModelConfig.Reasoning" />
-    public ReasoningLevel Reasoning => Config.Reasoning;
+    public ReasoningLevel Reasoning => ReasoningOverride ?? Config.Reasoning;
+
+    /// <summary>能不能调思考档位:只有<b>确知不会思考</b>时才是 false(不知道就放开)。</summary>
+    public bool ReasoningAdjustable => Config.SupportsReasoning != false;
+
+    /// <summary>套一个临时档位,返回一份新的(本对象不可变)。</summary>
+    /// <remarks>
+    /// 做成"换一个对象"而不是"改一个字段":<see cref="ResolvedModel" /> 会被界面缓存并共享,
+    /// 就地改的话,某一轮的临时选择会渗到别处去。
+    /// </remarks>
+    public ResolvedModel WithReasoning(ReasoningLevel? level)
+        => level is null ? this : new ResolvedModel(Provider, Config) { ReasoningOverride = level };
 }
 
 /// <summary>插件持久化设置(经 Storage 存 JSON)。</summary>
