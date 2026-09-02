@@ -24,11 +24,11 @@
          PrivateAssets=all + ExcludeAssets=runtime:编译期能看见类型,输出目录里不留 dll ——
          装载时它必须与宿主是同一份程序集,复制过去就成了两份类型。
          版本须与 src/Directory.Packages.props 里宿主引的那一条一致。 -->
-    <PackageReference Include="VelaShell.PluginSdk" Version="2.0.0" PrivateAssets="all" ExcludeAssets="runtime">
+    <PackageReference Include="VelaShell.PluginSdk" Version="2.0.1" PrivateAssets="all" ExcludeAssets="runtime">
       <IncludeAssets>compile; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <!-- 仅编译期引用 Avalonia,运行时由装载方共享同一套(版本须与宿主一致)。 -->
-    <PackageReference Include="Avalonia" Version="12.1.1" ExcludeAssets="runtime" />
+    <PackageReference Include="Avalonia" Version="12.1.2" ExcludeAssets="runtime" />
     <!-- 输入框是 AvaloniaEdit(Markdown 高亮 + @ 引用芯片,纯 TextBox 给不了内联富文本)。
          程序集名 AvaloniaEdit 命中 PluginAssemblyLoadContext 的 SharedPrefixes("Avalonia"),
          运行时一律回落到装载方那份,故此处同样只要编译期引用。
