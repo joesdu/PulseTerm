@@ -1,9 +1,11 @@
 using System.ClientModel;
+using System.ClientModel.Primitives;
 using System.Text.Json;
 using Anthropic;
 using Anthropic.Models.Messages;
 using Microsoft.Extensions.AI;
 using OpenAI;
+using VelaShell.Plugin.Ai.Auth;
 using VelaShell.Plugin.Ai.Chat;
 using VelaShell.PluginSdk;
 
@@ -83,35 +85,175 @@ public sealed class AiSettingsStore(IPluginContext context)
         }
     }
 
-    /// <summary>删除供应商 / 模型时连带清除其机密。</summary>
+    /// <summary>删除供应商 / 模型时连带清除其机密(API Key 与订阅令牌一并清)。</summary>
     public async Task DeleteApiKeyAsync(string ownerId, CancellationToken cancellationToken = default)
     {
         _keyCache.Remove(ownerId);
+        _tokenCache.Remove(ownerId);
         await context.Secrets.DeleteAsync(SecretName(ownerId), cancellationToken).ConfigureAwait(false);
+        await context.Secrets.DeleteAsync(TokenSecretName(ownerId), cancellationToken).ConfigureAwait(false);
+    }
+
+    // ---- 订阅登录的令牌 ----
+
+    /// <summary>
+    /// 已解出的登录令牌。与 <see cref="_keyCache" /> 同一个理由:每发一条消息都要取一次,
+    /// 而取一次是"读库 + DPAPI 解包 + 反序列化"。
+    /// </summary>
+    private readonly Dictionary<string, OAuthTokens?> _tokenCache = [];
+
+    /// <summary>刷新令牌时的单飞闸:一轮对话会并发建好几个客户端,没有它就会同时刷好几次。</summary>
+    private readonly SemaphoreSlim _refreshGate = new(1, 1);
+
+    /// <summary>
+    /// 刷令牌用的 HTTP 客户端。<b>静态共享</b>:每次刷新新建一个会攒下一堆处于 TIME_WAIT 的连接,
+    /// 而这条路上不需要任何自定义 handler(令牌端点不是 SSE,也没有中转站要清洗)。
+    /// </summary>
+    private static readonly HttpClient TokenHttp = new() { Timeout = TimeSpan.FromSeconds(30) };
+
+    /// <summary>刷令牌走谁。留成可替换的,测试里换成打桩的 handler(生产从不改它)。</summary>
+    internal OAuthClient TokenClient { get; set; } = new(TokenHttp);
+
+    /// <summary>读取某供应商的订阅登录令牌;没登录过返回 null。</summary>
+    public async Task<OAuthTokens?> GetTokensAsync(string providerId, CancellationToken cancellationToken = default)
+    {
+        if (_tokenCache.TryGetValue(providerId, out OAuthTokens? cached))
+        {
+            return cached;
+        }
+        string? json = await context.Secrets.GetAsync(TokenSecretName(providerId), cancellationToken).ConfigureAwait(false);
+        OAuthTokens? tokens = null;
+        if (!string.IsNullOrEmpty(json))
+        {
+            try
+            {
+                tokens = JsonSerializer.Deserialize<OAuthTokens>(json);
+            }
+            catch (JsonException ex)
+            {
+                // 存坏了就当没登录 —— 让用户重登一次,好过每条消息都炸一次
+                context.Log.Warn($"Stored sign-in for provider {providerId} could not be read: {ex.Message}");
+            }
+        }
+        _tokenCache[providerId] = tokens;
+        return tokens;
+    }
+
+    /// <summary>写入登录令牌(整组 JSON 加密落盘)。</summary>
+    public async Task SaveTokensAsync(string providerId, OAuthTokens tokens, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(tokens);
+        await context.Secrets.SetAsync(TokenSecretName(providerId), JsonSerializer.Serialize(tokens), cancellationToken)
+                     .ConfigureAwait(false);
+        _tokenCache[providerId] = tokens;
+    }
+
+    /// <summary>退出登录:清掉令牌。</summary>
+    public async Task ClearTokensAsync(string providerId, CancellationToken cancellationToken = default)
+    {
+        _tokenCache[providerId] = null;
+        await context.Secrets.DeleteAsync(TokenSecretName(providerId), cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
-    /// 为模型构造 <see cref="IChatClient" />(每次调用按继承链读取最新 API Key)。
+    /// 解出这个模型发请求时该用的凭据:模型自带 Key > 供应商订阅登录 > 供应商 API Key。
+    /// </summary>
+    /// <remarks>
+    /// 订阅登录且换回来的是短期 access token 时,这里会<b>顺手把快过期的刷掉</b> ——
+    /// 客户端是每发一条消息现建的,在建之前刷新,就等于每条消息都拿着一把新鲜的令牌上路,
+    /// 不必再往请求管道里塞一层"401 就重试"。
+    /// </remarks>
+    /// <param name="model">已解出继承链的模型。</param>
+    /// <param name="cancellationToken">取消。</param>
+    public async Task<ProviderCredential> ResolveCredentialAsync(ResolvedModel model,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+        AiProvider provider = model.Provider;
+        if (provider.Auth != AuthMethod.Subscription || model.Config.HasOwnApiKey)
+        {
+            return ProviderCredential.Key(await GetApiKeyAsync(model.ApiKeyOwnerId, cancellationToken).ConfigureAwait(false));
+        }
+        OAuthTokens? tokens = await GetTokensAsync(provider.Id, cancellationToken).ConfigureAwait(false);
+        if (tokens is null)
+        {
+            return ProviderCredential.Key(null); // 还没登录:让请求带着空凭据发出去,由服务端给出准确的 401
+        }
+        // 登录换回来的是一把长期 API Key(OpenRouter 那类):与手填的 Key 走同一条路
+        if (provider.OAuth?.Credential == OAuthCredential.ApiKey)
+        {
+            return ProviderCredential.Key(tokens.AccessToken);
+        }
+        if (tokens.NeedsRefresh && !string.IsNullOrEmpty(tokens.RefreshToken) && provider.OAuth is { } oauth)
+        {
+            tokens = await RefreshAsync(provider, oauth, tokens, cancellationToken).ConfigureAwait(false);
+        }
+        return new ProviderCredential(tokens.AccessToken, true,
+            ExtraHeadersPolicy.Parse(provider.OAuth?.ExtraHeaders, tokens.AccountId),
+            tokens.BaseUrl);
+    }
+
+    /// <summary>换一组新令牌并落盘;换不动就沿用旧的(过期的令牌至少能换来一个准确的 401)。</summary>
+    private async Task<OAuthTokens> RefreshAsync(AiProvider provider, OAuthConfig oauth, OAuthTokens tokens,
+        CancellationToken cancellationToken)
+    {
+        await _refreshGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            // 等闸期间别人可能已经刷过了
+            OAuthTokens? latest = await GetTokensAsync(provider.Id, cancellationToken).ConfigureAwait(false);
+            if (latest is not null && !latest.NeedsRefresh)
+            {
+                return latest;
+            }
+            OAuthTokens fresh = await TokenClient.RefreshAsync(oauth, latest ?? tokens, cancellationToken)
+                                                 .ConfigureAwait(false);
+            await SaveTokensAsync(provider.Id, fresh, cancellationToken).ConfigureAwait(false);
+            context.Log.Info($"Refreshed the sign-in for '{provider.Name}'.");
+            return fresh;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            context.Log.Warn($"Refreshing the sign-in for '{provider.Name}' failed: {ex.Message}");
+            return tokens;
+        }
+        finally
+        {
+            _refreshGate.Release();
+        }
+    }
+
+    /// <summary>
+    /// 为模型构造 <see cref="IChatClient" />(每次调用按继承链取最新凭据:API Key 或订阅令牌)。
     /// 返回的是"裸"客户端;Agent 模式的函数调用循环由调用方经
     /// <c>AsBuilder().UseFunctionInvocation()</c> 叠加。
     /// </summary>
+    /// <param name="provider">已解出继承链的模型。</param>
+    /// <param name="apiKeyOverride">设置页"测试"用:拿表单里还没保存的那把 Key 试一下。</param>
+    /// <param name="cancellationToken">取消。</param>
     public async Task<IChatClient> CreateClientAsync(ResolvedModel provider, string? apiKeyOverride = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(provider);
-        string? apiKey = apiKeyOverride ?? await GetApiKeyAsync(provider.ApiKeyOwnerId, cancellationToken).ConfigureAwait(false);
+        ProviderCredential credential = apiKeyOverride is null
+            ? await ResolveCredentialAsync(provider, cancellationToken).ConfigureAwait(false)
+            : ProviderCredential.Key(apiKeyOverride);
+        // OpenAI 系协议无论 Key 还是 access token 都走 Authorization: Bearer,一条路即可;
+        // Anthropic 分岔(Key 是 x-api-key,令牌是 Bearer),见下。
+        string? secret = credential.Value;
         switch (provider.Protocol)
         {
             case ChatProtocol.OpenAiChatCompletions:
-                return CreateOpenAiClient(provider, apiKey).GetChatClient(provider.Model).AsIChatClient();
+                return CreateOpenAiClient(provider, credential).GetChatClient(provider.Model).AsIChatClient();
 
             case ChatProtocol.OpenAiResponses:
 #pragma warning disable OPENAI001 // Responses API 在 OpenAI SDK 中标记为实验性
-                return CreateOpenAiClient(provider, apiKey).GetResponsesClient().AsIChatClient(provider.Model);
+                return CreateOpenAiClient(provider, credential).GetResponsesClient().AsIChatClient(provider.Model);
 #pragma warning restore OPENAI001
 
             case ChatProtocol.AnthropicMessages:
                 {
-                    string baseUrl = provider.BaseUrl.TrimEnd('/');
+                    // 少数供应商按账户下发端点(Copilot 的企业账户),那时以登录带回来的为准
+                    string baseUrl = EndpointOf(provider, credential).TrimEnd('/');
                     // Anthropic SDK 自己追加 /v1 路径,用户误填时剥除
                     if (baseUrl.EndsWith("/v1", StringComparison.OrdinalIgnoreCase))
                     {
@@ -119,11 +261,17 @@ public sealed class AiSettingsStore(IPluginContext context)
                     }
                     // 中转站常在 Anthropic 流末尾补一行 OpenAI 习惯的 data: DONE,
                     // 而 SDK 对每个 data: 行无条件反序列化 —— 整轮回复会在最后一刻炸掉(见 SseRepairHandler)
-                    DelegatingHandler[] handlers = [new SseRepairHandler(ReportSseDrop)];
-                    // 属性为 init-only,按有无 Key 分别构造(无 Key 时留给 SDK 的环境变量回退)
-                    AnthropicClient anthropic = string.IsNullOrWhiteSpace(apiKey)
+                    DelegatingHandler[] handlers = credential.Headers is { Count: > 0 } extra
+                        ? [new SseRepairHandler(ReportSseDrop), new ExtraHeadersHandler(extra)]
+                        : [new SseRepairHandler(ReportSseDrop)];
+                    // 属性为 init-only,按凭据形态分别构造:
+                    // 无凭据时留给 SDK 的环境变量回退;登录换来的短期令牌要走 AuthToken
+                    // (它发的是 Authorization: Bearer,而 ApiKey 发的是 x-api-key —— 两者不能混)。
+                    AnthropicClient anthropic = string.IsNullOrWhiteSpace(secret)
                         ? new AnthropicClient { BaseUrl = baseUrl, Handlers = handlers }
-                        : new AnthropicClient { BaseUrl = baseUrl, ApiKey = apiKey, Handlers = handlers };
+                        : credential.IsBearerToken
+                            ? new AnthropicClient { BaseUrl = baseUrl, AuthToken = secret, Handlers = handlers }
+                            : new AnthropicClient { BaseUrl = baseUrl, ApiKey = secret, Handlers = handlers };
                     return anthropic.AsIChatClient(provider.Model, provider.MaxTokens);
                 }
 
@@ -228,6 +376,78 @@ public sealed class AiSettingsStore(IPluginContext context)
     }
 
     /// <summary>
+    /// 把这一家端点的"脾气"应用到请求上:不收的参数摘掉、该关的开关关掉。
+    /// </summary>
+    /// <remarks>
+    /// 订阅型的私有后端常常只是标准协议的<b>受限子集</b>,多发一个字段就整轮 400,
+    /// 而且一次只告诉你一个。所以这些差异全部收在<b>目录数据</b>里
+    /// (<see cref="AiProvider.UnsupportedParameters" /> / <see cref="AiProvider.StoreResponses" />),
+    /// 由这里统一施加 —— 再发现一条只要加一行数据,不必改代码。
+    /// </remarks>
+    /// <param name="options">这一轮的请求选项;<b>就地修改</b>。</param>
+    /// <param name="provider">已解出继承链的模型。</param>
+    public static void ApplyEndpointQuirks(ChatOptions options, ResolvedModel provider)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(provider);
+        // 按目录现读,不用供应商身上那份快照 —— 否则每加一条新规则,
+        // 已经连上的用户都得重新登录一次才拿得到(见 EndpointQuirks)
+        EndpointQuirks quirks = EndpointQuirks.Of(provider.Provider);
+        ApplyResponseStore(options, provider, quirks);
+        foreach (string raw in quirks.UnsupportedParameters
+                                     .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
+        {
+            // 认不出来的名字直接跳过:目录里写错一个字,不该让整轮对话崩掉
+            switch (raw.Trim().ToLowerInvariant())
+            {
+                case "max_output_tokens" or "max_tokens":
+                    options.MaxOutputTokens = null;
+                    break;
+                case "temperature":
+                    options.Temperature = null;
+                    break;
+                case "top_p":
+                    options.TopP = null;
+                    break;
+                case "stop" or "stop_sequences":
+                    options.StopSequences = null;
+                    break;
+                case "frequency_penalty":
+                    options.FrequencyPenalty = null;
+                    break;
+                case "presence_penalty":
+                    options.PresencePenalty = null;
+                    break;
+                case "seed":
+                    options.Seed = null;
+                    break;
+            }
+        }
+    }
+
+    /// <summary>
+    /// 明确要求"别存这一轮"时,往 Responses 请求里塞 <c>store: false</c>。
+    /// </summary>
+    /// <remarks>
+    /// 只对 <see cref="ChatProtocol.OpenAiResponses" /> 有意义(<c>store</c> 是那套协议的字段)。
+    /// 走的是 <c>RawRepresentationFactory</c>,与 Anthropic 那条思考预算的路子同一个道理:
+    /// <c>ChatOptions</c> 上没有对应的抽象属性,只能把原生请求对象递下去。
+    /// </remarks>
+    private static void ApplyResponseStore(ChatOptions options, ResolvedModel provider, EndpointQuirks quirks)
+    {
+        if (provider.Protocol != ChatProtocol.OpenAiResponses || quirks.StoreResponses)
+        {
+            return;
+        }
+#pragma warning disable OPENAI001 // Responses API 在 OpenAI SDK 中标记为实验性
+        options.RawRepresentationFactory = _ => new OpenAI.Responses.CreateResponseOptions
+        {
+            StoredOutputEnabled = false
+        };
+#pragma warning restore OPENAI001
+    }
+
+    /// <summary>
     /// 算 Anthropic 的思考预算与配套的输出上限:预算不得低于协议下限,也必须小于 max_tokens
     /// (给正文留够 <see cref="AnthropicMinThinkingBudget" /> 的余量);
     /// 用户把输出上限设得过小时,把上限抬到刚好放得下,而不是悄悄不思考。
@@ -245,11 +465,32 @@ public sealed class AiSettingsStore(IPluginContext context)
         return (budget, Math.Max(provider.MaxTokens, budget + AnthropicMinThinkingBudget));
     }
 
-    private static OpenAIClient CreateOpenAiClient(ResolvedModel provider, string? apiKey)
-        => new(
-            // OpenAI SDK 要求凭据非空;Ollama 等本地服务无鉴权,给占位值即可
-            new ApiKeyCredential(string.IsNullOrWhiteSpace(apiKey) ? "not-needed" : apiKey),
-            new OpenAIClientOptions { Endpoint = new Uri(provider.BaseUrl.TrimEnd('/')) });
+    /// <summary>
+    /// 这次请求该打到哪儿:登录带回来的端点优先,没有才用供应商配置里的。
+    /// </summary>
+    /// <remarks>
+    /// 少数供应商按账户下发地址(Copilot 的企业账户与个人账户不是同一个),而那个地址
+    /// <b>只有登录之后才知道</b> —— 没有这一层,就只能让用户手填一个他根本无从知道的值。
+    /// </remarks>
+    private static string EndpointOf(ResolvedModel provider, ProviderCredential credential)
+        => string.IsNullOrWhiteSpace(credential.BaseUrl) ? provider.BaseUrl : credential.BaseUrl;
+
+    private static OpenAIClient CreateOpenAiClient(ResolvedModel provider, ProviderCredential credential)
+    {
+        var options = new OpenAIClientOptions { Endpoint = new Uri(EndpointOf(provider, credential).TrimEnd('/')) };
+        if (credential.Headers is { Count: > 0 } headers)
+        {
+            options.AddPolicy(new ExtraHeadersPolicy(headers), PipelinePosition.PerCall);
+        }
+        return new OpenAIClient(
+            // OpenAI SDK 要求凭据非空;Ollama 等本地服务无鉴权,给占位值即可。
+            // access token 与 API Key 在这条路上是一回事 —— SDK 都发成 Authorization: Bearer。
+            new ApiKeyCredential(string.IsNullOrWhiteSpace(credential.Value) ? "not-needed" : credential.Value),
+            options);
+    }
 
     private static string SecretName(string ownerId) => LegacySettingsMigration.SecretName(ownerId);
+
+    /// <summary>订阅登录的令牌组存在哪个机密键下。与 API Key 分开,退出登录时不误伤手填的 Key。</summary>
+    private static string TokenSecretName(string providerId) => $"oauth:{providerId}";
 }

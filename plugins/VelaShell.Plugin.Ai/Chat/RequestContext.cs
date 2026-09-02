@@ -221,6 +221,31 @@ public static class ContextBuilder
             _ => false
         };
 
+    /// <summary>
+    /// 把打头那条 <c>system</c> 消息从列表里摘出来,返回它的文本。
+    /// </summary>
+    /// <remarks>
+    /// 给"不收 system 角色"的端点用(ChatGPT 的 Codex 后端就是,照发会 400)。
+    /// 摘出来的内容由调用方放进 <c>ChatOptions.Instructions</c> —— 一个字都不会少,只是换了位置。
+    /// <para>
+    /// <b>只摘打头那条</b>:装配出来的列表里 system 必定在最前(见 <see cref="Build" />),
+    /// 而后面若还有 system,那是历史里带来的、模型自己也认得的内容,不该被悄悄吞掉。
+    /// </para>
+    /// </remarks>
+    /// <param name="messages">装配好的消息列表;命中时<b>就地修改</b>。</param>
+    /// <returns>系统提示词;列表不以 system 打头时返回 null。</returns>
+    public static string? MoveSystemPromptOut(List<ChatMessage> messages)
+    {
+        ArgumentNullException.ThrowIfNull(messages);
+        if (messages.Count == 0 || messages[0].Role != ChatRole.System)
+        {
+            return null;
+        }
+        string text = messages[0].Text;
+        messages.RemoveAt(0);
+        return string.IsNullOrWhiteSpace(text) ? null : text;
+    }
+
     /// <summary>整段消息的 token 估算。</summary>
     public static int Estimate(IEnumerable<ChatMessage> messages)
     {

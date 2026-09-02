@@ -7,13 +7,173 @@
 
 ## 支持的接入
 
-| 提供商 | 线协议 | 说明 |
+接入方式有两种,在**「连接供应商」**那一页(设置窗口左下角「新增供应商」)里选:
+
+* **订阅登录** —— 点一下就开浏览器,授权完自己跳回来,凭据加密存好、模型一并配好,**全程零输入**。
+* **填 API Key** —— 点一下只问一把 Key,别的都不问。
+
+**这一页的规矩只有一条:能自动的绝不问用户,只问程序确实不知道的那几样。**
+名称、模型 id、基地址、协议目录里都有出厂值,一律收进「高级设置」——
+走中转站要改的人找得到,其余人一眼看不见。于是每一行点下去是这样:
+
+| 这一行的处境 | 点下去会怎样 |
+| --- | --- |
+| 订阅登录,参数齐 | **立刻开浏览器**,展开区里一个输入框都没有 |
+| 订阅登录,VelaShell 还没注册 OAuth 应用 | 只问一次**客户端 id**,旁边给出「打开注册页」 |
+| 订阅登录,地址按资源分配(Azure) | 只问**地址 + 客户端 id** |
+| 填 Key | 只问**一把 Key** |
+| 本地自部署(Ollama) | 什么都不问,直接加 |
+
+内置目录(`Configuration/ProviderCatalog.cs`)节选:
+
+| 提供商 | 线协议 | 接入方式 |
 | --- | --- | --- |
-| OpenAI | Responses(流式)或 Chat Completions | 官方 API,二选一 |
-| Anthropic Claude | Anthropic Messages(流式) | 官方 API |
-| xAI Grok | OpenAI Chat Completions 兼容 | `https://api.x.ai/v1` |
+| OpenAI Codex(ChatGPT 订阅) | OpenAI Responses | **一键登录**(PKCE)—— ⚠ **实验性**,见下 |
+| Anthropic Claude(Claude 订阅) | Anthropic Messages | **一键登录**(PKCE,固定回调 `localhost:53692`)—— ⚠ **实验性** |
+| GitHub Copilot | OpenAI Chat Completions 兼容 | **一键登录**(设备码 → 换会话令牌)—— ⚠ **实验性** |
+| OpenRouter | OpenAI Chat Completions 兼容 | **一键登录**(PKCE,换回一把长期 Key) |
+| Hugging Face | OpenAI Chat Completions 兼容 | **一键登录**(PKCE 公共应用,scope `inference-api`)—— 待填客户端 id |
+| Azure OpenAI | OpenAI 兼容 | **登录**(Entra ID 设备码)—— 待填租户与客户端 id |
+| 自定义(OAuth 登录) | 二选一 | **登录**,端点 / 客户端 id / scope 全部自填 |
+| OpenAI | Responses(流式)或 Chat Completions | 填 Key |
+| Anthropic Claude | Anthropic Messages(流式) | 填 Key |
+| xAI Grok / Google Gemini / DeepSeek / Moonshot / Z.AI / 通义 / Together / Fireworks / Groq / Mistral | OpenAI Chat Completions 兼容 | 填 Key |
 | Ollama(本地自部署) | OpenAI Chat Completions 兼容 | `http://localhost:11434/v1`,无需 Key |
 | 第三方中转站 | OpenAI 兼容 或 Anthropic 兼容 | 自填 Base URL + API Key |
+
+### 模型规格从哪儿来
+
+接上一家之后,模型 id、**上下文窗口**与**三档单价**会自动填好,数据来自开源的
+**models.dev**(`github.com/sst/models.dev`,`Configuration/ModelsDevCatalog.cs`)。
+
+**为什么不是去问供应商自己的 `/v1/models`**(做过一版,已撤):那条接口只给一串 id,
+给不出窗口和单价 —— 而那几项恰恰是本插件里最难填、**填错了又不报错**的东西
+(窗口填错,输入框下方的上下文占比就是错的;单价填错,花费估算跟着错)。
+何况订阅型的私有后端(ChatGPT 的 Codex 后端)根本没有那条接口。models.dev 两个问题一起解决。
+
+| 细节 | 做法 |
+| --- | --- |
+| 体积 | 原始 `api.json` 约 4.3 MB / 200+ 家;下载后当场转成精简索引(七个字段)再落盘,约五分之一 |
+| 缓存 | 插件私有数据目录,7 天算新鲜;卸载插件时随之清除 |
+| 拉不到 | 退回已有缓存;没缓存就退回目录里的出厂示例。**不拦住"已经连上了"这件事** |
+| 空响应 | 不覆盖好缓存(对方改版时别把能用的那份弄丢) |
+| 只填不抹 | 上游没给的项**保持用户已填的值** —— 抹成 0 比不填更糟 |
+| 型号换代 | 出厂示例不在清单里时,选**同前缀里最新的那个**(`gpt-5-codex` → `gpt-5.3-codex`),而不是字母序第一个 |
+
+> 目录里的模型 id 只是**出厂示例**,用于还没拉到规格库时打底;拉到之后以规格库为准。
+> 本目录 id 与 models.dev 的 id 对不上的有好几家(`moonshot`→`moonshotai`、`zhipu`→`zhipuai`、
+> `qwen`→`alibaba`、`together`→`togetherai`、`fireworks`→`fireworks-ai`),
+> 映射集中在 `ProviderCatalog.ModelsDevIds` 一处 —— 散着写对不上时是**静默**拉不到模型,最难查。
+
+### ⚠ OpenAI Codex:实验性接入
+
+这一条与目录里其余任何一条都不同,单独说清楚:
+
+* **借的是 Codex 命令行工具的公共客户端 id**,不是 VelaShell 自己注册的。等于本程序以 Codex
+  客户端的身份去换取用户的 ChatGPT 订阅权益。
+* **打的是 `chatgpt.com/backend-api/codex`**,那是 ChatGPT 的产品后端,不是
+  `api.openai.com/v1` 那种公开承诺稳定的 API。URL、请求头、账号 id 规则、响应格式都可能变。
+* 因此目录里给它标了 `Experimental = true`,界面上行名后面挂一枚「实验性」小标,
+  展开时先给一段说明。**它可能在任何一天失效**,是否符合 OpenAI 条款需使用者自行确认。
+
+技术上它复用了本插件已有的全套机制,只是把几处差异写成了配置:
+
+| 差异 | 配置项 |
+| --- | --- |
+| 回调必须是 `http://localhost:1455/auth/callback`(端口固定,且 `localhost` 与 `127.0.0.1` **不通用**) | `RedirectPort` / `RedirectPath` / `RedirectHost` |
+| 授权请求要带 `id_token_add_organizations` 等参数 | `ExtraAuthorizeParams` |
+| 账号 id 藏在 `id_token` 的命名空间 claim 里 | `AccountIdClaim` |
+| 每条请求要带 `chatgpt-account-id` | `ExtraHeaders`(值里 `{account_id}` 会被替换) |
+
+> **想换回官方路子时**:OpenAI 有一条官方的 **Codex App Server**(`codex app-server`,stdio 上的
+> JSON-RPC),登录 / 令牌 / 刷新全部由官方组件管、不用借客户端 id。届时删掉这一条目录记录、
+> 换成 App Server 的子进程适配器即可 —— 其余接入不受任何影响。
+
+### 客户端 id 从哪儿来
+
+**两种来路,目录里分得很清楚,界面上也分得很清楚。**
+
+**一、VelaShell 自己注册的 OAuth 应用。** 这是常规路子:客户端 id 集中在
+`ProviderCatalog.ClientIds`,**拿到一个填一个,填完那一行当场变成"点一下即登"**,不改任何逻辑;
+还空着的那几家(Hugging Face、Google),界面上会说明情况并给出注册入口,
+愿意自己注册的用户当场就能填(只填这一次)。
+
+申请时按**公共客户端**(native / desktop,不要密钥)登记,回调地址填
+`http://127.0.0.1/callback` 与 `http://localhost/callback` 两条 —— 遵循 RFC 8252 §7.3 的服务端
+(Hugging Face 明确支持)只比对 scheme/host/path,端口在请求时任意,正好对上本程序
+"每次随机取一个空闲环回端口"的做法。
+
+**二、借各家官方 CLI / 编辑器插件公开的客户端身份。** OpenAI Codex、Anthropic Claude、
+GitHub Copilot 这三条走的是这一路 —— 因为**没有第二条路**:这三家的订阅权益不通过公开 API 发放,
+也不受理第三方注册应用去换取它。要让付了 ChatGPT Plus / Claude Pro / Copilot 的用户用上手里的额度,
+只能以官方客户端的身份去要。
+
+代价说在明处:**对方随时可以改**,改了这一条就当场失效。所以这三条在目录里都标了
+`Experimental = true`,界面上行名后挂一枚「实验性」小标,展开时先给一段说明 ——
+让用户自己判断要不要用,而不是替他决定。是否符合各家条款,需使用者自行确认。
+
+> 这两类的边界就是 `ProviderCatalogEntry.Experimental` 这一个布尔值。
+> 哪天某家开了正规的第三方注册,把 id 换掉、标记去掉即可,不动任何逻辑。
+
+### 订阅登录怎么走
+
+四套流程都实现了(`Auth/`),选哪套是供应商的配置(`OAuthConfig.Flow`)而不是代码分支:
+
+| 流程 | 什么时候用 | 实现 |
+| --- | --- | --- |
+| 授权码 + PKCE(RFC 7636) | 桌面默认。起一个**环回端口**接住浏览器打回来的 `code` | `LoopbackRedirectListener` + `OAuthClient` |
+| 设备授权码(RFC 8628) | 浏览器和程序不在同一台机器上(远程桌面 / 转发),或企业不给回调地址 | `OAuthClient.StartDeviceCodeAsync` / `PollDeviceCodeAsync` |
+| OpenRouter PKCE | 同上第一条,但换回来的是一把**长期 Key** 而不是 access token | `OAuthClient.ExchangeForApiKeyAsync` |
+| GitHub Copilot 两段式 | 设备码换到长期 token 后,还要拿它**再换**一枚短命会话令牌 | `OAuthClient.ExchangeForSessionAsync` |
+
+**Copilot 那一段单独说。** 它的续期不是标准的 `refresh_token` 授权,而是**重做一次交换** ——
+长期 token 留在 `RefreshToken` 位上,会话令牌到期就拿它再换一枚。另外交换端点会校验
+**调用方是不是一个编辑器**:只带 `Authorization` 会被 403,而那个 403 的正文里一个字都不提缺了什么
+(真机上就撞过)。所以 `OAuthConfig.ExchangeHeaders` 单列了一份交换时的请求头
+(`Editor-Version` 等)——它与推理时的 `ExtraHeaders` **不是同一组**,混在一起就是那个查不出来的 403。
+端点也由服务端在交换响应里下发(`endpoints.api`):企业账户和个人账户不是同一个。
+
+几处值得记下来的:
+
+* **环回监听是裸 `TcpListener`,不是 `HttpListener`。** 后者在 Windows 上走 http.sys,前缀注册要看 URL ACL
+  的脸色(某些策略下非管理员直接 `AccessDenied`),而且在部分平台上被标为不支持。要接的只是**一条 GET
+  请求行**,自己读一行、回一页反而三个平台行为一致。路径对不上的请求(浏览器顺手要的 `/favicon.ico`
+  最常见)回 404 之后**继续等** —— 拿它当结果的话,用户还没点同意就先失败了。
+* **`state` 与 PKCE 各管各的。** PKCE 防的是授权码被中途截走(challenge 是 verifier 的 SHA-256,反推不出来),
+  `state` 防的是别人往我的回调里塞一个自己的 code。OpenRouter 的回调不带 `state`,那一路显式跳过校验
+  而不是假装验过 —— 它靠的是"环回端口只活这一次 + code 与本机 verifier 绑定"。
+* **`slow_down` 必须真的加间隔**(RFC 8628 §3.5),否则会一直被限速;`authorization_pending` 则要照原间隔
+  继续等,把它当失败的话用户根本来不及点同意。
+* **登录成功才把供应商写进设置。** 失败或中途放弃时,列表里不该多出一个连不上的空壳。
+* **凭据分两种落法**:换回来的若是短期 access token,存 `oauth:<供应商 id>`,发请求前临近过期就用
+  refresh token 换新的(客户端本来就是每条消息现建的,在建之前刷,等于每条消息都拿着新鲜令牌上路,
+  不必再往管道里塞一层"401 就重试");若换回来的是一把长期 API Key(OpenRouter 那类),
+  就与手填的 Key 走**同一条路**,不需要刷新。
+
+> 要接目录里没有的(包括自建网关),用「自定义(OAuth 登录)」把端点填进去即可 ——
+> 加一家 = 加一条数据,不改任何逻辑。
+
+### 端点怪癖:订阅型后端只是标准协议的一个子集
+
+订阅型的私有后端(ChatGPT 的 Codex 后端最典型)**不是**公开 API 的等价物,而是它的一个**受限子集**:
+多发一个它不认的字段,整轮 400,而且**一次只肯告诉你一个**。逐个试错的成本极高。
+
+所以这几项做成目录里的**数据**(`EndpointQuirks`),不是按供应商 id 写死的代码分支:
+
+| 怪癖 | 配置项 | Codex 后端的情况 |
+| --- | --- | --- |
+| 服务端存不存这一轮响应 | `StoreResponses` | 不接受 `store`,带上就 400 |
+| 收不收 `system` 角色的消息 | `AllowSystemMessages` | 不收 —— `{"detail":"System messages are not allowed"}`。关掉之后系统提示词改走 Responses 协议自己的 `instructions` 字段 |
+| 不认哪些请求参数 | `UnsupportedParameters`(每行一个线上字段名) | `max_output_tokens` / `temperature` / `top_p` / `stop` / `frequency_penalty` / `presence_penalty` / `seed` 全不认 |
+
+**两条踩出来的教训,都上了棘轮:**
+
+* **必须请求时从目录读,不能建供应商时快照进用户的配置。** 一开始是快照的,结果新加的规则
+  永远到不了**已经连上的**用户那儿 —— 用户那边一直是同一句 400,而代码里改了三轮。
+  现在 `EndpointQuirks.Of(provider)` 每次都回目录取。
+* **`ResponsesWireTests` 拿真实 OpenAI SDK 打本地桩、抓请求体**,再比对 openai/codex 的
+  `ResponsesApiRequest` 字段白名单。以后谁往请求里多加一个 Codex 不收的字段,**会在 CI 红**,
+  而不是在用户机器上 400 —— 这一轮就是靠一来一回的 400 才定位到的,不该有第二轮。
 
 **中转站的 SSE 会洗一遍**(`Chat/SseRepairHandler.cs`,挂在 `AnthropicClient.Handlers` 上):
 有些中转站按 OpenAI 的习惯在 Anthropic 流末尾补一行 `data: DONE`,而 Anthropic 协议里没有这东西
@@ -56,6 +216,38 @@ Base URL(`BaseUrlOverride`)。发请求 / 建客户端 / 算成本的代码只�
 那份改继承、不同的标 `HasOwnApiKey`;组内地址与供应商地址不完全一致的模型记
 `BaseUrlOverride` —— 迁移前后请求打到哪儿一个字节都不变。
 
+## Agent 工具箱
+
+`Agent/AgentToolbox.cs` 把插件能力包成模型可调用的工具。**计划模式只给只读那批**。
+
+| 只读(不走审批) | 会动东西(一律审批) |
+| --- | --- |
+| `list_sessions` 列出全部会话 | `run_command` 单机执行 |
+| `read_terminal` 读终端尾部 | `run_on_sessions` **多机并行执行** |
+| `search_terminal` 在滚回里搜(只带回命中行) | `write_remote_file` 整份覆写 |
+| `read_remote_file` 读远端小文件 | `patch_remote_file` **只换一段** |
+| `list_remote_directory` 列目录 | `make_remote_directory` 建目录(幂等) |
+| `stat_remote_path` 查存在/大小/时间 | `rename_remote_path` 改名 / 移动(备份用) |
+| `get_working_directory` 取 cwd | `upload_local_file` 本机 → 服务器 |
+| `system_overview` 一次取回系统概览 | `download_remote_file` 服务器 → 本机 |
+| `web_search` 检索网络(见「网页检索」) | `write_terminal` 敲进用户终端 |
+| `web_fetch` 取一个网页转成文本 | |
+
+三条设计约定:
+
+* **每个工具都接受可选的 `session_id`**(不传 = 用户在面板上选中的那台)。这一条是"多主机"的前提 ——
+  `list_sessions` 把 id 交给模型、却没有工具肯收的话,模型就只能对着当前选中的那一台干活,
+  而同时管着好几台服务器恰恰是 SSH 客户端区别于普通聊天框的地方。认不出的 id 会当场回一句
+  "去 list_sessions 拿 id",而不是抛异常 —— 模型看到前者会自己纠正,看到后者往往就地放弃。
+* **高频只读动作做成专用工具,而不是让模型拼一条命令交给 `ReadOnlyCommand` 去猜。**
+  专用工具结构上不可能有副作用,所以不必打断用户;返回的东西也更小更准。
+  `system_overview` 就是这个思路:命令写死在代码里,一次取回内核/发行版/负载/内存/磁盘,
+  省掉五轮 `run_command` 和五次审批。
+* **改文件优先 `patch_remote_file`。** `write_remote_file` 要求回传整份内容,改一行 nginx.conf
+  就要把几百行原样送回来 —— 费 token,而且模型复述长文本时丢内容是真实风险。
+  patch 要求 `old_text` 在文件里**恰好出现一次**:多处匹配意味着模型并不确定自己在改哪一处,
+  那时挑第一处替换是运维场景里最容易出事故的"聪明"。
+
 ## 附件
 
 两条来路,别混:
@@ -75,6 +267,7 @@ Base URL(`BaseUrlOverride`)。发请求 / 建客户端 / 算成本的代码只�
 | --- | --- | --- |
 | 供应商与模型配置/开关/系统提示词(`AiSettings` 整体 JSON) | `Storage` | 文档 `velashell.ai\|kv\|settings` |
 | API Key(DPAPI 加密后入库) | `Secrets` | 文档 `velashell.ai\|secret\|apikey:<供应商 id,或带独立 Key 的模型 id>` |
+| 订阅登录的令牌组(access / refresh / 过期时刻 / 账号,整组 JSON 后加密) | `Secrets` | 文档 `velashell.ai\|secret\|oauth:<供应商 id>` |
 | 历史会话的每条消息 | `TimeSeries` | measurement `chat_messages`(标签 `conv` = 会话 id,时间即消息时刻) |
 | 历史会话摘要(标题/起止时刻/条数) | `TimeSeries` | measurement `chat_sessions`,每个会话**一个**点 |
 
@@ -388,9 +581,9 @@ MCP 服务器配置窗口(见上),那边改完这边当场重建。每组标题�
 勾选状态**存的是"没勾的那些"**(`McpServerConfig.DisabledTools` / `AiSettings.DisabledBuiltinTools`):
 服务器以后新增了工具,默认就是可用的,而不是因为"不在已保存的白名单里"被静默屏蔽掉。
 
-## 三个配置窗口
+## 四个配置窗口
 
-设置(⚙)、配置工具、MCP 服务器各是一个**独立窗口**(`Ui/ChatPanelView.Dialogs.cs`),
+设置(⚙)、连接供应商、配置工具、MCP 服务器各是一个**独立窗口**(`Ui/ChatPanelView.Dialogs.cs`),
 不再占用面板中间那块与聊天流三选一。理由:面板常常只有三成宽(侧栏),设置页那些
 两列三列的行在那个宽度里铺不开;改设置时也不该看不见对话。
 
@@ -407,7 +600,12 @@ Win32 的 DWM 调用才不掉圆角、不留启动残影 —— 那是宿主的�
 已经开着时再点一次按钮走 `IPluginPanel.ActivateAsync()` 把窗口带到前面(窗口置前 /
 停靠形态选中那个标签),而不是重复开一个,也不是什么都不做 —— 后者看起来就像按钮坏了。
 
-三个窗口共用一套版式规则(`Ui/DialogStyles.axaml`,谁用谁 `StyleInclude`):
+**「连接供应商」为什么另开一扇窗**:这一页是"挑一家",设置页是"调一家",两件事的信息密度
+完全不同 —— 目录要留出说明、示例模型和状态灯的地方,挤进设置页那条 220 宽的侧栏里就只剩
+一列名字了(那正是它取代的东西:原先左下角那个光秃秃的预设下拉)。窗口关掉时,
+还挂着的那次登录(环回监听 / 设备码轮询)一并取消,不留后台空转。
+
+这几个窗口共用一套版式规则(`Ui/DialogStyles.axaml`,谁用谁 `StyleInclude`):
 以前这些规则由插件自己的对话框外壳下发,窗体换成宿主的卡片之后就没了着落。
 那一套是**照抄宿主设置页**(`src/VelaShell/Views/SettingsView.axaml`)的:分节标题、
 `ListBox.nav` 左侧导航、分隔线,连选中态都压成 `VelaBgActive` + 强调色文字 ——

@@ -55,8 +55,8 @@
             </StackPanel>
           </Button>
           <Border Classes="sep" />
-          <ComboBox x:Name="PresetCombo" HorizontalAlignment="Stretch" Height="26" MinHeight="26"
-                    FontSize="{DynamicResource VelaFontSize11}" />
+          <!-- 「新增供应商」不再是一个只有名字的预设下拉,而是打开「连接供应商」那一页:
+               哪家能直接登账号、哪家要填 Key、走什么协议,在下拉里一个字都放不下。 -->
           <Button x:Name="AddButton" Theme="{DynamicResource VelaOutlineButtonTheme}"
                   HorizontalAlignment="Stretch" Height="26">
             <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
@@ -148,8 +148,10 @@
                   <ComboBox x:Name="ProviderProtocolCombo" HorizontalAlignment="Stretch" />
                   <TextBlock x:Name="ProviderProtocolHintText" Classes="hint" />
                 </StackPanel>
+                <!-- 鉴权二选一:填 Key 的看下面这块,订阅登录的换成状态 + 一个通往目录页的入口。
+                     两块同时摆着会让人以为登录之后还得再填一把 Key。 -->
                 <!-- 填 Key 的这一刻正是用户最想知道"它会被存到哪儿"的时刻,徽章就贴在标签边上 -->
-                <StackPanel Classes="field">
+                <StackPanel x:Name="ProviderKeyPanel" Classes="field">
                   <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,0,4">
                     <TextBlock x:Name="ProviderApiKeyLabel" Classes="label" Margin="0"
                                VerticalAlignment="Center" />
@@ -180,6 +182,27 @@
                   </Grid>
                   <TextBlock x:Name="ProviderApiKeyHintText" Classes="hint" />
                 </StackPanel>
+
+                <StackPanel x:Name="ProviderAuthPanel" Classes="field" IsVisible="False">
+                  <TextBlock x:Name="ProviderAuthLabel" Classes="label" />
+                  <Grid ColumnDefinitions="*,12,Auto,6,Auto">
+                    <TextBlock x:Name="ProviderAuthStatusText" Classes="dim"
+                               TextWrapping="Wrap" VerticalAlignment="Center" />
+                    <!-- 订阅登录的那家在这儿也能直接拉模型:用户十有八九是在这一页发现
+                         "怎么只有一个模型"的,让他再跑去「连接供应商」那边未免绕。 -->
+                    <Button x:Name="PullModelsButton" Grid.Column="2"
+                            Theme="{DynamicResource VelaOutlineButtonTheme}" Height="26" Padding="12,0">
+                      <TextBlock x:Name="PullModelsText" VerticalAlignment="Center"
+                                 FontSize="{DynamicResource VelaFontSize11}" />
+                    </Button>
+                    <Button x:Name="ManageSignInButton" Grid.Column="4"
+                            Theme="{DynamicResource VelaOutlineButtonTheme}" Height="26" Padding="12,0">
+                      <TextBlock x:Name="ManageSignInText" VerticalAlignment="Center"
+                                 FontSize="{DynamicResource VelaFontSize11}" />
+                    </Button>
+                  </Grid>
+                  <TextBlock x:Name="ProviderAuthHintText" Classes="hint" />
+                </StackPanel>
               </StackPanel>
             </Border>
           </StackPanel>
@@ -202,6 +225,12 @@
                     <StackPanel Grid.Column="2" Classes="field">
                       <TextBlock x:Name="ModelLabel" Classes="label" />
                       <TextBox x:Name="ModelBox" FontFamily="{DynamicResource VelaUiMonoFont}" />
+                      <!-- 接上供应商时拉回来的可用模型(models.dev);拉到过才露出来。
+                           挑一个就填进上面那个框 —— 手动输入的路照留,中转站的私有型号还得靠它。 -->
+                      <StackPanel x:Name="ModelPickPanel" IsVisible="False">
+                        <TextBlock x:Name="ModelPickLabel" Classes="label" />
+                        <ComboBox x:Name="ModelPickCombo" HorizontalAlignment="Stretch" />
+                      </StackPanel>
                     </StackPanel>
                   </Grid>
                   <StackPanel>

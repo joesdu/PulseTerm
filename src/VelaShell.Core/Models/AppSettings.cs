@@ -100,6 +100,18 @@ public class AppSettings
             Security.RecordProductionSessions = false;
             Security.RecordingOptInMigrated = true;
         }
+
+        // 代理默认值从 none 改成 system(见 ProxyOptions.Type)。老配置里落盘的那个 none
+        // 分不清是"用户选的"还是"从来没动过",而两者在没有系统代理时行为一模一样 ——
+        // 于是只抬这一次:抬完打标记,此后主动选的 none 永远算数。
+        if (!Proxy.DefaultsMigrated)
+        {
+            if (Proxy.Type == "none")
+            {
+                Proxy.Type = "system";
+            }
+            Proxy.DefaultsMigrated = true;
+        }
     }
 }
 
@@ -981,12 +993,29 @@ public class KeyOptions : ObservableOptions
 /// </summary>
 public class ProxyOptions : ObservableOptions
 {
-    /// <summary>代理类型:none(直连)/ system(跟随系统代理)/ http(HTTP CONNECT)/ socks5。</summary>
+    /// <summary>代理类型:none(强制直连)/ system(跟随系统代理)/ http(HTTP CONNECT)/ socks5。</summary>
+    /// <remarks>
+    /// <b>默认 system,不是 none。</b><c>VelaWebProxy.Install</c> 把本类型解析出的路由装成进程级
+    /// <c>HttpClient.DefaultProxy</c>,<b>顶掉 .NET 原本的系统代理</b>。默认值若是 none,
+    /// 就成了"装了 VelaShell 反而把系统代理关掉了" —— 浏览器出得去、本程序出不去,
+    /// 而用户完全无从察觉。none 保留"我就是要强制直连"这个明确语义,只是不再当默认。
+    /// </remarks>
     public string Type
     {
         get;
-        set => Set(ref field, value ?? "none");
-    } = "none";
+        set => Set(ref field, value ?? "system");
+    } = "system";
+
+    /// <summary>
+    /// 默认值迁移标记(与 <c>SecurityOptions.RecordingOptInMigrated</c> 同一套路)。
+    /// 老配置里落盘的是 none,光改默认值救不了已经装过的用户。
+    /// </summary>
+    /// <remarks><b>只抬一次</b>:抬完置 true 并随下次保存落盘,此后用户主动选的 none 永远算数。</remarks>
+    public bool DefaultsMigrated
+    {
+        get;
+        set => Set(ref field, value);
+    }
 
     /// <summary>代理服务器主机名或 IP(仅 http / socks5 类型消费)。</summary>
     public string Host

@@ -92,8 +92,89 @@ public sealed class AiProvider
     /// <summary>默认线协议;模型没有另填时沿用这个。</summary>
     public ChatProtocol DefaultProtocol { get; set; } = ChatProtocol.OpenAiChatCompletions;
 
+    /// <summary>
+    /// 拿什么鉴权:填 Key(默认,老配置读上来就是它)还是订阅登录。
+    /// </summary>
+    /// <remarks>
+    /// 老设置里没有这个字段,反序列化后为默认值 <see cref="AuthMethod.ApiKey" /> ——
+    /// 也就是升级上来的用户什么都不会变,这正是想要的。
+    /// </remarks>
+    public AuthMethod Auth { get; set; } = AuthMethod.ApiKey;
+
+    /// <summary>
+    /// 从供应商目录哪一条建来的(<see cref="ProviderCatalog" /> 的 id);
+    /// 手工新建的为 null。界面用它认出"这一家已经加过了"并显示对应的徽标。
+    /// </summary>
+    public string? CatalogId { get; set; }
+
+    /// <summary>
+    /// 订阅登录的参数;<see cref="Auth" /> 不是 <see cref="AuthMethod.Subscription" /> 时为 null。
+    /// 令牌本身不在这儿 —— 那是机密,单独存(键 <c>oauth:&lt;Id&gt;</c>)。
+    /// </summary>
+    public OAuthConfig? OAuth { get; set; }
+
     /// <summary>该供应商下的模型。</summary>
     public List<AiModelConfig> Models { get; set; } = [];
+
+    /// <summary>
+    /// 这一家的可用模型 id(见 <see cref="ModelsDevCatalog" />);空 = 还没拉过或那边没收录。
+    /// </summary>
+    /// <remarks>
+    /// 只是<b>候选清单</b>,不是"已启用的模型" —— 真正在用的仍然是 <see cref="Models" />。
+    /// 有了它,设置页那个模型框就能从"照着文档一个字一个字敲"变成"从下拉里挑"。
+    /// </remarks>
+    public List<string> AvailableModels { get; set; } = [];
+
+    /// <summary>
+    /// 允许服务端存下这一轮的响应(OpenAI Responses 协议的 <c>store</c> 字段)。
+    /// </summary>
+    /// <remarks>
+    /// 默认 true(不发这个字段,由服务端定)。<b>订阅型的私有后端一般不接受</b> ——
+    /// 它们不给第三方做服务端响应存储,请求里带着 <c>store</c> 会被直接 400 掉。
+    /// 做成配置而不是按供应商 id 写死:哪家不收是端点的性质,不是代码分支。
+    /// </remarks>
+    public bool StoreResponses { get; set; } = true;
+
+    /// <summary>
+    /// 这一家收不收 <c>system</c> 角色的消息。
+    /// </summary>
+    /// <remarks>
+    /// 默认收。ChatGPT 的 Codex 后端<b>不收</b> —— 照常发会得到
+    /// <c>400 {"detail":"System messages are not allowed"}</c>,整轮对话直接失败。
+    /// 关掉之后,系统提示词改走 Responses 协议自己的 <c>instructions</c> 字段
+    /// (抓包确认过:<c>ChatOptions.Instructions</c> 就落在那儿,且不产生 system 角色,
+    /// 见 <c>ResponsesWireTests</c>)。
+    /// </remarks>
+    public bool AllowSystemMessages { get; set; } = true;
+
+    /// <summary>
+    /// 这一家<b>不认</b>的请求参数,每行一个(线上的字段名,如 <c>max_output_tokens</c>)。
+    /// </summary>
+    /// <remarks>
+    /// 订阅型的私有后端往往只是标准协议的一个<b>受限子集</b>:多发一个它不认的字段就整轮 400,
+    /// 而且一次只告诉你一个(<c>Unsupported parameter: …</c>)。做成清单而不是一个参数一个开关 ——
+    /// 再发现一个只要往目录里加一行,不必改代码、不必再来一轮试错。
+    /// <para>认得的名字见 <c>AiSettingsStore.ApplyEndpointQuirks</c>;不认识的行会被忽略。</para>
+    /// </remarks>
+    public string UnsupportedParameters { get; set; } = "";
+
+    /// <summary>订阅登录且参数齐全(能真的发起一次登录)。</summary>
+    /// <remarks>
+    /// 目录里带占位端点、等着用户填客户端 id 的那几条(Azure / 自定义)在这里必须判 false ——
+    /// 不然点「登录」会发出一个 <c>client_id=</c> 空着的请求,换回来一句服务端的天书,
+    /// 而用户真正该看到的是"先把客户端 id 填上"。
+    /// </remarks>
+    [JsonIgnore]
+    public bool CanSignIn => Auth == AuthMethod.Subscription && OAuth is { } oauth
+                             && !string.IsNullOrWhiteSpace(oauth.TokenUrl)
+                             // OpenRouter 那一路本来就没有 client_id,别把它一起卡掉
+                             && (oauth.Flow == OAuthFlow.OpenRouterPkce
+                                 || !string.IsNullOrWhiteSpace(oauth.ClientId))
+                             // 设备码类流程用不到授权页地址,要的是设备码地址(别只判 DeviceCode
+                             // 一个值 —— 两段式的 Copilot 也是设备码起手,漏了它就永远"登不了")
+                             && (oauth.Flow is OAuthFlow.DeviceCode or OAuthFlow.GitHubCopilotDevice
+                                 ? !string.IsNullOrWhiteSpace(oauth.DeviceCodeUrl)
+                                 : !string.IsNullOrWhiteSpace(oauth.AuthorizationUrl));
 }
 
 /// <summary>
@@ -382,59 +463,4 @@ public sealed class AiSettings
     /// <summary>找某模型所属的供应商;找不到返回 null。</summary>
     public AiProvider? FindProviderOfModel(string modelId)
         => Providers.Find(p => p.Models.Exists(m => m.Id == modelId));
-}
-
-/// <summary>内置的供应商预设(设置页"新增供应商"下拉)。每个预设自带一个起手模型。</summary>
-/// <remarks>
-/// 预设里的 <see cref="AiModelConfig.MaxInputTokens" /> 只是各家常见档位的出厂值,
-/// 换模型后请在设置页按实际上下文窗口改 —— 它只影响输入框下方那个占比的分母。
-/// </remarks>
-public static class ProviderPresets
-{
-    /// <summary>全部预设:显示标签 + 出厂配置工厂。</summary>
-    public static IReadOnlyList<(string Label, Func<AiProvider> Create)> All { get; } =
-    [
-        ("OpenAI", () => new AiProvider
-        {
-            Name = "OpenAI",
-            DefaultProtocol = ChatProtocol.OpenAiResponses,
-            BaseUrl = "https://api.openai.com/v1",
-            Models = [new AiModelConfig { Model = "gpt-5", MaxInputTokens = 400000 }]
-        }),
-        ("Anthropic Claude", () => new AiProvider
-        {
-            Name = "Anthropic",
-            DefaultProtocol = ChatProtocol.AnthropicMessages,
-            BaseUrl = "https://api.anthropic.com",
-            Models = [new AiModelConfig { Model = "claude-opus-5", MaxInputTokens = 200000 }]
-        }),
-        ("xAI Grok", () => new AiProvider
-        {
-            Name = "xAI",
-            DefaultProtocol = ChatProtocol.OpenAiChatCompletions,
-            BaseUrl = "https://api.x.ai/v1",
-            Models = [new AiModelConfig { Model = "grok-4", MaxInputTokens = 256000 }]
-        }),
-        ("Ollama (local)", () => new AiProvider
-        {
-            Name = "Ollama",
-            DefaultProtocol = ChatProtocol.OpenAiChatCompletions,
-            BaseUrl = "http://localhost:11434/v1",
-            Models = [new AiModelConfig { Model = "llama3.1" }]
-        }),
-        ("Custom (OpenAI compatible)", () => new AiProvider
-        {
-            Name = "Custom",
-            DefaultProtocol = ChatProtocol.OpenAiChatCompletions,
-            BaseUrl = "https://example.com/v1",
-            Models = [new AiModelConfig()]
-        }),
-        ("Custom (Anthropic compatible)", () => new AiProvider
-        {
-            Name = "Custom (Anthropic)",
-            DefaultProtocol = ChatProtocol.AnthropicMessages,
-            BaseUrl = "https://example.com",
-            Models = [new AiModelConfig()]
-        })
-    ];
 }

@@ -132,8 +132,16 @@ public sealed class SettingsViewUiTests
                 ListBox list = view.GetControl<ListBox>("ProvidersList");
                 Assert.IsFalse(view.GetControl<Button>("AddModelButton").IsEnabled, "没选中供应商时不能加模型");
 
-                // 预设第 0 项 = OpenAI:一个供应商带一个起手模型,选中供应商行
+                // 「新增供应商」现在开的是「连接供应商」那一页,供应商由它加完再回调进来
+                string? requested = "unset";
+                view.ProviderCatalogRequested += id => requested = id;
                 view.GetControl<Button>("AddButton").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+                Assert.IsNull(requested, "点「新增供应商」是开目录页,不带具体条目");
+
+                AiProvider openai = ProviderCatalog.Find("openai")!.CreateProvider();
+                settings.Providers.Add(openai);
+                settings.ActiveModelId ??= openai.Models[0].Id;
+                view.ReloadFromCatalog(openai.Id);
                 await PumpAsync();
                 Assert.HasCount(1, settings.Providers);
                 Assert.AreEqual("OpenAI", settings.Providers[0].Name);
