@@ -52,7 +52,7 @@ public sealed class SidebarViewModel(
     } = 180;
 
     /// <summary>
-    /// 整条侧边栏是否折叠成图标细条(标题栏折叠按钮 / Ctrl+B)。
+    /// 整条侧边栏是否折叠成图标细条(侧栏工具栏折叠按钮 / Ctrl+B)。
     /// 折叠后侧栏只剩底部那几个入口图标,列宽由宿主窗口收到 40px ——
     /// 上面 <see cref="QuickCommandsExpanded" /> 等折的是侧栏**里面**的分区,与这个是两码事。
     /// </summary>

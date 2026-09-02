@@ -49,6 +49,15 @@
               </MenuFlyout>
             </Button.Flyout>
           </Button>
+          <!-- 折叠成图标细条(Ctrl+B)。按钮就长在它要收起的这条侧栏自己的工具栏上,
+               不占标题栏 —— 折叠后细条顶部有对应的展开按钮,回程入口不缺。 -->
+          <Button Background="Transparent" Padding="0" Width="24" Height="24"
+                  CornerRadius="3" Cursor="Hand"
+                  Click="CollapseSidebar_Click"
+                  ToolTip.Tip="{loc:Localize Cmd_ToggleSidebar}">
+            <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.panel-left}"
+                           Foreground="{DynamicResource VelaTextTertiary}" />
+          </Button>
         </StackPanel>
       </Grid>
     </Border>
@@ -267,7 +276,7 @@
     </Border>
   </Grid>
 
-  <!-- 折叠态:40px 图标细条(标题栏折叠按钮 / Ctrl+B)。会话树、快捷命令、
+  <!-- 折叠态:40px 图标细条(侧栏工具栏折叠按钮 / Ctrl+B)。会话树、快捷命令、
        最近连接整块收起,但底部这三个入口必须留在原位 —— 消息中心与插件管理器
        在别处没有第二个入口,而消息面板本就锚在左下角贴着铃铛开出来。
        行高与展开态一一对应(36 顶栏 / * 中部 / 底部入口),切换时上下两条

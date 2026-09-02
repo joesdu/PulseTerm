@@ -803,6 +803,9 @@
 
 Please switch to the open window; only one instance can run at a time.</value>
   </data>
+  <data name="Boot_DatabaseLocked" xml:space="preserve">
+    <value>VelaShell's database is in use by another process. Close any other running VelaShell instance (check the system tray) and try again.</value>
+  </data>
   <data name="Boot_StartupErrorTitle" xml:space="preserve">
     <value>VelaShell - Startup Error</value>
   </data>

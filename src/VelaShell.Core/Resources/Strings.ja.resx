@@ -81,6 +81,9 @@
 
 開いているウィンドウに切り替えてください。同時に実行できるインスタンスは 1 つだけです。</value>
   </data>
+  <data name="Boot_DatabaseLocked" xml:space="preserve">
+    <value>VelaShell のデータベースが別のプロセスで使用中です。実行中の他の VelaShell を終了して(タスクトレイをご確認ください)から再試行してください。</value>
+  </data>
   <data name="Boot_StartupErrorTitle" xml:space="preserve">
     <value>VelaShell - 起動エラー</value>
   </data>
