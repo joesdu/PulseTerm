@@ -13,42 +13,40 @@
 
   <Panel>
 
-  <!-- 拖放整棵树接收(AllowDrop 与 DragOver/Drop 处理在代码后台接线):会话行可拖进
-       任意分组行,拖到根级会话或树的空白处 = 移出分组。 -->
-  <TreeView x:Name="SessionTreeRoot"
-            ItemsSource="{Binding Nodes}"
-            SelectedItem="{Binding SelectedNode, Mode=TwoWay}"
-            Background="Transparent"
-            Padding="0,0,0,0">
+  <!-- 一棵<b>摊平</b>的两层树:分组行 + 展开时紧随其后的会话行,由视图模型的
+       SessionTreeViewModel.Rows 摊出来(层级靠行内 padding,不靠控件的层级缩进)。
 
-    <TreeView.Styles>
-      <Style Selector="TreeViewItem">
-        <Setter Property="IsExpanded" Value="{ReflectionBinding IsExpanded, Mode=TwoWay}" />
+       为什么不用 TreeView:它给每一层预留一块缩进区与一枚内置箭头,而这里的箭头是自绘的、
+       缩进是行内 padding —— 只能拿一串按模板部件名去关灯的样式把内置那套压掉,压不干净就在
+       展开后的子行前面留下一条<b>点不着、也不跟着高亮</b>的空白。摊平之后每一行都是同一层的
+       普通行,行背景从最左画到最右,那条空白从根上就不存在了。
+
+       拖放整棵树接收(AllowDrop 与 DragOver/Drop 处理在代码后台接线):会话行可拖进
+       任意分组行,拖到根级会话或树的空白处 = 移出分组。 -->
+  <ListBox x:Name="SessionTreeRoot"
+           ItemsSource="{Binding Rows}"
+           SelectedItem="{Binding SelectedNode, Mode=TwoWay}"
+           Background="Transparent"
+           BorderThickness="0"
+           Padding="0">
+
+    <ListBox.Styles>
+      <!-- 容器只负责"占一行":选中与悬停都由行内自绘的 Border 渲染(设计 FrJPu),
+           内置的那两层背景压成透明,否则会在自绘行下面再垫一层颜色。 -->
+      <Style Selector="ListBoxItem">
         <Setter Property="IsSelected" Value="{ReflectionBinding IsSelected, Mode=TwoWay}" />
         <Setter Property="Padding" Value="0" />
         <Setter Property="MinHeight" Value="0" />
+        <Setter Property="Background" Value="Transparent" />
+        <!-- 行要铺满整行宽:自绘的选中/悬停底色得从最左画到最右,缩到内容宽就又成了
+             "行的一部分不跟着高亮" —— 那正是这次要消掉的毛病 -->
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
       </Style>
-      <!-- 去掉内置选中/悬停高亮:行的选中与悬停都由自绘的行 Border 渲染(设计 FrJPu)。
-           不压掉内置 :pointerover 时,嵌套子项左侧缩进区会被内置 hover 背景填成一块多余的
-           浅色块。 -->
-      <Style Selector="TreeViewItem:selected /template/ Border#PART_LayoutRoot">
+      <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
         <Setter Property="Background" Value="Transparent" />
       </Style>
-      <Style Selector="TreeViewItem:pointerover /template/ Border#PART_LayoutRoot">
+      <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
         <Setter Property="Background" Value="Transparent" />
-      </Style>
-
-      <!-- 隐藏内置展开箭头及其预留的层级缩进区(设计 FrJPu 只保留自绘、紧挨文件夹的
-           箭头;缩进改由行 Border 的 padding 控制)。容器在 Fluent 主题里的具体类型
-           不确定,用 :is(Control) 按名字命中,并把预留宽度/边距一并归零,消除左侧空白。 -->
-      <Style Selector="TreeViewItem /template/ :is(Control)#PART_ExpandCollapseChevronContainer">
-        <Setter Property="IsVisible" Value="False" />
-        <Setter Property="Width" Value="0" />
-        <Setter Property="MinWidth" Value="0" />
-        <Setter Property="Margin" Value="0" />
-      </Style>
-      <Style Selector="TreeViewItem /template/ ToggleButton#PART_ExpandCollapseChevron">
-        <Setter Property="IsVisible" Value="False" />
       </Style>
 
       <!-- 分组行。描边宽度常驻 1、平时画成透明:拖放高亮只换颜色不换尺寸,
@@ -135,11 +133,10 @@
       <Style Selector="Border.tag.offline TextBlock">
         <Setter Property="Foreground" Value="{DynamicResource VelaError}" />
       </Style>
-    </TreeView.Styles>
+    </ListBox.Styles>
 
-    <TreeView.ItemTemplate>
-      <TreeDataTemplate ItemsSource="{Binding Children}"
-                        x:DataType="vm:SessionTreeNodeViewModel">
+    <ListBox.ItemTemplate>
+      <DataTemplate x:DataType="vm:SessionTreeNodeViewModel">
 
         <!-- 分组行。Padding 11 + Border.group 样式里常驻的 1px 描边 = 视觉缩进仍是 12,
              与会话行对齐;描边常驻是为了让拖放高亮只换颜色、不动几何。 -->
@@ -157,7 +154,7 @@
                    (Group_PointerPressed)。删除是破坏性操作,渲染为 error 色并二次确认。 -->
               <ContextMenu x:DataType="vm:SessionTreeNodeViewModel">
                 <MenuItem Header="{loc:Localize Tree_DeleteGroup}"
-                          Command="{Binding $parent[TreeView].((vm:SessionTreeViewModel)DataContext).DeleteGroupCommand}"
+                          Command="{Binding $parent[ListBox].((vm:SessionTreeViewModel)DataContext).DeleteGroupCommand}"
                           IsVisible="{Binding IsGroup}"
                           Foreground="{DynamicResource VelaError}">
                   <MenuItem.Icon>
@@ -224,7 +221,7 @@
                    右键会先选中所指行(Session_PointerPressed),命令都作用于 SelectedNode。 -->
               <ContextMenu x:DataType="vm:SessionTreeNodeViewModel">
                 <MenuItem Header="{x:Static res:Strings.Connect}"
-                          Command="{Binding $parent[TreeView].((vm:SessionTreeViewModel)DataContext).ConnectCommand}"
+                          Command="{Binding $parent[ListBox].((vm:SessionTreeViewModel)DataContext).ConnectCommand}"
                           IsVisible="{Binding !IsGroup}"
                           Foreground="{DynamicResource VelaTextPrimary}"
                           FontWeight="Medium">
@@ -234,7 +231,7 @@
                   </MenuItem.Icon>
                 </MenuItem>
                 <MenuItem Header="{loc:Localize Tree_OpenInNewTab}"
-                          Command="{Binding $parent[TreeView].((vm:SessionTreeViewModel)DataContext).ConnectCommand}"
+                          Command="{Binding $parent[ListBox].((vm:SessionTreeViewModel)DataContext).ConnectCommand}"
                           IsVisible="{Binding !IsGroup}">
                   <MenuItem.Icon>
                     <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.plus}"
@@ -243,7 +240,7 @@
                 </MenuItem>
                 <Separator IsVisible="{Binding !IsGroup}" />
                 <MenuItem Header="{loc:Localize Tree_EditConnection}"
-                          Command="{Binding $parent[TreeView].((vm:SessionTreeViewModel)DataContext).EditSessionCommand}"
+                          Command="{Binding $parent[ListBox].((vm:SessionTreeViewModel)DataContext).EditSessionCommand}"
                           IsVisible="{Binding !IsGroup}">
                   <MenuItem.Icon>
                     <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.pencil}"
@@ -251,7 +248,7 @@
                   </MenuItem.Icon>
                 </MenuItem>
                 <MenuItem Header="{loc:Localize Tree_DuplicateConnection}"
-                          Command="{Binding $parent[TreeView].((vm:SessionTreeViewModel)DataContext).DuplicateSessionCommand}"
+                          Command="{Binding $parent[ListBox].((vm:SessionTreeViewModel)DataContext).DuplicateSessionCommand}"
                           IsVisible="{Binding !IsGroup}">
                   <MenuItem.Icon>
                     <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.copy}"
@@ -260,7 +257,7 @@
                 </MenuItem>
                 <Separator IsVisible="{Binding !IsGroup}" />
                 <MenuItem Header="{loc:Localize Tree_OpenSftp}"
-                          Command="{Binding $parent[TreeView].((vm:SessionTreeViewModel)DataContext).OpenSftpCommand}"
+                          Command="{Binding $parent[ListBox].((vm:SessionTreeViewModel)DataContext).OpenSftpCommand}"
                           IsVisible="{Binding CanOpenSftp}">
                   <MenuItem.Icon>
                     <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.folder-open}"
@@ -268,7 +265,7 @@
                   </MenuItem.Icon>
                 </MenuItem>
                 <MenuItem Header="{loc:Localize Tree_PortForwarding}"
-                          Command="{Binding $parent[TreeView].((vm:SessionTreeViewModel)DataContext).PortForwardCommand}"
+                          Command="{Binding $parent[ListBox].((vm:SessionTreeViewModel)DataContext).PortForwardCommand}"
                           IsVisible="{Binding IsSshProfile}">
                   <MenuItem.Icon>
                     <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.arrow-right-left}"
@@ -276,7 +273,7 @@
                   </MenuItem.Icon>
                 </MenuItem>
                 <MenuItem Header="{loc:Localize Tree_SessionSettings}"
-                          Command="{Binding $parent[TreeView].((vm:SessionTreeViewModel)DataContext).EditSessionCommand}"
+                          Command="{Binding $parent[ListBox].((vm:SessionTreeViewModel)DataContext).EditSessionCommand}"
                           IsVisible="{Binding !IsGroup}">
                   <MenuItem.Icon>
                     <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.sliders-horizontal}"
@@ -285,7 +282,7 @@
                 </MenuItem>
                 <MenuItem Header="{loc:Localize MoveToGroup}"
                           IsVisible="{Binding !IsGroup}"
-                          ItemsSource="{Binding $parent[TreeView].((vm:SessionTreeViewModel)DataContext).GroupNodes}">
+                          ItemsSource="{Binding $parent[ListBox].((vm:SessionTreeViewModel)DataContext).GroupNodes}">
                   <MenuItem.Icon>
                     <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.folder-input}"
                                    Foreground="{DynamicResource VelaTextTertiary}" />
@@ -294,13 +291,13 @@
                     <Style Selector="MenuItem > MenuItem" x:DataType="vm:SessionTreeNodeViewModel">
                       <Setter Property="Header" Value="{Binding Name}" />
                       <Setter Property="Command"
-                              Value="{Binding $parent[TreeView].((vm:SessionTreeViewModel)DataContext).MoveToGroupCommand}" />
+                              Value="{Binding $parent[ListBox].((vm:SessionTreeViewModel)DataContext).MoveToGroupCommand}" />
                       <Setter Property="CommandParameter" Value="{Binding}" />
                     </Style>
                   </MenuItem.Styles>
                 </MenuItem>
                 <MenuItem Header="{loc:Localize Tree_Diagnostics}"
-                          Command="{Binding $parent[TreeView].((vm:SessionTreeViewModel)DataContext).DiagnoseCommand}"
+                          Command="{Binding $parent[ListBox].((vm:SessionTreeViewModel)DataContext).DiagnoseCommand}"
                           IsVisible="{Binding !IsGroup}">
                   <MenuItem.Icon>
                     <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.stethoscope}"
@@ -309,7 +306,7 @@
                 </MenuItem>
                 <Separator IsVisible="{Binding !IsGroup}" />
                 <MenuItem Header="{loc:Localize Disconnect}"
-                          Command="{Binding $parent[TreeView].((vm:SessionTreeViewModel)DataContext).DisconnectCommand}"
+                          Command="{Binding $parent[ListBox].((vm:SessionTreeViewModel)DataContext).DisconnectCommand}"
                           IsVisible="{Binding !IsGroup}"
                           Foreground="{DynamicResource VelaWarning}">
                   <MenuItem.Icon>
@@ -319,7 +316,7 @@
                 </MenuItem>
                 <Separator IsVisible="{Binding !IsGroup}" />
                 <MenuItem Header="{x:Static res:Strings.Delete}"
-                          Command="{Binding $parent[TreeView].((vm:SessionTreeViewModel)DataContext).DeleteSessionCommand}"
+                          Command="{Binding $parent[ListBox].((vm:SessionTreeViewModel)DataContext).DeleteSessionCommand}"
                           IsVisible="{Binding !IsGroup}"
                           Foreground="{DynamicResource VelaError}">
                   <MenuItem.Icon>
@@ -375,9 +372,9 @@
           </Border>
         </Panel>
 
-      </TreeDataTemplate>
-    </TreeView.ItemTemplate>
-  </TreeView>
+      </DataTemplate>
+    </ListBox.ItemTemplate>
+  </ListBox>
 
     <!--
       拖放叠层。整层 IsHitTestVisible="False" —— 否则叠层自己会成为 DragOver 的命中目标,

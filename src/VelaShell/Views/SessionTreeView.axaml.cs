@@ -69,12 +69,9 @@ public partial class SessionTreeView : UserControl
         {
             return;
         }
-        Border? row = this.GetVisualDescendants()
-            .OfType<Border>()
-            .FirstOrDefault(border =>
-                border.Classes.Contains("session") && ReferenceEquals(border.DataContext, selected)
-            );
-        row?.BringIntoView();
+        // 交给列表自己滚:行是虚拟化出来的,选中项在视口外时压根没有对应的控件可以
+        // BringIntoView —— 而"选中了却没滚过去"恰恰只在列表长的时候发生。
+        SessionTreeRoot.ScrollIntoView(selected);
     }
 
     /// <summary>单击分组行即切换展开/折叠(设计 FrJPu:chevron 随之翻转)。</summary>
