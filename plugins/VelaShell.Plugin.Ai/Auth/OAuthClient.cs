@@ -77,6 +77,20 @@ public sealed class OAuthClient(HttpClient http)
             query.Add(new("code_challenge", pkce.Challenge));
             query.Add(new("code_challenge_method", PkceCodes.Method));
         }
+        else if (config.Flow == OAuthFlow.ImplicitFragment)
+        {
+            // 隐式流:直接要令牌,没有授权码,也就<b>没有 PKCE 可用</b>
+            // (challenge 是给"换码"那一步验的,这里根本没有那一步)。
+            // state 照发 —— 它防的是别人往我的回调里塞东西,与 PKCE 是两回事
+            query.Add(new("response_type", "token"));
+            query.Add(new("client_id", config.ClientId));
+            query.Add(new("redirect_uri", redirectUri));
+            query.Add(new("state", pkce.State));
+            if (!string.IsNullOrWhiteSpace(config.Scopes))
+            {
+                query.Add(new("scope", config.Scopes.Trim()));
+            }
+        }
         else
         {
             query.Add(new("response_type", "code"));
@@ -285,6 +299,12 @@ public sealed class OAuthClient(HttpClient http)
         if (!string.IsNullOrWhiteSpace(config.Scopes))
         {
             form.Add(new("scope", config.Scopes.Trim()));
+        }
+        // 设备码请求就是这一路的"授权请求",所以额外参数在这儿带上
+        // (xAI 要一个 referrer 说明来路;不带也能过,但对方分不清是谁在用)
+        foreach (KeyValuePair<string, string> extra in ParsePairs(config.ExtraAuthorizeParams))
+        {
+            form.Add(extra);
         }
         Dictionary<string, string> payload = await PostAsync(config.DeviceCodeUrl, form, cancellationToken).ConfigureAwait(false);
         if (!payload.TryGetValue("device_code", out string? deviceCode) || deviceCode.Length == 0)

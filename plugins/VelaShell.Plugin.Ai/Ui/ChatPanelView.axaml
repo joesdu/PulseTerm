@@ -512,6 +512,29 @@
       <Setter Property="Foreground" Value="{Binding $parent[ComboBox].Foreground}" />
     </Style>
 
+    <!-- 思考档位:没改过档时<b>一个属性都不设</b> —— 就让它和旁边的模型选择器长得一模一样。
+         (曾经在代码里 FindResource 取色再写到控件上,可这个插件允许在拿不到宿主主题令牌的
+         环境下装载,那时取回 null,前景色被设成 null,文字整个消失、只剩一个下拉箭头。)
+         改过档才挂 .overridden 点亮成芯片:"这一轮和你平常设的不一样"要能被余光看见,
+         不必再去翻设置页确认。 -->
+    <Style Selector="ComboBox#ReasoningCombo.overridden /template/ Border#Background,
+                     ComboBox#ReasoningCombo.overridden:pointerover /template/ Border#Background,
+                     ComboBox#ReasoningCombo.overridden:focus /template/ Border#Background,
+                     ComboBox#ReasoningCombo.overridden /template/ Border#HighlightBackground,
+                     ComboBox#ReasoningCombo.overridden:pointerover /template/ Border#HighlightBackground,
+                     ComboBox#ReasoningCombo.overridden:focus /template/ Border#HighlightBackground">
+      <Setter Property="Background" Value="{DynamicResource VelaAccentDim}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaAccent}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="ComboBox#ReasoningCombo.overridden /template/ ContentControl#ContentPresenter">
+      <Setter Property="Foreground" Value="{DynamicResource VelaAccent}" />
+      <Setter Property="FontWeight" Value="Medium" />
+    </Style>
+    <Style Selector="ComboBox#ReasoningCombo.overridden /template/ PathIcon#DropDownGlyph">
+      <Setter Property="Foreground" Value="{DynamicResource VelaAccent}" />
+    </Style>
+
     <!-- ===== 阻塞类卡片:审批与失败 =====
          两者都是"这一轮停在这儿了",与工具日志不是一个分量:左边一道 3px 语义色竖条,
          整张卡从工具卡的灰描边里拎出来。 -->
@@ -791,9 +814,12 @@
                      VerticalAlignment="Top" TextWrapping="Wrap" />
         </Panel>
 
-        <!-- 只放"发这一条要用什么":模型 / Agent / 发送。模型那列是 * —— 面板收窄时
-             先挤模型名(下拉里仍看得全),而不是把发送按钮挤出边界。 -->
-        <Grid x:Name="InputToolbar" Grid.Row="1" ColumnDefinitions="Auto,*,Auto,Auto" Margin="6,0,5,5">
+        <!-- 只放"发这一条要用什么":模型 / 思考档位 / Agent / 发送。
+             模型与思考档位<b>必须紧挨着</b> —— 后者改的正是"这个模型这一问想多深",
+             两者是一件事的两半;中间隔开的话读起来像是两件不相干的设置。
+             所以空档(*)放在它们<b>之后</b>:面板收窄时先吃掉这段空白,
+             而不是把发送按钮挤出边界。 -->
+        <Grid x:Name="InputToolbar" Grid.Row="1" ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto" Margin="6,0,5,5">
           <Button x:Name="AttachButton" Theme="{StaticResource AiGhostIconButtonTheme}" Margin="0,0,4,0">
             <Viewbox Width="13" Height="13">
               <Path Width="24" Height="24" Data="{DynamicResource Icon.plus}"
@@ -802,9 +828,15 @@
             </Viewbox>
           </Button>
           <ComboBox x:Name="ProviderCombo" Grid.Column="1" MaxWidth="230" HorizontalAlignment="Left" />
+          <!-- 思考档位:只管这一轮,不写回设置(见 ResolvedModel.ReasoningOverride)。
+               外观<b>不在代码里设</b> —— 本插件允许在拿不到宿主主题令牌的环境下装载
+               (见 Panel_Loads_WithoutHostThemeTokens),那时 FindResource 返回 null,
+               把前景色设成 null 会让文字整个消失、只剩一个下拉箭头。改过档时挂 .overridden 类,
+               配色交给下面的样式与 DynamicResource,取不到令牌时自然退回主题默认值。 -->
+          <ComboBox x:Name="ReasoningCombo" Grid.Column="2" Margin="6,0,0,0" MinWidth="76" />
           <!-- 对话模式:纯对话 / 计划 / Agent(对齐 Copilot 的模式选择) -->
-          <ComboBox x:Name="ModeCombo" Grid.Column="2" Margin="6,0,0,0" MinWidth="88" />
-          <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6" Margin="8,0,0,0" VerticalAlignment="Center">
+          <ComboBox x:Name="ModeCombo" Grid.Column="4" Margin="6,0,0,0" MinWidth="88" />
+          <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="6" Margin="8,0,0,0" VerticalAlignment="Center">
             <!-- 主操作带文字(设计图):这一枚是整个面板唯一的"提交",纯图标要靠猜。
                  模型那列是 * ,面板收窄时先挤模型名,挤不到这里。 -->
             <Button x:Name="SendButton" Theme="{DynamicResource VelaAccentPillButtonTheme}"

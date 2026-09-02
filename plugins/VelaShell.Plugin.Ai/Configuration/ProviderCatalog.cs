@@ -175,6 +175,20 @@ public static class ProviderCatalog
         /// <summary>GitHub 官方 Copilot 编辑器插件的客户端 id。性质同上。</summary>
         public const string GitHubCopilot = "Iv1.b507a08c87ecfe98";
 
+        /// <summary>Grok CLI 的公共客户端 id。性质同 <see cref="OpenAiCodex" />。</summary>
+        /// <remarks>
+        /// xAI 在 <c>auth.x.ai/.well-known/openid-configuration</c> 里公开声明了
+        /// <c>device_authorization_endpoint</c> 与对应的 <c>device_code</c> 授权类型 ——
+        /// 也就是说设备码这条路是它自己宣告支持的,不是猜出来的。
+        /// </remarks>
+        public const string XaiGrok = "b1a00492-073a-47ea-816f-4c329264a828";
+
+        /// <summary>
+        /// DigitalOcean Gradient 的公共 OAuth 客户端 id(隐式流,见 <see cref="OAuthFlow.ImplicitFragment" />)。
+        /// </summary>
+        public const string DigitalOcean =
+            "b1a6c5158156caac821fd1b30253ca8acb52454a48fa744420e41889cb589f82";
+
         /// <summary>Google Cloud Console → API 和服务 → 凭据 → OAuth 客户端 ID(类型选"桌面应用")。</summary>
         public const string Google = "";
     }
@@ -200,6 +214,8 @@ public static class ProviderCatalog
         ["anthropic-claude"] = "anthropic",
         ["github-copilot"] = "github-copilot",
         ["xai"] = "xai",
+        ["xai-grok"] = "xai",
+        ["digitalocean"] = "digitalocean",
         ["google"] = "google",
         ["deepseek"] = "deepseek",
         ["moonshot"] = "moonshotai",
@@ -209,6 +225,16 @@ public static class ProviderCatalog
         ["fireworks"] = "fireworks-ai",
         ["groq"] = "groq",
         ["mistral"] = "mistral",
+        ["cerebras"] = "cerebras",
+        ["deepinfra"] = "deepinfra",
+        ["nvidia"] = "nvidia",
+        ["perplexity"] = "perplexity",
+        ["cohere"] = "cohere",
+        ["baseten"] = "baseten",
+        ["upstage"] = "upstage",
+        ["minimax"] = "minimax",
+        ["zenmux"] = "zenmux",
+        ["llmgateway"] = "llmgateway",
         ["openrouter"] = "openrouter",
         ["huggingface"] = "huggingface",
         ["azure-openai"] = "azure"
@@ -313,6 +339,48 @@ public static class ProviderCatalog
                     // 交换响应里会带 endpoints.api —— 企业账户与个人账户不是同一个地址,
                     // 那时以它为准(见 ProviderCredential.BaseUrl)
                     ExtraHeaders = "Copilot-Integration-Id: vscode-chat\nEditor-Version: VelaShell/1.0",
+                    Credential = OAuthCredential.AccessToken
+                }))
+        {
+            Experimental = true
+        },
+
+        new("xai-grok", "xAI Grok (SuperGrok 订阅)", "e.g. grok-4.6 · grok-code-fast", "XG",
+            AuthMethod.Subscription, () => Subscription(
+                "xAI Grok", "https://api.x.ai/v1", ChatProtocol.OpenAiChatCompletions,
+                new AiModelConfig { Model = "grok-4.6", MaxInputTokens = 256000 },
+                new OAuthConfig
+                {
+                    // 只走设备码:xAI 在自己的 openid-configuration 里公开声明了
+                    // device_authorization_endpoint 与 device_code 授权类型,
+                    // 而授权码那一路它没有登记任何第三方可用的回调地址
+                    Flow = OAuthFlow.DeviceCode,
+                    DeviceCodeUrl = "https://auth.x.ai/oauth2/device/code",
+                    TokenUrl = "https://auth.x.ai/oauth2/token",
+                    ClientId = ClientIds.XaiGrok,
+                    Scopes = "openid profile email offline_access grok-cli:access api:access",
+                    // 设备码请求里带上来路,便于对方区分是哪个客户端在用
+                    ExtraAuthorizeParams = "referrer=velashell",
+                    Credential = OAuthCredential.AccessToken
+                }))
+        {
+            Experimental = true
+        },
+
+        new("digitalocean", "DigitalOcean Gradient", "e.g. Llama · Qwen · DeepSeek(托管推理)", "DO",
+            AuthMethod.Subscription, () => Subscription(
+                "DigitalOcean", "https://inference.do-ai.run/v1", ChatProtocol.OpenAiChatCompletions,
+                new AiModelConfig { Model = "llama3.3-70b-instruct", MaxInputTokens = 128000 },
+                new OAuthConfig
+                {
+                    // 隐式流:令牌落在回调地址的 #fragment 里,得靠一页 HTML 把它回传
+                    Flow = OAuthFlow.ImplicitFragment,
+                    AuthorizationUrl = "https://cloud.digitalocean.com/v1/oauth/authorize",
+                    ClientId = ClientIds.DigitalOcean,
+                    Scopes = "genai:read inference:query",
+                    // 回调必须与登记的那条完全一致,所以端口固定
+                    RedirectPort = 43920,
+                    RedirectPath = "/callback",
                     Credential = OAuthCredential.AccessToken
                 }))
         {
@@ -424,6 +492,47 @@ public static class ProviderCatalog
         new("mistral", "Mistral AI", "e.g. mistral-large-latest", "MI", AuthMethod.ApiKey,
             () => Key("Mistral AI", "https://api.mistral.ai/v1", ChatProtocol.OpenAiChatCompletions,
                 new AiModelConfig { Model = "mistral-large-latest", MaxInputTokens = 128000 })),
+
+        new("cerebras", "Cerebras", "e.g. qwen-3-coder-480b · gpt-oss-120b", "CB", AuthMethod.ApiKey,
+            () => Key("Cerebras", "https://api.cerebras.ai/v1", ChatProtocol.OpenAiChatCompletions,
+                new AiModelConfig { Model = "qwen-3-coder-480b", MaxInputTokens = 128000 })),
+
+        new("deepinfra", "Deep Infra", "e.g. deepseek-ai/DeepSeek-V3 · Qwen/Qwen3-235B", "DI", AuthMethod.ApiKey,
+            () => Key("Deep Infra", "https://api.deepinfra.com/v1/openai", ChatProtocol.OpenAiChatCompletions,
+                new AiModelConfig { Model = "deepseek-ai/DeepSeek-V3", MaxInputTokens = 128000 })),
+
+        new("nvidia", "NVIDIA NIM", "e.g. deepseek-ai/deepseek-r1 · qwen/qwen3-coder", "NV", AuthMethod.ApiKey,
+            () => Key("NVIDIA NIM", "https://integrate.api.nvidia.com/v1", ChatProtocol.OpenAiChatCompletions,
+                new AiModelConfig { Model = "deepseek-ai/deepseek-r1", MaxInputTokens = 128000 })),
+
+        new("perplexity", "Perplexity", "e.g. sonar-pro · sonar-reasoning-pro", "PX", AuthMethod.ApiKey,
+            () => Key("Perplexity", "https://api.perplexity.ai", ChatProtocol.OpenAiChatCompletions,
+                new AiModelConfig { Model = "sonar-pro", MaxInputTokens = 200000 })),
+
+        new("cohere", "Cohere", "e.g. command-a-03-2025 · command-r-plus", "CO", AuthMethod.ApiKey,
+            () => Key("Cohere", "https://api.cohere.com/compatibility/v1", ChatProtocol.OpenAiChatCompletions,
+                new AiModelConfig { Model = "command-a-03-2025", MaxInputTokens = 256000 })),
+
+        new("baseten", "Baseten", "e.g. deepseek-ai/DeepSeek-V3 · moonshotai/Kimi-K2", "BT", AuthMethod.ApiKey,
+            () => Key("Baseten", "https://inference.baseten.co/v1", ChatProtocol.OpenAiChatCompletions,
+                new AiModelConfig { Model = "deepseek-ai/DeepSeek-V3", MaxInputTokens = 128000 })),
+
+        new("upstage", "Upstage Solar", "e.g. solar-pro2", "UP", AuthMethod.ApiKey,
+            () => Key("Upstage", "https://api.upstage.ai/v1/solar", ChatProtocol.OpenAiChatCompletions,
+                new AiModelConfig { Model = "solar-pro2", MaxInputTokens = 64000 })),
+
+        new("minimax", "MiniMax", "e.g. MiniMax-M2", "MM", AuthMethod.ApiKey,
+            // 这一家给的是 Anthropic 兼容端点,不是 OpenAI 的 —— 协议别跟着邻居抄
+            () => Key("MiniMax", "https://api.minimax.io/anthropic/v1", ChatProtocol.AnthropicMessages,
+                new AiModelConfig { Model = "MiniMax-M2", MaxInputTokens = 200000 })),
+
+        new("zenmux", "ZenMux", "Multiple models behind one key", "ZM", AuthMethod.ApiKey,
+            () => Key("ZenMux", "https://zenmux.ai/api/v1", ChatProtocol.OpenAiChatCompletions,
+                new AiModelConfig { Model = "anthropic/claude-sonnet-4.5", MaxInputTokens = 200000 })),
+
+        new("llmgateway", "LLM Gateway", "Multiple models behind one key", "LG", AuthMethod.ApiKey,
+            () => Key("LLM Gateway", "https://api.llmgateway.io/v1", ChatProtocol.OpenAiChatCompletions,
+                new AiModelConfig { Model = "openai/gpt-5", MaxInputTokens = 200000 })),
 
         new("ollama", "Ollama (local)", "Locally served models · no key needed", "OL", AuthMethod.ApiKey,
             () => Key("Ollama", "http://localhost:11434/v1", ChatProtocol.OpenAiChatCompletions,

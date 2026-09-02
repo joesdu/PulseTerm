@@ -419,6 +419,9 @@ public sealed class ModelsDevCatalog(IPluginContext context)
         {
             model.CachedInputPricePerMillion = spec.CachedInputPrice;
         }
+        // 这一项与上面几个不同:false 是有意义的答案("这个模型不会思考"),
+        // 不能照搬"0 就当没说过"的规矩 —— 那样永远回不到 false
+        model.SupportsReasoning = spec.Reasoning;
     }
 
     /// <summary>
