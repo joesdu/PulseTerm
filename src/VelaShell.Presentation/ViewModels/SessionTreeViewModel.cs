@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using ReactiveUI;
 using ReactiveUI.Primitives;
 using VelaShell.Core.Data;
@@ -28,6 +29,7 @@ public sealed class SessionTreeViewModel : ReactiveObject
     {
         _repository = repository;
         Nodes = [];
+        Nodes.CollectionChanged += OnNodesChanged;
         _hasNoSessions = true;
         LoadCommand = ReactiveCommand.CreateFromTask(LoadTreeAsync);
         IObservable<bool> hasSelectedSession = this.WhenAnyValue(x => x.SelectedNode)
@@ -79,7 +81,146 @@ public sealed class SessionTreeViewModel : ReactiveObject
     }
 
     /// <summary>树的根级节点集合,包含各分组节点及直接挂在根级的未分组会话。</summary>
+    /// <remarks>
+    /// 这是<b>数据形状</b>(两层:分组 → 会话)。界面绑的不是它而是摊平后的 <see cref="Rows" /> ——
+    /// 两者由 <see cref="SyncRows" /> 保持同步,这里的任何增删改都会自动反映过去。
+    /// </remarks>
     public ObservableCollection<SessionTreeNodeViewModel> Nodes { get; }
+
+    /// <summary>
+    /// 摊平后的行:每个根级节点一行,展开的分组后面紧跟它的会话行。<b>界面绑的是这个。</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 之所以自己摊平、用平列表画,而不是交给 <c>TreeView</c>:那个控件为每一层预留了一块
+    /// 缩进区与一枚内置箭头,而本设计的箭头是自绘的、缩进是行内 padding ——
+    /// 于是只能靠一串按模板部件名去关灯的样式把内置的那套压掉,压不干净就在展开后的子行前面
+    /// 留下一条<b>点不着、也不跟着高亮</b>的空白。摊平之后每一行都是同一层的普通行,
+    /// 行背景从最左画到最右,那条空白从根上就不存在了。
+    /// </para>
+    /// <para>
+    /// 就地对齐而不是清空重建:清空会让 <see cref="SelectedNode" /> 被列表控件顺手清成 null
+    /// (选中项跟着 <c>SelectedItem</c> 双向绑),折一下分组就把用户的选择弄丢了。
+    /// </para>
+    /// </remarks>
+    public ObservableCollection<SessionTreeNodeViewModel> Rows { get; } = [];
+
+    /// <summary>已经挂上监听的节点(<see cref="Nodes" /> 的 Reset 不带旧项,得自己记着才摘得掉)。</summary>
+    private readonly HashSet<SessionTreeNodeViewModel> _watched = [];
+
+    private void OnNodesChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.Action == NotifyCollectionChangedAction.Reset)
+        {
+            // Clear() 不给 OldItems,只能照着自己记的那份全摘掉
+            foreach (SessionTreeNodeViewModel node in _watched.ToList())
+            {
+                Unwatch(node);
+            }
+        }
+        foreach (SessionTreeNodeViewModel node in e.OldItems?.OfType<SessionTreeNodeViewModel>() ?? [])
+        {
+            Unwatch(node);
+        }
+        foreach (SessionTreeNodeViewModel node in Nodes)
+        {
+            Watch(node);
+        }
+        SyncRows();
+    }
+
+    /// <summary>盯住一个根级节点:它的展开状态、以及(分组的)子项增删都会改变行序。</summary>
+    private void Watch(SessionTreeNodeViewModel node)
+    {
+        if (!_watched.Add(node))
+        {
+            return;
+        }
+        node.PropertyChanged += OnNodePropertyChanged;
+        if (node.IsGroup)
+        {
+            node.Children.CollectionChanged += OnChildrenChanged;
+        }
+    }
+
+    private void Unwatch(SessionTreeNodeViewModel node)
+    {
+        if (!_watched.Remove(node))
+        {
+            return;
+        }
+        node.PropertyChanged -= OnNodePropertyChanged;
+        if (node.IsGroup)
+        {
+            node.Children.CollectionChanged -= OnChildrenChanged;
+        }
+    }
+
+    private void OnNodePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(SessionTreeNodeViewModel.IsExpanded))
+        {
+            SyncRows();
+        }
+    }
+
+    private void OnChildrenChanged(object? sender, NotifyCollectionChangedEventArgs e) => SyncRows();
+
+    /// <summary>
+    /// 把 <see cref="Rows" /> 对齐到 <see cref="Nodes" /> 此刻应该摊出来的样子。
+    /// </summary>
+    /// <remarks>
+    /// <b>只动有差异的那几行</b>(移走多余的、把错位的挪到位、补上缺的),不清空重建 ——
+    /// 见 <see cref="Rows" /> 的说明。折叠把选中的会话收进去时,选中<b>上移到它那一组</b>:
+    /// 不然选中项从列表里消失,而右键菜单里的命令仍然对着一个看不见的会话执行。
+    /// </remarks>
+    private void SyncRows()
+    {
+        var desired = new List<SessionTreeNodeViewModel>(Rows.Count);
+        foreach (SessionTreeNodeViewModel node in Nodes)
+        {
+            desired.Add(node);
+            if (node.IsGroup && node.IsExpanded)
+            {
+                desired.AddRange(node.Children);
+            }
+        }
+        var keep = new HashSet<SessionTreeNodeViewModel>(desired);
+        SessionTreeNodeViewModel? selected = SelectedNode;
+
+        for (int i = Rows.Count - 1; i >= 0; i--)
+        {
+            if (!keep.Contains(Rows[i]))
+            {
+                Rows.RemoveAt(i);
+            }
+        }
+        for (int i = 0; i < desired.Count; i++)
+        {
+            if (i < Rows.Count && ReferenceEquals(Rows[i], desired[i]))
+            {
+                continue;
+            }
+            int at = Rows.IndexOf(desired[i]);
+            if (at >= 0)
+            {
+                Rows.Move(at, i);
+            }
+            else
+            {
+                Rows.Insert(i, desired[i]);
+            }
+        }
+
+        if (selected is null)
+        {
+            return;
+        }
+        // 收进去了:落到它那一组的行上。整个节点已经不在树里了(删掉了)就落空,那是对的。
+        SelectedNode = keep.Contains(selected)
+            ? selected
+            : Nodes.FirstOrDefault(node => node.IsGroup && node.Children.Contains(selected));
+    }
 
     /// <summary>是否当前没有任何会话,用于驱动空状态提示的显示。</summary>
     public bool HasNoSessions

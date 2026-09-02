@@ -773,4 +773,111 @@ public class SessionTreeViewModelTests
         Assert.IsEmpty(_vm.Nodes);
         Assert.IsTrue(_vm.HasNoSessions);
     }
+
+    // ---- 摊平后的行(界面绑的是 Rows,不是 Nodes) ----
+
+    /// <summary>造一棵"一个分组带两台 + 一台未分组"的树。</summary>
+    private async Task LoadOneGroupAndARootSessionAsync()
+    {
+        ServerGroup group = CreateGroup("Production", 0);
+        SessionProfile inside = CreateSession("WebServer", group.Id);
+        SessionProfile another = CreateSession("DbServer", group.Id);
+        SessionProfile loose = CreateSession("Laptop");
+        _repository.GetAllGroupsAsync().Returns(Task.FromResult(new List<ServerGroup> { group }));
+        _repository
+            .GetAllSessionsAsync()
+            .Returns(Task.FromResult(new List<SessionProfile> { inside, another, loose }));
+        await _vm.LoadCommand.Execute().FirstAsync();
+    }
+
+    [TestMethod]
+    [TestCategory("SessionTree")]
+    public async Task Rows_FlattensGroupsWithTheirSessionsInOrder()
+    {
+        await LoadOneGroupAndARootSessionAsync();
+
+        // 分组行 + 它的两台(分组默认展开)+ 根级那台
+        Assert.HasCount(4, _vm.Rows);
+        Assert.AreEqual("Production", _vm.Rows[0].Name);
+        Assert.IsTrue(_vm.Rows[0].IsGroup);
+        Assert.AreEqual("DbServer", _vm.Rows[1].Name);
+        Assert.AreEqual("WebServer", _vm.Rows[2].Name);
+        Assert.AreEqual("Laptop", _vm.Rows[3].Name);
+        Assert.IsTrue(_vm.Rows[3].IsRootLevel);
+    }
+
+    [TestMethod]
+    [TestCategory("SessionTree")]
+    public async Task Rows_CollapsingAGroupTakesItsSessionsOut_AndPuttingItBackRestoresThem()
+    {
+        await LoadOneGroupAndARootSessionAsync();
+        SessionTreeNodeViewModel group = _vm.Nodes.Single(node => node.IsGroup);
+
+        group.IsExpanded = false;
+
+        Assert.HasCount(2, _vm.Rows, "只剩分组行和根级那台");
+        Assert.AreEqual("Production", _vm.Rows[0].Name);
+        Assert.AreEqual("Laptop", _vm.Rows[1].Name);
+
+        group.IsExpanded = true;
+
+        Assert.HasCount(4, _vm.Rows);
+        Assert.AreEqual("DbServer", _vm.Rows[1].Name);
+    }
+
+    [TestMethod]
+    [TestCategory("SessionTree")]
+    public async Task Rows_CollapsingTheGroupOfTheSelectedSession_MovesTheSelectionUpToTheGroup()
+    {
+        await LoadOneGroupAndARootSessionAsync();
+        SessionTreeNodeViewModel group = _vm.Nodes.Single(node => node.IsGroup);
+        _vm.SelectedNode = group.Children[0];
+
+        group.IsExpanded = false;
+
+        // 选中项不能藏起来:右键菜单里的命令都作用于 SelectedNode,
+        // 停在一个看不见的会话上等于对着谁执行都说不准
+        Assert.AreSame(group, _vm.SelectedNode);
+    }
+
+    [TestMethod]
+    [TestCategory("SessionTree")]
+    public async Task Rows_KeepTheSelectionWhenAnUnrelatedGroupFolds()
+    {
+        ServerGroup first = CreateGroup("Production", 0);
+        ServerGroup second = CreateGroup("Staging", 1);
+        SessionProfile inFirst = CreateSession("WebServer", first.Id);
+        SessionProfile inSecond = CreateSession("Beta", second.Id);
+        _repository
+            .GetAllGroupsAsync()
+            .Returns(Task.FromResult(new List<ServerGroup> { first, second }));
+        _repository
+            .GetAllSessionsAsync()
+            .Returns(Task.FromResult(new List<SessionProfile> { inFirst, inSecond }));
+        await _vm.LoadCommand.Execute().FirstAsync();
+        SessionTreeNodeViewModel selected = _vm.Nodes[1].Children[0];
+        _vm.SelectedNode = selected;
+
+        _vm.Nodes[0].IsExpanded = false;
+
+        Assert.AreSame(selected, _vm.SelectedNode, "折的是隔壁那组,不该动我的选择");
+        Assert.HasCount(3, _vm.Rows);
+    }
+
+    [TestMethod]
+    [TestCategory("SessionTree")]
+    public async Task Rows_FollowSessionsMovedBetweenGroups()
+    {
+        await LoadOneGroupAndARootSessionAsync();
+        SessionTreeNodeViewModel group = _vm.Nodes.Single(node => node.IsGroup);
+        SessionTreeNodeViewModel moving = _vm.Rows.Single(row => row.Name == "Laptop");
+
+        await _vm.MoveSessionToGroupAsync(moving.Id, group.Id);
+
+        // 搬进分组之后它该出现在分组行下面,而不是继续留在根级那一段
+        Assert.HasCount(4, _vm.Rows);
+        Assert.AreEqual("Production", _vm.Rows[0].Name);
+        Assert.Contains(moving, _vm.Nodes[0].Children);
+        Assert.IsGreaterThan(_vm.Rows.IndexOf(_vm.Rows[0]), _vm.Rows.IndexOf(moving));
+    }
 }

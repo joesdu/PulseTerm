@@ -303,7 +303,8 @@ public class SidebarQuickCommandsUiTests
             window.Show();
             Relayout(window);
 
-            TreeView tree = view.FindControl<TreeView>("SessionTreeRoot")!;
+            // 树是一棵摊平的平列表(见 SessionTreeViewModel.Rows),不是 TreeView
+            ListBox tree = view.FindControl<ListBox>("SessionTreeRoot")!;
             Assert.IsTrue(DragDrop.GetAllowDrop(tree));
 
             Border row = view.GetVisualDescendants()
