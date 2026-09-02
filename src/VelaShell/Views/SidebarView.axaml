@@ -12,8 +12,10 @@
              x:DataType="vm:SidebarViewModel">
 
   <!-- 底色画在最外层 Panel 上:展开态与折叠态是同一条侧栏的两副面孔,
-       底色若跟着其中一个走,切换的瞬间会闪一下窗口底色。 -->
-  <Panel Background="{DynamicResource VelaBgSidebar}">
+       底色若跟着其中一个走,切换的瞬间会闪一下窗口底色。
+       ClipToBounds 是折叠动画的前提:Grid 默认不裁剪子元素,列宽收窄的过程中
+       完整侧栏那 260px 的内容会直接溢出画到终端上去。 -->
+  <Panel Background="{DynamicResource VelaBgSidebar}" ClipToBounds="True">
 
   <Grid x:Name="SidebarGrid" RowDefinitions="36,*,40">
 
@@ -281,7 +283,8 @@
        在别处没有第二个入口,而消息面板本就锚在左下角贴着铃铛开出来。
        行高与展开态一一对应(36 顶栏 / * 中部 / 底部入口),切换时上下两条
        分隔线停在同一水平位置,不会跳。 -->
-  <Grid x:Name="CollapsedRail" RowDefinitions="36,*,Auto" IsVisible="False">
+  <Grid x:Name="CollapsedRail" RowDefinitions="36,*,Auto" IsVisible="False"
+        Width="40" HorizontalAlignment="Left">
 
     <!-- 顶:展开回去。折叠态自带回程入口,不必非得回标题栏找那个按钮。 -->
     <Border Grid.Row="0" BorderThickness="0,0,0,1"
