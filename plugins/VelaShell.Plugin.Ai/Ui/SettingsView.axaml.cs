@@ -110,6 +110,9 @@ public partial class SettingsView : UserControl
     private readonly AiSettings _settings;
     private readonly Loc _loc;
     private readonly Action _onProvidersChanged;
+
+    /// <summary>模型规格库(models.dev):挑模型时顺手把窗口与单价一起填好。</summary>
+    private readonly ModelsDevCatalog _models;
     private List<ProviderNavItem> _nav = [];
     private bool _loadingEditor;
 
@@ -128,6 +131,19 @@ public partial class SettingsView : UserControl
     /// <summary>两击确认删供应商:记着第一击是冲着谁的,换了选择就作废。</summary>
     private string? _pendingDeleteProviderId;
 
+    /// <summary>
+    /// 用户要新增供应商 / 管理某家的登录 —— 都由聊天面板去开「连接供应商」那个窗口。
+    /// </summary>
+    /// <remarks>
+    /// 参数是要直接展开的目录 id;null = 停在列表上,让用户自己挑。
+    /// <para>
+    /// 窗口的开合与置前统一归 <c>ChatPanelView.Dialogs</c> 管(和 MCP 那扇一样),
+    /// 这里只负责"提出请求":设置页自己去 <c>ShowPanelAsync</c> 的话,
+    /// 同一个窗口就会有两处在记它开没开。
+    /// </para>
+    /// </remarks>
+    public event Action<string?>? ProviderCatalogRequested;
+
     /// <summary>由聊天面板构造(UI 线程)。</summary>
     public SettingsView(IPluginContext context, AiSettingsStore store, AiSettings settings, Loc loc, Action onProvidersChanged)
     {
@@ -136,11 +152,10 @@ public partial class SettingsView : UserControl
         _settings = settings;
         _loc = loc;
         _onProvidersChanged = onProvidersChanged;
+        _models = new ModelsDevCatalog(context);
         InitializeComponent();
         ApplyLoc();
 
-        PresetCombo.ItemsSource = ProviderPresets.All.Select(p => p.Label).ToList();
-        PresetCombo.SelectedIndex = 0;
         ProviderProtocolCombo.ItemsSource = ProtocolLabels;
 
         ProvidersList.SelectionChanged += (_, _) =>
@@ -149,10 +164,41 @@ public partial class SettingsView : UserControl
             ApplyTints();
             _ = LoadEditorAsync();
         };
+        // 从清单里挑一个:不光填模型 id,连<b>上下文窗口与三档单价</b>一起填好 ——
+        // 那几项才是这一页最难填、填错了又不报错的东西(窗口错则占比错,单价错则花费估算错)。
+        // _loadingEditor 期间不理会:那是重填表单时的程序性赋值,不是用户在挑。
+        ModelPickCombo.SelectionChanged += (_, _) =>
+        {
+            if (_loadingEditor || ModelPickCombo.SelectedItem is not string id)
+            {
+                return;
+            }
+            ModelBox.Text = id;
+            if (SelectedProvider is not { } owner || _models.ForProvider(ProviderCatalog.Find(owner.CatalogId)?.ModelsDevId)
+                    .FirstOrDefault(s => s.Id == id) is not { } spec)
+            {
+                return;
+            }
+            if (spec.ContextTokens > 0)
+            {
+                MaxInputTokensBox.Text = spec.ContextTokens.ToString();
+            }
+            if (spec.OutputTokens > 0)
+            {
+                MaxTokensBox.Text = spec.OutputTokens.ToString();
+            }
+            PriceInBox.Text = Money(spec.InputPrice);
+            PriceOutBox.Text = Money(spec.OutputPrice);
+            PriceCachedBox.Text = Money(spec.CachedInputPrice);
+            StatusText.Text = _loc["ModelSpecFilled"];
+        };
         ProviderProtocolCombo.SelectionChanged += (_, _) => UpdateProtocolOnlyFields();
         ProtocolCombo.SelectionChanged += (_, _) => UpdateProtocolOnlyFields();
         OwnKeyCheck.IsCheckedChanged += (_, _) => OwnKeyPanel.IsVisible = OwnKeyCheck.IsChecked == true;
-        AddButton.Click += OnAddProviderClick;
+        AddButton.Click += (_, _) => ProviderCatalogRequested?.Invoke(null);
+        // 「管理登录」直奔这一家那一条,省得在十几行里再找一遍
+        ManageSignInButton.Click += (_, _) => ProviderCatalogRequested?.Invoke(SelectedProvider?.CatalogId);
+        PullModelsButton.Click += (_, _) => _ = PullModelsAsync();
         AddModelButton.Click += OnAddModelClick;
         SaveButton.Click += OnSaveClick;
         DeleteButton.Click += OnDeleteClick;
@@ -184,11 +230,16 @@ public partial class SettingsView : UserControl
         ProviderApiKeyHintText.Text = _loc["ProviderKeyHint"];
         ProviderKeyBadgeText.Text = _loc["KeyEncrypted"];
         ModelKeyBadgeText.Text = _loc["KeyEncrypted"];
+        ProviderAuthLabel.Text = _loc["SubscriptionAuth"];
+        ProviderAuthHintText.Text = _loc["SubscriptionHint"];
+        ManageSignInText.Text = _loc["ManageSignIn"];
+        PullModelsText.Text = _loc["ModelsPull"];
         NameLabel.Text = _loc["DisplayName"];
         ProtocolLabel.Text = _loc["Protocol"];
         BaseUrlLabel.Text = _loc["BaseUrlOverride"];
         BaseUrlHintText.Text = _loc["BaseUrlOverrideHint"];
         ModelLabel.Text = _loc["ModelId"];
+        ModelPickLabel.Text = _loc["ModelPick"];
         OwnKeyCheck.Content = _loc["OwnApiKey"];
         OwnKeyHintText.Text = _loc["OwnApiKeyHint"];
         MaxTokensLabel.Text = _loc["MaxTokens"];
@@ -399,6 +450,12 @@ public partial class SettingsView : UserControl
             // 模型表单
             NameBox.Text = model?.Name ?? "";
             ModelBox.Text = model?.Model ?? "";
+            // 拉到过模型列表就摆出下拉;没拉到过整块收起,免得摆一个空下拉
+            List<string> available = provider?.AvailableModels ?? [];
+            ModelPickPanel.IsVisible = model is not null && available.Count > 0;
+            ModelPickCombo.ItemsSource = available;
+            ModelPickCombo.SelectedItem = available.Find(
+                id => string.Equals(id, model?.Model, StringComparison.OrdinalIgnoreCase));
             ProtocolCombo.ItemsSource = ProtocolChoices(provider);
             ProtocolCombo.SelectedIndex = model is null ? -1 : model.Protocol is { } p ? (int)p + 1 : 0;
             OwnKeyCheck.IsChecked = model?.HasOwnApiKey ?? false;
@@ -419,13 +476,34 @@ public partial class SettingsView : UserControl
             UpdateProtocolOnlyFields();
             ApiKeyBox.Text = "";
 
+            // 鉴权二选一:填 Key 的那块 vs 订阅登录的状态块
+            bool subscription = provider is { Auth: AuthMethod.Subscription };
+            ProviderKeyPanel.IsVisible = !subscription;
+            ProviderAuthPanel.IsVisible = subscription;
+            ProviderAuthStatusText.Text = "";
+            // models.dev 收录了这一家才有得可拉(本地自部署 / 自定义端点那边没有)
+            PullModelsButton.IsVisible = ProviderCatalog.Find(provider?.CatalogId)?.ModelsDevId.Length > 0;
+
             if (provider is not null && model is null)
             {
-                string? key = await _store.GetApiKeyAsync(provider.Id);
-                // 加载期间用户可能已切换选择
-                if (SelectedProvider?.Id == provider.Id && SelectedModel is null)
+                if (subscription)
                 {
-                    ProviderApiKeyBox.Text = key ?? "";
+                    OAuthTokens? tokens = await _store.GetTokensAsync(provider.Id);
+                    if (SelectedProvider?.Id == provider.Id && SelectedModel is null)
+                    {
+                        ProviderAuthStatusText.Text = tokens is null
+                            ? _loc["SubscriptionNotSignedIn"]
+                            : _loc.F("SubscriptionSignedIn", tokens.ObtainedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm"));
+                    }
+                }
+                else
+                {
+                    string? key = await _store.GetApiKeyAsync(provider.Id);
+                    // 加载期间用户可能已切换选择
+                    if (SelectedProvider?.Id == provider.Id && SelectedModel is null)
+                    {
+                        ProviderApiKeyBox.Text = key ?? "";
+                    }
                 }
                 if (provider.Models.Count == 0)
                 {
@@ -480,18 +558,62 @@ public partial class SettingsView : UserControl
     private void UpdateProtocolOnlyFields()
         => PromptCachePanel.IsVisible = FormProtocol() == ChatProtocol.AnthropicMessages;
 
+    /// <summary>
+    /// 「拉取模型」:去 models.dev 重新拉这一家的清单,落成真正可选的模型。
+    /// </summary>
+    /// <remarks>
+    /// 与「连接供应商」那一页上的同名按钮走同一条路(<see cref="ModelsDevCatalog.Materialise" />)。
+    /// 在这儿也放一个,是因为用户十有八九是在这一页发现"怎么只有一个模型"的 ——
+    /// 让他为此再跑回目录页未免绕。
+    /// </remarks>
+    private async Task PullModelsAsync()
+    {
+        if (SelectedProvider is not { } provider
+            || ProviderCatalog.Find(provider.CatalogId) is not { } entry
+            || entry.ModelsDevId.Length == 0)
+        {
+            return;
+        }
+        try
+        {
+            PullModelsButton.IsEnabled = false;
+            StatusText.Text = _loc["ModelsPulling"];
+            using (var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) })
+            {
+                // 用户明确点了"拉取",这时还拿七天前的缓存糊弄他就没意义了
+                await _models.RefreshAsync(http, force: true);
+            }
+            IReadOnlyList<ModelSpec> specs = _models.ForProvider(entry.ModelsDevId);
+            if (specs.Count == 0)
+            {
+                StatusText.Text = _loc["ModelsNone"];
+                return;
+            }
+            provider.AvailableModels = [.. specs.Select(s => s.Id)];
+            int total = ModelsDevCatalog.Materialise(provider, specs);
+            await PersistAsync(notify: true);
+            ReloadList(provider.Id);
+            StatusText.Text = _loc.F("ModelsPulled", total);
+        }
+        catch (Exception ex)
+        {
+            _context.Log.Warn($"Pulling models for '{provider.Name}' failed: {ex.Message}");
+            StatusText.Text = $"{_loc["Error"]}: {Chat.ApiErrorText.Describe(ex, _loc["ErrorUnreachable"])}";
+        }
+        finally
+        {
+            PullModelsButton.IsEnabled = true;
+        }
+    }
+
     // ---- 新增 ----
 
-    private void OnAddProviderClick(object? sender, RoutedEventArgs e)
-    {
-        int presetIndex = Math.Max(0, PresetCombo.SelectedIndex);
-        AiProvider provider = ProviderPresets.All[presetIndex].Create();
-        _settings.Providers.Add(provider);
-        _settings.ActiveModelId ??= provider.Models.FirstOrDefault()?.Id;
-        // 先选供应商行:地址和 Key 得先填,模型 id 预设已经带了
-        ReloadList(provider.Id);
-        _ = PersistAsync(notify: true);
-    }
+    /// <summary>
+    /// 「连接供应商」那边加完 / 登完之后回来叫这个:重建左栏并选中它。
+    /// </summary>
+    /// <remarks>那边已经落过盘了,这里只刷界面 —— 再存一次会把它刚写的东西按内存里的旧值盖回去。</remarks>
+    /// <param name="providerId">要选中的供应商 id。</param>
+    public void ReloadFromCatalog(string providerId) => ReloadList(providerId);
 
     private void OnAddModelClick(object? sender, RoutedEventArgs e)
     {
@@ -557,12 +679,19 @@ public partial class SettingsView : UserControl
             provider.DefaultProtocol = ProviderProtocolCombo.SelectedIndex >= 0
                 ? (ChatProtocol)ProviderProtocolCombo.SelectedIndex
                 : provider.DefaultProtocol;
-            keyOwnerId = provider.Id;
-            keyText = ProviderApiKeyBox.Text;
+            // 订阅登录的那家根本没有 Key 输入框,别拿一个空串把什么都不存的事再走一遍
+            if (provider.Auth != AuthMethod.Subscription)
+            {
+                keyOwnerId = provider.Id;
+                keyText = ProviderApiKeyBox.Text;
+            }
         }
         try
         {
-            await _store.SetApiKeyAsync(keyOwnerId, keyText);
+            if (keyOwnerId is not null)
+            {
+                await _store.SetApiKeyAsync(keyOwnerId, keyText);
+            }
             await PersistAsync(notify: true);
             ReloadList(item.Model?.Id ?? item.Provider.Id);
             StatusText.Text = _loc["Saved"];
@@ -672,11 +801,16 @@ public partial class SettingsView : UserControl
                 BaseUrl = ProviderBaseUrlBox.Text?.Trim() ?? "",
                 DefaultProtocol = ProviderProtocolCombo.SelectedIndex >= 0
                     ? (ChatProtocol)ProviderProtocolCombo.SelectedIndex
-                    : provider.DefaultProtocol
+                    : provider.DefaultProtocol,
+                // 订阅登录那家的凭据不在表单里,靠 Id 去机密存储取(见 ResolveCredentialAsync)
+                Auth = provider.Auth,
+                OAuth = provider.OAuth
             };
             AiModelConfig first = provider.Models[0];
             candidate = new ResolvedModel(draft, first);
-            apiKeyOverride = first.HasOwnApiKey ? null : ProviderApiKeyBox.Text;
+            apiKeyOverride = first.HasOwnApiKey || provider.Auth == AuthMethod.Subscription
+                ? null
+                : ProviderApiKeyBox.Text;
         }
         TestButton.IsEnabled = false;
         StatusText.Text = _loc["Testing"];
@@ -691,7 +825,8 @@ public partial class SettingsView : UserControl
         }
         catch (Exception ex)
         {
-            StatusText.Text = _loc.F("TestFail", ex.Message);
+            // 「测试」最常见的失败就是根本没连上 —— 那时要指的是网络/代理,不是 Key
+            StatusText.Text = _loc.F("TestFail", Chat.ApiErrorText.Describe(ex, _loc["ErrorUnreachable"]));
             _testResults[NavKey(item)] = (false, DateTime.Now);
         }
         finally

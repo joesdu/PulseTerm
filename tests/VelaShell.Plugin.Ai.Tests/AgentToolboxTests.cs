@@ -13,9 +13,14 @@ public sealed class AgentToolboxTests
 {
     private static readonly string[] ExpectedToolNames =
     [
-        "list_sessions", "read_terminal", "run_command", "read_remote_file",
-        "list_remote_directory", "write_remote_file", "upload_local_file", "write_terminal",
-        "web_search", "web_fetch"
+        // 只读:不走审批
+        "list_sessions", "read_terminal", "search_terminal", "read_remote_file",
+        "list_remote_directory", "stat_remote_path", "get_working_directory", "system_overview",
+        "web_search", "web_fetch",
+        // 会动东西:一律走审批
+        "run_command", "run_on_sessions", "write_remote_file", "patch_remote_file",
+        "make_remote_directory", "rename_remote_path", "upload_local_file", "download_remote_file",
+        "write_terminal"
     ];
 
     private static async Task<string> InvokeAsync(AgentToolbox toolbox, string name, Dictionary<string, object?>? args = null)

@@ -242,11 +242,40 @@ public class ProxySupportTests
 
     // ———— 解析器 ————
 
+    /// <summary>none 是"我就是要强制直连",与"没配过"不同 —— 所以这里必须显式写出来。</summary>
     [TestMethod]
     public void Resolver_NoneType_ReturnsDirect()
     {
-        ProxyResolver resolver = CreateResolver(new ProxyOptions());
+        // 别用 new ProxyOptions() 代替:默认值已经是 system,那样这条测的就不是 none 了
+        ProxyResolver resolver = CreateResolver(new ProxyOptions { Type = "none" });
         Assert.AreEqual(ProxyKind.None, resolver.Resolve("example.com", 22).Kind);
+    }
+
+    /// <summary>
+    /// 没配过代理时跟随系统,而不是强制直连。
+    /// </summary>
+    /// <remarks>
+    /// 解析结果会被装成进程级 <c>HttpClient.DefaultProxy</c>,顶掉 .NET 原本的系统代理 ——
+    /// 默认直连的话,"装了 VelaShell 反而把系统代理关掉了",浏览器出得去、本程序出不去。
+    /// </remarks>
+    [TestMethod]
+    public void Resolver_FreshOptions_FollowTheSystemProxy()
+    {
+        IWebProxy? saved = ProxyResolver.SystemProxySource;
+        try
+        {
+            ProxyResolver.SystemProxySource = new WebProxy("http://sysproxy.example:8080");
+            ProxyResolver resolver = CreateResolver(new ProxyOptions());
+
+            ProxyRoute route = resolver.Resolve("example.com", 443);
+
+            Assert.AreEqual(ProxyKind.Http, route.Kind);
+            Assert.AreEqual("sysproxy.example", route.Host);
+        }
+        finally
+        {
+            ProxyResolver.SystemProxySource = saved;
+        }
     }
 
     [TestMethod]

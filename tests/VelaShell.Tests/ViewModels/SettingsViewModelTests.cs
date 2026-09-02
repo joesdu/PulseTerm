@@ -208,7 +208,12 @@ public class SettingsViewModelTests
     {
         SettingsViewModel vm = CreateVm();
 
-        Assert.AreEqual(0, vm.ProxyTypeIndex);
+        // 出厂值是"跟随系统",不是"不走代理" —— 见 ProxyOptions.Type 上的说明
+        Assert.AreEqual(1, vm.ProxyTypeIndex);
+        Assert.IsFalse(vm.IsProxyEditable);
+
+        vm.ProxyTypeIndex = 0;
+        Assert.AreEqual("none", vm.Proxy.Type);
         Assert.IsFalse(vm.IsProxyEditable);
 
         vm.ProxyTypeIndex = 1;

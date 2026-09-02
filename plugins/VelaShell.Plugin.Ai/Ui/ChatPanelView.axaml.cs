@@ -938,6 +938,9 @@ public partial class ChatPanelView : UserControl
             // 不同(OpenAI 认 ChatOptions.Reasoning,Anthropic 只认请求体里的 thinking),
             // 差异全收在 AiSettingsStore.ApplyReasoning 里。
             AiSettingsStore.ApplyReasoning(options, provider);
+            // 这一家端点不认的参数在这儿摘掉(私有后端常常只是标准协议的受限子集,
+            // 多发一个字段就整轮 400)。差异全在目录数据里,见 UnsupportedParameters。
+            AiSettingsStore.ApplyEndpointQuirks(options, provider);
             ChatMode mode = _settings.Mode;
             // 检索优先走供应商自带的服务端工具:它跑在模型那一侧,不经本机,结果自带引用。
             // 但只有 Anthropic Messages 与 OpenAI Responses 认这套,其余协议(Chat Completions、
@@ -988,6 +991,13 @@ public partial class ChatPanelView : UserControl
                 _contextSummary, _summarizedThrough);
             List<ChatMessage> requestMessages = request.Messages;
             _droppedFromContext = request.DroppedMessages;
+            // 有的订阅型端点不收 system 角色(ChatGPT 的 Codex 后端会回
+            // 400 {"detail":"System messages are not allowed"})。那时把系统提示词挪到
+            // Responses 协议自己的 instructions 字段上 —— 内容一个字不少,只是换了个位置。
+            if (!EndpointQuirks.Of(provider.Provider).AllowSystemMessages)
+            {
+                options.Instructions = ContextBuilder.MoveSystemPromptOut(requestMessages);
+            }
             // Anthropic 的提示词缓存断点(其它协议不认这个标记,打了也只是多一个被忽略的字段)
             if (provider.Protocol == ChatProtocol.AnthropicMessages && provider.PromptCaching)
             {
@@ -1107,7 +1117,8 @@ public partial class ChatPanelView : UserControl
             failed = true;
             // 带上服务端正文:Anthropic 的异常消息只有一句 "Status Code: BadRequest",
             // 真正说清哪儿不对的那段在 ResponseBody 里(见 ApiErrorText)。
-            string detail = ApiErrorText.Describe(ex);
+            // 根本没连上的那一类另给一句 —— 那时该去查网络/代理,而不是翻 Key 有没有填错。
+            string detail = ApiErrorText.Describe(ex, _loc["ErrorUnreachable"]);
             _context.Log.Error($"AI request failed. — {detail}", ex);
             // 失败不再当成一段 Markdown 追加进正文:它不是模型说的话,混排会让人分不清
             // 哪句是回答、哪句是故障。改成一张 error 卡挂在这条回复里(见 AddErrorCard)。
