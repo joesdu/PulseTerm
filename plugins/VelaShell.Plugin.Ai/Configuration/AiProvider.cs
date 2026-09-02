@@ -165,16 +165,28 @@ public sealed class AiProvider
     /// 而用户真正该看到的是"先把客户端 id 填上"。
     /// </remarks>
     [JsonIgnore]
-    public bool CanSignIn => Auth == AuthMethod.Subscription && OAuth is { } oauth
-                             && !string.IsNullOrWhiteSpace(oauth.TokenUrl)
-                             // OpenRouter 那一路本来就没有 client_id,别把它一起卡掉
-                             && (oauth.Flow == OAuthFlow.OpenRouterPkce
-                                 || !string.IsNullOrWhiteSpace(oauth.ClientId))
-                             // 设备码类流程用不到授权页地址,要的是设备码地址(别只判 DeviceCode
-                             // 一个值 —— 两段式的 Copilot 也是设备码起手,漏了它就永远"登不了")
-                             && (oauth.Flow is OAuthFlow.DeviceCode or OAuthFlow.GitHubCopilotDevice
-                                 ? !string.IsNullOrWhiteSpace(oauth.DeviceCodeUrl)
-                                 : !string.IsNullOrWhiteSpace(oauth.AuthorizationUrl));
+    public bool CanSignIn => Auth == AuthMethod.Subscription && OAuth is { } oauth && Ready(oauth);
+
+    /// <summary>这一套 OAuth 参数够不够发起一次登录。每种流程要的东西不一样,分开判。</summary>
+    private static bool Ready(OAuthConfig oauth)
+    {
+        // OpenRouter 那一路本来就没有 client_id,别把它一起卡掉
+        if (oauth.Flow != OAuthFlow.OpenRouterPkce && string.IsNullOrWhiteSpace(oauth.ClientId))
+        {
+            return false;
+        }
+        return oauth.Flow switch
+        {
+            // 设备码类要的是设备码地址,用不到授权页(别只判 DeviceCode 一个值 ——
+            // 两段式的 Copilot 也是设备码起手,漏了它就永远"登不了")
+            OAuthFlow.DeviceCode or OAuthFlow.GitHubCopilotDevice =>
+                !string.IsNullOrWhiteSpace(oauth.DeviceCodeUrl) && !string.IsNullOrWhiteSpace(oauth.TokenUrl),
+            // 隐式流<b>没有 token 端点</b> —— 令牌直接从授权页的 #fragment 回来。
+            // 拿 TokenUrl 一刀切会把这一路整条判死,而界面上只会显示"登不了",查不出为什么
+            OAuthFlow.ImplicitFragment => !string.IsNullOrWhiteSpace(oauth.AuthorizationUrl),
+            _ => !string.IsNullOrWhiteSpace(oauth.AuthorizationUrl) && !string.IsNullOrWhiteSpace(oauth.TokenUrl)
+        };
+    }
 }
 
 /// <summary>

@@ -74,9 +74,15 @@ public sealed class LoopbackRedirectListener : IDisposable
     /// </remarks>
     /// <param name="pageTitle">回给浏览器那一页的标题(已登录成功的提示)。</param>
     /// <param name="pageBody">页面正文(告诉用户可以关掉这个标签页了)。</param>
+    /// <param name="fragment">
+    /// 隐式流:结果在地址的 <c>#fragment</c> 里。
+    /// <b>片段根本不会随请求发过来</b>(这是浏览器的规矩,不是哪家的实现细节),
+    /// 所以这里先回一页只做一件事的 HTML:把 <c>location.hash</c> 原样再请求一次。
+    /// 第二次进来时它就变成普通查询串了,后面的路径与授权码流程完全一致。
+    /// </param>
     /// <param name="cancellationToken">取消(用户点了"取消登录",或超时)。</param>
     public async Task<Dictionary<string, string>> WaitAsync(string pageTitle, string pageBody,
-        CancellationToken cancellationToken = default)
+        bool fragment = false, CancellationToken cancellationToken = default)
     {
         while (true)
         {
@@ -95,6 +101,13 @@ public sealed class LoopbackRedirectListener : IDisposable
                 await WriteAsync(stream, "404 Not Found", "<p>Not found.</p>", cancellationToken).ConfigureAwait(false);
                 continue;
             }
+            // 隐式流的第一跳:什么参数都没有(令牌全在 # 后面,服务端看不见)。
+            // 出错时对方是拿<b>查询串</b>回的(?error=…),那一跳照常当结果收,别再去要片段
+            if (fragment && split < 0)
+            {
+                await WriteAsync(stream, pageTitle, FragmentBootstrap(_path), cancellationToken).ConfigureAwait(false);
+                continue;
+            }
             Dictionary<string, string> query = split < 0
                 ? []
                 : OAuthClient.ParseQuery(target[(split + 1)..]);
@@ -102,6 +115,29 @@ public sealed class LoopbackRedirectListener : IDisposable
             return query;
         }
     }
+
+    /// <summary>
+    /// 把 <c>#fragment</c> 搬成查询串再请求一次的那一小段脚本。
+    /// </summary>
+    /// <remarks>
+    /// 用 <c>location.replace</c> 而不是 <c>assign</c>:别在用户的历史记录里留下一条带令牌的地址。
+    /// 片段为空(用户直接手敲了这个地址)时不跳转 —— 否则会和自己来回弹。
+    /// </remarks>
+    private static string FragmentBootstrap(string path) => $$"""
+        <p>Finishing sign-in…</p>
+        <script>
+        (function () {
+          var h = window.location.hash;
+          if (h && h.length > 1) {
+            window.location.replace({{Json(path)}} + "?" + h.substring(1));
+          }
+        })();
+        </script>
+        """;
+
+    /// <summary>把一个字符串安全地嵌进 <c>&lt;script&gt;</c> 里(转义 <c>&lt;</c> 防提前闭合标签)。</summary>
+    private static string Json(string text) =>
+        System.Text.Json.JsonSerializer.Serialize(text).Replace("<", "\\u003c", StringComparison.Ordinal);
 
     /// <summary>读到请求头结束,取出请求行里的目标(<c>GET /callback?... HTTP/1.1</c> 的中间那段)。</summary>
     private static async Task<string?> ReadRequestTargetAsync(NetworkStream stream, CancellationToken cancellationToken)
