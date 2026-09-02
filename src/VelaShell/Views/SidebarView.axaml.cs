@@ -117,6 +117,20 @@ public partial class SidebarView : UserControl
         _viewModel?.IsCollapsed = false;
     }
 
+    /// <summary>
+    /// 折叠态细条贴哪一边(随设置 → 外观 → 侧边栏位置)。
+    /// </summary>
+    /// <remarks>
+    /// 细条钉死 40px 而不是随列拉伸:折叠动画途中列宽一路从 260 收到 40,细条若跟着拉伸,
+    /// 图标会在列里滑一段距离。钉住并贴紧侧栏的外缘之后,过程就只剩"面板从内侧退走",
+    /// 细条本身纹丝不动 —— 这也正是它作为常驻入口该有的观感。
+    /// </remarks>
+    // 枚举名必须写全:在 UserControl 里裸写 HorizontalAlignment 会先解析到控件自己那个同名属性。
+    public void SetRailEdge(bool right) =>
+        CollapsedRail.HorizontalAlignment = right
+            ? Avalonia.Layout.HorizontalAlignment.Right
+            : Avalonia.Layout.HorizontalAlignment.Left;
+
     /// <summary>工具栏折叠按钮。只出现在展开态,所以直接置位而不是取反。</summary>
     private void CollapseSidebar_Click(object? sender, RoutedEventArgs e)
     {

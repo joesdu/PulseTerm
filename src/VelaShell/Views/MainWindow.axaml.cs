@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using Avalonia;
+using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
@@ -111,6 +113,19 @@ public partial class MainWindow : Window
     private double _lastSidebarWidth = 260;
 
     private bool _sidebarCollapsed;
+
+    /// <summary>侧栏折叠/展开的动画时长与缓动:沿用停靠区的 0:0:0.18 + CubicEaseOut(DockGroupControl)。</summary>
+    private static readonly TimeSpan SidebarAnimationDuration = TimeSpan.FromMilliseconds(180);
+
+    private static readonly Easing SidebarAnimationEasing = new CubicEaseOut();
+
+    private DispatcherTimer? _sidebarAnimation;
+
+    /// <summary>
+    /// 侧栏动画是否已启用。启动阶段回填持久化的折叠态必须是瞬时的 ——
+    /// 否则窗口刚出来就自己收一下,像是卡了一帧,而不是用户要的那个过渡。
+    /// </summary>
+    private bool _sidebarAnimationsEnabled;
 
     private AppSettings? _settings;
 
@@ -243,19 +258,96 @@ public partial class MainWindow : Window
             {
                 _lastSidebarWidth = width.Value;
             }
-            // MinWidth 必须先归零:它是 180,不清掉的话 40 的宽度会被顶回 180。
-            sidebarCol.MinWidth = 0;
-            sidebarCol.Width = new(SidebarRailWidth);
-            cols[1].Width = new(0);
         }
-        else
+
+        // 动画途中列宽会一路低于 MinWidth(180),约束不摘掉就会被顶回去、动画走不动;
+        // 分隔条则在整个过程中收起 —— 半途中的中间宽度不是一个能拖的状态。
+        // 展开落定后由 FinishSidebarCollapse 把两者装回去。
+        sidebarCol.MinWidth = 0;
+        cols[1].Width = new(0);
+        SidebarSplitterLine.IsVisible = false;
+        SidebarSplitter.IsVisible = false;
+
+        double target = collapsed ? SidebarRailWidth : _lastSidebarWidth;
+        if (!_sidebarAnimationsEnabled)
         {
-            sidebarCol.MinWidth = SidebarMinWidth;
-            sidebarCol.Width = new(_lastSidebarWidth);
-            cols[1].Width = new(5);
+            StopSidebarAnimation();
+            sidebarCol.Width = new(target);
+            FinishSidebarCollapse(cols, sidebarCol, collapsed);
+            return;
         }
-        SidebarSplitterLine.IsVisible = !collapsed;
-        SidebarSplitter.IsVisible = !collapsed;
+
+        // 起点取当前实际宽度,连点折叠/展开时从半路接着走,不会先跳回端点再动。
+        double from = sidebarCol.ActualWidth > 0
+            ? sidebarCol.ActualWidth
+            : (collapsed ? _lastSidebarWidth : SidebarRailWidth);
+        AnimateSidebarWidth(sidebarCol, from, target,
+                            () => FinishSidebarCollapse(cols, sidebarCol, collapsed));
+    }
+
+    /// <summary>动画落定后的收尾:只有展开态才重新装上宽度下限与可拖拽的分隔条。</summary>
+    private void FinishSidebarCollapse(ColumnDefinitions cols, ColumnDefinition sidebarCol, bool collapsed)
+    {
+        if (collapsed)
+        {
+            return;
+        }
+        sidebarCol.MinWidth = SidebarMinWidth;
+        cols[1].Width = new(5);
+        SidebarSplitterLine.IsVisible = true;
+        SidebarSplitter.IsVisible = true;
+    }
+
+    /// <summary>
+    /// 把侧栏列宽从 <paramref name="from" /> 推到 <paramref name="to" />。
+    /// </summary>
+    /// <remarks>
+    /// 自己按帧推而不是挂 Transitions:列宽是 <see cref="GridLength" />,而 ColumnDefinition
+    /// 并非 Animatable,套不上过渡。但时长与缓动直接复用停靠区那套(DockGroupControl 的
+    /// <c>0:0:0.18</c> + <c>CubicEaseOut</c>),整个应用的动效口径仍然只有一份。
+    /// 注意这期间终端会随列宽逐帧 reflow —— 与用户拖动分隔条完全同一条路径(终端有意不对
+    /// resize 做防抖,见 VelaTerminalControl.ApplyGrid 的注释),故负载与一次快速拖拽相当。
+    /// </remarks>
+    private void AnimateSidebarWidth(ColumnDefinition column, double from, double to, Action onCompleted)
+    {
+        StopSidebarAnimation();
+        if (Math.Abs(to - from) < 1)
+        {
+            column.Width = new(to);
+            onCompleted();
+            return;
+        }
+        long startedAt = Stopwatch.GetTimestamp();
+        DispatcherTimer timer = new(DispatcherPriority.Render)
+        {
+            Interval = TimeSpan.FromMilliseconds(16)
+        };
+        timer.Tick += (_, _) =>
+        {
+            double progress = Math.Clamp(
+                Stopwatch.GetElapsedTime(startedAt) / SidebarAnimationDuration, 0, 1);
+            column.Width = new(from + ((to - from) * SidebarAnimationEasing.Ease(progress)));
+            if (progress < 1)
+            {
+                return;
+            }
+            // DispatcherTimer 被调度器强引用,不停表会一直唤醒本窗口(同 TerminalTabView 的处置)。
+            timer.Stop();
+            if (ReferenceEquals(_sidebarAnimation, timer))
+            {
+                _sidebarAnimation = null;
+            }
+            column.Width = new(to);
+            onCompleted();
+        };
+        _sidebarAnimation = timer;
+        timer.Start();
+    }
+
+    private void StopSidebarAnimation()
+    {
+        _sidebarAnimation?.Stop();
+        _sidebarAnimation = null;
     }
 
     private async void OnWindowOpened(object? sender, EventArgs e)
@@ -269,6 +361,10 @@ public partial class MainWindow : Window
             return;
         }
         _openedInitialized = true;
+        // 启动期的侧栏状态回填(设置/AppState 异步读回来的折叠态)不做动画,过了这一阵才开闸。
+        // 用定时器而不是接在某个初始化步骤之后:回填是视图模型那边异步完成的,这里等不到确切时机,
+        // 而"启动后短暂静默"本身就是这道闸要表达的全部意思。
+        DispatcherTimer.RunOnce(() => _sidebarAnimationsEnabled = true, TimeSpan.FromSeconds(1));
         if (DataContext is MainWindowViewModel vm)
         {
             vm.TerminalSearchRequested += OnTerminalSearchRequested;
@@ -707,6 +803,8 @@ public partial class MainWindow : Window
         cols[mainCol].MaxWidth = double.PositiveInfinity;
         Grid.SetColumn(sidebar, sidebarCol);
         Grid.SetColumn(main, mainCol);
+        // 折叠态细条要贴住侧栏的外缘(左栏贴左、右栏贴右),否则折叠动画里它会站错边。
+        sidebar.SetRailEdge(right);
     }
 
     /// <summary>托盘“退出”/关闭确认后的真正退出:跳过托盘拦截与确认弹窗。</summary>
