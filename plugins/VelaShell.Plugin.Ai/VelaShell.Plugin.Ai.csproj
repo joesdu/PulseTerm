@@ -24,7 +24,7 @@
          PrivateAssets=all + ExcludeAssets=runtime:编译期能看见类型,输出目录里不留 dll ——
          装载时它必须与宿主是同一份程序集,复制过去就成了两份类型。
          版本须与 src/Directory.Packages.props 里宿主引的那一条一致。 -->
-    <PackageReference Include="VelaShell.PluginSdk" Version="2.0.1" PrivateAssets="all" ExcludeAssets="runtime">
+    <PackageReference Include="VelaShell.PluginSdk" Version="2.0.2" PrivateAssets="all" ExcludeAssets="runtime">
       <IncludeAssets>compile; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <!-- 仅编译期引用 Avalonia,运行时由装载方共享同一套(版本须与宿主一致)。 -->
