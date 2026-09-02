@@ -395,6 +395,8 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
             )
             .Switch();
         ToggleFileBrowserCommand = ReactiveCommand.Create(ToggleFileBrowser, canToggleFileBrowser);
+        // 侧栏折叠与会话状态无关(没有活动标签时照样能收),故不挂 canExecute。
+        ToggleSidebarCommand = ReactiveCommand.Create(ToggleSidebar);
         IObservable<bool> canOpenProcessManager = this.WhenAnyValue(x => x.ActiveTerminalTab)
             .Select(tab =>
                 tab is null
@@ -461,6 +463,15 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
 
     /// <summary>显示或隐藏当前 SSH 会话的远程文件面板。</summary>
     public ReactiveCommand<RxVoid, RxVoid> ToggleFileBrowserCommand { get; }
+
+    /// <summary>把左侧资源管理器折叠成 40px 图标细条,或还原成完整侧栏(标题栏按钮 / Ctrl+B)。</summary>
+    public ReactiveCommand<RxVoid, RxVoid> ToggleSidebarCommand { get; }
+
+    /// <summary>
+    /// 折叠/展开左侧资源管理器。列宽的收放在 <see cref="Views.MainWindow" /> 里做,
+    /// 这里只翻状态位 —— 标题栏按钮、Ctrl+B、命令面板与细条上的展开按钮共用这一处。
+    /// </summary>
+    public void ToggleSidebar() => Sidebar.IsCollapsed = !Sidebar.IsCollapsed;
 
     /// <summary>当前活动标签是否支持打开远程文件面板。</summary>
     public bool CanToggleFileBrowser =>
@@ -828,6 +839,16 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                 Strings.Get("CmdCat_Edit"),
                 ToggleLineGutter,
                 Shortcut: "Ctrl+Shift+L"
+            )
+        );
+        Commands.Register(
+            new(
+                "view.sidebar",
+                Strings.Get("Cmd_ToggleSidebar"),
+                Strings.Get("CmdCat_Actions"),
+                ToggleSidebar,
+                Shortcut: "Ctrl+B",
+                Icon: "Icon.panel-left"
             )
         );
         Commands.Register(
@@ -1915,6 +1936,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                 state.SidebarRecentConnectionsHeight,
                 180
             );
+            Sidebar.IsCollapsed = state.SidebarCollapsed;
         }
         finally
         {
@@ -1937,6 +1959,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                     or nameof(SidebarViewModel.QuickCommandsHeight)
                     or nameof(SidebarViewModel.RecentConnectionsExpanded)
                     or nameof(SidebarViewModel.RecentConnectionsHeight)
+                    or nameof(SidebarViewModel.IsCollapsed)
                 )
         )
         {
@@ -1961,6 +1984,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
             Sidebar.RecentConnectionsHeight,
             180
         );
+        _appState.SidebarCollapsed = Sidebar.IsCollapsed;
     }
 
     private async Task SaveSidebarStateAfterDelayAsync(CancellationToken cancellationToken)

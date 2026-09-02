@@ -855,6 +855,9 @@ If this keeps happening, close any other VelaShell windows and try again.</value
   <data name="Cmd_SftpFileManager" xml:space="preserve">
     <value>SFTP File Manager</value>
   </data>
+  <data name="Cmd_ToggleSidebar" xml:space="preserve">
+    <value>Toggle Explorer Sidebar</value>
+  </data>
   <data name="Cmd_TunnelManager" xml:space="preserve">
     <value>Tunnel Manager</value>
   </data>

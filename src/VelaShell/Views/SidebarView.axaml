@@ -11,8 +11,11 @@
              x:Class="VelaShell.Views.SidebarView"
              x:DataType="vm:SidebarViewModel">
 
-  <Grid x:Name="SidebarGrid" RowDefinitions="36,*,40"
-        Background="{DynamicResource VelaBgSidebar}">
+  <!-- 底色画在最外层 Panel 上:展开态与折叠态是同一条侧栏的两副面孔,
+       底色若跟着其中一个走,切换的瞬间会闪一下窗口底色。 -->
+  <Panel Background="{DynamicResource VelaBgSidebar}">
+
+  <Grid x:Name="SidebarGrid" RowDefinitions="36,*,40">
 
     <!-- 工具栏 -->
     <Border Grid.Row="0"
@@ -263,4 +266,102 @@
       </Grid>
     </Border>
   </Grid>
+
+  <!-- 折叠态:40px 图标细条(标题栏折叠按钮 / Ctrl+B)。会话树、快捷命令、
+       最近连接整块收起,但底部这三个入口必须留在原位 —— 消息中心与插件管理器
+       在别处没有第二个入口,而消息面板本就锚在左下角贴着铃铛开出来。
+       行高与展开态一一对应(36 顶栏 / * 中部 / 底部入口),切换时上下两条
+       分隔线停在同一水平位置,不会跳。 -->
+  <Grid x:Name="CollapsedRail" RowDefinitions="36,*,Auto" IsVisible="False">
+
+    <!-- 顶:展开回去。折叠态自带回程入口,不必非得回标题栏找那个按钮。 -->
+    <Border Grid.Row="0" BorderThickness="0,0,0,1"
+            BorderBrush="{DynamicResource VelaBorderPrimary}">
+      <Button Width="24" Height="24" Background="Transparent" Padding="0"
+              CornerRadius="3" Cursor="Hand"
+              HorizontalAlignment="Center" VerticalAlignment="Center"
+              Click="ExpandSidebar_Click"
+              ToolTip.Tip="{loc:Localize Cmd_ToggleSidebar}" ToolTip.Placement="Right">
+        <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.panel-left}"
+                       Foreground="{DynamicResource VelaAccent}" />
+      </Button>
+    </Border>
+
+    <!-- 中:会话入口 + 新建连接。 -->
+    <StackPanel Grid.Row="1" Orientation="Vertical" Spacing="6"
+                HorizontalAlignment="Center" Margin="0,8,0,0">
+
+      <!-- 折叠态打开已保存会话:浮层里放的就是展开态那棵树本身(同一个
+           SessionTreeViewModel),所以双击连接、右键编辑、打开 SFTP 全部照旧走
+           它自己的 ConnectRequested / EditRequested —— 这里一行接线都不用加。
+           点击触发而非悬停:鼠标横穿细条去终端是高频动作,悬停浮层会一路误触。
+           连上之后浮层自动收起(见 OnSessionConnectRequested)—— 折叠态图的就是
+           别让侧栏占着宽度,连完还杵在那儿挡着终端就本末倒置了。 -->
+      <Button x:Name="RailSessionsButton"
+              Width="24" Height="24" Background="Transparent" Padding="0"
+              CornerRadius="3" Cursor="Hand"
+              ToolTip.Tip="{loc:Localize Sidebar_Explorer}" ToolTip.Placement="Right">
+        <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.folder-tree}"
+                       Foreground="{DynamicResource VelaTextTertiary}" />
+        <Button.Flyout>
+          <!-- 外观与快捷命令的目标选择器同款(QuickCommandsView):由内容这层 Border
+               自己画。bare 类把 presenter 自带的底色/描边/内边距剥掉(见 DockStyles),
+               否则内容的 Border 外面还会套一圈 presenter 的框,浮层变成两层边。 -->
+          <Flyout Placement="RightEdgeAlignedTop" FlyoutPresenterClasses="bare">
+            <Border Width="248" MaxHeight="420" Padding="0,6"
+                    Background="{DynamicResource VelaBgSurface}"
+                    BorderBrush="{DynamicResource VelaBorderSecondary}"
+                    BorderThickness="1" CornerRadius="5">
+              <ScrollViewer VerticalScrollBarVisibility="Auto"
+                            HorizontalScrollBarVisibility="Disabled">
+                <views:SessionTreeView DataContext="{Binding SessionTree}" />
+              </ScrollViewer>
+            </Border>
+          </Flyout>
+        </Button.Flyout>
+      </Button>
+
+      <Button Width="24" Height="24" Background="Transparent" Padding="0"
+              CornerRadius="3" Cursor="Hand"
+              Click="OpenConnectionProfile_Click"
+              ToolTip.Tip="{x:Static res:Strings.Sessions}" ToolTip.Placement="Right">
+        <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.plus}"
+                       Foreground="{DynamicResource VelaTextTertiary}" />
+      </Button>
+    </StackPanel>
+
+    <!-- 底:与展开态底部栏同一组入口,顺序也一致(铃铛 → 插件 → 设置)。 -->
+    <Border Grid.Row="2" BorderThickness="0,1,0,0"
+            BorderBrush="{DynamicResource VelaBorderPrimary}" Padding="0,8">
+      <StackPanel Orientation="Vertical" Spacing="6" HorizontalAlignment="Center">
+        <Button Width="24" Height="24" Background="Transparent" Padding="0"
+                CornerRadius="3" Command="{Binding NotificationsCommand}"
+                ToolTip.Tip="{x:Static res:Strings.Notifications}" ToolTip.Placement="Right" Cursor="Hand">
+          <Panel>
+            <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.bell}"
+                           Foreground="{DynamicResource VelaTextTertiary}" />
+            <Ellipse Width="6" Height="6"
+                     HorizontalAlignment="Right" VerticalAlignment="Top"
+                     Margin="0,-1,-1,0"
+                     Fill="{DynamicResource VelaAccent}"
+                     IsVisible="{Binding HasUnreadNotifications}" />
+          </Panel>
+        </Button>
+        <Button Width="24" Height="24" Background="Transparent" Padding="0"
+                CornerRadius="3" Click="OpenPlugins_Click"
+                ToolTip.Tip="{x:Static res:Strings.Plugins}" ToolTip.Placement="Right" Cursor="Hand">
+          <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.plug}"
+                         Foreground="{DynamicResource VelaTextTertiary}" />
+        </Button>
+        <Button Width="24" Height="24" Background="Transparent" Padding="0"
+                CornerRadius="3" Click="OpenSettings_Click"
+                ToolTip.Tip="{x:Static res:Strings.Settings}" ToolTip.Placement="Right" Cursor="Hand">
+          <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.settings}"
+                         Foreground="{DynamicResource VelaTextTertiary}" />
+        </Button>
+      </StackPanel>
+    </Border>
+  </Grid>
+
+  </Panel>
 </UserControl>

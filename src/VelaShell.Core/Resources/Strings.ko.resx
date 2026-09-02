@@ -148,6 +148,9 @@
   <data name="Cmd_SftpFileManager" xml:space="preserve">
     <value>SFTP 파일 관리자</value>
   </data>
+  <data name="Cmd_ToggleSidebar" xml:space="preserve">
+    <value>탐색기 사이드바 전환</value>
+  </data>
   <data name="Cmd_TunnelManager" xml:space="preserve">
     <value>터널 관리</value>
   </data>
