@@ -81,6 +81,11 @@
   <Style Selector="ListBox.nav ListBoxItem:selected TextBlock">
     <Setter Property="Foreground" Value="{DynamicResource VelaAccent}" />
   </Style>
+  <!-- 供应商行尾的模型个数。排在选中态<b>之后</b>是故意的:它是元数据,
+       连选中行上都不该跟名字抢注意力 —— 一行里两个强调色,名字就不是主角了。 -->
+  <Style Selector="ListBox.nav ListBoxItem TextBlock.count">
+    <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />
+  </Style>
 
   <!-- 一块内容(「配置工具」里每个来源一组 / MCP 那边右侧的表单卡片) -->
   <Style Selector="Border.card">

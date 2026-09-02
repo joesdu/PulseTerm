@@ -126,6 +126,21 @@ public sealed class AiProvider
     public List<string> AvailableModels { get; set; } = [];
 
     /// <summary>
+    /// 设置页左栏里这一家的模型列表展不展开;<b>null = 用户还没表过态</b>,按模型数自动决定。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 用 <c>bool?</c> 而不是 <c>bool</c>,是为了把"用户折过/展过"与"还没碰过"分开:
+    /// 端点能报上几百个型号(见 <see cref="EndpointModelCatalog" />),一律默认展开的话
+    /// 左栏一进去就是一条滚不到底的长龙;而一律默认折叠,只配了两三个模型的人
+    /// 每次都得先点开才看得见自己的东西。<b>只有"还没表过态"这一档才轮得到自动判断</b> ——
+    /// 用户一旦手动折过或展过,那就是他的选择,不该被数量规则改回去。
+    /// </para>
+    /// <para>它是界面状态,不参与任何请求;落在这儿是因为它天然属于"这一家",跟着供应商一起存最省事。</para>
+    /// </remarks>
+    public bool? ModelsExpanded { get; set; }
+
+    /// <summary>
     /// 允许服务端存下这一轮的响应(OpenAI Responses 协议的 <c>store</c> 字段)。
     /// </summary>
     /// <remarks>

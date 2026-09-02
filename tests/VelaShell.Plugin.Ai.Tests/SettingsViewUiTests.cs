@@ -1,5 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Headless;
+using Avalonia.Input;
+using Avalonia.VisualTree;
 using Avalonia.Threading;
 using VelaShell.Plugin.Ai.Configuration;
 using VelaShell.Plugin.Ai.Ui;
@@ -112,6 +114,258 @@ public sealed class SettingsViewUiTests
                 Assert.AreEqual(0, view.GetControl<ComboBox>("ProtocolCombo").SelectedIndex);
                 Assert.IsFalse(view.GetControl<StackPanel>("OwnKeyPanel").IsVisible);
                 Assert.IsFalse(view.GetControl<StackPanel>("PromptCachePanel").IsVisible);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    // ---- 折叠 ----
+
+    /// <summary>一家挂 <paramref name="count" /> 个模型;端点能报上几百个,左栏得受得住。</summary>
+    private static AiSettings ManyModels(int count, bool selectAModel)
+    {
+        var big = new AiProvider { Name = "Relay", BaseUrl = "https://relay.example/v1" };
+        for (int i = 0; i < count; i++)
+        {
+            big.Models.Add(new AiModelConfig { Model = $"model-{i:00}" });
+        }
+        var small = new AiProvider { Name = "Ollama", BaseUrl = "http://localhost:11434/v1", Models = [new AiModelConfig { Model = "llama3.1" }] };
+        return new AiSettings
+        {
+            Providers = [big, small],
+            ActiveModelId = selectAModel ? big.Models[^1].Id : small.Models[0].Id
+        };
+    }
+
+    /// <summary>某一行上那枚折叠箭头(模板里带手型光标的那个 Border)。</summary>
+    private static Border Chevron(ListBox list, ProviderNavItem row)
+        => list.GetVisualDescendants().OfType<Border>()
+               .First(b => ReferenceEquals(b.DataContext, row) && b.Cursor is not null);
+
+    /// <summary>某一行上的名字(那一行还有一个显示模型个数的 TextBlock,按文字认)。</summary>
+    private static TextBlock RowName(ListBox list, ProviderNavItem row)
+        => list.GetVisualDescendants().OfType<TextBlock>()
+               .First(t => ReferenceEquals(t.DataContext, row) && t.Text == row.Text);
+
+    /// <summary>在某个控件上按一下左键(事件照常往上冒泡)。</summary>
+    private static void Press(Control control)
+        => control.RaiseEvent(new PointerPressedEventArgs(
+            control, new Avalonia.Input.Pointer(0, PointerType.Mouse, true), control, default, 0,
+            new PointerPointProperties(RawInputModifiers.LeftMouseButton, PointerUpdateKind.LeftButtonPressed),
+            KeyModifiers.None));
+
+    private static void PressKey(ListBox list, Key key)
+        => list.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = key });
+
+    [TestMethod]
+    public void Collapse_TakesTheModelRowsOutOfTheListAndIsRemembered()
+    {
+        OnUi(async () =>
+        {
+            using var context = new TestPluginContext();
+            (Window window, SettingsView view, AiSettings settings, AiSettingsStore store) =
+                await ShowAsync(context, TwoProviders());
+            try
+            {
+                ListBox list = view.GetControl<ListBox>("ProvidersList");
+                Assert.HasCount(5, (List<ProviderNavItem>)list.ItemsSource!);
+
+                // 供应商行上的 ← 折起这一家
+                list.SelectedIndex = 0;
+                await PumpAsync();
+                PressKey(list, Key.Left);
+                await PumpAsync();
+
+                var rows = (List<ProviderNavItem>)list.ItemsSource!;
+                Assert.HasCount(3, rows, "Routin 的两个模型收起来了,它自己那一行留着");
+                Assert.AreEqual("Routin", rows[0].Text);
+                Assert.IsFalse(rows[0].Expanded);
+                Assert.AreEqual("2", rows[0].CountText, "折起来也得看得出这一家有几个模型");
+                Assert.AreEqual("Ollama", rows[1].Text);
+                Assert.AreEqual(0, list.SelectedIndex, "折的是自己这一家,选中项不动");
+                Assert.IsFalse(settings.Providers[0].ModelsExpanded!.Value);
+
+                // 落盘了:重开设置页还是折着的
+                AiSettings reloaded = await store.LoadAsync();
+                Assert.IsFalse(reloaded.Providers[0].ModelsExpanded!.Value);
+
+                // → 再展开
+                PressKey(list, Key.Right);
+                await PumpAsync();
+                Assert.HasCount(5, (List<ProviderNavItem>)list.ItemsSource!);
+                Assert.IsTrue(settings.Providers[0].ModelsExpanded!.Value);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [TestMethod]
+    public void Collapse_WithOneOfItsModelsSelected_MovesTheSelectionUpToTheProvider()
+    {
+        OnUi(async () =>
+        {
+            using var context = new TestPluginContext();
+            (Window window, SettingsView view, AiSettings settings, _) = await ShowAsync(context, TwoProviders());
+            try
+            {
+                ListBox list = view.GetControl<ListBox>("ProvidersList");
+                var rows = (List<ProviderNavItem>)list.ItemsSource!;
+                Assert.AreEqual(2, list.SelectedIndex, "起手选中的是活跃模型 Claude");
+
+                // 点那家供应商行上的箭头 —— 选中的模型正在里面
+                Press(Chevron(list, rows[0]));
+                await PumpAsync();
+
+                rows = (List<ProviderNavItem>)list.ItemsSource!;
+                Assert.HasCount(3, rows);
+                Assert.AreEqual(0, list.SelectedIndex, "选中项上移到供应商行,而不是留在一个看不见的模型上");
+                Assert.IsTrue(view.GetControl<StackPanel>("ProviderEditor").IsVisible);
+                Assert.IsFalse(settings.Providers[0].ModelsExpanded!.Value);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [TestMethod]
+    public void ClickingTheProviderName_FoldsItJustLikeTheChevron()
+    {
+        OnUi(async () =>
+        {
+            using var context = new TestPluginContext();
+            (Window window, SettingsView view, AiSettings settings, _) = await ShowAsync(context, TwoProviders());
+            try
+            {
+                ListBox list = view.GetControl<ListBox>("ProvidersList");
+                var rows = (List<ProviderNavItem>)list.ItemsSource!;
+
+                // 点的是名字那几个字,不是那枚 10px 的三角
+                Press(RowName(list, rows[0]));
+                await PumpAsync();
+
+                rows = (List<ProviderNavItem>)list.ItemsSource!;
+                Assert.HasCount(3, rows, "点名字也折起来");
+                Assert.IsFalse(settings.Providers[0].ModelsExpanded!.Value);
+                Assert.AreEqual(0, list.SelectedIndex, "顺带选中这一行");
+                Assert.IsTrue(view.GetControl<StackPanel>("ProviderEditor").IsVisible);
+
+                // 再点一下展开回来
+                Press(RowName(list, rows[0]));
+                await PumpAsync();
+                Assert.HasCount(5, (List<ProviderNavItem>)list.ItemsSource!);
+                Assert.IsTrue(settings.Providers[0].ModelsExpanded!.Value);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [TestMethod]
+    public void ClickingAModelName_JustSelectsIt()
+    {
+        OnUi(async () =>
+        {
+            using var context = new TestPluginContext();
+            (Window window, SettingsView view, AiSettings settings, _) = await ShowAsync(context, TwoProviders());
+            try
+            {
+                ListBox list = view.GetControl<ListBox>("ProvidersList");
+                var rows = (List<ProviderNavItem>)list.ItemsSource!;
+
+                int before = list.SelectedIndex;
+
+                // 模型行不在折叠热区之列:这一下该被原样放过去,交给 ListBox 自己选
+                // (真正的选中要靠命中测试,合成事件驱不动 —— 这里守的是"我们没插手")
+                Press(RowName(list, rows[1]));
+                await PumpAsync();
+
+                Assert.HasCount(5, (List<ProviderNavItem>)list.ItemsSource!, "列表一行不少");
+                Assert.IsNull(settings.Providers[0].ModelsExpanded, "模型行点不出折叠状态来");
+                Assert.AreEqual(before, list.SelectedIndex, "更没有被收到供应商行上去");
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [TestMethod]
+    public void ALongModelListStartsCollapsed_AShortOneDoesNot()
+    {
+        OnUi(async () =>
+        {
+            using var context = new TestPluginContext();
+            (Window window, SettingsView view, _, _) = await ShowAsync(context, ManyModels(40, selectAModel: false));
+            try
+            {
+                var rows = (List<ProviderNavItem>)view.GetControl<ListBox>("ProvidersList").ItemsSource!;
+                Assert.HasCount(3, rows, "40 个的那家默认折着,1 个的那家照常展开");
+                Assert.AreEqual("Relay", rows[0].Text);
+                Assert.IsFalse(rows[0].Expanded);
+                Assert.AreEqual("40", rows[0].CountText);
+                Assert.IsTrue(rows[1].Expanded);
+                Assert.AreEqual("llama3.1", rows[2].Text);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [TestMethod]
+    public void AutoCollapse_YieldsWhenTheSelectedModelIsInsideThatProvider()
+    {
+        OnUi(async () =>
+        {
+            using var context = new TestPluginContext();
+            // 活跃模型在那一大家里:折起来的话,右边的表单会停在一个左栏看不见的模型上
+            (Window window, SettingsView view, _, _) = await ShowAsync(context, ManyModels(40, selectAModel: true));
+            try
+            {
+                ListBox list = view.GetControl<ListBox>("ProvidersList");
+                var rows = (List<ProviderNavItem>)list.ItemsSource!;
+                Assert.HasCount(43, rows, "那一大家整个展开:1 + 40,后面还跟着 Ollama 那两行");
+                Assert.IsTrue(rows[0].Expanded);
+                Assert.AreEqual(40, list.SelectedIndex, "选中的还是那个活跃模型");
+                Assert.IsTrue(view.GetControl<StackPanel>("ModelEditor").IsVisible);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [TestMethod]
+    public void LeftOnAModelRow_GoesBackToItsProviderWithoutCollapsing()
+    {
+        OnUi(async () =>
+        {
+            using var context = new TestPluginContext();
+            (Window window, SettingsView view, AiSettings settings, _) = await ShowAsync(context, TwoProviders());
+            try
+            {
+                ListBox list = view.GetControl<ListBox>("ProvidersList");
+                Assert.AreEqual(2, list.SelectedIndex);
+
+                PressKey(list, Key.Left);
+                await PumpAsync();
+
+                Assert.HasCount(5, (List<ProviderNavItem>)list.ItemsSource!, "一次按键只做一件事:回到父行,不顺手折起来");
+                Assert.AreEqual(0, list.SelectedIndex);
+                Assert.IsNull(settings.Providers[0].ModelsExpanded, "没折过也没展过,状态该留在「自动」");
             }
             finally
             {
