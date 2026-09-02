@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
@@ -16,7 +17,8 @@ namespace VelaShell.Plugin.Ai.Ui;
 /// 进而触发 <c>LoadEditorAsync</c> 把用户表单里还没保存的改动冲掉。
 /// </remarks>
 public sealed class ProviderNavItem(
-    AiProvider provider, AiModelConfig? model, string text, Thickness indent, FontWeight weight)
+    AiProvider provider, AiModelConfig? model, string text, Thickness indent, FontWeight weight,
+    int modelCount = 0, bool expanded = false, string toggleTip = "")
     : System.ComponentModel.INotifyPropertyChanged
 {
     private Geometry? _icon;
@@ -62,6 +64,24 @@ public sealed class ProviderNavItem(
 
     /// <summary>是不是供应商行。</summary>
     public bool IsProvider => Model is null;
+
+    /// <summary>这一家下面挂了几个模型(模型行为 0)。</summary>
+    public int ModelCount { get; } = modelCount;
+
+    /// <summary>这一家的模型列表此刻展着没有(模型行无意义)。</summary>
+    public bool Expanded { get; } = expanded;
+
+    /// <summary>有折叠箭头的行:挂着模型的供应商行。</summary>
+    public bool CanCollapse => IsProvider && ModelCount > 0;
+
+    /// <summary>
+    /// 折起来时也得看得出这一家有多少个模型 —— 数字就贴在名字后面。
+    /// </summary>
+    /// <remarks>展开时也照显:一家有 300 个还是 3 个,是决定"要不要折起来"的依据本身。</remarks>
+    public string CountText => CanCollapse ? ModelCount.ToString(System.Globalization.CultureInfo.InvariantCulture) : "";
+
+    /// <summary>折叠箭头的悬停说明(展开态与折叠态是两句话)。</summary>
+    public string ToggleTip { get; } = toggleTip;
 
     /// <summary>状态点的颜色:灰 = 本次窗口内没测过,绿 = 通过,红 = 失败。</summary>
     public IBrush? Dot
@@ -164,6 +184,11 @@ public partial class SettingsView : UserControl
             ApplyTints();
             _ = LoadEditorAsync();
         };
+        // 树形控件的键盘约定:→ 展开、← 折起(模型行上的 ← 是"回到我这一家")。
+        // 光有那枚小箭头的话,一路用键盘走下来的人在这儿就没辙了。
+        // 走<b>隧道</b>而不是 KeyDown 事件:ListBox 自己的类处理器把左右键当成条目导航吃掉了,
+        // 冒泡阶段再挂已经晚了(那时 Handled 已经是 true)。
+        ProvidersList.AddHandler(InputElement.KeyDownEvent, OnNavKeyDown, RoutingStrategies.Tunnel);
         // 从清单里挑一个:不光填模型 id,连<b>上下文窗口与三档单价</b>一起填好 ——
         // 那几项才是这一页最难填、填错了又不报错的东西(窗口错则占比错,单价错则花费估算错)。
         // _loadingEditor 期间不理会:那是重填表单时的程序性赋值,不是用户在挑。
@@ -234,6 +259,7 @@ public partial class SettingsView : UserControl
         ProviderAuthHintText.Text = _loc["SubscriptionHint"];
         ManageSignInText.Text = _loc["ManageSignIn"];
         PullModelsText.Text = _loc["ModelsPull"];
+        PullModelsHintText.Text = _loc["ModelsPullHint"];
         NameLabel.Text = _loc["DisplayName"];
         ProtocolLabel.Text = _loc["Protocol"];
         BaseUrlLabel.Text = _loc["BaseUrlOverride"];
@@ -381,6 +407,32 @@ public partial class SettingsView : UserControl
             : null;
     }
 
+    /// <summary>
+    /// 模型多到什么程度就默认折起来。
+    /// </summary>
+    /// <remarks>
+    /// 一屏左栏大约摆得下二十来行。定 12 是让"一家 + 它的模型"仍能和别家一起看见 ——
+    /// 超过这个数,列表就从"一览"变成了"要滚动的东西",那正是该折起来的时候。
+    /// </remarks>
+    private const int AutoCollapseFrom = 12;
+
+    /// <summary>
+    /// 这一家自己的展开状态:用户表过态就听他的,没表过态才按数量自动判断
+    /// (见 <see cref="AiProvider.ModelsExpanded" />)。
+    /// </summary>
+    private static bool IsExpanded(AiProvider provider)
+        => provider.ModelsExpanded ?? provider.Models.Count <= AutoCollapseFrom;
+
+    /// <summary>
+    /// 列表里这一家实际展不展开。
+    /// </summary>
+    /// <remarks>
+    /// 选中项落在这一家的某个模型上时<b>强制展开</b> —— 否则选中行不在列表里,
+    /// 右边的表单会停在一个左栏看不见的模型上,而用户没有任何办法看出自己在编辑谁。
+    /// </remarks>
+    private static bool IsVisiblyExpanded(AiProvider provider, string? selectId)
+        => IsExpanded(provider) || provider.Models.Exists(m => m.Id == selectId);
+
     private void ReloadList(string? selectId)
     {
         _nav = [];
@@ -391,9 +443,15 @@ public partial class SettingsView : UserControl
             {
                 selectIndex = _nav.Count;
             }
+            bool expanded = IsVisiblyExpanded(provider, selectId);
             _nav.Add(new ProviderNavItem(provider, null,
                 string.IsNullOrWhiteSpace(provider.Name) ? _loc["Unnamed"] : provider.Name,
-                new Thickness(0), FontWeight.Medium));
+                new Thickness(0), FontWeight.Medium,
+                provider.Models.Count, expanded, _loc[expanded ? "NavCollapse" : "NavExpand"]));
+            if (!expanded)
+            {
+                continue; // 折起来的这一家,模型行整批不进列表
+            }
             foreach (AiModelConfig model in provider.Models)
             {
                 if (model.Id == selectId)
@@ -414,6 +472,81 @@ public partial class SettingsView : UserControl
         {
             _ = LoadEditorAsync();
         }
+    }
+
+    // ---- 折叠 ----
+
+    /// <summary>
+    /// 点供应商行 —— 名字、图标、那枚箭头,<b>整行都算</b>:折/展它的模型列表。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 文件树里点文件夹名就该折叠,只让一枚 10px 的三角管这件事是把功能藏起来。
+    /// 模型行与没挂模型的供应商行不在此列:它们照常只是被选中。
+    /// </para>
+    /// <para>
+    /// <b>吃掉这次按下</b>(<c>e.Handled</c>)并由 <see cref="Toggle" /> 自己把选中项落到这一行上,
+    /// 而不是放给 <see cref="ListBox" /> 去选:折叠会整个重建列表,被点中的那个容器当场失效,
+    /// 让它在一个已经拆掉的容器上算选中项,选出来的是哪一行没人说得准。
+    /// </para>
+    /// </remarks>
+    private void OnNavRowPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!e.Handled && sender is Control { DataContext: ProviderNavItem { CanCollapse: true } item })
+        {
+            e.Handled = true;
+            Toggle(item.Provider);
+        }
+    }
+
+    /// <summary>→ 展开、← 折起;模型行上的 ← 收回到它那一家的行上。</summary>
+    private void OnNavKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (SelectedItem is not { } item)
+        {
+            return;
+        }
+        // 模型行上的 ← 只是"回到我这一家",不顺手把它折起来 ——
+        // 一次按键做两件事,想再展开时会发现自己已经不在原来那一行了
+        if (item.Model is not null && e.Key == Key.Left)
+        {
+            e.Handled = true;
+            ReloadList(item.Provider.Id);
+            return;
+        }
+        if (!item.CanCollapse || e.Key is not (Key.Left or Key.Right))
+        {
+            return;
+        }
+        bool expand = e.Key == Key.Right;
+        if (expand == IsVisiblyExpanded(item.Provider, NavKey(item)))
+        {
+            return; // 已经是这个状态了,别白重建一次列表(那会闪一下)
+        }
+        e.Handled = true;
+        Toggle(item.Provider);
+    }
+
+    /// <summary>
+    /// 翻转这一家的展开状态并落盘,选中项落到<b>这一家的供应商行</b>上。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 选中项一律收到供应商行上,而不是留在原处:折起来时,原先选中的模型会连同整批模型一起
+    /// 从列表里消失,而右边的表单还停在它上面 —— 用户没有任何办法看出自己在编辑谁。
+    /// 展开时收上来则是点这一行的应有之义(用户点的就是它)。
+    /// </para>
+    /// <para>
+    /// 算当前状态时要把"选中项强制展开"一起算进去(<see cref="IsVisiblyExpanded" />),
+    /// 否则一家被自动折起、却因为选中了它的模型而展着时,第一下点击会把它从"折"翻成"展" ——
+    /// 而用户眼睛看到的是展开的,点下去却没反应。
+    /// </para>
+    /// </remarks>
+    private void Toggle(AiProvider provider)
+    {
+        provider.ModelsExpanded = !IsVisiblyExpanded(provider, SelectedItem is { } cur ? NavKey(cur) : null);
+        _ = PersistAsync(notify: false);
+        ReloadList(provider.Id);
     }
 
     private async Task LoadEditorAsync()
@@ -481,8 +614,11 @@ public partial class SettingsView : UserControl
             ProviderKeyPanel.IsVisible = !subscription;
             ProviderAuthPanel.IsVisible = subscription;
             ProviderAuthStatusText.Text = "";
-            // models.dev 收录了这一家才有得可拉(本地自部署 / 自定义端点那边没有)
-            PullModelsButton.IsVisible = ProviderCatalog.Find(provider?.CatalogId)?.ModelsDevId.Length > 0;
+            // 两条路任意一条走得通就有得可拉:端点自己的 /models(填了地址就能问),
+            // 或 models.dev 收录了这一家。选中的是某个模型行时不显示 —— 拉取是整家的事。
+            PullModelsPanel.IsVisible = provider is not null && model is null
+                                        && (!string.IsNullOrWhiteSpace(provider.BaseUrl)
+                                            || ProviderCatalog.Find(provider.CatalogId)?.ModelsDevId.Length > 0);
 
             if (provider is not null && model is null)
             {
@@ -559,41 +695,43 @@ public partial class SettingsView : UserControl
         => PromptCachePanel.IsVisible = FormProtocol() == ChatProtocol.AnthropicMessages;
 
     /// <summary>
-    /// 「拉取模型」:去 models.dev 重新拉这一家的清单,落成真正可选的模型。
+    /// 「拉取模型」:问端点它实际供应哪些模型,配上规格,落成真正可选的模型。
     /// </summary>
     /// <remarks>
-    /// 与「连接供应商」那一页上的同名按钮走同一条路(<see cref="ModelsDevCatalog.Materialise" />)。
+    /// 与「连接供应商」那一页上的同名按钮走同一条路(<see cref="ModelPull.RunAsync" />)。
     /// 在这儿也放一个,是因为用户十有八九是在这一页发现"怎么只有一个模型"的 ——
     /// 让他为此再跑回目录页未免绕。
+    /// <para>
+    /// 表单里那把还没保存的 Key 也认:用户刚贴上 Key 就想拉一次是最自然的顺序,
+    /// 要求他"先保存再拉"等于把一个能省的步骤摆在必经之路上。
+    /// </para>
     /// </remarks>
     private async Task PullModelsAsync()
     {
-        if (SelectedProvider is not { } provider
-            || ProviderCatalog.Find(provider.CatalogId) is not { } entry
-            || entry.ModelsDevId.Length == 0)
+        if (SelectedProvider is not { } provider)
         {
             return;
         }
+        // 订阅登录的凭据不在表单里,靠 Id 去机密存储取(与「测试」那边同一个判断)
+        string? keyOverride = provider.Auth == AuthMethod.Subscription
+                              || string.IsNullOrWhiteSpace(ProviderApiKeyBox.Text)
+            ? null
+            : ProviderApiKeyBox.Text;
         try
         {
             PullModelsButton.IsEnabled = false;
             StatusText.Text = _loc["ModelsPulling"];
-            using (var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) })
-            {
-                // 用户明确点了"拉取",这时还拿七天前的缓存糊弄他就没意义了
-                await _models.RefreshAsync(http, force: true);
-            }
-            IReadOnlyList<ModelSpec> specs = _models.ForProvider(entry.ModelsDevId);
-            if (specs.Count == 0)
+            ModelPullResult result = await ModelPull.RunAsync(
+                provider, ProviderCatalog.Find(provider.CatalogId)?.ModelsDevId, _models, _store, keyOverride,
+                force: true);
+            if (result.Source == ModelSource.None)
             {
                 StatusText.Text = _loc["ModelsNone"];
                 return;
             }
-            provider.AvailableModels = [.. specs.Select(s => s.Id)];
-            int total = ModelsDevCatalog.Materialise(provider, specs);
             await PersistAsync(notify: true);
             ReloadList(provider.Id);
-            StatusText.Text = _loc.F("ModelsPulled", total);
+            StatusText.Text = _loc.F("ModelsPulled", result.Total);
         }
         catch (Exception ex)
         {

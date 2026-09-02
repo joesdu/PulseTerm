@@ -29,11 +29,12 @@ public sealed record ModelSpec(
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>为什么不去问供应商自己的 <c>/v1/models</c></b>(上一版就是那么做的,已撤):
-/// 那条接口只给一串 id,给不出上下文窗口和单价 —— 而那几项恰恰是本插件里最难填、
-/// 填错了又<b>不报错</b>的东西(窗口填错,输入框下方的占比就是错的;单价填错,花费估算跟着错)。
-/// 而且订阅型的私有后端(ChatGPT 的 Codex 后端就是)根本没有那条接口。
-/// models.dev 两个问题一起解决:它记的正是 id + 窗口 + 单价 + 能力位。
+/// <b>它与 <see cref="EndpointModelCatalog" /> 各知道一半,合起来才够用。</b>
+/// 供应商自己的 <c>/v1/models</c> 只给一串 id,给不出上下文窗口和单价 —— 而那几项恰恰是
+/// 本插件里最难填、填错了又<b>不报错</b>的东西(窗口填错,输入框下方的占比就是错的;
+/// 单价填错,花费估算跟着错),何况订阅型的私有后端(ChatGPT 的 Codex 后端就是)根本没有那条接口;
+/// 这一份记的正是 id + 窗口 + 单价 + 能力位,却不知道你接的这家中转站到底转发了哪几个。
+/// 所以清单以端点为准、规格来这儿补,取舍见 <see cref="ModelPull" />。
 /// </para>
 /// <para>
 /// <b>下载一次、瘦身落盘。</b>原始 <c>api.json</c> 有四百多万字节(两百多家供应商),
@@ -90,6 +91,78 @@ public sealed class ModelsDevCatalog(IPluginContext context)
             return [];
         }
         return Index().TryGetValue(modelsDevId, out List<ModelSpec>? models) ? models : [];
+    }
+
+    /// <summary>
+    /// 给端点报上来的一串 id 配规格(见 <see cref="EndpointModelCatalog" />)。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>清单以端点为准,规格来这儿补。</b> 返回的每条 <see cref="ModelSpec.Id" /> 一定是
+    /// <paramref name="ids" /> 里那个原样的 id —— 请求里要发的是它,不是 models.dev 那边的写法。
+    /// 配不上就返回一条只有 id 的空规格:窗口与单价留 0,而 <see cref="Apply" /> 只填非 0 的值,
+    /// 于是用户已经填好的东西不会被"未知"覆盖掉。
+    /// </para>
+    /// <para>
+    /// <b>配不上这一家时,跨供应商按 id 找,但只补容量、不补单价。</b> 自定义端点与中转站没有
+    /// <see cref="ProviderCatalogEntry.ModelsDevId" />,只能这么找。同一个型号在谁家跑,
+    /// 上下文窗口都是同一个数(那是模型自身的属性);<b>价目却是各家自己定的</b> ——
+    /// 中转站普遍加价,照抄原厂单价会让花费估算<b>静默地</b>偏低,而那正是最难被发现的一类错。
+    /// 宁可让单价空着:空着至少还写在脸上。
+    /// </para>
+    /// </remarks>
+    /// <param name="modelsDevId">这一家在 models.dev 的 id;空表示那边没收录(自定义 / 自建)。</param>
+    /// <param name="ids">端点报上来的模型 id。</param>
+    public IReadOnlyList<ModelSpec> Describe(string? modelsDevId, IReadOnlyList<string> ids)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+        var own = new Dictionary<string, ModelSpec>(StringComparer.OrdinalIgnoreCase);
+        foreach (ModelSpec spec in ForProvider(modelsDevId))
+        {
+            own[spec.Id] = spec;
+        }
+        var described = new List<ModelSpec>(ids.Count);
+        foreach (string id in ids)
+        {
+            if (own.TryGetValue(id, out ModelSpec? exact))
+            {
+                described.Add(exact with { Id = id });
+                continue;
+            }
+            described.Add(FindAnywhere(id) is { } loose
+                ? loose with { Id = id, InputPrice = 0, OutputPrice = 0, CachedInputPrice = 0 }
+                : new ModelSpec(id, id, 0, 0, 0, 0, 0, false));
+        }
+        return described;
+    }
+
+    /// <summary>
+    /// 不限供应商,按 id 找一条规格。
+    /// </summary>
+    /// <remarks>
+    /// 先找完全相同的;找不到再拿<b>最后一段</b>找一次 —— 中转站习惯给 id 加前缀
+    /// (<c>anthropic/claude-sonnet-4</c>),剥掉前缀就能对上同一个型号。
+    /// </remarks>
+    private ModelSpec? FindAnywhere(string id)
+    {
+        string bare = id[(id.LastIndexOf('/') + 1)..];
+        ModelSpec? loose = null;
+        foreach (List<ModelSpec> specs in Index().Values)
+        {
+            foreach (ModelSpec spec in specs)
+            {
+                if (string.Equals(spec.Id, id, StringComparison.OrdinalIgnoreCase))
+                {
+                    return spec;
+                }
+                if (loose is null && bare.Length > 0
+                                  && string.Equals(spec.Id, bare, StringComparison.OrdinalIgnoreCase))
+                {
+                    loose = spec;
+                }
+            }
+        }
+        return loose;
     }
 
     /// <summary>

@@ -241,7 +241,7 @@ public class ZModemHardeningTests
 
         FileTransferItem item = send.Result.Items.Single();
         Assert.AreEqual(FileTransferState.Failed, item.Status);
-        StringAssert.Contains(item.ErrorMessage ?? string.Empty, "4 GiB");
+        Assert.Contains("4 GiB", item.ErrorMessage ?? string.Empty);
         Assert.IsEmpty(sink.OfferedNames, "超限文件根本不该被提供给对端");
     }
 

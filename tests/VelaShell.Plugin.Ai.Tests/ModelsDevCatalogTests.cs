@@ -409,6 +409,81 @@ public sealed class ModelsDevCatalogTests
         Assert.IsEmpty(catalog.ForProvider(null));
     }
 
+    // ---- 给端点报上来的 id 配规格 ----
+
+    /// <summary>缓存好一份索引,供 <c>Describe</c> 的用例用。</summary>
+    private static async Task<ModelsDevCatalog> CachedAsync(TestPluginContext context)
+    {
+        var catalog = new ModelsDevCatalog(context);
+        using var http = new HttpClient(new StubHandler(UpstreamShape));
+        await catalog.RefreshAsync(http);
+        return catalog;
+    }
+
+    [TestMethod]
+    public async Task Describe_MatchedInsideTheProvider_FillsEverything()
+    {
+        using var context = new TestPluginContext();
+        ModelsDevCatalog catalog = await CachedAsync(context);
+
+        ModelSpec spec = catalog.Describe("openai", ["gpt-5"]).Single();
+
+        Assert.AreEqual(400000, spec.ContextTokens);
+        Assert.AreEqual(1.25, spec.InputPrice, "自家目录里的单价就是这一家的,照填");
+    }
+
+    [TestMethod]
+    public async Task Describe_MatchedAcrossProviders_KeepsCapacityButNotPrices()
+    {
+        using var context = new TestPluginContext();
+        ModelsDevCatalog catalog = await CachedAsync(context);
+
+        // 中转站没有 ModelsDevId,只能跨供应商按 id 找
+        ModelSpec spec = catalog.Describe(null, ["gpt-5"]).Single();
+
+        Assert.AreEqual(400000, spec.ContextTokens, "窗口是模型自身的属性,谁家跑都一样");
+        Assert.AreEqual(0, spec.InputPrice, "中转站的价目是它自己定的,照抄原厂会让花费估算静默偏低");
+        Assert.AreEqual(0, spec.OutputPrice);
+        Assert.AreEqual(0, spec.CachedInputPrice);
+    }
+
+    [TestMethod]
+    public async Task Describe_StripsTheRelayPrefixToFindTheSpec()
+    {
+        using var context = new TestPluginContext();
+        ModelsDevCatalog catalog = await CachedAsync(context);
+
+        ModelSpec spec = catalog.Describe(null, ["openai/gpt-5"]).Single();
+
+        Assert.AreEqual("openai/gpt-5", spec.Id, "请求里要发的是端点报上来的那个 id,不是 models.dev 的写法");
+        Assert.AreEqual(400000, spec.ContextTokens);
+    }
+
+    [TestMethod]
+    public async Task Describe_UnknownIdIsCarriedThroughWithNothingFilledIn()
+    {
+        using var context = new TestPluginContext();
+        ModelsDevCatalog catalog = await CachedAsync(context);
+
+        ModelSpec spec = catalog.Describe("openai", ["some-private-build"]).Single();
+
+        Assert.AreEqual("some-private-build", spec.Id, "配不上也得留在清单里 —— 它确实是端点供应的");
+        Assert.AreEqual(0, spec.ContextTokens, "未知就是 0;Apply 只填非 0 的值,用户填过的不会被覆盖");
+        Assert.AreEqual(0, spec.InputPrice);
+    }
+
+    [TestMethod]
+    public async Task Describe_KeepsTheEndpointOrder()
+    {
+        using var context = new TestPluginContext();
+        ModelsDevCatalog catalog = await CachedAsync(context);
+
+        IReadOnlyList<ModelSpec> specs = catalog.Describe("openai", ["gpt-5.3-codex", "gpt-5"]);
+
+        Assert.AreEqual("gpt-5.3-codex", specs[0].Id);
+        Assert.AreEqual("gpt-5", specs[1].Id);
+    }
+
     // ---- 目录映射 ----
 
     [TestMethod]

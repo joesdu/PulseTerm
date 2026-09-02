@@ -193,6 +193,20 @@ public sealed class AiSettingsStore(IPluginContext context)
             tokens.BaseUrl);
     }
 
+    /// <summary>
+    /// 取<b>供应商这一层</b>的凭据(拉模型列表用,那一步还没有选定模型)。
+    /// </summary>
+    /// <remarks>
+    /// 拿一个空白模型去解继承链,而不是拿 <c>Models[0]</c>:后者可能勾着"用自己的 Key",
+    /// 那把 Key 是给那个模型的,拿它去问整家的模型列表就问错了对象 ——
+    /// 空白模型什么都不覆盖,解出来的正好是供应商自己的地址与 Key。
+    /// </remarks>
+    /// <param name="provider">供应商。</param>
+    /// <param name="cancellationToken">取消。</param>
+    public Task<ProviderCredential> ResolveProviderCredentialAsync(AiProvider provider,
+        CancellationToken cancellationToken = default)
+        => ResolveCredentialAsync(new ResolvedModel(provider, new AiModelConfig()), cancellationToken);
+
     /// <summary>换一组新令牌并落盘;换不动就沿用旧的(过期的令牌至少能换来一个准确的 401)。</summary>
     private async Task<OAuthTokens> RefreshAsync(AiProvider provider, OAuthConfig oauth, OAuthTokens tokens,
         CancellationToken cancellationToken)

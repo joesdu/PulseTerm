@@ -73,20 +73,47 @@
         <ListBox x:Name="ProvidersList" Classes="nav">
           <ListBox.ItemTemplate>
             <DataTemplate x:DataType="ui:ProviderNavItem">
-              <!-- 供应商行加粗、亮一档,模型行缩进一档:一眼分清层级,不靠展开箭头。
+              <!-- 供应商行加粗、亮一档,模型行缩进一档:一眼分清层级。
                    文字的三档颜色写在 DialogStyles 的 nav 样式里(.provider / :selected),
                    图标要比同一行的文字再暗一档,那一档只能逐项算 —— 见 ApplyTints。
                    行尾那颗点是本次窗口内测出来的连通性(灰=未测 / 绿=通过 / 红=失败)——
                    哪个接入能用,不该靠一个个点开测。 -->
-              <Grid ColumnDefinitions="Auto,*,Auto" Margin="{Binding Indent}">
-                <Viewbox Width="12" Height="12" Margin="0,0,7,0" VerticalAlignment="Center">
+              <!-- 供应商行<b>整行</b>都是折叠热区(Background 透明也要有:不然名字右边的空白
+                   点不中),不是只有那枚小箭头 —— 文件树里点文件夹名就该折叠,只让一枚 10px 的
+                   三角管这件事是把功能藏起来。模型行不受影响,照常只是选中。见 OnNavRowPressed。 -->
+              <Grid ColumnDefinitions="15,Auto,*,Auto,Auto" Margin="{Binding Indent}"
+                    Background="Transparent" PointerPressed="OnNavRowPressed">
+                <!-- 折叠箭头:展开朝下、折起朝右(与 ToolPickerView 的分组同一个写法)。
+                     这一列宽度写死而不是 Auto —— 没有箭头的模型行也得占住这 15,
+                     否则它的图标会往左窜,两层缩进就对不齐了。
+                     它自己不接事件:点它命中的是整行那个热区,结果一样。 -->
+                <Border IsVisible="{Binding CanCollapse}" Cursor="Hand" VerticalAlignment="Stretch"
+                        ToolTip.Tip="{Binding ToggleTip}">
+                  <Panel VerticalAlignment="Center">
+                    <Viewbox Width="10" Height="10" IsVisible="{Binding Expanded}">
+                      <Path Width="24" Height="24" Data="{DynamicResource Icon.chevron-down}"
+                            Stroke="{DynamicResource VelaTextTertiary}"
+                            StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round" />
+                    </Viewbox>
+                    <Viewbox Width="10" Height="10" IsVisible="{Binding !Expanded}">
+                      <Path Width="24" Height="24" Data="{DynamicResource Icon.chevron-right}"
+                            Stroke="{DynamicResource VelaTextTertiary}"
+                            StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round" />
+                    </Viewbox>
+                  </Panel>
+                </Border>
+                <Viewbox Grid.Column="1" Width="12" Height="12" Margin="0,0,7,0" VerticalAlignment="Center">
                   <Path Width="24" Height="24" Data="{Binding Icon}" Stroke="{Binding Tint}"
                         StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round" />
                 </Viewbox>
-                <TextBlock Grid.Column="1" Classes.provider="{Binding IsProvider}"
+                <TextBlock Grid.Column="2" Classes.provider="{Binding IsProvider}"
                            Text="{Binding Text}" VerticalAlignment="Center"
                            FontWeight="{Binding Weight}" TextTrimming="CharacterEllipsis" />
-                <Ellipse Grid.Column="2" Width="6" Height="6" Margin="8,0,0,0"
+                <!-- 折起来时也得看得出这一家有多少个模型 -->
+                <TextBlock Grid.Column="3" Classes="count" Text="{Binding CountText}"
+                           Margin="8,0,0,0" VerticalAlignment="Center"
+                           FontSize="{DynamicResource VelaFontSize10}" />
+                <Ellipse Grid.Column="4" Width="6" Height="6" Margin="8,0,0,0"
                          VerticalAlignment="Center" Fill="{Binding Dot}"
                          ToolTip.Tip="{Binding DotTip}" />
               </Grid>
@@ -185,23 +212,31 @@
 
                 <StackPanel x:Name="ProviderAuthPanel" Classes="field" IsVisible="False">
                   <TextBlock x:Name="ProviderAuthLabel" Classes="label" />
-                  <Grid ColumnDefinitions="*,12,Auto,6,Auto">
+                  <Grid ColumnDefinitions="*,12,Auto">
                     <TextBlock x:Name="ProviderAuthStatusText" Classes="dim"
                                TextWrapping="Wrap" VerticalAlignment="Center" />
-                    <!-- 订阅登录的那家在这儿也能直接拉模型:用户十有八九是在这一页发现
-                         "怎么只有一个模型"的,让他再跑去「连接供应商」那边未免绕。 -->
-                    <Button x:Name="PullModelsButton" Grid.Column="2"
-                            Theme="{DynamicResource VelaOutlineButtonTheme}" Height="26" Padding="12,0">
-                      <TextBlock x:Name="PullModelsText" VerticalAlignment="Center"
-                                 FontSize="{DynamicResource VelaFontSize11}" />
-                    </Button>
-                    <Button x:Name="ManageSignInButton" Grid.Column="4"
+                    <Button x:Name="ManageSignInButton" Grid.Column="2"
                             Theme="{DynamicResource VelaOutlineButtonTheme}" Height="26" Padding="12,0">
                       <TextBlock x:Name="ManageSignInText" VerticalAlignment="Center"
                                  FontSize="{DynamicResource VelaFontSize11}" />
                     </Button>
                   </Grid>
                   <TextBlock x:Name="ProviderAuthHintText" Classes="hint" />
+                </StackPanel>
+
+                <!-- 「拉取模型」摆在鉴权那两块<b>外面</b>:填 Key 的和订阅登录的都要拉,
+                     而且用户十有八九是在这一页发现"怎么只有一个模型"的,让他再跑去
+                     「连接供应商」那边未免绕。 -->
+                <StackPanel x:Name="PullModelsPanel" Classes="field">
+                  <Grid ColumnDefinitions="Auto,10,*">
+                    <Button x:Name="PullModelsButton"
+                            Theme="{DynamicResource VelaOutlineButtonTheme}" Height="26" Padding="12,0">
+                      <TextBlock x:Name="PullModelsText" VerticalAlignment="Center"
+                                 FontSize="{DynamicResource VelaFontSize11}" />
+                    </Button>
+                    <TextBlock x:Name="PullModelsHintText" Grid.Column="2" Classes="hint"
+                               Margin="0" TextWrapping="Wrap" VerticalAlignment="Center" />
+                  </Grid>
                 </StackPanel>
               </StackPanel>
             </Border>

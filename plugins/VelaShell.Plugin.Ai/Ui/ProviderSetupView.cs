@@ -606,8 +606,10 @@ public sealed class ProviderSetupView : UserControl
         _pull = new Button { Name = "SetupPullButton", Height = 26, Padding = new Thickness(12, 0) };
         _pull[!TemplatedControl.ThemeProperty] = new DynamicResourceExtension("VelaOutlineButtonTheme");
         _pull.Content = _loc["ModelsPull"];
-        // 已经加进来、而且那边确实收录了这一家,才有得可拉
-        _pull.IsVisible = existing is not null && entry.ModelsDevId.Length > 0;
+        // 已经加进来,而且两条路至少通一条:端点自己的 /models(填了地址就能问),
+        // 或 models.dev 收录了这一家
+        _pull.IsVisible = existing is not null
+                          && (entry.ModelsDevId.Length > 0 || !string.IsNullOrWhiteSpace(existing.BaseUrl));
         _pull.Click += (_, _) => _ = PullNowAsync(row);
 
         _secondary = new Button { Name = "SetupSecondaryButton", Height = 26, Padding = new Thickness(12, 0) };
@@ -731,10 +733,10 @@ public sealed class ProviderSetupView : UserControl
     }
 
     /// <summary>
-    /// 「拉取模型」按下去:强制去 models.dev 拉一次新的,把这一家的清单重新落地。
+    /// 「拉取模型」按下去:重新问一次清单,把这一家的模型重新落地。
     /// </summary>
     /// <remarks>
-    /// 与登录后那次自动拉的区别是 <c>force</c> —— 缓存还在有效期内也重下。
+    /// 与登录后那次自动拉的区别是 <c>force</c> —— 规格缓存还在有效期内也重下。
     /// 用户是明确点了"拉取"才走到这儿的,这时还拿七天前的缓存糊弄他就没意义了。
     /// </remarks>
     private async Task PullNowAsync(Row row)
@@ -900,8 +902,9 @@ public sealed class ProviderSetupView : UserControl
     /// 接上之后把这一家的模型清单配好:id、上下文窗口、三档单价一次填齐。
     /// </summary>
     /// <remarks>
-    /// 数据来自 <see cref="ModelsDevCatalog" />(models.dev),不是去问供应商自己的
-    /// <c>/v1/models</c> —— 那条接口只给一串 id,给不出窗口和单价,而订阅型私有后端根本没有它。
+    /// 清单先问端点自己的 <c>/models</c>(只有它知道这个地址实际供应什么),再拿 id 去
+    /// <see cref="ModelsDevCatalog" />(models.dev)配窗口与单价 —— 那条接口只给一串 id,
+    /// 给不出这两项,而订阅型私有后端根本没有它。两条路的取舍全在 <see cref="ModelPull" /> 里。
     /// <para>
     /// 放在登录/添加<b>成功之后</b>单独跑,拉不到也只是少个便利:
     /// 这一步失败不该让"已经连上了"这个结果打折扣,更不该把异常冒到登录的错误处理里去。
@@ -909,25 +912,22 @@ public sealed class ProviderSetupView : UserControl
     /// </remarks>
     private async Task PullModelsAsync(ProviderCatalogEntry entry, AiProvider provider, bool force = false)
     {
-        if (string.IsNullOrEmpty(entry.ModelsDevId))
+        if (string.IsNullOrEmpty(entry.ModelsDevId) && string.IsNullOrWhiteSpace(provider.BaseUrl))
         {
-            return; // 本地自部署 / 自定义端点:那边没有收录,保持出厂示例即可
+            return; // 两条路都不通:目录没收录,地址也还空着,保持出厂示例即可
         }
         try
         {
             _progress.Text = _loc["ModelsPulling"];
-            using (var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) })
-            {
-                await _models.RefreshAsync(http, force).ConfigureAwait(true);
-            }
-            IReadOnlyList<ModelSpec> specs = _models.ForProvider(entry.ModelsDevId);
-            if (specs.Count == 0)
+            ModelPullResult result = await ModelPull
+                                           .RunAsync(provider, entry.ModelsDevId, _models, _store, force: force)
+                                           .ConfigureAwait(true);
+            if (result.Source == ModelSource.None)
             {
                 _progress.Text = _loc["ModelsNone"];
                 return;
             }
-            provider.AvailableModels = [.. specs.Select(s => s.Id)];
-            int added = ModelsDevCatalog.Materialise(provider, specs);
+            int added = result.Total;
             await _persist().ConfigureAwait(true);
             ProviderChanged?.Invoke(provider.Id);
             string done = _loc.F("ModelsPulled", added);
