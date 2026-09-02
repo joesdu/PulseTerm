@@ -77,7 +77,8 @@ public sealed class ProviderLogin(OAuthClient oauth, Func<Uri, CancellationToken
         try
         {
             callback = await listener
-                .WaitAsync(prompts.BrowserTitle, prompts.BrowserBody, timeout.Token)
+                .WaitAsync(prompts.BrowserTitle, prompts.BrowserBody,
+                    config.Flow == OAuthFlow.ImplicitFragment, timeout.Token)
                 .ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
@@ -96,6 +97,23 @@ public sealed class ProviderLogin(OAuthClient oauth, Func<Uri, CancellationToken
             && !string.Equals(state, pkce.State, StringComparison.Ordinal))
         {
             throw new OAuthException("invalid_state", "The callback state did not match; the sign-in was discarded.");
+        }
+        // 隐式流到这里就结束了:令牌本身就在回调参数里,没有"拿码去换"这一步
+        if (config.Flow == OAuthFlow.ImplicitFragment)
+        {
+            if (!callback.TryGetValue("access_token", out string? token) || token.Length == 0)
+            {
+                throw new OAuthException("The callback did not carry an access token.");
+            }
+            return new OAuthTokens
+            {
+                AccessToken = token,
+                Scope = callback.GetValueOrDefault("scope") ?? "",
+                // 隐式流没有 refresh token —— 过期就得重登,这一点如实记下来
+                ExpiresAt = int.TryParse(callback.GetValueOrDefault("expires_in"), out int seconds) && seconds > 0
+                    ? DateTimeOffset.UtcNow.AddSeconds(seconds)
+                    : null
+            };
         }
         if (!callback.TryGetValue("code", out string? code) || code.Length == 0)
         {

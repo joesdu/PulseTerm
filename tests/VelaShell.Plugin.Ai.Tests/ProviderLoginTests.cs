@@ -232,7 +232,7 @@ public sealed class ProviderLoginTests
         using var http = new HttpClient();
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
 
-        Task<Dictionary<string, string>> waiting = listener.WaitAsync("t", "b", timeout.Token);
+        Task<Dictionary<string, string>> waiting = listener.WaitAsync("t", "b", cancellationToken: timeout.Token);
         // 浏览器在打开回调页之后顺手来要图标 —— 拿它当结果的话,登录会在用户点同意前就"失败"
         HttpResponseMessage favicon = await http.GetAsync($"http://127.0.0.1:{listener.Port}/favicon.ico", timeout.Token);
         Assert.AreEqual(HttpStatusCode.OK, favicon.StatusCode);

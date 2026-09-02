@@ -47,7 +47,20 @@ public enum OAuthFlow
     /// 之所以单列:标准流程里"刷新"是拿 refresh token 走 <c>refresh_token</c> 授权,
     /// 而这一路的刷新是<b>重新做一次交换</b> —— GitHub token 本身不过期,过期的是换来的那枚。
     /// </remarks>
-    GitHubCopilotDevice
+    GitHubCopilotDevice,
+
+    /// <summary>
+    /// 隐式流(<c>response_type=token</c>):令牌直接放在回调地址的 <b>#fragment</b> 里。
+    /// </summary>
+    /// <remarks>
+    /// 片段<b>不会随请求发到服务端</b>,所以本机监听根本读不到它 —— 必须先回一页 HTML,
+    /// 让浏览器自己把 <c>location.hash</c> 再回传一次。DigitalOcean Gradient 走的就是这一路。
+    /// <para>
+    /// 隐式流在 OAuth 2.1 里已被劝退,这里实现它<b>只为接上还在用它的服务</b>,
+    /// 不作为新接入的推荐:令牌进过浏览器地址栏,而且没有 refresh token,过期只能重登。
+    /// </para>
+    /// </remarks>
+    ImplicitFragment
 }
 
 /// <summary>登录换回来的东西是什么 —— 决定它存到哪、请求头怎么带。</summary>
