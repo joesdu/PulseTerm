@@ -3744,6 +3744,8 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   <data name="PluginPerm_AllowSession"><value>今回の起動中は許可</value></data>
   <data name="PluginPerm_AllowAlways"><value>常に許可</value></data>
   <data name="PluginPerm_Deny"><value>拒否</value></data>
+  <data name="PluginPermSession_Title"><value>接続要求</value></data>
+  <data name="PluginPermSession_Message"><value>プラグイン「{0}」が {1} への接続を要求しています。プラグインが示した理由:</value></data>
   <data name="PluginManager_Install"><value>.vpx をインストール…</value></data>
   <data name="PluginManager_Uninstall"><value>アンインストール</value></data>
   <data name="PluginManager_Reload"><value>再読み込み</value></data>

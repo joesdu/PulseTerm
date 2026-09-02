@@ -11,8 +11,11 @@
         Background="Transparent"
         WindowStartupLocation="CenterOwner">
 
-  <!-- 终端回写授权弹窗。规格与 MessageDialog 一致:bg-surface 卡片 + 圆角 8 + 阴影;
-       四种选择:仅本次 / 本次运行 / 始终 / 拒绝(蓝图 06 的最小授权流)。 -->
+  <!-- 插件敏感能力授权弹窗(终端回写 / 按已保存配置开会话)。
+       规格与 MessageDialog 一致:bg-surface 卡片 + 圆角 8 + 阴影;
+       四种选择:仅本次 / 本次运行 / 始终 / 拒绝(蓝图 06 的最小授权流)。
+       标题、正文、预览框与图标由 code-behind 按能力填 —— 两种请求的骨架完全一样,
+       各写一个窗口只会让两边的按钮排布慢慢长歪。 -->
 
   <Window.Styles>
     <Style Selector="Button.dlg-outline">
@@ -63,7 +66,7 @@
               BorderBrush="{DynamicResource VelaBorderPrimary}"
               BorderThickness="0,0,0,1">
         <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-          <pc:LucideIcon Width="15" Height="15" Data="{StaticResource Icon.terminal}"
+          <pc:LucideIcon x:Name="HeaderIcon" Width="15" Height="15" Data="{StaticResource Icon.terminal}"
                          Foreground="{DynamicResource VelaWarning}" VerticalAlignment="Center" />
           <TextBlock x:Name="TitleText"
                      Foreground="{DynamicResource VelaTextPrimary}"

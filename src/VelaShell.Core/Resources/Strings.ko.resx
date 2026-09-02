@@ -3744,6 +3744,8 @@ Windows는 exe 전체 경로 또는 명령 이름(예: notepad), Linux는 명령
   <data name="PluginPerm_AllowSession"><value>이번 세션 허용</value></data>
   <data name="PluginPerm_AllowAlways"><value>항상 허용</value></data>
   <data name="PluginPerm_Deny"><value>거부</value></data>
+  <data name="PluginPermSession_Title"><value>연결 요청</value></data>
+  <data name="PluginPermSession_Message"><value>플러그인 "{0}"이(가) {1}에 연결하려고 합니다. 플러그인이 밝힌 이유:</value></data>
   <data name="PluginManager_Install"><value>.vpx 설치…</value></data>
   <data name="PluginManager_Uninstall"><value>제거</value></data>
   <data name="PluginManager_Reload"><value>다시 로드</value></data>

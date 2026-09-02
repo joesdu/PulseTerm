@@ -1950,8 +1950,9 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
                       ?? new JsonFilePluginStorage(dataDirectory),
             // 时序只有 SonnetDB 后端能提供(文件退化实现没有意义):无 DB 的宿主一律报不可用。
             TimeSeries = options.DataStore?.CreateTimeSeries(manifest.Id) ?? new UnavailableTimeSeries(),
+            // 会话能力按插件分实例:开出来的会话记在实例里,CloseAsync 据此判"这条是不是你开的"。
             Sessions = options.Connections is { } connections
-                ? new SessionsCapability(connections)
+                ? new SessionsCapability(manifest.Id, connections, options.SessionProfiles, options.SessionOpener)
                 : new EmptySessionsApi(),
             RemoteFs = options is { Sftp: { } sftp, Connections: { } conn }
                 ? new RemoteFsCapability(sftp, conn)
@@ -2522,6 +2523,20 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
 
         public Task<SessionInfo?> GetAsync(string sessionId, CancellationToken cancellationToken = default)
             => Task.FromResult<SessionInfo?>(null);
+
+        public Task<IReadOnlyList<SavedSessionInfo>> ListSavedAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<SavedSessionInfo>>([]);
+
+        // 没有连接服务的宿主既问不了用户、也连不了机器。报"拒绝"而不是"能力不可用":
+        // 契约里拒绝是插件必须处理的一种正常结局,而 InvalidOperationException 不是。
+        public Task<SessionInfo> OpenAsync(string savedSessionId, SessionOpenOptions options,
+            CancellationToken cancellationToken = default)
+            => Task.FromException<SessionInfo>(
+                new PluginPermissionDeniedException("This host cannot open sessions."));
+
+        public Task CloseAsync(string sessionId, CancellationToken cancellationToken = default)
+            => Task.FromException(new PluginPermissionDeniedException(
+                $"Session '{sessionId}' was not opened by this plugin."));
     }
 
     private sealed class UnavailableRemoteFs : IRemoteFsApi

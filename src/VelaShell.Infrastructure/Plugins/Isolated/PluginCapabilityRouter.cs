@@ -122,6 +122,20 @@ internal sealed class PluginCapabilityRouter : IDisposable
                 return await _context.Sessions.ListAsync(cancellationToken).ConfigureAwait(false);
             case PluginRpc.SessionsGet:
                 return await _context.Sessions.GetAsync(Get<SessionRef>(payload).SessionId, cancellationToken).ConfigureAwait(false);
+            case PluginRpc.SessionsListSaved:
+                return await _context.Sessions.ListSavedAsync(cancellationToken).ConfigureAwait(false);
+            case PluginRpc.SessionsOpen:
+                {
+                    // 这一条可以很慢:中间夹着一个给用户看的确认框,还有真正的建连。
+                    // 插件侧的超时按"人要看一眼再点"给(见 RpcSessions.OpenTimeout),
+                    // 宿主这边不另设死线 —— 提前判死只会留下一条谁都不认领的连接。
+                    SessionOpenRequest request = Get<SessionOpenRequest>(payload);
+                    return await _context.Sessions.OpenAsync(request.SavedSessionId,
+                        new(request.Reason, request.ReuseConnected), cancellationToken).ConfigureAwait(false);
+                }
+            case PluginRpc.SessionsClose:
+                await _context.Sessions.CloseAsync(Get<SessionRef>(payload).SessionId, cancellationToken).ConfigureAwait(false);
+                return null;
             case PluginRpc.ExecRun:
                 {
                     ExecRunRequest request = Get<ExecRunRequest>(payload);

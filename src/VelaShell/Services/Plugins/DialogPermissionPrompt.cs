@@ -9,4 +9,8 @@ internal sealed class DialogPermissionPrompt : IPluginPermissionPrompt
     public Task<PluginPermissionDecision> RequestTerminalWriteAsync(string pluginId, string sessionLabel,
         string inputPreview, CancellationToken cancellationToken)
         => PluginPermissionDialog.AskAsync(pluginId, sessionLabel, inputPreview);
+
+    public Task<PluginPermissionDecision> RequestSessionOpenAsync(string pluginId, string target, string reason,
+        CancellationToken cancellationToken)
+        => PluginPermissionDialog.AskSessionOpenAsync(pluginId, target, reason);
 }

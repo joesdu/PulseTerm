@@ -63,6 +63,11 @@ public static class PluginServiceCollectionExtensions
                 TrustRepository = sp.GetRequiredService<PluginTrustRepository>(),
                 HostVersion = hostVersion,
                 Connections = sp.GetService<ISshConnectionService>(),
+                // 已保存配置 + 开会话的实现:插件"自己按保存的配置连一台"这条路
+                // (蓝图 §Sessions)所需的两块。后者由 UI 层注册,headless 宿主没有,
+                // 于是开会话一律拒绝。
+                SessionProfiles = sp.GetService<Core.Data.ISessionRepository>(),
+                SessionOpener = sp.GetService<IPluginSessionOpener>(),
                 Sftp = sp.GetService<ISftpService>(),
                 Theme = sp.GetService<IThemeService>(),
                 Localization = sp.GetService<ILocalizationService>(),
