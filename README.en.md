@@ -135,7 +135,7 @@ Together, VelaShell means **"a terminal as your sail, riding the signal winds to
 | Platform | Architecture | Status |
 |----------|--------------|--------|
 | Windows 10 / 11 | x64 / arm64 | ✅ Fully supported (portable zip, in-app updates; also on Microsoft Store as MSIX) |
-| Linux | x64 / arm64 | ✅ Fully supported (portable tar.gz) |
+| Linux | x64 / arm64 | ✅ Fully supported (portable tar.gz, single-file `.AppImage`, native `.deb` / `.rpm`) |
 | macOS | x64 / arm64 | ✅ Fully supported (tar.gz + drag-install `.dmg`, unsigned/not notarised) |
 
 Releases are **self-contained**, so no .NET runtime is required on the target machine. [`scripts/publish-all.ps1`](scripts/publish-all.ps1) produces every platform package in one go — see [Build & release](#-build--release).
@@ -211,7 +211,7 @@ docker compose -f docker-compose.test.yml up -d
 pwsh scripts/publish-all.ps1
 ```
 
-Artifacts cover Windows x64/arm64 (portable zip) plus macOS and Linux x64/arm64 (tar.gz), all self-contained — unpack anywhere and run, no .NET required. Each package carries the isolated-plugin host process `VelaShell.PluginHost` plus a `plugins/` directory holding only the in-house AI plugin (Redis / S3 / Telnet have not been preinstalled since 2026-08-22 — users install them from the marketplace on demand). The macOS `.dmg` drag-install image is produced only on CI's macOS runner (`hdiutil`/`iconutil`/`codesign` are macOS-only tools); **the updater always consumes the tar.gz**, while the dmg exists purely for manual installation.
+Artifacts cover Windows x64/arm64 (portable zip) plus macOS and Linux x64/arm64 (tar.gz), all self-contained — unpack anywhere and run, no .NET required. Each package carries the isolated-plugin host process `VelaShell.PluginHost` plus a `plugins/` directory holding only the in-house AI plugin (Redis / S3 / Telnet have not been preinstalled since 2026-08-22 — users install them from the marketplace on demand). The macOS `.dmg` drag-install image is produced only on CI's macOS runner (`hdiutil`/`iconutil`/`codesign` are macOS-only tools); Beyond the tar.gz, Linux ships three more: a single-file `.AppImage` (`chmod +x` and double-click — see `build/appimage/README.md`) plus native `.deb` / `.rpm` packages (installed into `/opt/velashell`, registering a menu entry and `/usr/bin/velashell` — see `build/linux-packages/README.md`), one of each per architecture, all cross-built on the same x64 runner. **The updater always consumes the tar.gz**; the dmg, AppImage, deb and rpm exist purely for manual download and installation — once installed their application directory is not writable, so the About page degrades to "download it manually".
 
 > Microsoft Store (MSIX) installs are updated by the Store, so in-app update actions are hidden there. The Store build lives under the read-only `WindowsApps` directory and its data folder is redirected to a package-private location, so **its settings, sessions and keys are separate from the portable build's**.
 
