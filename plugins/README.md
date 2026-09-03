@@ -63,11 +63,13 @@ SDK 契约程序集取 nuget.org 上的正式包，**不做工程引用**：
   机密的命名空间，改了等于让已有用户的配置（AI 插件的 API key 就在里面）全部失联。
   目录名不参与任何逻辑：宿主枚举子目录后从 `plugin.json` 读 id。
 
-  这条规矩当初是为了绕开 `codesign --deep`：它会把 `.app` 内带点号的目录当成嵌套 bundle
-  而签名失败（1.2.0 踩过）。**1.4.8 起 `release.yml` 不再用 `--deep`**——那次是某个 NuGet 包
-  带进来一个 `runtimes/win/lib/net6.0/`，目录名同样带点，我们控制不了，只能从签名方式上解决
-  （细节见 `release.yml` 里 codesign 那一步的注释）。根因既已消失，这条命名规矩就只是惯例了，
-  但没有理由改回去：改了同样会让已有安装找不到目录。
+  这条规矩是为了绕开 `codesign --deep`：它会把 `.app` 内带点号的目录当成嵌套 bundle
+  而签名失败（1.2.0 踩过）。`--deep` 去不掉——`Contents/MacOS` 在 bundle 格式里是代码区，
+  我们往那儿摊了三百多个 dll/dylib，不加 `--deep` 就得挨个签（1.4.8 试过，换来一句
+  `code object is not signed at all`）。所以这条约束一直有效，**而且不止约束目录名：
+  新加的 NuGet 包只要带进来一个 `runtimes/<rid>/lib/net6.0/`，同样会炸**（1.4.8 的
+  `QRCoder → System.Drawing.Common` 就是这么来的）。`release.yml` 在签名前会先扫一遍
+  并给出可读的报错，细节见那一步的注释。
 
 ## 测试
 
