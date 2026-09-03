@@ -135,7 +135,7 @@ VelaShell 是一个使用 .NET 11 与 Avalonia 构建的桌面终端应用，支
 | 平台 | 架构 | 状态 |
 |------|------|------|
 | Windows 10 / 11 | x64 / arm64 | ✅ 完整支持（便携 zip，应用内自动更新；另有 Microsoft Store MSIX） |
-| Linux | x64 / arm64 | ✅ 完整支持（便携 tar.gz） |
+| Linux | x64 / arm64 | ✅ 完整支持（便携 tar.gz、`.AppImage` 单文件免安装包、`.deb` / `.rpm` 发行版原生包） |
 | macOS | x64 / arm64 | ✅ 完整支持（tar.gz + `.dmg` 拖装包，未签名/未公证） |
 
 发布方式为 **Self-contained**，目标机器无需预装 .NET Runtime。跨平台发布由 [`scripts/publish-all.ps1`](scripts/publish-all.ps1) 一键产出，详见[发布](#-构建与发布)。
@@ -211,7 +211,7 @@ docker compose -f docker-compose.test.yml up -d
 pwsh scripts/publish-all.ps1
 ```
 
-产物覆盖 Windows x64/arm64（便携 zip）、macOS 与 Linux x64/arm64（tar.gz），全部为含运行时的自包含发布，解压到任意目录即可运行，无需预装 .NET。包内除主程序外还带着隔离插件的宿主进程 `VelaShell.PluginHost`，以及只放着自建 AI 插件的 `plugins/` 目录（Redis / S3 / Telnet 自 2026-08-22 起不再预装，改由用户从插件商店按需安装）。macOS 的 `.dmg` 拖装包只在 CI 的 macOS runner 上生成（`hdiutil`/`iconutil`/`codesign` 是 macOS 独有工具）；**自动更新永远只取 tar.gz**，dmg 仅供人工安装。
+产物覆盖 Windows x64/arm64（便携 zip）、macOS 与 Linux x64/arm64（tar.gz），全部为含运行时的自包含发布，解压到任意目录即可运行，无需预装 .NET。包内除主程序外还带着隔离插件的宿主进程 `VelaShell.PluginHost`，以及只放着自建 AI 插件的 `plugins/` 目录（Redis / S3 / Telnet 自 2026-08-22 起不再预装，改由用户从插件商店按需安装）。macOS 的 `.dmg` 拖装包只在 CI 的 macOS runner 上生成（`hdiutil`/`iconutil`/`codesign` 是 macOS 独有工具）；Linux 除 tar.gz 外另出三份：`.AppImage` 单文件免安装包（`chmod +x` 后双击即跑，见 `build/appimage/README.md`），以及 `.deb` / `.rpm` 发行版原生包（装进 `/opt/velashell`，登记菜单项与 `/usr/bin/velashell`，见 `build/linux-packages/README.md`）—— 两种架构各一份，全部在同一台 x64 runner 上交叉打出。**自动更新永远只取 tar.gz**；dmg、AppImage、deb、rpm 都仅供人工下载安装，装完后应用目录不可写，关于页会自动降级成"请手动下载"。
 
 > 从 Microsoft Store 安装的版本（MSIX）更新由商店接管，应用内的更新操作会自动隐藏。商店版装在只读的 `WindowsApps` 下，数据目录被系统重定向到包私有位置，因此**与便携版的配置、会话、密钥互不相通**。
 

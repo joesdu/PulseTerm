@@ -1,0 +1,55 @@
+# rpm 打包描述。由 Build-Rpm.sh 填掉 @VERSION@ 后交给 rpmbuild,不要直接 rpmbuild 这个 .in。
+#
+# 这里打的是**已经编译好的自包含产物**,不是从源码构建,所以把 rpm 默认的那套"构建后处理"
+# 全关掉,否则它会去 strip 我们的二进制、抽 debuginfo、改文件属性,轻则白费时间重则弄坏产物。
+%global __os_install_post %{nil}
+%global debug_package     %{nil}
+%define _build_id_links   none
+
+Name:           velashell
+Version:        @VERSION@
+Release:        1
+Summary:        Cross-platform SSH terminal client
+License:        AGPL-3.0-or-later
+URL:            https://github.com/joesdu/VelaShell
+
+# 必须关掉自动依赖分析:开着的话 rpmbuild 会去扫 /opt/velashell 里几百个随运行时带的 .so,
+# 把它们统统登记成本包的 Provides(于是别的包可能解析到我们的私有副本上),
+# 同时按精确 soname 生成一堆 Requires(libssl.so.3 之类),换个发行版就装不上。
+# 需要的系统库改在 %description 里说明:少数几个 dlopen 依赖装不上不该拦住整个安装,
+# 而 rpm 系各发行版的包名各不相同(Fedora 的 libX11 在 openSUSE 叫 libX11-6),
+# 写死任何一套都会在另一套上炸。
+AutoReqProv:    no
+
+%description
+VelaShell is a self-drawn, plugin-based SSH terminal client built on Avalonia:
+tabbed sessions, split panes with drag-and-drop docking, SFTP, port forwarding
+and an extensible plugin system.
+
+This package bundles the .NET runtime, so no system-wide .NET is required.
+It does rely on a few libraries that virtually every desktop install already
+has: glibc, libstdc++, zlib, fontconfig, libX11/libICE/libSM, OpenSSL and ICU.
+
+%prep
+# 无源码可解压 —— 产物是外面 dotnet publish 好之后铺进 _sourcedir/root 的。
+
+%build
+# 无编译步骤,同上。
+
+%install
+rm -rf %{buildroot}
+mkdir -p %{buildroot}
+cp -a %{_sourcedir}/root/. %{buildroot}/
+
+%files
+# 显式 root:root:rpmbuild 记的是 buildroot 里文件的实际属主,而 CI 上是以普通用户跑的。
+# 权限位保持 Stage-Payload.sh 铺好的样子(第一个 '-')。
+%defattr(-,root,root,-)
+/opt/velashell
+/usr/bin/velashell
+/usr/share/applications/velashell.desktop
+/usr/share/icons/hicolor/*/apps/velashell.png
+/usr/share/doc/velashell
+
+%changelog
+# 变更记录在 GitHub Release 里,不在这儿维护第二份。

@@ -2,7 +2,9 @@
 # 三平台原生 runner 构建 self-contained 产物,统一附加到该 Release:
 #   Windows x64/arm64 → zip
 #   macOS   x64/arm64 → tar.gz + dmg(未签名/未公证;Unix 可执行位在原生 runner 上保留)
-#   Linux   x64/arm64 → tar.gz
+#   Linux   x64/arm64 → tar.gz + AppImage + deb + rpm(后三者均未签名;四种格式全部在同一台
+#                       x64 runner 上交叉打包出 amd64/arm64 两份,理由见各自的打包脚本:
+#                       build/appimage/ 与 build/linux-packages/)
 # 随包分发的插件(plugins/<目录名>/,目录名 = id 把点换成短横,原因见 macOS job 的签名一步)
 # **只有本仓库 plugins/ 下自建的那些**(当前是 AI 插件 velashell.ai),随 publish 一起构建、
 # 由 src/VelaShell/VelaShell.csproj 的 AddVelaPluginsToPublish 登记入包。
@@ -28,6 +30,9 @@
 #            就是 tar.gz 的扁平布局,应用在 bundle 内运行时更新器的应用目录即
 #            Contents/MacOS,后续自更新照常工作(Info.plist/图标不随更新变,可接受)。
 #   因此 dmg 绝不能写进 latest.json 的 assets;二者布局必须保持一致。
+# Linux 一共四种产物,分工同理:只有 tar.gz 是更新器资产、进 latest.json;AppImage / deb / rpm
+# 都是给人下载安装的。后三者装完之后应用目录要么是只读 squashfs 挂载点、要么归 root,
+# 应用内更新器的可写探测会自动把关于页降级成"发现新版本,请手动下载",无需为它们加任何判定。
 # 另生成两份元数据:
 #   SHA256SUMS.txt — 全部产物的校验和(人工核对用)
 #   latest.json    — 应用内自更新清单(版本号/标签/各 RID 产物名+sha256+大小);
@@ -259,7 +264,16 @@ jobs:
         run: echo "$SNK_B64" | openssl base64 -A -d > src/VelaShell.snk
         env:
           SNK_B64: ${{ secrets.STRONG_NAME_KEY }}
-      - name: Publish (linux-x64 / linux-arm64)
+      # rpm:Debian 系上装个 rpmbuild 就能产出 rpm 包,不必再养一台 rpm 发行版的 runner。
+      # imagemagick:仓库只有一张 1024×1024 的源图,而 hicolor 主题不认这个尺寸,
+      #             deb/rpm 里的图标必须现降采样成标准档位(见 Stage-Payload.sh)。
+      # 显式装而不是赌 runner 镜像自带:两者在 ubuntu 镜像的历次改版里都进出过。
+      - name: Install packaging tools
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends rpm imagemagick
+      - name: Publish & package (linux-x64 / linux-arm64 → tar.gz + AppImage + deb + rpm)
         run: |
           set -euo pipefail
           version="${TAG_NAME#v}"
@@ -270,7 +284,22 @@ jobs:
               -p:Version="$version" -p:SelfContained=true -p:DebugType=None --nologo
             # 两个可执行体:主程序,以及隔离插件的宿主进程(由主程序按需拉起)。
             chmod +x "out/$name/VelaShell" "out/$name/VelaShell.PluginHost"
+            # tar.gz:应用内更新器的资产,扁平布局不可改(latest.json 只登记它)。
             tar -czf "dist/$name.tar.gz" -C "out/$name" .
+            # AppImage:人类下载资产,与 macOS 的 dmg 同一定位 —— 单文件、免安装、双击即跑。
+            # 同样**不进 latest.json**:更新器只会原地解包 zip/tar.gz;何况 AppImage 运行时应用
+            # 目录是只读的 squashfs 挂载点,换版无从谈起(可写探测会自动降级成"请手动下载")。
+            build/appimage/Build-AppImage.sh "out/$name" "$rid" "$version" dist
+            # deb / rpm:发行版原生包,装进 /opt/velashell 并登记到菜单与 PATH。
+            # 两者装进系统的文件是同一棵树(build/linux-packages/Stage-Payload.sh),只是外壳不同。
+            # 命名刻意跟随各自发行版的惯例(velashell_1.2.3_amd64.deb / velashell-1.2.3-1.x86_64.rpm)
+            # 而不是本仓库的 VelaShell-<版本>-<RID>:这两个文件名是给 dpkg/rpm 和仓库工具解析的,
+            # 改成自定义样式会让它们认不出包名/版本/架构。同样不进 latest.json(装完目录归 root,
+            # 更新交给包管理器)。
+            build/linux-packages/Build-Deb.sh "out/$name" "$rid" "$version" dist
+            build/linux-packages/Build-Rpm.sh "out/$name" "$rid" "$version" dist
+            # 打完就回收:一份发布目录 200 MB 上下,两个 RID 之间不留全量副本。
+            rm -rf "out/$name"
           done
         env:
           TAG_NAME: ${{ github.event.release.tag_name || inputs.tag }}

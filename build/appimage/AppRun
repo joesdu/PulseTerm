@@ -1,0 +1,8 @@
+#!/bin/sh
+# AppImage 的入口:运行时整个包被挂到一个每次都不同的临时挂载点(/tmp/.mount_XXXX),
+# 绝对路径无从写死,只能由这个脚本按自身位置解析出真正的可执行体。
+# 布局与 tar.gz 完全一致(扁平的发布目录整个搬进 usr/bin),因此应用侧对
+# AppContext.BaseDirectory 的一切假设 —— plugins/ 目录、随包的 VelaShell.PluginHost —— 照旧成立。
+set -eu
+HERE="$(dirname "$(readlink -f "$0")")"
+exec "$HERE/usr/bin/VelaShell" "$@"

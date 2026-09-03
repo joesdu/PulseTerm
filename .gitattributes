@@ -61,3 +61,14 @@
 #*.PDF   diff=astextplain
 #*.rtf   diff=astextplain
 #*.RTF   diff=astextplain
+
+###############################################################################
+# Packaging scripts and rpm specs must keep LF endings: they are consumed on
+# CI's Linux runners, where a CRLF shebang fails with
+# "bad interpreter: /usr/bin/env^M" and rpmbuild reads the trailing carriage
+# return into every spec field.
+###############################################################################
+*.sh      text eol=lf
+*.spec    text eol=lf
+*.spec.in text eol=lf
+AppRun    text eol=lf
