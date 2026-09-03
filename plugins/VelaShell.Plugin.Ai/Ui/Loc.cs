@@ -408,13 +408,22 @@ public sealed class Loc(string locale)
         ["CmdCollaboration"] = ["AI: Collaboration (chat bridge & MCP server)", "AI: 协作接入(IM 桥接与 MCP 服务端)", "AI: 協作接入(IM 橋接與 MCP 伺服器)", "AI: 連携設定(チャット連携と MCP サーバー)", "AI: 협업 연동(채팅 브리지 및 MCP 서버)"],
         ["Collaboration"] = ["Collaboration", "协作接入", "協作接入", "連携", "협업 연동"],
         ["SecBridge"] = ["Chat bridge", "IM 桥接", "IM 橋接", "チャット連携", "채팅 브리지"],
-        ["BridgeEnabled"] = ["Let the team talk to this assistant from a chat app", "允许团队从 IM 里指使这个助手", "允許團隊從 IM 裡指使這個助手", "チャットアプリからこのアシスタントを使えるようにする", "채팅 앱에서 이 어시스턴트를 쓸 수 있게 합니다"],
+        // 这一条是**总开关**,不是"授权别人用"。原文案写的是"允许团队从 IM 里指使这个助手",
+        // 于是一个人自用时看起来像是多余的一步(用户反馈):明明只是想自己跟机器人私聊,
+        // 却被要求先勾一个听上去在给团队开权限的框。实际语义是"要不要接 IM" —— 不勾就一条连接都不建。
+        ["BridgeEnabled"] = [
+            "Enable the chat bridge (talk to this assistant from Feishu / DingTalk / Telegram)",
+            "启用 IM 接入(在飞书 / 钉钉 / Telegram 里跟这个助手对话)",
+            "啟用 IM 接入(在飛書 / 釘釘 / Telegram 裡跟這個助手對話)",
+            "チャット連携を有効にする(Feishu / DingTalk / Telegram からこのアシスタントと話す)",
+            "채팅 연동 활성화(Feishu / DingTalk / Telegram에서 이 어시스턴트와 대화)"
+        ],
         ["BridgeEnabledHint"] = [
-            "Runs while VelaShell is running (minimise to tray to stay online). Tools act on the SSH sessions you already have open.",
-            "只在 VelaShell 开着时在线(可最小化到托盘)。工具作用于你已经连上的那些 SSH 会话。",
-            "只在 VelaShell 開著時在線(可最小化到系統匣)。工具作用於你已經連上的那些 SSH 工作階段。",
-            "VelaShell の起動中のみ動作します(トレイに最小化で常駐)。ツールは既に接続済みの SSH セッションに作用します。",
-            "VelaShell이 실행 중일 때만 동작합니다(트레이로 최소화하면 계속 온라인). 도구는 이미 연결된 SSH 세션에 작용합니다."
+            "The master switch: unticked, no connection is made at all. Online only while VelaShell is running (minimise to tray to stay up); tools act on the SSH sessions you already have open. Every chat — including your own direct message to the bot — still has to be authorised below, because anyone in the same tenant can message the bot and it cannot tell which one is you.",
+            "总开关:不勾就一条连接都不建。只在 VelaShell 开着时在线(可最小化到托盘),工具作用于你已经连上的那些 SSH 会话。每个聊天(包括你自己跟机器人的单聊)仍要在下面单独授权 —— 同一个租户里任何人都能私聊这个机器人,它分不出哪个是你。",
+            "總開關:不勾就一條連線都不建。只在 VelaShell 開著時在線(可最小化到系統匣),工具作用於你已經連上的那些 SSH 工作階段。每個聊天(包括你自己跟機器人的單聊)仍要在下面單獨授權 —— 同一個租戶裡任何人都能私訊這個機器人,它分不出哪個是你。",
+            "マスタースイッチです。オフの間は接続を一切張りません。VelaShell の起動中のみオンライン(トレイに最小化で常駐)、ツールは既に接続済みの SSH セッションに作用します。どのチャットも(自分とボットの個別チャットを含め)下で個別に許可が必要です —— 同じテナントの誰でもボットに話しかけられ、ボットにはどれがあなたか分からないからです。",
+            "마스터 스위치입니다. 꺼져 있으면 연결을 전혀 만들지 않습니다. VelaShell이 실행 중일 때만 온라인이며(트레이로 최소화하면 계속 유지), 도구는 이미 연결된 SSH 세션에 작용합니다. 모든 대화는(본인과 봇의 1:1 대화 포함) 아래에서 개별적으로 허용해야 합니다 — 같은 테넌트의 누구나 봇에게 말을 걸 수 있고, 봇은 그중 누가 본인인지 구분하지 못하기 때문입니다."
         ],
         ["BridgeMode"] = ["Mode", "挡位", "擋位", "モード", "모드"],
         ["BridgeApproval"] = ["Approval", "审批方式", "審批方式", "承認方式", "승인 방식"],
