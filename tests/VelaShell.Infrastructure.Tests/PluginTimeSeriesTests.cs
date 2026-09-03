@@ -139,7 +139,9 @@ public sealed class PluginTimeSeriesTests : IDisposable
         ]);
 
         Assert.AreEqual(2, await series.CountAsync("seq", new() { Tags = new Dictionary<string, string> { ["conv"] = "c1" } }));
-        Assert.AreSequenceEqual(["c1", "c2"], [.. (await series.DistinctTagValuesAsync("conv"))], Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
+        // await 不能写在 Assert.AreSequenceEqual 的实参位置,理由见 AreSequenceEqualAwaitTests.cs。
+        string[] conversations = [.. await series.DistinctTagValuesAsync("conv")];
+        Assert.AreSequenceEqual(["c1", "c2"], conversations, Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
 
         await series.DeleteAsync(new Dictionary<string, string> { ["conv"] = "c1" });
         Assert.IsEmpty(await series.QueryAsync(new() { Tags = new Dictionary<string, string> { ["conv"] = "c1" } }));
