@@ -6,13 +6,22 @@ namespace VelaShell.Tests.ViewModels;
 
 /// <summary>
 /// 快捷键总表的守护:<see cref="ShortcutCatalog" /> 是设置页与
-/// <c>docs/快捷键参考.md</c> 的共同来源,这里保证三者不会各说各话。
+/// <c>velashell-docs</c> 的 <c>zh/host/快捷键参考.md</c> 的共同来源,这里保证三者不会各说各话。
 /// </summary>
 /// <remarks>
+/// <para>
 /// 快捷键最容易腐坏的地方不是代码,而是「加了绑定却没人记得改表」——
 /// 界面照常工作,只有参考页和文档在悄悄说谎,而说谎的参考页比没有参考页更糟。
 /// 因此这里把 <c>MainWindow.axaml</c> 的 <c>KeyBinding</c> 当作事实,
 /// 反向要求总表登记;文档同理:每一条目录条目都必须能在文档表格里找到同名同键的一行。
+/// </para>
+/// <para>
+/// 文档在 2026-08-30 那次「文档搬到 velashell-docs」里迁走了,本仓库不再有 <c>docs/</c> ——
+/// 当时漏改了这里,于是 <see cref="Doc_ListsEveryCatalogEntry" /> 从那天起在任何一次干净检出上
+/// 都必然失败(找不到路径),这条守卫等于哑了几个月。现在改为按
+/// <see cref="DocumentationPath" /> 去找并排检出的文档仓库;找不到就报 Inconclusive,
+/// 而不是把失败当常态 —— 常年红着的用例和没有用例是一回事。
+/// </para>
 /// </remarks>
 [TestClass]
 public partial class ShortcutCatalogTests
@@ -93,19 +102,32 @@ public partial class ShortcutCatalogTests
     }
 
     /// <summary>
-    /// 文档必须与总表逐条对齐:每个目录条目都要在 <c>docs/快捷键参考.md</c> 的表格里
+    /// 文档必须与总表逐条对齐:每个目录条目都要在 <c>zh/host/快捷键参考.md</c> 的表格里
     /// 找到「动作名 + 键位」都相同的一行。失败信息直接给出可粘贴的 Markdown 行,
     /// 补文档不用再手抄一遍。
     /// </summary>
+    /// <remarks>
+    /// 文档在另一个仓库(<c>VelaShellLabs/velashell-docs</c>),所以这条只在文档仓库就在手边时才跑。
+    /// 那份文档的「维护约定」一节明写着由本用例把关,把它删掉等于让文档那句话变成空头承诺。
+    /// </remarks>
     [TestMethod]
     public void Doc_ListsEveryCatalogEntry()
     {
+        if (DocumentationPath() is not { } path)
+        {
+            Assert.Inconclusive(
+                "没找到文档仓库,跳过文档比对。把 VelaShellLabs/velashell-docs 检出到本仓库的同级目录"
+                + $"(即 {Path.Combine(Path.GetDirectoryName(RepoRoot()) ?? "..", DocsRepositoryName)}),"
+                + $"或用环境变量 {DocsDirectoryVariable} 指向它。");
+            return;
+        }
+
         // 文档以简体中文书写,取词文化必须钉死,否则本机语言一变整测失败。
         CultureInfo previous = CultureInfo.CurrentUICulture;
         try
         {
             CultureInfo.CurrentUICulture = new("zh-Hans");
-            string doc = File.ReadAllText(Path.Combine(RepoRoot(), "docs", "快捷键参考.md"));
+            string doc = File.ReadAllText(path);
             List<string> missing = [.. ShortcutCatalog.Build()
                 .SelectMany(group => group.Items)
                 .Where(item => !DocHasRow(doc, item))
@@ -113,7 +135,7 @@ public partial class ShortcutCatalogTests
                 .Distinct(StringComparer.Ordinal)];
 
             Assert.IsEmpty(missing,
-                           "docs/快捷键参考.md 缺少以下条目(新增快捷键必须同步文档,直接粘贴下面这几行):\n" +
+                           $"{DocRelativePath} 缺少以下条目(新增快捷键必须同步文档,直接粘贴下面这几行):\n" +
                            string.Join("\n", missing));
         }
         finally
@@ -145,6 +167,35 @@ public partial class ShortcutCatalogTests
         text.StartsWith("Sc_", StringComparison.Ordinal)
         || text.StartsWith("Cmd_", StringComparison.Ordinal)
         || text.StartsWith("SetVm_", StringComparison.Ordinal);
+
+    /// <summary>文档仓库的目录名(与本仓库并排检出时)。</summary>
+    private const string DocsRepositoryName = "velashell-docs";
+
+    /// <summary>指向文档仓库的环境变量;并排检出之外的布局用它。</summary>
+    private const string DocsDirectoryVariable = "VELASHELL_DOCS_DIR";
+
+    /// <summary>快捷键参考在文档仓库里的相对路径。</summary>
+    private static readonly string DocRelativePath = Path.Combine("zh", "host", "快捷键参考.md");
+
+    /// <summary>
+    /// 定位快捷键参考文档:先看环境变量,再看与本仓库并排的检出。都没有就返回 null(用例跳过)。
+    /// </summary>
+    private static string? DocumentationPath()
+    {
+        string? configured = Environment.GetEnvironmentVariable(DocsDirectoryVariable);
+        if (!string.IsNullOrWhiteSpace(configured))
+        {
+            string fromVariable = Path.Combine(configured, DocRelativePath);
+            return File.Exists(fromVariable) ? fromVariable : null;
+        }
+        string? parent = Path.GetDirectoryName(RepoRoot());
+        if (parent is null)
+        {
+            return null;
+        }
+        string sibling = Path.Combine(parent, DocsRepositoryName, DocRelativePath);
+        return File.Exists(sibling) ? sibling : null;
+    }
 
     private static string RepoRoot()
     {

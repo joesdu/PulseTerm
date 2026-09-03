@@ -214,6 +214,8 @@ README 同理:`README.md` ↔ `README.en.md`。
 
 加了新键位却没登记,`ShortcutCatalogTests` 会直接失败并**打印出可粘贴的 Markdown 行**。完整规则见 [`velashell-docs zh/host/快捷键参考.md`](https://github.com/VelaShellLabs/velashell-docs/blob/main/zh/host/快捷键参考.md) 的「维护约定」。
 
+其中比对文档的那一条(`Doc_ListsEveryCatalogEntry`)要读到文档仓库才跑得起来:把 [velashell-docs](https://github.com/VelaShellLabs/velashell-docs) 检出到本仓库的**同级目录**,或用环境变量 `VELASHELL_DOCS_DIR` 指过去;都没有时它报 Inconclusive 跳过,不会拦住你 —— 但**改快捷键时请务必让它真的跑一次**,否则文档漏行不会有人发现。
+
 ---
 
 ## 这些别改
