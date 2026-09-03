@@ -49,7 +49,7 @@ internal sealed class FeishuChannel(ChannelConfig config, string appSecret, IPlu
 
     /// <inheritdoc />
     /// <remarks>飞书能改已发出的文本消息,所以进度可以就地刷新,不必刷屏。</remarks>
-    public ChannelCapabilities Capabilities => new(true, 3000);
+    public ChannelCapabilities Capabilities => new(true, 3000, 30 * 1024 * 1024);
 
     /// <inheritdoc />
     public event Action? Connected;
@@ -457,6 +457,10 @@ internal sealed class FeishuChannel(ChannelConfig config, string appSecret, IPlu
         }
         await _api.EditTextAsync(messageId, text, cancellationToken).ConfigureAwait(false);
     }
+
+    /// <inheritdoc />
+    public Task SendFileAsync(OutboundTarget target, string localPath, CancellationToken cancellationToken)
+        => _api.SendFileAsync(target.ChatId, localPath, cancellationToken);
 
     private void Remember(string? messageId, bool card)
     {

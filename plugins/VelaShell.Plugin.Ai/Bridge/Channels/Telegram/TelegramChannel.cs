@@ -1,3 +1,4 @@
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using VelaShell.PluginSdk;
@@ -39,7 +40,7 @@ internal sealed class TelegramChannel(ChannelConfig config, string token, IPlugi
     public string Label => config.Label;
 
     /// <inheritdoc />
-    public ChannelCapabilities Capabilities => new(true, 4000);
+    public ChannelCapabilities Capabilities => new(true, 4000, 50 * 1024 * 1024);
 
     /// <inheritdoc />
     public event Action? Connected;
@@ -185,6 +186,29 @@ internal sealed class TelegramChannel(ChannelConfig config, string token, IPlugi
         {
             using JsonDocument _ = await CallAsync("editMessageText",
                 new { chat_id = chat, message_id = message, text }, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// Telegram 这一家最省事:一步 multipart,不用先换 key。
+    /// </remarks>
+    public async Task SendFileAsync(OutboundTarget target, string localPath, CancellationToken cancellationToken)
+    {
+        string name = Path.GetFileName(localPath);
+        await using FileStream stream = File.OpenRead(localPath);
+        using var form = new MultipartFormDataContent { { new StringContent(target.ChatId), "chat_id" } };
+        using var content = new StreamContent(stream);
+        content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+        form.Add(content, "document", name);
+        using HttpResponseMessage response = await _http
+            .PostAsync($"https://api.telegram.org/bot{token}/sendDocument", form, cancellationToken)
+            .ConfigureAwait(false);
+        string payload = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        using JsonDocument document = JsonDocument.Parse(payload);
+        if (!document.RootElement.TryGetProperty("ok", out JsonElement ok) || !ok.GetBoolean())
+        {
+            throw new InvalidOperationException($"Telegram sendDocument failed: {payload}");
         }
     }
 

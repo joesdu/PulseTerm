@@ -120,6 +120,46 @@ public sealed class ChannelHub(IPluginContext context) : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 把一个本机文件发进聊天。成功返回 null,失败返回<b>给模型看的那句话</b>。
+    /// </summary>
+    /// <remarks>
+    /// 这里刻意不像 <see cref="SendAsync" /> 那样把失败咽掉。发文件是用户<b>明确要的</b>
+    /// 一件事("把日志发我"),悄悄失败等于让他一直等一个永远不来的附件 ——
+    /// 而普通回复掉一条,下一轮还能再说一遍。
+    /// </remarks>
+    public async Task<string?> SendFileAsync(string channelId, OutboundTarget target, string localPath,
+        CancellationToken cancellationToken)
+    {
+        if (Find(channelId) is not { } channel)
+        {
+            return "This chat is not connected right now, so the file could not be sent.";
+        }
+        if (channel.Capabilities.MaxFileBytes <= 0)
+        {
+            return $"{channel.Label} cannot receive files from this bot.";
+        }
+        // 上限在发之前查:超了之后各家的表现不一(有的报错,有的静默丢),
+        // 而"传了两分钟然后无事发生"是最难查的一种。
+        var info = new FileInfo(localPath);
+        if (info.Exists && info.Length > channel.Capabilities.MaxFileBytes)
+        {
+            long limit = channel.Capabilities.MaxFileBytes / (1024 * 1024);
+            return $"That file is {info.Length / (1024 * 1024)} MB; {channel.Label} accepts at most {limit} MB. "
+                   + "Split or compress it on the server first, then download and send the smaller file.";
+        }
+        try
+        {
+            await channel.SendFileAsync(target, localPath, cancellationToken).ConfigureAwait(false);
+            return null;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            context.Log.Warn($"Bridge: sending a file to {channel.Label} failed: {ex.Message}");
+            return $"The platform refused the upload: {ex.Message}";
+        }
+    }
+
     /// <summary>取某渠道的能力(找不到则返回默认值)。</summary>
     public ChannelCapabilities CapabilitiesOf(string channelId)
         => Find(channelId)?.Capabilities ?? new ChannelCapabilities(false);

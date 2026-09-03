@@ -96,6 +96,55 @@ internal sealed class FeishuApi(string appId, string appSecret, bool internation
             new { content = Card(markdown) }, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 传一个文件上去换 <c>file_key</c>,再发一条文件消息。
+    /// </summary>
+    /// <remarks>
+    /// 飞书把"传文件"和"发消息"分成两步,中间靠 <c>file_key</c> 串起来。
+    /// <c>file_type</c> 用 <c>stream</c> 这一档通吃 —— 另外那几档(opus/mp4/pdf…)
+    /// 会按类型做转码或预览,而日志包既不是音视频也不一定是 pdf,
+    /// 报错了反而说不清是哪一步的问题。
+    /// </remarks>
+    public async Task SendFileAsync(string chatId, string localPath, CancellationToken cancellationToken)
+    {
+        string name = Path.GetFileName(localPath);
+        string token = await TokenAsync(cancellationToken).ConfigureAwait(false);
+        string fileKey;
+        await using (FileStream stream = File.OpenRead(localPath))
+        {
+            using var form = new MultipartFormDataContent
+            {
+                { new StringContent("stream"), "file_type" },
+                { new StringContent(name), "file_name" }
+            };
+            using var content = new StreamContent(stream);
+            content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+            form.Add(content, "file", name);
+            using var request = new HttpRequestMessage(HttpMethod.Post, Domain + "/open-apis/im/v1/files")
+            {
+                Content = form
+            };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            using HttpResponseMessage response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            using JsonDocument uploaded = await ReadAsync(response, cancellationToken).ConfigureAwait(false);
+            JsonElement root = uploaded.RootElement;
+            if (root.TryGetProperty("code", out JsonElement code) && code.GetInt32() != 0)
+            {
+                throw new InvalidOperationException($"Feishu file upload failed: {Message(root)} (code {code.GetInt32()}).");
+            }
+            fileKey = root.GetProperty("data").GetProperty("file_key").GetString()
+                      ?? throw new InvalidOperationException("Feishu file upload returned no file_key.");
+        }
+        using JsonDocument _ = await CallAsync(HttpMethod.Post,
+            "/open-apis/im/v1/messages?receive_id_type=chat_id",
+            new
+            {
+                receive_id = chatId,
+                msg_type = "file",
+                content = JsonSerializer.Serialize(new { file_key = fileKey })
+            }, cancellationToken).ConfigureAwait(false);
+    }
+
     /// <summary>一张只有一个 Markdown 元素的卡片(序列化成字符串,接口要的就是字符串)。</summary>
     private static string Card(string markdown) => JsonSerializer.Serialize(new
     {

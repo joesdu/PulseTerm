@@ -48,6 +48,9 @@ public sealed class AgentToolbox(IPluginContext context)
     /// <summary>一次并行执行最多铺多少台。再多就该写脚本了,而且输出也读不过来。</summary>
     private const int MaxParallelSessions = 16;
 
+    /// <summary><c>send_file</c> 唯一允许发出去的目录(<c>download_remote_file</c> 的落点)。</summary>
+    private const string DownloadFolder = "downloads";
+
     /// <summary>当前选中的目标会话 id(由聊天面板提供;null = 未选)。</summary>
     public Func<string?>? SessionIdProvider { get; set; }
 
@@ -97,6 +100,19 @@ public sealed class AgentToolbox(IPluginContext context)
     /// <summary>网络检索设置(SearXNG 地址、私网闸、截断上限)。由聊天面板每轮推过来。</summary>
     public WebSearchOptions WebSearch { get; set; } = new();
 
+    /// <summary>
+    /// 把一个本机文件送进这条对话所在的 IM 聊天。
+    /// <see langword="null" />(聊天面板与 MCP 那两条路)= <c>send_file</c> 根本不注册。
+    /// </summary>
+    /// <remarks>
+    /// 成功返回 <see langword="null" />,失败返回一句给模型看的话。
+    /// <para>
+    /// <b>为什么需要它。</b>机器人在服务器上看得见日志,人在手机上 ——
+    /// 复制一屏文字回去既丢格式又丢内容,而"打个包发给我"才是这件事的完整形态。
+    /// </para>
+    /// </remarks>
+    public Func<string, CancellationToken, Task<string?>>? FileSender { get; set; }
+
     /// <summary>全部内置工具的名称与一句说明,供"配置工具"窗口列出勾选项。</summary>
     public static IReadOnlyList<(string Name, string Description, bool ReadOnly)> Catalog { get; } =
     [
@@ -121,7 +137,8 @@ public sealed class AgentToolbox(IPluginContext context)
         ("rename_remote_path", "重命名 / 移动远端文件或目录(改配置前备份用)", false),
         ("upload_local_file", "把本机文件(如 MCP 工具刚生成的)经 SFTP 传到服务器", false),
         ("download_remote_file", "把远端文件拉到本机(交给本地 MCP 工具处理)", false),
-        ("write_terminal", "把文本敲进用户可见的终端", false)
+        ("write_terminal", "把文本敲进用户可见的终端", false),
+        ("send_file", "把已下载的文件当附件发进当前这个 IM 聊天(只有 IM 那条路有)", false)
     ];
 
     /// <summary>
@@ -231,6 +248,16 @@ public sealed class AgentToolbox(IPluginContext context)
                 + "Pick the results that look relevant and read them with web_fetch. "
                 + "Use it whenever the answer may have moved since training: package versions, CVE details, changelogs, "
                 + "vendor documentation, or an error message you do not recognise."), true));
+        }
+        // 只有 IM 那条路给得出落点,所以别的路上连这个工具都不该出现 ——
+        // 模型看得见一个永远失败的工具,只会反复去试。
+        if (FileSender is not null)
+        {
+            all.Add(("send_file", AIFunctionFactory.Create(SendFileAsync, "send_file",
+                "Send a file into the chat you are talking in, as an attachment the user can download. "
+                + "The path must be one that download_remote_file returned — this tool can ONLY send files that were "
+                + "downloaded from a server, never arbitrary files on the user's machine. "
+                + "To deliver logs: archive them on the server (tar/gzip) if there are several, download the file, then send it."), false));
         }
         if (WebSearch.Enabled)
         {
@@ -695,6 +722,83 @@ public sealed class AgentToolbox(IPluginContext context)
         }
     }
 
+    /// <summary>
+    /// 把一个文件当附件发进当前这个 IM 聊天。
+    /// </summary>
+    /// <remarks>
+    /// <b>这是一个出口,所以路径必须锁死。</b>一个"能读本机任意文件并推进群里"的工具,
+    /// 就是一条完整的外泄通道 —— 群里任何一个人只要说一句"帮我看看 id_rsa",
+    /// 而模型没有理由怀疑这句话。
+    /// <para>
+    /// 锁的办法不是黑名单(数不完),是<b>白名单一个目录</b>:只能发
+    /// <c>download_remote_file</c> 自己下下来的那些。于是能发出去的东西必然满足
+    /// "来自一台这次授权允许操作的服务器"——那一关在下载的时候已经过了。
+    /// 用户自己的桌面、密钥、浏览器数据,一律够不着。
+    /// </para>
+    /// <para>
+    /// 另外照样走审批:文件出了这台机器就收不回来,而"发哪个文件到哪个群"正是
+    /// 用户该看一眼的那种决定。
+    /// </para>
+    /// </remarks>
+    private async Task<string> SendFileAsync(
+        [Description("Local path returned by download_remote_file. Files outside the plugin's downloads folder are refused.")] string path,
+        CancellationToken cancellationToken = default)
+    {
+        if (FileSender is not { } send)
+        {
+            return "This conversation has no chat to send files into.";
+        }
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return "path must not be empty; pass the local path download_remote_file returned.";
+        }
+        string full;
+        try
+        {
+            full = Path.GetFullPath(path.Trim());
+        }
+        catch (Exception ex)
+        {
+            return $"Not a usable path: {ex.Message}";
+        }
+        if (!IsSendable(full))
+        {
+            return "Refused: send_file can only send files that download_remote_file saved into the plugin's "
+                   + "downloads folder. Download the file from the server first, then send that path.";
+        }
+        if (!File.Exists(full))
+        {
+            return $"No such local file: {full}. Download it from the server first.";
+        }
+        var info = new FileInfo(full);
+        if (!await ApproveAsync(new ApprovalRequest("send_file", $"{info.Name}  ({info.Length} bytes)\n→ this chat"),
+                cancellationToken).ConfigureAwait(false))
+        {
+            return "The user DENIED sending this file. Do not retry; ask the user how to proceed.";
+        }
+        if (await send(full, cancellationToken).ConfigureAwait(false) is { } failure)
+        {
+            return $"Could not send the file: {failure}";
+        }
+        return $"Sent {info.Name} ({info.Length} bytes) into the chat.";
+    }
+
+    /// <summary>这个路径在允许发出去的那个目录里吗。</summary>
+    /// <remarks>
+    /// 比的是<b>规范化之后</b>的全路径,并且要求以目录分隔符结尾的前缀 ——
+    /// 少了那个分隔符,<c>…/downloads-secret/x</c> 也会被当成在 <c>…/downloads</c> 里面。
+    /// <c>..</c> 由 <see cref="Path.GetFullPath(string)" /> 先折平,所以穿不出去。
+    /// </remarks>
+    private bool IsSendable(string fullPath)
+    {
+        string folder = Path.GetFullPath(Path.Combine(context.DataDirectory, DownloadFolder));
+        if (!folder.EndsWith(Path.DirectorySeparatorChar))
+        {
+            folder += Path.DirectorySeparatorChar;
+        }
+        return Path.GetFullPath(fullPath).StartsWith(folder, StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>关掉本插件自己开的那条会话(宿主拒绝关别人的)。</summary>
     /// <remarks>
     /// 不走审批闸。关的对象已经被宿主限死在"本插件开的那些"里,用户自己的标签页一根汗毛都动不了;
@@ -976,7 +1080,7 @@ public sealed class AgentToolbox(IPluginContext context)
         string target;
         if (string.IsNullOrWhiteSpace(localPath))
         {
-            string folder = Path.Combine(context.DataDirectory, "downloads");
+            string folder = Path.Combine(context.DataDirectory, DownloadFolder);
             Directory.CreateDirectory(folder);
             target = Path.Combine(folder, Path.GetFileName(remotePath.TrimEnd('/')));
         }
@@ -1011,7 +1115,10 @@ public sealed class AgentToolbox(IPluginContext context)
             }
             await context.RemoteFs.DownloadFileAsync(id, remotePath, target, cancellationToken: cancellationToken)
                          .ConfigureAwait(false);
-            return $"Downloaded to {target} ({entry.Size} bytes). Local tools can read it from there.";
+            return $"Downloaded to {target} ({entry.Size} bytes). Local tools can read it from there."
+                   + (FileSender is not null && IsSendable(target)
+                       ? " You can also hand it to the user with send_file."
+                       : "");;
         }
         catch (Exception ex)
         {

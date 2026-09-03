@@ -29,7 +29,10 @@ public sealed class BridgeRouterTests
 
         public string Label => "fake";
 
-        public ChannelCapabilities Capabilities => new(true, 4000);
+        public ChannelCapabilities Capabilities => new(true, 4000, 30 * 1024 * 1024);
+
+        /// <summary>发出去的文件(路径)。</summary>
+        public List<string> Files { get; } = [];
 
         public event Action? Connected;
 
@@ -48,6 +51,12 @@ public sealed class BridgeRouterTests
         public Task EditAsync(OutboundTarget target, string messageId, string text, CancellationToken cancellationToken)
         {
             Sent.Add($"[edit {messageId}] {text}");
+            return Task.CompletedTask;
+        }
+
+        public Task SendFileAsync(OutboundTarget target, string localPath, CancellationToken cancellationToken)
+        {
+            Files.Add(localPath);
             return Task.CompletedTask;
         }
 

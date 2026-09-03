@@ -63,7 +63,7 @@ public sealed class BridgeService(IPluginContext context, AiSettingsStore aiStor
 
             var hub = new ChannelHub(context);
             var approvals = new ImApprovalBroker(hub, context);
-            var runner = new BridgeAgentRunner(context, aiStore, _history, _mcp);
+            var runner = new BridgeAgentRunner(context, aiStore, _history, _mcp, hub);
             var router = new ConversationRouter(context, hub, runner, approvals, _bridgeStore, Pairing);
             router.Apply(bridge, _loc);
             hub.StatusChanged += status => StatusChanged?.Invoke(status);

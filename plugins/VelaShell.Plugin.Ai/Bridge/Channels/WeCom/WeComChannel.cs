@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Net.Http.Headers;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text;
@@ -53,7 +54,7 @@ internal sealed class WeComChannel(
     public string Label => config.Label;
 
     /// <inheritdoc />
-    public ChannelCapabilities Capabilities => new(false, 2000);
+    public ChannelCapabilities Capabilities => new(false, 2000, 20 * 1024 * 1024);
 
     /// <inheritdoc />
     public event Action? Connected;
@@ -268,6 +269,55 @@ internal sealed class WeComChannel(
     /// <inheritdoc />
     public Task EditAsync(OutboundTarget target, string messageId, string text, CancellationToken cancellationToken)
         => Task.CompletedTask; // Capabilities.CanEdit = false
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// 临时素材换 <c>media_id</c> 再发。素材三天过期,而我们发完就不再引用它,所以不必留着。
+    /// </remarks>
+    public async Task SendFileAsync(OutboundTarget target, string localPath, CancellationToken cancellationToken)
+    {
+        string accessToken = await TokenAsync(cancellationToken).ConfigureAwait(false);
+        string name = Path.GetFileName(localPath);
+        string mediaId;
+        await using (FileStream stream = File.OpenRead(localPath))
+        {
+            using var form = new MultipartFormDataContent();
+            using var content = new StreamContent(stream);
+            content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+            form.Add(content, "media", name);
+            using HttpResponseMessage upload = await _http.PostAsync(
+                $"{ApiBase}/cgi-bin/media/upload?access_token={Uri.EscapeDataString(accessToken)}&type=file",
+                form, cancellationToken).ConfigureAwait(false);
+            using JsonDocument document = JsonDocument.Parse(
+                await upload.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
+            if (document.RootElement.TryGetProperty("errcode", out JsonElement code) && code.GetInt32() != 0)
+            {
+                throw new InvalidOperationException($"WeCom media upload failed: {Describe(document.RootElement)}");
+            }
+            mediaId = document.RootElement.GetProperty("media_id").GetString()
+                      ?? throw new InvalidOperationException("WeCom media upload returned no media_id.");
+        }
+        bool isGroup = _groups.TryGetValue(target.ChatId, out bool group) && group;
+        string path = isGroup ? "/cgi-bin/appchat/send" : "/cgi-bin/message/send";
+        object body = isGroup
+            ? new { chatid = target.ChatId, msgtype = "file", file = new { media_id = mediaId } }
+            : new
+            {
+                touser = target.ChatId,
+                msgtype = "file",
+                agentid = int.TryParse(config.AgentId, out int agent) ? agent : 0,
+                file = new { media_id = mediaId }
+            };
+        using HttpResponseMessage response = await _http.PostAsJsonAsync(
+            $"{ApiBase}{path}?access_token={Uri.EscapeDataString(accessToken)}", body, cancellationToken)
+            .ConfigureAwait(false);
+        using JsonDocument sent = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
+        if (sent.RootElement.TryGetProperty("errcode", out JsonElement sendCode) && sendCode.GetInt32() != 0)
+        {
+            throw new InvalidOperationException($"WeCom {path} failed: {Describe(sent.RootElement)}");
+        }
+    }
 
     private static string Describe(JsonElement root)
     {
