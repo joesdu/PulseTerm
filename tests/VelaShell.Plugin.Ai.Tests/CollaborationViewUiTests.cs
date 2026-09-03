@@ -1,3 +1,6 @@
+using System.Reflection;
+using System.Runtime.InteropServices;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
@@ -5,8 +8,8 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.LogicalTree;
 using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using Avalonia.Threading;
-using QRCoder;
 using VelaShell.Plugin.Ai.Agent;
 using VelaShell.Plugin.Ai.Bridge;
 using VelaShell.Plugin.Ai.Configuration;
@@ -387,26 +390,50 @@ public sealed class CollaborationViewUiTests
     }
 
     /// <summary>
-    /// 二维码真的画得出来。
+    /// 二维码真的画得出来,而且画的就是编码器给的那张矩阵。
     /// </summary>
     /// <remarks>
-    /// QRCoder 是这次新引的依赖,而且要经 PNG 字节转成 Avalonia 的 <see cref="Bitmap" /> ——
-    /// 这条路"编译得过、运行才炸"的可能性最高(比如挑了个要 System.Drawing 的重载),
-    /// 所以单独钉一条。
+    /// 走的是生产路径本身(反射调 <c>RenderQr</c>),不是在测试里另拼一遍 ——
+    /// 这一段是"编译得过、运行才炸"的高发地带:它自己建 <see cref="WriteableBitmap" />、
+    /// 锁帧缓冲、按 <c>RowBytes</c> 逐行拷字节,任何一处算错都只有真跑一次才看得见。
+    /// 矩阵本身的正确性由 <c>QrCodeTests</c> 把关,这里只管"矩阵 → 像素"这一跳。
     /// </remarks>
     [TestMethod]
-    public void QrCode_RendersToABitmap()
+    public void QrCode_RendersTheEncodedMatrixToPixels()
     {
         OnUi(() =>
         {
-            using var generator = new QRCodeGenerator();
-            using QRCodeData data = generator.CreateQrCode("https://t.me/example_bot?startgroup=true",
-                QRCodeGenerator.ECCLevel.M);
-            byte[] png = new PngByteQRCode(data).GetGraphic(6);
+            const string url = "https://t.me/example_bot?startgroup=true";
+            const int scale = 6;
+            const int quiet = 4;
+            QrCode expected = QrCode.Encode(url, QrEcc.Medium);
 
-            using var bitmap = new Bitmap(new MemoryStream(png));
+            MethodInfo render = typeof(CollaborationView)
+                                    .GetMethod("RenderQr", BindingFlags.NonPublic | BindingFlags.Static)
+                                ?? throw new InvalidOperationException("CollaborationView.RenderQr is gone — update this test.");
+            using var bitmap = (WriteableBitmap)render.Invoke(null, [url])!;
 
-            Assert.IsTrue(bitmap.PixelSize.Width > 0 && bitmap.PixelSize.Height > 0);
+            int side = (expected.Size + (quiet * 2)) * scale;
+            Assert.AreEqual(new PixelSize(side, side), bitmap.PixelSize);
+
+            using ILockedFramebuffer frame = bitmap.Lock();
+            byte[] pixels = new byte[frame.RowBytes * side];
+            Marshal.Copy(frame.Address, pixels, 0, pixels.Length);
+            bool IsDark(int x, int y) => pixels[(y * frame.RowBytes) + (x * 4)] == 0;
+
+            // 静默区必须是白的,否则识读器框不出符号边界。
+            Assert.IsFalse(IsDark(0, 0), "左上角静默区不该是深色");
+            Assert.IsFalse(IsDark(side - 1, side - 1), "右下角静默区不该是深色");
+            // 每个模块的中心像素都要与矩阵对上(顺带验证 quiet/scale 的偏移没算错)。
+            for (int my = 0; my < expected.Size; my++)
+            {
+                for (int mx = 0; mx < expected.Size; mx++)
+                {
+                    int px = ((mx + quiet) * scale) + (scale / 2);
+                    int py = ((my + quiet) * scale) + (scale / 2);
+                    Assert.AreEqual(expected[mx, my], IsDark(px, py), $"模块 ({mx},{my}) 画错了");
+                }
+            }
             return Task.CompletedTask;
         });
     }

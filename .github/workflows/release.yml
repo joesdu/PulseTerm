@@ -231,7 +231,18 @@ jobs:
             # ad-hoc 签名:Apple Silicon 拒绝运行完全无签名的二进制;无开发者证书时 ad-hoc 是底线。
             # 后续自更新替换 Contents/MacOS 里的文件会使 bundle 印章失效 —— 对未公证的
             # ad-hoc 应用无影响(系统只校验各二进制自身的嵌入签名,dotnet publish 的产物自带)。
-            codesign --force --deep --sign - "$app"
+            #
+            # **不要加回 --deep。** 苹果自己早就说它只该用于校验、不该用于签名,而在这里它是纯负债:
+            # --deep 会把包内每个"看着像 bundle"的目录当嵌套代码去签,而**目录名里带点号就算**。
+            # 于是随便哪个 NuGet 包带进来一个 runtimes/win/lib/net6.0/,打包就会以
+            # "bundle format unrecognized, invalid, or unsuitable" 整个失败 ——
+            # 1.4.8 被 QRCoder → System.Drawing.Common 这条链炸过一次,1.2.0 则是插件目录名
+            # 带点号炸的(那次的应对是改目录名,见 plugins/README.md)。
+            # 去掉 --deep 之后这一类问题从根上不会再发生:真正被系统校验的是各二进制自身的嵌入签名,
+            # 那是 dotnet publish 给的,重签一遍毫无意义。
+            # 想确认这一点看 tar.gz 那条路就够了:同一批二进制,从来没有经过任何 bundle 签名,
+            # 一直跑得好好的 —— 自更新换版之后的应用也正是这个状态。
+            codesign --force --sign - "$app"
 
             # dmg:VelaShell.app + /Applications 快捷方式的经典拖装布局。
             # hdiutil -srcfolder 会先建一个与内容等大的可写镜像(挂到 /Volumes/VelaShell)灌进去

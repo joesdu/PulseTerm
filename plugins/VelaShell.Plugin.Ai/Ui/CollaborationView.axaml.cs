@@ -1,12 +1,13 @@
+using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
-using QRCoder;
 using VelaShell.Plugin.Ai.Agent;
 using VelaShell.Plugin.Ai.Bridge;
 using VelaShell.Plugin.Ai.Configuration;
@@ -479,18 +480,49 @@ public partial class CollaborationView : UserControl
         }
     }
 
+    /// <summary>一个模块画多少像素。位图会被 <see cref="Image" /> 缩到 168,取 6 让缩的是"变小"。</summary>
+    private const int QrScale = 6;
+
+    /// <summary>静默区宽度,规范要求四周留 4 个模块 —— 少了识读器可能框不出符号边界。</summary>
+    private const int QrQuietZone = 4;
+
     /// <summary>把一段链接画成二维码。</summary>
     /// <remarks>
-    /// 走 <see cref="PngByteQRCode" /> 出 PNG 字节再交给 Avalonia —— QRCoder 另有几个
-    /// 直接出 <c>System.Drawing.Bitmap</c> 的类型,那条路在 Linux 上要 libgdiplus,
-    /// 而这是个跨三平台的桌面程序。
+    /// 自己算模块矩阵(<see cref="QrCode" />)再直接写进 <see cref="WriteableBitmap" />,
+    /// 中间不经 PNG:原先走 QRCoder 的 <c>PngByteQRCode</c> 出字节流再解回位图,
+    /// 是为了绕开它那几个吐 <c>System.Drawing.Bitmap</c> 的类型;把编码器换成自己的之后,
+    /// 这一趟编码 + 解码就没有存在的理由了。换掉 QRCoder 的原因见 <see cref="QrCode" /> 的注释。
     /// </remarks>
-    private static Bitmap RenderQr(string text)
+    private static WriteableBitmap RenderQr(string text)
     {
-        using var generator = new QRCodeGenerator();
-        using QRCodeData data = generator.CreateQrCode(text, QRCodeGenerator.ECCLevel.M);
-        byte[] png = new PngByteQRCode(data).GetGraphic(6);
-        return new Bitmap(new MemoryStream(png));
+        QrCode qr = QrCode.Encode(text, QrEcc.Medium);
+        int side = (qr.Size + (QrQuietZone * 2)) * QrScale;
+        WriteableBitmap bitmap = new(
+            new PixelSize(side, side), new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Opaque);
+
+        // 二维码固定黑白,不跟着主题反色 —— 反色的码有相当一部分识读器扫不动。
+        byte[] scanline = new byte[side * 4];
+        using ILockedFramebuffer frame = bitmap.Lock();
+        for (int y = 0; y < side; y++)
+        {
+            int moduleY = (y / QrScale) - QrQuietZone;
+            for (int x = 0; x < side; x++)
+            {
+                int moduleX = (x / QrScale) - QrQuietZone;
+                bool dark = moduleY >= 0 && moduleY < qr.Size
+                            && moduleX >= 0 && moduleX < qr.Size
+                            && qr[moduleX, moduleY];
+                byte level = dark ? (byte)0 : (byte)255;
+                int offset = x * 4;
+                scanline[offset] = level;
+                scanline[offset + 1] = level;
+                scanline[offset + 2] = level;
+                scanline[offset + 3] = 255;
+            }
+            // 只拷一行的有效字节:RowBytes 可能比 side*4 大(行首对齐的填充)。
+            Marshal.Copy(scanline, 0, frame.Address + (y * frame.RowBytes), scanline.Length);
+        }
+        return bitmap;
     }
 
     /// <summary>

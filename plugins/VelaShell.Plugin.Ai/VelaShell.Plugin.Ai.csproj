@@ -58,12 +58,13 @@
     <PackageReference Include="LiveMarkdown.Avalonia.Math" Version="2.4.0" />
     <!-- SVG:给图片管线注册 SVG 解码器。用 Svg.Controls.Avalonia 后端(非 Skia,用户决策)。 -->
     <PackageReference Include="LiveMarkdown.Avalonia.Svg" Version="2.4.0" />
-    <!-- 二维码:协作接入页上「把机器人拉进群」的链接渲染成码,手机扫一下直接跳过去,
-         省掉在手机上搜应用名。用 PngByteQRCode 出字节流交给 Avalonia 的 Bitmap ——
-         不碰 System.Drawing,Linux/macOS 上不需要 libgdiplus。
-         (MIT,netstandard2.0,无传递依赖。自己写一个 QR 编码器要 Reed-Solomon 与掩码评分,
-         几百行且没有额外价值 —— 与自研 VT/ZMODEM 不同,这里没有需要拿捏的协议细节。) -->
-    <PackageReference Include="QRCoder" Version="1.8.0" />
+    <!-- 二维码(协作接入页上「把机器人拉进群」的链接)自己编,见 Ui/QrCode.cs。
+         这里曾经引 QRCoder 1.8.0,当时判断是"MIT,netstandard2.0,无传递依赖" ——
+         这条判断是错的:它的 netstandard2.0 目标依赖 System.Drawing.Common 6.0.0
+         (再带 Microsoft.Win32.SystemEvents)。那个库 6.0 之后官方只支持 Windows,
+         并且带来的 runtimes/{win,unix}/lib/net6.0/ 目录名里有点号,会被 macOS 的
+         codesign 当成嵌套 bundle 而把 dmg 打包整个炸掉(1.4.8 踩过,与 plugins/README.md
+         记的插件目录名那次是同一个坑)。**再加包之前先看清它的传递依赖。** -->
   </ItemGroup>
 
 </Project>

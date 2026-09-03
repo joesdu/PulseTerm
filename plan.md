@@ -1127,6 +1127,15 @@ Avalonia 的 `Bitmap` —— 不碰 `System.Drawing`,Linux/macOS 上不需要 li
 自己写 QR 编码器要 Reed-Solomon 与掩码评分,几百行且没有额外价值:与自研 VT/ZMODEM 不同,
 这里没有需要拿捏的协议细节。
 
+> **1.4.8 后记:上面这段判断是错的,已改为自研(`Ui/QrCode.cs`)。**
+> "无传递依赖"没核实:QRCoder 1.8.0 的 netstandard2.0 目标依赖 `System.Drawing.Common 6.0.0`
+> (再带 `Microsoft.Win32.SystemEvents`)—— 正是那个 6.0 之后只支持 Windows 的库,
+> 绕开 `PngByteQRCode` 也没能真的绕开它。而且它带进来的 `runtimes/{win,unix}/lib/net6.0/`
+> 目录名里有点号,被 macOS 的 `codesign --deep` 当成嵌套 bundle,把 1.4.8 的 dmg 打包整个炸掉。
+> 代价也比预想的小:只做字节模式(编的全是带小写的 URL,数字/字母数字模式一次也用不上),
+> 连注释三百多行,正确性由与独立实现逐格比对出来的黄金用例把关。
+> **教训是"新引一个包之前先看清它的传递依赖",不是"能自研就自研"。**
+
 ### 六、顺手修的一处 UX
 
 设置页原来要等三秒(定时器)才刷出待放行清单,现在加载完就先刷一次;定时器只负责
