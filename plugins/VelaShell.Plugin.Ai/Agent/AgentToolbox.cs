@@ -76,6 +76,24 @@ public sealed class AgentToolbox(IPluginContext context)
     /// <summary>用户在"配置工具"里取消勾选的内置工具名(不暴露给模型)。</summary>
     public IReadOnlySet<string> DisabledTools { get; set; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// 这次调用能碰哪些机器。<b><see langword="null" /> = 不限制</b>。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// null 是聊天面板那条路的取值,而且必须一直是:人就坐在屏幕前,每个危险操作还要点一次
+    /// 审批卡,再叠一层范围只会把用户自己拦住 —— 一套把作者也拦住的权限设计,
+    /// 结局是被整个关掉。收紧只发生在<b>被委托的那些身份</b>上:IM 里的群,以及外部 agent。
+    /// </para>
+    /// <para>
+    /// <b>它挡的是九个收 <c>session_id</c> 的工具,不只是"默认目标"。</b>
+    /// 把范围做成"绑定哪台机器"是拦不住的:每个工具都能显式传 id,传了就绕开默认值。
+    /// 所以闸设在 <see cref="ResolveAsync" />(单目标)、<see cref="RunOnSessionsAsync" />(多目标)
+    /// 与两个列表工具上,而不是设在提示词里。
+    /// </para>
+    /// </remarks>
+    public ISessionScope? Scope { get; set; }
+
     /// <summary>网络检索设置(SearXNG 地址、私网闸、截断上限)。由聊天面板每轮推过来。</summary>
     public WebSearchOptions WebSearch { get; set; } = new();
 
@@ -232,10 +250,12 @@ public sealed class AgentToolbox(IPluginContext context)
 
     private async Task<string> ListSessionsAsync(CancellationToken cancellationToken)
     {
-        IReadOnlyList<SessionInfo> sessions = await context.Sessions.ListAsync(cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<SessionInfo> sessions =
+            await InScopeAsync(await context.Sessions.ListAsync(cancellationToken).ConfigureAwait(false),
+                cancellationToken).ConfigureAwait(false);
         if (sessions.Count == 0)
         {
-            return "No sessions. " + NoSession;
+            return Scope is null ? "No sessions. " + NoSession : OutOfScopeEmpty;
         }
         // 与 ResolveAsync 同一套优先级:界面选中的 > 自己开出来的。标错默认目标比不标更糟。
         string? selected = SessionIdProvider?.Invoke() ?? _openedSessionId;
@@ -266,10 +286,16 @@ public sealed class AgentToolbox(IPluginContext context)
     /// </remarks>
     private async Task<string> ListSavedSessionsAsync(CancellationToken cancellationToken)
     {
-        IReadOnlyList<SavedSessionInfo> saved = await context.Sessions.ListSavedAsync(cancellationToken).ConfigureAwait(false);
-        if (saved.Count == 0)
+        IReadOnlyList<SavedSessionInfo> all = await context.Sessions.ListSavedAsync(cancellationToken).ConfigureAwait(false);
+        if (all.Count == 0)
         {
             return "The user has no saved connection configurations in VelaShell.";
+        }
+        // 范围外的配置连名字都不该出现:分组名本身就在泄露"这台机器归谁管"
+        IReadOnlyList<SavedSessionInfo> saved = await InScopeAsync(all, cancellationToken).ConfigureAwait(false);
+        if (saved.Count == 0)
+        {
+            return OutOfScopeEmpty;
         }
         IReadOnlyList<SessionInfo> live = await context.Sessions.ListAsync(cancellationToken).ConfigureAwait(false);
         var sb = new StringBuilder();
@@ -531,6 +557,12 @@ public sealed class AgentToolbox(IPluginContext context)
             {
                 return $"No such session: {raw}. Call list_sessions to see the available ids.";
             }
+            // 单目标的闸在 ResolveAsync 上,而这个工具收的是一个 id 数组、根本不经过那里 ——
+            // 批量执行是范围最容易漏掉的一处:漏了就等于给了整批的后门。
+            if (!await AllowedAsync(info, cancellationToken).ConfigureAwait(false))
+            {
+                return OutOfScope;
+            }
             targets.Add(info);
         }
         // 审批摘要里把目标主机全列出来:批量执行最该让用户看清的就是"打到哪几台"
@@ -616,6 +648,11 @@ public sealed class AgentToolbox(IPluginContext context)
         if (saved.FirstOrDefault(s => string.Equals(s.SavedSessionId, wanted, StringComparison.Ordinal)) is not { } target)
         {
             return $"No such saved session: {wanted}. Call list_saved_sessions to see the available ids.";
+        }
+        // 范围要在审批之前挡:越界的请求根本不该走到"惊动用户点头"那一步
+        if (Scope is { } scope && !await scope.AllowsSavedAsync(target, cancellationToken).ConfigureAwait(false))
+        {
+            return OutOfScope;
         }
         // 审批卡上要看得见连的是哪一台,以及模型给宿主的那句理由 ——
         // 用户在这里点头之后,同一句话还会出现在宿主的确认框上,两处对得上才不显得可疑。
@@ -1104,6 +1141,25 @@ public sealed class AgentToolbox(IPluginContext context)
             : NoSessionMessage;
 
     /// <summary>
+    /// 目标在 <see cref="Scope" /> 之外时给模型的话。
+    /// </summary>
+    /// <remarks>
+    /// <b>刻意不说范围外有什么。</b>一句"这台不在范围内,范围内的是 A、B、C"会把拒绝消息本身
+    /// 变成一个枚举接口 —— 试一个 id 就能问出一份清单。说清"越界了、别换个 id 再试、
+    /// 去告诉用户",够模型正确收场,也够用户知道该去哪儿改。
+    /// </remarks>
+    private const string OutOfScope =
+        "That machine is outside the scope this conversation is authorized for. "
+        + "Do NOT retry with a different session id. Tell the user which machine you needed and that "
+        + "the authorization for this conversation would have to be widened in VelaShell's collaboration settings.";
+
+    /// <summary>范围内一台都没有时的说法(与"用户一台都没连"要分开,否则用户会去连一台然后发现还是不行)。</summary>
+    private const string OutOfScopeEmpty =
+        "No machines are within the scope this conversation is authorized for. "
+        + "Tell the user: the authorization for this conversation would have to be widened in "
+        + "VelaShell's collaboration settings.";
+
+    /// <summary>
     /// 解出这次调用该落在哪个会话上:显式传了就用那个(先核实存在),否则用界面上选中的那个,
     /// 再没有就用本轮 <c>open_session</c> 自己开出来的那条。
     /// </summary>
@@ -1114,6 +1170,11 @@ public sealed class AgentToolbox(IPluginContext context)
     /// <para>
     /// 兜底那一档的位置是刻意的:排在选中项<b>之后</b>。理由见 <see cref="_openedSessionId" />。
     /// </para>
+    /// <para>
+    /// <b>三条路都要过 <see cref="Scope" /> 那一关</b>,包括默认目标 —— 不只是显式传进来的 id。
+    /// 默认目标来自 IM 里的 <c>/use</c> 或 MCP 的 <c>use_session</c>,它们各自也在挡范围;
+    /// 但用户可能在授权之后把那台机器移出了分组,而绑定还留着。闸口只有一个才守得住。
+    /// </para>
     /// </remarks>
     private async Task<(string? Id, string? Error)> ResolveAsync(string? sessionId, CancellationToken cancellationToken)
     {
@@ -1121,12 +1182,21 @@ public sealed class AgentToolbox(IPluginContext context)
         {
             string wanted = sessionId.Trim();
             SessionInfo? info = await context.Sessions.GetAsync(wanted, cancellationToken).ConfigureAwait(false);
-            return info is null
-                ? (null, $"No such session: {wanted}. Call list_sessions to see the available ids.")
-                : (info.SessionId, null);
+            if (info is null)
+            {
+                return (null, $"No such session: {wanted}. Call list_sessions to see the available ids.");
+            }
+            return await AllowedAsync(info, cancellationToken).ConfigureAwait(false)
+                ? (info.SessionId, null)
+                : (null, OutOfScope);
         }
         if (SessionIdProvider?.Invoke() is { } current)
         {
+            SessionInfo? bound = await context.Sessions.GetAsync(current, cancellationToken).ConfigureAwait(false);
+            if (bound is not null && !await AllowedAsync(bound, cancellationToken).ConfigureAwait(false))
+            {
+                return (null, OutOfScope);
+            }
             return (current, null);
         }
         // 自己开的那条:用户手动关掉之后就不该再往它上面发东西,所以每次都核实一下还在不在。
@@ -1134,11 +1204,55 @@ public sealed class AgentToolbox(IPluginContext context)
         {
             if (await context.Sessions.GetAsync(opened, cancellationToken).ConfigureAwait(false) is { } live)
             {
-                return (live.SessionId, null);
+                return await AllowedAsync(live, cancellationToken).ConfigureAwait(false)
+                    ? (live.SessionId, null)
+                    : (null, OutOfScope);
             }
             _openedSessionId = null;
         }
         return (null, NoSession);
+    }
+
+    /// <summary>过 <see cref="Scope" /> 那一关;没有范围时一律放行。</summary>
+    private Task<bool> AllowedAsync(SessionInfo session, CancellationToken cancellationToken)
+        => Scope is { } scope ? scope.AllowsLiveAsync(session, cancellationToken) : Task.FromResult(true);
+
+    /// <summary>按范围筛活会话(没有范围时原样返回,不多跑一趟)。</summary>
+    private async Task<IReadOnlyList<SessionInfo>> InScopeAsync(
+        IReadOnlyList<SessionInfo> sessions, CancellationToken cancellationToken)
+    {
+        if (Scope is not { } scope)
+        {
+            return sessions;
+        }
+        var kept = new List<SessionInfo>();
+        foreach (SessionInfo session in sessions)
+        {
+            if (await scope.AllowsLiveAsync(session, cancellationToken).ConfigureAwait(false))
+            {
+                kept.Add(session);
+            }
+        }
+        return kept;
+    }
+
+    /// <summary>按范围筛已保存配置。</summary>
+    private async Task<IReadOnlyList<SavedSessionInfo>> InScopeAsync(
+        IReadOnlyList<SavedSessionInfo> saved, CancellationToken cancellationToken)
+    {
+        if (Scope is not { } scope)
+        {
+            return saved;
+        }
+        var kept = new List<SavedSessionInfo>();
+        foreach (SavedSessionInfo candidate in saved)
+        {
+            if (await scope.AllowsSavedAsync(candidate, cancellationToken).ConfigureAwait(false))
+            {
+                kept.Add(candidate);
+            }
+        }
+        return kept;
     }
 
     private static string Describe(RemoteFileEntry entry) => JsonSerializer.Serialize(new
