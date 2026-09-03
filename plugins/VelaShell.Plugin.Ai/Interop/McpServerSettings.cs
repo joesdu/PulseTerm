@@ -51,8 +51,17 @@ public sealed class McpServerSettings
     public string DisabledTools { get; set; } = "";
 
     /// <summary>
-    /// 允许外部 agent 操作的服务器(<c>user@host:port</c>,每行一条;空 = 允许全部已连会话)。
+    /// 允许外部 agent 操作的服务器(<c>user@host:port</c>,每行一条;<b>空 = 允许全部</b>)。
     /// </summary>
+    /// <remarks>
+    /// <b>它作用在每一次工具调用上</b>,不只是 <c>use_session</c> ——
+    /// 工具箱里九个工具都收可选的 <c>session_id</c>,只挡"选哪台"等于没挡
+    /// (见 <see cref="McpToolHost" />)。
+    /// <para>
+    /// 空仍然是"允许全部",这是刻意的:这条路的边界是回环地址 + 令牌 + 只读挡位,
+    /// 顺手把用户自己机器上的 Claude Code / Codex 一起收紧,挡不住任何攻击者,只挡得住用户自己。
+    /// </para>
+    /// </remarks>
     public string AllowedTargets { get; set; } = "";
 }
 
