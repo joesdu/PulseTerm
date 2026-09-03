@@ -232,17 +232,32 @@ jobs:
             # 后续自更新替换 Contents/MacOS 里的文件会使 bundle 印章失效 —— 对未公证的
             # ad-hoc 应用无影响(系统只校验各二进制自身的嵌入签名,dotnet publish 的产物自带)。
             #
-            # **不要加回 --deep。** 苹果自己早就说它只该用于校验、不该用于签名,而在这里它是纯负债:
-            # --deep 会把包内每个"看着像 bundle"的目录当嵌套代码去签,而**目录名里带点号就算**。
-            # 于是随便哪个 NuGet 包带进来一个 runtimes/win/lib/net6.0/,打包就会以
-            # "bundle format unrecognized, invalid, or unsuitable" 整个失败 ——
-            # 1.4.8 被 QRCoder → System.Drawing.Common 这条链炸过一次,1.2.0 则是插件目录名
-            # 带点号炸的(那次的应对是改目录名,见 plugins/README.md)。
-            # 去掉 --deep 之后这一类问题从根上不会再发生:真正被系统校验的是各二进制自身的嵌入签名,
-            # 那是 dotnet publish 给的,重签一遍毫无意义。
-            # 想确认这一点看 tar.gz 那条路就够了:同一批二进制,从来没有经过任何 bundle 签名,
-            # 一直跑得好好的 —— 自更新换版之后的应用也正是这个状态。
-            codesign --force --sign - "$app"
+            # **--deep 在这套布局下是硬要求,别再想着去掉。** 1.4.8 试过一次,换来的是
+            # "code object is not signed at all / In subcomponent: …/System.Diagnostics.Contracts.dll":
+            # Contents/MacOS 在 bundle 格式里是**代码区**,里面除主可执行体之外的每个文件都算嵌套代码,
+            # codesign 要求它们事先各自签好;而我们往那儿摊的是三百多个 dll/dylib,
+            # 谁也不会挨个去签 —— --deep 干的正是这件事。苹果那句"--deep 不该用于签名"
+            # 针对的是"应该把嵌套代码在各自的构建里签好"的项目,不是我们这种整包摊平的形态。
+            # 这个布局本身不能动:Contents/MacOS 必须与 tar.gz 逐字节一致,自更新才走得通(见文件头)。
+            #
+            # --deep 的已知代价是下面这道闸挡着的那件事,读完再动这一段。
+            #
+            # --deep 会把包内每个"看着像 bundle"的目录当嵌套代码去解析,而**目录名里带点号就算**。
+            # 撞上就是一句看不出该动哪里的 "bundle format unrecognized, invalid, or unsuitable":
+            # 1.2.0 栽在插件目录名 velashell.ai 上(应对是改目录名,见 plugins/README.md),
+            # 1.4.8 栽在 QRCoder → System.Drawing.Common 带进来的 runtimes/win/lib/net6.0/ 上
+            # (应对是把 QRCoder 换成自研编码器,见 plugins/VelaShell.Plugin.Ai/Ui/QrCode.cs)。
+            # 两次都是"新加一个依赖"引发的,而报错里完全看不出这层因果 —— 所以先自己扫一遍,
+            # 把话说清楚再失败。目前包内 34 个目录一个带点号的都没有,这道闸平时不作声。
+            dotted="$(find "$app" -mindepth 1 -type d -name '*.*')"
+            if [ -n "$dotted" ]; then
+              echo "::error::.app 内出现带点号的目录,codesign --deep 会把它当成嵌套 bundle 而失败:"
+              echo "$dotted"
+              echo "多半是新加的 NuGet 包带进来的 runtimes/<rid>/lib/<tfm>/。"
+              echo "要么去掉那个依赖,要么在打 .app 之前把用不上的 runtimes 子树剪掉。"
+              exit 1
+            fi
+            codesign --force --deep --sign - "$app"
 
             # dmg:VelaShell.app + /Applications 快捷方式的经典拖装布局。
             # hdiutil -srcfolder 会先建一个与内容等大的可写镜像(挂到 /Volumes/VelaShell)灌进去
