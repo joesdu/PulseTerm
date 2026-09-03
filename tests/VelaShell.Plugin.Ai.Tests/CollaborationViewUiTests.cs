@@ -7,6 +7,7 @@ using Avalonia.LogicalTree;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using QRCoder;
+using VelaShell.Plugin.Ai.Agent;
 using VelaShell.Plugin.Ai.Bridge;
 using VelaShell.Plugin.Ai.Configuration;
 using VelaShell.Plugin.Ai.Interop;
@@ -248,7 +249,7 @@ public sealed class CollaborationViewUiTests
             await using var bridge = new BridgeService(context, new AiSettingsStore(context));
             await WithViewAsync(context, async view =>
             {
-                view.FindControl<Button>("IssuePairCodeButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                view.FindControl<Button>("IssuePairSelfButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 await PumpAsync();
 
                 string shown = view.FindControl<TextBlock>("PairCodeText")!.Text ?? "";
@@ -267,11 +268,98 @@ public sealed class CollaborationViewUiTests
             using var context = new TestPluginContext();
             await WithViewAsync(context, async view =>
             {
-                view.FindControl<Button>("IssuePairCodeButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                view.FindControl<Button>("IssuePairSelfButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 await PumpAsync();
 
                 StringAssert.Contains(view.FindControl<TextBlock>("StatusText")!.Text ?? "", "bridge on");
             });
+        });
+    }
+
+    /// <summary>
+    /// 授权编辑器要能<b>存下来再读回去</b>:聊天 id、范围、挡位三样都不能在往返里丢。
+    /// </summary>
+    /// <remarks>
+    /// 这一条守的是最难查的一类 bug:界面上勾好了、点了保存、看着也没报错,
+    /// 而落库的那一份少了范围 —— 于是那个群悄悄拥有全部机器,没有任何提示。
+    /// </remarks>
+    [TestMethod]
+    public void Grants_RoundTripThroughTheSettingsPage()
+    {
+        OnUi(async () =>
+        {
+            using var context = new TestPluginContext();
+            context.FakeSessions.AddSaved(name: "prod-1", host: "10.0.0.1", group: "生产");
+            var store = new BridgeSettingsStore(context);
+            await store.SaveAsync(new BridgeSettings
+            {
+                Enabled = true,
+                Channels = [new ChannelConfig { Id = "c1", Kind = ChannelKind.Feishu, AllowedChats = ["oc_1"] }]
+            });
+            await WithViewAsync(context, async view =>
+            {
+                var channels = view.FindControl<StackPanel>("ChannelsPanel")!;
+                // 升级折算出来的那一行:不限范围
+                ComboBox scope = channels.GetLogicalDescendants().OfType<ComboBox>()
+                    .First(c => c.ItemsSource is string[] items && items.Length == 2);
+                Assert.AreEqual(0, scope.SelectedIndex, "老配置折算出来的授权应当不限范围");
+
+                scope.SelectedIndex = 1; // 收紧
+                await PumpAsync();
+                channels.GetLogicalDescendants().OfType<CheckBox>()
+                    .Single(c => (string?)c.Content == "生产").IsChecked = true;
+                // 挡位下拉:第 0 项是"跟随全局",选 Plan
+                ComboBox mode = channels.GetLogicalDescendants().OfType<ComboBox>()
+                    .First(c => c.ItemsSource is string[] items && items.Length == 4 && items[1] == "Chat");
+                mode.SelectedIndex = 2;
+
+                view.FindControl<Button>("SaveButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                await PumpAsync(40);
+            });
+
+            ChannelConfig saved = (await store.LoadAsync()).Channels.Single();
+            ChatGrant grant = saved.GrantFor("oc_1")!;
+            Assert.AreEqual(ScopeKind.Limited, grant.Scope.Kind);
+            CollectionAssert.Contains(grant.Scope.Groups, "生产");
+            Assert.AreEqual(ChatMode.Plan, grant.Mode);
+            // 派生镜像也要跟着对:降级回旧版本时白名单还得在
+            CollectionAssert.Contains(saved.AllowedChats, "oc_1");
+        });
+    }
+
+    /// <summary>
+    /// 给自己单聊的码<b>不带范围</b>,给群的码带。
+    /// </summary>
+    /// <remarks>
+    /// 这是"不卡自己脖子"那条红线在界面上的落点:你不该为了让机器人认得自己,
+    /// 先去填一遍分组选择器 —— 那正是把作者自己拦住的第一步。
+    /// </remarks>
+    [TestMethod]
+    public void PairCode_ForSelfIsUnrestricted_ForAGroupCarriesTheScope()
+    {
+        OnUi(async () =>
+        {
+            using var context = new TestPluginContext();
+            context.FakeSessions.AddSaved(name: "prod-1", host: "10.0.0.1", group: "生产");
+            await using var bridge = new BridgeService(context, new AiSettingsStore(context));
+            await WithViewAsync(context, async view =>
+            {
+                view.FindControl<Button>("IssuePairSelfButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                await PumpAsync();
+                Assert.IsNull(bridge.Pairing.Template, "给自己的码不该带范围");
+
+                // 勾上"生产"那个分组,再发一个给群的码
+                CheckBox group = view.FindControl<StackPanel>("PairScopePanel")!
+                    .GetLogicalDescendants().OfType<CheckBox>().Single(c => (string?)c.Content == "生产");
+                group.IsChecked = true;
+                view.FindControl<Button>("IssuePairGroupButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                await PumpAsync();
+
+                ChatGrant? template = bridge.Pairing.Template;
+                Assert.IsNotNull(template);
+                Assert.AreEqual(ScopeKind.Limited, template.Scope.Kind);
+                CollectionAssert.Contains(template.Scope.Groups, "生产");
+            }, bridge);
         });
     }
 

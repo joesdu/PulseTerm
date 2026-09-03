@@ -26,7 +26,7 @@ public sealed class BridgeAgentRunnerTests
     {
         using var context = new TestPluginContext();
         BridgeTurn turn = await Create(context).RunAsync(new BridgeConversation("ch1", "chat-1"),
-            new BridgeSettings(), Message(), Deny, English, null, CancellationToken.None);
+            new BridgeSettings(), Message(), Deny, English, null, null, CancellationToken.None);
 
         Assert.AreEqual(English["BridgeNoModel"], turn.Text);
         Assert.AreEqual("", turn.Model);
@@ -56,8 +56,7 @@ public sealed class BridgeAgentRunnerTests
         var conversation = new BridgeConversation("ch1", "chat-1");
         var bridge = new BridgeSettings { Mode = ChatMode.Chat }; // 纯对话:不碰工具,免得牵进 MCP
 
-        BridgeTurn before = await runner.RunAsync(conversation, bridge, Message(), Deny, English, null,
-            CancellationToken.None);
+        BridgeTurn before = await runner.RunAsync(conversation, bridge, Message(), Deny, English, null, null, CancellationToken.None);
         Assert.AreEqual(English["BridgeNoModel"], before.Text, "with nothing configured it should say so");
 
         // runner 造好之后才配上模型 —— 快照式实现在这一步之后仍然会说"没配模型"
@@ -79,7 +78,7 @@ public sealed class BridgeAgentRunnerTests
         });
 
         InvalidOperationException error = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
-            () => runner.RunAsync(conversation, bridge, Message(), Deny, English, null, CancellationToken.None));
+            () => runner.RunAsync(conversation, bridge, Message(), Deny, English, null, null, CancellationToken.None));
 
         // 报错里带着模型名 = 它确实读到了刚写进去的那份设置
         StringAssert.Contains(error.Message, "Local / probe");
@@ -114,7 +113,7 @@ public sealed class BridgeAgentRunnerTests
 
         InvalidOperationException error = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
             () => Create(context).RunAsync(new BridgeConversation("ch1", "chat-1"),
-                new BridgeSettings { Mode = ChatMode.Chat }, Message(), Deny, English, null, CancellationToken.None));
+                new BridgeSettings { Mode = ChatMode.Chat }, Message(), Deny, English, null, null, CancellationToken.None));
 
         StringAssert.StartsWith(error.Message, "Acme / some-model:");
     }

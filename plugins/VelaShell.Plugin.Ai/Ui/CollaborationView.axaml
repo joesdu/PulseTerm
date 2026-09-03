@@ -113,9 +113,21 @@
                              FontFamily="{DynamicResource VelaUiMonoFont}"
                              FontSize="{DynamicResource VelaFontSize16}"
                              Foreground="{DynamicResource VelaTextPrimary}" />
-                  <Button x:Name="IssuePairCodeButton" Grid.Column="2" MinWidth="96" Classes="host" />
+                  <Button x:Name="IssuePairSelfButton" Grid.Column="2" MinWidth="96" Classes="host" />
                 </Grid>
                 <TextBlock x:Name="PairCodeHint" Classes="hint" TextWrapping="Wrap" />
+                <!-- 给群的码另起一段:它必须先选范围,而给自己单聊的那个不必 ——
+                     一套把作者自己也拦住的权限设计,结局是被整个关掉。 -->
+                <Border Classes="card" Margin="0,10,0,0">
+                  <StackPanel>
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock x:Name="PairGroupLabel" Classes="label" VerticalAlignment="Center" />
+                      <Button x:Name="IssuePairGroupButton" Grid.Column="1" MinWidth="96" Classes="host" />
+                    </Grid>
+                    <StackPanel x:Name="PairScopePanel" />
+                    <TextBlock x:Name="PairScopeHint" Classes="hint" TextWrapping="Wrap" Margin="0,6,0,0" />
+                  </StackPanel>
+                </Border>
               </StackPanel>
 
               <Border Classes="sep" />

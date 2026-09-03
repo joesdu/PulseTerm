@@ -31,9 +31,10 @@ public readonly record struct PendingChat(
 /// ② 敲过门的聊天会被记下来,设置页上一行一个「允许」按钮。
 /// </para>
 /// <para>
-/// <b>安全性没有让步。</b>配对码只决定"这个聊天能不能跟机器人说话",能不能动服务器仍旧由
-/// 挡位与审批管;码是一次性的、十分钟过期、猜错五次直接作废,而且它只能<b>加</b>白名单,
-/// 不能改挡位、不能绕审批。
+/// <b>安全性没有让步,而且比从前更紧。</b>码是一次性的、十分钟过期、猜错五次直接作废;
+/// 更重要的是它现在<b>携带一份具体的授权</b>(范围 / 挡位 / 审批,见 <see cref="ChatGrant" />)
+/// 而不是一张通行证 —— 发码时就把范围定死,不再存在"先全开、回头去设置页收紧"的窗口,
+/// 而那个窗口正是人最容易忘掉第二步的地方。它仍然只能<b>加</b>授权,改不了别人的。
 /// </para>
 /// <para>本实例由 <see cref="BridgeService" /> 持有,因此<b>跨渠道重载存活</b> ——
 /// 用户在设置页点保存导致桥接重建时,已经敲过的门不该跟着丢掉。</para>
@@ -52,6 +53,7 @@ public sealed class PairingService
     private readonly Dictionary<string, PendingChat> _pending = [];
     private readonly Lock _sync = new();
     private string? _code;
+    private ChatGrant? _template;
     private DateTimeOffset _expiresAt;
     private int _attempts;
 
@@ -79,11 +81,28 @@ public sealed class PairingService
         }
     }
 
+    /// <summary>当前配对码携带的授权模板(没有码时为 <see langword="null" />)。</summary>
+    public ChatGrant? Template
+    {
+        get
+        {
+            lock (_sync)
+            {
+                return Valid() ? _template : null;
+            }
+        }
+    }
+
     /// <summary>发一个新的配对码(旧的立即作废)。</summary>
-    public string Issue()
+    /// <param name="template">
+    /// 这个码兑现之后建出来的授权。<see langword="null" /> = 不限范围、挡位审批跟随全局。
+    /// 给群的码应当带一份收紧过的模板;给自己单聊的码不带,那条路本来就不该受限。
+    /// </param>
+    public string Issue(ChatGrant? template = null)
     {
         lock (_sync)
         {
+            _template = template?.Clone();
             // 随机数走密码学 RNG:配对码在有效期内是一个能把陌生群放进白名单的凭据,
             // 用 Random 生成的话,知道种子规律的人就能猜。
             _code = RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6");
@@ -99,6 +118,7 @@ public sealed class PairingService
         lock (_sync)
         {
             _code = null;
+            _template = null;
             _expiresAt = DateTimeOffset.MinValue;
             _attempts = 0;
         }
@@ -107,10 +127,16 @@ public sealed class PairingService
     /// <summary>
     /// 核对并<b>用掉</b>一个配对码。对了返回 true,并且这个码立刻作废(一次性)。
     /// </summary>
-    public bool TryRedeem(string presented)
+    /// <param name="presented">群里发过来的那串数字。</param>
+    /// <param name="template">
+    /// 成功时交回发码时选定的那份授权(可能是 <see langword="null" /> = 不限范围)。
+    /// 调用方负责填上 <see cref="ChatGrant.ChatId" /> 与 <see cref="ChatGrant.IsGroup" />。
+    /// </param>
+    public bool TryRedeem(string presented, out ChatGrant? template)
     {
         lock (_sync)
         {
+            template = null;
             if (!Valid())
             {
                 return false;
@@ -120,11 +146,14 @@ public sealed class PairingService
                 if (++_attempts >= MaxAttempts)
                 {
                     _code = null;
+                    _template = null;
                     _expiresAt = DateTimeOffset.MinValue;
                 }
                 return false;
             }
+            template = _template;
             _code = null;
+            _template = null;
             _expiresAt = DateTimeOffset.MinValue;
             _attempts = 0;
             return true;

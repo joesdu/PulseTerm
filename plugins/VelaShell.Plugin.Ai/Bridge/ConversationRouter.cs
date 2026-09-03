@@ -43,6 +43,14 @@ public sealed class ConversationRouter(
     /// </remarks>
     public void Apply(BridgeSettings bridge, Loc loc)
     {
+        ArgumentNullException.ThrowIfNull(bridge);
+        // 授权在这里再折算一次。存储那一层已经折算过,但这里是**唯一**真正判"能不能说话"的地方,
+        // 而设置可以不经过存储直接送进来(测试、以及将来任何别的调用方)——
+        // 少了这一句,一份只填了 AllowedChats 的设置会静默地谁都不放行。
+        foreach (ChannelConfig channel in bridge.Channels)
+        {
+            channel.NormalizeGrants();
+        }
         Settings = bridge;
         Loc = loc;
         int limit = Math.Clamp(bridge.MaxConcurrentTurns, 1, 16);
@@ -58,7 +66,7 @@ public sealed class ConversationRouter(
         {
             return;
         }
-        if (!IsChatAllowed(config, message))
+        if (config.GrantFor(message.ChatId) is not { } grant)
         {
             // 配对码要在白名单之前处理 —— 它存在的全部意义就是"我还不在白名单里,请把我加进去"
             if (await TryPairAsync(config, message).ConfigureAwait(false))
@@ -88,7 +96,7 @@ public sealed class ConversationRouter(
         BridgeConversation conversation = GetOrCreate(config, message);
         conversation.LastActivity = DateTimeOffset.UtcNow;
         string text = message.Text.Trim();
-        if (text.StartsWith('/') && await TryCommandAsync(conversation, config, message, text).ConfigureAwait(false))
+        if (text.StartsWith('/') && await TryCommandAsync(conversation, config, grant, message, text).ConfigureAwait(false))
         {
             return;
         }
@@ -96,7 +104,7 @@ public sealed class ConversationRouter(
         {
             return;
         }
-        await RunTurnAsync(conversation, config, message).ConfigureAwait(false);
+        await RunTurnAsync(conversation, config, grant, message).ConfigureAwait(false);
     }
 
     /// <summary>丢掉闲置太久的会话上下文(由 <see cref="BridgeService" /> 定时调)。</summary>
@@ -134,7 +142,13 @@ public sealed class ConversationRouter(
     /// <remarks>
     /// <b>这里刻意不要求群里先 @ 机器人。</b>此刻它还不在白名单里,而"要不要理你"这一关就在
     /// 前面 —— 再叠一条"先 @ 我"等于把配对本身也挡在门外。配对码本身足够窄:一次性、
-    /// 十分钟过期、猜错五次作废,而且只能把聊天加进白名单,动不了挡位与审批。
+    /// 十分钟过期、猜错五次作废。
+    /// <para>
+    /// <b>配对码携带的是一份具体的授权,而不是一张通行证。</b>从前的顺序是"先放进来,
+    /// 再去设置页收紧",这在权限上是反的:从放行到收紧之间那个群拥有全部权限,
+    /// 而人往往就忘了第二步。现在范围在<b>发码时</b>就定死,群里的人从第一秒起
+    /// 就只看得见范围内的机器。
+    /// </para>
     /// </remarks>
     private async Task<bool> TryPairAsync(ChannelConfig config, InboundMessage message)
     {
@@ -151,7 +165,7 @@ public sealed class ConversationRouter(
                 .ConfigureAwait(false);
             return true;
         }
-        if (!pairing.TryRedeem(code))
+        if (!pairing.TryRedeem(code, out ChatGrant? template))
         {
             // 只记日志,不在群里说"码错了还是过期了" —— 那等于告诉试探的人他离对还有多远
             context.Log.Warn($"Bridge: a wrong or expired pairing code was presented in {message.ChatKey}.");
@@ -159,10 +173,17 @@ public sealed class ConversationRouter(
                 .ConfigureAwait(false);
             return true;
         }
-        await AllowChatAsync(config, message.ChatId).ConfigureAwait(false);
-        context.Log.Info($"Bridge: {message.ChatKey} was paired by {message.UserName}.");
-        await hub.SendAsync(message.ChannelId, target, Loc["BridgePaired"], CancellationToken.None)
-            .ConfigureAwait(false);
+        ChatGrant grant = (template ?? new ChatGrant()).Clone();
+        grant.ChatId = message.ChatId;
+        grant.IsGroup = message.IsGroup;
+        await AllowChatAsync(config, grant).ConfigureAwait(false);
+        context.Log.Info($"Bridge: {message.ChatKey} was paired by {message.UserName} " +
+                         $"(scope: {DescribeScope(grant)}).");
+        await hub.SendAsync(message.ChannelId, target,
+            grant.Scope.IsUnrestricted
+                ? Loc["BridgePaired"]
+                : Loc.F("BridgePairedScoped", DescribeScope(grant)),
+            CancellationToken.None).ConfigureAwait(false);
         return true;
     }
 
@@ -174,19 +195,24 @@ public sealed class ConversationRouter(
     /// 落盘走"读—改—写"而不是把内存那份整个盖上去 —— 设置页可能正开着,
     /// 用它内存里的快照覆盖会把用户刚改的别的字段抹掉。
     /// </remarks>
-    public async Task AllowChatAsync(ChannelConfig config, string chatId)
+    public async Task AllowChatAsync(ChannelConfig config, ChatGrant grant)
     {
         ArgumentNullException.ThrowIfNull(config);
-        if (!config.AllowedChats.Contains(chatId))
+        ArgumentNullException.ThrowIfNull(grant);
+        string chatId = grant.ChatId;
+        if (config.GrantFor(chatId) is null)
         {
-            config.AllowedChats.Add(chatId);
+            config.Grants.Add(grant);
         }
+        config.NormalizeGrants();
         BridgeSettings stored = await bridgeStore.LoadAsync().ConfigureAwait(false);
         if (stored.Channels.FirstOrDefault(c => c.Id == config.Id) is { } persisted)
         {
-            if (!persisted.AllowedChats.Contains(chatId))
+            if (persisted.GrantFor(chatId) is null)
             {
-                persisted.AllowedChats.Add(chatId);
+                // 落盘的是**另一份**对象:内存里那份归正在跑的路由器,
+                // 两边共享同一个实例的话,设置页保存时的编辑会串到运行中的授权上。
+                persisted.Grants.Add(grant.Clone());
                 await bridgeStore.SaveAsync(stored).ConfigureAwait(false);
             }
         }
@@ -205,7 +231,8 @@ public sealed class ConversationRouter(
         }
     }
 
-    private async Task RunTurnAsync(BridgeConversation conversation, ChannelConfig config, InboundMessage message)
+    private async Task RunTurnAsync(BridgeConversation conversation, ChannelConfig config, ChatGrant grant,
+        InboundMessage message)
     {
         // 同一个聊天串行:后来的排队,而不是插进上一轮的工具循环中间
         bool queued = conversation.Gate.CurrentCount == 0;
@@ -247,7 +274,7 @@ public sealed class ConversationRouter(
                 conversation, Settings, message,
                 request => approvals.RequestAsync(conversation, config, request,
                     Settings.ApprovalTimeoutSeconds, Loc, turn.Token),
-                Loc, OnProgress, turn.Token).ConfigureAwait(false);
+                Loc, OnProgress, grant, turn.Token).ConfigureAwait(false);
 
             await DeliverAsync(conversation, placeholder, Compose(result), turn.Token).ConfigureAwait(false);
         }
@@ -296,7 +323,7 @@ public sealed class ConversationRouter(
             : $"{turn.Text}\n\n{Loc.F("BridgeFooter", turn.Model, turn.Elapsed.TotalSeconds.ToString("0.0"), turn.ToolCalls)}";
 
     private async Task<bool> TryCommandAsync(BridgeConversation conversation, ChannelConfig config,
-        InboundMessage message, string text)
+        ChatGrant grant, InboundMessage message, string text)
     {
         string[] parts = text.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         string command = parts[0].ToLowerInvariant();
@@ -306,10 +333,10 @@ public sealed class ConversationRouter(
             "/help" or "/?" => Loc["BridgeHelp"],
             "/new" or "/reset" => Reset(conversation),
             "/stop" => Stop(conversation),
-            "/status" => await StatusAsync(conversation, config).ConfigureAwait(false),
-            "/sessions" => await ListSessionsAsync().ConfigureAwait(false),
-            "/use" => await BindAsync(conversation, argument).ConfigureAwait(false),
-            "/mode" => SetMode(conversation, argument),
+            "/status" => await StatusAsync(conversation, config, grant).ConfigureAwait(false),
+            "/sessions" => await ListSessionsAsync(grant).ConfigureAwait(false),
+            "/use" => await BindAsync(conversation, grant, argument).ConfigureAwait(false),
+            "/mode" => SetMode(conversation, grant, argument),
             _ => null
         };
         if (reply is null)
@@ -338,30 +365,46 @@ public sealed class ConversationRouter(
         return Loc["BridgeStopped"];
     }
 
-    private async Task<string> StatusAsync(BridgeConversation conversation, ChannelConfig config)
+    /// <summary><c>/status</c>:把这个聊天<b>实际</b>生效的那几个值报出来,包括范围。</summary>
+    /// <remarks>
+    /// 报的是授权算完之后的值,不是全局设置里的值 —— 一个只读群里显示"Agent 模式"
+    /// 比不显示更糟,人会照着它去下命令,然后对着一句拒绝发懵。
+    /// </remarks>
+    private async Task<string> StatusAsync(BridgeConversation conversation, ChannelConfig config, ChatGrant grant)
     {
-        ChatMode mode = conversation.ModeOverride ?? Settings.Mode;
+        ChatMode mode = conversation.ModeOverride ?? grant.Mode ?? Settings.Mode;
+        ApprovalMode approval = grant.Approval ?? Settings.Approval;
+        ISessionScope? scope = grant.Scope.Resolve(context);
         string target = conversation.BoundTarget.Length > 0 ? conversation.BoundTarget : "—";
         SessionInfo? session = conversation.BoundTarget.Length > 0
-            ? await SessionTargets.ResolveAsync(context, conversation.BoundTarget, CancellationToken.None).ConfigureAwait(false)
+            ? await SessionTargets.ResolveAsync(context, conversation.BoundTarget, CancellationToken.None, scope)
+                .ConfigureAwait(false)
             : null;
-        return Loc.F("BridgeStatus", config.Label, mode, Settings.Approval, target,
-            session is null ? Loc["BridgeSessionOffline"] : Loc["BridgeSessionOnline"]);
+        return Loc.F("BridgeStatus", config.Label, mode, approval, target,
+                   session is null ? Loc["BridgeSessionOffline"] : Loc["BridgeSessionOnline"])
+               + "\n" + Loc.F("BridgeStatusScope", DescribeScope(grant));
     }
 
-    private async Task<string> ListSessionsAsync()
+    private async Task<string> ListSessionsAsync(ChatGrant grant)
     {
-        string list = await SessionTargets.DescribeAsync(context, CancellationToken.None).ConfigureAwait(false);
+        string list = await SessionTargets
+            .DescribeAsync(context, CancellationToken.None, grant.Scope.Resolve(context)).ConfigureAwait(false);
         return list.Length == 0 ? Loc["BridgeNoSessions"] : Loc.F("BridgeSessions", list);
     }
 
-    private async Task<string> BindAsync(BridgeConversation conversation, string argument)
+    /// <summary><c>/use</c>:把这个聊天绑到一台机器上。范围外的当作<b>不存在</b>。</summary>
+    /// <remarks>
+    /// 回的是同一句"没找到",而不是"找到了但不给你" —— 后者会把这条命令变成探测接口:
+    /// 试一个主机名就能问出它在不在用户的机器列表里。日志里记全,群里说一半。
+    /// </remarks>
+    private async Task<string> BindAsync(BridgeConversation conversation, ChatGrant grant, string argument)
     {
         if (argument.Length == 0)
         {
             return Loc["BridgeBindUsage"];
         }
-        if (await SessionTargets.ResolveAsync(context, argument, CancellationToken.None).ConfigureAwait(false) is not { } session)
+        if (await SessionTargets.ResolveAsync(context, argument, CancellationToken.None, grant.Scope.Resolve(context))
+                .ConfigureAwait(false) is not { } session)
         {
             return Loc.F("BridgeBindNotFound", argument);
         }
@@ -382,7 +425,7 @@ public sealed class ConversationRouter(
     /// 拉高权限这件事应该在 VelaShell 里做,不该在群里做。要开放得去设置页勾
     /// <see cref="BridgeSettings.AllowModeEscalation" />。
     /// </remarks>
-    private string SetMode(BridgeConversation conversation, string argument)
+    private string SetMode(BridgeConversation conversation, ChatGrant grant, string argument)
     {
         ChatMode? requested;
         switch (argument.Trim().ToLowerInvariant())
@@ -402,12 +445,15 @@ public sealed class ConversationRouter(
             default:
                 return Loc["BridgeModeUsage"];
         }
-        if (requested is { } mode && Rank(mode) > Rank(Settings.Mode) && !Settings.AllowModeEscalation)
+        // 天花板是**这个聊天**的挡位,不是全局的:一个被设成只读的群,不该因为全局是 Agent
+        // 就能用一句 /mode agent 把自己抬回去。
+        ChatMode ceiling = grant.Mode ?? Settings.Mode;
+        if (requested is { } mode && Rank(mode) > Rank(ceiling) && !Settings.AllowModeEscalation)
         {
-            return Loc.F("BridgeModeLocked", Settings.Mode);
+            return Loc.F("BridgeModeLocked", ceiling);
         }
         conversation.ModeOverride = requested;
-        return Loc.F("BridgeModeSet", conversation.ModeOverride ?? Settings.Mode);
+        return Loc.F("BridgeModeSet", conversation.ModeOverride ?? ceiling);
 
         static int Rank(ChatMode mode) => mode switch
         {
@@ -437,9 +483,6 @@ public sealed class ConversationRouter(
         }
     }
 
-    private static bool IsChatAllowed(ChannelConfig config, InboundMessage message)
-        => config.AllowedChats.Contains(message.ChatId);
-
     /// <summary>
     /// 没授权的聊天回一次(且只回一次)带 id 的提示。
     /// </summary>
@@ -464,6 +507,10 @@ public sealed class ConversationRouter(
         await hub.SendAsync(message.ChannelId, new OutboundTarget(message.ChatId, message.ThreadId),
             Loc.F("BridgeUnauthorized", message.ChatId), CancellationToken.None).ConfigureAwait(false);
     }
+
+    /// <summary>范围的一句人话(给 <c>/status</c> 与日志用)。</summary>
+    private string DescribeScope(ChatGrant grant)
+        => grant.Scope.Resolve(context) is { } scope ? scope.Describe() : Loc["BridgeScopeAll"];
 
     private static string Clip(string text, int max)
         => text.Length <= max ? text : string.Concat(text.AsSpan(0, Math.Max(0, max - 1)), "…");

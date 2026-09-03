@@ -27,8 +27,8 @@ public sealed class PairingServiceTests
         var pairing = new PairingService();
         string code = pairing.Issue();
 
-        Assert.IsTrue(pairing.TryRedeem(code));
-        Assert.IsFalse(pairing.TryRedeem(code), "a pairing code must not be reusable");
+        Assert.IsTrue(pairing.TryRedeem(code, out _));
+        Assert.IsFalse(pairing.TryRedeem(code, out _), "a pairing code must not be reusable");
         Assert.IsNull(pairing.Code);
     }
 
@@ -39,8 +39,8 @@ public sealed class PairingServiceTests
         string code = pairing.Issue();
         string wrong = code == "000000" ? "111111" : "000000";
 
-        Assert.IsFalse(pairing.TryRedeem(wrong));
-        Assert.IsTrue(pairing.TryRedeem(code), "one wrong guess should not kill a valid code");
+        Assert.IsFalse(pairing.TryRedeem(wrong, out _));
+        Assert.IsTrue(pairing.TryRedeem(code, out _), "one wrong guess should not kill a valid code");
     }
 
     /// <summary>猜错够多次就作废 —— 六位数字挡得住随手试,挡不住脚本。</summary>
@@ -53,16 +53,16 @@ public sealed class PairingServiceTests
 
         for (int i = 0; i < 5; i++)
         {
-            Assert.IsFalse(pairing.TryRedeem(wrong));
+            Assert.IsFalse(pairing.TryRedeem(wrong, out _));
         }
 
         Assert.IsNull(pairing.Code, "the code should be dead after five wrong guesses");
-        Assert.IsFalse(pairing.TryRedeem(code), "even the right code must not work once it has been burnt");
+        Assert.IsFalse(pairing.TryRedeem(code, out _), "even the right code must not work once it has been burnt");
     }
 
     [TestMethod]
     public void Redeem_FailsWhenNoCodeWasIssued()
-        => Assert.IsFalse(new PairingService().TryRedeem("123456"));
+        => Assert.IsFalse(new PairingService().TryRedeem("123456", out _));
 
     [TestMethod]
     public void Issue_InvalidatesThePreviousCode()
@@ -71,7 +71,7 @@ public sealed class PairingServiceTests
         string first = pairing.Issue();
         pairing.Issue();
 
-        Assert.IsFalse(pairing.TryRedeem(first));
+        Assert.IsFalse(pairing.TryRedeem(first, out _));
     }
 
     [TestMethod]
@@ -83,7 +83,7 @@ public sealed class PairingServiceTests
         pairing.Revoke();
 
         Assert.IsNull(pairing.Code);
-        Assert.IsFalse(pairing.TryRedeem(code));
+        Assert.IsFalse(pairing.TryRedeem(code, out _));
     }
 
     [TestMethod]

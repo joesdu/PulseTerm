@@ -60,7 +60,7 @@ public sealed class BridgeEndpointQuirksTests
         try
         {
             await runner.RunAsync(new BridgeConversation("ch1", "chat-1"), bridge, Message(),
-                Deny, English, null, CancellationToken.None);
+                Deny, English, null, null, CancellationToken.None);
         }
         catch (Exception)
         {

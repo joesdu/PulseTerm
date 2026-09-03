@@ -468,14 +468,6 @@ public sealed class Loc(string locale)
         ["ChannelEnabled"] = ["Enabled", "启用", "啟用", "有効", "사용"],
         ["ChannelName"] = ["Display name", "显示名", "顯示名", "表示名", "표시 이름"],
         ["ChannelInternational"] = ["International edition (larksuite.com)", "国际版(larksuite.com)", "國際版(larksuite.com)", "国際版(larksuite.com)", "국제판(larksuite.com)"],
-        ["ChannelChats"] = ["Allowed chats (one id per line)", "允许的聊天(每行一个 id)", "允許的聊天(每行一個 id)", "許可するチャット(1 行に 1 つの ID)", "허용할 대화(한 줄에 ID 하나)"],
-        ["ChannelChatsHint"] = [
-            "Empty means nobody is served. Message the bot once and its reply tells you the chat id.",
-            "留空 = 谁都不理。先在群里 @ 一下机器人,它会回一句告诉你这个群的 id。",
-            "留空 = 誰都不理。先在群裡 @ 一下機器人,它會回一句告訴你這個群的 id。",
-            "空欄なら誰にも応答しません。まずボットにメッセージを送ると、返信でチャット ID がわかります。",
-            "비워 두면 아무에게도 응답하지 않습니다. 봇에게 한 번 말을 걸면 답장에 대화 ID가 표시됩니다."
-        ],
         ["ChannelUsers"] = ["Allowed users (blank = anyone in those chats)", "允许的用户(留空 = 白名单聊天里的任何人)", "允許的使用者(留空 = 白名單聊天裡的任何人)", "許可するユーザー(空欄 = 上記チャットの全員)", "허용할 사용자(비우면 해당 대화의 모든 사람)"],
         ["ChannelApprovers"] = ["Approvers (blank = same as allowed users)", "审批人(留空 = 与允许的用户相同)", "審批人(留空 = 與允許的使用者相同)", "承認者(空欄 = 許可ユーザーと同じ)", "승인자(비우면 허용 사용자와 동일)"],
         ["ChannelTarget"] = ["Default server (user@host:port)", "默认服务器(user@host:port)", "預設伺服器(user@host:port)", "既定のサーバー(user@host:port)", "기본 서버(user@host:port)"],
@@ -494,11 +486,11 @@ public sealed class Loc(string locale)
         ["PairIssue"] = ["Generate", "生成", "產生", "生成", "생성"],
         ["PairExpiresIn"] = ["(expires in {0}m {1}s)", "({0} 分 {1} 秒后过期)", "({0} 分 {1} 秒後過期)", "(あと {0} 分 {1} 秒で失効)", "({0}분 {1}초 후 만료)"],
         ["PairHint"] = [
-            "Generate a code, then send \"/pair <code>\" in the chat you want to authorise — no need to copy chat ids around. One use, ten minutes, five wrong tries and it dies. It only lets that chat talk to the bot; the mode and approval settings above still apply.",
-            "点生成拿一个码,然后在想授权的那个聊天里发「/pair 码」—— 不用再来回抄群 id。一次性、十分钟过期、猜错五次作废。它只决定「这个聊天能不能跟机器人说话」,能不能动服务器仍旧由上面的挡位与审批管。",
-            "點產生拿一個碼,然後在想授權的那個聊天裡發「/pair 碼」—— 不用再來回抄群 id。一次性、十分鐘過期、猜錯五次作廢。它只決定「這個聊天能不能跟機器人說話」,能不能動伺服器仍舊由上面的擋位與審批管。",
-            "コードを生成し、許可したいチャットで「/pair コード」と送るだけです(チャット ID を書き写す必要はありません)。1 回限り・10 分で失効・5 回間違えると無効。許可するのは「そのチャットがボットと話せる」ことだけで、サーバー操作は上のモードと承認方式に従います。",
-            "코드를 생성한 뒤 허용할 대화에서 \"/pair 코드\"를 보내세요(대화 ID를 옮겨 적을 필요 없음). 일회용, 10분 만료, 5회 틀리면 폐기됩니다. 허용되는 것은 \"그 대화가 봇과 대화할 수 있다\"는 것뿐이며 서버 조작은 위의 모드와 승인 방식을 따릅니다."
+            "Generate a code, then send \"/pair <code>\" in the chat you want to authorise — no need to copy chat ids around. One use, ten minutes, five wrong tries and it dies. This one is for your own direct chat with the bot, so it carries no limit; a group gets its scope chosen below, before the code is issued.",
+            "点生成拿一个码,然后在想授权的那个聊天里发「/pair 码」—— 不用再来回抄群 id。一次性、十分钟过期、猜错五次作废。这个码是给「你自己跟机器人的单聊」用的,所以不带范围;给群的码在下面先选好范围再发。",
+            "點產生拿一個碼,然後在想授權的那個聊天裡發「/pair 碼」—— 不用再來回抄群 id。一次性、十分鐘過期、猜錯五次作廢。這個碼是給「你自己跟機器人的單聊」用的,所以不帶範圍;給群的碼在下面先選好範圍再發。",
+            "コードを生成し、許可したいチャットで「/pair コード」と送るだけです(チャット ID を書き写す必要はありません)。1 回限り・10 分で失効・5 回間違えると無効。これは自分とボットの個別チャット用なので範囲の制限は付きません。グループ用のコードは下で範囲を選んでから発行します。",
+            "코드를 생성한 뒤 허용할 대화에서 \"/pair 코드\"를 보내세요(대화 ID를 옮겨 적을 필요 없음). 일회용, 10분 만료, 5회 틀리면 폐기됩니다. 이 코드는 자신과 봇의 개인 대화용이라 범위 제한이 없으며, 그룹용 코드는 아래에서 범위를 고른 뒤 발급합니다."
         ],
         ["PairNeedsBridge"] = [
             "Turn the chat bridge on and save first — a pairing code is only useful while the bot is online.",
@@ -587,11 +579,34 @@ public sealed class Loc(string locale)
         ],
         ["BridgePairUsage"] = ["Usage: /pair <code> — the code is in VelaShell under Collaboration.", "用法:/pair 码 —— 码在 VelaShell 的「协作接入」页里。", "用法:/pair 碼 —— 碼在 VelaShell 的「協作接入」頁裡。", "使い方:/pair コード —— コードは VelaShell の「連携」画面にあります。", "사용법: /pair 코드 — 코드는 VelaShell의 「협업 연동」 화면에 있습니다."],
         ["BridgePairRejected"] = ["That code is not valid. Generate a fresh one in VelaShell.", "这个码不对。到 VelaShell 里重新生成一个。", "這個碼不對。到 VelaShell 裡重新產生一個。", "そのコードは使えません。VelaShell で新しく生成してください。", "이 코드는 사용할 수 없습니다. VelaShell에서 새로 생성하세요."],
+        // ---- 会话范围授权 ----
+        ["BridgePairedScoped"] = ["Paired — this chat can talk to me now, limited to: {0}. Try /help.", "配对成功,这个聊天现在可以跟我说话了,范围:{0}。试试 /help。", "配對成功,這個聊天現在可以跟我說話了,範圍:{0}。試試 /help。", "ペアリングできました。このチャットから話しかけられます(範囲:{0})。/help を試してください。", "페어링에 성공했습니다. 이제 이 대화에서 말을 걸 수 있습니다(범위: {0}). /help를 사용해 보세요."],
+        ["BridgeStatusScope"] = ["Scope: {0}", "范围:{0}", "範圍:{0}", "範囲:{0}", "범위: {0}"],
+        ["BridgeScopeAll"] = ["all machines", "全部机器", "全部機器", "すべてのマシン", "모든 머신"],
+        ["ScopeAll"] = ["No limit — every machine", "不限范围(全部机器)", "不限範圍(全部機器)", "制限なし(すべてのマシン)", "제한 없음(모든 머신)"],
+        ["ScopeLimited"] = ["Only what I tick below", "只有下面勾选的", "只有下面勾選的", "下でチェックしたものだけ", "아래에서 선택한 것만"],
+        ["ScopeLabel"] = ["Can operate", "能操作", "能操作", "操作できる範囲", "조작 범위"],
+        ["ScopeGroups"] = ["Groups", "分组", "分組", "グループ", "그룹"],
+        ["ScopeMachines"] = ["Individual machines", "单台机器", "單台機器", "個別のマシン", "개별 머신"],
+        ["ScopeEmptyWarning"] = ["Nothing ticked — this chat can reach no machine at all.", "一个都没勾:这个聊天碰不到任何机器。", "一個都沒勾:這個聊天碰不到任何機器。", "何もチェックされていません。このチャットはどのマシンにも到達できません。", "아무것도 선택되지 않았습니다. 이 대화는 어떤 머신에도 접근할 수 없습니다."],
+        ["ScopeNoSaved"] = ["No saved connections yet — save some in the session tree first.", "还没有已保存的连接,先去会话树里存几台。", "還沒有已保存的連線,先去工作階段樹裡存幾台。", "保存済みの接続がありません。先にセッションツリーに登録してください。", "저장된 연결이 없습니다. 먼저 세션 트리에 등록하세요."],
+        ["GrantsLabel"] = ["Authorized chats", "已授权的聊天", "已授權的聊天", "許可済みのチャット", "허가된 대화"],
+        ["GrantsHint"] = ["A group's scope is a property of the room, not of you — your own DM and the AI panel are never limited.", "群的范围是这个房间的属性,不是你的:你自己的单聊与 AI 面板永远不受限。", "群的範圍是這個房間的屬性,不是你的:你自己的單聊與 AI 面板永遠不受限。", "グループの範囲は部屋の属性であって、あなたの属性ではありません。自分との個別チャットと AI パネルは制限されません。", "그룹의 범위는 방의 속성이지 사용자의 속성이 아닙니다. 자신과의 개인 대화와 AI 패널은 제한되지 않습니다."],
+        ["GrantAdd"] = ["Add a chat", "添加聊天", "新增聊天", "チャットを追加", "대화 추가"],
+        ["GrantChatId"] = ["Chat id", "聊天 id", "聊天 id", "チャット ID", "대화 ID"],
+        ["GrantMode"] = ["Mode", "挡位", "擋位", "モード", "모드"],
+        ["GrantApproval"] = ["Approval", "审批", "審批", "承認", "승인"],
+        ["GrantFollowGlobal"] = ["Follow the global setting", "跟随全局设置", "跟隨全域設定", "全体設定に従う", "전역 설정 따르기"],
+        ["GrantIsGroup"] = ["group", "群", "群", "グループ", "그룹"],
+        ["GrantIsDirect"] = ["direct chat", "单聊", "單聊", "個別チャット", "개인 대화"],
+        ["PairForGroup"] = ["Pairing code for a group", "生成配对码(群)", "產生配對碼(群)", "グループ用のペアリングコード", "그룹용 페어링 코드"],
+        ["PairForSelf"] = ["Pairing code for myself (no limit)", "生成配对码(我自己 · 不限范围)", "產生配對碼(我自己 · 不限範圍)", "自分用のペアリングコード(制限なし)", "내 계정용 페어링 코드(제한 없음)"],
+        ["PairScopeHint"] = ["The code carries this scope — the chat is limited from its first second, with no window where it holds everything.", "配对码携带这份范围:群从第一秒起就受限,不存在\"先全开再收紧\"的窗口。", "配對碼攜帶這份範圍:群從第一秒起就受限,不存在\"先全開再收緊\"的視窗。", "コードはこの範囲を伴います。チャットは最初から制限され、「まず全開放してから絞る」窓は存在しません。", "코드가 이 범위를 함께 전달합니다. 대화는 처음부터 제한되며 \"먼저 전부 열고 나중에 좁히는\" 구간이 없습니다."],
         ["BridgePaired"] = ["Paired — this chat can talk to me now. Try /help.", "配对成功,这个聊天现在可以跟我说话了。试试 /help。", "配對成功,這個聊天現在可以跟我說話了。試試 /help。", "ペアリングできました。このチャットから話しかけられます。/help を試してください。", "페어링에 성공했습니다. 이제 이 대화에서 말을 걸 수 있습니다. /help를 사용해 보세요."],
         // ── 斜杠命令 ──
         ["BridgeHelp"] = [
-            "/sessions — list connected servers\n/use <user@host:port> — bind this chat to one\n/mode chat|plan|agent — change the mode\n/new — start a fresh conversation\n/stop — stop the current turn\n/status — show what this chat is set to",
-            "/sessions — 列出已连上的服务器\n/use <user@host:port> — 把本聊天绑到某一台\n/mode chat|plan|agent — 换挡位\n/new — 开一段新对话\n/stop — 中止当前这一轮\n/status — 看本聊天的当前设定",
+            "/sessions — list connected servers\n/use <user@host:port> — bind this chat to one\n/mode chat|plan|agent — change the mode\n/new — start a fresh conversation\n/stop — stop the current turn\n/status — show what this chat is set to, including which machines it may touch",
+            "/sessions — 列出已连上的服务器\n/use <user@host:port> — 把本聊天绑到某一台\n/mode chat|plan|agent — 换挡位\n/new — 开一段新对话\n/stop — 中止当前这一轮\n/status — 看本聊天的当前设定(含能操作哪些机器)",
             "/sessions — 列出已連上的伺服器\n/use <user@host:port> — 把本聊天綁到某一台\n/mode chat|plan|agent — 換擋位\n/new — 開一段新對話\n/stop — 中止目前這一輪\n/status — 看本聊天的目前設定",
             "/sessions — 接続中のサーバー一覧\n/use <user@host:port> — このチャットを 1 台に紐付け\n/mode chat|plan|agent — モード変更\n/new — 会話をやり直す\n/stop — 実行中のターンを中止\n/status — このチャットの設定を表示",
             "/sessions — 연결된 서버 목록\n/use <user@host:port> — 이 대화를 서버에 연결\n/mode chat|plan|agent — 모드 변경\n/new — 새 대화 시작\n/stop — 현재 턴 중단\n/status — 이 대화의 설정 보기"
