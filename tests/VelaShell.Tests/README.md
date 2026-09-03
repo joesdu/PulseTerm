@@ -28,4 +28,12 @@ dotnet test tests/VelaShell.Tests/
 docker-compose -f docker-compose.test.yml up
 ```
 
+> **两条会「跳过」而不是失败的用例**，缺了外部依赖时报 Inconclusive：
+>
+> - `ShortcutCatalogTests.Doc_ListsEveryCatalogEntry` 要拿快捷键总表比对
+>   [velashell-docs](https://github.com/VelaShellLabs/velashell-docs) 的 `zh/host/快捷键参考.md`。把文档仓库检出到本仓库**同级目录**即可，
+>   或用 `VELASHELL_DOCS_DIR` 指向它。
+> - `PromptHookShellTests` 要起一个真正的 `bash` 跑 SSH 目录上报钩子（那段是 shell 语义，
+>   C# 只断言得了字符串里有什么）。Linux/macOS 自带；Windows 上来自 Git for Windows。
+
 > **headless UI 测试的两条硬约束**：全套共用一条 UI 线程 —— 测试体必须同步（`return Task.CompletedTask`，写成 `async` 会绑错重载导致断言一条不执行却全绿），且结束前必须关窗，否则整个套件永久卡死。排查用 `--blame-hang-timeout`。
