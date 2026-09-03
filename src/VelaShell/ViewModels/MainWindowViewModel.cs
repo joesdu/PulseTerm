@@ -538,6 +538,20 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     /// </summary>
     public Func<SessionProfile, PluginProtocolCertificateException, Task<bool>>? PluginCertificateTrustPrompt { get; set; }
 
+    /// <summary>
+    /// 文档型连接(SFTP / FTP / 插件文件系统 / 工作台)首次连接失败时的提示弹窗。
+    /// <para>
+    /// SSH 标签的失败画在标签页内的覆盖层上(设计 yxjmg),所以它不需要这条路径;而上面这四类
+    /// <b>连不上就根本没有标签页</b> —— 失败原因只落到状态栏的话,用户看到的就是"点了连接,
+    /// 什么都没发生"。本地没起 Redis 时点开一条 Redis 会话正是这个样子。
+    /// </para>
+    /// <para>
+    /// 由 View 层挂上(与 <see cref="InteractiveAuthenticator" /> 同样的手法);未挂时(headless
+    /// 测试、插件代开会话)退回状态栏,不影响连接流程本身。
+    /// </para>
+    /// </summary>
+    public Func<SessionProfile, string, Task>? ConnectionFailureReporter { get; set; }
+
     /// <summary>最近一次连接的错误消息,若上次尝试成功则为 null。</summary>
     public string? LastConnectionError
     {
@@ -3047,6 +3061,8 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         }
 
         SessionProfile current = profile;
+        // 三次认证都没过时的最后一条原因:循环走完就没人再报了,而这条路径不留标签页。
+        Exception? lastAuthFailure = null;
         for (int attempt = 0; attempt < 3; attempt++)
         {
             if (attempt > 0 || RequiresCredentials(current))
@@ -3058,6 +3074,8 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                 SessionProfile? prompted = await prompt(current).ConfigureAwait(true);
                 if (prompted is null)
                 {
+                    // 用户取消:这是"不连了",不是失败,不弹提示。
+                    LastConnectionError = null;
                     return null;
                 }
                 current = prompted;
@@ -3101,12 +3119,13 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                 }
                 return null;
             }
-            catch (VelaSshAuthenticationException)
+            catch (VelaSshAuthenticationException auth)
             {
                 if (session is not null)
                 {
                     await _connectionWorkflowService.DisconnectAsync(session.SessionId, cancellationToken).ConfigureAwait(true);
                 }
+                lastAuthFailure = auth;
                 continue;
             }
             catch (Exception ex)
@@ -3115,10 +3134,13 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                 {
                     await _connectionWorkflowService.DisconnectAsync(session.SessionId, cancellationToken).ConfigureAwait(true);
                 }
-                LastConnectionError = DescribeConnectionError(ex, current);
-                StatusBar.Status = LastConnectionError;
+                await ReportConnectionFailureAsync(current, ex).ConfigureAwait(true);
                 return null;
             }
+        }
+        if (lastAuthFailure is not null)
+        {
+            await ReportConnectionFailureAsync(current, lastAuthFailure).ConfigureAwait(true);
         }
         return null;
     }
@@ -3142,6 +3164,8 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         }
 
         SessionProfile current = profile;
+        // 三次认证都没过时的最后一条原因:循环走完就没人再报了,而这条路径不留标签页。
+        Exception? lastAuthFailure = null;
         for (int attempt = 0; attempt < 3; attempt++)
         {
             if (attempt > 0 || RequiresFtpCredentials(current))
@@ -3153,6 +3177,8 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                 SessionProfile? prompted = await prompt(current).ConfigureAwait(true);
                 if (prompted is null)
                 {
+                    // 用户取消:这是"不连了",不是失败,不弹提示。
+                    LastConnectionError = null;
                     return null;
                 }
                 current = prompted;
@@ -3195,20 +3221,25 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                     attempt--; // 信任后的这次重连不算认证重试
                     continue;
                 }
+                // 用户自己点了"不信任",原因他清楚 —— 再弹一扇框只是复述他刚做的决定。
                 LastConnectionError = certificate.Message;
                 StatusBar.Status = LastConnectionError;
                 return null;
             }
-            catch (VelaFtpAuthenticationException)
+            catch (VelaFtpAuthenticationException auth)
             {
+                lastAuthFailure = auth;
                 continue;
             }
             catch (Exception ex)
             {
-                LastConnectionError = DescribeConnectionError(ex, current);
-                StatusBar.Status = LastConnectionError;
+                await ReportConnectionFailureAsync(current, ex).ConfigureAwait(true);
                 return null;
             }
+        }
+        if (lastAuthFailure is not null)
+        {
+            await ReportConnectionFailureAsync(current, lastAuthFailure).ConfigureAwait(true);
         }
         return null;
     }
@@ -3252,6 +3283,8 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         // 多节点各自签一张证书的端点(DNS 轮询的 MinIO/Ceph)每轮都是"新证书",
         // 不设独立上限的话用户只能靠点"不信任"才退得出来。
         int certPrompts = 0;
+        // 三次认证都没过时的最后一条原因(理由同工作台那条路径)。
+        Exception? lastAuthFailure = null;
         for (int attempt = 0; attempt < 3; attempt++)
         {
             if (attempt > 0 || RequiresPluginCredentials(current, allowsAnonymous))
@@ -3263,6 +3296,8 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                 SessionProfile? prompted = await prompt(current).ConfigureAwait(true);
                 if (prompted is null)
                 {
+                    // 用户取消:这是"不连了",不是失败,不弹提示。
+                    LastConnectionError = null;
                     return null;
                 }
                 current = prompted;
@@ -3317,20 +3352,25 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                     }
                     continue;
                 }
+                // 用户自己点了"不信任",原因他清楚 —— 再弹一扇框只是复述他刚做的决定。
                 LastConnectionError = certificate.Message;
                 StatusBar.Status = LastConnectionError;
                 return null;
             }
-            catch (PluginProtocolAuthenticationException)
+            catch (PluginProtocolAuthenticationException auth)
             {
+                lastAuthFailure = auth;
                 continue;
             }
             catch (Exception ex)
             {
-                LastConnectionError = DescribeConnectionError(ex, current);
-                StatusBar.Status = LastConnectionError;
+                await ReportConnectionFailureAsync(current, ex).ConfigureAwait(true);
                 return null;
             }
+        }
+        if (lastAuthFailure is not null)
+        {
+            await ReportConnectionFailureAsync(current, lastAuthFailure).ConfigureAwait(true);
         }
         return null;
     }
@@ -3485,6 +3525,9 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
 
         SessionProfile current = profile;
         int certPrompts = 0;
+        // 三次认证都没过时的最后一条原因:循环走完就没人再报了,而这条路径不留标签页,
+        // 不记下来的话用户面对的是"密码弹了三次,然后什么都没有"。
+        Exception? lastAuthFailure = null;
         for (int attempt = 0; attempt < 3; attempt++)
         {
             if (attempt > 0 || RequiresPluginCredentials(current, allowsAnonymous))
@@ -3496,6 +3539,8 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                 SessionProfile? prompted = await prompt(current).ConfigureAwait(true);
                 if (prompted is null)
                 {
+                    // 用户取消:这是"不连了",不是失败,不弹提示。
+                    LastConnectionError = null;
                     return null;
                 }
                 current = prompted;
@@ -3549,20 +3594,25 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                     }
                     continue;
                 }
+                // 用户自己点了"不信任",原因他清楚 —— 再弹一扇框只是复述他刚做的决定。
                 LastConnectionError = certificate.Message;
                 StatusBar.Status = LastConnectionError;
                 return null;
             }
-            catch (PluginProtocolAuthenticationException)
+            catch (PluginProtocolAuthenticationException auth)
             {
+                lastAuthFailure = auth;
                 continue;
             }
             catch (Exception ex)
             {
-                LastConnectionError = DescribeConnectionError(ex, current);
-                StatusBar.Status = LastConnectionError;
+                await ReportConnectionFailureAsync(current, ex).ConfigureAwait(true);
                 return null;
             }
+        }
+        if (lastAuthFailure is not null)
+        {
+            await ReportConnectionFailureAsync(current, lastAuthFailure).ConfigureAwait(true);
         }
         return null;
     }
@@ -3941,11 +3991,45 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         return await TryConnectProfileAsync(profile, cancellationToken);
     }
 
+    /// <summary>
+    /// 文档型连接的失败上报:状态栏 + 一扇提示弹窗。
+    /// <para>
+    /// 弹窗是这里的重点。SFTP / FTP / 插件文件系统 / 工作台连不上时**不会留下任何标签页**,
+    /// 只写状态栏等于没提示 —— 用户看到的是"点了连接,什么都没发生"。
+    /// </para>
+    /// </summary>
+    /// <param name="profile">这次连的配置(弹窗按它描述目标)。</param>
+    /// <param name="ex">失败原因。</param>
+    private async Task ReportConnectionFailureAsync(SessionProfile profile, Exception ex)
+    {
+        string message = DescribeConnectionError(ex, profile);
+        LastConnectionError = message;
+        StatusBar.Status = message;
+        if (ConnectionFailureReporter is not { } report)
+        {
+            return;
+        }
+        try
+        {
+            await report(profile, message).ConfigureAwait(true);
+        }
+        catch (Exception dialogFailure)
+        {
+            // 提示弹窗自己出问题不该盖掉真正的连接错误 —— 那条已经在状态栏上了。
+            System.Diagnostics.Trace.WriteLine(
+                $"[Connect] Reporting the failure of '{profile.Name}' threw: {dialogFailure.Message}");
+        }
+    }
+
     private static string DescribeConnectionError(Exception ex, SessionProfile profile)
     {
+        // 用户名为空是一条正当路径(匿名 S3 桶、没设 requirepass 的 Redis),
+        // 那时不能拼出 "@127.0.0.1:6379" 这种前面缺了一截的目标。
         string target = string.IsNullOrWhiteSpace(profile.Host)
             ? profile.Name
-            : $"{profile.Username}@{profile.Host}:{profile.Port}";
+            : string.IsNullOrWhiteSpace(profile.Username)
+                ? $"{profile.Host}:{profile.Port}"
+                : $"{profile.Username}@{profile.Host}:{profile.Port}";
         // 提取 Tmds.Ssh ConnectFailedException 中的具体原因(若存在),以便用户诊断。
         string detail = ExtractTmdsReason(ex.Message) ?? ex.Message;
         // 直接匹配 Core 的中立异常族(VelaSsh*Exception)。
@@ -3960,6 +4044,11 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
             VelaSshOperationTimeoutException or TimeoutException => Strings.Format("Msg_ConnectTimeout", target),
             VelaSshConnectionException => $"{Strings.Format("Msg_ConnectFailed", target)}\n{detail}",
             SocketException => Strings.Format("Msg_NetworkError", target),
+            // 插件协议族的消息按 SDK 契约就是**面向用户**的,并且已经带上了端点。
+            // 再套一层"连接 X 失败:"只会把同一个地址写两遍。
+            PluginProtocolConnectionException
+                or PluginProtocolAuthenticationException
+                or PluginProtocolUnavailableException => detail,
             _ => Strings.Format("Msg_ConnectGenericFailed", target, detail),
         };
     }

@@ -382,6 +382,9 @@ public partial class MainWindow : Window
             vm.PluginCertificateTrustPrompt = (profile, certificate) => PromptCertificateTrustAsync(
                 profile.Host, certificate.Subject, certificate.Issuer,
                 certificate.ExpiresOn, certificate.Thumbprint, certificate.PolicyErrors);
+            // 文档型连接(SFTP / FTP / S3 / Redis…)连不上时没有标签页可以承载失败提示,
+            // 由窗口弹一扇框 —— 否则点了"连接"之后屏幕上什么都不会发生。
+            vm.ConnectionFailureReporter = ReportConnectionFailureAsync;
             // 插件提议一条连接(如 Redis 插件从 SSH 会话里探到一个实例):
             // 打开宿主自己的「新建连接」对话框并预填。**插件不能自己写会话库** ——
             // 那是用户数据、凭据也在里面;它只能提议,由用户过一眼再按保存。
@@ -1353,15 +1356,44 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// 登录验证弹窗的串行闸门:同一时刻只允许一扇凭据对话框。启动恢复会话是并发发起的
+    /// 连接流程弹窗的串行闸门:同一时刻只允许一扇。启动恢复会话是并发发起的
     /// (#118),资源管理器树的双击/右键连接也是即发即忘,两条路径都可能同时要凭据;
     /// 同一 owner 上叠两扇模态框会互相争抢 owner 的禁用/启用,表现为对话框点不动。
+    /// <para>
+    /// 凭据框与连接失败提示共用这一道闸,而不是各管各的:恢复五条会话时,一扇密码框和
+    /// 三扇"连不上"若各自为政,照样会叠在同一个 owner 上。
+    /// </para>
     /// </summary>
-    private readonly SemaphoreSlim _credentialPromptGate = new(1, 1);
+    private readonly SemaphoreSlim _connectPromptGate = new(1, 1);
+
+    /// <summary>
+    /// 文档型连接(SFTP / FTP / S3 / Redis…)首次连接失败的提示。
+    /// <para>
+    /// 这条路径**连不上就没有标签页**,不像 SSH 还能把失败画在标签页内的覆盖层上
+    /// (设计 yxjmg)—— 没有这扇框,本机没起 Redis 时点开一条 Redis 会话是彻底静默的。
+    /// </para>
+    /// </summary>
+    private async Task ReportConnectionFailureAsync(SessionProfile profile, string message)
+    {
+        // 不带 ConfigureAwait(false):后续 ShowDialog 必须回到 UI 线程。
+        await _connectPromptGate.WaitAsync();
+        try
+        {
+            await MessageDialog.ShowMessageAsync(
+                this,
+                Strings.Get("Msg_ConnectionFailedTitle"),
+                string.IsNullOrWhiteSpace(profile.Name) ? message : $"{profile.Name}\n\n{message}",
+                MessageDialogKind.Error);
+        }
+        finally
+        {
+            _connectPromptGate.Release();
+        }
+    }
 
     /// <summary>
     /// 登录验证流程(设计:身份验证 第1步/第2步):补全用户名与认证凭据。
-    /// 一次只弹一扇(见 <see cref="_credentialPromptGate" />),排队的连接依次拿到弹窗。
+    /// 一次只弹一扇(见 <see cref="_connectPromptGate" />),排队的连接依次拿到弹窗。
     /// </summary>
     /// <summary>
     /// 服务器证书未通过校验时的信任提示(FTPS 与插件协议的 TLS 端点共用)。
@@ -1418,14 +1450,14 @@ public partial class MainWindow : Window
     private async Task<SessionProfile?> PromptCredentialsAsync(SessionProfile profile)
     {
         // 不带 ConfigureAwait(false):后续 ShowDialog 必须回到 UI 线程。
-        await _credentialPromptGate.WaitAsync();
+        await _connectPromptGate.WaitAsync();
         try
         {
             return await PromptCredentialsCoreAsync(profile);
         }
         finally
         {
-            _credentialPromptGate.Release();
+            _connectPromptGate.Release();
         }
     }
 
