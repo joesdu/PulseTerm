@@ -49,7 +49,7 @@ internal sealed class FeishuChannel(ChannelConfig config, string appSecret, IPlu
 
     /// <inheritdoc />
     /// <remarks>飞书能改已发出的文本消息,所以进度可以就地刷新,不必刷屏。</remarks>
-    public ChannelCapabilities Capabilities => new(true, 3000);
+    public ChannelCapabilities Capabilities => new(true, 3000, 30 * 1024 * 1024);
 
     /// <inheritdoc />
     public event Action? Connected;
@@ -408,13 +408,75 @@ internal sealed class FeishuChannel(ChannelConfig config, string appSecret, IPlu
             : null;
     }
 
+    /// <summary>
+    /// 哪些消息 id 是卡片。卡片走 <c>PATCH</c>、文本走 <c>PUT</c>,用错接口会直接报错。
+    /// </summary>
+    /// <remarks>
+    /// 只记最近这些:流式改的永远是刚发出的那一条,记住整个历史没有意义。
+    /// </remarks>
+    private readonly Dictionary<string, bool> _isCard = [];
+
+    private const int MaxRemembered = 64;
+
     /// <inheritdoc />
+    /// <remarks>
+    /// <b>先按卡片发,失败了退回纯文本。</b>格式是锦上添花,消息本身不是 ——
+    /// 卡片被租户策略挡下、或者哪天字段改了名,用户该看到的是一条没格式的回答,
+    /// 而不是什么都没有。
+    /// </remarks>
     public async Task<string?> SendAsync(OutboundTarget target, string text, CancellationToken cancellationToken)
-        => await _api.SendTextAsync(target.ChatId, text, cancellationToken).ConfigureAwait(false);
+    {
+        try
+        {
+            string? id = await _api.SendCardAsync(target.ChatId, text, cancellationToken).ConfigureAwait(false);
+            Remember(id, true);
+            return id;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            context.Log.Warn($"Bridge: {Label} could not send a card ({ex.Message}); falling back to plain text.");
+            string? id = await _api.SendTextAsync(target.ChatId, text, cancellationToken).ConfigureAwait(false);
+            Remember(id, false);
+            return id;
+        }
+    }
 
     /// <inheritdoc />
     public async Task EditAsync(OutboundTarget target, string messageId, string text, CancellationToken cancellationToken)
-        => await _api.EditTextAsync(messageId, text, cancellationToken).ConfigureAwait(false);
+    {
+        bool card;
+        lock (_isCard)
+        {
+            // 记不得就当卡片:这是发送那条路的默认形态
+            card = !_isCard.TryGetValue(messageId, out bool known) || known;
+        }
+        if (card)
+        {
+            await _api.UpdateCardAsync(messageId, text, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+        await _api.EditTextAsync(messageId, text, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public Task SendFileAsync(OutboundTarget target, string localPath, CancellationToken cancellationToken)
+        => _api.SendFileAsync(target.ChatId, localPath, cancellationToken);
+
+    private void Remember(string? messageId, bool card)
+    {
+        if (messageId is not { Length: > 0 })
+        {
+            return;
+        }
+        lock (_isCard)
+        {
+            if (_isCard.Count >= MaxRemembered)
+            {
+                _isCard.Clear();
+            }
+            _isCard[messageId] = card;
+        }
+    }
 
     /// <inheritdoc />
     public ValueTask DisposeAsync()

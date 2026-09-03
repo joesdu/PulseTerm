@@ -47,7 +47,7 @@ internal sealed class DingTalkChannel(ChannelConfig config, string clientSecret,
 
     /// <inheritdoc />
     /// <remarks>钉钉的普通机器人消息发出去就改不了,所以进度只能另发一条 —— 由桥接决定别刷屏。</remarks>
-    public ChannelCapabilities Capabilities => new(false, 3000);
+    public ChannelCapabilities Capabilities => new(false, 3000, 20 * 1024 * 1024);
 
     /// <inheritdoc />
     public event Action? Connected;
@@ -282,6 +282,21 @@ internal sealed class DingTalkChannel(ChannelConfig config, string clientSecret,
     }
 
     /// <inheritdoc />
+    /// <summary>
+    /// 通知栏那一行标题:取正文第一行,去掉 Markdown 的记号。
+    /// </summary>
+    /// <remarks>
+    /// 钉钉的 <c>sampleMarkdown</c> 必须给标题,而它只出现在<b>通知栏</b>里、不进正文。
+    /// 填一个固定字符串的话,手机上一串推送长得一模一样,谁都分不出哪条是哪条。
+    /// </remarks>
+    private static string NotificationTitle(string text)
+    {
+        string line = text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .FirstOrDefault("VelaShell");
+        line = line.TrimStart('#', '-', '*', '>', ' ').Replace("**", "").Replace("`", "");
+        return line.Length <= 40 ? line : string.Concat(line.AsSpan(0, 40), "…");
+    }
+
     public async Task<string?> SendAsync(OutboundTarget target, string text, CancellationToken cancellationToken)
     {
         if (!_routes.TryGetValue(target.ChatId, out (bool IsGroup, string UserId, string RobotCode) route))
@@ -290,18 +305,21 @@ internal sealed class DingTalkChannel(ChannelConfig config, string clientSecret,
             return null;
         }
         string token = await TokenAsync(cancellationToken).ConfigureAwait(false);
-        string parameters = JsonSerializer.Serialize(new { content = text });
+        // Markdown 而不是纯文本:模型的回答天然带列表、行内代码与加粗,
+        // 发成纯文本的话那些符号本身就成了噪音,比没有格式更难读。
+        // 标题是钉钉在通知栏里显示的那一行,不进正文,所以取第一行的摘要。
+        string parameters = JsonSerializer.Serialize(new { title = NotificationTitle(text), text });
         object body = route.IsGroup
             ? new
             {
-                msgKey = "sampleText",
+                msgKey = "sampleMarkdown",
                 msgParam = parameters,
                 openConversationId = target.ChatId,
                 robotCode = route.RobotCode
             }
             : new
             {
-                msgKey = "sampleText",
+                msgKey = "sampleMarkdown",
                 msgParam = parameters,
                 robotCode = route.RobotCode,
                 userIds = new[] { route.UserId }
@@ -327,6 +345,76 @@ internal sealed class DingTalkChannel(ChannelConfig config, string clientSecret,
     /// <inheritdoc />
     public Task EditAsync(OutboundTarget target, string messageId, string text, CancellationToken cancellationToken)
         => Task.CompletedTask; // Capabilities.CanEdit = false,不会走到这里
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// 素材上传走的是<b>老版</b> oapi(<c>oapi.dingtalk.com/media/upload</c>),
+    /// 而发消息走新版 <c>api.dingtalk.com</c> —— 两个域名、两套鉴权(前者 query 带
+    /// <c>access_token</c>,后者走 <c>x-acs-dingtalk-access-token</c> 头)。
+    /// 这不是笔误,是钉钉自己的历史。
+    /// </remarks>
+    public async Task SendFileAsync(OutboundTarget target, string localPath, CancellationToken cancellationToken)
+    {
+        if (!_routes.TryGetValue(target.ChatId, out (bool IsGroup, string UserId, string RobotCode) route))
+        {
+            throw new InvalidOperationException($"No route for conversation {target.ChatId}.");
+        }
+        string token = await TokenAsync(cancellationToken).ConfigureAwait(false);
+        string name = Path.GetFileName(localPath);
+        string mediaId;
+        await using (FileStream stream = File.OpenRead(localPath))
+        {
+            using var form = new MultipartFormDataContent { { new StringContent("file"), "type" } };
+            using var content = new StreamContent(stream);
+            content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+            form.Add(content, "media", name);
+            using HttpResponseMessage upload = await _http.PostAsync(
+                $"https://oapi.dingtalk.com/media/upload?access_token={Uri.EscapeDataString(token)}&type=file",
+                form, cancellationToken).ConfigureAwait(false);
+            using JsonDocument document = JsonDocument.Parse(
+                await upload.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
+            if (document.RootElement.TryGetProperty("errcode", out JsonElement code) && code.GetInt32() != 0)
+            {
+                throw new InvalidOperationException($"DingTalk media upload failed: {document.RootElement}");
+            }
+            mediaId = document.RootElement.GetProperty("media_id").GetString()
+                      ?? throw new InvalidOperationException("DingTalk media upload returned no media_id.");
+        }
+        string extension = Path.GetExtension(name).TrimStart('.');
+        string parameters = JsonSerializer.Serialize(new
+        {
+            mediaId,
+            fileName = name,
+            fileType = extension.Length > 0 ? extension : "txt"
+        });
+        object body = route.IsGroup
+            ? new
+            {
+                msgKey = "sampleFile",
+                msgParam = parameters,
+                openConversationId = target.ChatId,
+                robotCode = route.RobotCode
+            }
+            : new
+            {
+                msgKey = "sampleFile",
+                msgParam = parameters,
+                robotCode = route.RobotCode,
+                userIds = new[] { route.UserId }
+            };
+        string path = route.IsGroup ? "/v1.0/robot/groupMessages/send" : "/v1.0/robot/oToMessages/batchSend";
+        using var request = new HttpRequestMessage(HttpMethod.Post, ApiBase + path)
+        {
+            Content = JsonContent.Create(body)
+        };
+        request.Headers.TryAddWithoutValidation("x-acs-dingtalk-access-token", token);
+        using HttpResponseMessage response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException(
+                $"DingTalk {path} failed: {await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false)}");
+        }
+    }
 
     private static string Truncate(string text) => text.Length <= 200 ? text : string.Concat(text.AsSpan(0, 200), "…");
 

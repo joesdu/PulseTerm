@@ -32,7 +32,8 @@ public sealed class BridgeAgentRunner(
     IPluginContext context,
     AiSettingsStore store,
     ChatHistoryStore history,
-    McpManager mcp)
+    McpManager mcp,
+    ChannelHub? hub = null)
 {
     /// <summary>函数调用循环的单轮上限。IM 那头没人盯着,给得比面板保守一点。</summary>
     private const int MaxToolIterations = 20;
@@ -101,6 +102,11 @@ public sealed class BridgeAgentRunner(
             ApprovalHandler = approve,
             Approval = approval,
             Scope = scope,
+            // 落点就是这条对话所在的聊天。渠道发不了文件时保持 null —— 那样 send_file
+            // 压根不注册,而不是摆一个永远失败的工具让模型反复去试。
+            FileSender = hub is { } channels && channels.CapabilitiesOf(conversation.ChannelId).MaxFileBytes > 0
+                ? (path, token) => channels.SendFileAsync(conversation.ChannelId, conversation.Reply, path, token)
+                : null,
             DisabledTools = new HashSet<string>(
                 (ai.DisabledBuiltinTools ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
                 StringComparer.OrdinalIgnoreCase),

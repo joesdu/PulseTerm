@@ -59,7 +59,12 @@ public readonly record struct OutboundTarget(string ChatId, string? ThreadId = n
 /// <summary>渠道能做什么。桥接据此决定进度提示是"改同一条"还是"再发一条"。</summary>
 /// <param name="CanEdit">能不能改已发出的消息。</param>
 /// <param name="MaxMessageChars">单条消息的字符上限(超出由桥接切段)。</param>
-public readonly record struct ChannelCapabilities(bool CanEdit, int MaxMessageChars = 4000);
+/// <param name="MaxFileBytes">
+/// 单个文件的上限;<b>0 = 这个渠道发不了文件</b>。各家差得很远(飞书 30MB、
+/// Telegram 50MB、钉钉与企微 20MB),而"发大了"在有些平台上是把整条消息静默丢掉,
+/// 所以宁可在发之前就说清楚。
+/// </param>
+public readonly record struct ChannelCapabilities(bool CanEdit, int MaxMessageChars = 4000, long MaxFileBytes = 0);
 
 /// <summary>
 /// 一个 IM 渠道。<b>只管收发,不认识 agent</b> —— 谁能说话、说了要不要干活,
@@ -97,4 +102,20 @@ public interface IMessageChannel : IAsyncDisposable
 
     /// <summary>改掉之前发出的一条消息。<see cref="ChannelCapabilities.CanEdit" /> 为 false 时不会被调用。</summary>
     Task EditAsync(OutboundTarget target, string messageId, string text, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// 把一个<b>本机文件</b>发进聊天。
+    /// </summary>
+    /// <remarks>
+    /// 这条路存在的理由是"日志得能拿到手":机器人在服务器上看得见日志,而人在手机上,
+    /// 复制一屏文字回去既丢格式又丢内容。打个包下下来、发进聊天,才是这件事的完整形态。
+    /// <para>
+    /// 四家的做法一致:先把文件传上平台换一个 key,再发一条引用那个 key 的消息。
+    /// <see cref="ChannelCapabilities.MaxFileBytes" /> 为 0 的渠道不会被调用。
+    /// </para>
+    /// </remarks>
+    /// <param name="target">发到哪个聊天。</param>
+    /// <param name="localPath">本机绝对路径。</param>
+    /// <param name="cancellationToken">取消。</param>
+    Task SendFileAsync(OutboundTarget target, string localPath, CancellationToken cancellationToken);
 }

@@ -59,6 +59,107 @@ internal sealed class FeishuApi(string appId, string appSecret, bool internation
         }
     }
 
+    /// <summary>
+    /// 往一个会话发一张<b>能渲染 Markdown 的卡片</b>,返回消息 id。
+    /// </summary>
+    /// <remarks>
+    /// <b>为什么不是 <c>msg_type: text</c>。</b>模型的回答天然是 Markdown ——
+    /// 列表、行内代码、代码块、加粗。发成纯文本的话,飞书原样显示 <c>- **DeepX**:</c>
+    /// 和三个反引号,读起来比没有格式更糟:符号本身成了噪音。
+    /// <para>
+    /// 飞书这边能渲染 Markdown 的只有<b>卡片</b>。卡片 JSON 2.0 的 <c>markdown</c> 元素
+    /// 覆盖标题、列表、代码块、表格、链接,是这四家里最完整的一档。
+    /// <c>update_multi</c> 必须开,否则流式那几次改会被拒。
+    /// </para>
+    /// </remarks>
+    public async Task<string?> SendCardAsync(string chatId, string markdown, CancellationToken cancellationToken)
+    {
+        using JsonDocument document = await CallAsync(HttpMethod.Post,
+            "/open-apis/im/v1/messages?receive_id_type=chat_id",
+            new
+            {
+                receive_id = chatId,
+                msg_type = "interactive",
+                content = Card(markdown)
+            }, cancellationToken).ConfigureAwait(false);
+        return MessageId(document);
+    }
+
+    /// <summary>更新一张已经发出的卡片。</summary>
+    /// <remarks>
+    /// 卡片走 <c>PATCH</c>,而文本走 <c>PUT</c> —— 这是两个不同的接口,用错那个会直接报错。
+    /// </remarks>
+    public async Task UpdateCardAsync(string messageId, string markdown, CancellationToken cancellationToken)
+    {
+        using JsonDocument _ = await CallAsync(HttpMethod.Patch,
+            $"/open-apis/im/v1/messages/{Uri.EscapeDataString(messageId)}",
+            new { content = Card(markdown) }, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// 传一个文件上去换 <c>file_key</c>,再发一条文件消息。
+    /// </summary>
+    /// <remarks>
+    /// 飞书把"传文件"和"发消息"分成两步,中间靠 <c>file_key</c> 串起来。
+    /// <c>file_type</c> 用 <c>stream</c> 这一档通吃 —— 另外那几档(opus/mp4/pdf…)
+    /// 会按类型做转码或预览,而日志包既不是音视频也不一定是 pdf,
+    /// 报错了反而说不清是哪一步的问题。
+    /// </remarks>
+    public async Task SendFileAsync(string chatId, string localPath, CancellationToken cancellationToken)
+    {
+        string name = Path.GetFileName(localPath);
+        string token = await TokenAsync(cancellationToken).ConfigureAwait(false);
+        string fileKey;
+        await using (FileStream stream = File.OpenRead(localPath))
+        {
+            using var form = new MultipartFormDataContent
+            {
+                { new StringContent("stream"), "file_type" },
+                { new StringContent(name), "file_name" }
+            };
+            using var content = new StreamContent(stream);
+            content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+            form.Add(content, "file", name);
+            using var request = new HttpRequestMessage(HttpMethod.Post, Domain + "/open-apis/im/v1/files")
+            {
+                Content = form
+            };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            using HttpResponseMessage response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            using JsonDocument uploaded = await ReadAsync(response, cancellationToken).ConfigureAwait(false);
+            JsonElement root = uploaded.RootElement;
+            if (root.TryGetProperty("code", out JsonElement code) && code.GetInt32() != 0)
+            {
+                throw new InvalidOperationException($"Feishu file upload failed: {Message(root)} (code {code.GetInt32()}).");
+            }
+            fileKey = root.GetProperty("data").GetProperty("file_key").GetString()
+                      ?? throw new InvalidOperationException("Feishu file upload returned no file_key.");
+        }
+        using JsonDocument _ = await CallAsync(HttpMethod.Post,
+            "/open-apis/im/v1/messages?receive_id_type=chat_id",
+            new
+            {
+                receive_id = chatId,
+                msg_type = "file",
+                content = JsonSerializer.Serialize(new { file_key = fileKey })
+            }, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>一张只有一个 Markdown 元素的卡片(序列化成字符串,接口要的就是字符串)。</summary>
+    private static string Card(string markdown) => JsonSerializer.Serialize(new
+    {
+        schema = "2.0",
+        // 不开这个,同一张卡片改第二次就会被拒 —— 而流式进度天生要改很多次
+        config = new { update_multi = true },
+        body = new { elements = new object[] { new { tag = "markdown", content = markdown } } }
+    });
+
+    private static string? MessageId(JsonDocument document)
+        => document.RootElement.TryGetProperty("data", out JsonElement data)
+           && data.TryGetProperty("message_id", out JsonElement id)
+            ? id.GetString()
+            : null;
+
     /// <summary>往一个会话发文本,返回消息 id。</summary>
     public async Task<string?> SendTextAsync(string chatId, string text, CancellationToken cancellationToken)
     {
@@ -70,10 +171,7 @@ internal sealed class FeishuApi(string appId, string appSecret, bool internation
                 msg_type = "text",
                 content = JsonSerializer.Serialize(new { text })
             }, cancellationToken).ConfigureAwait(false);
-        return document.RootElement.TryGetProperty("data", out JsonElement data)
-               && data.TryGetProperty("message_id", out JsonElement id)
-            ? id.GetString()
-            : null;
+        return MessageId(document);
     }
 
     /// <summary>

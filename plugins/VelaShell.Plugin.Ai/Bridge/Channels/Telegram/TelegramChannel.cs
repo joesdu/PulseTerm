@@ -1,3 +1,4 @@
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using VelaShell.PluginSdk;
@@ -39,7 +40,7 @@ internal sealed class TelegramChannel(ChannelConfig config, string token, IPlugi
     public string Label => config.Label;
 
     /// <inheritdoc />
-    public ChannelCapabilities Capabilities => new(true, 4000);
+    public ChannelCapabilities Capabilities => new(true, 4000, 50 * 1024 * 1024);
 
     /// <inheritdoc />
     public event Action? Connected;
@@ -147,23 +148,79 @@ internal sealed class TelegramChannel(ChannelConfig config, string token, IPlugi
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    /// <b>先按 HTML 发,被拒了退回纯文本。</b>转换器(<see cref="TelegramHtml" />)自己生成标签、
+    /// 结构上不会不闭合,但 Telegram 那边的实体规则还有别的讲究(比如嵌套限制),
+    /// 真撞上了该让用户看到一条没格式的回答,而不是什么都看不到。
+    /// </remarks>
     public async Task<string?> SendAsync(OutboundTarget target, string text, CancellationToken cancellationToken)
     {
-        using JsonDocument document = await CallAsync("sendMessage",
-            new { chat_id = long.Parse(target.ChatId), text }, cancellationToken).ConfigureAwait(false);
-        return document.RootElement.TryGetProperty("result", out JsonElement result)
-               && result.TryGetProperty("message_id", out JsonElement id)
-            ? id.GetRawText()
-            : null;
+        long chat = long.Parse(target.ChatId);
+        try
+        {
+            return MessageId(await CallAsync("sendMessage",
+                new { chat_id = chat, text = TelegramHtml.Convert(text), parse_mode = "HTML" },
+                cancellationToken).ConfigureAwait(false));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            context.Log.Warn($"Bridge: {Label} could not send HTML ({ex.Message}); falling back to plain text.");
+            return MessageId(await CallAsync("sendMessage", new { chat_id = chat, text }, cancellationToken)
+                .ConfigureAwait(false));
+        }
     }
 
     /// <inheritdoc />
     public async Task EditAsync(OutboundTarget target, string messageId, string text,
         CancellationToken cancellationToken)
     {
-        using JsonDocument _ = await CallAsync("editMessageText",
-            new { chat_id = long.Parse(target.ChatId), message_id = long.Parse(messageId), text },
-            cancellationToken).ConfigureAwait(false);
+        long chat = long.Parse(target.ChatId);
+        long message = long.Parse(messageId);
+        try
+        {
+            using JsonDocument _ = await CallAsync("editMessageText",
+                new { chat_id = chat, message_id = message, text = TelegramHtml.Convert(text), parse_mode = "HTML" },
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            using JsonDocument _ = await CallAsync("editMessageText",
+                new { chat_id = chat, message_id = message, text }, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// Telegram 这一家最省事:一步 multipart,不用先换 key。
+    /// </remarks>
+    public async Task SendFileAsync(OutboundTarget target, string localPath, CancellationToken cancellationToken)
+    {
+        string name = Path.GetFileName(localPath);
+        await using FileStream stream = File.OpenRead(localPath);
+        using var form = new MultipartFormDataContent { { new StringContent(target.ChatId), "chat_id" } };
+        using var content = new StreamContent(stream);
+        content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+        form.Add(content, "document", name);
+        using HttpResponseMessage response = await _http
+            .PostAsync($"https://api.telegram.org/bot{token}/sendDocument", form, cancellationToken)
+            .ConfigureAwait(false);
+        string payload = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        using JsonDocument document = JsonDocument.Parse(payload);
+        if (!document.RootElement.TryGetProperty("ok", out JsonElement ok) || !ok.GetBoolean())
+        {
+            throw new InvalidOperationException($"Telegram sendDocument failed: {payload}");
+        }
+    }
+
+    private static string? MessageId(JsonDocument document)
+    {
+        using (document)
+        {
+            return document.RootElement.TryGetProperty("result", out JsonElement result)
+                   && result.TryGetProperty("message_id", out JsonElement id)
+                ? id.GetRawText()
+                : null;
+        }
     }
 
     private async Task<JsonDocument> CallAsync(string method, object? body, CancellationToken cancellationToken)
