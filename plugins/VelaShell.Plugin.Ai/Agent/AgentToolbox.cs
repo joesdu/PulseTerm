@@ -51,6 +51,22 @@ public sealed class AgentToolbox(IPluginContext context)
     /// <summary>当前选中的目标会话 id(由聊天面板提供;null = 未选)。</summary>
     public Func<string?>? SessionIdProvider { get; set; }
 
+    /// <summary>最近一次 <c>open_session</c> 开出来的会话;界面上没有选中项时的兜底目标。</summary>
+    /// <remarks>
+    /// <b>只在 <see cref="SessionIdProvider" /> 给不出东西时才用。</b>这正是"没绑机器"的那条路:
+    /// IM 桥接里聊天没绑会话、MCP 里外部 agent 还没 <c>use_session</c> —— 它们的 provider 返回 null,
+    /// 自己开出来的那条于是自动成为默认目标,不必逼模型在后续每一次调用里都记得带 session_id。
+    /// <para>
+    /// 反过来,用户在面板上明明选着 A,模型开了 B,后续不带 session_id 的调用仍然落在 A 上:
+    /// 用户选的那一台是他此刻正看着的,不该被一次工具调用悄悄改掉。
+    /// <c>open_session</c> 的回执里因此把新会话 id 说得很清楚。
+    /// </para>
+    /// </remarks>
+    private string? _openedSessionId;
+
+    /// <summary>最近一次 <see cref="CreateTools" /> 的模式(决定"没会话"提示里提不提 open_session)。</summary>
+    private ChatMode _mode = ChatMode.Agent;
+
     /// <summary>危险操作审批(返回是否放行)。未设置视为拒绝。</summary>
     public Func<ApprovalRequest, Task<bool>>? ApprovalHandler { get; set; }
 
@@ -67,6 +83,7 @@ public sealed class AgentToolbox(IPluginContext context)
     public static IReadOnlyList<(string Name, string Description, bool ReadOnly)> Catalog { get; } =
     [
         ("list_sessions", "列出用户的 SSH 会话(主机、端口、用户名、状态)", true),
+        ("list_saved_sessions", "列出会话树里已保存的连接配置(含此刻没连着的)", true),
         ("read_terminal", "读取会话终端的尾部输出", true),
         ("search_terminal", "在终端滚回里搜索(子串或正则),只带回命中行", true),
         ("read_remote_file", "经 SFTP 读取远端小文本文件(≤256KB)", true),
@@ -76,6 +93,8 @@ public sealed class AgentToolbox(IPluginContext context)
         ("system_overview", "一次取回系统概览(内核、发行版、负载、内存、磁盘)", true),
         ("web_search", "检索网络,返回标题/链接/摘要清单(不含正文)", true),
         ("web_fetch", "取一个网页并转成文本", true),
+        ("open_session", "按已保存的配置连一台机器(宿主会再向用户确认一次)", false),
+        ("close_session", "关掉本插件自己开的那条会话", false),
         ("run_command", "在会话上执行一次性命令(独立通道,不进用户终端)", false),
         ("run_on_sessions", "在多台会话上并行执行同一条命令", false),
         ("write_remote_file", "经 SFTP 覆盖写入远端文本文件", false),
@@ -99,11 +118,19 @@ public sealed class AgentToolbox(IPluginContext context)
     /// </param>
     public IList<AITool> CreateTools(ChatMode mode, bool nativeWebSearch = false)
     {
+        // 记下这一轮的模式:"没有会话可用"那句提示要据此决定该不该提 open_session ——
+        // 计划模式里它压根没注册,提了只会让模型去调一个不存在的工具。
+        _mode = mode;
         var all = new List<(string Name, AITool Tool, bool ReadOnly)>
         {
             ("list_sessions", AIFunctionFactory.Create(ListSessionsAsync, "list_sessions",
                 "List the user's SSH sessions (id, host, port, username, state). "
                 + "Every other tool accepts one of these ids, so use this first when the task spans more than one server."), true),
+
+            ("list_saved_sessions", AIFunctionFactory.Create(ListSavedSessionsAsync, "list_saved_sessions",
+                "List the SAVED connection configurations in the user's VelaShell session tree, including machines that are "
+                + "NOT connected right now. Use it when the machine the user is asking about does not appear in list_sessions. "
+                + "The ids it returns are saved_session_id values for open_session — they are NOT session ids and the other tools do not accept them."), true),
 
             ("read_terminal", AIFunctionFactory.Create(ReadTerminalAsync, "read_terminal",
                 "Read the tail of the terminal output (scrollback + screen) of an SSH session. Use it to see what the user sees. "
@@ -129,6 +156,17 @@ public sealed class AgentToolbox(IPluginContext context)
             ("system_overview", AIFunctionFactory.Create(SystemOverviewAsync, "system_overview",
                 "Collect a read-only snapshot of the server in one call: kernel, distribution, uptime and load, CPU count, "
                 + "memory and disk usage. Start troubleshooting here instead of issuing five separate commands."), true),
+
+            ("open_session", AIFunctionFactory.Create(OpenSessionAsync, "open_session",
+                "Connect to one of the SAVED configurations from list_saved_sessions and return the new session id. "
+                + "Requires user approval, and the VelaShell host then asks the user to confirm as well, showing your `reason` verbatim — "
+                + "so write a reason that says who wants what, not \"the plugin needs a connection\". "
+                + "Use it when the machine in question is saved but not connected. You cannot connect to an arbitrary host:port — "
+                + "only to configurations the user has already saved."), false),
+
+            ("close_session", AIFunctionFactory.Create(CloseSessionAsync, "close_session",
+                "Close a session that YOU opened with open_session. The host refuses to close sessions the user opened themselves. "
+                + "Do this once you are done with a session you opened, so the user is not left with tabs they did not ask for."), false),
 
             ("run_command", AIFunctionFactory.Create(RunCommandAsync, "run_command",
                 "Run a one-shot, non-interactive shell command on an SSH session over a separate exec channel (it does NOT type into the user's terminal). "
@@ -197,9 +235,10 @@ public sealed class AgentToolbox(IPluginContext context)
         IReadOnlyList<SessionInfo> sessions = await context.Sessions.ListAsync(cancellationToken).ConfigureAwait(false);
         if (sessions.Count == 0)
         {
-            return "No sessions. Ask the user to connect to a server in VelaShell first.";
+            return "No sessions. " + NoSession;
         }
-        string? selected = SessionIdProvider?.Invoke();
+        // 与 ResolveAsync 同一套优先级:界面选中的 > 自己开出来的。标错默认目标比不标更糟。
+        string? selected = SessionIdProvider?.Invoke() ?? _openedSessionId;
         var sb = new StringBuilder();
         foreach (SessionInfo s in sessions)
         {
@@ -212,6 +251,45 @@ public sealed class AgentToolbox(IPluginContext context)
                 state = s.State.ToString(),
                 // 标出默认的那一台:不传 session_id 时所有工具落在它身上
                 selected = s.SessionId == selected
+            }));
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// 已保存的连接配置(会话树里的那些,含此刻没连着的)。
+    /// </summary>
+    /// <remarks>
+    /// 顺带标出"这条配置已经有连着的会话"并给出那条会话的 id:不标的话,模型对着一台其实
+    /// 已经开着的机器还要再走一遍 <c>open_session</c>(那可是一次要惊动用户的确认框)。
+    /// 配对只按主机 + 端口 + 用户名,是个提示而不是判决 —— 真正认不认这条复用由宿主定。
+    /// </remarks>
+    private async Task<string> ListSavedSessionsAsync(CancellationToken cancellationToken)
+    {
+        IReadOnlyList<SavedSessionInfo> saved = await context.Sessions.ListSavedAsync(cancellationToken).ConfigureAwait(false);
+        if (saved.Count == 0)
+        {
+            return "The user has no saved connection configurations in VelaShell.";
+        }
+        IReadOnlyList<SessionInfo> live = await context.Sessions.ListAsync(cancellationToken).ConfigureAwait(false);
+        var sb = new StringBuilder();
+        foreach (SavedSessionInfo s in saved)
+        {
+            SessionInfo? connected = live.FirstOrDefault(c =>
+                c.State == SessionState.Connected
+                && string.Equals(c.Host, s.Host, StringComparison.OrdinalIgnoreCase)
+                && c.Port == s.Port
+                && (s.Username.Length == 0 || string.Equals(c.Username, s.Username, StringComparison.Ordinal)));
+            sb.AppendLine(JsonSerializer.Serialize(new
+            {
+                saved_session_id = s.SavedSessionId,
+                name = s.Name,
+                host = s.Host,
+                port = s.Port,
+                username = s.Username,
+                group = s.Group,
+                // 已经连着的话直接给会话 id:不必再 open_session 惊动用户
+                connected_session_id = connected?.SessionId
             }));
         }
         return sb.ToString();
@@ -501,6 +579,119 @@ public sealed class AgentToolbox(IPluginContext context)
     }
 
     // ---- 写 ----
+
+    /// <summary>
+    /// 按已保存的配置连一台机器。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 这是工具箱里唯一一个<b>要过两道人</b>的工具:这里的审批闸(面板的审批卡 / 群里的
+    /// <c>y</c>/<c>n</c>),以及宿主自己的确认框。看着重复,其实问的不是同一件事 ——
+    /// 前者是"这轮对话里要不要让 agent 这么干",后者是"要不要让这个<b>插件</b>替我连机器",
+    /// 后者的答案由用户在宿主里一次性给定(可以选"始终允许"),此后无人值守的路才真正走得通。
+    /// </para>
+    /// <para>
+    /// <c>reason</c> 会被宿主<b>原样</b>显示在确认框上,所以这里空理由直接退回给模型重写,
+    /// 而不是拿一句占位符去糊弄用户 —— 一个没有理由的确认框只是一个让人盲点的按钮。
+    /// </para>
+    /// </remarks>
+    private async Task<string> OpenSessionAsync(
+        [Description("A saved_session_id from list_saved_sessions (NOT a session id).")] string savedSessionId,
+        [Description("Why the connection is needed. Shown to the user VERBATIM in the host's confirmation dialog — "
+                     + "say who is asking and what for, e.g. 'Feishu group Ops: Zhang San asked whether /var is full'.")] string reason,
+        [Description("Reuse an already-connected session for the same configuration instead of opening a second one (default true).")] bool reuseConnected = true,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(savedSessionId))
+        {
+            return "saved_session_id must not be empty; call list_saved_sessions first.";
+        }
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            return "reason must not be empty: the user sees it verbatim in the confirmation dialog. "
+                   + "State who is asking and what for, then call open_session again.";
+        }
+        string wanted = savedSessionId.Trim();
+        IReadOnlyList<SavedSessionInfo> saved = await context.Sessions.ListSavedAsync(cancellationToken).ConfigureAwait(false);
+        if (saved.FirstOrDefault(s => string.Equals(s.SavedSessionId, wanted, StringComparison.Ordinal)) is not { } target)
+        {
+            return $"No such saved session: {wanted}. Call list_saved_sessions to see the available ids.";
+        }
+        // 审批卡上要看得见连的是哪一台,以及模型给宿主的那句理由 ——
+        // 用户在这里点头之后,同一句话还会出现在宿主的确认框上,两处对得上才不显得可疑。
+        string label = $"{target.Name} ({target.Username}@{target.Host}:{target.Port})";
+        if (!await ApproveAsync(new ApprovalRequest("open_session", $"{label}\n→ {reason.Trim()}"), cancellationToken)
+                .ConfigureAwait(false))
+        {
+            return "The user DENIED opening this connection. Do not retry; ask the user how to proceed.";
+        }
+        try
+        {
+            SessionInfo opened = await context.Sessions
+                .OpenAsync(wanted, new SessionOpenOptions(reason.Trim(), reuseConnected), cancellationToken)
+                .ConfigureAwait(false);
+            bool isDefault = SessionIdProvider?.Invoke() is null;
+            _openedSessionId = opened.SessionId;
+            return $"Connected to {opened.Username}@{opened.Host}:{opened.Port}. session_id = {opened.SessionId}. "
+                   + (isDefault
+                       ? "The other tools now act on it by default; close_session it when you are done."
+                       : "Pass that session_id explicitly to the other tools — without it they keep acting on the session the user selected. "
+                         + "Close it with close_session when you are done.");
+        }
+        catch (PluginPermissionDeniedException ex)
+        {
+            // "不让你连"与"没连上"分开处置:用户说了不,重试没有意义。
+            return $"The host DENIED this connection ({ex.Message}). Do not retry; tell the user what you wanted to do and why.";
+        }
+        catch (PluginSessionOpenException ex)
+        {
+            return $"Could not connect to {label}: {ex.Message}. The user allowed it, so a later retry may work — "
+                   + "but report the failure instead of hammering it.";
+        }
+        catch (PluginSessionNotFoundException)
+        {
+            return $"No such saved session: {wanted}. Call list_saved_sessions to see the available ids.";
+        }
+        catch (Exception ex)
+        {
+            return $"Failed to open the session: {ex.Message}";
+        }
+    }
+
+    /// <summary>关掉本插件自己开的那条会话(宿主拒绝关别人的)。</summary>
+    /// <remarks>
+    /// 不走审批闸。关的对象已经被宿主限死在"本插件开的那些"里,用户自己的标签页一根汗毛都动不了;
+    /// 而收拾自己开的东西再要一次点头,只会让 agent 干脆不收拾 —— 尤其在没有审批界面的
+    /// MCP 那条路上(<c>Ask</c> 等于一律拒绝),那样必然攒下一堆没人认领的标签页。
+    /// </remarks>
+    private async Task<string> CloseSessionAsync(
+        [Description("The session id returned by open_session.")] string sessionId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(sessionId))
+        {
+            return "session_id must not be empty; pass the id open_session returned.";
+        }
+        string wanted = sessionId.Trim();
+        try
+        {
+            await context.Sessions.CloseAsync(wanted, cancellationToken).ConfigureAwait(false);
+            if (string.Equals(_openedSessionId, wanted, StringComparison.Ordinal))
+            {
+                _openedSessionId = null;
+            }
+            return $"Session {wanted} is closed.";
+        }
+        catch (PluginPermissionDeniedException)
+        {
+            return $"Session {wanted} was not opened by this assistant, so it cannot be closed here. "
+                   + "Only the user can close their own sessions.";
+        }
+        catch (Exception ex)
+        {
+            return $"Failed to close the session: {ex.Message}";
+        }
+    }
 
     private async Task<string> WriteRemoteFileAsync(
         [Description("Absolute path of the remote file to overwrite (parent directory must exist).")] string path,
@@ -898,12 +1089,31 @@ public sealed class AgentToolbox(IPluginContext context)
         + "or pass an explicit session_id from list_sessions.";
 
     /// <summary>
-    /// 解出这次调用该落在哪个会话上:显式传了就用那个(先核实存在),否则用界面上选中的那个。
+    /// "一台都没有"时给模型的话。
+    /// </summary>
+    /// <remarks>
+    /// 能开会话的时候要把那条路指出来 —— 这正是从前"值班的人昨晚关了那个标签页,
+    /// 机器人只能回一句你先去连一台"的出口。但计划模式下 <c>open_session</c> 压根没注册,
+    /// 那时提它只会让模型去调一个不存在的工具,然后把这次失败当成自己的问题。
+    /// </remarks>
+    private string NoSession =>
+        _mode != ChatMode.Plan && !DisabledTools.Contains("open_session")
+            ? NoSessionMessage
+              + " If the machine is saved in VelaShell but not connected, call list_saved_sessions and then open_session "
+              + "(the user will be asked to confirm) instead of telling the user to go and connect it themselves."
+            : NoSessionMessage;
+
+    /// <summary>
+    /// 解出这次调用该落在哪个会话上:显式传了就用那个(先核实存在),否则用界面上选中的那个,
+    /// 再没有就用本轮 <c>open_session</c> 自己开出来的那条。
     /// </summary>
     /// <remarks>
     /// 认不出来的 id <b>当场给出可操作的回答</b>而不是让 SDK 抛一个
     /// <c>PluginSessionNotFoundException</c> —— 模型看到"去 list_sessions 拿 id"会自己纠正,
     /// 看到一个异常堆栈则往往就地放弃。
+    /// <para>
+    /// 兜底那一档的位置是刻意的:排在选中项<b>之后</b>。理由见 <see cref="_openedSessionId" />。
+    /// </para>
     /// </remarks>
     private async Task<(string? Id, string? Error)> ResolveAsync(string? sessionId, CancellationToken cancellationToken)
     {
@@ -915,7 +1125,20 @@ public sealed class AgentToolbox(IPluginContext context)
                 ? (null, $"No such session: {wanted}. Call list_sessions to see the available ids.")
                 : (info.SessionId, null);
         }
-        return SessionIdProvider?.Invoke() is { } current ? (current, null) : (null, NoSessionMessage);
+        if (SessionIdProvider?.Invoke() is { } current)
+        {
+            return (current, null);
+        }
+        // 自己开的那条:用户手动关掉之后就不该再往它上面发东西,所以每次都核实一下还在不在。
+        if (_openedSessionId is { } opened)
+        {
+            if (await context.Sessions.GetAsync(opened, cancellationToken).ConfigureAwait(false) is { } live)
+            {
+                return (live.SessionId, null);
+            }
+            _openedSessionId = null;
+        }
+        return (null, NoSession);
     }
 
     private static string Describe(RemoteFileEntry entry) => JsonSerializer.Serialize(new

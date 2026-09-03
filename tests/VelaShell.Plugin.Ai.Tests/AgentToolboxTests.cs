@@ -14,10 +14,11 @@ public sealed class AgentToolboxTests
     private static readonly string[] ExpectedToolNames =
     [
         // 只读:不走审批
-        "list_sessions", "read_terminal", "search_terminal", "read_remote_file",
+        "list_sessions", "list_saved_sessions", "read_terminal", "search_terminal", "read_remote_file",
         "list_remote_directory", "stat_remote_path", "get_working_directory", "system_overview",
         "web_search", "web_fetch",
-        // 会动东西:一律走审批
+        // 会动东西:一律走审批(close_session 除外,见 CloseSession_NeedsNoApproval…)
+        "open_session", "close_session",
         "run_command", "run_on_sessions", "write_remote_file", "patch_remote_file",
         "make_remote_directory", "rename_remote_path", "upload_local_file", "download_remote_file",
         "write_terminal"
@@ -466,5 +467,290 @@ public sealed class AgentToolboxTests
         Assert.Contains("typed", result);
         Assert.HasCount(1, context.FakeTerminal.Writes);
         Assert.AreEqual("echo hi\n", context.FakeTerminal.Writes[0].Input);
+    }
+
+    // ---- 按已保存配置自己连一台(SDK 2.0.2) ----
+
+    [TestMethod]
+    public async Task ListSavedSessions_ReportsConfigsThatAreNotConnected()
+    {
+        using var context = new TestPluginContext();
+        context.FakeSessions.AddSaved("prod-3", "10.0.0.3", username: "root", group: "production");
+        var toolbox = new AgentToolbox(context);
+
+        string result = await InvokeAsync(toolbox, "list_saved_sessions");
+
+        // 一条都没连着,但它照样报得出来 —— 这正是 list_sessions 给不了的那部分
+        Assert.Contains("prod-3", result);
+        Assert.Contains("production", result);
+        Assert.Contains("10.0.0.3", result);
+        Assert.Contains("\"connected_session_id\":null", result.Replace(" ", ""));
+    }
+
+    /// <summary>
+    /// 已经连着的那条要标出会话 id:不标的话,模型对着一台其实已经开着的机器
+    /// 还要再走一遍 open_session —— 那可是一次要惊动用户的确认框。
+    /// </summary>
+    [TestMethod]
+    public async Task ListSavedSessions_PointsAtTheAlreadyConnectedSession()
+    {
+        using var context = new TestPluginContext();
+        context.FakeSessions.AddSaved("prod-1", "10.0.0.1", username: "root");
+        SessionInfo live = context.FakeSessions.AddConnected("10.0.0.1", username: "root");
+        var toolbox = new AgentToolbox(context);
+
+        string result = await InvokeAsync(toolbox, "list_saved_sessions");
+
+        Assert.Contains(live.SessionId, result);
+    }
+
+    /// <summary>没有连接可用时,要把"可以自己连一台"这条路指出来,而不是打发用户去连。</summary>
+    [TestMethod]
+    public async Task WithoutASession_TheHintPointsAtOpenSession()
+    {
+        using var context = new TestPluginContext();
+        var toolbox = new AgentToolbox(context) { SessionIdProvider = () => null };
+        toolbox.CreateTools(ChatMode.Agent);
+
+        string result = await InvokeAsync(toolbox, "read_terminal");
+
+        Assert.Contains("open_session", result);
+    }
+
+    /// <summary>
+    /// 计划模式里 open_session 压根没注册,那时提它只会让模型去调一个不存在的工具。
+    /// </summary>
+    [TestMethod]
+    public async Task WithoutASession_InPlanMode_TheHintDoesNotMentionOpenSession()
+    {
+        using var context = new TestPluginContext();
+        var toolbox = new AgentToolbox(context) { SessionIdProvider = () => null };
+        AIFunction read = toolbox.CreateTools(ChatMode.Plan).OfType<AIFunction>().Single(f => f.Name == "read_terminal");
+
+        string result = (await read.InvokeAsync([with(new Dictionary<string, object?>())], CancellationToken.None))?.ToString() ?? "";
+
+        Assert.DoesNotContain("open_session", result);
+    }
+
+    [TestMethod]
+    public async Task OpenSession_WithoutApprovalHandler_IsDeniedAndNothingIsConnected()
+    {
+        using var context = new TestPluginContext();
+        SavedSessionInfo saved = context.FakeSessions.AddSaved();
+        var toolbox = new AgentToolbox(context);
+
+        string result = await InvokeAsync(toolbox, "open_session",
+            new() { ["savedSessionId"] = saved.SavedSessionId, ["reason"] = "查磁盘" });
+
+        Assert.Contains("DENIED", result);
+        Assert.IsEmpty(context.FakeSessions.Sessions);
+    }
+
+    /// <summary>
+    /// 空理由不许放过去。那句话是<b>原样</b>显示给用户的,拿一句占位符糊弄过去,
+    /// 等于把宿主的确认框变成一个只能盲点的按钮 —— 退回去让模型重写才对。
+    /// </summary>
+    [TestMethod]
+    public async Task OpenSession_WithABlankReason_IsSentBackBeforeAnyoneIsAsked()
+    {
+        using var context = new TestPluginContext();
+        SavedSessionInfo saved = context.FakeSessions.AddSaved();
+        var asked = 0;
+        var toolbox = new AgentToolbox(context)
+        {
+            ApprovalHandler = _ =>
+            {
+                asked++;
+                return Task.FromResult(true);
+            }
+        };
+
+        string result = await InvokeAsync(toolbox, "open_session",
+            new() { ["savedSessionId"] = saved.SavedSessionId, ["reason"] = "   " });
+
+        Assert.Contains("reason", result);
+        Assert.AreEqual(0, asked, "理由都没有,不该去打扰用户");
+        Assert.IsNull(context.FakeSessions.LastOpenReason);
+    }
+
+    [TestMethod]
+    public async Task OpenSession_Approved_ConnectsAndCarriesTheReasonToTheHost()
+    {
+        using var context = new TestPluginContext();
+        SavedSessionInfo saved = context.FakeSessions.AddSaved("prod-1", "10.0.0.1", username: "root");
+        ApprovalRequest? card = null;
+        var toolbox = new AgentToolbox(context)
+        {
+            ApprovalHandler = request =>
+            {
+                card = request;
+                return Task.FromResult(true);
+            }
+        };
+
+        const string reason = "飞书群 运维值班:张三问 /var 满没满";
+        string result = await InvokeAsync(toolbox, "open_session",
+            new() { ["savedSessionId"] = saved.SavedSessionId, ["reason"] = reason });
+
+        Assert.HasCount(1, context.FakeSessions.Sessions);
+        Assert.Contains(context.FakeSessions.Sessions[0].SessionId, result);
+        // 理由原样送到宿主的确认框,一个字都不许改写
+        Assert.AreEqual(reason, context.FakeSessions.LastOpenReason);
+        // 审批卡上也要看得见连的是哪一台、为什么 —— 两处对不上就显得可疑
+        Assert.Contains("prod-1", card!.Value.Detail);
+        Assert.Contains(reason, card.Value.Detail);
+    }
+
+    /// <summary>
+    /// 界面上没有选中项时,自己开出来的那条自动成为默认目标 —— 这正是"聊天没绑机器"
+    /// 那条路:不然模型得在后续每一次调用里都记得带 session_id。
+    /// </summary>
+    [TestMethod]
+    public async Task OpenSession_WithNothingSelected_BecomesTheDefaultTargetForLaterTools()
+    {
+        using var context = new TestPluginContext();
+        SavedSessionInfo saved = context.FakeSessions.AddSaved("prod-1", "10.0.0.1", username: "root");
+        var toolbox = new AgentToolbox(context)
+        {
+            SessionIdProvider = () => null,
+            Approval = ApprovalMode.Bypass
+        };
+        await InvokeAsync(toolbox, "open_session",
+            new() { ["savedSessionId"] = saved.SavedSessionId, ["reason"] = "查磁盘" });
+
+        string sessionId = context.FakeSessions.Sessions[0].SessionId;
+        context.FakeTerminal.Output[sessionId] = ["/dev/sda1  92% /"];
+        string tail = await InvokeAsync(toolbox, "read_terminal");
+
+        Assert.Contains("92%", tail);
+    }
+
+    /// <summary>
+    /// 反过来,用户在面板上选着 A、模型开了 B 时,不带 session_id 的调用仍然落在 A 上:
+    /// 用户选的那一台是他此刻正看着的,不该被一次工具调用悄悄改掉。
+    /// </summary>
+    [TestMethod]
+    public async Task OpenSession_DoesNotStealTheSessionTheUserSelected()
+    {
+        using var context = new TestPluginContext();
+        SessionInfo selected = context.FakeSessions.AddConnected("panel-host", username: "ops");
+        SavedSessionInfo saved = context.FakeSessions.AddSaved("prod-1", "10.0.0.1", username: "root");
+        var toolbox = new AgentToolbox(context)
+        {
+            SessionIdProvider = () => selected.SessionId,
+            Approval = ApprovalMode.Bypass
+        };
+        context.FakeTerminal.Output[selected.SessionId] = ["still the panel session"];
+
+        string opened = await InvokeAsync(toolbox, "open_session",
+            new() { ["savedSessionId"] = saved.SavedSessionId, ["reason"] = "查磁盘" });
+        string tail = await InvokeAsync(toolbox, "read_terminal");
+
+        Assert.Contains("still the panel session", tail);
+        // 回执里必须把新会话 id 说清楚,否则模型无从把后续调用打到那一台上
+        Assert.Contains("session_id", opened);
+    }
+
+    [TestMethod]
+    public async Task OpenSession_HostRefused_TellsTheModelNotToRetry()
+    {
+        using var context = new TestPluginContext();
+        SavedSessionInfo saved = context.FakeSessions.AddSaved();
+        context.FakeSessions.DenyOpen = true;
+        var toolbox = new AgentToolbox(context) { Approval = ApprovalMode.Bypass };
+
+        string result = await InvokeAsync(toolbox, "open_session",
+            new() { ["savedSessionId"] = saved.SavedSessionId, ["reason"] = "查磁盘" });
+
+        Assert.Contains("DENIED", result);
+        Assert.DoesNotContain("retry may work", result);
+    }
+
+    /// <summary>
+    /// "不让你连"与"没连上"必须是两句不同的话:前者重试没有意义,后者换个时间可能就好了。
+    /// 混成一句,模型就只能靠猜来决定要不要再试。
+    /// </summary>
+    [TestMethod]
+    public async Task OpenSession_ConnectFailure_ReadsDifferentlyFromARefusal()
+    {
+        using var context = new TestPluginContext();
+        SavedSessionInfo saved = context.FakeSessions.AddSaved();
+        context.FakeSessions.OpenFailure = "Connection timed out";
+        var toolbox = new AgentToolbox(context) { Approval = ApprovalMode.Bypass };
+
+        string result = await InvokeAsync(toolbox, "open_session",
+            new() { ["savedSessionId"] = saved.SavedSessionId, ["reason"] = "查磁盘" });
+
+        Assert.Contains("Connection timed out", result);
+        Assert.DoesNotContain("DENIED", result);
+    }
+
+    [TestMethod]
+    public async Task OpenSession_UnknownSavedId_PointsAtListSavedSessions()
+    {
+        using var context = new TestPluginContext();
+        var toolbox = new AgentToolbox(context) { Approval = ApprovalMode.Bypass };
+
+        string result = await InvokeAsync(toolbox, "open_session",
+            new() { ["savedSessionId"] = Guid.NewGuid().ToString(), ["reason"] = "查磁盘" });
+
+        Assert.Contains("list_saved_sessions", result);
+        Assert.IsEmpty(context.FakeSessions.Sessions);
+    }
+
+    /// <summary>
+    /// 收拾自己开的东西不该再要一次点头 —— 尤其在没有审批界面的 MCP 那条路上
+    /// (`Ask` 等于一律拒绝),那样必然攒下一堆没人认领的标签页。
+    /// </summary>
+    [TestMethod]
+    public async Task CloseSession_NeedsNoApproval_SoTheAgentActuallyTidiesUp()
+    {
+        using var context = new TestPluginContext();
+        SavedSessionInfo saved = context.FakeSessions.AddSaved();
+        var toolbox = new AgentToolbox(context) { Approval = ApprovalMode.Bypass };
+        await InvokeAsync(toolbox, "open_session",
+            new() { ["savedSessionId"] = saved.SavedSessionId, ["reason"] = "查磁盘" });
+        string opened = context.FakeSessions.Sessions[0].SessionId;
+
+        // ApprovalHandler 仍然是 null(= 一律拒绝),close_session 照样走得通
+        string result = await InvokeAsync(toolbox, "close_session", new() { ["sessionId"] = opened });
+
+        Assert.Contains("closed", result);
+        Assert.IsEmpty(context.FakeSessions.Sessions);
+    }
+
+    /// <summary>用户自己开的那条,插件关不掉 —— 拒绝要变成一句模型看得懂的话,而不是异常。</summary>
+    [TestMethod]
+    public async Task CloseSession_OnTheUsersOwnSession_IsRefusedInPlainWords()
+    {
+        using var context = new TestPluginContext();
+        SessionInfo users = context.FakeSessions.AddConnected();
+        var toolbox = new AgentToolbox(context) { Approval = ApprovalMode.Bypass };
+
+        string result = await InvokeAsync(toolbox, "close_session", new() { ["sessionId"] = users.SessionId });
+
+        Assert.Contains("not opened by this assistant", result);
+        Assert.HasCount(1, context.FakeSessions.Sessions, "用户的会话必须原封不动");
+    }
+
+    /// <summary>关掉之后那条不再是默认目标 —— 否则后续调用会打到一条已经没了的会话上。</summary>
+    [TestMethod]
+    public async Task CloseSession_DropsItAsTheDefaultTarget()
+    {
+        using var context = new TestPluginContext();
+        SavedSessionInfo saved = context.FakeSessions.AddSaved();
+        var toolbox = new AgentToolbox(context)
+        {
+            SessionIdProvider = () => null,
+            Approval = ApprovalMode.Bypass
+        };
+        await InvokeAsync(toolbox, "open_session",
+            new() { ["savedSessionId"] = saved.SavedSessionId, ["reason"] = "查磁盘" });
+        string opened = context.FakeSessions.Sessions[0].SessionId;
+        await InvokeAsync(toolbox, "close_session", new() { ["sessionId"] = opened });
+
+        string result = await InvokeAsync(toolbox, "read_terminal");
+
+        Assert.Contains("No SSH session", result);
     }
 }

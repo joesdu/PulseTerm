@@ -137,6 +137,22 @@ internal sealed class McpToolHost
     /// <summary>给 <c>initialize</c> 的服务端说明里带一句"现在对着哪台机器"。</summary>
     public string Describe()
         => _target.Length > 0
-            ? $"VelaShell is acting on {_target}. Mode: {_settings.Mode}, approval: {_settings.Approval}."
-            : $"No session selected yet — call list_sessions, then use_session. Mode: {_settings.Mode}, approval: {_settings.Approval}.";
+            ? $"VelaShell is acting on {_target}. Mode: {_settings.Mode}, approval: {_settings.Approval}.{CanOpen}"
+            : $"No session selected yet — call list_sessions, then use_session. Mode: {_settings.Mode}, approval: {_settings.Approval}.{CanOpen}";
+
+    /// <summary>
+    /// 一台都没连着时还有没有别的路走。
+    /// </summary>
+    /// <remarks>
+    /// 只在 <c>open_session</c> 真的走得通时才说,而这条路上"走得通"只有<b>绕过审批</b>一种:
+    /// 没有审批界面,<see cref="ApprovalMode.Ask" /> 等于一律拒绝(见类型注释);
+    /// <see cref="ApprovalMode.ReadOnlyAuto" /> 只放行确定无副作用的命令,开连接不在其列。
+    /// 把"你可以自己连一台"写进说明却让它每次都撞墙,比不写更糟。
+    /// </remarks>
+    private string CanOpen
+        => _settings.Approval == ApprovalMode.Bypass
+           && Tools.Any(t => string.Equals(t.Name, "open_session", StringComparison.Ordinal))
+            ? " A machine that is saved in VelaShell but not connected can be connected with"
+              + " list_saved_sessions + open_session; the user is asked to confirm on their desktop."
+            : "";
 }

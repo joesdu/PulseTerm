@@ -224,10 +224,17 @@ public sealed class BridgeAgentRunner(
                       "If the answer is long, give the conclusion first and offer details on request. ");
         prompt.Append($"The person asking is {message.UserName} ")
               .Append(message.IsGroup ? "in a group chat with other people watching. " : "in a direct message. ");
+        // 没绑机器时的出路。Agent 模式下不再一句"你先去连一台"打发人:开会话的契约已经在了,
+        // 只是那一步要过两道人(群里审批 + 用户桌面上的宿主确认框),所以话要说清楚,
+        // 免得模型开完一台就以为自己拿到了长期权限。计划模式没有 open_session,照旧指路 /use。
         prompt.Append(session is not null
             ? $"This chat is bound to the SSH session {session.Username}@{session.Host}:{session.Port}; tools act on that server. "
-            : "This chat is NOT bound to any connected SSH session, so server tools will fail — "
-              + "tell the user to run /sessions and then /use <user@host:port> to bind one. ");
+            : mode == ChatMode.Agent
+                ? "This chat is NOT bound to any connected SSH session. If the machine is saved in VelaShell, "
+                  + "call list_saved_sessions and then open_session — it needs approval here AND a confirmation on the user's "
+                  + "desktop, so say which machine and why. Otherwise tell the user to run /sessions and /use <user@host:port>. "
+                : "This chat is NOT bound to any connected SSH session, so server tools will fail — "
+                  + "tell the user to run /sessions and then /use <user@host:port> to bind one. ");
         if (nativeWebSearch)
         {
             prompt.Append(NativeWebSearch.SystemHint).Append(' ');
