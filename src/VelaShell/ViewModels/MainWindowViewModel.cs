@@ -55,19 +55,49 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     /// 由「设置 → 终端 → 会话 → 上报终端工作目录」开关控制,关掉即一字节不注入(#286)。
     /// </summary>
     /// <remarks>
-    /// bash 代码放在单引号包裹的 eval 参数里,避免 fish 等 shell 预解析函数体时报错;
-    /// 外层守卫让非 bash shell 不执行。只追加 PROMPT_COMMAND,不覆盖用户已有的
-    /// starship/direnv/atuin 等钩子,并在重连时按函数名去重。
+    /// <para>
+    /// <b>bash 代码必须留在单引号包裹的 eval 参数里。</b>shell 会先把整行解析完再执行,
+    /// 裸写的函数定义与 <c>[[ ]]</c>、<c>${var//a/b}</c> 会让 fish 在<b>解析阶段</b>就报错 ——
+    /// 那时外层守卫还没来得及短路。包进单引号后 fish 只看到一个字符串,静默跳过,屏幕上一个字符都不留。
+    /// </para>
     /// <para>
     /// 这道守卫只在 POSIX 世界内部有效:它挡得住 fish/csh,挡不住 cmd.exe ——
     /// Windows OpenSSH 的默认 shell 把整行当命令执行,屏幕上就是
     /// <c>'test' 不是内部或外部命令</c>(#305)。所以注入前必须先用
     /// <see cref="RemoteShellProbe" /> 确认对端认 sh 语法,守卫是第二道闸不是第一道。
     /// </para>
+    /// <para>
+    /// <b>装法是"先把自己摘掉、清干净首尾、再装回去",不是"发现装过就跳过"。</b>
+    /// 后者看着更省事,实际漏了两种情况,而这两种在真机上都撞到了:
+    /// </para>
+    /// <list type="number">
+    /// <item>
+    /// 原值结尾自带分号时会拼出 <c>;;</c>。pyenv-virtualenv 的初始化在 PROMPT_COMMAND 为空时
+    /// 就是设成 <c>_pyenv_virtualenv_hook;</c>,于是追加后成了
+    /// <c>_pyenv_virtualenv_hook;;vela_shell_osc7</c> —— <c>;;</c> 出了 case 就是语法错误,
+    /// 用户**每敲一次回车**都会看到一行报错。所以追加前必须把尾部的分号与空白剪掉。
+    /// </item>
+    /// <item>
+    /// 会话一旦已经是坏的,"跳过"就永远修不回来:去重看到里面已有 <c>vela_shell_osc7</c>,
+    /// 认定装过了,坏值原样留着。改成无条件重装之后,这种会话再连一次就自愈。
+    /// </item>
+    /// </list>
+    /// <para>
+    /// <b>只剪首尾,绝不动中间。</b>看着更彻底的 <c>${PROMPT_COMMAND//;;/;}</c> 会把用户
+    /// PROMPT_COMMAND 里合法的 <c>case</c> 分支(<c>… ;; *) … ;; esac</c>)切坏 ——
+    /// 换来的是另一个语法错误。问题出在尾部,就只该剪尾部。
+    /// </para>
+    /// <para>
+    /// 摘自己时先去 <c>;vela_shell_osc7</c> 再去裸的 <c>vela_shell_osc7</c>:前者把分隔符一并带走,
+    /// 免得在中间留下 <c>;;</c>;后者收尾开头那份或分号后带空格的写法。
+    /// 这段是 shell 语义,C# 单测只断言得了字符串里有什么,拦不住"跑起来才炸" ——
+    /// 真正的状态矩阵在 <c>tests/VelaShell.Tests/ViewModels/PromptHookShellTests.cs</c>,
+    /// 它把这个常量原样交给真正的 bash 跑。
+    /// </para>
     /// </remarks>
-    private const string WorkingDirectoryReportHook =
+    internal const string WorkingDirectoryReportHook =
         """
-        test -n "$BASH_VERSION" && eval 'vela_shell_osc7() { printf "\033]7;file://%s%s\033\\\\" "$HOSTNAME" "$PWD"; }; case ";$PROMPT_COMMAND;" in *";vela_shell_osc7;"*) ;; *) PROMPT_COMMAND="${PROMPT_COMMAND:+$PROMPT_COMMAND;}vela_shell_osc7";; esac'; printf "\r\033[2K"
+        test -n "${BASH_VERSION:-}" && eval 'vela_shell_osc7() { printf "\033]7;file://%s%s\033\\\\" "${HOSTNAME:-}" "$PWD"; }; PROMPT_COMMAND="${PROMPT_COMMAND:-}"; PROMPT_COMMAND="${PROMPT_COMMAND//;vela_shell_osc7/}"; PROMPT_COMMAND="${PROMPT_COMMAND//vela_shell_osc7/}"; while [[ -n $PROMPT_COMMAND && $PROMPT_COMMAND == [\;[:space:]]* ]]; do PROMPT_COMMAND=${PROMPT_COMMAND#?}; done; while [[ -n $PROMPT_COMMAND && $PROMPT_COMMAND == *[\;[:space:]] ]]; do PROMPT_COMMAND=${PROMPT_COMMAND%?}; done; PROMPT_COMMAND="${PROMPT_COMMAND:+$PROMPT_COMMAND;}vela_shell_osc7"'; printf "\r\033[2K"
         """;
 
     /// <summary>RIS(ESC c)完全重置序列:重开会话前清掉旧进程的残留缓冲。</summary>
