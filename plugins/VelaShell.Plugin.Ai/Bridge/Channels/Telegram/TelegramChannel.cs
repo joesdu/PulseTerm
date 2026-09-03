@@ -147,23 +147,56 @@ internal sealed class TelegramChannel(ChannelConfig config, string token, IPlugi
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    /// <b>先按 HTML 发,被拒了退回纯文本。</b>转换器(<see cref="TelegramHtml" />)自己生成标签、
+    /// 结构上不会不闭合,但 Telegram 那边的实体规则还有别的讲究(比如嵌套限制),
+    /// 真撞上了该让用户看到一条没格式的回答,而不是什么都看不到。
+    /// </remarks>
     public async Task<string?> SendAsync(OutboundTarget target, string text, CancellationToken cancellationToken)
     {
-        using JsonDocument document = await CallAsync("sendMessage",
-            new { chat_id = long.Parse(target.ChatId), text }, cancellationToken).ConfigureAwait(false);
-        return document.RootElement.TryGetProperty("result", out JsonElement result)
-               && result.TryGetProperty("message_id", out JsonElement id)
-            ? id.GetRawText()
-            : null;
+        long chat = long.Parse(target.ChatId);
+        try
+        {
+            return MessageId(await CallAsync("sendMessage",
+                new { chat_id = chat, text = TelegramHtml.Convert(text), parse_mode = "HTML" },
+                cancellationToken).ConfigureAwait(false));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            context.Log.Warn($"Bridge: {Label} could not send HTML ({ex.Message}); falling back to plain text.");
+            return MessageId(await CallAsync("sendMessage", new { chat_id = chat, text }, cancellationToken)
+                .ConfigureAwait(false));
+        }
     }
 
     /// <inheritdoc />
     public async Task EditAsync(OutboundTarget target, string messageId, string text,
         CancellationToken cancellationToken)
     {
-        using JsonDocument _ = await CallAsync("editMessageText",
-            new { chat_id = long.Parse(target.ChatId), message_id = long.Parse(messageId), text },
-            cancellationToken).ConfigureAwait(false);
+        long chat = long.Parse(target.ChatId);
+        long message = long.Parse(messageId);
+        try
+        {
+            using JsonDocument _ = await CallAsync("editMessageText",
+                new { chat_id = chat, message_id = message, text = TelegramHtml.Convert(text), parse_mode = "HTML" },
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            using JsonDocument _ = await CallAsync("editMessageText",
+                new { chat_id = chat, message_id = message, text }, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private static string? MessageId(JsonDocument document)
+    {
+        using (document)
+        {
+            return document.RootElement.TryGetProperty("result", out JsonElement result)
+                   && result.TryGetProperty("message_id", out JsonElement id)
+                ? id.GetRawText()
+                : null;
+        }
     }
 
     private async Task<JsonDocument> CallAsync(string method, object? body, CancellationToken cancellationToken)

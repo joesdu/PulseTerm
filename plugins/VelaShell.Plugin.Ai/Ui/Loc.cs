@@ -604,6 +604,16 @@ public sealed class Loc(string locale)
         ["PairScopeHint"] = ["The code carries this scope — the chat is limited from its first second, with no window where it holds everything.", "配对码携带这份范围:群从第一秒起就受限,不存在\"先全开再收紧\"的窗口。", "配對碼攜帶這份範圍:群從第一秒起就受限,不存在\"先全開再收緊\"的視窗。", "コードはこの範囲を伴います。チャットは最初から制限され、「まず全開放してから絞る」窓は存在しません。", "코드가 이 범위를 함께 전달합니다. 대화는 처음부터 제한되며 \"먼저 전부 열고 나중에 좁히는\" 구간이 없습니다."],
         ["BridgePaired"] = ["Paired — this chat can talk to me now. Try /help.", "配对成功,这个聊天现在可以跟我说话了。试试 /help。", "配對成功,這個聊天現在可以跟我說話了。試試 /help。", "ペアリングできました。このチャットから話しかけられます。/help を試してください。", "페어링에 성공했습니다. 이제 이 대화에서 말을 걸 수 있습니다. /help를 사용해 보세요."],
         // ── 斜杠命令 ──
+        // 欢迎语 = 自我介绍 + **此刻真实的**设定 + 命令表({4} 塞的就是下面那份)。
+        // 设定不写死成静态文案:一个只读、只授权了某个分组的群里,印着"你可以让我重启服务"
+        // 比不印更糟 —— 人会照着去下命令,然后撞上一句(按设计)不解释范围的拒绝。
+        ["BridgeWelcome"] = [
+            "**VelaShell assistant** is connected to this chat. I can reach the servers you saved in VelaShell — read logs, check services, run commands.\n\n**Right now**\n- Mode: {0}\n- Approval: {1}\n- Can operate: {2}\n- Bound to: {3}\n\n**Commands**\n{4}\n\nOr just ask, e.g. \"any errors in the 32601 service today?\". In a group, @ me first.",
+            "**VelaShell 助手**已接入这个聊天。我能连到你在 VelaShell 里保存的服务器,读日志、看服务、跑命令。\n\n**当前设定**\n- 挡位:{0}\n- 审批:{1}\n- 能操作:{2}\n- 绑定:{3}\n\n**命令**\n{4}\n\n也可以直接问,比如「32601 那个服务今天有报错吗」。群里记得先 @ 我。",
+            "**VelaShell 助手**已接入這個聊天。我能連到你在 VelaShell 裡儲存的伺服器,讀日誌、看服務、跑命令。\n\n**目前設定**\n- 擋位:{0}\n- 審批:{1}\n- 能操作:{2}\n- 綁定:{3}\n\n**命令**\n{4}\n\n也可以直接問,比如「32601 那個服務今天有報錯嗎」。群裡記得先 @ 我。",
+            "**VelaShell アシスタント**がこのチャットに接続しました。VelaShell に保存したサーバーに接続して、ログの確認・サービスの状態確認・コマンド実行ができます。\n\n**現在の設定**\n- モード:{0}\n- 承認:{1}\n- 操作できる範囲:{2}\n- 接続先:{3}\n\n**コマンド**\n{4}\n\nそのまま質問しても構いません(例:「32601 のサービスに今日エラーは出ていますか」)。グループでは先に @ してください。",
+            "**VelaShell 어시스턴트**가 이 대화에 연결되었습니다. VelaShell에 저장한 서버에 접속해 로그 확인, 서비스 상태 확인, 명령 실행을 할 수 있습니다.\n\n**현재 설정**\n- 모드: {0}\n- 승인: {1}\n- 조작 범위: {2}\n- 대상: {3}\n\n**명령**\n{4}\n\n그냥 물어봐도 됩니다(예: \"32601 서비스에 오늘 오류가 있나요?\"). 그룹에서는 먼저 @ 해 주세요."
+        ],
         ["BridgeHelp"] = [
             "/sessions — list connected servers\n/use <user@host:port> — bind this chat to one\n/mode chat|plan|agent — change the mode\n/new — start a fresh conversation\n/stop — stop the current turn\n/status — show what this chat is set to, including which machines it may touch",
             "/sessions — 列出已连上的服务器\n/use <user@host:port> — 把本聊天绑到某一台\n/mode chat|plan|agent — 换挡位\n/new — 开一段新对话\n/stop — 中止当前这一轮\n/status — 看本聊天的当前设定(含能操作哪些机器)",

@@ -241,14 +241,17 @@ internal sealed class WeComChannel(
         string accessToken = await TokenAsync(cancellationToken).ConfigureAwait(false);
         bool isGroup = _groups.TryGetValue(target.ChatId, out bool group) && group;
         string path = isGroup ? "/cgi-bin/appchat/send" : "/cgi-bin/message/send";
+        // Markdown 而不是纯文本:理由同其它三家 —— 模型的回答天然带列表与行内代码。
+        // 企微的 Markdown 是个子集(没有表格、没有代码块高亮),但列表、加粗、
+        // 行内代码、引用都认,已经比原样显示那些符号强得多。
         object body = isGroup
-            ? new { chatid = target.ChatId, msgtype = "text", text = new { content = text } }
+            ? new { chatid = target.ChatId, msgtype = "markdown", markdown = new { content = text } }
             : new
             {
                 touser = target.ChatId,
-                msgtype = "text",
+                msgtype = "markdown",
                 agentid = int.TryParse(config.AgentId, out int agent) ? agent : 0,
-                text = new { content = text }
+                markdown = new { content = text }
             };
         using HttpResponseMessage response = await _http.PostAsJsonAsync(
             $"{ApiBase}{path}?access_token={Uri.EscapeDataString(accessToken)}", body, cancellationToken)

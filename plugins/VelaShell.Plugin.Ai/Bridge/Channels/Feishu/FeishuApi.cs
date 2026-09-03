@@ -59,6 +59,58 @@ internal sealed class FeishuApi(string appId, string appSecret, bool internation
         }
     }
 
+    /// <summary>
+    /// 往一个会话发一张<b>能渲染 Markdown 的卡片</b>,返回消息 id。
+    /// </summary>
+    /// <remarks>
+    /// <b>为什么不是 <c>msg_type: text</c>。</b>模型的回答天然是 Markdown ——
+    /// 列表、行内代码、代码块、加粗。发成纯文本的话,飞书原样显示 <c>- **DeepX**:</c>
+    /// 和三个反引号,读起来比没有格式更糟:符号本身成了噪音。
+    /// <para>
+    /// 飞书这边能渲染 Markdown 的只有<b>卡片</b>。卡片 JSON 2.0 的 <c>markdown</c> 元素
+    /// 覆盖标题、列表、代码块、表格、链接,是这四家里最完整的一档。
+    /// <c>update_multi</c> 必须开,否则流式那几次改会被拒。
+    /// </para>
+    /// </remarks>
+    public async Task<string?> SendCardAsync(string chatId, string markdown, CancellationToken cancellationToken)
+    {
+        using JsonDocument document = await CallAsync(HttpMethod.Post,
+            "/open-apis/im/v1/messages?receive_id_type=chat_id",
+            new
+            {
+                receive_id = chatId,
+                msg_type = "interactive",
+                content = Card(markdown)
+            }, cancellationToken).ConfigureAwait(false);
+        return MessageId(document);
+    }
+
+    /// <summary>更新一张已经发出的卡片。</summary>
+    /// <remarks>
+    /// 卡片走 <c>PATCH</c>,而文本走 <c>PUT</c> —— 这是两个不同的接口,用错那个会直接报错。
+    /// </remarks>
+    public async Task UpdateCardAsync(string messageId, string markdown, CancellationToken cancellationToken)
+    {
+        using JsonDocument _ = await CallAsync(HttpMethod.Patch,
+            $"/open-apis/im/v1/messages/{Uri.EscapeDataString(messageId)}",
+            new { content = Card(markdown) }, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>一张只有一个 Markdown 元素的卡片(序列化成字符串,接口要的就是字符串)。</summary>
+    private static string Card(string markdown) => JsonSerializer.Serialize(new
+    {
+        schema = "2.0",
+        // 不开这个,同一张卡片改第二次就会被拒 —— 而流式进度天生要改很多次
+        config = new { update_multi = true },
+        body = new { elements = new object[] { new { tag = "markdown", content = markdown } } }
+    });
+
+    private static string? MessageId(JsonDocument document)
+        => document.RootElement.TryGetProperty("data", out JsonElement data)
+           && data.TryGetProperty("message_id", out JsonElement id)
+            ? id.GetString()
+            : null;
+
     /// <summary>往一个会话发文本,返回消息 id。</summary>
     public async Task<string?> SendTextAsync(string chatId, string text, CancellationToken cancellationToken)
     {
@@ -70,10 +122,7 @@ internal sealed class FeishuApi(string appId, string appSecret, bool internation
                 msg_type = "text",
                 content = JsonSerializer.Serialize(new { text })
             }, cancellationToken).ConfigureAwait(false);
-        return document.RootElement.TryGetProperty("data", out JsonElement data)
-               && data.TryGetProperty("message_id", out JsonElement id)
-            ? id.GetString()
-            : null;
+        return MessageId(document);
     }
 
     /// <summary>

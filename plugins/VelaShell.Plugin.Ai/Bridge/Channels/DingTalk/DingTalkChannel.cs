@@ -282,6 +282,21 @@ internal sealed class DingTalkChannel(ChannelConfig config, string clientSecret,
     }
 
     /// <inheritdoc />
+    /// <summary>
+    /// 通知栏那一行标题:取正文第一行,去掉 Markdown 的记号。
+    /// </summary>
+    /// <remarks>
+    /// 钉钉的 <c>sampleMarkdown</c> 必须给标题,而它只出现在<b>通知栏</b>里、不进正文。
+    /// 填一个固定字符串的话,手机上一串推送长得一模一样,谁都分不出哪条是哪条。
+    /// </remarks>
+    private static string NotificationTitle(string text)
+    {
+        string line = text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .FirstOrDefault("VelaShell");
+        line = line.TrimStart('#', '-', '*', '>', ' ').Replace("**", "").Replace("`", "");
+        return line.Length <= 40 ? line : string.Concat(line.AsSpan(0, 40), "…");
+    }
+
     public async Task<string?> SendAsync(OutboundTarget target, string text, CancellationToken cancellationToken)
     {
         if (!_routes.TryGetValue(target.ChatId, out (bool IsGroup, string UserId, string RobotCode) route))
@@ -290,18 +305,21 @@ internal sealed class DingTalkChannel(ChannelConfig config, string clientSecret,
             return null;
         }
         string token = await TokenAsync(cancellationToken).ConfigureAwait(false);
-        string parameters = JsonSerializer.Serialize(new { content = text });
+        // Markdown 而不是纯文本:模型的回答天然带列表、行内代码与加粗,
+        // 发成纯文本的话那些符号本身就成了噪音,比没有格式更难读。
+        // 标题是钉钉在通知栏里显示的那一行,不进正文,所以取第一行的摘要。
+        string parameters = JsonSerializer.Serialize(new { title = NotificationTitle(text), text });
         object body = route.IsGroup
             ? new
             {
-                msgKey = "sampleText",
+                msgKey = "sampleMarkdown",
                 msgParam = parameters,
                 openConversationId = target.ChatId,
                 robotCode = route.RobotCode
             }
             : new
             {
-                msgKey = "sampleText",
+                msgKey = "sampleMarkdown",
                 msgParam = parameters,
                 robotCode = route.RobotCode,
                 userIds = new[] { route.UserId }

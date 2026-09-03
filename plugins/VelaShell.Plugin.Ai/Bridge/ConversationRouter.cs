@@ -176,13 +176,18 @@ public sealed class ConversationRouter(
         ChatGrant grant = (template ?? new ChatGrant()).Clone();
         grant.ChatId = message.ChatId;
         grant.IsGroup = message.IsGroup;
-        await AllowChatAsync(config, grant).ConfigureAwait(false);
+        await AllowChatAsync(config, grant, announce: false).ConfigureAwait(false);
         context.Log.Info($"Bridge: {message.ChatKey} was paired by {message.UserName} " +
                          $"(scope: {DescribeScope(grant)}).");
         await hub.SendAsync(message.ChannelId, target,
             grant.Scope.IsUnrestricted
                 ? Loc["BridgePaired"]
                 : Loc.F("BridgePairedScoped", DescribeScope(grant)),
+            CancellationToken.None).ConfigureAwait(false);
+        // 紧跟一条欢迎语:刚被放行的人此刻最需要知道的是"我能干什么、我受什么限",
+        // 而不是自己去猜一个命令名。
+        await hub.SendAsync(message.ChannelId, target,
+            Welcome(null, config, grant),
             CancellationToken.None).ConfigureAwait(false);
         return true;
     }
@@ -195,7 +200,14 @@ public sealed class ConversationRouter(
     /// 落盘走"读—改—写"而不是把内存那份整个盖上去 —— 设置页可能正开着,
     /// 用它内存里的快照覆盖会把用户刚改的别的字段抹掉。
     /// </remarks>
-    public async Task AllowChatAsync(ChannelConfig config, ChatGrant grant)
+    /// <param name="config">这个渠道。</param>
+    /// <param name="grant">给这个聊天的授权。</param>
+    /// <param name="announce">
+    /// 放行之后往那个聊天里发一条欢迎语。设置页那个「允许」按钮要发(人在手机上等着,
+    /// 不打声招呼他不知道成了没有);<c>/pair</c> 那条路<b>不要</b> ——
+    /// 它自己会先回一句"配对成功"再跟欢迎语,顺序才对,由这里代劳会重复发一条。
+    /// </param>
+    public async Task AllowChatAsync(ChannelConfig config, ChatGrant grant, bool announce = true)
     {
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(grant);
@@ -224,6 +236,19 @@ public sealed class ConversationRouter(
                              "it will be forgotten on restart until the settings are saved.");
         }
         pairing.Forget(config.Id, chatId);
+        if (announce)
+        {
+            try
+            {
+                await hub.SendAsync(config.Id, new OutboundTarget(chatId, null),
+                    Welcome(null, config, grant), CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                // 打招呼失败不该让放行本身失败 —— 授权已经写进去了,那才是这次操作的意义
+                context.Log.Warn($"Bridge: {chatId} was authorized but the welcome message failed: {ex.Message}");
+            }
+        }
         lock (_sync)
         {
             // 放行之后那句"未授权"的提醒也该复位:万一以后又被移出白名单,还得再提示一次
@@ -330,7 +355,7 @@ public sealed class ConversationRouter(
         string argument = parts.Length > 1 ? parts[1] : "";
         string? reply = command switch
         {
-            "/help" or "/?" => Loc["BridgeHelp"],
+            "/help" or "/?" => Welcome(conversation, config, grant),
             "/new" or "/reset" => Reset(conversation),
             "/stop" => Stop(conversation),
             "/status" => await StatusAsync(conversation, config, grant).ConfigureAwait(false),
@@ -363,6 +388,31 @@ public sealed class ConversationRouter(
         }
         running.Cancel();
         return Loc["BridgeStopped"];
+    }
+
+    /// <summary>
+    /// 欢迎语 / <c>/help</c>:自我介绍 + <b>此刻真实的</b>设定 + 命令表。
+    /// </summary>
+    /// <remarks>
+    /// <b>刻意不是一段静态文案。</b>一个只读、只授权了"测试"分组的群里,印着
+    /// "你可以让我重启服务"比不印更糟 —— 人会照着去下命令,然后对着一句拒绝发懵,
+    /// 而那句拒绝(按设计)不会告诉他范围外有什么。把当前挡位、审批、范围、绑定
+    /// 一并写在欢迎语里,人一进来就知道自己站在哪儿。
+    /// <para>
+    /// 同一份内容既当欢迎语(配对成功、设置页放行)也当 <c>/help</c>,
+    /// 于是不存在"帮助说的和实际不一样"这种缝。
+    /// </para>
+    /// </remarks>
+    private string Welcome(BridgeConversation? conversation, ChannelConfig config, ChatGrant grant)
+    {
+        ChatMode mode = conversation?.ModeOverride ?? grant.Mode ?? Settings.Mode;
+        ApprovalMode approval = grant.Approval ?? Settings.Approval;
+        string bound = conversation?.BoundTarget is { Length: > 0 } target
+            ? target
+            : config.DefaultTarget is { Length: > 0 } fallback
+                ? fallback
+                : "—";
+        return Loc.F("BridgeWelcome", mode, approval, DescribeScope(grant), bound, Loc["BridgeHelp"]);
     }
 
     /// <summary><c>/status</c>:把这个聊天<b>实际</b>生效的那几个值报出来,包括范围。</summary>

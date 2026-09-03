@@ -246,6 +246,41 @@ public sealed class BridgeRouterTests
         Assert.IsFalse(stored.ChatBindings.ContainsKey("ch1/chat-1"), "越界的绑定不该被记下来");
     }
 
+    /// <summary>
+    /// <c>/help</c> 报的是<b>这个聊天此刻真实的</b>设定,不是一段静态文案。
+    /// </summary>
+    /// <remarks>
+    /// 一个只读、只授权了某个分组的群里,帮助里印着"你可以让我重启服务"比不印更糟 ——
+    /// 人会照着去下命令,然后撞上一句(按设计)不解释范围的拒绝,完全不知道为什么。
+    /// </remarks>
+    [TestMethod]
+    public async Task SlashHelp_ReportsWhatThisChatCanActuallyDo()
+    {
+        await using Harness harness = Scoped();
+        await harness.StartAsync();
+
+        await harness.SendAsync("/help", isGroup: true);
+
+        string reply = harness.Channel.Sent.Single();
+        StringAssert.Contains(reply, "生产");          // 范围
+        StringAssert.Contains(reply, "/sessions");     // 命令表
+    }
+
+    /// <summary>刚被放行的人应当收到一条欢迎语,而不是自己去猜命令名。</summary>
+    [TestMethod]
+    public async Task Pairing_IsFollowedByAWelcome()
+    {
+        await using var harness = new Harness();
+        await harness.StartAsync();
+        string code = harness.Pairing.Issue();
+
+        await harness.SendAsync($"/pair {code}", chatId: "chat-new");
+
+        // 一条"配对成功",紧跟一条欢迎语
+        Assert.AreEqual(2, harness.Channel.Sent.Count);
+        StringAssert.Contains(harness.Channel.Sent[1], "/sessions");
+    }
+
     /// <summary><c>/status</c> 要把范围报出来 —— 不然人只能靠撞墙才知道自己受限。</summary>
     [TestMethod]
     public async Task SlashStatus_ReportsTheScope()
@@ -391,7 +426,7 @@ public sealed class BridgeRouterTests
 
         await harness.SendAsync($"/pair {code}", chatId: "chat-new");
 
-        StringAssert.Contains(harness.Channel.Sent.Single(), "Paired");
+        StringAssert.Contains(harness.Channel.Sent[0], "Paired");
         // 内存里立刻生效:紧接着的一句话不该再被当成陌生人
         harness.Channel.Sent.Clear();
         await harness.SendAsync("/help", chatId: "chat-new");
