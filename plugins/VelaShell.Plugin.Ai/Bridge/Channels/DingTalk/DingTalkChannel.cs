@@ -64,6 +64,38 @@ internal sealed class DingTalkChannel(ChannelConfig config, string clientSecret,
         Connected?.Invoke();
         context.Log.Info($"Bridge: {Label} connected to DingTalk stream.");
 
+        // 读循环刻意**不**接宿主的取消令牌:取消一次挂起的 ReceiveAsync,ClientWebSocket
+        // 走的是 Abort,整条 TLS/TCP 栈会连锁抛异常,平台侧看到的也是一条莫名断掉的长连接。
+        // 停机改走 Close 帧(见 ChannelShutdown.CloseAsync),读循环从对端的 Close 应答里
+        // 正常返回;只有对端不应答时才由那里 Abort 兜底。
+        using var stop = new CancellationTokenSource();
+        Task receive = ReceiveLoopAsync(socket, onMessage, stop.Token);
+        try
+        {
+            await ChannelShutdown.WhenCompletedOrCancelledAsync(receive, cancellationToken).ConfigureAwait(false);
+            if (!receive.IsCompleted)
+            {
+                await ChannelShutdown.CloseAsync(socket, receive).ConfigureAwait(false);
+            }
+            try
+            {
+                await receive.ConfigureAwait(false);
+            }
+            catch (Exception) when (cancellationToken.IsCancellationRequested)
+            {
+                // 优雅关闭超时后被 Abort 掐断的读取。停机路径,不算故障。
+            }
+        }
+        finally
+        {
+            await stop.CancelAsync().ConfigureAwait(false);
+            _socket = null;
+        }
+    }
+
+    private async Task ReceiveLoopAsync(ClientWebSocket socket, Func<InboundMessage, Task> onMessage,
+        CancellationToken cancellationToken)
+    {
         byte[] buffer = ArrayPool<byte>.Shared.Rent(64 * 1024);
         try
         {
@@ -95,7 +127,6 @@ internal sealed class DingTalkChannel(ChannelConfig config, string clientSecret,
         finally
         {
             ArrayPool<byte>.Shared.Return(buffer);
-            _socket = null;
         }
     }
 

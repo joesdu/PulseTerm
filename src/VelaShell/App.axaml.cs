@@ -23,6 +23,7 @@ using VelaShell.PluginSdk.Ui;
 using VelaShell.Presentation.DependencyInjection;
 using VelaShell.Presentation.ViewModels;
 using VelaShell.Services;
+using VelaShell.Terminal;
 using VelaShell.ViewModels;
 using VelaShell.Views;
 
@@ -303,6 +304,7 @@ public class App : Application
                 _launchChannel?.Dispose();
                 _trayIconService?.Dispose();
                 ExternalEditSessionManager.CleanupAll();
+                CloseTerminalBridgesOnExit(viewModel);
                 DisposeServicesOnExit();
             };
         }
@@ -428,6 +430,46 @@ public class App : Application
                 // 自动推送失败静默,手动同步可见错误。
             }
         });
+    }
+
+    /// <summary>
+    /// 退出时先把还开着的终端标签拆掉,再去释放容器。
+    /// </summary>
+    /// <remarks>
+    /// 关标签这条路上,<see cref="SshTerminalBridge.Dispose" /> 是按顺序来的:先释放 shell 流
+    /// (挂起的读取以"通道关闭"醒来,包装层吞成 EOF),再取消令牌、等读写循环收摊。退出时却
+    /// 谁也没走这一步 —— 容器一释放,<c>SshConnectionService</c> 直接把底下的 <c>SshClient</c>
+    /// 全 Dispose 掉,而读循环还挂在各自的通道上。于是每个开着的标签都要在退出时炸出一串
+    /// <c>SshChannelClosedException</c> / <c>IOException</c>,远端看到的也不是一次干净的通道
+    /// 关闭,而是连接被直接掐断。
+    /// <para>
+    /// 这里补上那一步:并发拆桥(每个 <c>Dispose</c> 内部最多等 3 秒),整体再压一个 2 秒的
+    /// 总预算 —— 退出路径绝不为一条无响应的连接挂住。超时未拆完的部分随进程退出由系统回收,
+    /// 与改动前的行为一致。
+    /// </para>
+    /// </remarks>
+    private static void CloseTerminalBridgesOnExit(MainWindowViewModel viewModel)
+    {
+        SshTerminalBridge[] bridges =
+        [
+            .. viewModel.TabBar.Tabs
+                .OfType<TerminalTabViewModel>()
+                .Select(tab => tab.Bridge)
+                .OfType<SshTerminalBridge>()
+        ];
+        if (bridges.Length == 0)
+        {
+            return;
+        }
+        try
+        {
+            Task.WhenAll([.. bridges.Select(bridge => Task.Run(bridge.Dispose))])
+                .Wait(TimeSpan.FromSeconds(2));
+        }
+        catch
+        {
+            // 尽力关闭:绝不阻塞或中断退出路径。
+        }
     }
 
     /// <summary>

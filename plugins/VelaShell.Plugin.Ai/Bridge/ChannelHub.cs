@@ -160,13 +160,9 @@ public sealed class ChannelHub(IPluginContext context) : IAsyncDisposable
             {
                 break;
             }
-            try
+            if (!await ChannelShutdown.DelayAsync(backoff, token).ConfigureAwait(false))
             {
-                await Task.Delay(backoff, token).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
+                break; // 退避期间被停掉
             }
             backoff = backoff >= MaxBackoff ? MaxBackoff : backoff * 2;
         }

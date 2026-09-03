@@ -79,24 +79,41 @@ internal sealed class FeishuChannel(ChannelConfig config, string appSecret, IPlu
         Connected?.Invoke();
         context.Log.Info($"Bridge: {Label} connected to Feishu (service {_serviceId}, ping every {pingSeconds}s).");
 
-        using var pings = new CancellationTokenSource();
-        using CancellationTokenSource linked =
-            CancellationTokenSource.CreateLinkedTokenSource(pings.Token, cancellationToken);
-        Task pingLoop = PingLoopAsync(socket, pingSeconds, linked.Token);
+        // 读循环刻意**不**接宿主的取消令牌:取消一次挂起的 ReceiveAsync,ClientWebSocket
+        // 走的是 Abort,整条 TLS/TCP 栈会连锁抛异常,平台侧看到的也是一条莫名断掉的长连接。
+        // 停机改走 Close 帧(见 ChannelShutdown.CloseAsync),读循环从对端的 Close 应答里
+        // 正常返回;只有对端不应答时才由那里 Abort 兜底。
+        using var stop = new CancellationTokenSource();
+        Task receive = ReceiveLoopAsync(socket, onMessage, stop.Token);
+        Task pingLoop = PingLoopAsync(socket, pingSeconds, stop.Token);
         try
         {
-            await ReceiveLoopAsync(socket, onMessage, cancellationToken).ConfigureAwait(false);
+            await ChannelShutdown.WhenCompletedOrCancelledAsync(receive, cancellationToken).ConfigureAwait(false);
+            if (!receive.IsCompleted)
+            {
+                await ChannelShutdown.CloseAsync(socket, receive).ConfigureAwait(false);
+            }
+            try
+            {
+                await receive.ConfigureAwait(false);
+            }
+            catch (Exception) when (cancellationToken.IsCancellationRequested)
+            {
+                // 优雅关闭超时后被 Abort 掐断的读取。停机路径,不算故障。
+            }
         }
         finally
         {
-            await pings.CancelAsync().ConfigureAwait(false);
+            await stop.CancelAsync().ConfigureAwait(false);
             try
             {
                 await pingLoop.ConfigureAwait(false);
             }
-            catch (OperationCanceledException)
+            catch (Exception ex) when (ex is OperationCanceledException
+                                           or WebSocketException
+                                           or ObjectDisposedException)
             {
-                // 收摊时的正常取消
+                // 收摊时撞上正在关闭的连接
             }
             _socket = null;
         }
@@ -188,9 +205,10 @@ internal sealed class FeishuChannel(ChannelConfig config, string appSecret, IPlu
     private async Task PingLoopAsync(ClientWebSocket socket, int pingSeconds, CancellationToken cancellationToken)
     {
         TimeSpan interval = TimeSpan.FromSeconds(Math.Clamp(pingSeconds, 10, 600));
-        while (!cancellationToken.IsCancellationRequested && socket.State == WebSocketState.Open)
+        // 等待走不抛的那条路:停机时这里被取消是常态,不该每次都在调试输出里留一条异常。
+        while (socket.State == WebSocketState.Open
+               && await ChannelShutdown.DelayAsync(interval, cancellationToken).ConfigureAwait(false))
         {
-            await Task.Delay(interval, cancellationToken).ConfigureAwait(false);
             var ping = new Pbbp2.Frame { Method = Pbbp2.FrameTypeControl, Service = _serviceId };
             ping.SetHeader(Pbbp2.HeaderNames.Type, "ping");
             await SendFrameAsync(socket, ping, cancellationToken).ConfigureAwait(false);
