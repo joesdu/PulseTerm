@@ -99,19 +99,34 @@ public sealed class BridgeService(IPluginContext context, AiSettingsStore aiStor
     /// 桥接正开着就走路由器那条路(内存 + 落盘,立刻生效);没开着就只落盘 ——
     /// 用户完全可能先在设置页把门开好,再去打开桥接。
     /// </remarks>
-    public async Task AllowAsync(PendingChat chat, CancellationToken cancellationToken = default)
+    /// <param name="chat">敲过门的那个聊天。</param>
+    /// <param name="grant">
+    /// 给它的授权。<see langword="null" /> = 不限范围、挡位审批跟随全局。
+    /// <b>单聊传 null 是对的</b>:它只有一个对端,而且是用户逐个放行的;
+    /// 群则应当由设置页先问一句范围再传进来(见 <see cref="ChatGrant" />)。
+    /// </param>
+    /// <param name="cancellationToken">取消。</param>
+    public async Task AllowAsync(PendingChat chat, ChatGrant? grant = null,
+        CancellationToken cancellationToken = default)
     {
+        ChatGrant resolved = (grant ?? new ChatGrant()).Clone();
+        resolved.ChatId = chat.ChatId;
+        resolved.IsGroup = chat.IsGroup;
+        if (resolved.Label.Length == 0)
+        {
+            resolved.Label = chat.UserName;
+        }
         if (_router is { } router
             && router.Settings.Channels.FirstOrDefault(c => c.Id == chat.ChannelId) is { } live)
         {
-            await router.AllowChatAsync(live, chat.ChatId).ConfigureAwait(false);
+            await router.AllowChatAsync(live, resolved).ConfigureAwait(false);
             return;
         }
         BridgeSettings stored = await _bridgeStore.LoadAsync(cancellationToken).ConfigureAwait(false);
         if (stored.Channels.FirstOrDefault(c => c.Id == chat.ChannelId) is { } config
-            && !config.AllowedChats.Contains(chat.ChatId))
+            && config.GrantFor(chat.ChatId) is null)
         {
-            config.AllowedChats.Add(chat.ChatId);
+            config.Grants.Add(resolved);
             await _bridgeStore.SaveAsync(stored, cancellationToken).ConfigureAwait(false);
         }
         Pairing.Forget(chat.ChannelId, chat.ChatId);

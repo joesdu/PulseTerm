@@ -21,6 +21,13 @@ namespace VelaShell.Plugin.Ai.Interop;
 /// 所以 <see cref="ApprovalMode.Ask" /> 在这里等于"一律拒绝"(工具箱在
 /// <c>ApprovalHandler</c> 为 null 时就是这个行为),用户要放开就得显式选
 /// 只读放行或绕过审批 —— 这是一个明摆着的选择,而不是一个悄悄的默认。</para>
+///
+/// <para><b><see cref="McpServerSettings.AllowedTargets" /> 从前只挡 <c>use_session</c>。</b>
+/// 那是一句空话:工具箱里九个工具都收可选的 <c>session_id</c>,外部 agent
+/// <c>list_sessions</c> 拿到 id 直接传就绕过去了。现在它变成
+/// <see cref="TargetListScope" /> 挂在 <see cref="AgentToolbox.Scope" /> 上,
+/// 每一次工具调用都要过。<b>默认值仍是空 = 不限范围</b> —— 这条路的边界是回环地址、
+/// 令牌与只读挡位,把用户自己机器上的 agent 一起收紧挡不住任何攻击者,只挡得住用户自己。</para>
 /// </remarks>
 internal sealed class McpToolHost
 {
@@ -28,6 +35,7 @@ internal sealed class McpToolHost
     private readonly McpServerSettings _settings;
     private readonly AgentToolbox _toolbox;
     private readonly List<string> _allowedTargets;
+    private readonly TargetListScope? _scope;
     private string? _sessionId;
     private string _target = "";
 
@@ -45,9 +53,11 @@ internal sealed class McpToolHost
         [
             .. settings.AllowedTargets.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
         ];
+        _scope = _allowedTargets.Count > 0 ? new TargetListScope(_allowedTargets) : null;
         _toolbox = new AgentToolbox(context)
         {
             SessionIdProvider = () => _sessionId,
+            Scope = _scope,
             Approval = settings.Approval,
             DisabledTools = new HashSet<string>(
                 settings.DisabledTools.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
@@ -93,9 +103,9 @@ internal sealed class McpToolHost
             return $"'{target}' is not on the allowlist configured in VelaShell. "
                    + $"Allowed: {string.Join(", ", _allowedTargets)}";
         }
-        if (await SessionTargets.ResolveAsync(_context, target, cancellationToken).ConfigureAwait(false) is not { } session)
+        if (await SessionTargets.ResolveAsync(_context, target, cancellationToken, _scope).ConfigureAwait(false) is not { } session)
         {
-            string list = await SessionTargets.DescribeAsync(_context, cancellationToken).ConfigureAwait(false);
+            string list = await SessionTargets.DescribeAsync(_context, cancellationToken, _scope).ConfigureAwait(false);
             return list.Length == 0
                 ? "No sessions are connected in VelaShell right now."
                 : $"No connected session matches '{target}'. Connected sessions:\n{list}";
@@ -119,19 +129,23 @@ internal sealed class McpToolHost
             return;
         }
         IReadOnlyList<SessionInfo> sessions = await _context.Sessions.ListAsync(cancellationToken).ConfigureAwait(false);
-        List<SessionInfo> connected = [.. sessions.Where(s => s.State == SessionState.Connected)];
+        var connected = new List<SessionInfo>();
+        foreach (SessionInfo session in sessions.Where(s => s.State == SessionState.Connected))
+        {
+            // 数的是"允许操作的里面有几台",不是"一共连着几台" —— 否则用户连着两台、
+            // 清单里只写了一台时,本该没有歧义的那一台反而选不上。
+            if (_scope is not null && !await _scope.AllowsLiveAsync(session, cancellationToken).ConfigureAwait(false))
+            {
+                continue;
+            }
+            connected.Add(session);
+        }
         if (connected.Count != 1)
         {
             return;
         }
-        string only = SessionTargets.Format(connected[0]);
-        if (_allowedTargets.Count > 0
-            && !_allowedTargets.Any(a => string.Equals(a, only, StringComparison.OrdinalIgnoreCase)))
-        {
-            return;
-        }
         _sessionId = connected[0].SessionId;
-        _target = only;
+        _target = SessionTargets.Format(connected[0]);
     }
 
     /// <summary>给 <c>initialize</c> 的服务端说明里带一句"现在对着哪台机器"。</summary>

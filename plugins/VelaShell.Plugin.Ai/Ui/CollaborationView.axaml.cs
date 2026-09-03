@@ -7,6 +7,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using QRCoder;
+using VelaShell.Plugin.Ai.Agent;
 using VelaShell.Plugin.Ai.Bridge;
 using VelaShell.Plugin.Ai.Configuration;
 using VelaShell.Plugin.Ai.Interop;
@@ -66,7 +67,11 @@ public partial class CollaborationView : UserControl
 
         public CheckBox? International { get; init; }
 
-        public required TextBox Chats { get; init; }
+        /// <summary>这个渠道下每个聊天的授权(范围 / 挡位 / 审批)。</summary>
+        public required List<GrantRow> Grants { get; init; }
+
+        /// <summary>装着那些授权行的面板(「允许」按钮往里插新行)。</summary>
+        public required StackPanel GrantsList { get; init; }
 
         public required TextBox Users { get; init; }
 
@@ -95,7 +100,9 @@ public partial class CollaborationView : UserControl
         InitializeComponent();
         ApplyLoc();
 
-        IssuePairCodeButton.Click += (_, _) => IssuePairCode();
+        // 两个码:给自己的不限范围,给群的必须先勾范围。它们的默认值本来就该不一样。
+        IssuePairSelfButton.Click += (_, _) => IssuePairCode(null);
+        IssuePairGroupButton.Click += (_, _) => IssuePairCode(_pairScope?.Invoke());
         // 敲门是异步发生的(人在手机上操作),所以这一页开着时自己刷 ——
         // 否则用户得关掉再打开才看得见刚才那个群
         _refresh = new DispatcherTimer(TimeSpan.FromSeconds(3), DispatcherPriority.Background, (_, _) =>
@@ -141,8 +148,11 @@ public partial class CollaborationView : UserControl
 
         SectionPairingTitle.Text = _loc["SecPairing"];
         PairCodeLabel.Text = _loc["PairCode"];
-        IssuePairCodeButton.Content = _loc["PairIssue"];
+        IssuePairSelfButton.Content = _loc["PairForSelf"];
         PairCodeHint.Text = _loc["PairHint"];
+        PairGroupLabel.Text = _loc["PairForGroup"];
+        IssuePairGroupButton.Content = _loc["PairIssue"];
+        PairScopeHint.Text = _loc["PairScopeHint"];
         PendingLabel.Text = _loc["PairPending"];
         NoPendingHint.Text = _loc["PairNoPending"];
 
@@ -198,6 +208,9 @@ public partial class CollaborationView : UserControl
     private async Task LoadAsync()
     {
         _settings = await _bridgeStore.LoadAsync();
+        // 范围选择器要按会话树里的分组来勾。取一次就够:这一页开着的时候会话树很少在动,
+        // 而每建一行就去问一次宿主,一个有二十条授权的渠道会问二十遍。
+        _saved = [.. await _context.Sessions.ListSavedAsync()];
         _mcp = await _mcpStore.LoadAsync();
         _token = await _mcpStore.TokenAsync();
         await LoadModelsAsync();
@@ -216,6 +229,10 @@ public partial class CollaborationView : UserControl
         McpApprovalCombo.SelectedIndex = (int)_mcp.Approval;
         McpTargetsBox.Text = _mcp.AllowedTargets;
         McpTokenBox.Text = _token;
+
+        PairScopePanel.Children.Clear();
+        PairScopePanel.Children.Add(BuildPairScopePicker(out Func<SessionScope> readPairScope));
+        _pairScope = readPairScope;
 
         await RebuildChannelsAsync();
         UpdateVisibility();
@@ -332,10 +349,8 @@ public partial class CollaborationView : UserControl
             international = HostCheckBox(_loc["ChannelInternational"], config.International);
         }
 
-        TextBox chats = Field(_loc["ChannelChats"], string.Join("\n", config.AllowedChats), out StackPanel chatsPanel, multiline: true);
-        var chatsHint = new TextBlock { Text = _loc["ChannelChatsHint"] };
-        chatsHint.Classes.Add("hint");
-        chatsPanel.Children.Add(chatsHint);
+        List<GrantRow> grantRows = [];
+        StackPanel chatsPanel = BuildGrantsSection(config, grantRows, out StackPanel grantsList);
         TextBox users = Field(_loc["ChannelUsers"], string.Join("\n", config.AllowedUsers), out StackPanel usersPanel, multiline: true);
         TextBox approvers = Field(_loc["ChannelApprovers"], string.Join("\n", config.Approvers), out StackPanel approversPanel, multiline: true);
         TextBox target = Field(_loc["ChannelTarget"], config.DefaultTarget, out StackPanel targetPanel);
@@ -393,7 +408,8 @@ public partial class CollaborationView : UserControl
             Port = port,
             Path = path,
             International = international,
-            Chats = chats,
+            Grants = grantRows,
+            GrantsList = grantsList,
             Users = users,
             Approvers = approvers,
             Target = target
@@ -558,14 +574,20 @@ public partial class CollaborationView : UserControl
     }
 
     /// <summary>发一个新的配对码。</summary>
-    private void IssuePairCode()
+    /// <summary>读出「给群的配对码」那一段现在勾了什么范围。</summary>
+    private Func<SessionScope>? _pairScope;
+
+    /// <param name="scope">
+    /// 这个码兑现之后的范围。<see langword="null" /> = 不限范围(给自己单聊的那个按钮)。
+    /// </param>
+    private void IssuePairCode(SessionScope? scope)
     {
         if (_bridge is null)
         {
             StatusText.Text = _loc["PairNeedsBridge"];
             return;
         }
-        _bridge.Pairing.Issue();
+        _bridge.Pairing.Issue(scope is null ? null : new ChatGrant { Scope = scope, IsGroup = true });
         RefreshPairCode();
     }
 
@@ -654,11 +676,10 @@ public partial class CollaborationView : UserControl
         try
         {
             await _bridge.AllowAsync(chat);
-            // 白名单那个框里也要跟着出现,否则用户点了保存反而把刚放行的又抹掉了
-            if (_rows.Find(r => r.Config.Id == chat.ChannelId) is { } row
-                && !Lines(row.Chats.Text).Contains(chat.ChatId))
+            // 授权列表里也要跟着出现一行,否则用户点了保存反而把刚放行的又抹掉了
+            if (_rows.Find(r => r.Config.Id == chat.ChannelId) is { } row)
             {
-                row.Chats.Text = string.Join("\n", Lines(row.Chats.Text).Append(chat.ChatId));
+                AppendGrant(row, chat);
             }
             StatusText.Text = _loc.F("PairAllowed", chat.ChatId);
             RefreshPending();
@@ -723,7 +744,10 @@ public partial class CollaborationView : UserControl
                 config.AppId = (row.AppId?.Text ?? config.AppId).Trim();
                 config.AgentId = (row.AgentId?.Text ?? config.AgentId).Trim();
                 config.International = row.International?.IsChecked == true;
-                config.AllowedChats = Lines(row.Chats.Text);
+                // 授权是"能不能说话 + 能碰哪些机器 + 能做到什么程度"三个轴的那一份;
+                // AllowedChats 由 NormalizeGrants 从它派生出来,这里不再单独写。
+                config.Grants = [.. row.Grants.Select(g => g.Harvest()).OfType<ChatGrant>()];
+                config.NormalizeGrants();
                 config.AllowedUsers = Lines(row.Users.Text);
                 config.Approvers = Lines(row.Approvers.Text);
                 config.DefaultTarget = (row.Target.Text ?? "").Trim();

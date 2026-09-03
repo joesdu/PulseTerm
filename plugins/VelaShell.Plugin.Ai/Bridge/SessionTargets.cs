@@ -1,4 +1,5 @@
 using System.Text;
+using VelaShell.Plugin.Ai.Agent;
 using VelaShell.PluginSdk;
 using VelaShell.PluginSdk.Sessions;
 
@@ -22,8 +23,16 @@ public static class SessionTargets
     /// 找一条与 <paramref name="target" /> 对得上、且<b>已连上</b>的会话。
     /// 目标串可以省略用户名与端口(<c>host</c> / <c>host:port</c> / <c>user@host</c> 都认)。
     /// </summary>
+    /// <param name="context">插件上下文。</param>
+    /// <param name="target"><c>[user@]host[:port]</c>。</param>
+    /// <param name="cancellationToken">取消。</param>
+    /// <param name="scope">
+    /// 范围闸门(<see langword="null" /> = 不限制)。范围外的会话在这里就当作<b>不存在</b>,
+    /// 而不是"找到了但不给" —— 后者会让 <c>/use 某台</c> 的回复变成一个探测接口:
+    /// 试一个主机名就能问出它在不在用户的机器列表里。
+    /// </param>
     public static async Task<SessionInfo?> ResolveAsync(
-        IPluginContext context, string target, CancellationToken cancellationToken)
+        IPluginContext context, string target, CancellationToken cancellationToken, ISessionScope? scope = null)
     {
         if (string.IsNullOrWhiteSpace(target))
         {
@@ -49,23 +58,30 @@ public static class SessionTargets
             {
                 continue;
             }
+            if (scope is not null && !await scope.AllowsLiveAsync(session, cancellationToken).ConfigureAwait(false))
+            {
+                continue;
+            }
             return session;
         }
         return null;
     }
 
     /// <summary>列出当前连上的会话,给 IM 里的 <c>/sessions</c> 用。</summary>
-    public static async Task<string> DescribeAsync(IPluginContext context, CancellationToken cancellationToken)
+    /// <param name="context">插件上下文。</param>
+    /// <param name="cancellationToken">取消。</param>
+    /// <param name="scope">范围闸门(<see langword="null" /> = 不限制);范围外的不列出来。</param>
+    public static async Task<string> DescribeAsync(
+        IPluginContext context, CancellationToken cancellationToken, ISessionScope? scope = null)
     {
         IReadOnlyList<SessionInfo> sessions = await context.Sessions.ListAsync(cancellationToken).ConfigureAwait(false);
-        List<SessionInfo> connected = [.. sessions.Where(s => s.State == SessionState.Connected)];
-        if (connected.Count == 0)
-        {
-            return "";
-        }
         var sb = new StringBuilder();
-        foreach (SessionInfo session in connected)
+        foreach (SessionInfo session in sessions.Where(s => s.State == SessionState.Connected))
         {
+            if (scope is not null && !await scope.AllowsLiveAsync(session, cancellationToken).ConfigureAwait(false))
+            {
+                continue;
+            }
             sb.Append("• ").AppendLine(Format(session));
         }
         return sb.ToString().TrimEnd();

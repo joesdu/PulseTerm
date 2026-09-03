@@ -41,6 +41,17 @@ public sealed class BridgeAgentRunner(
     /// 跑一轮。<paramref name="progress" /> 每拿到一批增量就被调一次(参数是<b>累计</b>文本),
     /// 由调用方决定是改同一条消息还是攒到最后再发。
     /// </summary>
+    /// <param name="conversation">这个聊天的状态(上下文、绑定的机器、正在跑的那一轮)。</param>
+    /// <param name="bridge">桥接的全局设置。</param>
+    /// <param name="message">触发这一轮的那条消息。</param>
+    /// <param name="approve">危险操作的审批回调。</param>
+    /// <param name="loc">界面语言。</param>
+    /// <param name="progress">增量回调(参数是<b>累计</b>文本)。</param>
+    /// <param name="grant">
+    /// 这个聊天的授权(范围 / 挡位 / 审批)。<see langword="null" /> = 完全跟随全局且不限范围 ——
+    /// 这也是升级前那些聊天的取值,所以老配置的行为逐字不变。
+    /// </param>
+    /// <param name="cancellationToken">取消。</param>
     public async Task<BridgeTurn> RunAsync(
         BridgeConversation conversation,
         BridgeSettings bridge,
@@ -48,6 +59,7 @@ public sealed class BridgeAgentRunner(
         Func<ApprovalRequest, Task<bool>> approve,
         Loc loc,
         Action<string>? progress,
+        ChatGrant? grant,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(conversation);
@@ -70,19 +82,25 @@ public sealed class BridgeAgentRunner(
         {
             return new BridgeTurn(loc["BridgeNoModel"], "", TimeSpan.Zero, 0);
         }
-        ChatMode mode = conversation.ModeOverride ?? bridge.Mode;
+        ChatMode mode = conversation.ModeOverride ?? grant?.Mode ?? bridge.Mode;
+        ApprovalMode approval = grant?.Approval ?? bridge.Approval;
+        // 不限范围时这里是 null,于是"全部"与"没有范围这回事"走同一条路(见 SessionScope.Resolve)
+        ISessionScope? scope = grant?.Scope.Resolve(context);
 
         // 目标服务器在**回合开始时**解析一次:工具箱要的是同步的 id 提供者,
         // 而"这一轮在哪台机器上干活"本来就不该跑到一半换人。
+        // 带上范围:授权之后用户可能把这台机器移出了分组,而绑定还留着。
         SessionInfo? session = conversation.BoundTarget.Length > 0
-            ? await SessionTargets.ResolveAsync(context, conversation.BoundTarget, cancellationToken).ConfigureAwait(false)
+            ? await SessionTargets.ResolveAsync(context, conversation.BoundTarget, cancellationToken, scope)
+                .ConfigureAwait(false)
             : null;
 
         var toolbox = new AgentToolbox(context)
         {
             SessionIdProvider = () => session?.SessionId,
             ApprovalHandler = approve,
-            Approval = bridge.Approval,
+            Approval = approval,
+            Scope = scope,
             DisabledTools = new HashSet<string>(
                 (ai.DisabledBuiltinTools ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
                 StringComparer.OrdinalIgnoreCase),
@@ -108,7 +126,7 @@ public sealed class BridgeAgentRunner(
                             && NativeWebSearch.IsSupported(model.Protocol);
         if (mode != ChatMode.Chat)
         {
-            mcp.Approval = bridge.Approval;
+            mcp.Approval = approval;
             mcp.ApprovalHandler = approve;
             IList<AITool> tools = toolbox.CreateTools(mode, nativeSearch);
             if (mode == ChatMode.Agent && ai.McpServers.Any(s => s.Enabled))

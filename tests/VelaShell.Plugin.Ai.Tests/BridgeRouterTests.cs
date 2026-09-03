@@ -184,6 +184,128 @@ public sealed class BridgeRouterTests
         StringAssert.Contains(harness.Channel.Sent.Single(), "No connected session matches");
     }
 
+    // ---- 会话范围授权 ----
+
+    /// <summary>一份收紧过的授权,只给"生产"那个分组。</summary>
+    private static Harness Scoped()
+    {
+        var channel = new ChannelConfig
+        {
+            Id = "ch1",
+            Grants =
+            [
+                new ChatGrant
+                {
+                    ChatId = "chat-1",
+                    IsGroup = true,
+                    Scope = new SessionScope { Kind = ScopeKind.Limited, Groups = ["生产"] }
+                }
+            ]
+        };
+        return new Harness(new BridgeSettings { Enabled = true, Channels = [channel] });
+    }
+
+    /// <summary><c>/sessions</c> 只列范围内的 —— 主机名本身就是信息。</summary>
+    [TestMethod]
+    public async Task SlashSessions_ListsOnlyWhatIsInScope()
+    {
+        await using Harness harness = Scoped();
+        harness.Context.FakeSessions.AddSaved(name: "prod-1", host: "prod-1", username: "root", group: "生产");
+        harness.Context.FakeSessions.AddSaved(name: "test-1", host: "test-1", username: "root", group: "测试");
+        harness.Context.FakeSessions.AddConnected(host: "prod-1", username: "root");
+        harness.Context.FakeSessions.AddConnected(host: "test-1", username: "root");
+        await harness.StartAsync();
+
+        await harness.SendAsync("/sessions", isGroup: true);
+
+        string reply = harness.Channel.Sent.Single();
+        StringAssert.Contains(reply, "root@prod-1:22");
+        Assert.IsFalse(reply.Contains("test-1", StringComparison.Ordinal), "范围外的机器不该出现在清单里");
+    }
+
+    /// <summary>
+    /// <c>/use</c> 碰范围外的机器,回的是"没找到",<b>而不是"找到了但不给你"</b>。
+    /// </summary>
+    /// <remarks>
+    /// 后者会把这条命令变成探测接口:试一个主机名就能问出它在不在用户的机器列表里。
+    /// 日志里记全,群里说一半。
+    /// </remarks>
+    [TestMethod]
+    public async Task SlashUse_TreatsAnOutOfScopeMachineAsNonexistent()
+    {
+        await using Harness harness = Scoped();
+        harness.Context.FakeSessions.AddSaved(name: "test-1", host: "test-1", username: "root", group: "测试");
+        harness.Context.FakeSessions.AddConnected(host: "test-1", username: "root");
+        await harness.StartAsync();
+
+        await harness.SendAsync("/use root@test-1:22", isGroup: true);
+
+        string reply = harness.Channel.Sent.Single();
+        StringAssert.Contains(reply, "No connected session matches");
+        BridgeSettings stored = await harness.Store.LoadAsync();
+        Assert.IsFalse(stored.ChatBindings.ContainsKey("ch1/chat-1"), "越界的绑定不该被记下来");
+    }
+
+    /// <summary><c>/status</c> 要把范围报出来 —— 不然人只能靠撞墙才知道自己受限。</summary>
+    [TestMethod]
+    public async Task SlashStatus_ReportsTheScope()
+    {
+        await using Harness harness = Scoped();
+        await harness.StartAsync();
+
+        await harness.SendAsync("/status", isGroup: true);
+
+        StringAssert.Contains(harness.Channel.Sent.Single(), "生产");
+    }
+
+    /// <summary>
+    /// <b>这条是安全用例。</b>挡位的天花板是<b>这个聊天</b>的,不是全局的。
+    /// </summary>
+    /// <remarks>
+    /// 全局设成 Agent、某个群单独摁回 Plan,那个群就不该能用一句 <c>/mode agent</c> 把自己抬回去 ——
+    /// 否则"只读群"这个概念根本立不住。
+    /// </remarks>
+    [TestMethod]
+    public async Task SlashMode_CeilingIsThePerChatGrantNotTheGlobalSetting()
+    {
+        var channel = new ChannelConfig
+        {
+            Id = "ch1",
+            Grants = [new ChatGrant { ChatId = "chat-1", Mode = ChatMode.Plan }]
+        };
+        await using var harness = new Harness(new BridgeSettings
+        {
+            Enabled = true,
+            Mode = ChatMode.Agent,
+            Channels = [channel]
+        });
+        await harness.StartAsync();
+
+        await harness.SendAsync("/mode agent");
+
+        StringAssert.Contains(harness.Channel.Sent.Single(), "turned off");
+    }
+
+    /// <summary>
+    /// <b>不卡自己脖子。</b>不限范围的授权(单聊、以及升级折算出来的那些)照常够得着所有机器。
+    /// </summary>
+    [TestMethod]
+    public async Task AnUnrestrictedGrant_StillSeesEverything()
+    {
+        await using var harness = new Harness();
+        harness.Context.FakeSessions.AddSaved(name: "test-1", host: "test-1", username: "root", group: "测试");
+        harness.Context.FakeSessions.AddConnected(host: "test-1", username: "root");
+        // 会话树里没有的临时机器也够得着 —— 失败关闭只作用于受限的那些
+        harness.Context.FakeSessions.AddConnected(host: "adhoc", username: "root");
+        await harness.StartAsync();
+
+        await harness.SendAsync("/sessions");
+
+        string reply = harness.Channel.Sent.Single();
+        StringAssert.Contains(reply, "root@test-1:22");
+        StringAssert.Contains(reply, "root@adhoc:22");
+    }
+
     /// <summary>
     /// <b>这条是安全用例。</b>白名单里的任何人都能发 <c>/mode agent</c> 的话,
     /// 设置页里那个"桥接默认只读"就形同虚设。
