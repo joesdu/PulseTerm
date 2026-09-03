@@ -66,14 +66,17 @@ public class ProxySupportTests
         var route = new ProxyRoute(ProxyKind.Socks5, "127.0.0.1", server.Port);
         await using Stream tunnel = await ProxyStreamConnector.ConnectAsync(route, "target.example", 2222, cts.Token);
 
-        Assert.AreSequenceEqual(new byte[] { 0x05, 0x01, 0x00 }, await greeting.Task);
+        // await 不能写在 Assert.AreSequenceEqual 的实参位置,理由见 AreSequenceEqualAwaitTests.cs。
+        byte[] greetingBytes = await greeting.Task;
+        Assert.AreSequenceEqual(new byte[] { 0x05, 0x01, 0x00 }, greetingBytes);
         byte[] expectedRequest =
         [
             0x05, 0x01, 0x00, 0x03, 0x0E,
             .. Encoding.ASCII.GetBytes("target.example"),
             0x08, 0xAE, // 2222
         ];
-        Assert.AreSequenceEqual(expectedRequest, await request.Task);
+        byte[] requestBytes = await request.Task;
+        Assert.AreSequenceEqual(expectedRequest, requestBytes);
         Assert.AreEqual("SSH-2.0-Fake\r\n", Encoding.ASCII.GetString(await ReadAsync(tunnel, 14, cts.Token)));
     }
 
@@ -97,13 +100,16 @@ public class ProxySupportTests
         var route = new ProxyRoute(ProxyKind.Socks5, "127.0.0.1", server.Port, "us", "secret");
         await using Stream tunnel = await ProxyStreamConnector.ConnectAsync(route, "target.example", 22, cts.Token);
 
-        Assert.AreSequenceEqual(new byte[] { 0x05, 0x02, 0x00, 0x02 }, await greeting.Task);
+        // 同上:await 先落到局部变量。
+        byte[] greetingBytes = await greeting.Task;
+        Assert.AreSequenceEqual(new byte[] { 0x05, 0x02, 0x00, 0x02 }, greetingBytes);
         byte[] expectedAuth =
         [
             0x01, 0x02, (byte)'u', (byte)'s',
             0x06, .. Encoding.ASCII.GetBytes("secret"),
         ];
-        Assert.AreSequenceEqual(expectedAuth, await auth.Task);
+        byte[] authBytes = await auth.Task;
+        Assert.AreSequenceEqual(expectedAuth, authBytes);
     }
 
     /// <summary>认证被拒(RFC 1929 status != 0)必须抛错,不得带着未认证的链路继续。</summary>
@@ -141,9 +147,11 @@ public class ProxySupportTests
         var route = new ProxyRoute(ProxyKind.Socks5, "127.0.0.1", server.Port, ProxyDns: false);
         await using Stream tunnel = await ProxyStreamConnector.ConnectAsync(route, "localhost", 2222, cts.Token);
 
+        // 同上:await 先落到局部变量。
+        byte[] requestBytes = await request.Task;
         Assert.AreSequenceEqual(
             new byte[] { 0x05, 0x01, 0x00, 0x01, 127, 0, 0, 1, 0x08, 0xAE },
-            await request.Task);
+            requestBytes);
     }
 
     /// <summary>代理拒绝连接(REP != 0)必须抛错。</summary>

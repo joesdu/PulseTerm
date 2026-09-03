@@ -88,14 +88,16 @@ public class FtpFileServiceIntegrationTests
 
             string remoteOnDisk = Path.Combine(_root, "uploaded.bin");
             Assert.IsTrue(File.Exists(remoteOnDisk), "上传后服务器根目录下应出现该文件。");
-            Assert.AreSequenceEqual(payload, await File.ReadAllBytesAsync(remoteOnDisk));
+            byte[] uploaded = await File.ReadAllBytesAsync(remoteOnDisk);
+            Assert.AreSequenceEqual(payload, uploaded);
             Assert.IsTrue(await _service.ExistsAsync(sessionId, "/uploaded.bin"));
 
             RemoteFileInfo info = await _service.GetFileInfoAsync(sessionId, "/uploaded.bin");
             Assert.AreEqual(payload.Length, info.Size);
 
             await _service.DownloadFileAsync(sessionId, "/uploaded.bin", localTarget);
-            Assert.AreSequenceEqual(payload, await File.ReadAllBytesAsync(localTarget));
+            byte[] downloaded = await File.ReadAllBytesAsync(localTarget);
+            Assert.AreSequenceEqual(payload, downloaded);
         }
         finally
         {
@@ -248,7 +250,8 @@ public class FtpFileServiceIntegrationTests
             {
                 string landed = Path.Combine(_root, Path.GetFileName(source));
                 Assert.IsTrue(File.Exists(landed), $"{Path.GetFileName(source)} 应已上传。");
-                Assert.AreSequenceEqual(payload, await File.ReadAllBytesAsync(landed, TestContext.CancellationToken));
+                byte[] landedBytes = await File.ReadAllBytesAsync(landed, TestContext.CancellationToken);
+                Assert.AreSequenceEqual(payload, landedBytes);
             }
             Assert.IsFalse(faulted, "退化成单连接是正常降级,不该把整条会话标记为离线。");
         }
@@ -292,7 +295,8 @@ public class FtpFileServiceIntegrationTests
             {
                 string landed = Path.Combine(_root, Path.GetFileName(source));
                 Assert.IsTrue(File.Exists(landed), $"{Path.GetFileName(source)} 应已上传。");
-                Assert.AreSequenceEqual(payload, await File.ReadAllBytesAsync(landed, TestContext.CancellationToken));
+                byte[] landedBytes = await File.ReadAllBytesAsync(landed, TestContext.CancellationToken);
+                Assert.AreSequenceEqual(payload, landedBytes);
             }
         }
         finally
