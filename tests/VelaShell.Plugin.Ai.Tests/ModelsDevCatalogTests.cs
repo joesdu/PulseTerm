@@ -90,8 +90,8 @@ public sealed class ModelsDevCatalogTests
         Dictionary<string, List<ModelSpec>> reloaded =
             ModelsDevCatalog.Parse(ModelsDevCatalog.Serialize(upstream));
 
-        CollectionAssert.AreEqual(upstream["openai"], reloaded["openai"]);
-        CollectionAssert.AreEqual(upstream["ollama"], reloaded["ollama"]);
+        Assert.AreSequenceEqual(upstream["openai"], reloaded["openai"]);
+        Assert.AreSequenceEqual(upstream["ollama"], reloaded["ollama"]);
     }
 
     [TestMethod]
@@ -172,14 +172,14 @@ public sealed class ModelsDevCatalogTests
         // 线上有两百来个标了 deprecated 的;摆出来只会让人选中一个已经用不了的型号
         List<ModelSpec> models = ModelsDevCatalog.Parse(NoisyShape)["openai"];
 
-        Assert.IsFalse(models.Any(m => m.Id == "gpt-4-turbo"), "已下架的不该出现");
+        Assert.DoesNotContain(m => m.Id == "gpt-4-turbo", models, "已下架的不该出现");
     }
 
     [TestMethod]
     public void Parse_KeepsBetaModels()
     {
         // beta 是能用的,别跟着 deprecated 一起筛掉
-        Assert.IsTrue(ModelsDevCatalog.Parse(NoisyShape)["openai"].Any(m => m.Id == "gpt-5.6-beta"));
+        Assert.Contains(m => m.Id == "gpt-5.6-beta", ModelsDevCatalog.Parse(NoisyShape)["openai"]);
     }
 
     [TestMethod]
@@ -188,14 +188,14 @@ public sealed class ModelsDevCatalogTests
         List<ModelSpec> models = ModelsDevCatalog.Parse(NoisyShape)["openai"];
 
         // 画图那类根本不产出 token
-        Assert.IsFalse(models.Any(m => m.Id == "gpt-image-2"));
+        Assert.DoesNotContain(m => m.Id == "gpt-image-2", models);
         // 向量模型:它那个 output 填的是维度不是 token 数,只能靠名字认
-        Assert.IsFalse(models.Any(m => m.Id == "text-embedding-3-small"));
+        Assert.DoesNotContain(m => m.Id == "text-embedding-3-small", models);
     }
 
     [TestMethod]
     public void Parse_KeepsTheOrdinaryChatModels()
-        => Assert.IsTrue(ModelsDevCatalog.Parse(NoisyShape)["openai"].Any(m => m.Id == "gpt-5"));
+        => Assert.Contains(m => m.Id == "gpt-5", ModelsDevCatalog.Parse(NoisyShape)["openai"]);
 
     [TestMethod]
     public void SlimCache_SurvivesTheFilterOnReload()
@@ -205,7 +205,7 @@ public sealed class ModelsDevCatalogTests
         Dictionary<string, List<ModelSpec>> reloaded =
             ModelsDevCatalog.Parse(ModelsDevCatalog.Serialize(first));
 
-        CollectionAssert.AreEqual(first["openai"], reloaded["openai"]);
+        Assert.AreSequenceEqual(first["openai"], reloaded["openai"]);
     }
 
     // ---- 落成真正可选的模型 ----
@@ -222,9 +222,8 @@ public sealed class ModelsDevCatalogTests
 
         Assert.AreEqual(2, total);
         Assert.HasCount(2, provider.Models);
-        CollectionAssert.AreEquivalent(
-            new[] { "gpt-5", "gpt-5.3-codex" },
-            provider.Models.Select(m => m.Model).ToArray());
+        Assert.AreSequenceEqual(
+            ["gpt-5", "gpt-5.3-codex"], provider.Models.Select(m => m.Model).ToArray(), Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
         // 顺带把规格填好,不是光加一行空模型
         AiModelConfig codex = provider.Models.First(m => m.Model == "gpt-5.3-codex");
         Assert.AreEqual(400000, codex.MaxInputTokens);
@@ -302,8 +301,8 @@ public sealed class ModelsDevCatalogTests
 
         List<ResolvedModel> resolved = settings.ResolveModels();
         Assert.HasCount(2, resolved);
-        CollectionAssert.AreEquivalent(
-            new[] { "gpt-5", "gpt-5.3-codex" }, resolved.Select(r => r.Model).ToArray());
+        Assert.AreSequenceEqual(
+            ["gpt-5", "gpt-5.3-codex"], resolved.Select(r => r.Model).ToArray(), Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
     }
 
     // ---- 默认模型的选法 ----

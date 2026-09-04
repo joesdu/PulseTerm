@@ -155,10 +155,10 @@ public sealed class McpEndpointTests
                 .. document.RootElement.GetProperty("result").GetProperty("tools")
                            .EnumerateArray().Select(t => t.GetProperty("name").GetString()!)
             ];
-            CollectionAssert.Contains(names, "list_sessions");
-            CollectionAssert.Contains(names, "use_session");
-            CollectionAssert.DoesNotContain(names, "run_command");
-            CollectionAssert.DoesNotContain(names, "write_remote_file");
+            Assert.Contains("list_sessions", names);
+            Assert.Contains("use_session", names);
+            Assert.DoesNotContain("run_command", names);
+            Assert.DoesNotContain("write_remote_file", names);
         }
     }
 
@@ -180,7 +180,7 @@ public sealed class McpEndpointTests
                 .. document.RootElement.GetProperty("result").GetProperty("tools")
                            .EnumerateArray().Select(t => t.GetProperty("name").GetString()!)
             ];
-            CollectionAssert.Contains(names, "run_command");
+            Assert.Contains("run_command", names);
         }
     }
 
@@ -206,7 +206,7 @@ public sealed class McpEndpointTests
             JsonElement result = document.RootElement.GetProperty("result");
             Assert.IsFalse(result.GetProperty("isError").GetBoolean());
             string text = result.GetProperty("content")[0].GetProperty("text").GetString()!;
-            StringAssert.Contains(text, "prod-1");
+            Assert.Contains("prod-1", text);
         }
     }
 

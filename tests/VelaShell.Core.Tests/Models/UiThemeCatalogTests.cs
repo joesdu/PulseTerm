@@ -24,13 +24,13 @@ public sealed class UiThemeCatalogTests
     [TestMethod]
     public void Catalog_HasUniqueIdsAndNames()
     {
-        Assert.AreEqual(
+        Assert.HasCount(
             UiThemeCatalog.All.Length,
-            UiThemeCatalog.All.Select(theme => theme.Id).Distinct(StringComparer.OrdinalIgnoreCase).Count(),
+            UiThemeCatalog.All.Select(theme => theme.Id).Distinct(StringComparer.OrdinalIgnoreCase),
             "主题 Id 会被写进配置文件,重复即意味着有一套主题永远选不中。");
-        Assert.AreEqual(
+        Assert.HasCount(
             UiThemeCatalog.All.Length,
-            UiThemeCatalog.All.Select(theme => theme.Name).Distinct(StringComparer.Ordinal).Count(),
+            UiThemeCatalog.All.Select(theme => theme.Name).Distinct(StringComparer.Ordinal),
             "下拉里出现两个同名主题,用户无从分辨。");
     }
 

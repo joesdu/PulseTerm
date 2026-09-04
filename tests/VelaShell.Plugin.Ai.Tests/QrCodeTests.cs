@@ -63,8 +63,8 @@ public sealed class QrCodeTests
         {
             for (int version = 2; version <= 40; version++)
             {
-                Assert.IsTrue(
-                    CapacityBytes(version, ecc) > CapacityBytes(version - 1, ecc),
+                Assert.IsGreaterThan(
+                    CapacityBytes(version - 1, ecc), CapacityBytes(version, ecc),
                     $"{ecc} 档:版本 {version} 的容量没有比 {version - 1} 大 —— 容量表抄错了");
             }
         }

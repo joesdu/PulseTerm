@@ -64,7 +64,11 @@ public sealed partial class ChatPanelViewUiTests
     }
 
     private static T Find<T>(ChatPanelView panel, string name) where T : Control
-        => panel.GetControl<T>(name);
+        // 消息流现在按对话各持一条 StackPanel,当前那条挂在 ChatScroll.Content 上(不再有静态 x:Name)——
+        // "MessagesPanel" 就解析成当前显示这份对话的那条面板(见 ChatPanelView.SwitchConversation)。
+        => name == "MessagesPanel"
+            ? (T)(object)(StackPanel)panel.GetControl<ScrollViewer>("ChatScroll").Content!
+            : panel.GetControl<T>(name);
 
     /// <summary>
     /// 在 headless UI 线程上跑一段<b>异步</b>测试体,并把里面的异常/断言失败带回本线程。

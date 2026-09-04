@@ -259,7 +259,7 @@ public sealed class ProviderSetupViewUiTests
                 await ShowAsync(context, focus: "deepseek");
             try
             {
-                CollectionAssert.AreEqual(new[] { "SetupKeyBox" }, VisibleBoxes(view));
+                Assert.AreSequenceEqual(["SetupKeyBox"], VisibleBoxes(view));
 
                 Find<TextBox>(view, "SetupKeyBox").Text = "sk-deepseek";
                 Click(Find<Button>(view, "SetupPrimaryButton"));
@@ -289,15 +289,15 @@ public sealed class ProviderSetupViewUiTests
             (Window window, ProviderSetupView view, _, _) = await ShowAsync(context, focus: "anthropic");
             try
             {
-                CollectionAssert.AreEqual(new[] { "SetupKeyBox" }, VisibleBoxes(view));
+                Assert.AreSequenceEqual(["SetupKeyBox"], VisibleBoxes(view));
 
                 Find<ToggleButton>(view, "SetupAdvancedToggle").IsChecked = true;
                 await PumpAsync();
 
                 List<string> boxes = VisibleBoxes(view);
-                CollectionAssert.Contains(boxes, "SetupNameBox");
-                CollectionAssert.Contains(boxes, "SetupModelBox");
-                CollectionAssert.Contains(boxes, "SetupBaseUrlBox");
+                Assert.Contains("SetupNameBox", boxes);
+                Assert.Contains("SetupModelBox", boxes);
+                Assert.Contains("SetupBaseUrlBox", boxes);
                 Assert.AreEqual("https://api.anthropic.com", Find<TextBox>(view, "SetupBaseUrlBox").Text);
             }
             finally
@@ -319,10 +319,9 @@ public sealed class ProviderSetupViewUiTests
             {
                 Assert.AreEqual("", ProviderCatalog.Find("huggingface")!.CreateProvider().OAuth!.ClientId,
                     "这条用例的前提是客户端 id 还空着;填上之后请把它挪到一键登录那条用例");
-                CollectionAssert.AreEqual(new[] { "SetupClientIdBox" }, VisibleBoxes(view));
-                Assert.IsTrue(
-                    view.GetLogicalDescendants().OfType<Button>()
-                        .Any(b => (string?)b.Content == "Open the registration page"),
+                Assert.AreSequenceEqual(["SetupClientIdBox"], VisibleBoxes(view));
+                Assert.Contains(
+                    b => (string?)b.Content == "Open the registration page", view.GetLogicalDescendants().OfType<Button>(),
                     "空着的客户端 id 旁边必须有去注册的入口");
 
                 Click(Find<Button>(view, "SetupPrimaryButton"));
@@ -348,8 +347,8 @@ public sealed class ProviderSetupViewUiTests
             try
             {
                 List<string> boxes = VisibleBoxes(view);
-                CollectionAssert.Contains(boxes, "SetupClientIdBox");
-                CollectionAssert.Contains(boxes, "SetupBaseUrlBox");
+                Assert.Contains("SetupClientIdBox", boxes);
+                Assert.Contains("SetupBaseUrlBox", boxes);
                 // 占位符不能当默认值端上来 —— 用户十有八九连尖括号一起提交
                 Assert.AreEqual("", Find<TextBox>(view, "SetupBaseUrlBox").Text);
             }
@@ -402,7 +401,7 @@ public sealed class ProviderSetupViewUiTests
                 await PumpAsync();
 
                 var picker = Find<ComboBox>(view, "SetupModelPicker");
-                CollectionAssert.AreEqual(groq.AvailableModels, (System.Collections.ICollection)picker.ItemsSource!);
+                Assert.AreSequenceEqual(groq.AvailableModels, (System.Collections.ICollection)picker.ItemsSource!);
                 // 出厂示例正好在列表里,应当已经选中
                 Assert.AreEqual("llama-3.3-70b-versatile", picker.SelectedItem);
 

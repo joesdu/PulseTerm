@@ -884,9 +884,9 @@
          滚动条留白放在内容的 Margin 上(同 ResourceMonitor 的做法,勿用 ScrollViewer.Padding):
          悬停展开的覆盖式滚动条约 12px 宽,留 19px 保证不压住消息卡片。 -->
     <Panel>
-      <ScrollViewer x:Name="ChatScroll" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel x:Name="MessagesPanel" Spacing="8" Margin="5,4,19,4" />
-      </ScrollViewer>
+      <!-- 消息流容器在运行时按"当前这份对话"整体挂进来(见 ChatPanelView 的 MessagesPanel /
+           SwitchConversation);每份对话各持一条 StackPanel,切换即换 Content,后台那几条留在内存里。 -->
+      <ScrollViewer x:Name="ChatScroll" HorizontalScrollBarVisibility="Disabled" />
       <!-- 历史会话:与聊天流/设置页三选一显示 -->
       <DockPanel x:Name="HistoryHost" IsVisible="False" Margin="5,4,19,4">
         <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,6">

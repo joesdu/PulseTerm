@@ -282,7 +282,7 @@ public partial class CollaborationView : UserControl
         Button test = HostButton(_loc["ChannelTest"], 72);
         Button remove = HostButton(_loc["ChannelRemove"], 72);
         remove.Margin = new Thickness(8, 0, 0, 0);
-        var header = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto") };
+        var header = new Grid { ColumnDefinitions = [with("*,Auto,Auto")] };
         header.Children.Add(title);
         Grid.SetColumn(test, 1);
         header.Children.Add(test);
@@ -335,7 +335,7 @@ public partial class CollaborationView : UserControl
             port = Field(_loc["ChannelWebhookPort"], config.WebhookPort.ToString(), out StackPanel portPanel);
             path = Field(_loc["ChannelWebhookPath"], config.WebhookPath, out StackPanel pathPanel);
             endpointPanel = new StackPanel();
-            var endpoint = new Grid { ColumnDefinitions = new ColumnDefinitions("*,12,2*") };
+            var endpoint = new Grid { ColumnDefinitions = [with("*,12,2*")] };
             endpoint.Children.Add(portPanel);
             Grid.SetColumn(pathPanel, 2);
             endpoint.Children.Add(pathPanel);
@@ -681,7 +681,7 @@ public partial class CollaborationView : UserControl
         var text = new StackPanel();
         text.Children.Add(title);
         text.Children.Add(id);
-        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto") };
+        var grid = new Grid { ColumnDefinitions = [with("*,Auto,Auto")] };
         grid.Children.Add(text);
         Grid.SetColumn(allow, 1);
         grid.Children.Add(allow);

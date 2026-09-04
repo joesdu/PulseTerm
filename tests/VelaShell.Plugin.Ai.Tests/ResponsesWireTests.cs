@@ -123,12 +123,13 @@ public sealed class ResponsesWireTests
     /// Codex 后端接受的<b>全部</b>顶层字段,取自它自己的请求结构
     /// (<c>openai/codex</c> 的 <c>codex-rs/core/src/client.rs</c>,<c>ResponsesApiRequest</c>)。
     /// </summary>
-    private static readonly HashSet<string> CodexAcceptedFields = new(StringComparer.Ordinal)
-    {
+    private static readonly HashSet<string> CodexAcceptedFields =
+    [
+        with(StringComparer.Ordinal),
         "model", "instructions", "input", "tools", "tool_choice", "parallel_tool_calls",
         "reasoning", "store", "stream", "stream_options", "include", "service_tier",
         "prompt_cache_key", "text", "client_metadata", "access_programs"
-    };
+    ];
 
     /// <summary>
     /// 发出去的报文里<b>不能有</b>它清单之外的字段。
@@ -164,7 +165,7 @@ public sealed class ResponsesWireTests
 
         string body = await WireBodyAsync(messages, options);
 
-        using JsonDocument document = JsonDocument.Parse(body);
+        using var document = JsonDocument.Parse(body);
         List<string> unexpected = [.. document.RootElement.EnumerateObject()
             .Select(p => p.Name)
             .Where(name => !CodexAcceptedFields.Contains(name))];

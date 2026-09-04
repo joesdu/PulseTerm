@@ -32,7 +32,7 @@ public sealed class LocTableTests
                       .Select(entry => $"{entry.Key} ({entry.Value.Length})")
         ];
 
-        Assert.AreEqual(0, broken.Count,
+        Assert.IsEmpty(broken,
             $"These keys do not have exactly five translations: {string.Join(", ", broken)}");
     }
 
@@ -44,7 +44,7 @@ public sealed class LocTableTests
             .. Table().Where(entry => entry.Value.Any(string.IsNullOrWhiteSpace)).Select(entry => entry.Key)
         ];
 
-        Assert.AreEqual(0, blank.Count, $"These keys have a blank translation: {string.Join(", ", blank)}");
+        Assert.IsEmpty(blank, $"These keys have a blank translation: {string.Join(", ", blank)}");
     }
 
     /// <summary>取词真的跟着语言走(顺序 en / zh-Hans / zh-Hant / ja / ko)。</summary>
@@ -87,7 +87,7 @@ public sealed class LocTableTests
                     .Select(g => $"{g.Key} (×{g.Count()})")
         ];
 
-        Assert.AreEqual(0, duplicates.Count,
+        Assert.IsEmpty(duplicates,
             "these keys are defined more than once; the later one silently wins: " + string.Join(", ", duplicates));
     }
 

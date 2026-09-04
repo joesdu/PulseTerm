@@ -184,7 +184,7 @@ public sealed class OpencodeProvidersTests
 
         Assert.AreEqual("do-tok", tokens.AccessToken);
         Assert.IsEmpty(tokens.RefreshToken ?? "", "隐式流不发 refresh token,过期只能重登");
-        Assert.AreEqual(0, stub.Requests.Count, "这一路不该有任何 token 交换");
+        Assert.IsEmpty(stub.Requests, "这一路不该有任何 token 交换");
     }
 
     // ---- 目录整体 ----

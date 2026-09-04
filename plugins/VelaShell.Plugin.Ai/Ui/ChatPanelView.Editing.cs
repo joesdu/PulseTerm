@@ -19,23 +19,17 @@ namespace VelaShell.Plugin.Ai.Ui;
 /// </remarks>
 public partial class ChatPanelView
 {
-    /// <summary>用户气泡 → 它在 <c>_history</c> 里的下标。截断时要靠它找到"从哪儿开始扔"。</summary>
-    private readonly Dictionary<Control, int> _userBubbleIndex = [];
-
-    /// <summary>
-    /// 已经用掉的最大序号。截断后新消息从这里往后续号,<b>不复用旧号</b> ——
-    /// 旧号上可能还挂着被删那截的附加信息,复用会张冠李戴。
-    /// </summary>
-    private int _sequenceHighWater;
+    // 用户气泡→历史下标的索引,以及序号高水位,按对话各持一份(见 Conversation):
+    // _userBubbleIndex / _sequenceHighWater。
 
     private void ResetEditing()
     {
-        _userBubbleIndex.Clear();
-        _sequenceHighWater = _persistedCount;
+        UserBubbleIndex.Clear();
+        SequenceHighWater = PersistedCount;
     }
 
     /// <summary>把一条用户气泡登记进索引(截断时才知道它对应历史里的哪一条)。</summary>
-    private void TrackUserBubble(Control bubble, int historyIndex) => _userBubbleIndex[bubble] = historyIndex;
+    private void TrackUserBubble(Control bubble, int historyIndex) => UserBubbleIndex[bubble] = historyIndex;
 
     /// <summary>编辑这条用户消息:截断到它之前,原文回到输入框。</summary>
     private async Task EditUserMessageAsync(Control bubble, string original)
@@ -74,16 +68,16 @@ public partial class ChatPanelView
     /// <summary>回到最后一条用户消息,原样再问一次。</summary>
     private async Task RegenerateAsync()
     {
-        if (_busy)
+        if (Busy)
         {
             return;
         }
-        int index = _history.FindLastIndex(m => m.Role == ChatRole.User);
+        int index = History.FindLastIndex(m => m.Role == ChatRole.User);
         if (index < 0)
         {
             return;
         }
-        string text = _history[index].Text;
+        string text = History[index].Text;
         if (!await TruncateToAsync(index))
         {
             return;
@@ -93,14 +87,14 @@ public partial class ChatPanelView
 
     /// <summary>截断到某条用户气泡之前。返回是否真的动了。</summary>
     private async Task<bool> TruncateAtAsync(Control bubble)
-        => _userBubbleIndex.TryGetValue(bubble, out int index) && await TruncateToAsync(index);
+        => UserBubbleIndex.TryGetValue(bubble, out int index) && await TruncateToAsync(index);
 
     /// <summary>
     /// 丢掉 <paramref name="historyIndex" /> 及其之后的全部消息:界面、上下文、库三处一起。
     /// </summary>
     private async Task<bool> TruncateToAsync(int historyIndex)
     {
-        if (_busy || historyIndex < 0 || historyIndex >= _history.Count)
+        if (Busy || historyIndex < 0 || historyIndex >= History.Count)
         {
             return false;
         }
@@ -108,7 +102,7 @@ public partial class ChatPanelView
         RestoreCollapsedMessages();
 
         // 界面:找到该下标对应的气泡,从它起往后全部移除
-        if (_userBubbleIndex.FirstOrDefault(pair => pair.Value == historyIndex).Key is { } anchor)
+        if (UserBubbleIndex.FirstOrDefault(pair => pair.Value == historyIndex).Key is { } anchor)
         {
             int from = MessagesPanel.Children.IndexOf(anchor);
             if (from >= 0)
@@ -119,26 +113,26 @@ public partial class ChatPanelView
                 }
             }
         }
-        foreach (Control stale in _userBubbleIndex.Where(p => p.Value >= historyIndex).Select(p => p.Key).ToList())
+        foreach (Control stale in UserBubbleIndex.Where(p => p.Value >= historyIndex).Select(p => p.Key).ToList())
         {
-            _userBubbleIndex.Remove(stale);
+            UserBubbleIndex.Remove(stale);
         }
 
         // 上下文
-        _history.RemoveRange(historyIndex, _history.Count - historyIndex);
+        History.RemoveRange(historyIndex, History.Count - historyIndex);
 
         // 库:整段重写(时序库删不了单条),序号沿用原值以便附加信息还能对上
-        var surviving = new List<(int, string, string)>(_history.Count);
-        for (int i = 0; i < _history.Count; i++)
+        var surviving = new List<(int, string, string)>(History.Count);
+        for (int i = 0; i < History.Count; i++)
         {
-            string role = _history[i].Role == ChatRole.User ? "user" : "assistant";
-            surviving.Add((i, role, _history[i].Text));
+            string role = History[i].Role == ChatRole.User ? "user" : "assistant";
+            surviving.Add((i, role, History[i].Text));
         }
-        await _historyStore.RewriteAsync(_conversationId, _conversationStartedAt, surviving);
+        await _historyStore.RewriteAsync(ConversationId, ConversationStartedAt, surviving);
 
         // 新消息从旧的最大序号之后续,别复用可能还挂着附加信息的旧号
-        _sequenceHighWater = Math.Max(_sequenceHighWater, _persistedCount);
-        _persistedCount = _sequenceHighWater;
+        SequenceHighWater = Math.Max(SequenceHighWater, PersistedCount);
+        PersistedCount = SequenceHighWater;
 
         // 摘要覆盖的是被截断之前的那些消息,截断后它的范围就不可信了 —— 整个作废,
         // 下次接近窗口时重新压一遍。宁可多花一次压缩,也不能让模型读到对不上号的摘要。

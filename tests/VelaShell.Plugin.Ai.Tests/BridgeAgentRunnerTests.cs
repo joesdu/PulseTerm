@@ -81,7 +81,7 @@ public sealed class BridgeAgentRunnerTests
             () => runner.RunAsync(conversation, bridge, Message(), Deny, English, null, null, CancellationToken.None));
 
         // 报错里带着模型名 = 它确实读到了刚写进去的那份设置
-        StringAssert.Contains(error.Message, "Local / probe");
+        Assert.Contains("Local / probe", error.Message);
     }
 
     /// <summary>

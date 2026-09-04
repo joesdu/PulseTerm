@@ -91,8 +91,10 @@ public static class ContextCompactor
     /// <param name="cut">本次要折到哪儿为止(不含)。</param>
     /// <param name="locale">让摘要用用户的语言写。</param>
     /// <param name="cancellationToken">用户按停止时一并取消。</param>
+    /// <param name="tuneOptions">可选:在发压缩请求前调一遍请求选项(用来套用端点脾气,摘掉这一家不收的参数)。</param>
     public static async Task<CompactionResult?> CompactAsync(IChatClient client, IReadOnlyList<ChatMessage> history,
-        int summarizedThrough, string previousSummary, int cut, string locale, CancellationToken cancellationToken)
+        int summarizedThrough, string previousSummary, int cut, string locale, CancellationToken cancellationToken,
+        Action<ChatOptions>? tuneOptions = null)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(history);
@@ -101,8 +103,11 @@ public static class ContextCompactor
             return null;
         }
         string prompt = BuildPrompt(history, summarizedThrough, previousSummary, cut, locale);
+        // 和正式一轮走同一套"端点脾气"处理:这一家不收的参数在这儿摘掉,免得这条附带请求 400。
+        var options = new ChatOptions { MaxOutputTokens = SummaryTokens };
+        tuneOptions?.Invoke(options);
         ChatResponse response = await client
-            .GetResponseAsync(prompt, new ChatOptions { MaxOutputTokens = SummaryTokens }, cancellationToken)
+            .GetResponseAsync(prompt, options, cancellationToken)
             .ConfigureAwait(false);
 
         string summary = response.Text.Trim();

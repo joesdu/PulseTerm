@@ -11,16 +11,12 @@ namespace VelaShell.Plugin.Ai.Ui;
 /// </summary>
 public partial class ChatPanelView
 {
-    /// <summary>当前的滚动摘要(空 = 还没压过)。它代表 <see cref="_summarizedThrough" /> 之前的那些消息。</summary>
-    private string _contextSummary = "";
-
-    /// <summary>摘要覆盖到 <c>_history</c> 的哪个下标为止(不含)。</summary>
-    private int _summarizedThrough;
+    // 滚动摘要与它覆盖到的下标按对话各持一份(见 Conversation):_contextSummary / _summarizedThrough。
 
     private void ResetCompaction()
     {
-        _contextSummary = "";
-        _summarizedThrough = 0;
+        ContextSummary = "";
+        SummarizedThrough = 0;
     }
 
     /// <summary>
@@ -30,13 +26,13 @@ public partial class ChatPanelView
     private async Task CompactIfNeededAsync(ResolvedModel provider, CancellationToken cancellationToken)
     {
         if (!_settings.CompactContext
-            || !ContextCompactor.ShouldCompact(_history, _summarizedThrough, _contextSummary,
+            || !ContextCompactor.ShouldCompact(History, SummarizedThrough, ContextSummary,
                 provider.MaxInputTokens, provider.MaxTokens))
         {
             return;
         }
-        int cut = ContextCompactor.PlanCutPoint(_history, _summarizedThrough, provider.MaxInputTokens, provider.MaxTokens);
-        if (cut <= _summarizedThrough)
+        int cut = ContextCompactor.PlanCutPoint(History, SummarizedThrough, provider.MaxInputTokens, provider.MaxTokens);
+        if (cut <= SummarizedThrough)
         {
             return;
         }
@@ -46,22 +42,23 @@ public partial class ChatPanelView
             // 裸客户端:压缩这一问不该带工具,也不该进对话历史
             IChatClient client = await _store.CreateClientAsync(provider, cancellationToken: cancellationToken);
             CompactionResult? result = await Task.Run(
-                () => ContextCompactor.CompactAsync(client, _history, _summarizedThrough, _contextSummary, cut,
-                    _context.Host.Locale, cancellationToken), cancellationToken);
+                () => ContextCompactor.CompactAsync(client, History, SummarizedThrough, ContextSummary, cut,
+                    _context.Host.Locale, cancellationToken,
+                    tuneOptions: o => AiSettingsStore.ApplyEndpointQuirks(o, provider)), cancellationToken);
             if (result is not { } compaction)
             {
                 return;
             }
 
-            _contextSummary = compaction.Summary;
-            _summarizedThrough = compaction.Through;
+            ContextSummary = compaction.Summary;
+            SummarizedThrough = compaction.Through;
             // 压缩自身的用量也算进累计(是真花的钱),但不动"上一轮上下文"那个读数
             if (compaction.Usage is { } usage)
             {
-                _totalInputTokens += usage.InputTokenCount ?? 0;
-                _totalOutputTokens += usage.OutputTokenCount ?? 0;
+                TotalInputTokens += usage.InputTokenCount ?? 0;
+                TotalOutputTokens += usage.OutputTokenCount ?? 0;
             }
-            await _historyStore.SaveSummaryAsync(_conversationId, _contextSummary, _summarizedThrough, cancellationToken);
+            await _historyStore.SaveSummaryAsync(ConversationId, ContextSummary, SummarizedThrough, cancellationToken);
             ShowCompactionMarker(compaction.FoldedMessages);
             UpdateUsageText();
         }
@@ -88,7 +85,7 @@ public partial class ChatPanelView
     {
         var collapsible = new Collapsible(this, _loc.F("Compacted", foldedMessages),
             iconKey: "AiIcon.scissors", iconBrushKey: "VelaAccent");
-        collapsible.SetBody(_contextSummary);
+        collapsible.SetBody(ContextSummary);
         var host = new Border { Classes = { "compactionMarker" }, Child = collapsible.Root };
         MessagesPanel.Children.Add(host);
         RequestAutoScroll(force: true);
@@ -97,9 +94,9 @@ public partial class ChatPanelView
     /// <summary>载入历史会话时把上次压缩的结果一并恢复,免得一进来就重压一次。</summary>
     private async Task RestoreSummaryAsync()
     {
-        (string summary, int through) = await _historyStore.LoadSummaryAsync(_conversationId);
+        (string summary, int through) = await _historyStore.LoadSummaryAsync(ConversationId);
         // 摘要覆盖范围不能超过实际条数(会话被编辑/删除截断过就会这样),对不上就整个作废
-        _contextSummary = through > 0 && through <= _history.Count ? summary : "";
-        _summarizedThrough = _contextSummary.Length > 0 ? through : 0;
+        ContextSummary = through > 0 && through <= History.Count ? summary : "";
+        SummarizedThrough = ContextSummary.Length > 0 ? through : 0;
     }
 }

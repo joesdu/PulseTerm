@@ -284,9 +284,8 @@ public sealed class OAuthClientTests
         Assert.AreEqual(TimeSpan.FromSeconds(2), grant.Interval);
         Assert.AreEqual("at-device", tokens.AccessToken);
         // 服务端喊 slow_down 之后,间隔必须真的加上去,否则会一直被限速
-        CollectionAssert.AreEqual(
-            new[] { TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(7), TimeSpan.FromSeconds(7) },
-            waits);
+        Assert.AreSequenceEqual(
+            [TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(7), TimeSpan.FromSeconds(7)], waits);
         Dictionary<string, string> poll = Query(stub.Requests[1].Body);
         Assert.AreEqual("urn:ietf:params:oauth:grant-type:device_code", poll["grant_type"]);
         Assert.AreEqual("dc", poll["device_code"]);

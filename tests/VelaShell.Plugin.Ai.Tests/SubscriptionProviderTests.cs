@@ -64,7 +64,7 @@ public sealed class SubscriptionProviderTests
             }
         }
         // 出厂即可登录的那条要真的存在 —— 否则这个功能对新用户等于不存在
-        Assert.IsTrue(ProviderCatalog.All.Any(e => e.IsSubscription && e.CreateProvider().CanSignIn),
+        Assert.Contains(e => e.IsSubscription && e.CreateProvider().CanSignIn, ProviderCatalog.All,
             "至少要有一家开箱即登的");
     }
 

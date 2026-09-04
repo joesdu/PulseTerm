@@ -200,7 +200,7 @@ public sealed class SessionScopeTests
 
         config.NormalizeGrants();
 
-        Assert.AreEqual(2, config.Grants.Count);
+        Assert.HasCount(2, config.Grants);
         Assert.IsTrue(config.Grants.All(g => g.Scope.IsUnrestricted));
         Assert.IsTrue(config.Grants.All(g => g.Mode is null && g.Approval is null));
         Assert.IsNotNull(config.GrantFor("chat-1"));
@@ -225,7 +225,7 @@ public sealed class SessionScopeTests
 
         config.NormalizeGrants();
 
-        CollectionAssert.AreEquivalent(new[] { "chat-1", "chat-2" }, config.AllowedChats);
+        Assert.AreSequenceEqual(["chat-1", "chat-2"], config.AllowedChats, Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
         // 折算出来的那条不限范围,原来就有的那条保持它自己的范围
         Assert.IsTrue(config.GrantFor("chat-1")!.Scope.IsUnrestricted);
         Assert.IsFalse(config.GrantFor("chat-2")!.Scope.IsUnrestricted);
@@ -241,8 +241,8 @@ public sealed class SessionScopeTests
         config.NormalizeGrants();
         config.NormalizeGrants();
 
-        Assert.AreEqual(1, config.Grants.Count);
-        Assert.AreEqual(1, config.AllowedChats.Count);
+        Assert.HasCount(1, config.Grants);
+        Assert.HasCount(1, config.AllowedChats);
     }
 
     /// <summary>配对码携带的是一份授权,而不是一张通行证。</summary>
@@ -255,7 +255,7 @@ public sealed class SessionScopeTests
         Assert.IsTrue(pairing.TryRedeem(code, out ChatGrant? template));
         Assert.IsNotNull(template);
         Assert.AreEqual(ScopeKind.Limited, template.Scope.Kind);
-        CollectionAssert.Contains(template.Scope.Groups, "生产");
+        Assert.Contains("生产", template.Scope.Groups);
         Assert.AreEqual(Configuration.ChatMode.Plan, template.Mode);
     }
 

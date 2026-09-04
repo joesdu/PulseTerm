@@ -121,7 +121,7 @@ public sealed class PluginProtocolTests
 
         Assert.IsEmpty(registry.Tabs);
         Assert.IsFalse(registry.TryGet(ProtocolId, out _));
-        CollectionAssert.Contains(unregistered, ProtocolId);
+        Assert.Contains(ProtocolId, unregistered);
     }
 
     /// <summary>

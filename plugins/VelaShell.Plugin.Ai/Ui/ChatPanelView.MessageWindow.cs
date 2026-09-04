@@ -27,10 +27,8 @@ public partial class ChatPanelView
     /// <summary>回放历史时每帧建几条。整段一次性建完会把 UI 线程按住好几秒。</summary>
     private const int ReplayBatch = 8;
 
-    /// <summary>被折叠起来的早期气泡(按原顺序);点横幅可以整批放回去。</summary>
-    private readonly List<Control> _collapsedMessages = [];
-
-    private Border? _collapsedBanner;
+    // 折叠起来的早期气泡与那枚横幅,按对话各持一份(见 Conversation):
+    // _collapsedMessages / _collapsedBanner。
 
     /// <summary>
     /// 新消息进来之后调用:超出窗口就把最早的一批移出可视树。
@@ -38,12 +36,12 @@ public partial class ChatPanelView
     /// </summary>
     private void TrimMessageWindow()
     {
-        int live = MessagesPanel.Children.Count - (_collapsedBanner is null ? 0 : 1);
+        int live = MessagesPanel.Children.Count - (CollapsedBanner is null ? 0 : 1);
         if (live <= LiveMessageWindow + CollapseBatch)
         {
             return;
         }
-        int bannerOffset = _collapsedBanner is null ? 0 : 1;
+        int bannerOffset = CollapsedBanner is null ? 0 : 1;
         int take = live - LiveMessageWindow;
         var moved = new List<Control>(take);
         for (int i = 0; i < take; i++)
@@ -52,65 +50,65 @@ public partial class ChatPanelView
             MessagesPanel.Children.RemoveAt(bannerOffset);
             moved.Add(child);
         }
-        _collapsedMessages.InsertRange(0, moved);
+        CollapsedMessages.InsertRange(0, moved);
         ShowCollapsedBanner();
     }
 
     /// <summary>顶部那枚"显示更早的 N 条"横幅(点一下全部放回)。</summary>
     private void ShowCollapsedBanner()
     {
-        if (_collapsedMessages.Count == 0)
+        if (CollapsedMessages.Count == 0)
         {
             RemoveCollapsedBanner();
             return;
         }
-        if (_collapsedBanner is null)
+        if (CollapsedBanner is null)
         {
             var text = new TextBlock { Classes = { "dim" } };
-            _collapsedBanner = new Border
+            CollapsedBanner = new Border
             {
                 Classes = { "earlierBanner" },
                 Child = text,
                 Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand)
             };
-            _collapsedBanner.PointerPressed += (_, e) =>
+            CollapsedBanner.PointerPressed += (_, e) =>
             {
                 e.Handled = true;
                 RestoreCollapsedMessages();
             };
-            MessagesPanel.Children.Insert(0, _collapsedBanner);
+            MessagesPanel.Children.Insert(0, CollapsedBanner);
         }
-        ((TextBlock)_collapsedBanner.Child!).Text = _loc.F("ShowEarlier", _collapsedMessages.Count);
+        ((TextBlock)CollapsedBanner.Child!).Text = _loc.F("ShowEarlier", CollapsedMessages.Count);
     }
 
     private void RestoreCollapsedMessages()
     {
-        if (_collapsedMessages.Count == 0)
+        if (CollapsedMessages.Count == 0)
         {
             return;
         }
         RemoveCollapsedBanner();
-        for (int i = 0; i < _collapsedMessages.Count; i++)
+        for (int i = 0; i < CollapsedMessages.Count; i++)
         {
-            MessagesPanel.Children.Insert(i, _collapsedMessages[i]);
+            MessagesPanel.Children.Insert(i, CollapsedMessages[i]);
         }
-        _collapsedMessages.Clear();
+        CollapsedMessages.Clear();
     }
 
     private void RemoveCollapsedBanner()
     {
-        if (_collapsedBanner is { } banner)
+        if (CollapsedBanner is { } banner)
         {
             MessagesPanel.Children.Remove(banner);
-            _collapsedBanner = null;
+            CollapsedBanner = null;
         }
     }
 
     /// <summary>换会话/新建会话时连折叠区一起清干净。</summary>
     private void ResetMessageWindow()
     {
-        _collapsedMessages.Clear();
-        _collapsedBanner = null;
+        CollapsedMessages.Clear();
+        CollapsedBanner = null;
     }
 
     /// <summary>

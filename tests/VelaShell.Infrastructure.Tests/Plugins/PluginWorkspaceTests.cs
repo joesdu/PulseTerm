@@ -216,7 +216,7 @@ public sealed class PluginWorkspaceTests
 
         Assert.IsEmpty(registry.Tabs);
         Assert.IsFalse(registry.TryGetWorkspace(WorkspaceId, out _));
-        CollectionAssert.Contains(unregistered, WorkspaceId);
+        Assert.Contains(WorkspaceId, unregistered);
     }
 
     /// <summary>
@@ -249,7 +249,7 @@ public sealed class PluginWorkspaceTests
 
         registry.RegisterWorkspace(PluginId, Descriptor(), new FakeWorkspaceProvider());
 
-        CollectionAssert.Contains(unregistered, WorkspaceId);
+        Assert.Contains(WorkspaceId, unregistered);
     }
 
     /// <summary>注销句柄只撤自己那一份:同 id 被后来者替换过时不能把别人的注册删掉。</summary>

@@ -84,7 +84,7 @@ internal sealed class McpToolHost
         {
             throw new KeyNotFoundException($"Unknown tool: {name}");
         }
-        object? result = await tool.InvokeAsync(new AIFunctionArguments(arguments), cancellationToken)
+        object? result = await tool.InvokeAsync([with(arguments)], cancellationToken)
             .ConfigureAwait(false);
         return result?.ToString() ?? "";
     }

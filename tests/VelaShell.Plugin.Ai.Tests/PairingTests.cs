@@ -97,7 +97,7 @@ public sealed class PairingServiceTests
 
         IReadOnlyList<PendingChat> pending = pairing.Pending();
 
-        Assert.AreEqual(2, pending.Count);
+        Assert.HasCount(2, pending);
         Assert.AreEqual("b", pending[0].ChatId);
         Assert.AreEqual("Cara", pending.Single(p => p.ChatId == "a").UserName);
     }
@@ -110,6 +110,6 @@ public sealed class PairingServiceTests
 
         pairing.Forget("ch1", "a");
 
-        Assert.AreEqual(0, pairing.Pending().Count);
+        Assert.IsEmpty(pairing.Pending());
     }
 }

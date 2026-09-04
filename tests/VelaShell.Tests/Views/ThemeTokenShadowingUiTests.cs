@@ -109,7 +109,7 @@ public sealed class ThemeTokenShadowingUiTests
 
             // 换一格实测发 3 次(摘旧的、挂新的、认领 Owner 各一次)。钉的是"与令牌数无关"这件事:
             // 逐个写会随令牌数线性上去,眼下是六十多次。
-            Assert.IsTrue(notifications <= 4,
+            Assert.IsLessThanOrEqualTo(4, notifications,
                 $"贴一套主题发了 {notifications} 次资源变更通知 —— 多半是又改回了逐个令牌写 "
                 + "Application.Resources。每一次通知都要把整棵树上的 DynamicResource 重解析一遍。");
             return Task.FromResult(true);

@@ -247,7 +247,7 @@ public sealed class ProviderSetupView : UserControl
         // 二来按钮坐在行的命中区里,按下会冒泡、抬起才是 Click,天然是个双触发的坑。
         var header = new Grid
         {
-            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"),
+            ColumnDefinitions = [with("Auto,*,Auto")],
             // 整行都要能点,而不是只有那几个字:Grid 没有背景就不吃命中测试
             Background = Brushes.Transparent,
             Cursor = new Cursor(StandardCursorType.Hand)
@@ -304,10 +304,10 @@ public sealed class ProviderSetupView : UserControl
         => Existing(entry) is { } provider && _connected.Contains(provider.Id);
 
     /// <summary>已登录的供应商 id(<see cref="RefreshStatusAsync" /> 刷新;读机密是异步的,不能在点击路径上现读)。</summary>
-    private readonly HashSet<string> _connected = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _connected = [with(StringComparer.Ordinal)];
 
     /// <summary>已配好 Key 的供应商 id。</summary>
-    private readonly HashSet<string> _keyed = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _keyed = [with(StringComparer.Ordinal)];
 
     private void Collapse()
     {
@@ -626,7 +626,7 @@ public sealed class ProviderSetupView : UserControl
             VerticalAlignment = VerticalAlignment.Center,
             Children = { _primary, _pull, _secondary }
         };
-        var line = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(0, 14, 0, 0) };
+        var line = new Grid { ColumnDefinitions = [with("*,Auto")], Margin = new Thickness(0, 14, 0, 0) };
         Grid.SetColumn(buttons, 1);
         line.Children.Add(_progress);
         line.Children.Add(buttons);
@@ -1129,7 +1129,7 @@ public sealed class ProviderSetupView : UserControl
         eye[!Shape.StrokeProperty] = new DynamicResourceExtension("VelaTextSecondary");
         reveal.Content = new Viewbox { Width = 13, Height = 13, Child = eye };
         reveal.IsCheckedChanged += (_, _) => box.PasswordChar = reveal.IsChecked == true ? '\0' : '●';
-        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,6,Auto") };
+        var grid = new Grid { ColumnDefinitions = [with("*,6,Auto")] };
         Grid.SetColumn(reveal, 2);
         grid.Children.Add(box);
         grid.Children.Add(reveal);

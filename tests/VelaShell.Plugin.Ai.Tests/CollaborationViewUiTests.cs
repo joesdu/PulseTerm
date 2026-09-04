@@ -149,13 +149,13 @@ public sealed class CollaborationViewUiTests
                     .. view.GetLogicalDescendants().OfType<Button>().Where(b => b is not ToggleButton)
                 ];
 
-                Assert.IsTrue(buttons.Length >= 8, $"expected the whole page, only found {buttons.Length} buttons");
+                Assert.IsGreaterThanOrEqualTo(8, buttons.Length, $"expected the whole page, only found {buttons.Length} buttons");
                 string[] offenders =
                 [
                     .. buttons.Where(b => b.HorizontalContentAlignment != HorizontalAlignment.Center)
                               .Select(b => $"{b.Name ?? "(code-built)"}:{b.Content}")
                 ];
-                Assert.AreEqual(0, offenders.Length,
+                Assert.IsEmpty(offenders,
                     "these buttons render their label off-centre: " + string.Join(", ", offenders));
             }, bridge);
         });
@@ -175,9 +175,9 @@ public sealed class CollaborationViewUiTests
             {
                 string sample = view.FindControl<TextBox>("McpCommandBox")!.Text ?? "";
 
-                StringAssert.Contains(sample, "http://127.0.0.1:9123/mcp");
-                StringAssert.Contains(sample, token);
-                StringAssert.Contains(sample, "claude mcp add --transport http");
+                Assert.Contains("http://127.0.0.1:9123/mcp", sample);
+                Assert.Contains(token, sample);
+                Assert.Contains("claude mcp add --transport http", sample);
                 return Task.CompletedTask;
             });
         });
@@ -206,7 +206,7 @@ public sealed class CollaborationViewUiTests
                 var panel = view.FindControl<StackPanel>("ChannelsPanel")!;
                 Assert.AreEqual(1, panel.Children.Count);
                 TextBox[] boxes = [.. panel.GetLogicalDescendants().OfType<TextBox>()];
-                Assert.IsTrue(boxes.Any(b => b.Text == "cli_abc"), "the App ID should be shown");
+                Assert.Contains(b => b.Text == "cli_abc", boxes, "the App ID should be shown");
                 TextBox? secret = boxes.FirstOrDefault(b => b.Text == "s3cret");
                 Assert.IsNotNull(secret, "the stored secret should be loaded back");
                 Assert.AreEqual('●', secret.PasswordChar);
@@ -235,8 +235,8 @@ public sealed class CollaborationViewUiTests
                     .. view.FindControl<StackPanel>("ChannelsPanel")!
                            .GetLogicalDescendants().OfType<TextBlock>().Select(t => t.Text ?? "")
                 ];
-                CollectionAssert.Contains(labels, "Bot Token");
-                CollectionAssert.DoesNotContain(labels, "App ID");
+                Assert.Contains("Bot Token", labels);
+                Assert.DoesNotContain("App ID", labels);
                 return Task.CompletedTask;
             });
         });
@@ -257,7 +257,7 @@ public sealed class CollaborationViewUiTests
 
                 string shown = view.FindControl<TextBlock>("PairCodeText")!.Text ?? "";
                 Assert.IsNotNull(bridge.Pairing.Code);
-                StringAssert.Contains(shown, bridge.Pairing.Code!);
+                Assert.Contains(bridge.Pairing.Code!, shown);
             }, bridge);
         });
     }
@@ -274,7 +274,7 @@ public sealed class CollaborationViewUiTests
                 view.FindControl<Button>("IssuePairSelfButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 await PumpAsync();
 
-                StringAssert.Contains(view.FindControl<TextBlock>("StatusText")!.Text ?? "", "bridge on");
+                Assert.Contains("bridge on", view.FindControl<TextBlock>("StatusText")!.Text ?? "");
             });
         });
     }
@@ -323,10 +323,10 @@ public sealed class CollaborationViewUiTests
             ChannelConfig saved = (await store.LoadAsync()).Channels.Single();
             ChatGrant grant = saved.GrantFor("oc_1")!;
             Assert.AreEqual(ScopeKind.Limited, grant.Scope.Kind);
-            CollectionAssert.Contains(grant.Scope.Groups, "生产");
+            Assert.Contains("生产", grant.Scope.Groups);
             Assert.AreEqual(ChatMode.Plan, grant.Mode);
             // 派生镜像也要跟着对:降级回旧版本时白名单还得在
-            CollectionAssert.Contains(saved.AllowedChats, "oc_1");
+            Assert.Contains("oc_1", saved.AllowedChats);
         });
     }
 
@@ -361,7 +361,7 @@ public sealed class CollaborationViewUiTests
                 ChatGrant? template = bridge.Pairing.Template;
                 Assert.IsNotNull(template);
                 Assert.AreEqual(ScopeKind.Limited, template.Scope.Kind);
-                CollectionAssert.Contains(template.Scope.Groups, "生产");
+                Assert.Contains("生产", template.Scope.Groups);
             }, bridge);
         });
     }
@@ -382,9 +382,9 @@ public sealed class CollaborationViewUiTests
                 var panel = view.FindControl<StackPanel>("PendingPanel")!;
                 Assert.AreEqual(1, panel.Children.Count);
                 string[] text = [.. panel.GetLogicalDescendants().OfType<TextBlock>().Select(t => t.Text ?? "")];
-                CollectionAssert.Contains(text, "oc_abc");
-                Assert.IsTrue(text.Any(t => t.Contains("Ann")), "the row should say who knocked");
-                Assert.IsTrue(panel.GetLogicalDescendants().OfType<Button>().Any(b => (string?)b.Content == "Allow"));
+                Assert.Contains("oc_abc", text);
+                Assert.Contains(t => t.Contains("Ann"), text, "the row should say who knocked");
+                Assert.Contains(b => (string?)b.Content == "Allow", panel.GetLogicalDescendants().OfType<Button>());
             }, bridge);
         });
     }

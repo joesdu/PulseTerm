@@ -126,9 +126,9 @@ public sealed class BridgeRouterTests
 
         await harness.SendAsync("hello", chatId: "chat-stranger");
 
-        Assert.AreEqual(1, harness.Channel.Sent.Count);
-        StringAssert.Contains(harness.Channel.Sent[0], "chat-stranger");
-        StringAssert.Contains(harness.Channel.Sent[0], "not authorised");
+        Assert.HasCount(1, harness.Channel.Sent);
+        Assert.Contains("chat-stranger", harness.Channel.Sent[0]);
+        Assert.Contains("not authorised", harness.Channel.Sent[0]);
     }
 
     /// <summary>同一个陌生聊天只提示一次,不然它每说一句我们就刷一条。</summary>
@@ -141,7 +141,7 @@ public sealed class BridgeRouterTests
         await harness.SendAsync("hello", chatId: "chat-stranger");
         await harness.SendAsync("anyone there?", chatId: "chat-stranger");
 
-        Assert.AreEqual(1, harness.Channel.Sent.Count);
+        Assert.HasCount(1, harness.Channel.Sent);
     }
 
     /// <summary>群里没 @ 就当没听见 —— 机器人不该插进同事之间的正常对话。</summary>
@@ -153,7 +153,7 @@ public sealed class BridgeRouterTests
 
         await harness.SendAsync("we should restart nginx", isGroup: true, mentions: false);
 
-        Assert.AreEqual(0, harness.Channel.Sent.Count);
+        Assert.IsEmpty(harness.Channel.Sent);
     }
 
     [TestMethod]
@@ -165,7 +165,7 @@ public sealed class BridgeRouterTests
 
         await harness.SendAsync("/sessions");
 
-        StringAssert.Contains(harness.Channel.Sent.Single(), "root@prod-1:22");
+        Assert.Contains("root@prod-1:22", harness.Channel.Sent.Single());
     }
 
     [TestMethod]
@@ -177,7 +177,7 @@ public sealed class BridgeRouterTests
 
         await harness.SendAsync("/use root@prod-1:22");
 
-        StringAssert.Contains(harness.Channel.Sent.Single(), "root@prod-1:22");
+        Assert.Contains("root@prod-1:22", harness.Channel.Sent.Single());
         BridgeSettings stored = await harness.Store.LoadAsync();
         Assert.AreEqual("root@prod-1:22", stored.ChatBindings["ch1/chat-1"]);
     }
@@ -190,7 +190,7 @@ public sealed class BridgeRouterTests
 
         await harness.SendAsync("/use root@nowhere:22");
 
-        StringAssert.Contains(harness.Channel.Sent.Single(), "No connected session matches");
+        Assert.Contains("No connected session matches", harness.Channel.Sent.Single());
     }
 
     // ---- 会话范围授权 ----
@@ -228,7 +228,7 @@ public sealed class BridgeRouterTests
         await harness.SendAsync("/sessions", isGroup: true);
 
         string reply = harness.Channel.Sent.Single();
-        StringAssert.Contains(reply, "root@prod-1:22");
+        Assert.Contains("root@prod-1:22", reply);
         Assert.IsFalse(reply.Contains("test-1", StringComparison.Ordinal), "范围外的机器不该出现在清单里");
     }
 
@@ -250,7 +250,7 @@ public sealed class BridgeRouterTests
         await harness.SendAsync("/use root@test-1:22", isGroup: true);
 
         string reply = harness.Channel.Sent.Single();
-        StringAssert.Contains(reply, "No connected session matches");
+        Assert.Contains("No connected session matches", reply);
         BridgeSettings stored = await harness.Store.LoadAsync();
         Assert.IsFalse(stored.ChatBindings.ContainsKey("ch1/chat-1"), "越界的绑定不该被记下来");
     }
@@ -271,8 +271,8 @@ public sealed class BridgeRouterTests
         await harness.SendAsync("/help", isGroup: true);
 
         string reply = harness.Channel.Sent.Single();
-        StringAssert.Contains(reply, "生产");          // 范围
-        StringAssert.Contains(reply, "/sessions");     // 命令表
+        Assert.Contains("生产", reply);          // 范围
+        Assert.Contains("/sessions", reply);     // 命令表
     }
 
     /// <summary>刚被放行的人应当收到一条欢迎语,而不是自己去猜命令名。</summary>
@@ -286,8 +286,8 @@ public sealed class BridgeRouterTests
         await harness.SendAsync($"/pair {code}", chatId: "chat-new");
 
         // 一条"配对成功",紧跟一条欢迎语
-        Assert.AreEqual(2, harness.Channel.Sent.Count);
-        StringAssert.Contains(harness.Channel.Sent[1], "/sessions");
+        Assert.HasCount(2, harness.Channel.Sent);
+        Assert.Contains("/sessions", harness.Channel.Sent[1]);
     }
 
     /// <summary><c>/status</c> 要把范围报出来 —— 不然人只能靠撞墙才知道自己受限。</summary>
@@ -299,7 +299,7 @@ public sealed class BridgeRouterTests
 
         await harness.SendAsync("/status", isGroup: true);
 
-        StringAssert.Contains(harness.Channel.Sent.Single(), "生产");
+        Assert.Contains("生产", harness.Channel.Sent.Single());
     }
 
     /// <summary>
@@ -327,7 +327,7 @@ public sealed class BridgeRouterTests
 
         await harness.SendAsync("/mode agent");
 
-        StringAssert.Contains(harness.Channel.Sent.Single(), "turned off");
+        Assert.Contains("turned off", harness.Channel.Sent.Single());
     }
 
     /// <summary>
@@ -346,8 +346,8 @@ public sealed class BridgeRouterTests
         await harness.SendAsync("/sessions");
 
         string reply = harness.Channel.Sent.Single();
-        StringAssert.Contains(reply, "root@test-1:22");
-        StringAssert.Contains(reply, "root@adhoc:22");
+        Assert.Contains("root@test-1:22", reply);
+        Assert.Contains("root@adhoc:22", reply);
     }
 
     /// <summary>
@@ -362,7 +362,7 @@ public sealed class BridgeRouterTests
 
         await harness.SendAsync("/mode agent");
 
-        StringAssert.Contains(harness.Channel.Sent.Single(), "turned off");
+        Assert.Contains("turned off", harness.Channel.Sent.Single());
     }
 
     [TestMethod]
@@ -380,7 +380,7 @@ public sealed class BridgeRouterTests
 
         await harness.SendAsync("/mode agent");
 
-        StringAssert.Contains(harness.Channel.Sent.Single(), "Agent");
+        Assert.Contains("Agent", harness.Channel.Sent.Single());
     }
 
     /// <summary>往低了换永远允许 —— 收紧权限不该需要谁批准。</summary>
@@ -392,7 +392,7 @@ public sealed class BridgeRouterTests
 
         await harness.SendAsync("/mode chat");
 
-        StringAssert.Contains(harness.Channel.Sent.Single(), "Chat");
+        Assert.Contains("Chat", harness.Channel.Sent.Single());
     }
 
     [TestMethod]
@@ -403,7 +403,7 @@ public sealed class BridgeRouterTests
 
         await harness.SendAsync("/help");
 
-        StringAssert.Contains(harness.Channel.Sent.Single(), "/sessions");
+        Assert.Contains("/sessions", harness.Channel.Sent.Single());
     }
 
     /// <summary>用户白名单非空时,名单外的人说话一律不理(连提示都不给 —— 他不是配置者)。</summary>
@@ -420,7 +420,7 @@ public sealed class BridgeRouterTests
 
         await harness.SendAsync("/help");
 
-        Assert.AreEqual(0, harness.Channel.Sent.Count);
+        Assert.IsEmpty(harness.Channel.Sent);
     }
 
     /// <summary>
@@ -435,14 +435,14 @@ public sealed class BridgeRouterTests
 
         await harness.SendAsync($"/pair {code}", chatId: "chat-new");
 
-        StringAssert.Contains(harness.Channel.Sent[0], "Paired");
+        Assert.Contains("Paired", harness.Channel.Sent[0]);
         // 内存里立刻生效:紧接着的一句话不该再被当成陌生人
         harness.Channel.Sent.Clear();
         await harness.SendAsync("/help", chatId: "chat-new");
-        StringAssert.Contains(harness.Channel.Sent.Single(), "/sessions");
+        Assert.Contains("/sessions", harness.Channel.Sent.Single());
         // 而且落了盘,重启之后还在
         BridgeSettings stored = await harness.Store.LoadAsync();
-        CollectionAssert.Contains(stored.Channels.Single().AllowedChats, "chat-new");
+        Assert.Contains("chat-new", stored.Channels.Single().AllowedChats);
     }
 
     [TestMethod]
@@ -455,11 +455,11 @@ public sealed class BridgeRouterTests
 
         await harness.SendAsync($"/pair {wrong}", chatId: "chat-new");
 
-        StringAssert.Contains(harness.Channel.Sent.Single(), "not valid");
+        Assert.Contains("not valid", harness.Channel.Sent.Single());
         BridgeSettings stored = await harness.Store.LoadAsync();
         // 白名单里仍旧只有一开始那条,陌生聊天没被放进去
-        CollectionAssert.DoesNotContain(stored.Channels.Single().AllowedChats, "chat-new");
-        Assert.AreEqual(1, stored.Channels.Single().AllowedChats.Count);
+        Assert.DoesNotContain("chat-new", stored.Channels.Single().AllowedChats);
+        Assert.HasCount(1, stored.Channels.Single().AllowedChats);
     }
 
     /// <summary>没生成过码的时候,任何 /pair 都不该放行。</summary>
@@ -471,7 +471,7 @@ public sealed class BridgeRouterTests
 
         await harness.SendAsync("/pair 123456", chatId: "chat-new");
 
-        StringAssert.Contains(harness.Channel.Sent.Single(), "not valid");
+        Assert.Contains("not valid", harness.Channel.Sent.Single());
     }
 
     [TestMethod]
@@ -482,7 +482,7 @@ public sealed class BridgeRouterTests
 
         await harness.SendAsync("/pair", chatId: "chat-new");
 
-        StringAssert.Contains(harness.Channel.Sent.Single(), "Usage");
+        Assert.Contains("Usage", harness.Channel.Sent.Single());
     }
 
     /// <summary>敲过门的聊天要被记下来,设置页那个「允许」按钮才有东西可点。</summary>
@@ -510,7 +510,7 @@ public sealed class BridgeRouterTests
 
         await harness.SendAsync($"/pair {code}", chatId: "chat-new");
 
-        Assert.AreEqual(0, harness.Pairing.Pending().Count);
+        Assert.IsEmpty(harness.Pairing.Pending());
     }
 }
 
@@ -562,7 +562,7 @@ public sealed class SessionTargetsTests
 
         string text = await SessionTargets.DescribeAsync(context, CancellationToken.None);
 
-        StringAssert.Contains(text, "root@prod-1:22");
-        StringAssert.Contains(text, "deploy@db-2:22");
+        Assert.Contains("root@prod-1:22", text);
+        Assert.Contains("deploy@db-2:22", text);
     }
 }
