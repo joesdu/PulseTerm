@@ -27,6 +27,6 @@
          装载方那份)。测试宿主在这里就扮演"装载方":不摆这一条,面板一构造就是
          FileNotFoundException。 -->
     <PackageVersion Include="Avalonia.AvaloniaEdit" Version="12.0.0" />
-    <PackageVersion Include="ReactiveUI.Testing" Version="24.1.0" />
+    <PackageVersion Include="ReactiveUI.Testing" Version="24.2.0" />
   </ItemGroup>
 </Project>
