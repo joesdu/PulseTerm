@@ -37,6 +37,23 @@ internal class WebAccess(WebSearchOptions options)
     /// <summary>同站跳转最多跟几跳。</summary>
     private const int MaxRedirects = 5;
 
+    /// <summary>一次抓取遇到瞬时网络故障最多试几次(含首次)。</summary>
+    private const int MaxSendAttempts = 3;
+
+    /// <summary>是不是"再试一次多半就好"的瞬时网络故障(断连 / 超时 / DNS 抖动)。</summary>
+    private static bool IsTransient(Exception ex)
+    {
+        for (Exception? e = ex; e is not null; e = e.InnerException)
+        {
+            // HttpClient 超时抛的是 TaskCanceledException(OCE 子类);用户按停止那条已在上面按 token 拦下。
+            if (e is HttpRequestException or IOException or SocketException or TimeoutException or TaskCanceledException)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /// <summary>响应体最多读多少字节(转文本前的原始上限,防止一个大文件把内存吃了)。</summary>
     private const int MaxResponseBytes = 8 * 1024 * 1024;
 
@@ -124,20 +141,30 @@ internal class WebAccess(WebSearchOptions options)
                 return new FetchResult(false, blocked, current);
             }
             HttpResponseMessage response;
-            try
+            // 墙内抓外网常常链路一抖就断:瞬时故障退避后重试几次(web_fetch 只读,重放安全),
+            // 都不行才把原因转成文本返回 —— 全程不抛,免得中断整轮对话。
+            for (int attempt = 1; ; attempt++)
             {
-                using var request = new HttpRequestMessage(HttpMethod.Get, current);
-                request.Headers.Accept.ParseAdd("text/html,application/xhtml+xml,text/plain,application/json;q=0.9,*/*;q=0.5");
-                response = await Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
-                                     .ConfigureAwait(false);
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                return new FetchResult(false, $"Could not fetch {current}: {ex.Message}", current);
+                try
+                {
+                    using var request = new HttpRequestMessage(HttpMethod.Get, current);
+                    request.Headers.Accept.ParseAdd("text/html,application/xhtml+xml,text/plain,application/json;q=0.9,*/*;q=0.5");
+                    response = await Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+                                         .ConfigureAwait(false);
+                    break;
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception ex) when (attempt < MaxSendAttempts && IsTransient(ex))
+                {
+                    await Task.Delay(TimeSpan.FromMilliseconds(400 * attempt), cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    return new FetchResult(false, $"Could not fetch {current}: {ex.Message}", current);
+                }
             }
 
             using (response)

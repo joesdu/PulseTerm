@@ -359,8 +359,17 @@ public sealed class AgentToolbox(IPluginContext context)
             return error!;
         }
         lines = Math.Clamp(lines, 1, 2000);
-        string output = await context.Terminal.GetOutputAsync(id, lines, cancellationToken).ConfigureAwait(false);
-        return string.IsNullOrWhiteSpace(output) ? "(terminal buffer is empty)" : output;
+        try
+        {
+            string output = await context.Terminal.GetOutputAsync(id, lines, cancellationToken).ConfigureAwait(false);
+            return string.IsNullOrWhiteSpace(output) ? "(terminal buffer is empty)" : output;
+        }
+        catch (Exception ex)
+        {
+            // 异常一律转文本,别中断整轮对话(与其它工具同一口径)——
+            // 抛出去会让挂着的 tool_use 收不到结果,下次请求就被服务端以 "cannot be absent" 挡回来。
+            return $"Failed to read the terminal: {ex.Message}";
+        }
     }
 
     private async Task<string> SearchTerminalAsync(

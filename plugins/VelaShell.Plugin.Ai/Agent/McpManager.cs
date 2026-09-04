@@ -1,3 +1,5 @@
+using System.Net.Http;
+using System.Net.Sockets;
 using System.Text.Json;
 using Microsoft.Extensions.AI;
 using ModelContextProtocol.Client;
@@ -34,6 +36,27 @@ public sealed class McpManager(IPluginContext context) : IAsyncDisposable
 
     /// <summary>审批方式(与内置工具共用同一设置)。</summary>
     public ApprovalMode Approval { get; set; } = ApprovalMode.Ask;
+
+    /// <summary>把一条工具执行告警写进插件日志(供嵌套的工具包装器用,它拿不到 <c>context</c>)。</summary>
+    internal void LogToolWarning(string message) => context.Log.Warn(message);
+
+    /// <summary>
+    /// 是不是那种"再试一次多半就好"的瞬时故障:网络层的断连 / 超时 / DNS 抖动。
+    /// 用来决定 MCP 工具调用要不要自动重试 —— 语义类错误(参数不对、服务端 4xx)重试没意义。
+    /// </summary>
+    internal static bool IsTransientToolFailure(Exception ex)
+    {
+        for (Exception? e = ex; e is not null; e = e.InnerException)
+        {
+            // HttpClient 超时抛的是 TaskCanceledException(OperationCanceledException 的子类);
+            // 真正的"用户按停止"在调用点已按 cancellationToken 单独拦下,到这儿的都是内部超时。
+            if (e is HttpRequestException or IOException or SocketException or TimeoutException or TaskCanceledException)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
 
     /// <summary>
     /// 汇集全部启用服务器的工具。逐服务器容错:单个失败不影响其余,
@@ -308,7 +331,43 @@ public sealed class McpManager(IPluginContext context) : IAsyncDisposable
                     return "The user DENIED this MCP tool call. Do not retry it; ask the user how to proceed.";
                 }
             }
-            return await base.InvokeCoreAsync(arguments, cancellationToken).ConfigureAwait(false);
+
+            // MCP 工具常常连着一台远端服务器,链路一抖(尤其在墙内)整条调用就抛。
+            // 以前这里直接把异常放出去:这一轮里挂着的 tool_use 收不到结果,下一次请求就被服务端
+            // 以 "'<tool>' cannot be absent" 挡回来 —— 整轮作废,还没法重试。
+            // 现在:①瞬时网络故障自动重试几次(仅对服务器自称只读的工具,免得把有副作用的调用重放两遍);
+            //       ②最终仍失败就把原因转成给模型看的文本(而不是抛)—— 工具调用始终有个结果,
+            //         tool_use 不再悬空,模型可以自己决定再试一次还是如实告诉用户。
+            // 只有用户按了停止(cancellationToken)才照旧抛出,交给外层统一收尾。
+            bool retrySafe = inner.ProtocolTool.Annotations?.ReadOnlyHint == true;
+            int maxAttempts = retrySafe ? 3 : 1;
+            for (int attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    return await base.InvokeCoreAsync(arguments, cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception ex) when (attempt < maxAttempts && IsTransientToolFailure(ex))
+                {
+                    owner.LogToolWarning(
+                        $"MCP tool '{Name}' failed (attempt {attempt}/{maxAttempts}), retrying: {ex.Message}");
+                    await Task.Delay(TimeSpan.FromMilliseconds(400 * attempt), cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    owner.LogToolWarning($"MCP tool '{Name}' failed: {ex.Message}");
+                    string hint = IsTransientToolFailure(ex)
+                        ? " This looks like a transient network issue (the MCP server may be unreachable or blocked);"
+                          + " you may retry the call."
+                        : "";
+                    return $"The MCP tool '{Name}' failed: {ex.Message}.{hint}"
+                           + " Do not treat this as your own mistake — report what happened to the user if it keeps failing.";
+                }
+            }
         }
 
         private static string SerializeArguments(AIFunctionArguments arguments)
