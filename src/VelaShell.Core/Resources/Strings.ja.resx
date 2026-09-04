@@ -4195,4 +4195,10 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   <data name="Recorder_CleanupFailed" xml:space="preserve">
     <value>クリーンアップに失敗しました: {0}</value>
   </data>
+  <data name="Validation_NumberRange" xml:space="preserve">
+    <value>{0}～{1} の数値を入力してください</value>
+  </data>
+  <data name="Validation_NumberRequired" xml:space="preserve">
+    <value>数値を入力してください</value>
+  </data>
 </root>

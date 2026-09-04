@@ -4606,4 +4606,10 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   <data name="Recorder_CleanupFailed" xml:space="preserve">
     <value>清理失敗:{0}</value>
   </data>
+  <data name="Validation_NumberRange" xml:space="preserve">
+    <value>請輸入 {0} 到 {1} 之間的數字</value>
+  </data>
+  <data name="Validation_NumberRequired" xml:space="preserve">
+    <value>請輸入數字</value>
+  </data>
 </root>
