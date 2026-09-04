@@ -28,8 +28,8 @@ public sealed class FeishuApiTests
         string json = JsonSerializer.Serialize(new FeishuApi.EndpointRequest("cli_x", "s3cret"),
             new JsonSerializerOptions(JsonSerializerDefaults.Web));
 
-        StringAssert.Contains(json, "\"AppID\"");
-        StringAssert.Contains(json, "\"AppSecret\"");
+        Assert.Contains("\"AppID\"", json);
+        Assert.Contains("\"AppSecret\"", json);
         Assert.IsFalse(json.Contains("\"appID\"", StringComparison.Ordinal),
             $"the camelCased name is what the platform rejects with code 9499; got {json}");
     }

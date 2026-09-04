@@ -56,7 +56,7 @@ public sealed class PluginPermissionGate(IAppDataStore? store, IPluginPermission
     private sealed class Grants(string documentId)
     {
         public string DocumentId { get; } = documentId;
-        public HashSet<string> SessionAllowed { get; } = new(StringComparer.Ordinal);
+        public HashSet<string> SessionAllowed { get; } = [with(StringComparer.Ordinal)];
         public HashSet<string>? AlwaysAllowed { get; set; }
     }
 

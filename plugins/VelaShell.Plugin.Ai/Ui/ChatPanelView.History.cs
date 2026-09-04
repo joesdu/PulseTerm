@@ -107,7 +107,7 @@ public partial class ChatPanelView
         grid.Children.Add(tools);
 
         var row = new Border { Classes = { "historyRow" }, Child = grid };
-        if (session.Id == _conversationId)
+        if (session.Id == ConversationId)
         {
             row.Classes.Add("current");
         }
@@ -115,7 +115,7 @@ public partial class ChatPanelView
         {
             e.Handled = true;
             await _historyStore.DeleteAsync(session.Id);
-            if (session.Id == _conversationId)
+            if (session.Id == ConversationId)
             {
                 StartNewChat();
                 SetActiveView(PanelView.History);
@@ -179,17 +179,17 @@ public partial class ChatPanelView
     {
         try
         {
-            _cts?.Cancel();
+            Cts?.Cancel();
             IReadOnlyList<ChatEntry> entries = await _historyStore.LoadAsync(session.Id);
-            _history.Clear();
+            History.Clear();
             MessagesPanel.Children.Clear();
             ResetUsage();
-            _alwaysApproved.Clear(); // 放行记忆只在同一段对话里有效
-            _userBubbleIndex.Clear();
+            AlwaysApproved.Clear(); // 放行记忆只在同一段对话里有效
+            UserBubbleIndex.Clear();
             ClearSuggestions(); // 载入的是别的会话,上一段的建议不再相关
-            _conversationId = session.Id;
-            _conversationStartedAt = session.CreatedAt;
-            _persistedCount = entries.Count;
+            ConversationId = session.Id;
+            ConversationStartedAt = session.CreatedAt;
+            PersistedCount = entries.Count;
             _inputHistoryIndex = -1;
             ResetMessageWindow();
             for (int index = 0; index < entries.Count; index++)
@@ -200,7 +200,7 @@ public partial class ChatPanelView
                 if (entry.Role == "user")
                 {
                     AddUserBubble(entry.Text);
-                    _history.Add(new(ChatRole.User, entry.Text));
+                    History.Add(new(ChatRole.User, entry.Text));
                 }
                 else
                 {
@@ -216,12 +216,12 @@ public partial class ChatPanelView
                         entry.Meta?.Model,
                         entry.At.ToLocalTime(),
                         entry.Meta is { ElapsedMs: > 0 } m ? TimeSpan.FromMilliseconds(m.ElapsedMs) : null);
-                    _history.Add(new(ChatRole.Assistant, entry.Text));
+                    History.Add(new(ChatRole.Assistant, entry.Text));
                 }
             }
             TrimMessageWindow();
             // 载入的这段会话已经用掉了这些序号,新消息要从它们之后续
-            _sequenceHighWater = _persistedCount;
+            SequenceHighWater = PersistedCount;
             // 上次压过的摘要一并恢复,免得一进来就重压一次(那是一次白花的请求)
             await RestoreSummaryAsync();
             StatusText.Text = _loc.F("HistoryLoaded", entries.Count);

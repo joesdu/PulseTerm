@@ -38,7 +38,7 @@ public sealed class ThemeTokenApplierTests
                     .Where(key => key != "VelaShadowWindow")
                     .Order(StringComparer.Ordinal),
             ];
-            CollectionAssert.AreEqual(expected, actual, $"{theme.Name} 写出的令牌集合与其它主题不一致。");
+            Assert.AreSequenceEqual(expected, actual, $"{theme.Name} 写出的令牌集合与其它主题不一致。");
             Assert.IsTrue(resources.ContainsKey("VelaShadowWindow"), $"{theme.Name} 少了浮层投影令牌。");
         }
     }

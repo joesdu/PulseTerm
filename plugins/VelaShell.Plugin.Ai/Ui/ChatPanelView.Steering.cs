@@ -36,13 +36,8 @@ public partial class ChatPanelView
     /// <summary>单枚排队芯片上显示几个字。</summary>
     private const int MaxQueuedChipChars = 42;
 
-    private readonly SteeringQueue _steeringQueue = new();
-
-    /// <summary>本轮的插话通道(仅在一轮进行中非空)。</summary>
-    private SteeringChatClient? _steering;
-
-    /// <summary>已经补进界面与历史的插话条数(通道自己的送达名单里,前多少条已被消化)。</summary>
-    private int _steeringCommitted;
+    // 插话状态(队列 / 本轮通道 / 已提交条数)按对话各持一份,见 Conversation。
+    // 这里经代理落到当前那一轮的那一份:_steeringQueue / _steering / _steeringCommitted。
 
     // ---------- 入队 ----------
 
@@ -60,7 +55,7 @@ public partial class ChatPanelView
         {
             return;
         }
-        if (_steeringQueue.Count >= MaxQueuedMessages)
+        if (SteeringQueue.Count >= MaxQueuedMessages)
         {
             StatusText.Text = _loc.F("QueueFull", MaxQueuedMessages);
             return;
@@ -79,7 +74,7 @@ public partial class ChatPanelView
             // 引用在<b>入队这一刻</b>展开:排队期间远端文件还可能被改,
             // 用户按下回车时看到的那份才是他想发的那份。
             (string modelText, IReadOnlyList<string> _, IReadOnlyList<string> unreadable) = fromUser
-                ? await ResolveAttachmentsAsync(text, _cts?.Token ?? CancellationToken.None)
+                ? await ResolveAttachmentsAsync(text, Cts?.Token ?? CancellationToken.None)
                 : (text, [], []);
             if (unreadable.Count > 0)
             {
@@ -87,7 +82,7 @@ public partial class ChatPanelView
             }
             var message = new ChatMessage(ChatRole.User, BuildUserContents(modelText));
             ClearAttachments();
-            _steeringQueue.Enqueue(new SteeringMessage(display, text, message));
+            SteeringQueue.Enqueue(new SteeringMessage(display, text, message));
         }
         catch (OperationCanceledException)
         {
@@ -104,9 +99,9 @@ public partial class ChatPanelView
         RenderQueuedChips();
         // 展开远端引用要走一趟 SFTP,那期间这一轮可能已经答完了 —— 队里没人来取了,
         // 就地当作下一轮发出去,别让它一直挂在那儿。
-        if (!_busy)
+        if (!Busy)
         {
-            if (_steeringQueue.DrainMerged() is { } next)
+            if (SteeringQueue.DrainMerged() is { } next)
             {
                 RenderQueuedChips();
                 await SendAsync(next.DisplayText, fromUser: false, prepared: next);
@@ -120,8 +115,9 @@ public partial class ChatPanelView
 
     /// <summary>
     /// 插话通道的送达回调。<b>在发请求的那个线程上被调</b>,所以只负责把活儿甩回 UI 线程。
+    /// 带上 <paramref name="conv" />:这条回调不在原轮的异步流里,得显式说清楚补给哪份对话。
     /// </summary>
-    private void OnSteeringDelivered() => Dispatcher.UIThread.Post(() => _ = CommitSteeringAsync());
+    private void OnSteeringDelivered(Conversation conv) => Dispatcher.UIThread.Post(() => _ = CommitSteeringAsync(conv));
 
     /// <summary>
     /// 把"已经送进请求"的插话补进界面、对话历史与库。
@@ -130,25 +126,28 @@ public partial class ChatPanelView
     /// <b>只在 UI 线程调</b>,且必须可重入:送达回调与本轮收尾都会调它(收尾那次是兜底 ——
     /// 回调的 Post 可能还排在队里没跑到)。名单指针在任何 await 之前就推进,重入不会重复提交。
     /// </remarks>
-    private async Task CommitSteeringAsync()
+    private async Task CommitSteeringAsync(Conversation conv)
     {
-        if (_steering is not { } steering)
+        // 送达回调经 Post 过来时并不在原轮的异步流里,代理会误落到"正显示的那份"——
+        // 显式把本次读写钉在 conv 上(在原轮主线里调用时,这一步是无害的重复)。
+        _turnScope.Value = conv;
+        if (Steering is not { } steering)
         {
             return;
         }
         IReadOnlyList<SteeringMessage> delivered = steering.Delivered;
-        if (delivered.Count <= _steeringCommitted)
+        if (delivered.Count <= SteeringCommitted)
         {
             return;
         }
-        List<SteeringMessage> fresh = [.. delivered.Skip(_steeringCommitted)];
-        _steeringCommitted = delivered.Count;
+        List<SteeringMessage> fresh = [.. delivered.Skip(SteeringCommitted)];
+        SteeringCommitted = delivered.Count;
         foreach (SteeringMessage item in fresh)
         {
             // 卡先挂、历史后加:没有回复气泡可挂时退回一条普通用户气泡,
             // 而那条气泡要按"它将落到历史的哪个下标"登记(见 AddUserBubble)。
             AddSteeringCard(item.DisplayText);
-            _history.Add(item.Message);
+            History.Add(item.Message);
         }
         RenderQueuedChips();
         UpdateEmptyState();
@@ -166,7 +165,7 @@ public partial class ChatPanelView
     /// </summary>
     private void AddSteeringCard(string text)
     {
-        if (_activeBubble is not { } bubble)
+        if (ActiveBubble is not { } bubble)
         {
             // 没有回复气泡可挂(还没开口就送进去了):当作一条普通用户消息摆进消息流
             AddUserBubble(text);
@@ -189,15 +188,15 @@ public partial class ChatPanelView
     /// <summary>一轮开始:换一条通道,送达名单从头数。</summary>
     private void BeginSteering(SteeringChatClient steering)
     {
-        _steering = steering;
-        _steeringCommitted = 0;
+        Steering = steering;
+        SteeringCommitted = 0;
     }
 
     /// <summary>一轮结束:通道作废(晚到的送达回调就此变成空转)。</summary>
     private void EndSteering()
     {
-        _steering = null;
-        _steeringCommitted = 0;
+        Steering = null;
+        SteeringCommitted = 0;
     }
 
     /// <summary>
@@ -206,7 +205,7 @@ public partial class ChatPanelView
     /// </summary>
     private void RestoreQueuedToInput()
     {
-        IReadOnlyList<SteeringMessage> left = _steeringQueue.DrainAll();
+        IReadOnlyList<SteeringMessage> left = SteeringQueue.DrainAll();
         if (left.Count == 0)
         {
             return;
@@ -231,7 +230,7 @@ public partial class ChatPanelView
     /// <summary>清空队列(换会话、关面板时用)。</summary>
     private void ClearQueuedMessages()
     {
-        _steeringQueue.DrainAll();
+        SteeringQueue.DrainAll();
         RenderQueuedChips();
     }
 
@@ -240,8 +239,13 @@ public partial class ChatPanelView
     /// <summary>把排队中的插话画成一排可撤回的芯片(输入框上方,与附件芯片同一副长相)。</summary>
     private void RenderQueuedChips()
     {
+        // 排队芯片是共享顶栏,只画正显示那份的队列;后台那份切回来时由 RefreshForeground 重画。
+        if (!IsForeground)
+        {
+            return;
+        }
         QueuedBar.Children.Clear();
-        foreach (SteeringMessage item in _steeringQueue.Snapshot())
+        foreach (SteeringMessage item in SteeringQueue.Snapshot())
         {
             QueuedBar.Children.Add(BuildQueuedChip(item));
         }
@@ -269,7 +273,7 @@ public partial class ChatPanelView
         chip.PointerPressed += (_, e) =>
         {
             e.Handled = true;
-            if (_steeringQueue.Remove(item))
+            if (SteeringQueue.Remove(item))
             {
                 RenderQueuedChips();
             }

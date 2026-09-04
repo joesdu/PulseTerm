@@ -46,7 +46,7 @@ public sealed class BridgeConversation(string channelId, string chatId)
     public DateTimeOffset LastActivity { get; set; } = DateTimeOffset.UtcNow;
 
     /// <summary>本会话内"总是允许"过的操作键(见 <c>ApprovalRequest.RepeatKey</c>)。</summary>
-    public HashSet<string> AlwaysApproved { get; } = new(StringComparer.Ordinal);
+    public HashSet<string> AlwaysApproved { get; } = [with(StringComparer.Ordinal)];
 
     /// <summary>会话创建时刻(历史库里那个"每会话一个点"的摘要用它当时间戳)。</summary>
     public DateTimeOffset CreatedAt { get; private set; } = DateTimeOffset.UtcNow;

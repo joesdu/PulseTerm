@@ -136,7 +136,7 @@ public partial class CollaborationView
         kind.Classes.Add("hint");
         Button remove = HostButton(_loc["ChannelRemove"], 64);
 
-        var head = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto") };
+        var head = new Grid { ColumnDefinitions = [with("*,Auto,Auto")] };
         head.Children.Add(chatId);
         Grid.SetColumn(kind, 1);
         head.Children.Add(kind);

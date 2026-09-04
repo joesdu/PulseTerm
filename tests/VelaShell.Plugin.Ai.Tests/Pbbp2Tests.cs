@@ -69,8 +69,8 @@ public sealed class Pbbp2Tests
 
         Assert.AreEqual(Pbbp2.FrameTypeControl, decoded.Method);
         Assert.AreEqual("ping", decoded.Header(Pbbp2.HeaderNames.Type));
-        Assert.AreEqual(0, decoded.Payload.Length);
-        Assert.AreEqual(1, decoded.Headers.Count);
+        Assert.IsEmpty(decoded.Payload);
+        Assert.HasCount(1, decoded.Headers);
     }
 
     /// <summary>同名头只留最后一份 —— 应答帧会重复设 biz_rt,不能越堆越多。</summary>
@@ -81,7 +81,7 @@ public sealed class Pbbp2Tests
         frame.SetHeader(Pbbp2.HeaderNames.BizRt, "10");
         frame.SetHeader(Pbbp2.HeaderNames.BizRt, "20");
 
-        Assert.AreEqual(1, frame.Headers.Count);
+        Assert.HasCount(1, frame.Headers);
         Assert.AreEqual("20", frame.Header(Pbbp2.HeaderNames.BizRt));
     }
 

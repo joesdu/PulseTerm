@@ -119,7 +119,7 @@ public class SessionsCapabilityTests
 
         IReadOnlyList<SavedSessionInfo> saved = await capability.ListSavedAsync();
 
-        Assert.AreEqual(1, saved.Count);
+        Assert.HasCount(1, saved);
         Assert.AreEqual(ssh.Id.ToString(), saved[0].SavedSessionId);
     }
 
@@ -223,7 +223,7 @@ public class SessionsCapabilityTests
         await capability.OpenAsync(profile.Id.ToString(), new("查磁盘", ReuseConnected: false));
 
         Assert.AreEqual(1, opener.Calls);
-        Assert.AreEqual(2, sessions.Count);
+        Assert.HasCount(2, sessions);
     }
 
     [TestMethod]
@@ -238,7 +238,7 @@ public class SessionsCapabilityTests
         SessionInfo session = await capability.OpenAsync(profile.Id.ToString(), new("查磁盘"));
         await capability.CloseAsync(session.SessionId);
 
-        CollectionAssert.AreEqual(new[] { opened }, opener.Closed);
+        Assert.AreSequenceEqual([opened], opener.Closed);
     }
 
     /// <summary>
@@ -259,7 +259,7 @@ public class SessionsCapabilityTests
 
         await Assert.ThrowsExactlyAsync<PluginPermissionDeniedException>(() => capability.CloseAsync(reused.SessionId));
         Assert.IsEmpty(opener.Closed);
-        Assert.AreEqual(1, sessions.Count, "用户的会话必须原封不动");
+        Assert.HasCount(1, sessions, "用户的会话必须原封不动");
     }
 
     /// <summary>会话已经不在了(用户先手动关了)不算错:此方法幂等。</summary>

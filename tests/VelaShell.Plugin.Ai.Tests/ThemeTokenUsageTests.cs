@@ -95,7 +95,7 @@ public sealed class ThemeTokenUsageTests
     {
         DirectoryInfo root = RepositoryRoot();
         HashSet<string> defined = DefinedKeys(root);
-        Assert.IsTrue(defined.Count > 50, $"only found {defined.Count} defined keys — the scan is probably looking in the wrong place");
+        Assert.IsGreaterThan(50, defined.Count, $"only found {defined.Count} defined keys — the scan is probably looking in the wrong place");
 
         string ui = Path.Combine(root.FullName, "plugins", "VelaShell.Plugin.Ai", "Ui");
         List<string> missing = [];
@@ -111,7 +111,7 @@ public sealed class ThemeTokenUsageTests
             }
         }
 
-        Assert.AreEqual(0, missing.Count,
+        Assert.IsEmpty(missing,
             "these resource keys resolve to nothing at runtime (no error, just no styling): "
             + string.Join(", ", missing.Distinct()));
     }
@@ -148,7 +148,7 @@ public sealed class ThemeTokenUsageTests
                     .Select(e => Regex.Replace(e, @"\s+", " ").Trim())
         ];
 
-        Assert.AreEqual(0, bare.Count,
+        Assert.IsEmpty(bare,
             "these controls carry no host class, so they fall back to the default look "
             + "(and their labels are not centred): " + string.Join(" | ", bare));
     }

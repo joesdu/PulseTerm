@@ -28,7 +28,7 @@ public sealed class WeComCryptoTests
 
     [TestMethod]
     public void ParseKey_Yields32Bytes()
-        => Assert.AreEqual(32, WeComCrypto.ParseKey(SampleKey).Length);
+        => Assert.HasCount(32, WeComCrypto.ParseKey(SampleKey));
 
     [TestMethod]
     public void ParseKey_RejectsAKeyOfTheWrongLength()

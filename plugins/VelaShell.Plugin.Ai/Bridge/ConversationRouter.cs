@@ -23,7 +23,7 @@ public sealed class ConversationRouter(
     private static readonly TimeSpan EditInterval = TimeSpan.FromMilliseconds(1200);
 
     private readonly Dictionary<string, BridgeConversation> _conversations = [];
-    private readonly HashSet<string> _unauthorizedNotified = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _unauthorizedNotified = [with(StringComparer.Ordinal)];
     private readonly Lock _sync = new();
     private SemaphoreSlim _turnGate = new(2, 2);
 

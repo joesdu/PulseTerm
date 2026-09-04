@@ -48,7 +48,7 @@ public sealed class SendFileToolTests
         string result = await InvokeAsync(WithSink(context, sent), path);
 
         Assert.Contains("Sent", result);
-        CollectionAssert.Contains(sent, path);
+        Assert.Contains(path, sent);
     }
 
     /// <summary>
@@ -161,7 +161,7 @@ public sealed class SendFileToolTests
         string[] names = [.. new AgentToolbox(context).CreateTools(ChatMode.Agent)
             .OfType<AIFunction>().Select(f => f.Name)];
 
-        CollectionAssert.DoesNotContain(names, "send_file");
+        Assert.DoesNotContain("send_file", names);
     }
 
     /// <summary>渠道那头失败时,原话回给模型,而不是假装发出去了。</summary>

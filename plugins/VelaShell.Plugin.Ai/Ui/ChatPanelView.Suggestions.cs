@@ -89,6 +89,10 @@ public partial class ChatPanelView
             {
                 options.Reasoning = new ReasoningOptions { Effort = ReasoningEffort.None, Output = ReasoningOutput.None };
             }
+            // 和正式一轮走同一套"端点脾气"处理:这一家不收的参数(max_tokens / temperature …)在这儿摘掉。
+            // 少了这一步,后续提问这条附带请求会比正文多带几个字段,私有后端/中转站一律回 400 ——
+            // 正文能答、"后续提问"却总是失败,就是漏了它(见 AiSettingsStore.ApplyEndpointQuirks)。
+            AiSettingsStore.ApplyEndpointQuirks(options, provider);
 
             ChatResponse response = await Task.Run(
                 () => client.GetResponseAsync(BuildFollowUpPrompt(userText, replyText), options, token), token);
@@ -98,8 +102,8 @@ public partial class ChatPanelView
             // 那个数表示的是对话本身占了多少窗口,掺进这一问会误导。
             if (response.Usage is { } usage)
             {
-                _totalInputTokens += usage.InputTokenCount ?? 0;
-                _totalOutputTokens += usage.OutputTokenCount ?? 0;
+                TotalInputTokens += usage.InputTokenCount ?? 0;
+                TotalOutputTokens += usage.OutputTokenCount ?? 0;
                 UpdateUsageText();
             }
             RenderSuggestions(ParseSuggestions(response.Text));

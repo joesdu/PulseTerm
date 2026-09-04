@@ -166,11 +166,11 @@ public class SessionRoutingTests
                 new SessionOpenRequest(profile.Id.ToString(), "查磁盘", true), TimeSpan.FromSeconds(5));
             Assert.AreEqual(opened.ToString(), session!.SessionId);
             Assert.AreEqual(SessionState.Connected, session.State);
-            Assert.AreEqual(1, sessions.Count);
+            Assert.HasCount(1, sessions);
 
             await plugin.RequestAsync<object>(PluginRpc.SessionsClose,
                 new SessionRef(session.SessionId), TimeSpan.FromSeconds(5));
-            CollectionAssert.AreEqual(new[] { opened }, opener.Closed);
+            Assert.AreSequenceEqual([opened], opener.Closed);
         }
     }
 

@@ -31,7 +31,7 @@ internal sealed class FeishuChannel(ChannelConfig config, string appSecret, IPlu
     private readonly FeishuApi _api = new(config.AppId, appSecret, config.International, context.Log);
     private readonly Dictionary<string, (byte[]?[] Parts, DateTimeOffset At)> _fragments = [];
     private readonly Queue<string> _seenEvents = new();
-    private readonly HashSet<string> _seenEventSet = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _seenEventSet = [with(StringComparer.Ordinal)];
     private readonly Lock _sync = new();
 
     private ClientWebSocket? _socket;

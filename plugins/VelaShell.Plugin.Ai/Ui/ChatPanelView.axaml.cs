@@ -50,12 +50,66 @@ public partial class ChatPanelView : UserControl
     private readonly Loc _loc;
     private readonly AgentToolbox _toolbox;
     private readonly McpManager _mcp;
-    private readonly List<ChatMessage> _history = [];
     private readonly ChatHistoryStore _historyStore;
 
+    // ---------- 按会话分桶的对话 ----------
+    // 每台机器(顶栏下拉选中的会话;""=不绑机器的通用对话)各持一份 Conversation。
+    // 切下拉 = 换 _active 的引用并把它的面板挂进 ChatScroll;各自的请求在后台独立跑完。
+    private readonly Dictionary<string, Conversation> _conversations = [with(StringComparer.Ordinal)];
+
+    /// <summary>当前正显示的这一份(顶栏共享控件——状态行/用量/忙态——反映的都是它)。</summary>
+    private Conversation _active = null!;
+
+    /// <summary>
+    /// "这一轮属于哪一份"。一轮开始时置为它所属的 Conversation,那之后被 await 串起来的
+    /// 整条流水线都读它 —— 于是后台轮次写自己那一份,而不是"当前正显示的那一份"。
+    /// <see cref="AsyncLocal{T}" /> 按异步流各自独立,并发的多轮不会互相串。
+    /// </summary>
+    private readonly AsyncLocal<Conversation?> _turnScope = new();
+
+    /// <summary>本次读写落到哪一份:在某一轮里 = 那一轮的;否则 = 正显示的那一份。</summary>
+    private Conversation Cur => _turnScope.Value ?? _active;
+
+    /// <summary>当前上下文是否就是正显示的那一份(后台轮次据此跳过一切对共享控件的改动)。</summary>
+    private bool IsForeground => _turnScope.Value is null || ReferenceEquals(_turnScope.Value, _active);
+
+    /// <summary>正在重建会话下拉(别把代码回填选中项当成用户在切对话)。</summary>
+    private bool _switchingSessions;
+
+    // 下面这些以前是散落各处的实例字段,现在一律代理到 Cur(=某一轮的那一份 / 正显示的那一份)。
+    // 好处是原来一百多处 `_history`/`_cts`/... 的写法一个字都不用改,后台并行却能落到对的那一份上。
+    private List<ChatMessage> History => Cur.History;
+    private AssistantBubble? ActiveBubble { get => Cur.ActiveBubble; set => Cur.ActiveBubble = value; }
+    private CancellationTokenSource? Cts { get => Cur.Cts; set => Cur.Cts = value; }
+    private bool Busy { get => Cur.Busy; set => Cur.Busy = value; }
+    private int TurnHistoryStart { get => Cur.TurnHistoryStart; set => Cur.TurnHistoryStart = value; }
+    private string ConversationId { get => Cur.ConversationId; set => Cur.ConversationId = value; }
+    private DateTimeOffset ConversationStartedAt { get => Cur.ConversationStartedAt; set => Cur.ConversationStartedAt = value; }
+    private int PersistedCount { get => Cur.PersistedCount; set => Cur.PersistedCount = value; }
+    private int DroppedFromContext { get => Cur.DroppedFromContext; set => Cur.DroppedFromContext = value; }
+    private int SequenceHighWater { get => Cur.SequenceHighWater; set => Cur.SequenceHighWater = value; }
+    private long TotalInputTokens { get => Cur.TotalInputTokens; set => Cur.TotalInputTokens = value; }
+    private long TotalOutputTokens { get => Cur.TotalOutputTokens; set => Cur.TotalOutputTokens = value; }
+    private long TotalReasoningTokens { get => Cur.TotalReasoningTokens; set => Cur.TotalReasoningTokens = value; }
+    private long LastInputTokens { get => Cur.LastInputTokens; set => Cur.LastInputTokens = value; }
+    private long LastCachedInputTokens { get => Cur.LastCachedInputTokens; set => Cur.LastCachedInputTokens = value; }
+    private long TotalCachedInputTokens { get => Cur.TotalCachedInputTokens; set => Cur.TotalCachedInputTokens = value; }
+    private long TotalCacheWriteTokens { get => Cur.TotalCacheWriteTokens; set => Cur.TotalCacheWriteTokens = value; }
+    private bool ThinkingHintShown { get => Cur.ThinkingHintShown; set => Cur.ThinkingHintShown = value; }
+    private SteeringQueue SteeringQueue => Cur.SteeringQueue;
+    private SteeringChatClient? Steering { get => Cur.Steering; set => Cur.Steering = value; }
+    private int SteeringCommitted { get => Cur.SteeringCommitted; set => Cur.SteeringCommitted = value; }
+    private string ContextSummary { get => Cur.ContextSummary; set => Cur.ContextSummary = value; }
+    private int SummarizedThrough { get => Cur.SummarizedThrough; set => Cur.SummarizedThrough = value; }
+    private HashSet<string> AlwaysApproved => Cur.AlwaysApproved;
+    private List<Control> CollapsedMessages => Cur.CollapsedMessages;
+    private Border? CollapsedBanner { get => Cur.CollapsedBanner; set => Cur.CollapsedBanner = value; }
+    private Dictionary<Control, int> UserBubbleIndex => Cur.UserBubbleIndex;
+
+    /// <summary>正显示对话的消息流面板(命令式建气泡都往这挂;后台轮次经 <see cref="Cur" /> 落到自己那条)。</summary>
+    private StackPanel MessagesPanel => Cur.Messages;
+
     private AiSettings _settings = new();
-    /// <summary>正在流的那条回复。审批卡与失败卡要挂进它里面(而不是气泡外面),所以得有个把手。</summary>
-    private AssistantBubble? _activeBubble;
     /// <summary>当前该不该显示空状态(还要再与"中部正显示聊天流"取与,见 <see cref="SetActiveView" />)。</summary>
     private bool _showEmptyState;
     /// <summary>已摆出来的是哪一版空状态(true = 引导去配模型那版);null = 还没摆。</summary>
@@ -76,31 +130,9 @@ public partial class ChatPanelView : UserControl
     /// <summary>正在由代码回填下拉选中项(别把这一下当成用户在选)。</summary>
     private bool _syncingReasoning;
     private List<SessionInfo> _sessions = [];
-    private CancellationTokenSource? _cts;
-    private bool _busy;
-    /// <summary>这一轮往 <c>_history</c> 里加的第一条的下标(那之后的全是本轮的东西)。</summary>
-    private int _turnHistoryStart;
-
-    // 当前会话在时序库中的身份:摘要点的时间戳恒为 _conversationStartedAt(覆盖式更新),
-    // _persistedCount 既是已入库条数,也是下一条消息的序号。
-    private string _conversationId = ChatHistoryStore.NewConversationId();
-    private DateTimeOffset _conversationStartedAt = DateTimeOffset.UtcNow;
-    private int _persistedCount;
     private bool _switchingView;
     private bool _autoScroll = true;
     private bool _scrollScheduled;
-    private long _totalInputTokens;
-    private long _totalOutputTokens;
-    private long _totalReasoningTokens;
-    // 最近一轮的输入 token ≈ 当前上下文占用(整段对话每轮都重发),用作输入框下方那个占比的分子
-    private long _lastInputTokens;
-    // 缓存命中:两家的口径实测已被适配器抹平 —— InputTokenCount 都含缓存读取,
-    // 于是 Cached/Input 在两边都是同一个意思(见 UpdateUsageText 的注释)
-    private long _lastCachedInputTokens;
-    private long _totalCachedInputTokens;
-    private long _totalCacheWriteTokens;
-    // 上一轮为了塞进上下文窗口而没有发出去的早期消息条数(界面与库里都还留着)
-    private int _droppedFromContext;
     private ThemeName _codeBlockTheme = ThemeName.DarkPlus;
     private Color _mathTextColor = Colors.Black;
     private Color _mathErrorColor = Colors.Red;
@@ -112,9 +144,16 @@ public partial class ChatPanelView : UserControl
         _store = store;
         _loc = new Loc(context.Host.Locale);
         _historyStore = new ChatHistoryStore(context);
+        // 至少要有一份对话在手(不绑机器的通用对话):任何代理到 Cur 的读写都得有落点。
+        // 连上机器后顶栏下拉一选,就切到对应机器那一份(见 SwitchConversation)。
+        _active = NewConversation("");
+        _conversations[""] = _active;
         _toolbox = new AgentToolbox(context)
         {
-            SessionIdProvider = () => SelectedSessionId,
+            // 工具打在<b>这一轮所属对话</b>绑的那台机器上,而不是此刻下拉选中的那台 ——
+            // 否则后台跑着的 A 轮会把命令打到你刚切过去正看的 B 上。工具调用发生在本轮的异步流里,
+            // Cur 经 _turnScope 落到 A,取到的正是 A 绑的会话。
+            SessionIdProvider = CurrentToolSessionId,
             ApprovalHandler = RequestApprovalAsync
         };
         _mcp = new McpManager(context) { ApprovalHandler = RequestApprovalAsync };
@@ -127,9 +166,21 @@ public partial class ChatPanelView : UserControl
         ApplyLoc();
 
         SendButton.Click += (_, _) => _ = SendAsync(InputBox.Text ?? "");
-        StopButton.Click += (_, _) => _cts?.Cancel();
+        StopButton.Click += (_, _) => Cts?.Cancel();
         ChatScroll.ScrollChanged += OnChatScrollChanged;
+        // 消息流的实际容器是"当前这一份对话"的面板,运行时挂上;切对话时整体替换(见 SwitchConversation)。
+        ChatScroll.Content = _active.Messages;
         NewChatButton.Click += (_, _) => StartNewChat();
+        // 顶栏下拉换一台机器 = 换一份对话:面板即时切到那台机器自己的聊天(它的请求在后台照跑)。
+        // 重建下拉时的代码回填不算(_switchingSessions 挡着),那一步由 RefreshSessionsAsync 自己收尾。
+        SessionCombo.SelectionChanged += (_, _) =>
+        {
+            if (_switchingSessions)
+            {
+                return;
+            }
+            SwitchConversation(SelectedSessionId ?? "");
+        };
         InputBox.AddHandler(KeyDownEvent, OnInputKeyDown, RoutingStrategies.Tunnel);
         InputBox.TextChanged += (_, _) =>
         {
@@ -219,7 +270,11 @@ public partial class ChatPanelView : UserControl
         DisposeSuggestions();
         try
         {
-            _cts?.Cancel();
+            // 关面板 = 所有对话都收摊:每份对话在途的那一轮都掐掉(不只当前显示的这份)。
+            foreach (Conversation conversation in _conversations.Values)
+            {
+                conversation.Cts?.Cancel();
+            }
             // 面板级取消源:补全请求之间靠代次判废,只有面板真的关了才在这里取消
             _fileCts?.Cancel();
             _fileCts?.Dispose();
@@ -358,8 +413,8 @@ public partial class ChatPanelView : UserControl
     /// </summary>
     private void ConfigureMarkdown()
     {
-        // 链接是冒泡路由事件,挂在消息流上就覆盖所有气泡,不必逐段订阅
-        MessagesPanel.AddHandler(MarkdownTextBlock.LinkClickEvent, OnMarkdownLinkClicked);
+        // 链接点击是冒泡路由事件,逐个对话面板在建面板时挂一次即可(见 NewConversation)——
+        // 现在消息流按对话各持一份,不能只挂在某一份上。
 
         // 库默认第一个处理器就是 HTTP,模型回复里的图片 URL 会被直接抓取 —— 那等于给
         // 任意模型输出开了个追踪像素通道。这里摘掉 HTTP,只留本地文件 / data: / 内嵌资源。
@@ -405,10 +460,15 @@ public partial class ChatPanelView : UserControl
         // 这两样不是资源键而是控件属性,已生成的渲染器要逐个改
         ThemeName codeTheme = ActualThemeVariant == ThemeVariant.Dark ? ThemeName.DarkPlus : ThemeName.LightPlus;
         _codeBlockTheme = codeTheme;
-        foreach (MarkdownRenderer renderer in MessagesPanel.GetVisualDescendants().OfType<MarkdownRenderer>())
+        // 每份对话各有一条消息流面板,后台那几条此刻不在可视树上但气泡还在 —— 全都要换皮,
+        // 否则切回一份后台对话时它的代码块还停在上一套配色上。
+        foreach (Conversation conversation in _conversations.Values)
         {
-            renderer.CodeBlockColorTheme = codeTheme;
-            ApplyMathColors(renderer);
+            foreach (MarkdownRenderer renderer in conversation.Messages.GetVisualDescendants().OfType<MarkdownRenderer>())
+            {
+                renderer.CodeBlockColorTheme = codeTheme;
+                ApplyMathColors(renderer);
+            }
         }
 
         void Skin(string key, string velaKey)
@@ -475,8 +535,13 @@ public partial class ChatPanelView : UserControl
     /// </summary>
     private void UpdateEmptyState()
     {
+        // 空状态是共享中部,只反映正显示的那份;后台那份改不着这里(切回它时会重算)。
+        if (!IsForeground)
+        {
+            return;
+        }
         // 这段对话一个字都还没有 —— 无论模型配没配,中部都不该是一整块空白
-        _showEmptyState = _history.Count == 0 && MessagesPanel.Children.Count == 0;
+        _showEmptyState = History.Count == 0 && MessagesPanel.Children.Count == 0;
         EmptyStateHost.IsVisible = _showEmptyState && ChatScroll.IsVisible;
         if (!_showEmptyState)
         {
@@ -641,8 +706,13 @@ public partial class ChatPanelView : UserControl
     /// </summary>
     private void UpdateUsageText()
     {
+        // 用量条是共享顶栏,只反映正显示的那份;后台那份记在自己身上,切回它时重算贴出。
+        if (!IsForeground)
+        {
+            return;
+        }
         int window = ActiveProvider?.MaxInputTokens ?? 0;
-        if (_totalInputTokens == 0 && _totalOutputTokens == 0)
+        if (TotalInputTokens == 0 && TotalOutputTokens == 0)
         {
             UsageText.Text = "";
             UsageMeterTrack.IsVisible = false;
@@ -652,16 +722,16 @@ public partial class ChatPanelView : UserControl
 
         var detail = new StringBuilder();
         var label = new StringBuilder();
-        if (window > 0 && _lastInputTokens > 0)
+        if (window > 0 && LastInputTokens > 0)
         {
-            int percent = (int)Math.Min(100, Math.Round(_lastInputTokens * 100.0 / window));
-            label.Append($"{Compact(_lastInputTokens)}/{Compact(window)} · {percent}%");
-            detail.AppendLine(_loc.F("UsageContextLine", $"{_lastInputTokens:N0}", $"{window:N0}", percent));
+            int percent = (int)Math.Min(100, Math.Round(LastInputTokens * 100.0 / window));
+            label.Append($"{Compact(LastInputTokens)}/{Compact(window)} · {percent}%");
+            detail.AppendLine(_loc.F("UsageContextLine", $"{LastInputTokens:N0}", $"{window:N0}", percent));
             SetUsageMeter(percent);
         }
         else
         {
-            label.Append($"↑{Compact(_totalInputTokens)} ↓{Compact(_totalOutputTokens)}");
+            label.Append($"↑{Compact(TotalInputTokens)} ↓{Compact(TotalOutputTokens)}");
             // 不知道窗口多大就画不出占比,整条隐掉(留一根空槽反而像"用量为零")
             UsageMeterTrack.IsVisible = false;
         }
@@ -669,27 +739,27 @@ public partial class ChatPanelView : UserControl
         // 命中率 = 缓存读取 / 输入。两家口径实测已被适配器抹平:OpenAI 的 prompt_tokens 本就含
         // cached_tokens;Anthropic 的 input_tokens 原本不含缓存,但适配器把 cache_read 与
         // cache_creation 都并进了 InputTokenCount(200+800+120=1120)。所以同一个式子两边都成立。
-        if (_lastCachedInputTokens > 0 && _lastInputTokens > 0)
+        if (LastCachedInputTokens > 0 && LastInputTokens > 0)
         {
-            int hit = (int)Math.Min(100, Math.Round(_lastCachedInputTokens * 100.0 / _lastInputTokens));
+            int hit = (int)Math.Min(100, Math.Round(LastCachedInputTokens * 100.0 / LastInputTokens));
             label.Append($" · {_loc["CacheShort"]} {hit}%");
-            detail.AppendLine(_loc.F("UsageCacheLine", $"{_lastCachedInputTokens:N0}", $"{_lastInputTokens:N0}", hit));
+            detail.AppendLine(_loc.F("UsageCacheLine", $"{LastCachedInputTokens:N0}", $"{LastInputTokens:N0}", hit));
         }
 
         UsageText.Text = label.ToString();
-        detail.AppendLine(_loc.F("UsageTotalsLine", $"{_totalInputTokens:N0}", $"{_totalOutputTokens:N0}"));
-        if (_totalCachedInputTokens > 0 || _totalCacheWriteTokens > 0)
+        detail.AppendLine(_loc.F("UsageTotalsLine", $"{TotalInputTokens:N0}", $"{TotalOutputTokens:N0}"));
+        if (TotalCachedInputTokens > 0 || TotalCacheWriteTokens > 0)
         {
-            detail.AppendLine(_loc.F("UsageCacheTotalsLine", $"{_totalCachedInputTokens:N0}", $"{_totalCacheWriteTokens:N0}"));
+            detail.AppendLine(_loc.F("UsageCacheTotalsLine", $"{TotalCachedInputTokens:N0}", $"{TotalCacheWriteTokens:N0}"));
         }
-        if (_totalReasoningTokens > 0)
+        if (TotalReasoningTokens > 0)
         {
-            detail.AppendLine(_loc.F("UsageReasoningLine", $"{_totalReasoningTokens:N0}"));
+            detail.AppendLine(_loc.F("UsageReasoningLine", $"{TotalReasoningTokens:N0}"));
         }
-        if (_droppedFromContext > 0)
+        if (DroppedFromContext > 0)
         {
             // 裁剪不能悄悄发生:用户得知道模型"看不到"最早那几条了
-            detail.AppendLine(_loc.F("UsageTrimmedLine", _droppedFromContext));
+            detail.AppendLine(_loc.F("UsageTrimmedLine", DroppedFromContext));
         }
         if (ActiveProvider is { } provider)
         {
@@ -741,10 +811,10 @@ public partial class ChatPanelView : UserControl
         double cachedPrice = provider.CachedInputPricePerMillion > 0
             ? provider.CachedInputPricePerMillion
             : provider.InputPricePerMillion;
-        long freshInput = Math.Max(0, _totalInputTokens - _totalCachedInputTokens);
+        long freshInput = Math.Max(0, TotalInputTokens - TotalCachedInputTokens);
         return ((freshInput * provider.InputPricePerMillion)
-                + (_totalCachedInputTokens * cachedPrice)
-                + (_totalOutputTokens * provider.OutputPricePerMillion)) / 1_000_000d;
+                + (TotalCachedInputTokens * cachedPrice)
+                + (TotalOutputTokens * provider.OutputPricePerMillion)) / 1_000_000d;
     }
 
     /// <summary>把 token 计数压成 <c>12.3k</c> / <c>1.2M</c> 这种短形式(工具条按字符宽度计价)。</summary>
@@ -761,6 +831,19 @@ public partial class ChatPanelView : UserControl
             ? _sessions[SessionCombo.SelectedIndex].SessionId
             : null;
 
+    /// <summary>
+    /// 当前这一轮的工具该打在哪台机器上:本轮所属对话绑的那条会话(<c>""</c> 通用对话 = 不绑,给 null)。
+    /// </summary>
+    /// <remarks>
+    /// 工具调用发生在本轮的异步流里,<see cref="Cur" /> 经 <see cref="_turnScope" /> 落到本轮那份对话,
+    /// 所以后台轮次取到的是它自己那台机器,而不是此刻下拉选中的那台。
+    /// </remarks>
+    private string? CurrentToolSessionId()
+    {
+        string key = Cur.SessionKey;
+        return string.IsNullOrEmpty(key) ? null : key;
+    }
+
     private void OnSessionEvent(SessionInfo info) => Dispatcher.UIThread.Post(() => _ = RefreshSessionsAsync());
 
     private async Task RefreshSessionsAsync()
@@ -770,21 +853,142 @@ public partial class ChatPanelView : UserControl
             IReadOnlyList<SessionInfo> all = await _context.Sessions.ListAsync();
             string? previous = SelectedSessionId;
             _sessions = [.. all.Where(s => s.State == SessionState.Connected)];
+            // 顶栏的会话行显示的是<b>连接的名字</b>,不是 user@host。名字在已保存的配置里
+            // (会话树上那个用户认得的名),而在途会话本身不带它 —— 按 主机/端口/用户 对回去取。
+            // 对不上的(临时会话、没起名的)退回 user@host,总有个能认的落点。
+            Dictionary<(string, int, string), string> names = await LoadSessionNamesAsync();
             // 顶栏的会话行前面带一颗状态点。列表里只有"已连接"的会话,所以点恒为绿;
             // 一台都没有时那条占位项给灰点 —— 空着不画反而会让整行的对齐跳一下。
             IBrush online = FindBrush("VelaStatusConnected") ?? Brushes.LimeGreen;
             IBrush offline = FindBrush("VelaTextMuted") ?? Brushes.Gray;
-            SessionCombo.ItemsSource = _sessions.Count == 0
-                ? (IReadOnlyList<SessionNavItem>)[new SessionNavItem(_loc["NoSession"], offline)]
-                : [.. _sessions.Select(s => new SessionNavItem($"{s.Username}@{s.Host}", online))];
-            int keep = _sessions.FindIndex(s => s.SessionId == previous);
-            SessionCombo.SelectedIndex = keep >= 0 ? keep : 0;
+            // 重建下拉这一下会连带触发 SelectionChanged,但那只是代码回填、不是用户在切对话 ——
+            // 用 _switchingSessions 挡住它,选中项定下来之后由本方法自己按最终选中值切一次。
+            _switchingSessions = true;
+            try
+            {
+                SessionCombo.ItemsSource = _sessions.Count == 0
+                    ? (IReadOnlyList<SessionNavItem>)[new SessionNavItem(_loc["NoSession"], offline)]
+                    : [.. _sessions.Select(s => new SessionNavItem(SessionLabel(s, names), online))];
+                int keep = _sessions.FindIndex(s => s.SessionId == previous);
+                SessionCombo.SelectedIndex = keep >= 0 ? keep : 0;
+            }
+            finally
+            {
+                _switchingSessions = false;
+            }
+            // 选中值可能变了(原会话断了、掉到别台上):把显示的这份对话对齐到它。
+            // 同一份 = 无操作,所以刷新列表不会打断你正在看的对话。
+            SwitchConversation(SelectedSessionId ?? "");
         }
         catch (Exception ex)
         {
             _context.Log.Error("Refresh sessions failed.", ex);
         }
     }
+
+    /// <summary>建一份新对话(连带它自己那条消息流面板,并把链接点击处理挂上)。</summary>
+    private Conversation NewConversation(string sessionKey)
+    {
+        var messages = new StackPanel
+        {
+            Spacing = 8,
+            Margin = new Thickness(5, 4, 19, 4)
+        };
+        // 链接是冒泡路由事件,挂在这条面板上就覆盖它里面的所有气泡。
+        messages.AddHandler(MarkdownTextBlock.LinkClickEvent, OnMarkdownLinkClicked);
+        return new Conversation(sessionKey, messages);
+    }
+
+    /// <summary>
+    /// 切到某台机器(<paramref name="key" /> = 会话 id;<c>""</c> = 通用对话)的那份对话:
+    /// 换 <see cref="_active" /> 的引用、把它的面板挂进 <c>ChatScroll</c>、再把共享顶栏对齐到它。
+    /// </summary>
+    /// <remarks>
+    /// 是<b>换引用</b>不是重建:目标那份对话(含它的历史气泡、在途请求)一直在内存里活着,
+    /// 所以切换即时、后台不断、也不串台。没有这份就现建一份空的。
+    /// </remarks>
+    private void SwitchConversation(string key)
+    {
+        if (ReferenceEquals(Cur, _active) && _active.SessionKey == key)
+        {
+            return;
+        }
+        if (!_conversations.TryGetValue(key, out Conversation? target))
+        {
+            target = NewConversation(key);
+            _conversations[key] = target;
+        }
+        if (ReferenceEquals(target, _active))
+        {
+            return;
+        }
+        _active = target;
+        ChatScroll.Content = _active.Messages;
+        RefreshForeground();
+    }
+
+    /// <summary>把共享的顶栏控件(忙态 / 状态行 / 用量 / 排队芯片 / 空状态)对齐到当前显示的这份对话。</summary>
+    private void RefreshForeground()
+    {
+        SetBusy(_active.Busy);
+        StatusText.Text = _active.Status;
+        StatusText.Classes.Remove("retrying");
+        RenderQueuedChips();
+        UpdateUsageText();
+        UpdateEmptyState();
+        // 切到别的对话时上一份的后续提问药丸不再相关;各份的后续提问是即时算的,不做保留。
+        ClearSuggestions();
+        RequestAutoScroll(force: true);
+    }
+
+    /// <summary>
+    /// 设置状态行文字:只有正显示的这份对话才真的去改共享的状态行;后台那份只把话记在自己身上,
+    /// 切回来时由 <see cref="RefreshForeground" /> 贴回去(否则后台一句"MCP 连接中"会盖住你正看的对话)。
+    /// </summary>
+    private void SetStatus(string text)
+    {
+        Cur.Status = text;
+        if (IsForeground)
+        {
+            StatusText.Text = text;
+        }
+    }
+
+    /// <summary>
+    /// 已保存配置的「名字」查表:键是能把在途会话对回配置的那三样(主机 / 端口 / 用户)。
+    /// </summary>
+    /// <remarks>
+    /// 取不到(宿主没给已保存列表、或调用出错)就返回空表,顶栏照样能用 user@host 兜底 ——
+    /// 名字只是更好认,拿不到不该让会话列表本身塌掉。
+    /// 同一 主机/端口/用户 下配了多条(少见),留先出现的那个名。
+    /// </remarks>
+    private async Task<Dictionary<(string, int, string), string>> LoadSessionNamesAsync()
+    {
+        try
+        {
+            IReadOnlyList<SavedSessionInfo> saved = await _context.Sessions.ListSavedAsync();
+            var map = new Dictionary<(string, int, string), string>();
+            foreach (SavedSessionInfo p in saved)
+            {
+                if (!string.IsNullOrWhiteSpace(p.Name))
+                {
+                    map.TryAdd((p.Host, p.Port, p.Username), p.Name);
+                }
+            }
+            return map;
+        }
+        catch (Exception ex)
+        {
+            _context.Log.Warn($"Loading saved session names failed: {ex.Message}");
+            return [];
+        }
+    }
+
+    /// <summary>顶栏一条会话该显示的名字:优先已保存配置的名,对不上退回 user@host。</summary>
+    private static string SessionLabel(SessionInfo s, Dictionary<(string, int, string), string> names)
+        => names.TryGetValue((s.Host, s.Port, s.Username), out string? name) && !string.IsNullOrWhiteSpace(name)
+            ? name
+            : $"{s.Username}@{s.Host}";
 
     /// <summary>记住用户拖分割条拖出来的侧栏宽度(百分比,宿主在拖动结束时通知一次)。</summary>
     /// <remarks>
@@ -857,7 +1061,13 @@ public partial class ChatPanelView : UserControl
     /// </remarks>
     private void SetBusy(bool busy)
     {
-        _busy = busy;
+        Busy = busy; // 落到当前这一轮的那份对话
+        // 忙态指示(停止键/发送键文案/发光)是共享顶栏,只反映正显示的那份;
+        // 后台那份自己忙自己的,不该动这里(切回它时 RefreshForeground 会照它的忙态贴回)。
+        if (!IsForeground)
+        {
+            return;
+        }
         StopButton.IsVisible = busy;
         SyncSendButton();
         SetBusyGlow(busy);
@@ -866,9 +1076,9 @@ public partial class ChatPanelView : UserControl
     /// <summary>发送键与输入框提示按"忙不忙"取词(语言切换与忙闲切换都经这里)。</summary>
     private void SyncSendButton()
     {
-        SendText.Text = _loc[_busy ? "Queue" : "Send"];
-        ToolTip.SetTip(SendButton, _loc[_busy ? "QueueTip" : "Send"]);
-        InputPlaceholder.Text = _loc[_busy ? "InputPlaceholderBusy" : "InputPlaceholder"];
+        SendText.Text = _loc[Busy ? "Queue" : "Send"];
+        ToolTip.SetTip(SendButton, _loc[Busy ? "QueueTip" : "Send"]);
+        InputPlaceholder.Text = _loc[Busy ? "InputPlaceholderBusy" : "InputPlaceholder"];
     }
 
     /// <summary>
@@ -891,6 +1101,11 @@ public partial class ChatPanelView : UserControl
     /// </summary>
     private void RequestAutoScroll(bool force = false)
     {
+        // 后台那份的气泡长在不可见的面板里,别去动共享的滚动条。
+        if (!IsForeground)
+        {
+            return;
+        }
         if (force)
         {
             _autoScroll = true;
@@ -922,6 +1137,11 @@ public partial class ChatPanelView : UserControl
     private async Task SendAsync(string text, bool fromUser = true, SteeringMessage? prepared = null)
     {
         text = text.Trim();
+        // 记下这一轮属于哪份对话:通常就是正显示的这份;后台续跑的下一轮(队列排空)沿用原来那份。
+        // 置进 _turnScope 后,这条方法(及它 await 出去的整条流水线)所有代理都落到这份上,
+        // 而不是"此刻正显示的那份"—— 这就是切走之后它还能把话答完、且不串台的关键。
+        Conversation conv = Cur;
+        _turnScope.Value = conv;
         // 只带附件、正文为空也算一次有效发送(比如"看看这张图")
         if (text.Length == 0 && _attachments.Count == 0 && prepared is null)
         {
@@ -929,7 +1149,7 @@ public partial class ChatPanelView : UserControl
         }
         // 上一轮还在跑就不抢它:排进队列,由插话通道在模型下一步之前送进去
         // (见 ChatPanelView.Steering.cs —— 这正是"边跑边补"的入口)。
-        if (_busy)
+        if (Busy)
         {
             await QueueWhileBusyAsync(text, fromUser);
             return;
@@ -938,22 +1158,33 @@ public partial class ChatPanelView : UserControl
         if (ActiveProviderForRequest is not { } provider)
         {
             // 这次是用户主动发消息才撞上"没配接入",直接把设置窗口开给他
-            StatusText.Text = _loc["NoProvider"];
-            OpenSettingsDialog();
+            SetStatus(_loc["NoProvider"]);
+            if (IsForeground)
+            {
+                OpenSettingsDialog();
+            }
             return;
         }
 
         SetBusy(true);
-        InputBox.Text = "";
+        // 输入框/文件选择器/视图切换都是共享控件:只有正显示这份时才动它们,
+        // 否则后台续跑会把你正在别份对话里敲的字清掉、把你正看的历史页切走。
+        if (IsForeground)
+        {
+            InputBox.Text = "";
+            CloseFilePicker();
+            SetActiveView(PanelView.Chat);
+        }
         // 状态行只说"这一刻"的事:新一轮开始,上一轮的取消/报错提示就该退场
-        StatusText.Text = "";
-        ClearSuggestions(); // 上一轮的后续提问已经过期,并掐掉可能还在途的那次求建议
-        CloseFilePicker();
+        SetStatus("");
+        if (IsForeground)
+        {
+            ClearSuggestions(); // 上一轮的后续提问已经过期,并掐掉可能还在途的那次求建议
+        }
         if (fromUser)
         {
             RememberInput(text);
         }
-        SetActiveView(PanelView.Chat);
 
         // 界面与库里留的是这一份(短名引用 + 附件留痕);送给模型的那份在下面单独装配
         string display = prepared?.DisplayText ?? text + AttachmentTrace();
@@ -961,8 +1192,8 @@ public partial class ChatPanelView : UserControl
         UpdateEmptyState(); // 消息流有东西了,居中的空状态得让位
         RequestAutoScroll(force: true);
 
-        _cts = new CancellationTokenSource();
-        CancellationToken token = _cts.Token;
+        Cts = new CancellationTokenSource();
+        CancellationToken token = Cts.Token;
         AssistantBubble? bubble = null;
         long startedAt = Environment.TickCount64;
         bool cancelled = false;
@@ -989,12 +1220,12 @@ public partial class ChatPanelView : UserControl
                 userMessage = new ChatMessage(ChatRole.User, BuildUserContents(modelText));
             }
             // 这一轮往历史里加的第一条 —— 一个字都没换来时要按它整批撤回(见 SettleUnfinishedTurnAsync)
-            _turnHistoryStart = _history.Count;
-            _history.Add(userMessage);
+            TurnHistoryStart = History.Count;
+            History.Add(userMessage);
             await PersistAsync("user", display);
             ClearAttachments();
             bubble = new AssistantBubble(this);
-            _activeBubble = bubble;
+            ActiveBubble = bubble;
             MessagesPanel.Children.Add(bubble.Root);
             TrimMessageWindow(); // 常驻条数封顶,别让可视树越聊越长
             RequestAutoScroll(force: true);
@@ -1003,7 +1234,7 @@ public partial class ChatPanelView : UserControl
             // 排队中的补充说明就能赶在模型下一步之前进上下文(见 SteeringChatClient)。
             var steering = new SteeringChatClient(
                 await _store.CreateClientAsync(provider, cancellationToken: token),
-                _steeringQueue, OnSteeringDelivered);
+                SteeringQueue, () => OnSteeringDelivered(conv));
             BeginSteering(steering);
             IChatClient client = steering;
             var options = new ChatOptions
@@ -1040,15 +1271,15 @@ public partial class ChatPanelView : UserControl
                 // 而"计划"的承诺是这一步不动任何东西。
                 if (mode == ChatMode.Agent && _settings.McpServers.Any(s => s.Enabled))
                 {
-                    StatusText.Text = _loc["McpConnecting"];
+                    SetStatus(_loc["McpConnecting"]);
                     (List<AITool> mcpTools, List<string> mcpErrors) = await _mcp.GetToolsAsync(_settings.McpServers, token);
                     foreach (AITool tool in mcpTools)
                     {
                         tools.Add(tool);
                     }
-                    StatusText.Text = mcpErrors.Count > 0
+                    SetStatus(mcpErrors.Count > 0
                         ? $"{_loc["Error"]} (MCP): {string.Join("; ", mcpErrors)}"
-                        : "";
+                        : "");
                 }
                 if (nativeSearch)
                 {
@@ -1066,10 +1297,10 @@ public partial class ChatPanelView : UserControl
             await CompactIfNeededAsync(provider, token);
             // 装配上下文:摘要 + 近几轮原文,按窗口裁剪并把相邻同角色的消息并起来(见 ContextBuilder)
             RequestContext request = ContextBuilder.Build(
-                BuildSystemPrompt(mode, nativeSearch), _history, provider.MaxInputTokens, provider.MaxTokens,
-                _contextSummary, _summarizedThrough);
+                BuildSystemPrompt(mode, nativeSearch), History, provider.MaxInputTokens, provider.MaxTokens,
+                ContextSummary, SummarizedThrough);
             List<ChatMessage> requestMessages = request.Messages;
-            _droppedFromContext = request.DroppedMessages;
+            DroppedFromContext = request.DroppedMessages;
             // 有的订阅型端点不收 system 角色(ChatGPT 的 Codex 后端会回
             // 400 {"detail":"System messages are not allowed"})。那时把系统提示词挪到
             // Responses 协议自己的 instructions 字段上 —— 内容一个字不少,只是换了个位置。
@@ -1085,7 +1316,7 @@ public partial class ChatPanelView : UserControl
             else
             {
                 // 关掉之后要把历史上残留的标记抹干净,否则一直挂着(内容对象跨轮复用)
-                PromptCache.Clear(_history);
+                PromptCache.Clear(History);
             }
 
             var updates = new List<ChatResponseUpdate>();
@@ -1147,39 +1378,45 @@ public partial class ChatPanelView : UserControl
                 {
                     _context.Log.Warn($"Stream failed before any content (attempt {attempt + 1}): {ex.Message}");
                     // 重试是瞬时故障,给 warn 色区别于普通提示;成功后连色带字一起撤掉
-                    StatusText.Classes.Add("retrying");
-                    StatusText.Text = _loc.F("Retrying", attempt + 1);
+                    if (IsForeground)
+                    {
+                        StatusText.Classes.Add("retrying");
+                    }
+                    SetStatus(_loc.F("Retrying", attempt + 1));
                     await Task.Delay(TimeSpan.FromMilliseconds(400 * (attempt + 1)), token);
                 }
             }
-            StatusText.Classes.Remove("retrying");
-            StatusText.Text = "";
+            if (IsForeground)
+            {
+                StatusText.Classes.Remove("retrying");
+            }
+            SetStatus("");
             DrainUpdates(); // 兜底清空残留批(此处已回到 UI 线程)
 
             var response = updates.ToChatResponse();
             // 兜底补齐插话:送达回调的 Post 可能还排在队里没跑到,而它必须排在
             // 这一轮的回复之前进历史与库(顺序:原消息 → 插话 → 回复)。
-            await CommitSteeringAsync();
-            _history.AddMessages(response);
+            await CommitSteeringAsync(conv);
+            History.AddMessages(response);
             int sequence = await PersistAsync("assistant", response.Text);
             if (sequence >= 0 && bubble is not null)
             {
                 // 思考、工具调用、模型、耗时另存一行 —— 翻回旧会话时这些才是"Agent 做了什么"的证据
-                await _historyStore.AppendMetaAsync(_conversationId, sequence,
+                await _historyStore.AppendMetaAsync(ConversationId, sequence,
                     bubble.Snapshot(ModelLabel(provider),
                         TimeSpan.FromMilliseconds(Environment.TickCount64 - startedAt)));
             }
             HintIfThinkingWasNeverRequested(bubble, provider);
             if (response.Usage is { } usage)
             {
-                _lastInputTokens = usage.InputTokenCount ?? _lastInputTokens;
-                _totalInputTokens += usage.InputTokenCount ?? 0;
-                _totalOutputTokens += usage.OutputTokenCount ?? 0;
-                _totalReasoningTokens += usage.ReasoningTokenCount ?? 0;
-                _lastCachedInputTokens = usage.CachedInputTokenCount ?? 0;
-                _totalCachedInputTokens += _lastCachedInputTokens;
+                LastInputTokens = usage.InputTokenCount ?? LastInputTokens;
+                TotalInputTokens += usage.InputTokenCount ?? 0;
+                TotalOutputTokens += usage.OutputTokenCount ?? 0;
+                TotalReasoningTokens += usage.ReasoningTokenCount ?? 0;
+                LastCachedInputTokens = usage.CachedInputTokenCount ?? 0;
+                TotalCachedInputTokens += LastCachedInputTokens;
                 // 缓存"写入"只有 Anthropic 报(它单独收费),OpenAI 系没有这个概念
-                _totalCacheWriteTokens += usage.AdditionalCounts?.GetValueOrDefault("CacheCreationInputTokens") ?? 0;
+                TotalCacheWriteTokens += usage.AdditionalCounts?.GetValueOrDefault("CacheCreationInputTokens") ?? 0;
             }
             UpdateUsageText();
             replyText = response.Text;
@@ -1188,7 +1425,7 @@ public partial class ChatPanelView : UserControl
         {
             // 取消是"这条回复"的属性,记在气泡头部;状态行不留话(留了就一直挂着,见截图反馈)
             cancelled = true;
-            await CommitSteeringAsync(); // 已经送到模型那儿的插话照样算数
+            await CommitSteeringAsync(conv); // 已经送到模型那儿的插话照样算数
             await SettleUnfinishedTurnAsync(bubble);
         }
         catch (Exception ex)
@@ -1202,16 +1439,19 @@ public partial class ChatPanelView : UserControl
             // 失败不再当成一段 Markdown 追加进正文:它不是模型说的话,混排会让人分不清
             // 哪句是回答、哪句是故障。改成一张 error 卡挂在这条回复里(见 AddErrorCard)。
             AddErrorCard(bubble, detail);
-            await CommitSteeringAsync();
+            await CommitSteeringAsync(conv);
             await SettleUnfinishedTurnAsync(bubble);
         }
         finally
         {
-            _cts?.Dispose();
-            _cts = null;
-            _activeBubble = null;
+            Cts?.Dispose();
+            Cts = null;
+            ActiveBubble = null;
             EndSteering();
-            StatusText.Classes.Remove("retrying");
+            if (IsForeground)
+            {
+                StatusText.Classes.Remove("retrying");
+            }
             SetBusy(false);
             // 一轮到此为止(成功/取消/出错都算):收起思考区,补上"耗时 · 步数"与"时间 · 模型"
             bubble?.FinishStreaming(
@@ -1227,18 +1467,27 @@ public partial class ChatPanelView : UserControl
         // 被停掉或出错了就原样放回输入框 —— 该重试还是该改写由用户决定。
         if (cancelled || failed)
         {
-            RestoreQueuedToInput();
+            // 放回输入框只对正显示这份有意义;后台那份被停/出错就把余下插话丢掉(输入框不是它的)。
+            if (IsForeground)
+            {
+                RestoreQueuedToInput();
+            }
+            else
+            {
+                SteeringQueue.DrainAll();
+            }
             return;
         }
-        if (_steeringQueue.DrainMerged() is { } next)
+        if (SteeringQueue.DrainMerged() is { } next)
         {
             RenderQueuedChips();
             await SendAsync(next.DisplayText, fromUser: false, prepared: next);
             return;
         }
 
-        // 顺利答完才给后续提问:取消/报错时用户要的是重试,不是被塞几条建议
-        if (replyText.Length > 0)
+        // 顺利答完才给后续提问:取消/报错时用户要的是重试,不是被塞几条建议;
+        // 后台那份也不弹后续提问(那是给正看着的人的)。
+        if (replyText.Length > 0 && IsForeground)
         {
             await SuggestFollowUpsAsync(provider, text, replyText);
         }
@@ -1313,13 +1562,13 @@ public partial class ChatPanelView : UserControl
     /// <summary>用量归零(换会话时用:计数是"这一段对话"的,不是进程级的)。</summary>
     private void ResetUsage()
     {
-        _totalInputTokens = 0;
-        _totalOutputTokens = 0;
-        _totalReasoningTokens = 0;
-        _lastInputTokens = 0;
-        _lastCachedInputTokens = 0;
-        _totalCachedInputTokens = 0;
-        _totalCacheWriteTokens = 0;
+        TotalInputTokens = 0;
+        TotalOutputTokens = 0;
+        TotalReasoningTokens = 0;
+        LastInputTokens = 0;
+        LastCachedInputTokens = 0;
+        TotalCachedInputTokens = 0;
+        TotalCacheWriteTokens = 0;
         UpdateUsageText();
     }
 
@@ -1343,13 +1592,13 @@ public partial class ChatPanelView : UserControl
         string partial = bubble?.ReplyText.Trim() ?? "";
         if (partial.Length > 0)
         {
-            _history.Add(new ChatMessage(ChatRole.Assistant, partial));
+            History.Add(new ChatMessage(ChatRole.Assistant, partial));
             await PersistAsync("assistant", partial);
             return;
         }
-        if (_history.Count > _turnHistoryStart && _history[^1].Role == ChatRole.User)
+        if (History.Count > TurnHistoryStart && History[^1].Role == ChatRole.User)
         {
-            _history.RemoveRange(_turnHistoryStart, _history.Count - _turnHistoryStart);
+            History.RemoveRange(TurnHistoryStart, History.Count - TurnHistoryStart);
         }
     }
 
@@ -1363,13 +1612,12 @@ public partial class ChatPanelView : UserControl
         {
             return -1;
         }
-        int sequence = _persistedCount++;
-        await _historyStore.AppendAsync(_conversationId, _conversationStartedAt, sequence, role, text);
+        int sequence = PersistedCount++;
+        await _historyStore.AppendAsync(ConversationId, ConversationStartedAt, sequence, role, text);
         return sequence;
     }
 
-    /// <summary>本次会话是否已经提示过"没请求思考"(一次就够,别每轮都刷)。</summary>
-    private bool _thinkingHintShown;
+    // “本段对话是否已提示过没请求思考”按对话各持一份(见 Conversation):_thinkingHintShown。
 
     /// <summary>
     /// 一整轮下来一点思考都没有,而模型的"思考过程"正是「不请求」时,说明一下为什么。
@@ -1383,13 +1631,13 @@ public partial class ChatPanelView : UserControl
     /// </remarks>
     private void HintIfThinkingWasNeverRequested(AssistantBubble? bubble, ResolvedModel provider)
     {
-        if (_thinkingHintShown || bubble is null || bubble.HasThinking
+        if (ThinkingHintShown || bubble is null || bubble.HasThinking
             || provider.Reasoning != ReasoningLevel.Default)
         {
             return;
         }
-        _thinkingHintShown = true;
-        StatusText.Text = _loc["ReasoningOffHint"];
+        ThinkingHintShown = true;
+        SetStatus(_loc["ReasoningOffHint"]);
     }
 
     private void RenderUpdate(AssistantBubble bubble, ChatResponseUpdate update)
@@ -1539,20 +1787,20 @@ public partial class ChatPanelView : UserControl
     /// </summary>
     private void StartNewChat()
     {
-        _cts?.Cancel();
-        _history.Clear();
+        Cts?.Cancel();
+        History.Clear();
         ClearQueuedMessages(); // 排着的插话是给上一段对话的,换会话就作废
         MessagesPanel.Children.Clear();
         ResetMessageWindow();
         ResetEditing();
         ResetCompaction();
-        _alwaysApproved.Clear(); // 放行记忆只在同一段对话里有效
+        AlwaysApproved.Clear(); // 放行记忆只在同一段对话里有效
         _pendingApprovals.Clear(); // 连同卡片一起被清出可视树了,名册不能留着
         ResetUsage();
-        _conversationId = ChatHistoryStore.NewConversationId();
-        _thinkingHintShown = false;
-        _conversationStartedAt = DateTimeOffset.UtcNow;
-        _persistedCount = 0;
+        ConversationId = ChatHistoryStore.NewConversationId();
+        ThinkingHintShown = false;
+        ConversationStartedAt = DateTimeOffset.UtcNow;
+        PersistedCount = 0;
         _inputHistoryIndex = -1;
         StatusText.Text = "";
         ClearSuggestions();
@@ -1563,11 +1811,7 @@ public partial class ChatPanelView : UserControl
 
     // ---------- 审批交互 ----------
 
-    /// <summary>
-    /// 本次会话里已被"总是允许"的操作键。只活在内存里 —— 换会话、关面板即失效,
-    /// 不写进配置:一次排查里放行 <c>ls</c>,不代表下次打开还想默认放行。
-    /// </summary>
-    private readonly HashSet<string> _alwaysApproved = [with(StringComparer.Ordinal)];
+    // “总是允许”的操作键按对话各持一份(见 Conversation),只活在内存里:_alwaysApproved。
 
     /// <summary>一张还悬着的审批卡:它请求的是什么,以及怎么替用户按下去。</summary>
     /// <param name="Request">这次请求。</param>
@@ -1585,7 +1829,7 @@ public partial class ChatPanelView : UserControl
 
     private async Task<bool> RequestApprovalAsync(ApprovalRequest request)
     {
-        if (request.RepeatKey is { } key && _alwaysApproved.Contains(key))
+        if (request.RepeatKey is { } key && AlwaysApproved.Contains(key))
         {
             return true;
         }
@@ -1730,7 +1974,7 @@ public partial class ChatPanelView : UserControl
     {
         // 就地抓住"这张卡属于哪条回复":整轮结束后 _activeBubble 会被清掉,
         // 而卡上的按钮此刻可能还活着(用户按了停止、审批却没落定),那时仍要能把芯片撤回去。
-        AssistantBubble? host = _activeBubble;
+        AssistantBubble? host = ActiveBubble;
         var stack = new StackPanel { Spacing = 6 };
         // 头行的盾牌与标题在落定时要换成绿/红,所以两者都留个把手
         Grid header = BuildCardHeader("AiIcon.shield-alert", "VelaWarning",
@@ -1800,7 +2044,7 @@ public partial class ChatPanelView : UserControl
             host?.SetWaitingForApproval(false);
             if (remember && request.RepeatKey is { } key)
             {
-                _alwaysApproved.Add(key);
+                AlwaysApproved.Add(key);
             }
 
             // 落定之后整张卡换成结果态:左边条、盾牌、标题一起转绿(批准)或转红(拒绝)。
@@ -1893,7 +2137,7 @@ public partial class ChatPanelView : UserControl
         actions.Children.Add(IconAction("Icon.pencil", _loc["EditMessage"], () => _ = EditUserMessageAsync(bubble, text)));
         actions.Children.Add(IconAction("Icon.trash-2", _loc["DeleteFromHere"], () => _ = DeleteFromAsync(bubble)));
         // 登记在加进 _history 之前:此刻的 Count 正是这条消息将要落到的下标
-        TrackUserBubble(bubble, _history.Count);
+        TrackUserBubble(bubble, History.Count);
         MessagesPanel.Children.Add(bubble);
     }
 
@@ -1985,7 +2229,7 @@ public partial class ChatPanelView : UserControl
     /// Markdown 段落与工具卡片,末尾是"复制整段 | 时间 · 模型"的元信息条。
     /// 版式对齐 GitHub Copilot 的回复块。
     /// </summary>
-    private sealed class AssistantBubble
+    internal sealed class AssistantBubble
     {
         private readonly ChatPanelView _owner;
         private readonly StackPanel _stack;
