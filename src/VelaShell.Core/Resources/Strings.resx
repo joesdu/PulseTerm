@@ -1618,6 +1618,18 @@ Paste anyway?</value>
   <data name="Profile_PasswordAuth" xml:space="preserve">
     <value>Password Authentication</value>
   </data>
+  <data name="Profile_PostAuthCommand" xml:space="preserve">
+    <value>Run command after authentication</value>
+  </data>
+  <data name="Profile_PostAuthCommandHint" xml:space="preserve">
+    <value>// Applies to this session only, and runs on reconnect too; the global one lives in Settings → Terminal → Session and runs on every terminal</value>
+  </data>
+  <data name="Profile_PostAuthCommandPlaceholder" xml:space="preserve">
+    <value>e.g. sudo su - / tmux attach</value>
+  </data>
+  <data name="Profile_PostAuthDelay" xml:space="preserve">
+    <value>Delay (s)</value>
+  </data>
   <data name="Profile_PrivateKeyFile" xml:space="preserve">
     <value>Private Key File</value>
   </data>
@@ -3781,6 +3793,15 @@ Overwrite it?</value>
   </data>
   <data name="Ftp_PlaintextWarn" xml:space="preserve">
     <value>Plain FTP sends your credentials and files unencrypted, and there is no server identity check. Prefer FTPS whenever the server supports it.</value>
+  </data>
+  <data name="Ftp_InitialPath" xml:space="preserve">
+    <value>Default remote path</value>
+  </data>
+  <data name="Ftp_InitialPathHint" xml:space="preserve">
+    <value>// The remote pane opens here instead of the login directory; if the path cannot be opened it falls back to the login directory, then to the root</value>
+  </data>
+  <data name="Ftp_InitialPathPlaceholder" xml:space="preserve">
+    <value>e.g. /var/www/html</value>
   </data>
   <data name="Cert_Title" xml:space="preserve">
     <value>Untrusted server certificate</value>

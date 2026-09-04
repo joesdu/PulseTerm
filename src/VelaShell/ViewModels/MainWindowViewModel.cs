@@ -2443,6 +2443,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         await FeedJumpChainNoticeAsync(terminalTab, profile);
         StartSessionLogging(terminalTab, settings);
         SendStartupCommand(terminalTab, settings, isPosixShell);
+        SendPostAuthCommand(terminalTab, profile);
 
         // 会话 Id 从现在起才存在(握手完成后)——活动标签订阅在它被赋值前已触发,
         // 因此在这里绑定 SFTP 浏览器(并展示+加载),否则它将一直指向空占位,永远加载不到列表(#22)。
@@ -2540,6 +2541,9 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
             tab.ResetReconnectAttempts();
             StartSessionLogging(tab, settings);
             SendStartupCommand(tab, settings, isPosixShell);
+            // 重连也要跑:配置里那条命令描述的是"每次登进这台机器要做什么"
+            // (进 tmux、切目录、sudo),断线重连回来同样成立。
+            SendPostAuthCommand(tab, tab.Profile);
             if (_metricsService is not null)
             {
                 tab.ResourceMonitor = new(_metricsService, session.SessionId, tab.Title);
@@ -2828,6 +2832,53 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
             return user;
         }
         return user.Length == 0 ? WorkingDirectoryReportHook : WorkingDirectoryReportHook + "; " + user;
+    }
+
+    /// <summary>
+    /// 注入**这一条配置专属**的「认证后执行命令」(连接对话框 → 高级选项)。
+    /// <para>
+    /// 与 <see cref="SendStartupCommand" /> 分开发而不是拼进同一串:那条是全局的、每个终端都跑,
+    /// 这条只跟着一条配置走,而且带自己的延迟。拼在一起就没法各自延迟,也说不清谁先谁后。
+    /// 顺序固定为「先全局、后本条」—— 与用户在两个界面上看到的顺序一致。
+    /// </para>
+    /// <para>
+    /// 延迟 &gt; 0 时用 <see cref="DispatcherTimer.RunOnce" /> 延后发,而不是 <c>await Task.Delay</c>:
+    /// 握手方法不能因为用户配了 5 秒延迟就把连接流程(刷新最近连接、绑定 SFTP 面板、状态栏)
+    /// 一起挂起 5 秒。定时器回调里重新验一遍会话身份 —— 这几秒里标签可能已经断开、被关掉,
+    /// 或者已经重连成另一个会话,那时候再把命令灌进去就是灌进了别人的 shell。
+    /// </para>
+    /// </summary>
+    /// <param name="tab">已挂上传输、状态已置为已连接的终端标签。</param>
+    /// <param name="profile">本次连接所用的配置。</param>
+    private static void SendPostAuthCommand(TerminalTabViewModel tab, SessionProfile profile)
+    {
+        if (profile.PostAuthCommand?.Trim() is not { Length: > 0 } command)
+        {
+            return;
+        }
+        int delaySeconds = Math.Clamp(
+            profile.PostAuthCommandDelaySeconds,
+            0,
+            SessionProfile.MaxPostAuthCommandDelaySeconds
+        );
+        if (delaySeconds == 0)
+        {
+            tab.SendSilentCommand(command);
+            return;
+        }
+
+        // 会话 id 在握手里刚被赋值;它就是"还是同一条会话吗"的判据。
+        Guid sessionId = tab.SessionId;
+        DispatcherTimer.RunOnce(
+            () =>
+            {
+                if (tab.SessionId == sessionId && tab.ConnectionStatus == SessionStatus.Connected)
+                {
+                    tab.SendSilentCommand(command);
+                }
+            },
+            TimeSpan.FromSeconds(delaySeconds)
+        );
     }
 
     /// <summary>

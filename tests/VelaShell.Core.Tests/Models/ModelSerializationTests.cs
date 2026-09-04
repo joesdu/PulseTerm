@@ -45,6 +45,25 @@ public class ModelSerializationTests
         Assert.DoesNotContain("\"Host\":", json);
     }
 
+    /// <summary>
+    /// 「认证后执行命令」的延迟钳位放在 setter 上,反序列化同样要过它:配置文件是可以手改的,
+    /// 一个 <c>99999</c> 会让那条命令看起来永远不执行,而用户完全无从知道自己在等什么。
+    /// </summary>
+    [TestMethod]
+    [DataRow(99999, SessionProfile.MaxPostAuthCommandDelaySeconds)]
+    [DataRow(-5, 0)]
+    [DataRow(7, 7)]
+    public void SessionProfile_PostAuthCommandDelay_IsClampedOnDeserialization(int stored, int expected)
+    {
+        string json = $$"""{"name":"n","host":"h","postAuthCommand":"tmux attach","postAuthCommandDelaySeconds":{{stored}}}""";
+
+        SessionProfile? profile = JsonSerializer.Deserialize<SessionProfile>(json, _options);
+
+        Assert.IsNotNull(profile);
+        Assert.AreEqual("tmux attach", profile.PostAuthCommand);
+        Assert.AreEqual(expected, profile.PostAuthCommandDelaySeconds);
+    }
+
     [TestMethod]
     public void SessionProfile_ShouldDeserializeCorrectly()
     {
@@ -123,6 +142,7 @@ public class ModelSerializationTests
                 Anonymous = true,
                 TrustedCertificateThumbprint = "AABBCC",
                 MaxConnections = 6,
+                InitialRemotePath = "/var/www/html",
             },
         };
 
@@ -137,6 +157,31 @@ public class ModelSerializationTests
         Assert.IsTrue(roundTrip.Ftp.Anonymous);
         Assert.AreEqual("AABBCC", roundTrip.Ftp.TrustedCertificateThumbprint);
         Assert.AreEqual(6, roundTrip.Ftp.MaxConnections);
+        Assert.AreEqual("/var/www/html", roundTrip.Ftp.InitialRemotePath);
+    }
+
+    /// <summary>
+    /// 「默认打开路径」的归一化住在 setter 上,所以界面、导入器与手改的配置文件共用同一套规则。
+    /// 用户会照 Windows 的习惯敲 <c>\pub</c>,也会粘一个带尾斜杠的路径进来,而 FTP 的
+    /// <c>CWD</c> 对这些写法并不一律宽容。
+    /// </summary>
+    [TestMethod]
+    [DataRow("/var/www/html", "/var/www/html")]
+    [DataRow("  /var/www/html  ", "/var/www/html")]
+    [DataRow("var/www", "/var/www")]           // 补前导斜杠
+    [DataRow(@"\pub\incoming", "/pub/incoming")] // Windows 习惯的反斜杠
+    [DataRow("/pub/", "/pub")]                 // 去尾斜杠
+    [DataRow("", null)]
+    [DataRow("   ", null)]
+    [DataRow("/", null)]                       // 根目录本来就是默认行为,当作没配
+    [DataRow("///", null)]
+    public void FtpSettings_InitialRemotePath_IsNormalizedOnAssignment(string? input, string? expected)
+    {
+        var settings = new FtpSettings { InitialRemotePath = input };
+
+        Assert.AreEqual(expected, settings.InitialRemotePath);
+        // Clone 是 SessionProfile 那套逐字段手写拷贝的配套件,漏抄的表现是"存下来就没了"。
+        Assert.AreEqual(expected, settings.Clone().InitialRemotePath);
     }
 
     /// <summary>插件协议(如 S3)的往返:协议 id 与两份设置字典。</summary>

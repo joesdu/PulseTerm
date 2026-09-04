@@ -630,6 +630,8 @@ public sealed class SessionTreeViewModel : ReactiveObject
             GroupId = source.GroupId,
             Tags = [.. source.Tags],
             JumpHostProfileId = source.JumpHostProfileId,
+            PostAuthCommand = source.PostAuthCommand,
+            PostAuthCommandDelaySeconds = source.PostAuthCommandDelaySeconds,
             Ftp = source.Ftp?.Clone(),
             PluginProtocolId = source.PluginProtocolId,
             PluginSettings = SessionProfile.CloneSettings(source.PluginSettings),

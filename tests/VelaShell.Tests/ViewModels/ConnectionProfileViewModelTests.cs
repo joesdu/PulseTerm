@@ -19,6 +19,110 @@ public sealed class ConnectionProfileViewModelTests
     [DataRow("密码", "")]
     public void FilterAscii_StripsNonAsciiCharacters(string input, string expected) => Assert.AreEqual(expected, SecurePasswordBox.FilterAscii(input));
 
+    /// <summary>
+    /// 「认证后执行命令」是每条配置各一份的:打开一条已存的配置要回显它自己的那条,
+    /// 保存要原样带回去。回显丢字段的表现是"改个端口顺手把命令清空了",而且不报错。
+    /// </summary>
+    [TestMethod]
+    public async Task PostAuthCommand_RoundTripsThroughTheEditDialog()
+    {
+        var existing = new SessionProfile
+        {
+            Name = "bastion",
+            Host = "10.0.0.1",
+            Username = "ops",
+            PostAuthCommand = "sudo su -",
+            PostAuthCommandDelaySeconds = 3,
+        };
+
+        var vm = new ConnectionProfileViewModel(existing);
+
+        Assert.IsTrue(vm.SupportsPostAuthCommand, "SSH 才有 shell 通道,这一栏也只对它出现。");
+        Assert.AreEqual("sudo su -", vm.PostAuthCommand);
+        Assert.AreEqual(3, vm.PostAuthCommandDelaySeconds);
+        Assert.IsTrue(vm.IsAdvancedVisible, "填过的命令不能藏在折叠区里,否则用户会当成配置丢了。");
+
+        SessionProfile? saved = await vm.SaveCommand.Execute().FirstAsync();
+        Assert.IsNotNull(saved);
+        Assert.AreEqual("sudo su -", saved.PostAuthCommand);
+        Assert.AreEqual(3, saved.PostAuthCommandDelaySeconds);
+    }
+
+    /// <summary>只有空格的命令等于没配:存下去会让 <c>SendSilentCommand</c> 每次连接多敲一个回车。</summary>
+    [TestMethod]
+    public async Task PostAuthCommand_WhenBlank_IsSavedAsNull()
+    {
+        var vm = new ConnectionProfileViewModel { Host = "h", Username = "u", PostAuthCommand = "   " };
+
+        SessionProfile? saved = await vm.SaveCommand.Execute().FirstAsync();
+
+        Assert.IsNotNull(saved);
+        Assert.IsNull(saved.PostAuthCommand);
+    }
+
+    [TestMethod]
+    public void PostAuthCommandDelay_IsClampedToTheSupportedRange()
+    {
+        var vm = new ConnectionProfileViewModel { PostAuthCommandDelaySeconds = 9999 };
+        Assert.AreEqual(SessionProfile.MaxPostAuthCommandDelaySeconds, vm.PostAuthCommandDelaySeconds);
+
+        vm.PostAuthCommandDelaySeconds = -1;
+        Assert.AreEqual(0, vm.PostAuthCommandDelaySeconds, "0 是合法值:不等,握手完立刻发。");
+    }
+
+    /// <summary>
+    /// 换到没有终端的协议(SFTP / FTP / 对象存储)时这一栏收起,存下去的也必须是 null。
+    /// 留着的话它就是一条永远不执行的命令,而且切回 SSH 时会诈尸执行一次。
+    /// </summary>
+    [TestMethod]
+    public async Task PostAuthCommand_OnProtocolsWithoutAShell_IsHiddenAndNotSaved()
+    {
+        var vm = new ConnectionProfileViewModel { Host = "h", Username = "u", PostAuthCommand = "tmux attach" };
+
+        await vm.SelectConnectionTypeCommand.Execute(ConnectionType.SFTP).FirstAsync();
+
+        Assert.IsFalse(vm.SupportsPostAuthCommand);
+        SessionProfile? saved = await vm.SaveCommand.Execute().FirstAsync();
+        Assert.IsNotNull(saved);
+        Assert.IsNull(saved.PostAuthCommand);
+    }
+
+    /// <summary>
+    /// FTP / FTPS 的「默认打开路径」:保存时经 <c>FtpSettings</c> 的 setter 归一化,
+    /// 重新打开配置要回显,且不能藏在折叠的「高级选项」里(否则用户会当成配置丢了)。
+    /// </summary>
+    [TestMethod]
+    public async Task FtpInitialRemotePath_IsNormalizedOnSave_AndRestoredOnEdit()
+    {
+        var vm = new ConnectionProfileViewModel { Host = "ftp.example.com", Username = "deploy" };
+        await vm.SelectConnectionTypeCommand.Execute(ConnectionType.FTP).FirstAsync();
+        vm.FtpInitialRemotePath = @"  \var\www\html\  ";
+
+        SessionProfile? saved = await vm.SaveCommand.Execute().FirstAsync();
+
+        Assert.IsNotNull(saved);
+        Assert.AreEqual("/var/www/html", saved.Ftp?.InitialRemotePath);
+
+        var reopened = new ConnectionProfileViewModel(saved);
+        Assert.AreEqual("/var/www/html", reopened.FtpInitialRemotePath);
+        Assert.IsTrue(reopened.IsAdvancedVisible, "填过的路径不能藏在折叠区里。");
+    }
+
+    /// <summary>这块设置只属于 FTP;换成别的协议时整个 <c>Ftp</c> 块不落盘,路径自然一起走。</summary>
+    [TestMethod]
+    public async Task FtpInitialRemotePath_IsNotSavedOnNonFtpProtocols()
+    {
+        var vm = new ConnectionProfileViewModel { Host = "h", Username = "u" };
+        await vm.SelectConnectionTypeCommand.Execute(ConnectionType.FTP).FirstAsync();
+        vm.FtpInitialRemotePath = "/pub";
+        await vm.SelectConnectionTypeCommand.Execute(ConnectionType.SSH).FirstAsync();
+
+        SessionProfile? saved = await vm.SaveCommand.Execute().FirstAsync();
+
+        Assert.IsNotNull(saved);
+        Assert.IsNull(saved.Ftp);
+    }
+
     [TestMethod]
     public void PluginFields_MarkedAdvanced_StayCollapsedUntilAdvancedIsExpanded()
     {

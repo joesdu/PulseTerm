@@ -84,6 +84,9 @@ public sealed class SftpDocumentViewModel : ReactiveObject, IAsyncDisposable
             IsVisible = true,
             IsDragEnabled = true,
             GetDefaultEditorPath = getDefaultEditorPath,
+            // 连接配置里的「默认打开路径」(FTP / FTPS 的高级选项)。其余协议没有这块设置,
+            // 取到 null 即照旧从登录工作目录起步。
+            InitialRemotePath = profile.Ftp?.InitialRemotePath,
         };
         LocalFiles = new LocalFilePaneViewModel(transferOptions)
         {

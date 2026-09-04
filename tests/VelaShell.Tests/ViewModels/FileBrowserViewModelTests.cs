@@ -166,6 +166,52 @@ public class FileBrowserViewModelTests
         Assert.AreEqual("/", _vm.CurrentPath);
     }
 
+    /// <summary>
+    /// 配置里的「默认打开路径」(FTP / FTPS 高级选项)排在候选路径的第一位:
+    /// 上传目标常年是同一个目录,而 FTP 给的登录工作目录往往就是根。
+    /// </summary>
+    [TestMethod]
+    [TestCategory("FileBrowser")]
+    public async Task LoadInitial_PrefersTheConfiguredInitialPath_OverTheWorkingDirectory()
+    {
+        _sftpService
+            .GetWorkingDirectoryAsync(_sessionId, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult("/"));
+        _sftpService
+            .ListDirectoryAsync(_sessionId, "/var/www/html", Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new List<RemoteFileInfo>()));
+        _vm.InitialRemotePath = "/var/www/html";
+
+        await _vm.LoadInitialCommand.Execute().FirstAsync();
+
+        Assert.AreEqual("/var/www/html", _vm.CurrentPath);
+    }
+
+    /// <summary>
+    /// 路径配错(打错字、目录被删、账号被 chroot)不该把用户堵在一张报错的空白页上:
+    /// 依次回退到登录工作目录、根目录,与家目录进不去时回退根目录是同一条纪律。
+    /// </summary>
+    [TestMethod]
+    [TestCategory("FileBrowser")]
+    public async Task LoadInitial_WhenTheConfiguredPathCannotBeOpened_FallsBackToTheWorkingDirectory()
+    {
+        _sftpService
+            .GetWorkingDirectoryAsync(_sessionId, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult("/home/deploy"));
+        _sftpService
+            .ListDirectoryAsync(_sessionId, "/nope", Arg.Any<CancellationToken>())
+            .Returns<Task<List<RemoteFileInfo>>>(_ => throw new InvalidOperationException("550 No such directory"));
+        _sftpService
+            .ListDirectoryAsync(_sessionId, "/home/deploy", Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new List<RemoteFileInfo>()));
+        _vm.InitialRemotePath = "/nope";
+
+        await _vm.LoadInitialCommand.Execute().FirstAsync();
+
+        Assert.AreEqual("/home/deploy", _vm.CurrentPath);
+        Assert.IsNull(_vm.ErrorMessage, "回退成功了就不该再挂着上一次的失败提示。");
+    }
+
     // —— 列显示开关与新增的 所有者/分组/类型 列 ——————————————————————
 
     [TestMethod]

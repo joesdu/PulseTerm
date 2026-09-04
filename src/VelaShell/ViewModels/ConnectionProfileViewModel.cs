@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Security;
 using Avalonia.Threading;
@@ -47,8 +48,9 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
     private FtpEncryptionMode _ftpEncryption = FtpEncryptionMode.Auto;
     private bool _ftpPassive = true;
     private bool _ftpAnonymous;
-    private string? _ftpTrustedThumbprint;
-    private int _ftpMaxConnections = new FtpSettings().MaxConnections;
+    private readonly string? _ftpTrustedThumbprint;
+    private readonly int _ftpMaxConnections = new FtpSettings().MaxConnections;
+    private string? _ftpInitialRemotePath;
     private Guid? _groupId;
     private string _host = string.Empty;
     private bool _isKeyAuth;
@@ -59,6 +61,8 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
     private int _port = 22;
     private string? _privateKeyPassphrase;
     private string? _privateKeyPath;
+    private string? _postAuthCommand;
+    private int _postAuthCommandDelaySeconds = new SessionProfile().PostAuthCommandDelaySeconds;
     private bool _rememberPassword = true;
     private GroupOption? _selectedGroup;
     private GroupOption? _selectedJumpHost;
@@ -134,6 +138,8 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
             _rememberPassword = existing.RememberPassword;
             _tagsText = string.Join(", ", existing.Tags);
             _jumpHostProfileId = existing.JumpHostProfileId;
+            _postAuthCommand = existing.PostAuthCommand;
+            _postAuthCommandDelaySeconds = existing.PostAuthCommandDelaySeconds;
             if (existing.Ftp is { } ftp)
             {
                 _ftpEncryption = ftp.EncryptionMode;
@@ -141,6 +147,7 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
                 _ftpAnonymous = ftp.Anonymous;
                 _ftpTrustedThumbprint = ftp.TrustedCertificateThumbprint;
                 _ftpMaxConnections = ftp.MaxConnections;
+                _ftpInitialRemotePath = ftp.InitialRemotePath;
             }
             _pluginProtocolId = existing.PluginProtocolId;
             _pluginStored = existing.PluginSettings;
@@ -220,6 +227,13 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
             // 编辑既有插件协议配置:进对话框就把表单渲染出来(会触发该插件的惰性激活)。
             _ = SelectPluginProtocolAsync(existingProtocol);
         }
+        // 与插件高级字段同一条纪律:编辑既有配置时,用户填过的东西不能藏在折叠区里。
+        // 「认证后执行命令」/「默认打开路径」不展开的话,重开对话框看到的是一片空白 ——
+        // 用户会当成配置丢了,然后再配一遍。
+        if (existing?.PostAuthCommand is { Length: > 0 } || existing?.Ftp?.InitialRemotePath is { Length: > 0 })
+        {
+            IsAdvancedVisible = true;
+        }
         BrowseKeyFileCommand = ReactiveCommand.Create(() => { });
         ToggleAdvancedCommand = ReactiveCommand.Create(() => { IsAdvancedVisible = !IsAdvancedVisible; });
         TogglePasswordVisibilityCommand = ReactiveCommand.Create(() => { ShowPassword = !ShowPassword; });
@@ -252,6 +266,7 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
             this.RaisePropertyChanged(nameof(IsFtpSelected));
             this.RaisePropertyChanged(nameof(IsPluginSelected));
             this.RaisePropertyChanged(nameof(RequiresSshAuth));
+            this.RaisePropertyChanged(nameof(SupportsPostAuthCommand));
             this.RaisePropertyChanged(nameof(ShowFtpPlaintextWarning));
 
             this.RaisePropertyChanged(nameof(ShowPasswordField));
@@ -664,6 +679,50 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
         set => this.RaiseAndSetIfChanged(ref _tagsText, value);
     }
 
+    /// <summary>
+    /// 本条配置专属的「认证后执行命令」(高级选项);留空 = 不执行。
+    /// 与设置里那条全局的「连接后执行命令」互不影响,两处都配就都执行(先全局后本条)。
+    /// </summary>
+    public string? PostAuthCommand
+    {
+        get => _postAuthCommand;
+        set => this.RaiseAndSetIfChanged(ref _postAuthCommand, value);
+    }
+
+    /// <summary>注入上面那条命令前的等待秒数(0~60)。</summary>
+    public int PostAuthCommandDelaySeconds
+    {
+        get => _postAuthCommandDelaySeconds;
+        set => this.RaiseAndSetIfChanged(
+            ref _postAuthCommandDelaySeconds,
+            Math.Clamp(value, 0, SessionProfile.MaxPostAuthCommandDelaySeconds));
+    }
+
+    /// <summary>
+    /// 延迟输入框的上限;界面直接绑它,免得两处各写一个 60。
+    /// 实例属性而非 static:编译绑定不解析实例路径上的静态成员,写成 static 那个
+    /// <c>Maximum</c> 会静默绑空,输入框上限就没了。
+    /// </summary>
+    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "XAML 绑定只解析实例成员。")]
+    public int MaxPostAuthCommandDelaySeconds => SessionProfile.MaxPostAuthCommandDelaySeconds;
+
+    /// <summary>
+    /// 「认证后执行命令」这一栏是否出现。只对 SSH 成立 —— 命令是往 shell 通道里注入的,
+    /// 而 SFTP / FTP / 对象存储这些连接根本没有终端,摆一个永远不会执行的输入框只会骗人。
+    /// </summary>
+    public bool SupportsPostAuthCommand => ConnectionType == ConnectionType.SSH;
+
+    /// <summary>
+    /// FTP / FTPS 连上后远程面板默认打开的目录(高级选项);留空 = 沿用登录工作目录。
+    /// 上传目标常年是同一个 <c>/var/www/html</c>,而 FTP 给的登录目录往往就是根,
+    /// 每连一次手点四五层纯属重复劳动。
+    /// </summary>
+    public string? FtpInitialRemotePath
+    {
+        get => _ftpInitialRemotePath;
+        set => this.RaiseAndSetIfChanged(ref _ftpInitialRemotePath, value);
+    }
+
     /// <summary>分组下拉候选:“未分组” + 全部已保存分组。</summary>
     public ObservableCollection<GroupOption> Groups { get; }
 
@@ -926,6 +985,9 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
     {
         // 显示名称留空时用 user@host 兜底,保证列表/标签页有可读名称。
         string name = string.IsNullOrWhiteSpace(Name) ? $"{Username}@{Host}" : Name.Trim();
+        string? postAuthCommand = SupportsPostAuthCommand && _postAuthCommand?.Trim() is { Length: > 0 } trimmed
+            ? trimmed
+            : null;
         return new()
         {
             Id = _profileId,
@@ -942,6 +1004,10 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
             GroupId = GroupId,
             Tags = [.. TagsText.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)],
             JumpHostProfileId = _jumpHostProfileId,
+            // 只有 SSH 有 shell 通道可注入;换到别的协议还把它存回去,存下的就是一条永远不执行的
+            // 命令,而且切回 SSH 时会诈尸执行一次。空白也一律归 null,免得存进一个只有空格的命令。
+            PostAuthCommand = postAuthCommand,
+            PostAuthCommandDelaySeconds = _postAuthCommandDelaySeconds,
             // 只有 FTP 才落这块设置:其余协议保持 null,旧数据与旧版本读取零影响。
             Ftp = ConnectionType == ConnectionType.FTP
                 ? new FtpSettings
@@ -951,6 +1017,8 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
                     Anonymous = FtpAnonymous,
                     TrustedCertificateThumbprint = _ftpTrustedThumbprint,
                     MaxConnections = _ftpMaxConnections,
+                    // setter 自带归一化(补前导 /、去尾斜杠、空串归 null),这里原样交给它。
+                    InitialRemotePath = _ftpInitialRemotePath,
                 }
                 : null,
             // 插件协议:只存协议 id 与它自己声明的那些字段。宿主对这些键一无所知,
