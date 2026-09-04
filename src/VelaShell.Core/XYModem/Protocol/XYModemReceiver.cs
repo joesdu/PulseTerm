@@ -184,7 +184,7 @@ public sealed class XYModemReceiver(
         var item = new FileTransferItem { FileName = metadata.FileName, Size = metadata.Size };
         session.AddItem(item);
 
-        (TransferFileDisposition disposition, long _) =
+        (TransferFileDisposition disposition, _) =
             await _sink.OnFileOfferedAsync(metadata, item, ct).ConfigureAwait(false);
         if (disposition != TransferFileDisposition.Accept)
         {
@@ -252,7 +252,6 @@ public sealed class XYModemReceiver(
                         await _sink.WriteAsync(item, deferred.AsMemory(0, trimmed), ct).ConfigureAwait(false);
                         written += trimmed;
                     }
-                    deferred = null;
                 }
                 await WriteAsync([XYModemConstants.ACK], ct).ConfigureAwait(false);
                 item.BytesTransferred = written;

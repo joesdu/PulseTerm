@@ -115,7 +115,7 @@ public class ThemeServiceSwitchTests
     {
         var sut = new ThemeService("dark");
         var events = new List<string>();
-        sut.ThemeChanged += name => events.Add(name);
+        sut.ThemeChanged += events.Add;
 
         sut.SetTheme("light");
         sut.SetTheme("dark");

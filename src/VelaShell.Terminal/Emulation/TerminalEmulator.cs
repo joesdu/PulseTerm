@@ -1172,10 +1172,12 @@ public sealed class TerminalEmulator : IVtActions
     {
         var cell = new TerminalCell { Rune = 'E', Foreground = _fg, Background = _bg, Flags = _flags };
         for (int y = 0; y < Screen.Rows; y++)
+        {
             for (int x = 0; x < Screen.Columns; x++)
             {
                 Screen.SetCell(x, y, cell);
             }
+        }
     }
 
     private void SoftReset()

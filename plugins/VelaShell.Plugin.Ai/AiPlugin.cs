@@ -22,15 +22,13 @@ public sealed class AiPlugin : IVelaPlugin
     private IPluginPanel? _panel;
     private IPluginPanel? _collaborationPanel;
     private ChatPanelView? _view;
-    private BridgeService? _bridge;
-    private McpEndpoint? _mcpServer;
     private readonly List<IDisposable> _commands = [];
 
     /// <summary>IM 桥接(设置页保存后调它的 <c>ReloadAsync</c>)。</summary>
-    public BridgeService? Bridge => _bridge;
+    public BridgeService? Bridge { get; private set; }
 
     /// <summary>对外的 MCP 服务端(设置页保存后调它的 <c>ReloadAsync</c>)。</summary>
-    public McpEndpoint? McpServer => _mcpServer;
+    public McpEndpoint? McpServer { get; private set; }
 
     /// <inheritdoc />
     public Task ActivateAsync(IPluginContext context, CancellationToken cancellationToken)
@@ -55,13 +53,13 @@ public sealed class AiPlugin : IVelaPlugin
     /// </remarks>
     private void StartServices(IPluginContext context, CancellationToken cancellationToken)
     {
-        _bridge = new BridgeService(context, _store!);
-        _mcpServer = new McpEndpoint(context, new McpServerSettingsStore(context));
+        Bridge = new BridgeService(context, _store!);
+        McpServer = new McpEndpoint(context, new McpServerSettingsStore(context));
         _ = Task.Run(async () =>
         {
             try
             {
-                await _bridge.ReloadAsync(cancellationToken);
+                await Bridge.ReloadAsync(cancellationToken);
             }
             catch (Exception ex)
             {
@@ -69,7 +67,7 @@ public sealed class AiPlugin : IVelaPlugin
             }
             try
             {
-                await _mcpServer.ReloadAsync(cancellationToken);
+                await McpServer.ReloadAsync(cancellationToken);
             }
             catch (Exception ex)
             {
@@ -86,15 +84,15 @@ public sealed class AiPlugin : IVelaPlugin
         _view = null;
         _panel = null;
         _commands.Clear();
-        if (_bridge is { } bridge)
+        if (Bridge is { } bridge)
         {
             await bridge.DisposeAsync();
-            _bridge = null;
+            Bridge = null;
         }
-        if (_mcpServer is { } mcp)
+        if (McpServer is { } mcp)
         {
             await mcp.DisposeAsync();
-            _mcpServer = null;
+            McpServer = null;
         }
         _context = null;
     }
@@ -146,18 +144,18 @@ public sealed class AiPlugin : IVelaPlugin
                 WindowWidth = 860,
                 WindowHeight = 780
             },
-            () => new CollaborationView(context, loc, RestartServicesAsync, _bridge));
+            () => new CollaborationView(context, loc, RestartServicesAsync, Bridge));
         _collaborationPanel.Closed += () => _collaborationPanel = null;
     }
 
     /// <summary>设置页保存后按新配置重起两条服务。</summary>
     private async Task RestartServicesAsync()
     {
-        if (_bridge is { } bridge)
+        if (Bridge is { } bridge)
         {
             await bridge.ReloadAsync();
         }
-        if (_mcpServer is { } mcp)
+        if (McpServer is { } mcp)
         {
             await mcp.ReloadAsync();
         }

@@ -50,33 +50,21 @@ public partial class PackageVersionsTests
     }
 
     [TestMethod]
-    public void Of_UnknownPackage_ReturnsNull()
-    {
-        Assert.IsNull(PackageVersions.Of("No.Such.Package"));
-    }
+    public void Of_UnknownPackage_ReturnsNull() => Assert.IsNull(PackageVersions.Of("No.Such.Package"));
 
     /// <summary>没有任何包版本元数据的程序集:返回空表而不是抛。</summary>
     [TestMethod]
-    public void Read_AssemblyWithoutMetadata_ReturnsEmpty()
-    {
-        Assert.IsEmpty(PackageVersions.Read(typeof(object).Assembly));
-    }
+    public void Read_AssemblyWithoutMetadata_ReturnsEmpty() => Assert.IsEmpty(PackageVersions.Read(typeof(object).Assembly));
 
     /// <summary>
     /// 关于页真正显示出来的文本 —— 这才是用户看到的东西,也是原先写死、并且已经漂移过的地方
     /// (曾停留在 "Avalonia UI 12.0.5",而实际引用早已是 12.1.0)。
     /// </summary>
     [TestMethod]
-    public void AboutFramework_ShowsTheReferencedAvaloniaVersion()
-    {
-        Assert.AreEqual($"Avalonia UI {PackageVersions.Of("Avalonia")}", SettingsViewModel.AboutFramework);
-    }
+    public void AboutFramework_ShowsTheReferencedAvaloniaVersion() => Assert.AreEqual($"Avalonia UI {PackageVersions.Of("Avalonia")}", SettingsViewModel.AboutFramework);
 
     [TestMethod]
-    public void AboutSshLibrary_ShowsTheReferencedSshLibraryVersion()
-    {
-        Assert.AreEqual($"Tmds.Ssh {PackageVersions.Of("Tmds.Ssh")}", SettingsViewModel.AboutSshLibrary);
-    }
+    public void AboutSshLibrary_ShowsTheReferencedSshLibraryVersion() => Assert.AreEqual($"Tmds.Ssh {PackageVersions.Of("Tmds.Ssh")}", SettingsViewModel.AboutSshLibrary);
 
     /// <summary>关于页不该再出现写死的版本号 —— 这条盯的就是当初那个漂移。</summary>
     [TestMethod]

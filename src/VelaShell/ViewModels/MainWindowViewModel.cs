@@ -925,7 +925,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                 "app.palette",
                 Strings.Get("Cmd_CommandPalette"),
                 Strings.Get("CmdCat_Search"),
-                () => CommandPalette.Open(),
+                CommandPalette.Open,
                 Shortcut: "Ctrl+P",
                 Icon: "Icon.zap"
             )
@@ -1408,10 +1408,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     /// 由 <see cref="RebindFileBrowser" /> 按标签自己的状态决定(首次连接取设置
     /// 「连接后自动打开文件浏览器」的当前值,断线重连沿用标签生命周期内的记忆)。
     /// </summary>
-    private void ShowFileBrowserForActiveSession()
-    {
-        RebindFileBrowser();
-    }
+    private void ShowFileBrowserForActiveSession() => RebindFileBrowser();
 
     /// <summary>
     /// 用户通过菜单/面板请求终端内搜索时触发;窗口将其转发到活动终端视图的搜索栏(§5.3)。
@@ -3308,7 +3305,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                     new SftpDocumentViewModel(
                         current,
                         sessionId,
-                        (id, token) => _ftpSessionService.CloseSessionAsync(id, token),
+                        _ftpSessionService.CloseSessionAsync,
                         _sftpService,
                         settings.Transfer,
                         FileTransfer,
@@ -3421,7 +3418,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                 var viewModel = new SftpDocumentViewModel(
                     current,
                     sessionId,
-                    (id, token) => _pluginProtocols.CloseSessionAsync(id, token),
+                    _pluginProtocols.CloseSessionAsync,
                     _sftpService,
                     settings.Transfer,
                     FileTransfer,

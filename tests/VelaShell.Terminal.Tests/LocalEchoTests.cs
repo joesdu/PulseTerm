@@ -17,10 +17,7 @@ public class LocalEchoTests
         Encoding.ASCII.GetString(LocalEcho.Compute(Encoding.ASCII.GetBytes(input), newLineMode));
 
     [TestMethod]
-    public void PrintableText_IsEchoedVerbatim()
-    {
-        Assert.AreEqual("ls -la", Echo("ls -la"));
-    }
+    public void PrintableText_IsEchoedVerbatim() => Assert.AreEqual("ls -la", Echo("ls -la"));
 
     [TestMethod]
     public void Utf8MultiByte_SurvivesRoundTrip()
@@ -40,10 +37,7 @@ public class LocalEchoTests
 
     /// <summary>含 ESC 时整段丢弃,不做"挑出可打印部分"的小聪明 —— 那会把序列拆碎得更难看。</summary>
     [TestMethod]
-    public void PayloadContainingEscape_IsDroppedEntirely()
-    {
-        Assert.AreEqual("", Echo("abc\e[Adef"));
-    }
+    public void PayloadContainingEscape_IsDroppedEntirely() => Assert.AreEqual("", Echo("abc\e[Adef"));
 
     [TestMethod]
     public void Backspace_EchoesVisibleErase()
@@ -67,33 +61,24 @@ public class LocalEchoTests
     }
 
     [TestMethod]
-    public void EmptyInput_ProducesNothing()
-    {
-        Assert.AreEqual("", Echo(""));
-    }
+    public void EmptyInput_ProducesNothing() => Assert.AreEqual("", Echo(""));
 
     // ---- 开关语义 ----------------------------------------------------
 
     [TestMethod]
-    public void Disabled_WhenUserOffAndSrmSet()
-    {
+    public void Disabled_WhenUserOffAndSrmSet() =>
         // SRM 置位(默认)= 主机负责回显 → 不本地回显。SSH 的常态。
         Assert.IsFalse(LocalEcho.IsEnabled(userEnabled: false, sendReceiveMode: true));
-    }
 
     [TestMethod]
-    public void Enabled_WhenUserTurnsItOn()
-    {
+    public void Enabled_WhenUserTurnsItOn() =>
         // Telnet/串口:主机不回显也不会发 SRM,只能靠用户设置。
         Assert.IsTrue(LocalEcho.IsEnabled(userEnabled: true, sendReceiveMode: true));
-    }
 
     [TestMethod]
-    public void Enabled_WhenHostResetsSrm()
-    {
+    public void Enabled_WhenHostResetsSrm() =>
         // CSI 12 l:主机显式要求终端自行回显。
         Assert.IsTrue(LocalEcho.IsEnabled(userEnabled: false, sendReceiveMode: false));
-    }
 
     // ---- 对端自己回显时强制关闭(SSH / 本地 ConPTY)------------------
 
@@ -122,18 +107,12 @@ public class LocalEchoTests
     /// (它自己会相应停止),无视它会让用户打字完全看不见。
     /// </summary>
     [TestMethod]
-    public void ExplicitSrmReset_StillWins_OverPeerEchoes()
-    {
-        Assert.IsTrue(LocalEcho.IsEnabled(userEnabled: false, sendReceiveMode: false, peerEchoes: true));
-    }
+    public void ExplicitSrmReset_StillWins_OverPeerEchoes() => Assert.IsTrue(LocalEcho.IsEnabled(userEnabled: false, sendReceiveMode: false, peerEchoes: true));
 
     // ---- SRM 在引擎里的解析 ------------------------------------------
 
     [TestMethod]
-    public void Srm_DefaultsToHostEcho()
-    {
-        Assert.IsTrue(new TerminalModes().SendReceive, "默认必须是 12h(不本地回显),否则 SSH 会话会双字符。");
-    }
+    public void Srm_DefaultsToHostEcho() => Assert.IsTrue(new TerminalModes().SendReceive, "默认必须是 12h(不本地回显),否则 SSH 会话会双字符。");
 
     [TestMethod]
     public void Srm_IsParsedFromAnsiMode12()

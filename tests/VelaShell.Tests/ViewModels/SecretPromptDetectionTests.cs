@@ -37,11 +37,9 @@ public class SecretPromptDetectionTests
     }
 
     [TestMethod]
-    public void CommandContainingPasswordWord_IsNotSecret()
-    {
+    public void CommandContainingPasswordWord_IsNotSecret() =>
         // 命令文本里出现 password 不算:剥掉回显输入后提示是 "$" 结尾。
         Assert.IsFalse(TerminalTabView.IsSecretPrompt("pi@host:~$ grep password /etc/x", "grep password /etc/x"));
-    }
 
     [TestMethod]
     public void ColonWithoutKeyword_IsNotSecret()

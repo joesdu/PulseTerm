@@ -60,10 +60,7 @@ public class TransferCommandParserTests
     /// <c>--</c> 之后是文件名而不是开关:名为 <c>-X</c> 的文件不得把协议改掉。
     /// </summary>
     [TestMethod]
-    public void FlagsAfterDoubleDash_AreNotParsed()
-    {
-        AssertIntent("sz -- -X", TerminalTransferProtocol.ZModem, FileTransferDirection.Receive);
-    }
+    public void FlagsAfterDoubleDash_AreNotParsed() => AssertIntent("sz -- -X", TerminalTransferProtocol.ZModem, FileTransferDirection.Receive);
 
     /// <summary>
     /// 误判的代价是把终端交给引擎最多 30 秒,所以宁可漏认也不能错认:

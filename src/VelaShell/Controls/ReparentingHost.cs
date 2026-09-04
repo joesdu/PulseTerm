@@ -18,10 +18,7 @@ public sealed class ReparentingHost : Decorator
     public static readonly StyledProperty<Control?> TargetProperty =
         AvaloniaProperty.Register<ReparentingHost, Control?>(nameof(Target));
 
-    static ReparentingHost()
-    {
-        TargetProperty.Changed.AddClassHandler<ReparentingHost>((host, _) => host.Reattach());
-    }
+    static ReparentingHost() => TargetProperty.Changed.AddClassHandler<ReparentingHost>((host, _) => host.Reattach());
 
     /// <summary>
     /// 需要被独占托管的共享控件(如实时终端画面)。设置后本宿主会先将其从原父级

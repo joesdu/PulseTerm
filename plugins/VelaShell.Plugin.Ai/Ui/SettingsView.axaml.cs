@@ -21,10 +21,6 @@ public sealed class ProviderNavItem(
     int modelCount = 0, bool expanded = false, string toggleTip = "")
     : System.ComponentModel.INotifyPropertyChanged
 {
-    private Geometry? _icon;
-    private IBrush? _dot;
-    private IBrush? _tint;
-    private string _dotTip = "";
 
     /// <summary>这一行所属的供应商(模型行也指向它的父供应商)。</summary>
     public AiProvider Provider { get; } = provider;
@@ -47,8 +43,8 @@ public sealed class ProviderNavItem(
     /// </summary>
     public Geometry? Icon
     {
-        get => _icon;
-        set => Set(ref _icon, value, nameof(Icon));
+        get;
+        set => Set(ref field, value, nameof(Icon));
     }
 
     /// <summary>
@@ -58,8 +54,8 @@ public sealed class ProviderNavItem(
     /// </summary>
     public IBrush? Tint
     {
-        get => _tint;
-        set => Set(ref _tint, value, nameof(Tint));
+        get;
+        set => Set(ref field, value, nameof(Tint));
     }
 
     /// <summary>是不是供应商行。</summary>
@@ -86,16 +82,16 @@ public sealed class ProviderNavItem(
     /// <summary>状态点的颜色:灰 = 本次窗口内没测过,绿 = 通过,红 = 失败。</summary>
     public IBrush? Dot
     {
-        get => _dot;
-        set => Set(ref _dot, value, nameof(Dot));
+        get;
+        set => Set(ref field, value, nameof(Dot));
     }
 
     /// <summary>状态点的悬停说明。</summary>
     public string DotTip
     {
-        get => _dotTip;
-        set => Set(ref _dotTip, value, nameof(DotTip));
-    }
+        get;
+        set => Set(ref field, value, nameof(DotTip));
+    } = "";
 
     /// <summary>图标/状态点变化时通知绑定(<see cref="Icon" /> / <see cref="Dot" /> / <see cref="DotTip" /> / <see cref="Tint" />)。</summary>
     public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;

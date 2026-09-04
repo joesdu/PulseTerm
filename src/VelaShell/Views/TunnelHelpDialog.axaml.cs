@@ -8,10 +8,7 @@ namespace VelaShell.Views;
 public partial class TunnelHelpDialog : Window
 {
     /// <summary>初始化可视化组件。</summary>
-    public TunnelHelpDialog()
-    {
-        InitializeComponent();
-    }
+    public TunnelHelpDialog() => InitializeComponent();
 
     // 推迟关闭:同步 Close 会让本轮点击/按键的后续路由打到已销毁的窗口刷
     // "PlatformImpl is null" 警告(见 WindowCloseExtensions)。

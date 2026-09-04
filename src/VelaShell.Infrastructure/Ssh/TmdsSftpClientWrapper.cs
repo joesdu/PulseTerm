@@ -434,10 +434,7 @@ public sealed class TmdsSftpClientWrapper(Func<Task<SftpClient>> clientFactory) 
         catch (Exception ex) when (TmdsSshInterop.Translate(ex, ct) is { } t) { throw t; }
     }
 
-    private async Task GuardedAsync(Func<Task> op, CancellationToken ct = default)
-    {
-        await GuardedAsync(async () => { await op().ConfigureAwait(false); return true; }, ct).ConfigureAwait(false);
-    }
+    private async Task GuardedAsync(Func<Task> op, CancellationToken ct = default) => await GuardedAsync(async () => { await op().ConfigureAwait(false); return true; }, ct).ConfigureAwait(false);
 
     private bool IsTornDown() { if (_disposed) return true; try { return _client is null; } catch { return true; } }
 

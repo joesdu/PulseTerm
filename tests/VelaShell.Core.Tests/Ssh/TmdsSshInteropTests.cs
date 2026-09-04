@@ -55,10 +55,7 @@ public sealed class TmdsSshInteropTests
     }
 
     [TestMethod]
-    public void Translate_UnknownException_ReturnsNull()
-    {
-        Assert.IsNull(TmdsSshInterop.Translate(new InvalidOperationException("boom")));
-    }
+    public void Translate_UnknownException_ReturnsNull() => Assert.IsNull(TmdsSshInterop.Translate(new InvalidOperationException("boom")));
 
     [TestMethod]
     public void Translate_PreservesInnerException()

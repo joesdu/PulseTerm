@@ -103,5 +103,4 @@ public sealed class InteractiveAuthFlowTests
         // 所以断言的是「本地化文案 + \n + 原因」,不是裸文案。
         Assert.AreEqual($"{Strings.Format("Msg_AuthFailed", "root@h:22")}\ndenied", vm.LastConnectionError);
     }
-
 }

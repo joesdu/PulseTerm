@@ -31,16 +31,10 @@ public partial class LocalizedKeyUsageTests
     private static partial Regex CodeKey { get; }
 
     [TestMethod]
-    public void EveryLocalizeKeyUsedInXaml_ExistsInResources()
-    {
-        AssertAllKeysDefined("*.axaml", XamlKey, minimumExpected: 100);
-    }
+    public void EveryLocalizeKeyUsedInXaml_ExistsInResources() => AssertAllKeysDefined("*.axaml", XamlKey, minimumExpected: 100);
 
     [TestMethod]
-    public void EveryLocalizeKeyUsedInCode_ExistsInResources()
-    {
-        AssertAllKeysDefined("*.cs", CodeKey, minimumExpected: 50);
-    }
+    public void EveryLocalizeKeyUsedInCode_ExistsInResources() => AssertAllKeysDefined("*.cs", CodeKey, minimumExpected: 50);
 
     /// <summary>
     /// 扫 src 下所有匹配文件里的键,逐个比对中性资源。

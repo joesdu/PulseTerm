@@ -198,10 +198,7 @@ public class XshellLaunchParserTests
     }
 
     [TestMethod]
-    public void Parse_MissingSessionFile_ReturnsNullInsteadOfThrowing()
-    {
-        Assert.IsNull(XshellLaunchParser.TryParse(["-f", Path.Combine(Path.GetTempPath(), "no-such-file.xsh")]));
-    }
+    public void Parse_MissingSessionFile_ReturnsNullInsteadOfThrowing() => Assert.IsNull(XshellLaunchParser.TryParse(["-f", Path.Combine(Path.GetTempPath(), "no-such-file.xsh")]));
 
     [TestMethod]
     public void TrustKey_IncludesUserAndPort_AndIgnoresHostCase()

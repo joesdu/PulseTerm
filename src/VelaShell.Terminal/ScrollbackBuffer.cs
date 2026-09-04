@@ -61,24 +61,15 @@ public class ScrollbackBuffer
 
     /// <summary>将视口滚动到指定绝对行号,超出范围时自动夹取到有效区间。</summary>
     /// <param name="absoluteRow">目标绝对行号。</param>
-    public void ScrollTo(int absoluteRow)
-    {
-        ViewportRow = Math.Clamp(absoluteRow, 0, Math.Max(0, ScrollbackLineCount));
-    }
+    public void ScrollTo(int absoluteRow) => ViewportRow = Math.Clamp(absoluteRow, 0, Math.Max(0, ScrollbackLineCount));
 
     /// <summary>向上滚动指定行数(朝更早的历史方向)。</summary>
     /// <param name="lines">要向上滚动的行数。</param>
-    public void ScrollUp(int lines)
-    {
-        ScrollTo(ViewportRow - lines);
-    }
+    public void ScrollUp(int lines) => ScrollTo(ViewportRow - lines);
 
     /// <summary>向下滚动指定行数(朝更新的内容方向)。</summary>
     /// <param name="lines">要向下滚动的行数。</param>
-    public void ScrollDown(int lines)
-    {
-        ScrollTo(ViewportRow + lines);
-    }
+    public void ScrollDown(int lines) => ScrollTo(ViewportRow + lines);
 
     /// <summary>在回滚历史行内按序查找指定文本的全部匹配项(区分大小写)。</summary>
     /// <param name="query">要搜索的文本;为空时返回空结果。</param>

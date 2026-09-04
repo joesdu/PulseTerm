@@ -28,8 +28,8 @@ public partial class AuthenticationDialogView : Window
         }
         // 登录/取消命令由按钮点击触发,回调仍在输入事件栈内:推迟关闭,避免后续路由
         // 打到已销毁的窗口刷 "PlatformImpl is null" 警告。
-        viewModel.LoginCommand.Subscribe(result => this.PostClose(result));
-        viewModel.CancelCommand.Subscribe(result => this.PostClose(result));
+        viewModel.LoginCommand.Subscribe(this.PostClose);
+        viewModel.CancelCommand.Subscribe(this.PostClose);
     }
 
     /// <summary>Esc 等价于点击取消:经 CancelCommand 走与取消按钮完全相同的关闭路径(结果为 null)。</summary>

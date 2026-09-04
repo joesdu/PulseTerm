@@ -71,7 +71,7 @@ public class HeadlessUiTests
     {
         var themeService = new ThemeService();
         var events = new List<string>();
-        themeService.ThemeChanged += name => events.Add(name);
+        themeService.ThemeChanged += events.Add;
         themeService.SetTheme("light");
         themeService.SetTheme("dark");
         themeService.SetTheme("light");

@@ -10,10 +10,7 @@ namespace VelaShell.Views.Settings;
 public partial class AppearanceSettingsPage : UserControl
 {
     /// <summary>初始化外观设置页并加载 XAML 组件。</summary>
-    public AppearanceSettingsPage()
-    {
-        InitializeComponent();
-    }
+    public AppearanceSettingsPage() => InitializeComponent();
 
     /// <summary>“浏览…”:选一张本地图片作为应用背景;写入 Appearance.BackgroundImagePath(触发即时预览与保存)。</summary>
     private async void PickBackgroundImage_Click(object? sender, RoutedEventArgs e)

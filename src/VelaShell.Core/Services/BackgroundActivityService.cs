@@ -67,7 +67,6 @@ public sealed class BackgroundActivityService : IBackgroundActivityService, IDis
     private readonly List<Entry> _entries = [];
     private readonly Lock _gate = new();
     private readonly Timer _coalesce;
-    private IReadOnlyList<BackgroundActivitySnapshot> _snapshot = [];
     private long _nextId;
     private bool _coalescePending;
     private bool _disposed;
@@ -84,10 +83,12 @@ public sealed class BackgroundActivityService : IBackgroundActivityService, IDis
         {
             lock (_gate)
             {
-                return _snapshot;
+                return field;
             }
         }
-    }
+
+        private set;
+    } = [];
 
     /// <inheritdoc />
     public event Action? Changed;
@@ -121,7 +122,7 @@ public sealed class BackgroundActivityService : IBackgroundActivityService, IDis
             }
             _disposed = true;
             _entries.Clear();
-            _snapshot = [];
+            Activities = [];
         }
         _coalesce.Dispose();
     }
@@ -131,7 +132,7 @@ public sealed class BackgroundActivityService : IBackgroundActivityService, IDis
 
     /// <summary>在锁内重建不可变快照。</summary>
     private void Rebuild() =>
-        _snapshot = [.. _entries.Select(e => new BackgroundActivitySnapshot(e.Id, e.Title, e.Detail, e.Progress))];
+        Activities = [.. _entries.Select(e => new BackgroundActivitySnapshot(e.Id, e.Title, e.Detail, e.Progress))];
 
     private void Remove(Entry entry)
     {

@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using Avalonia.Controls;
 using Microsoft.Extensions.AI;
 
@@ -44,10 +43,6 @@ public partial class ChatPanelView
     }
 
     /// <summary>删除这条用户消息及其之后的一切。</summary>
-    [SuppressMessage("Performance", "CA1859:使用具体类型以提高性能",
-        Justification = "把 Task<bool> 当 Task 返回本就是零成本的引用向上转换,没有装箱也没有包装;" +
-                        "而改成 Task<bool> 等于对外声明一个没有任何调用方在意的返回值。" +
-                        "本方法是点击处理器,一次交互调一次。")]
     private Task DeleteFromAsync(Control bubble) => TruncateAtAsync(bubble);
 
     /// <summary>

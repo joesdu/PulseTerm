@@ -12,10 +12,7 @@ namespace VelaShell.Views.Settings;
 public partial class KeyManagementPage : UserControl
 {
     /// <summary>初始化密钥管理设置页并加载 XAML 组件。</summary>
-    public KeyManagementPage()
-    {
-        InitializeComponent();
-    }
+    public KeyManagementPage() => InitializeComponent();
 
     private async void ImportKey_Click(object? sender, RoutedEventArgs e)
     {

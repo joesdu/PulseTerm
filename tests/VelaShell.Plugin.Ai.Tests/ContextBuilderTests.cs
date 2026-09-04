@@ -115,11 +115,9 @@ public sealed class ContextBuilderTests
     }
 
     [TestMethod]
-    public void Estimate_CountsWideCharactersHeavierThanAscii()
-    {
+    public void Estimate_CountsWideCharactersHeavierThanAscii() =>
         // 同样 12 个字符:ASCII 约 3 token,中文约 8 token
         Assert.IsLessThan(ContextBuilder.Estimate("你好世界你好世界你好世界"), ContextBuilder.Estimate("abcdefghijkl"));
-    }
 
     [TestMethod]
     public void Estimate_IncludesToolCallsAndResults()

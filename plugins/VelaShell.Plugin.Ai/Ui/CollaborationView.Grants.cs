@@ -143,20 +143,29 @@ public partial class CollaborationView
         Grid.SetColumn(remove, 2);
         head.Children.Add(remove);
 
-        var scope = new ComboBox { MinWidth = 190 };
-        scope.ItemsSource = new[] { _loc["ScopeAll"], _loc["ScopeLimited"] };
-        scope.SelectedIndex = grant.Scope.IsUnrestricted ? 0 : 1;
-
-        var mode = new ComboBox { MinWidth = 130 };
-        mode.ItemsSource = new[] { _loc["GrantFollowGlobal"], _loc["ModeChat"], _loc["ModePlan"], _loc["ModeAgent"] };
-        mode.SelectedIndex = grant.Mode is { } m ? (int)m + 1 : 0;
-
-        var approval = new ComboBox { MinWidth = 130 };
-        approval.ItemsSource = new[]
+        var scope = new ComboBox
         {
-            _loc["GrantFollowGlobal"], _loc["ApprovalAsk"], _loc["ApprovalReadOnly"], _loc["ApprovalBypass"]
+            MinWidth = 190,
+            ItemsSource = new[] { _loc["ScopeAll"], _loc["ScopeLimited"] },
+            SelectedIndex = grant.Scope.IsUnrestricted ? 0 : 1
         };
-        approval.SelectedIndex = grant.Approval is { } a ? (int)a + 1 : 0;
+
+        var mode = new ComboBox
+        {
+            MinWidth = 130,
+            ItemsSource = new[] { _loc["GrantFollowGlobal"], _loc["ModeChat"], _loc["ModePlan"], _loc["ModeAgent"] },
+            SelectedIndex = grant.Mode is { } m ? (int)m + 1 : 0
+        };
+
+        var approval = new ComboBox
+        {
+            MinWidth = 130,
+            ItemsSource = new[]
+            {
+                _loc["GrantFollowGlobal"], _loc["ApprovalAsk"], _loc["ApprovalReadOnly"], _loc["ApprovalBypass"]
+            },
+            SelectedIndex = grant.Approval is { } a ? (int)a + 1 : 0
+        };
 
         var controls = new WrapPanel { ItemSpacing = 12, LineSpacing = 8, Margin = new Thickness(0, 8, 0, 0) };
         controls.Children.Add(Labelled(_loc["ScopeLabel"], scope));

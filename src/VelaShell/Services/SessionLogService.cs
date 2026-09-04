@@ -81,10 +81,7 @@ public sealed class SessionLogWriter : IDisposable
 
     /// <summary>以追加模式打开日志文件,准备写入会话原始输出。</summary>
     /// <param name="path">日志文件的完整路径。</param>
-    internal SessionLogWriter(string path)
-    {
-        _stream = new(path, FileMode.Append, FileAccess.Write, FileShare.Read);
-    }
+    internal SessionLogWriter(string path) => _stream = new(path, FileMode.Append, FileAccess.Write, FileShare.Read);
 
     /// <summary>刷新并关闭底层日志文件流。</summary>
     public void Dispose()

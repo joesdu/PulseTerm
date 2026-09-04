@@ -100,7 +100,7 @@ public sealed class SessionTreeStatusFromTabsTests
     [TestMethod]
     public async Task OtherProfileTabs_DoNotAffectNode()
     {
-        (MainWindowViewModel vm, SessionProfile profile, SessionTreeNodeViewModel node) =
+        (MainWindowViewModel vm, _, SessionTreeNodeViewModel node) =
             await CreateLoadedAsync();
 
         vm.TabBar.AddTab(CreateTab(new SessionProfile { Id = Guid.NewGuid(), Name = "other" }, SessionStatus.Connected));

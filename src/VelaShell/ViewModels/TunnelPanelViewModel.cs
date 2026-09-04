@@ -331,7 +331,11 @@ public class TunnelPanelViewModel : ReactiveObject, IDisposable
         {
             SelectedServer = preferred;
         }
-        else SelectedServer ??= Servers.FirstOrDefault();
+        else
+        {
+            SelectedServer ??= Servers.FirstOrDefault();
+        }
+
         RefreshServerStatus();
     }
 

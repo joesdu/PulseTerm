@@ -20,10 +20,7 @@ public class LucideIcon : Control
     public static readonly StyledProperty<IBrush?> ForegroundProperty =
         AvaloniaProperty.Register<LucideIcon, IBrush?>(nameof(Foreground));
 
-    static LucideIcon()
-    {
-        AffectsRender<LucideIcon>(DataProperty, ForegroundProperty);
-    }
+    static LucideIcon() => AffectsRender<LucideIcon>(DataProperty, ForegroundProperty);
 
     /// <summary>要绘制的 lucide 路径几何(以其原生 24×24 视图框为准)。</summary>
     public Geometry? Data

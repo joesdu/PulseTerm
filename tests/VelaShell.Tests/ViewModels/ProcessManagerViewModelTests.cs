@@ -12,10 +12,7 @@ public class ProcessManagerViewModelTests
     private readonly FakeProcessService _service = new();
     private readonly ProcessManagerViewModel _vm;
 
-    public ProcessManagerViewModelTests()
-    {
-        _vm = new(_service, Guid.NewGuid(), "生产数据库");
-    }
+    public ProcessManagerViewModelTests() => _vm = new(_service, Guid.NewGuid(), "生产数据库");
 
     [TestMethod]
     public async Task Refresh_WithoutData_KeepsThePlaceholderVisible()

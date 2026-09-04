@@ -31,10 +31,7 @@ public sealed class ChartSeries : Control
     public static readonly StyledProperty<bool> MirrorProperty =
         AvaloniaProperty.Register<ChartSeries, bool>(nameof(Mirror));
 
-    static ChartSeries()
-    {
-        AffectsRender<ChartSeries>(ValuesProperty, StrokeProperty, FillProperty, StrokeThicknessProperty, MirrorProperty);
-    }
+    static ChartSeries() => AffectsRender<ChartSeries>(ValuesProperty, StrokeProperty, FillProperty, StrokeThicknessProperty, MirrorProperty);
 
     /// <inheritdoc cref="ValuesProperty" />
     public IReadOnlyList<double>? Values

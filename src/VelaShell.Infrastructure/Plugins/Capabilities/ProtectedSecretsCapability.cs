@@ -111,7 +111,7 @@ internal sealed class ProtectedSecretsCapability(string dataDirectory, ISecretPr
 internal sealed class UnavailableSecrets : ISecretsApi
 {
     private static InvalidOperationException Unavailable() =>
-        new InvalidOperationException("Secrets capability is unavailable in this host (no secret protector).");
+        new("Secrets capability is unavailable in this host (no secret protector).");
 
     public Task<string?> GetAsync(string name, CancellationToken cancellationToken = default) => Task.FromException<string?>(Unavailable());
     public Task SetAsync(string name, string value, CancellationToken cancellationToken = default) => Task.FromException(Unavailable());
@@ -122,7 +122,7 @@ internal sealed class UnavailableSecrets : ISecretsApi
 internal sealed class UnavailableClipboard : PluginSdk.Clipboard.IClipboardApi
 {
     private static InvalidOperationException Unavailable() =>
-        new InvalidOperationException("Clipboard capability is unavailable in this host.");
+        new("Clipboard capability is unavailable in this host.");
 
     public Task<string?> GetTextAsync(CancellationToken cancellationToken = default) => Task.FromException<string?>(Unavailable());
     public Task SetTextAsync(string text, CancellationToken cancellationToken = default) => Task.FromException(Unavailable());
@@ -132,7 +132,7 @@ internal sealed class UnavailableClipboard : PluginSdk.Clipboard.IClipboardApi
 internal sealed class UnavailableTerminal : PluginSdk.Terminal.ITerminalApi
 {
     private static InvalidOperationException Unavailable() =>
-        new InvalidOperationException("Terminal capability is unavailable in this host.");
+        new("Terminal capability is unavailable in this host.");
 
     public Task<string> GetOutputAsync(string sessionId, int maxLines = 1000, CancellationToken cancellationToken = default)
         => Task.FromException<string>(Unavailable());

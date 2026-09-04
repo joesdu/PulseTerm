@@ -7,10 +7,7 @@ namespace VelaShell.Views.Settings;
 public partial class SyncPage : UserControl
 {
     /// <summary>初始化同步设置页并加载 XAML 组件。</summary>
-    public SyncPage()
-    {
-        InitializeComponent();
-    }
+    public SyncPage() => InitializeComponent();
 
     /// <summary>指引卡片中的链接:Tag 即 URL,点击在系统默认浏览器打开。</summary>
     private async void OpenLink_PointerPressed(object? sender, PointerPressedEventArgs e)

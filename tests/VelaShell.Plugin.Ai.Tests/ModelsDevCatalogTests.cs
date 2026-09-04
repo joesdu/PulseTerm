@@ -176,11 +176,9 @@ public sealed class ModelsDevCatalogTests
     }
 
     [TestMethod]
-    public void Parse_KeepsBetaModels()
-    {
+    public void Parse_KeepsBetaModels() =>
         // beta 是能用的,别跟着 deprecated 一起筛掉
         Assert.Contains(m => m.Id == "gpt-5.6-beta", ModelsDevCatalog.Parse(NoisyShape)["openai"]);
-    }
 
     [TestMethod]
     public void Parse_DropsModelsThatCannotProduceChatOutput()
@@ -329,11 +327,9 @@ public sealed class ModelsDevCatalogTests
     }
 
     [TestMethod]
-    public void ChooseDefault_FallsBackToTheFirstWhenNothingIsEvenClose()
-    {
+    public void ChooseDefault_FallsBackToTheFirstWhenNothingIsEvenClose() =>
         // 前缀只对上两三个字母说明根本不是一族,别硬凑
         Assert.AreEqual("aardvark", ModelsDevCatalog.ChooseDefault("zzz-9", Specs("aardvark", "beta"))!.Id);
-    }
 
     [TestMethod]
     public void ChooseDefault_WithNothingPulled_IsNull()

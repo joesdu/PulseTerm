@@ -77,17 +77,11 @@ public class UpdateServiceTests : IDisposable
 
     [TestMethod]
     [TestCategory("Update")]
-    public void AvailableVersion_Initially_IsNull()
-    {
-        Assert.IsNull(CreateService().AvailableVersion);
-    }
+    public void AvailableVersion_Initially_IsNull() => Assert.IsNull(CreateService().AvailableVersion);
 
     [TestMethod]
     [TestCategory("Update")]
-    public void CanSelfUpdate_WritableTempDir_IsTrue()
-    {
-        Assert.IsTrue(CreateService().CanSelfUpdate);
-    }
+    public void CanSelfUpdate_WritableTempDir_IsTrue() => Assert.IsTrue(CreateService().CanSelfUpdate);
 
     [TestMethod]
     [TestCategory("Update")]
@@ -156,10 +150,7 @@ public class UpdateServiceTests : IDisposable
 
     [TestMethod]
     [TestCategory("Update")]
-    public async Task DownloadUpdateAsync_WithoutCheck_CompletesWithoutError()
-    {
-        await CreateService().DownloadUpdateAsync();
-    }
+    public async Task DownloadUpdateAsync_WithoutCheck_CompletesWithoutError() => await CreateService().DownloadUpdateAsync();
 
     [TestMethod]
     [TestCategory("Update")]
@@ -194,7 +185,7 @@ public class UpdateServiceTests : IDisposable
         string staging = Path.Combine(_appDir, UpdateApplier.StagingDirectoryName);
         Assert.IsEmpty(Directory.GetFiles(staging), "校验失败的下载必须删除");
         // 校验失败后不允许进入换版。
-        Assert.ThrowsExactly<InvalidOperationException>(() => service.ApplyUpdateAndRestart());
+        Assert.ThrowsExactly<InvalidOperationException>(service.ApplyUpdateAndRestart);
     }
 
     [TestMethod]
@@ -351,31 +342,19 @@ public class UpdateServiceTests : IDisposable
 
     [TestMethod]
     [TestCategory("Update")]
-    public void ApplyUpdateAndRestart_WithoutDownload_ThrowsInvalidOperation()
-    {
-        Assert.ThrowsExactly<InvalidOperationException>(() => CreateService().ApplyUpdateAndRestart());
-    }
+    public void ApplyUpdateAndRestart_WithoutDownload_ThrowsInvalidOperation() => Assert.ThrowsExactly<InvalidOperationException>(() => CreateService().ApplyUpdateAndRestart());
 
     [TestMethod]
     [TestCategory("Update")]
-    public void Constructor_WithNullSource_ThrowsArgumentNullException()
-    {
-        Assert.ThrowsExactly<ArgumentNullException>(() => _ = new UpdateService((IUpdateSource)null!));
-    }
+    public void Constructor_WithNullSource_ThrowsArgumentNullException() => Assert.ThrowsExactly<ArgumentNullException>(() => _ = new UpdateService((IUpdateSource)null!));
 
     [TestMethod]
     [TestCategory("Update")]
-    public void Constructor_WithInvalidRepositoryUrl_Throws()
-    {
-        Assert.ThrowsExactly<ArgumentException>(() => _ = new UpdateService("https://github.com/only-owner"));
-    }
+    public void Constructor_WithInvalidRepositoryUrl_Throws() => Assert.ThrowsExactly<ArgumentException>(() => _ = new UpdateService("https://github.com/only-owner"));
 
     [TestMethod]
     [TestCategory("Update")]
-    public void ImplementsIUpdateService()
-    {
-        Assert.IsInstanceOfType<IUpdateService>(CreateService());
-    }
+    public void ImplementsIUpdateService() => Assert.IsInstanceOfType<IUpdateService>(CreateService());
 
     /// <summary>同步回调的进度器(Progress&lt;T&gt; 经同步上下文投递,测试里改用直呼)。</summary>
     private sealed class SynchronousProgress(Action<int> handler) : IProgress<int>

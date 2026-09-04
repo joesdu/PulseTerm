@@ -48,10 +48,7 @@ public sealed class SettingsPreviewService : ISettingsPreviewService
     public event Action<int>? WindowOpacityPreviewRequested;
 
     /// <inheritdoc />
-    public void PreviewWindowOpacity(int percent)
-    {
-        WindowOpacityPreviewRequested?.Invoke(Math.Clamp(percent, 10, 100));
-    }
+    public void PreviewWindowOpacity(int percent) => WindowOpacityPreviewRequested?.Invoke(Math.Clamp(percent, 10, 100));
 
     /// <inheritdoc />
     public event Action<(int Image, int Content)>? BackgroundOpacityPreviewRequested;

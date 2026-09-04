@@ -31,7 +31,7 @@ public sealed class SessionImportViewModel : ReactiveObject
         RescanAllCommand = ReactiveCommand.CreateFromTask(RescanAllAsync, notBusy);
 
         IObservable<bool> canImport = this.WhenAnyValue(x => x.SelectedCount, x => x.IsBusy)
-            .Select(static t => t.Item1 > 0 && !t.Item2);
+            .Select(static t => t.Value1 > 0 && !t.Value2);
         ImportCommand = ReactiveCommand.CreateFromTask(ImportSelectedAsync, canImport);
 
         SelectAllCommand = ReactiveCommand.Create(() => SetAllSelected(true));

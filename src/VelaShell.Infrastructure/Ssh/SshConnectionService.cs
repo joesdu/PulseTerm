@@ -70,14 +70,12 @@ public class SshConnectionService(
     /// 根据连接信息异步建立一条新的 SSH 会话。建连过程在线程池中执行,
     /// 多条连接可并发建立,单条慢连接不会阻塞其它连接。
     /// </summary>
-    public Task<SshSession> ConnectAsync(ConnectionInfo connectionInfo, CancellationToken cancellationToken = default)
-    {
+    public Task<SshSession> ConnectAsync(ConnectionInfo connectionInfo, CancellationToken cancellationToken = default) =>
         // Tmds.Ssh 建连前的同步前缀(设置构建、凭据包装)均为纯内存操作(无 I/O),
         // 无需 Task.Run 调度;真正的网络 I/O 在 ConnectInternalAsync 的 await 里。
         // Task.Run(action, cancellationToken) 会导致外层任务取消时内层仍运行,
         // 产生大量未观察的异常并造成调试器输出洪流。
-        return ConnectInternalAsync(connectionInfo, cancellationToken);
-    }
+        ConnectInternalAsync(connectionInfo, cancellationToken);
 
     /// <summary>
     /// 异步断开指定标识的 SSH 会话,拆除底层网络连接并将会话状态置为已断开。

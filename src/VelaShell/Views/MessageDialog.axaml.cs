@@ -33,10 +33,7 @@ public enum MessageDialogKind
 public partial class MessageDialog : Window
 {
     /// <summary>供 XAML 加载器调用的无参构造:初始化可视化组件。</summary>
-    public MessageDialog()
-    {
-        InitializeComponent();
-    }
+    public MessageDialog() => InitializeComponent();
 
     /// <summary>纯消息:仅一个"确定"按钮。</summary>
     public static Task ShowMessageAsync(Window owner,

@@ -7,10 +7,7 @@ namespace VelaShell.Views.Settings;
 public partial class AboutPage : UserControl
 {
     /// <summary>初始化关于页并加载 XAML 组件。</summary>
-    public AboutPage()
-    {
-        InitializeComponent();
-    }
+    public AboutPage() => InitializeComponent();
 
     /// <summary>点击依赖项目名/许可证时,用系统默认浏览器打开对应链接(URL 存放在控件 Tag)。</summary>
     private async void OnOpenLink(object? sender, RoutedEventArgs e)

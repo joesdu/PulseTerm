@@ -115,10 +115,7 @@ public class TransferManagerTests
         Assert.AreEqual(5, manager.MaxConcurrentTransfers);
     }
 
-    private static TransferExecutor SlowExecutor(int delayMs = 2000)
-    {
-        return async (task, progress, ct) => { await Task.Delay(delayMs, ct); };
-    }
+    private static TransferExecutor SlowExecutor(int delayMs = 2000) => async (task, progress, ct) => { await Task.Delay(delayMs, ct); };
 
     private static TransferTask CreateTransferTask(TransferType type)
     {

@@ -10,10 +10,7 @@ public class LocalizationTests : IDisposable
 {
     private readonly CultureInfo _originalCulture;
 
-    public LocalizationTests()
-    {
-        _originalCulture = CultureInfo.CurrentUICulture;
-    }
+    public LocalizationTests() => _originalCulture = CultureInfo.CurrentUICulture;
 
     public void Dispose()
     {

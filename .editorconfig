@@ -1,7 +1,33 @@
+# ============================================================================
+# VelaShell .editorconfig
+#
+# 分成两部分:
+#   1. 「通用部分」—— 与仓库无关的现代 C#(C# 12 ~ C# 15 / .NET 11)风格,可以整段复制到新项目当默认配置。
+#   2. 「仓库特定」—— 只对本仓库成立的分析器取舍(文件末尾,带 banner)。
+#
+# 严重级别的用法(这决定了 IDE 提示、代码清理和构建三处各看到什么):
+#   warning    代码已经全部符合,新写的不符合就该被看见。构建里要生效需在 MSBuild 打开
+#              EnforceCodeStyleInBuild;IDE 里始终生效。
+#   suggestion 想逐步推进的现代化写法:IDE 里显示「…」提示,代码清理会自动套用。
+#   silent     交给代码清理去套用、但不想在编辑器里看见任何提示的偏好。
+#   none       对本仓库是错的规则,代码清理也不会碰。
+# 同一条规则同时给了 `选项 = 值:级别` 和 `dotnet_diagnostic.IDExxxx.severity`,两边级别必须一致:
+# 两者都在时谁优先取决于工具(VS 看选项后缀,dotnet format 看 dotnet_diagnostic,.NET 9+ 的
+# EnforceCodeStyleInBuild 构建看选项后缀),写成一样就不用关心。命名规则(IDE1006)例外:
+# 不在全局给它 dotnet_diagnostic,那会把每条命名规则各自的级别压成同一个;代价是命名只在 IDE 里查,
+# 不进构建。
+# ============================================================================
+
 root = true
+
+# ============================================================================
+# 通用部分
+# ============================================================================
 
 [*]
 charset = utf-8
+# 仓库以 LF 入库(.gitattributes text=auto)。Windows 上 core.autocrlf=true 的工作区会是 CRLF,
+# 这是 git 在签出时转换的结果,不是风格问题;不要为此改成 crlf。
 end_of_line = lf
 insert_final_newline = true
 trim_trailing_whitespace = true
@@ -9,57 +35,139 @@ trim_trailing_whitespace = true
 [*.{cs,csx,vb,vbx}]
 indent_style = space
 indent_size = 4
+tab_width = 4
 
-[*.{json,xml,axaml,xaml}]
+# XML 系(项目文件、Avalonia 视图、资源)与 JSON 统一 2 空格:嵌套深,4 空格很快就顶到右边。
+[*.{json,jsonc,xml,axaml,xaml,resx,csproj,props,targets,slnx,nuspec,config,runsettings,manifest}]
 indent_style = space
 indent_size = 2
 
-# C# Code Style
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+
+# Markdown 的行尾两个空格是硬换行,不能被 trim 掉。
+[*.md]
+trim_trailing_whitespace = false
+
+# 老式 .sln 由 VS 生成,用 Tab。
+[*.sln]
+indent_style = tab
+
+# 在 Linux runner 上执行的脚本必须是 LF,否则 shebang 变成 "/usr/bin/env^M"(与 .gitattributes 一致)。
+[*.{sh,spec,spec.in}]
+end_of_line = lf
+
+[AppRun]
+end_of_line = lf
+
+# Windows PowerShell 5.1 把无 BOM 的 .ps1 当 ANSI 读,非 ASCII 字符串直接乱码报错;pwsh 7 两者都认。
+[*.{ps1,psm1,psd1}]
+charset = utf-8-bom
+end_of_line = crlf
+
+[*.{cmd,bat}]
+end_of_line = crlf
+
+# ----------------------------------------------------------------------------
+# C# —— 语言与表达式风格
+# ----------------------------------------------------------------------------
 [*.cs]
-# Organize usings
+
+# ---- using 与命名空间 ----
 dotnet_sort_system_directives_first = true
 dotnet_separate_import_directive_groups = false
+csharp_using_directive_placement = outside_namespace:warning
+# 文件范围命名空间是 C# 10 起的默认形态;整仓已是如此,退回块作用域只会多一层缩进。
+csharp_style_namespace_declarations = file_scoped:warning
+# 命名空间与目录对应关系由人来定(插件目录、测试夹具都有例外),不让分析器改名。
+dotnet_style_namespace_match_folder = false
 
-# this. preferences
-dotnet_style_qualification_for_field = false:suggestion
-dotnet_style_qualification_for_property = false:suggestion
-dotnet_style_qualification_for_method = false:suggestion
-dotnet_style_qualification_for_event = false:suggestion
+# ---- this. 与内置类型 ----
+# 扩展方法调用(this.RaiseAndSetIfChanged / this.WhenAnyValue)语法上必须带 this,分析器不会碰它们。
+dotnet_style_qualification_for_field = false:warning
+dotnet_style_qualification_for_property = false:warning
+dotnet_style_qualification_for_method = false:warning
+dotnet_style_qualification_for_event = false:warning
+dotnet_style_predefined_type_for_locals_parameters_members = true:warning
+dotnet_style_predefined_type_for_member_access = true:warning
 
-# Language keywords vs BCL types preferences
-dotnet_style_predefined_type_for_locals_parameters_members = true:suggestion
-dotnet_style_predefined_type_for_member_access = true:suggestion
-
-# Parentheses preferences
+# ---- 括号 ----
+# 混合运算符时保留澄清用的括号;IDE0047 在仓库里已 NoWarn,保持 silent 免得两边打架。
 dotnet_style_parentheses_in_arithmetic_binary_operators = always_for_clarity:silent
 dotnet_style_parentheses_in_other_binary_operators = always_for_clarity:silent
 dotnet_style_parentheses_in_relational_binary_operators = always_for_clarity:silent
 dotnet_style_parentheses_in_other_operators = never_if_unnecessary:silent
 
-# Expression-level preferences
+# ---- 修饰符 ----
+dotnet_style_require_accessibility_modifiers = for_non_interface_members:warning
+dotnet_style_readonly_field = true:warning
+# 顺序取自 Roslyn 默认,含 C# 11 的 file/required 与 C# 15 的 closed。
+csharp_preferred_modifier_order = public,private,protected,internal,file,static,extern,new,virtual,abstract,closed,sealed,override,readonly,unsafe,required,volatile,async:warning
+csharp_prefer_static_local_function = true:warning
+# 不捕获任何东西的 lambda 标成 static,避免误捕获 this;逐步推进。
+csharp_prefer_static_anonymous_function = true:suggestion
+csharp_style_prefer_readonly_struct = true:warning
+csharp_style_prefer_readonly_struct_member = true:warning
+
+# ---- 表达式级偏好 ----
 dotnet_style_object_initializer = true:suggestion
 dotnet_style_collection_initializer = true:suggestion
+# 集合表达式(C# 12)是整仓的主写法;loosely_match 让 List<T> 字段也能用 [] 初始化。
+dotnet_style_prefer_collection_expression = when_types_loosely_match:suggestion
 dotnet_style_explicit_tuple_names = true:suggestion
 dotnet_style_prefer_inferred_tuple_names = true:suggestion
 dotnet_style_prefer_inferred_anonymous_type_member_names = true:suggestion
 dotnet_style_prefer_auto_properties = true:suggestion
-dotnet_style_prefer_conditional_expression_over_assignment = true:silent
-dotnet_style_prefer_conditional_expression_over_return = true:silent
+dotnet_style_prefer_simplified_boolean_expressions = true:suggestion
+dotnet_style_prefer_simplified_interpolation = true:suggestion
 dotnet_style_prefer_compound_assignment = true:suggestion
+# if/else 换三元是口味问题:仓库里 100+ 处 return 分支刻意写成 if/else,不让分析器和清理碰。
+dotnet_style_prefer_conditional_expression_over_assignment = false:silent
+dotnet_style_prefer_conditional_expression_over_return = false:silent
+# foreach 里的隐式向下转型看不见,强类型集合上禁止依赖它。
+dotnet_style_prefer_foreach_explicit_cast_in_source = when_strongly_typed:warning
+csharp_style_implicit_object_creation_when_type_is_apparent = true:warning
+csharp_style_inlined_variable_declaration = true:warning
+csharp_prefer_simple_default_expression = true:warning
+csharp_style_prefer_local_over_anonymous_function = true:suggestion
+csharp_style_deconstructed_variable_declaration = true:suggestion
+csharp_style_prefer_index_operator = true:suggestion
+csharp_style_prefer_range_operator = true:suggestion
+csharp_style_prefer_tuple_swap = true:warning
+csharp_style_prefer_utf8_string_literals = true:warning
+csharp_style_unused_value_assignment_preference = discard_variable:suggestion
+# 丢弃未用返回值(`_ = list.Remove(x);`)整仓有 2400+ 处会被改写,纯噪声,关掉。
+csharp_style_unused_value_expression_statement_preference = discard_variable:none
+# 不需要的 lambda 包装(x => Foo(x))直接写方法组。
+csharp_style_prefer_method_group_conversion = true:suggestion
+# C# 14:lambda 参数带 ref/out/in 修饰符时可以省类型;C# 14:nameof(List<>)。
+csharp_style_prefer_implicitly_typed_lambda_expression = true:suggestion
+csharp_style_prefer_unbound_generic_type_in_nameof = true:suggestion
+# C# 14:能用 field 关键字化简的属性访问器(IDE0360)。
+csharp_style_prefer_simple_property_accessors = true:suggestion
+# 预览语言特性:带标签的 break/continue 替代 goto(IDE0410);语言版本不支持时分析器不会触发。
+csharp_style_prefer_labeled_jump_statements = true:suggestion
+dotnet_prefer_system_hash_code = true:suggestion
 
-# Null-checking preferences
-dotnet_style_coalesce_expression = true:suggestion
-dotnet_style_null_propagation = true:suggestion
-dotnet_style_prefer_is_null_check_over_reference_equality_method = true:suggestion
+# ---- null 检查 ----
+dotnet_style_coalesce_expression = true:warning
+dotnet_style_null_propagation = true:warning
+dotnet_style_prefer_is_null_check_over_reference_equality_method = true:warning
+csharp_style_throw_expression = true:warning
+csharp_style_conditional_delegate_call = true:warning
+csharp_style_prefer_null_check_over_type_check = true:warning
 
-# var preferences
+# ---- var ----
+# 内置类型与右侧看不出类型时写明类型,右侧已经是 new/强转/字面量时用 var。
 csharp_style_var_for_built_in_types = false:suggestion
 csharp_style_var_when_type_is_apparent = true:suggestion
 csharp_style_var_elsewhere = false:suggestion
 
-# Expression-bodied members
+# ---- 表达式体成员 ----
+# 一行放得下就用 =>。只让清理套用,不提示。
 csharp_style_expression_bodied_methods = when_on_single_line:silent
-csharp_style_expression_bodied_constructors = false:silent
+csharp_style_expression_bodied_constructors = when_on_single_line:silent
 csharp_style_expression_bodied_operators = when_on_single_line:silent
 csharp_style_expression_bodied_properties = when_on_single_line:silent
 csharp_style_expression_bodied_indexers = when_on_single_line:silent
@@ -67,63 +175,299 @@ csharp_style_expression_bodied_accessors = when_on_single_line:silent
 csharp_style_expression_bodied_lambdas = when_on_single_line:silent
 csharp_style_expression_bodied_local_functions = when_on_single_line:silent
 
-# Pattern matching preferences
-csharp_style_pattern_matching_over_is_with_cast_check = true:suggestion
-csharp_style_pattern_matching_over_as_with_null_check = true:suggestion
+# ---- 模式匹配 ----
+csharp_style_pattern_matching_over_is_with_cast_check = true:warning
+csharp_style_pattern_matching_over_as_with_null_check = true:warning
+csharp_style_prefer_switch_expression = true:suggestion
+csharp_style_prefer_pattern_matching = true:suggestion
+csharp_style_prefer_not_pattern = true:warning
+csharp_style_prefer_extended_property_pattern = true:warning
 
-# Inlined variable declarations
-csharp_style_inlined_variable_declaration = true:suggestion
+# ---- 代码块 ----
+# 单语句体允许省花括号(`if (x) return;` 是仓库惯用写法),跨多行的语句体必须加。
+csharp_prefer_braces = when_multiline:silent
+csharp_prefer_simple_using_statement = true:warning
+# lock 语句一律用 System.Threading.Lock(C# 13),object 锁没有作用域检查。
+csharp_prefer_system_threading_lock = true:warning
+# 只做参数捕获的构造函数改主构造函数(C# 12);已有 350+ 处,余下的逐步推进。
+csharp_style_prefer_primary_constructors = true:suggestion
+# 顶级语句只在新建控制台程序时有意义,静默;已有显式 Main 的项目不受影响。
+csharp_style_prefer_top_level_statements = true:silent
 
-# C# expression-level preferences
-csharp_prefer_simple_default_expression = true:suggestion
+# ---- 参数与成员的使用情况 ----
+dotnet_code_quality_unused_parameters = all:suggestion
+dotnet_remove_unnecessary_suppression_exclusions = none
 
-# C# null-checking preferences
-csharp_style_throw_expression = true:suggestion
-csharp_style_conditional_delegate_call = true:suggestion
+# ---- 文件头 ----
+file_header_template = unset
 
-# Code block preferences
-csharp_prefer_braces = true:silent
+# ----------------------------------------------------------------------------
+# C# —— 排版(csharp_* 格式化选项,由 IDE0055 / 代码清理「设置文档格式」执行)
+# ----------------------------------------------------------------------------
+# 换行:Allman 风格,所有花括号独占一行。
+csharp_new_line_before_open_brace = all
+csharp_new_line_before_else = true
+csharp_new_line_before_catch = true
+csharp_new_line_before_finally = true
+csharp_new_line_before_members_in_object_initializers = true
+csharp_new_line_before_members_in_anonymous_types = true
+csharp_new_line_between_query_expression_clauses = true
 
-# Modifier preferences
-csharp_prefer_static_local_function = true:suggestion
-csharp_preferred_modifier_order = public,private,protected,internal,static,extern,new,virtual,abstract,sealed,override,readonly,unsafe,volatile,async:suggestion
+# 缩进
+csharp_indent_case_contents = true
+csharp_indent_switch_labels = true
+csharp_indent_labels = one_less_than_current
+csharp_indent_block_contents = true
+csharp_indent_braces = false
+csharp_indent_case_contents_when_block = true
 
-# Naming conventions
-dotnet_naming_rule.interface_should_be_begins_with_i.severity = suggestion
-dotnet_naming_rule.interface_should_be_begins_with_i.symbols = interface
-dotnet_naming_rule.interface_should_be_begins_with_i.style = begins_with_i
+# 空格
+csharp_space_after_cast = false
+csharp_space_after_keywords_in_control_flow_statements = true
+csharp_space_between_parentheses = false
+csharp_space_before_colon_in_inheritance_clause = true
+csharp_space_after_colon_in_inheritance_clause = true
+csharp_space_around_binary_operators = before_and_after
+csharp_space_between_method_declaration_parameter_list_parentheses = false
+csharp_space_between_method_declaration_empty_parameter_list_parentheses = false
+csharp_space_between_method_declaration_name_and_open_parenthesis = false
+csharp_space_between_method_call_parameter_list_parentheses = false
+csharp_space_between_method_call_empty_parameter_list_parentheses = false
+csharp_space_between_method_call_name_and_opening_parenthesis = false
+csharp_space_after_comma = true
+csharp_space_before_comma = false
+csharp_space_after_dot = false
+csharp_space_before_dot = false
+csharp_space_after_semicolon_in_for_statement = true
+csharp_space_before_semicolon_in_for_statement = false
+csharp_space_around_declaration_statements = false
+csharp_space_before_open_square_brackets = false
+csharp_space_between_empty_square_brackets = false
+csharp_space_between_square_brackets = false
 
-dotnet_naming_rule.types_should_be_pascal_case.severity = suggestion
-dotnet_naming_rule.types_should_be_pascal_case.symbols = types
-dotnet_naming_rule.types_should_be_pascal_case.style = pascal_case
+# 换行保留:{ get; set; } 这类单行块保留;`try { x(); } catch { }`、`if (...) return;` 这类刻意写成一行的语句也保留,
+# 设成 false 会把整仓 140 多处这种写法强行拆行。
+csharp_preserve_single_line_statements = true
+csharp_preserve_single_line_blocks = true
+# 长条件折行时运算符放行首,一眼看出这一行是接上一行的。
+dotnet_style_operator_placement_when_wrapping = beginning_of_line
 
-dotnet_naming_rule.non_field_members_should_be_pascal_case.severity = suggestion
-dotnet_naming_rule.non_field_members_should_be_pascal_case.symbols = non_field_members
-dotnet_naming_rule.non_field_members_should_be_pascal_case.style = pascal_case
+# 空行纪律(IDE2000-IDE2006)。多余空行让清理删掉;`=>` 后换行(680+ 处)与单行嵌入语句是仓库惯用写法,放行。
+dotnet_style_allow_multiple_blank_lines_experimental = false:suggestion
+dotnet_style_allow_statement_immediately_after_block_experimental = true:silent
+csharp_style_allow_embedded_statements_on_same_line_experimental = true:silent
+csharp_style_allow_blank_lines_between_consecutive_braces_experimental = false:silent
+csharp_style_allow_blank_line_after_colon_in_constructor_initializer_experimental = false:silent
+csharp_style_allow_blank_line_after_token_in_conditional_expression_experimental = false:silent
+csharp_style_allow_blank_line_after_token_in_arrow_expression_clause_experimental = true:silent
 
-# Symbol specifications
-dotnet_naming_symbols.interface.applicable_kinds = interface
-dotnet_naming_symbols.interface.applicable_accessibilities = public, internal, private, protected, protected_internal, private_protected
-dotnet_naming_symbols.interface.required_modifiers = 
+# ----------------------------------------------------------------------------
+# C# —— 命名(IDE1006)。规则按书写顺序匹配,先具体后宽泛。
+# ----------------------------------------------------------------------------
+# 接口 IFoo
+dotnet_naming_rule.interfaces_begin_with_i.severity = warning
+dotnet_naming_rule.interfaces_begin_with_i.symbols = interfaces
+dotnet_naming_rule.interfaces_begin_with_i.style = begins_with_i
+# 类型参数 TFoo
+dotnet_naming_rule.type_parameters_begin_with_t.severity = warning
+dotnet_naming_rule.type_parameters_begin_with_t.symbols = type_parameters
+dotnet_naming_rule.type_parameters_begin_with_t.style = begins_with_t
+# 类型 PascalCase
+dotnet_naming_rule.types_pascal_case.severity = warning
+dotnet_naming_rule.types_pascal_case.symbols = types
+dotnet_naming_rule.types_pascal_case.style = pascal_case
+# 常量字段 PascalCase(任何可见性)。局部 const 归局部变量规则管:仓库里 `const double kb = 1024` 这类写法是 camelCase。
+dotnet_naming_rule.constants_pascal_case.severity = warning
+dotnet_naming_rule.constants_pascal_case.symbols = constants
+dotnet_naming_rule.constants_pascal_case.style = pascal_case
+# 私有 static readonly 字段 PascalCase —— 它们在用法上等同常量(Timeout、Gate、DefaultTypeface)
+dotnet_naming_rule.private_static_readonly_fields_pascal_case.severity = warning
+dotnet_naming_rule.private_static_readonly_fields_pascal_case.symbols = private_static_readonly_fields
+dotnet_naming_rule.private_static_readonly_fields_pascal_case.style = pascal_case
+# 其余私有/内部字段 _camelCase
+dotnet_naming_rule.private_fields_underscore_camel_case.severity = warning
+dotnet_naming_rule.private_fields_underscore_camel_case.symbols = private_fields
+dotnet_naming_rule.private_fields_underscore_camel_case.style = underscore_camel_case
+# 公开字段 PascalCase(Avalonia 的 StyledProperty / AttachedProperty 就是这类)
+dotnet_naming_rule.public_fields_pascal_case.severity = warning
+dotnet_naming_rule.public_fields_pascal_case.symbols = public_fields
+dotnet_naming_rule.public_fields_pascal_case.style = pascal_case
+# 属性 / 方法 / 事件 PascalCase
+dotnet_naming_rule.members_pascal_case.severity = warning
+dotnet_naming_rule.members_pascal_case.symbols = members
+dotnet_naming_rule.members_pascal_case.style = pascal_case
+# 局部函数 PascalCase
+dotnet_naming_rule.local_functions_pascal_case.severity = suggestion
+dotnet_naming_rule.local_functions_pascal_case.symbols = local_functions
+dotnet_naming_rule.local_functions_pascal_case.style = pascal_case
+# 局部变量与参数 camelCase
+dotnet_naming_rule.locals_and_parameters_camel_case.severity = suggestion
+dotnet_naming_rule.locals_and_parameters_camel_case.symbols = locals_and_parameters
+dotnet_naming_rule.locals_and_parameters_camel_case.style = camel_case
 
-dotnet_naming_symbols.types.applicable_kinds = class, struct, interface, enum
-dotnet_naming_symbols.types.applicable_accessibilities = public, internal, private, protected, protected_internal, private_protected
-dotnet_naming_symbols.types.required_modifiers = 
+# 符号
+dotnet_naming_symbols.interfaces.applicable_kinds = interface
+dotnet_naming_symbols.interfaces.applicable_accessibilities = *
+dotnet_naming_symbols.type_parameters.applicable_kinds = type_parameter
+dotnet_naming_symbols.type_parameters.applicable_accessibilities = *
+dotnet_naming_symbols.types.applicable_kinds = class, struct, interface, enum, delegate
+dotnet_naming_symbols.types.applicable_accessibilities = *
+dotnet_naming_symbols.constants.applicable_kinds = field
+dotnet_naming_symbols.constants.applicable_accessibilities = *
+dotnet_naming_symbols.constants.required_modifiers = const
+dotnet_naming_symbols.private_static_readonly_fields.applicable_kinds = field
+dotnet_naming_symbols.private_static_readonly_fields.applicable_accessibilities = private, internal, private_protected
+dotnet_naming_symbols.private_static_readonly_fields.required_modifiers = static, readonly
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private, internal, private_protected
+dotnet_naming_symbols.public_fields.applicable_kinds = field
+dotnet_naming_symbols.public_fields.applicable_accessibilities = public, protected, protected_internal
+dotnet_naming_symbols.members.applicable_kinds = property, event, method
+dotnet_naming_symbols.members.applicable_accessibilities = *
+dotnet_naming_symbols.local_functions.applicable_kinds = local_function
+dotnet_naming_symbols.local_functions.applicable_accessibilities = *
+dotnet_naming_symbols.locals_and_parameters.applicable_kinds = local, parameter
+dotnet_naming_symbols.locals_and_parameters.applicable_accessibilities = *
 
-dotnet_naming_symbols.non_field_members.applicable_kinds = property, event, method
-dotnet_naming_symbols.non_field_members.applicable_accessibilities = public, internal, private, protected, protected_internal, private_protected
-dotnet_naming_symbols.non_field_members.required_modifiers = 
-
-# Naming styles
+# 样式
 dotnet_naming_style.begins_with_i.required_prefix = I
-dotnet_naming_style.begins_with_i.required_suffix = 
-dotnet_naming_style.begins_with_i.word_separator = 
 dotnet_naming_style.begins_with_i.capitalization = pascal_case
-
-dotnet_naming_style.pascal_case.required_prefix = 
-dotnet_naming_style.pascal_case.required_suffix = 
-dotnet_naming_style.pascal_case.word_separator = 
+dotnet_naming_style.begins_with_t.required_prefix = T
+dotnet_naming_style.begins_with_t.capitalization = pascal_case
 dotnet_naming_style.pascal_case.capitalization = pascal_case
+dotnet_naming_style.camel_case.capitalization = camel_case
+dotnet_naming_style.underscore_camel_case.required_prefix = _
+dotnet_naming_style.underscore_camel_case.capitalization = camel_case
+
+# ----------------------------------------------------------------------------
+# IDE 诊断级别 —— 给编译器(EnforceCodeStyleInBuild)与 dotnet format 看的那一份,
+# 与上面各选项的级别一一对应。没列的 IDE 规则保持 Roslyn 默认。
+# ----------------------------------------------------------------------------
+# 简化 / 清理类:代码里不该留下这些
+# 名称与成员访问的化简(System.Text.Json.JsonValueKind.Null → JsonValueKind.Null)不能进构建,只做提示;仓库里现存约 90 处。
+dotnet_diagnostic.IDE0001.severity = suggestion
+dotnet_diagnostic.IDE0002.severity = suggestion
+dotnet_diagnostic.IDE0004.severity = warning
+# 未用的 using —— 需要 GenerateDocumentationFile=true 才能在构建期报出,本仓库已开。
+dotnet_diagnostic.IDE0005.severity = warning
+dotnet_diagnostic.IDE0035.severity = warning
+dotnet_diagnostic.IDE0051.severity = warning
+dotnet_diagnostic.IDE0052.severity = warning
+dotnet_diagnostic.IDE0059.severity = suggestion
+dotnet_diagnostic.IDE0060.severity = suggestion
+dotnet_diagnostic.IDE0079.severity = suggestion
+dotnet_diagnostic.IDE0080.severity = warning
+dotnet_diagnostic.IDE0100.severity = warning
+dotnet_diagnostic.IDE0110.severity = warning
+dotnet_diagnostic.IDE0240.severity = warning
+dotnet_diagnostic.IDE0241.severity = warning
+# 风格类
+dotnet_diagnostic.IDE0003.severity = warning
+dotnet_diagnostic.IDE0009.severity = warning
+dotnet_diagnostic.IDE0007.severity = suggestion
+dotnet_diagnostic.IDE0008.severity = suggestion
+dotnet_diagnostic.IDE0010.severity = silent
+dotnet_diagnostic.IDE0011.severity = silent
+dotnet_diagnostic.IDE0016.severity = warning
+dotnet_diagnostic.IDE0017.severity = suggestion
+dotnet_diagnostic.IDE0018.severity = warning
+dotnet_diagnostic.IDE0019.severity = warning
+dotnet_diagnostic.IDE0020.severity = warning
+dotnet_diagnostic.IDE0021.severity = silent
+dotnet_diagnostic.IDE0022.severity = silent
+dotnet_diagnostic.IDE0023.severity = silent
+dotnet_diagnostic.IDE0024.severity = silent
+dotnet_diagnostic.IDE0025.severity = silent
+dotnet_diagnostic.IDE0026.severity = silent
+dotnet_diagnostic.IDE0027.severity = silent
+dotnet_diagnostic.IDE0028.severity = suggestion
+dotnet_diagnostic.IDE0029.severity = warning
+dotnet_diagnostic.IDE0030.severity = warning
+dotnet_diagnostic.IDE0031.severity = warning
+dotnet_diagnostic.IDE0032.severity = suggestion
+dotnet_diagnostic.IDE0033.severity = suggestion
+dotnet_diagnostic.IDE0034.severity = warning
+dotnet_diagnostic.IDE0036.severity = warning
+dotnet_diagnostic.IDE0037.severity = suggestion
+dotnet_diagnostic.IDE0038.severity = warning
+dotnet_diagnostic.IDE0039.severity = suggestion
+dotnet_diagnostic.IDE0040.severity = warning
+dotnet_diagnostic.IDE0041.severity = warning
+dotnet_diagnostic.IDE0042.severity = suggestion
+dotnet_diagnostic.IDE0044.severity = warning
+dotnet_diagnostic.IDE0045.severity = silent
+dotnet_diagnostic.IDE0046.severity = silent
+dotnet_diagnostic.IDE0047.severity = silent
+dotnet_diagnostic.IDE0048.severity = silent
+dotnet_diagnostic.IDE0049.severity = warning
+dotnet_diagnostic.IDE0053.severity = silent
+dotnet_diagnostic.IDE0054.severity = suggestion
+dotnet_diagnostic.IDE0055.severity = warning
+dotnet_diagnostic.IDE0056.severity = suggestion
+dotnet_diagnostic.IDE0057.severity = suggestion
+dotnet_diagnostic.IDE0058.severity = none
+dotnet_diagnostic.IDE0061.severity = silent
+dotnet_diagnostic.IDE0062.severity = warning
+dotnet_diagnostic.IDE0063.severity = warning
+dotnet_diagnostic.IDE0065.severity = warning
+dotnet_diagnostic.IDE0066.severity = suggestion
+dotnet_diagnostic.IDE0070.severity = suggestion
+dotnet_diagnostic.IDE0071.severity = suggestion
+dotnet_diagnostic.IDE0072.severity = silent
+dotnet_diagnostic.IDE0074.severity = suggestion
+dotnet_diagnostic.IDE0075.severity = suggestion
+dotnet_diagnostic.IDE0078.severity = suggestion
+dotnet_diagnostic.IDE0082.severity = suggestion
+dotnet_diagnostic.IDE0083.severity = warning
+dotnet_diagnostic.IDE0090.severity = warning
+dotnet_diagnostic.IDE0120.severity = suggestion
+dotnet_diagnostic.IDE0130.severity = none
+dotnet_diagnostic.IDE0150.severity = warning
+dotnet_diagnostic.IDE0160.severity = none
+dotnet_diagnostic.IDE0161.severity = warning
+dotnet_diagnostic.IDE0170.severity = warning
+dotnet_diagnostic.IDE0180.severity = warning
+dotnet_diagnostic.IDE0200.severity = suggestion
+dotnet_diagnostic.IDE0210.severity = silent
+dotnet_diagnostic.IDE0211.severity = none
+dotnet_diagnostic.IDE0220.severity = warning
+dotnet_diagnostic.IDE0230.severity = warning
+dotnet_diagnostic.IDE0250.severity = warning
+dotnet_diagnostic.IDE0251.severity = warning
+dotnet_diagnostic.IDE0260.severity = warning
+dotnet_diagnostic.IDE0270.severity = warning
+dotnet_diagnostic.IDE0280.severity = suggestion
+dotnet_diagnostic.IDE0290.severity = suggestion
+dotnet_diagnostic.IDE0300.severity = suggestion
+dotnet_diagnostic.IDE0301.severity = suggestion
+dotnet_diagnostic.IDE0302.severity = suggestion
+dotnet_diagnostic.IDE0303.severity = suggestion
+dotnet_diagnostic.IDE0304.severity = suggestion
+dotnet_diagnostic.IDE0305.severity = suggestion
+dotnet_diagnostic.IDE0306.severity = suggestion
+dotnet_diagnostic.IDE0320.severity = suggestion
+dotnet_diagnostic.IDE0330.severity = warning
+dotnet_diagnostic.IDE0340.severity = suggestion
+dotnet_diagnostic.IDE0350.severity = suggestion
+dotnet_diagnostic.IDE0360.severity = suggestion
+# 多余的 !、unsafe、async 修饰符(Roslyn 5.x 新增)。
+dotnet_diagnostic.IDE0370.severity = suggestion
+dotnet_diagnostic.IDE0380.severity = suggestion
+dotnet_diagnostic.IDE0390.severity = suggestion
+dotnet_diagnostic.IDE0391.severity = suggestion
+dotnet_diagnostic.IDE0410.severity = suggestion
+dotnet_diagnostic.IDE1005.severity = warning
+dotnet_diagnostic.IDE2000.severity = suggestion
+dotnet_diagnostic.IDE2001.severity = silent
+dotnet_diagnostic.IDE2002.severity = silent
+dotnet_diagnostic.IDE2003.severity = silent
+dotnet_diagnostic.IDE2004.severity = silent
+dotnet_diagnostic.IDE2005.severity = silent
+dotnet_diagnostic.IDE2006.severity = silent
+
+# ============================================================================
+# 仓库特定
+# ============================================================================
 
 # ============================================================================
 # 性能分析器(CA1xxx)
@@ -177,6 +521,13 @@ dotnet_diagnostic.CA1863.severity = none
 # 数组/Span 以避免拷贝(终端网格、协议缓冲)。
 dotnet_diagnostic.CA1819.severity = none
 
+# ---- Win32 互操作结构体 ------------------------------------------------------
+
+# STARTUPINFOEX / PROCESS_INFORMATION 的字段名(cb、lpReserved、dwX、hProcess…)与 WM_* 消息常量
+# 照抄 Windows SDK,对着文档能一眼对上;这几个文件不套命名规则。
+[{src/VelaShell.Infrastructure/Pty/ConPtyShellStream.cs,src/VelaShell/Views/Win32WindowChrome.cs,src/VelaShell/Views/WindowMoveDrag.cs,src/VelaShell.PluginHost/PluginHostShellWindow.cs}]
+dotnet_diagnostic.IDE1006.severity = none
+
 # ---- 测试项目的放宽 --------------------------------------------------------
 
 [tests/**.cs]
@@ -184,3 +535,5 @@ dotnet_diagnostic.CA1819.severity = none
 # Assert.AreSequenceEqual(new[] { "a", "b" }, actual) 就该这么写 —— 把期望值搬到类字段上,
 # 读的人要来回跳才能知道这条断言在比什么,而"重复调用重复分配"在只跑一次的用例里不存在。
 dotnet_diagnostic.CA1861.severity = none
+# 测试里的命名更自由(headless 会话助手 `_session` 属性、下划线分隔的用例名),只提示不告警。
+dotnet_diagnostic.IDE1006.severity = suggestion

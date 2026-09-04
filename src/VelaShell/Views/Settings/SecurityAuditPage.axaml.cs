@@ -12,10 +12,7 @@ namespace VelaShell.Views.Settings;
 public partial class SecurityAuditPage : UserControl
 {
     /// <summary>初始化安全审计设置页并加载 XAML 组件。</summary>
-    public SecurityAuditPage()
-    {
-        InitializeComponent();
-    }
+    public SecurityAuditPage() => InitializeComponent();
 
     /// <summary>打开会话录制回放中心(设计 NceE6),非模态独立窗口。</summary>
     private void OpenRecordingPlayer_Click(object? sender, RoutedEventArgs e)

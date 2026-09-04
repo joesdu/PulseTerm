@@ -15,10 +15,7 @@ public sealed class Utf8Sink(Encoding? encoding = null)
     /// <summary>
     /// 切换解码所用的字符编码,并重置解码器状态(丢弃任何未完成的多字节前缀)。
     /// </summary>
-    public void SetEncoding(Encoding encoding)
-    {
-        _decoder = CreateDecoder(encoding);
-    }
+    public void SetEncoding(Encoding encoding) => _decoder = CreateDecoder(encoding);
 
     private static Decoder CreateDecoder(Encoding? encoding)
     {
