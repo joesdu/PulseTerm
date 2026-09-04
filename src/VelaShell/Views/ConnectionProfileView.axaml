@@ -535,6 +535,40 @@
                     SelectedItem="{Binding SelectedJumpHost}" />
           <TextBlock Text="{loc:Localize Profile_JumpHostHint}"
                      Foreground="{DynamicResource VelaTextMuted}" FontSize="{DynamicResource VelaFontSize10}" TextWrapping="Wrap" />
+
+          <!-- 本条配置专属的「认证后执行命令」。与设置 → 终端 → 会话那条全局命令是两件事:
+               那条对所有终端生效,这条只跟着这一条配置走。只对 SSH 出现 —— 别的协议没有
+               shell 通道,摆一个永远不会执行的输入框只会骗人。
+               命令与延迟同排:延迟只有配了命令才有意义,拆成两栏会让人以为它是独立开关。 -->
+          <StackPanel IsVisible="{Binding SupportsPostAuthCommand}">
+            <TextBlock Classes="field-label" Text="{loc:Localize Profile_PostAuthCommand}" Margin="0,8,0,5" />
+            <Grid ColumnDefinitions="*,8,Auto">
+              <TextBox Grid.Column="0" Text="{Binding PostAuthCommand}"
+                       PlaceholderText="{loc:Localize Profile_PostAuthCommandPlaceholder}" />
+              <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                <TextBlock Text="{loc:Localize Profile_PostAuthDelay}"
+                           Foreground="{DynamicResource VelaTextSecondary}"
+                           FontSize="{DynamicResource VelaFontSize11}" FontWeight="Medium"
+                           VerticalAlignment="Center" />
+                <NumericUpDown Width="88" Value="{Binding PostAuthCommandDelaySeconds}"
+                               Minimum="0" Maximum="{Binding MaxPostAuthCommandDelaySeconds}"
+                               Increment="1" FormatString="0" ShowButtonSpinner="False" />
+              </StackPanel>
+            </Grid>
+            <TextBlock Text="{loc:Localize Profile_PostAuthCommandHint}" Margin="0,4,0,0"
+                       Foreground="{DynamicResource VelaTextMuted}" FontSize="{DynamicResource VelaFontSize10}" TextWrapping="Wrap" />
+          </StackPanel>
+
+          <!-- FTP / FTPS 的「默认打开路径」:上传目标常年是同一个目录,而 FTP 给的登录工作目录
+               往往就是根,每连一次手点四五层是纯粹的重复劳动。只对 FTP 出现——SSH/SFTP 走的是
+               登录家目录,插件协议(S3…)自己在描述符里声明字段。 -->
+          <StackPanel IsVisible="{Binding IsFtpSelected}">
+            <TextBlock Classes="field-label" Text="{loc:Localize Ftp_InitialPath}" Margin="0,8,0,5" />
+            <TextBox Text="{Binding FtpInitialRemotePath}"
+                     PlaceholderText="{loc:Localize Ftp_InitialPathPlaceholder}" />
+            <TextBlock Text="{loc:Localize Ftp_InitialPathHint}" Margin="0,4,0,0"
+                       Foreground="{DynamicResource VelaTextMuted}" FontSize="{DynamicResource VelaFontSize10}" TextWrapping="Wrap" />
+          </StackPanel>
         </StackPanel>
 
       </StackPanel>

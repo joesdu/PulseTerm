@@ -147,6 +147,8 @@ public sealed class SonnetDbSessionRepository(SonnetDbEngine engine, ISecretProt
             Tags = [.. profile.Tags],
             RememberPassword = profile.RememberPassword,
             JumpHostProfileId = profile.JumpHostProfileId,
+            PostAuthCommand = profile.PostAuthCommand,
+            PostAuthCommandDelaySeconds = profile.PostAuthCommandDelaySeconds,
             // 深拷贝:这份副本要落盘,不能与调用方共享可变对象。
             Ftp = profile.Ftp?.Clone(),
             PluginProtocolId = profile.PluginProtocolId,

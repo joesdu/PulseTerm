@@ -78,6 +78,44 @@ public sealed class SonnetDbPersistenceTests : IDisposable
         Assert.AreEqual("secret", loaded.Password);
     }
 
+    /// <summary>
+    /// 「认证后执行命令」是**每条配置各一份**的设置,必须真的跟着这条配置落盘 ——
+    /// 仓储写的是 <c>Protect</c> 出来的副本,漏抄一个字段的表现就是"存的时候好好的,
+    /// 重开软件命令没了",而且不报任何错。
+    /// </summary>
+    [TestMethod]
+    public async Task SessionRepository_PostAuthCommand_RoundTripsPerProfile()
+    {
+        var repo = new SonnetDbSessionRepository(_engine, _protector);
+        var bastion = new SessionProfile
+        {
+            Name = "bastion",
+            Host = "10.0.0.1",
+            Username = "ops",
+            PostAuthCommand = "sudo su -",
+            PostAuthCommandDelaySeconds = 3,
+        };
+        var dev = new SessionProfile
+        {
+            Name = "dev",
+            Host = "10.0.0.2",
+            Username = "dev",
+            PostAuthCommand = "tmux attach",
+            PostAuthCommandDelaySeconds = 0,
+        };
+
+        await repo.SaveSessionAsync(bastion);
+        await repo.SaveSessionAsync(dev);
+
+        SessionProfile loadedBastion = (await repo.GetSessionAsync(bastion.Id))!;
+        SessionProfile loadedDev = (await repo.GetSessionAsync(dev.Id))!;
+        Assert.AreEqual("sudo su -", loadedBastion.PostAuthCommand);
+        Assert.AreEqual(3, loadedBastion.PostAuthCommandDelaySeconds);
+        // 两条配置各配各的,互不串味 —— 这正是它区别于全局「连接后执行命令」的地方。
+        Assert.AreEqual("tmux attach", loadedDev.PostAuthCommand);
+        Assert.AreEqual(0, loadedDev.PostAuthCommandDelaySeconds);
+    }
+
     [TestMethod]
     public async Task SessionRepository_LegacyDocumentWithoutConnectionType_DefaultsToSsh()
     {

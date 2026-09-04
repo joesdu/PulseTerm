@@ -118,6 +118,82 @@ public sealed class MainWindowSshFeatureTests
         Assert.AreEqual("Prod - 生产环境", vm.Sidebar.RecentConnections.Connections[0].DisplayName);
     }
 
+    /// <summary>
+    /// 配置自带的「认证后执行命令」必须真的注入到这条会话的 shell 里(延迟 0 = 握手完立刻发)。
+    /// 它与设置里那条全局命令是两件事,顺序固定「先全局、后本条」—— 与用户在两个界面上
+    /// 看到的顺序一致。只断言本条命令确实落到了线上:全局那条由 BuildStartupCommand 的用例覆盖。
+    /// </summary>
+    [TestMethod]
+    public async Task ConnectProfileAsync_InjectsThePerProfilePostAuthCommand()
+    {
+        IConnectionWorkflowService? workflow = Substitute.For<IConnectionWorkflowService>();
+        ISshConnectionService? sshConnectionService = Substitute.For<ISshConnectionService>();
+        ISshClientWrapper? sshClient = Substitute.For<ISshClientWrapper>();
+        IShellStreamWrapper? shellStream = Substitute.For<IShellStreamWrapper>();
+        ITerminalEmulator? terminal = Substitute.For<ITerminalEmulator>();
+
+        // 同上一个用例:读循环必须阻塞而不是立刻 EOF,否则桥会把刚连上的标签翻回断开。
+        shellStream.CanRead.Returns(true);
+        shellStream.CanWrite.Returns(true);
+        shellStream.ReadAsync(Arg.Any<byte[]>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                   .Returns(new TaskCompletionSource<int>().Task);
+
+        // 出站写由桥的写循环在后台线程逐段刷出,不与 TryConnectProfileAsync 同步完成;
+        // 用 TCS 等那一段字节真的落到流上,而不是 sleep 一个猜出来的毫秒数。
+        var injected = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        shellStream.WriteAsync(Arg.Any<byte[]>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                   .Returns(callInfo =>
+                   {
+                       string payload = System.Text.Encoding.UTF8.GetString(
+                           (byte[])callInfo[0], (int)callInfo[1], (int)callInfo[2]);
+                       if (payload.Contains("tmux attach", StringComparison.Ordinal))
+                       {
+                           injected.TrySetResult(payload);
+                       }
+                       return Task.CompletedTask;
+                   });
+
+        var profile = new SessionProfile
+        {
+            Name = "dev",
+            Host = "dev.example.com",
+            Port = 22,
+            Username = "dev",
+            AuthMethod = AuthMethod.Password,
+            Password = "secret",
+            PostAuthCommand = "  tmux attach  ",
+            PostAuthCommandDelaySeconds = 0,
+        };
+        var session = new SshSession
+        {
+            SessionId = Guid.NewGuid(),
+            ConnectionInfo = new()
+            {
+                Host = profile.Host,
+                Port = profile.Port,
+                Username = profile.Username,
+                AuthMethod = profile.AuthMethod,
+                Password = profile.Password
+            },
+            Status = SessionStatus.Connected
+        };
+        workflow.ConnectProfileAsync(profile, Arg.Any<CancellationToken>()).Returns(session);
+        sshConnectionService.GetClient(session.SessionId).Returns(sshClient);
+        sshClient.CreateShellStreamAsync("xterm-256color", 120, 32, 0, 0, 4096,
+                                         Arg.Any<IReadOnlyDictionary<TerminalMode, uint>?>(),
+                                         Arg.Any<CancellationToken>())
+                 .Returns(shellStream);
+
+        var vm = new MainWindowViewModel(workflow, sshConnectionService, () => terminal);
+        TerminalTabViewModel? tab = await vm.TryConnectProfileAsync(profile);
+
+        Assert.IsNotNull(tab);
+        string payload = await injected.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        // 首尾空白在保存与注入两处都会被裁掉;注入本身按 SendSilentCommand 的约定
+        // 前置一个空格(避免进 shell 历史)、以 \n 收尾。
+        Assert.AreEqual(" tmux attach\n", payload);
+    }
+
     [TestMethod]
     public async Task TryConnectProfileAsync_AuthFailure_DoesNotThrow_AndReportsError()
     {

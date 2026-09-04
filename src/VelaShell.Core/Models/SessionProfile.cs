@@ -62,6 +62,40 @@ public class SessionProfile
     public Guid? JumpHostProfileId { get; set; }
 
     /// <summary>
+    /// 本条配置专属的「认证后执行命令」:认证通过、shell 通道建好之后静默注入一次。
+    /// <para>
+    /// 与设置 → 终端 → 会话里那条「连接后执行命令」是两件事:那条对**所有**终端生效,
+    /// 这条只对这一条配置生效 —— 每台机器登进去要做的事本来就不一样(堡垒机要 <c>sudo su -</c>,
+    /// 开发机要 <c>tmux attach</c>),挤进同一个全局框里只能二选一。
+    /// </para>
+    /// <para>
+    /// 空 / null = 不执行。两处都配了时先全局后本条,顺序即用户在两个界面上看到的顺序。
+    /// </para>
+    /// </summary>
+    public string? PostAuthCommand { get; set; }
+
+    /// <summary>
+    /// 注入 <see cref="PostAuthCommand" /> 之前的等待秒数(0~<see cref="MaxPostAuthCommandDelaySeconds" />,默认 1)。
+    /// <para>
+    /// PTY 输入由内核缓冲,本不必等提示符;需要这个延迟是因为**对端登录后还会自己往终端里写东西**
+    /// (motd 脚本、企业登录横幅、把 stdin 一起读掉的 banner)。立刻注入会被这些输出盖住甚至吞掉,
+    /// 留一两秒才稳。0 = 不等,握手完立刻发。
+    /// </para>
+    /// <para>
+    /// 钳位放在 setter 而不是只靠界面:配置文件是可以手改的,一个 <c>99999</c> 会让那条命令
+    /// 看起来永远不执行,而用户完全无从知道自己在等什么。
+    /// </para>
+    /// </summary>
+    public int PostAuthCommandDelaySeconds
+    {
+        get;
+        set => field = Math.Clamp(value, 0, MaxPostAuthCommandDelaySeconds);
+    } = 1;
+
+    /// <summary>「认证后执行命令」延迟的上限秒数;界面与反序列化共用同一个钳位。</summary>
+    public const int MaxPostAuthCommandDelaySeconds = 60;
+
+    /// <summary>
     /// FTP / FTPS 的协议专属设置;仅在 <see cref="ConnectionType" /> 为
     /// <see cref="ConnectionType.FTP" /> 时有意义,其余协议为 null。
     /// </summary>

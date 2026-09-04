@@ -155,6 +155,8 @@ public sealed class ConnectionWorkflowService(
             // 保留配置自身的勾选:全局开关只影响是否落盘,不改写每条配置的选择。
             RememberPassword = profile.RememberPassword,
             JumpHostProfileId = profile.JumpHostProfileId,
+            PostAuthCommand = profile.PostAuthCommand,
+            PostAuthCommandDelaySeconds = profile.PostAuthCommandDelaySeconds,
             Ftp = profile.Ftp?.Clone(),
             PluginProtocolId = profile.PluginProtocolId,
             PluginSettings = SessionProfile.CloneSettings(profile.PluginSettings),

@@ -1729,6 +1729,18 @@
   <data name="Profile_PasswordAuth" xml:space="preserve">
     <value>密碼驗證</value>
   </data>
+  <data name="Profile_PostAuthCommand" xml:space="preserve">
+    <value>驗證後執行命令</value>
+  </data>
+  <data name="Profile_PostAuthCommandHint" xml:space="preserve">
+    <value>// 只對本條工作階段生效,重新連線時同樣執行;對所有終端機生效的那條在 設定 → 終端機 → 工作階段</value>
+  </data>
+  <data name="Profile_PostAuthCommandPlaceholder" xml:space="preserve">
+    <value>例如 sudo su - / tmux attach</value>
+  </data>
+  <data name="Profile_PostAuthDelay" xml:space="preserve">
+    <value>延遲(秒)</value>
+  </data>
   <data name="Profile_PrivateKeyFile" xml:space="preserve">
     <value>私鑰檔案</value>
   </data>
@@ -3978,6 +3990,15 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   </data>
   <data name="Ftp_PlaintextWarn" xml:space="preserve">
     <value>明文 FTP 的帳號與檔案都不加密，也沒有伺服器身分驗證。伺服器支援時請優先使用 FTPS。</value>
+  </data>
+  <data name="Ftp_InitialPath" xml:space="preserve">
+    <value>預設開啟路徑</value>
+  </data>
+  <data name="Ftp_InitialPathHint" xml:space="preserve">
+    <value>// 連線後遠端面板直接開啟這個目錄，不再從登入目錄起步；進不去時依序回退到登入目錄與根目錄</value>
+  </data>
+  <data name="Ftp_InitialPathPlaceholder" xml:space="preserve">
+    <value>例如 /var/www/html</value>
   </data>
   <data name="Cert_Title" xml:space="preserve">
     <value>伺服器憑證不受信任</value>

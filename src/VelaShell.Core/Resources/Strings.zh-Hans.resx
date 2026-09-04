@@ -1729,6 +1729,18 @@
   <data name="Profile_PasswordAuth" xml:space="preserve">
     <value>密码认证</value>
   </data>
+  <data name="Profile_PostAuthCommand" xml:space="preserve">
+    <value>认证后执行命令</value>
+  </data>
+  <data name="Profile_PostAuthCommandHint" xml:space="preserve">
+    <value>// 只对本条会话生效,重连时同样执行;对所有终端生效的那条在 设置 → 终端 → 会话</value>
+  </data>
+  <data name="Profile_PostAuthCommandPlaceholder" xml:space="preserve">
+    <value>如 sudo su - / tmux attach</value>
+  </data>
+  <data name="Profile_PostAuthDelay" xml:space="preserve">
+    <value>延迟(秒)</value>
+  </data>
   <data name="Profile_PrivateKeyFile" xml:space="preserve">
     <value>私钥文件</value>
   </data>
@@ -3978,6 +3990,15 @@ Windows 填 exe 完整路径或命令名(如 notepad);Linux 填命令名(如 ged
   </data>
   <data name="Ftp_PlaintextWarn" xml:space="preserve">
     <value>明文 FTP 的账号与文件都不加密，也没有服务器身份校验。服务器支持时请优先使用 FTPS。</value>
+  </data>
+  <data name="Ftp_InitialPath" xml:space="preserve">
+    <value>默认打开路径</value>
+  </data>
+  <data name="Ftp_InitialPathHint" xml:space="preserve">
+    <value>// 连上后远程面板直接打开这个目录，不再从登录目录起步；进不去时依次回退到登录目录与根目录</value>
+  </data>
+  <data name="Ftp_InitialPathPlaceholder" xml:space="preserve">
+    <value>如 /var/www/html</value>
   </data>
   <data name="Cert_Title" xml:space="preserve">
     <value>服务器证书不受信任</value>

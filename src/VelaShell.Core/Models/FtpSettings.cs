@@ -62,6 +62,50 @@ public sealed class FtpSettings
     /// </summary>
     public int MaxConnections { get; set; } = 4;
 
+    /// <summary>
+    /// 连上后远程面板默认打开的目录;null / 空 = 沿用旧行为(登录工作目录,再回退根目录)。
+    /// <para>
+    /// 存在的理由很朴素:上传目标常年是同一个 <c>/var/www/html</c> 或 <c>/pub/incoming</c>,
+    /// 而 FTP 服务器给的登录工作目录往往就是根。每连一次手点四五层是纯粹的重复劳动。
+    /// </para>
+    /// <para>
+    /// **配错了不该把人堵在报错页上**:它只是候选路径里排第一的那个,进不去就依次回退到
+    /// 登录工作目录、根目录 —— 与家目录进不去时回退根目录是同一条纪律。
+    /// </para>
+    /// <para>
+    /// 赋值时归一化(去首尾空白、反斜杠转正斜杠、补前导 <c>/</c>、去尾部 <c>/</c>、空串归 null):
+    /// 用户会照着 Windows 的习惯敲 <c>\pub</c>,也会从别处粘一个带尾斜杠的路径进来,
+    /// 而 FTP 的 <c>CWD</c> 对这些写法并不一律宽容。归一化放在 setter 上,
+    /// 界面、导入器与手改的配置文件因此共用同一套规则。
+    /// </para>
+    /// </summary>
+    public string? InitialRemotePath
+    {
+        get;
+        set => field = NormalizeRemotePath(value);
+    }
+
+    /// <summary>
+    /// 把用户输入的远程路径归一化成 <c>CWD</c> 吃得下的绝对路径;无内容时返回 null。
+    /// </summary>
+    /// <param name="path">原始输入,可为 null。</param>
+    /// <returns>形如 <c>/var/www/html</c> 的绝对路径;根目录归一为 <c>/</c>;无内容为 null。</returns>
+    public static string? NormalizeRemotePath(string? path)
+    {
+        string trimmed = path?.Trim().Replace('\\', '/') ?? string.Empty;
+        if (trimmed.Length == 0)
+        {
+            return null;
+        }
+        if (trimmed[0] != '/')
+        {
+            trimmed = "/" + trimmed;
+        }
+        trimmed = trimmed.TrimEnd('/');
+        // 全是斜杠(用户敲了 "/" 或 "///")= 根目录 = 本来就是默认行为,当作没配。
+        return trimmed.Length == 0 ? null : trimmed;
+    }
+
     /// <summary>返回一份深拷贝(<see cref="SessionProfile" /> 全仓是逐字段手写拷贝,这里配套提供)。</summary>
     public FtpSettings Clone() =>
         new()
@@ -71,5 +115,6 @@ public sealed class FtpSettings
             Anonymous = Anonymous,
             TrustedCertificateThumbprint = TrustedCertificateThumbprint,
             MaxConnections = MaxConnections,
+            InitialRemotePath = InitialRemotePath,
         };
 }

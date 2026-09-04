@@ -545,6 +545,16 @@ public class FileBrowserViewModel : ReactiveObject
     /// <summary>是否启用行拖拽发起。终端面板中关闭;SFTP 双栏中开启。</summary>
     public bool IsDragEnabled { get; set; }
 
+    /// <summary>
+    /// 首次加载优先尝试的目录(连接配置里的「默认打开路径」);null = 不指定,照旧从登录工作目录起步。
+    /// <para>
+    /// 它只是候选路径里排第一的那个,**不是硬性要求**:进不去就依次回退到登录工作目录与根目录,
+    /// 与家目录进不去时回退根目录是同一条纪律。配错一个路径不该把用户堵在一张报错的空白页上。
+    /// </para>
+    /// <para>只在 <see cref="LoadInitialAsync" /> 那一次生效;之后用户怎么导航就是怎么导航。</para>
+    /// </summary>
+    public string? InitialRemotePath { get; set; }
+
     /// <summary>需要展示给用户的错误提示;为 null 表示无错误。</summary>
     public string? ErrorMessage
     {
@@ -1281,9 +1291,10 @@ public class FileBrowserViewModel : ReactiveObject
     }
 
     /// <summary>
-    /// 始终打开登录账户的家目录(登录后的工作目录,如 pi → /home/pi、root → /root)。
-    /// 家目录在服务器上不存在或不可访问(如 realpath(".") 返回的目录未创建/被 chroot)时,
-    /// 自动回退到根目录 "/",避免停在报错的空白页。
+    /// 打开配置里的「默认打开路径」(<see cref="InitialRemotePath" />),没配则打开登录账户的家目录
+    /// (登录后的工作目录,如 pi → /home/pi、root → /root)。
+    /// 目录在服务器上不存在或不可访问(路径配错、realpath(".") 返回的目录未创建/被 chroot)时,
+    /// 依次回退到家目录与根目录 "/",避免停在报错的空白页。
     /// </summary>
     public Task LoadInitialAsync(CancellationToken ct = default)
     {
@@ -1302,6 +1313,11 @@ public class FileBrowserViewModel : ReactiveObject
     {
         ct = WithLifetime(ct);
         var candidates = new List<string>();
+        // 配置里的「默认打开路径」排第一;它进不去时下面两个候选照旧兜底。
+        if (!string.IsNullOrWhiteSpace(InitialRemotePath))
+        {
+            candidates.Add(InitialRemotePath);
+        }
         try
         {
             string working = await _sftpService.GetWorkingDirectoryAsync(_sessionId, ct);

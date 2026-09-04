@@ -1475,6 +1475,18 @@
   <data name="Profile_PasswordAuth" xml:space="preserve">
     <value>パスワード認証</value>
   </data>
+  <data name="Profile_PostAuthCommand" xml:space="preserve">
+    <value>認証後にコマンドを実行</value>
+  </data>
+  <data name="Profile_PostAuthCommandHint" xml:space="preserve">
+    <value>// このセッションのみに適用され、再接続時にも実行されます。すべてのターミナルに適用されるものは 設定 → ターミナル → セッション にあります</value>
+  </data>
+  <data name="Profile_PostAuthCommandPlaceholder" xml:space="preserve">
+    <value>例: sudo su - / tmux attach</value>
+  </data>
+  <data name="Profile_PostAuthDelay" xml:space="preserve">
+    <value>遅延(秒)</value>
+  </data>
   <data name="Profile_PrivateKeyFile" xml:space="preserve">
     <value>秘密鍵ファイル</value>
   </data>
@@ -3780,6 +3792,15 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   </data>
   <data name="Ftp_PlaintextWarn" xml:space="preserve">
     <value>平文 FTP は認証情報もファイルも暗号化されず、サーバーの身元確認もありません。サーバーが対応しているなら FTPS を使ってください。</value>
+  </data>
+  <data name="Ftp_InitialPath" xml:space="preserve">
+    <value>既定のリモートパス</value>
+  </data>
+  <data name="Ftp_InitialPathHint" xml:space="preserve">
+    <value>// 接続後、リモートペインはログインディレクトリではなくこのディレクトリを開きます。開けない場合はログインディレクトリ、次にルートへ順に戻ります</value>
+  </data>
+  <data name="Ftp_InitialPathPlaceholder" xml:space="preserve">
+    <value>例: /var/www/html</value>
   </data>
   <data name="Cert_Title" xml:space="preserve">
     <value>サーバー証明書が信頼されていません</value>
