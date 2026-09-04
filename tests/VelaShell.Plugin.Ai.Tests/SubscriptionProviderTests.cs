@@ -293,7 +293,7 @@ public sealed class SubscriptionProviderTests
     public async Task Credential_NearlyExpiredToken_IsRefreshedAndWrittenBack()
     {
         using var context = new TestPluginContext();
-        var stub = new OAuthStub().Json("""{"access_token":"at-fresh","expires_in":3600}""");
+        OAuthStub stub = new OAuthStub().Json("""{"access_token":"at-fresh","expires_in":3600}""");
         using var http = new HttpClient(stub);
         var store = new AiSettingsStore(context) { TokenClient = new OAuthClient(http) };
         (AiProvider provider, ResolvedModel model) = Subscription(OAuthCredential.AccessToken);
@@ -320,7 +320,7 @@ public sealed class SubscriptionProviderTests
     public async Task Credential_RefreshFailure_FallsBackToTheOldTokenInsteadOfBlowingUp()
     {
         using var context = new TestPluginContext();
-        var stub = new OAuthStub().Json("""{"error":"invalid_grant"}""", System.Net.HttpStatusCode.BadRequest);
+        OAuthStub stub = new OAuthStub().Json("""{"error":"invalid_grant"}""", System.Net.HttpStatusCode.BadRequest);
         using var http = new HttpClient(stub);
         var store = new AiSettingsStore(context) { TokenClient = new OAuthClient(http) };
         (AiProvider provider, ResolvedModel model) = Subscription(OAuthCredential.AccessToken);
@@ -341,7 +341,7 @@ public sealed class SubscriptionProviderTests
     public async Task Credential_ConcurrentResolves_RefreshOnlyOnce()
     {
         using var context = new TestPluginContext();
-        var stub = new OAuthStub().Json("""{"access_token":"at-fresh","expires_in":3600}""");
+        OAuthStub stub = new OAuthStub().Json("""{"access_token":"at-fresh","expires_in":3600}""");
         using var http = new HttpClient(stub);
         var store = new AiSettingsStore(context) { TokenClient = new OAuthClient(http) };
         (AiProvider provider, ResolvedModel model) = Subscription(OAuthCredential.AccessToken);

@@ -8,7 +8,6 @@ using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Media;
 using Avalonia.Threading;
-using Avalonia.VisualTree;
 using VelaShell.Plugin.Ai.Auth;
 using VelaShell.Plugin.Ai.Configuration;
 using VelaShell.PluginSdk;
@@ -647,7 +646,7 @@ public sealed class ProviderSetupView : UserControl
     /// <summary>这一条离"能用"还差哪几样。</summary>
     private Missing MissingOf(ProviderCatalogEntry entry, AiProvider provider)
     {
-        var missing = Missing.None;
+        Missing missing = Missing.None;
         if (IsPlaceholder(provider.BaseUrl))
         {
             missing |= Missing.BaseUrl;

@@ -43,7 +43,7 @@ public class SessionTreeRowLayoutUiTests
                 await ShowAsync();
             try
             {
-                var list = view.GetControl<ListBox>("SessionTreeRoot");
+                ListBox list = view.GetControl<ListBox>("SessionTreeRoot");
                 Assert.HasCount(2, viewModel.Rows, "分组行 + 展开着的那台会话");
 
                 Border groupRow = Row(view, "group");
@@ -75,7 +75,7 @@ public class SessionTreeRowLayoutUiTests
                 await ShowAsync();
             try
             {
-                var list = view.GetControl<ListBox>("SessionTreeRoot");
+                ListBox list = view.GetControl<ListBox>("SessionTreeRoot");
                 Assert.AreEqual(2, list.ItemCount);
 
                 viewModel.Nodes.Single(node => node.IsGroup).IsExpanded = false;

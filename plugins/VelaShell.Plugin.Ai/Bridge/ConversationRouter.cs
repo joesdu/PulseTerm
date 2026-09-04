@@ -1,4 +1,3 @@
-using System.Text;
 using VelaShell.Plugin.Ai.Agent;
 using VelaShell.Plugin.Ai.Configuration;
 using VelaShell.Plugin.Ai.Ui;
@@ -271,7 +270,7 @@ public sealed class ConversationRouter(
         using var turn = new CancellationTokenSource(TimeSpan.FromSeconds(Math.Clamp(Settings.TurnTimeoutSeconds, 30, 3600)));
         conversation.Running = turn;
         string? placeholder = null;
-        var lastEdit = DateTimeOffset.MinValue;
+        DateTimeOffset lastEdit = DateTimeOffset.MinValue;
         try
         {
             ChannelCapabilities capabilities = hub.CapabilitiesOf(conversation.ChannelId);

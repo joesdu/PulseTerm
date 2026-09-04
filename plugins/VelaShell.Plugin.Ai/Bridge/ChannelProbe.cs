@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using System.Text.Json;
 using VelaShell.Plugin.Ai.Bridge.Channels.Feishu;
 using VelaShell.PluginSdk.Logging;
@@ -87,7 +86,7 @@ internal static class ChannelProbe
         using HttpResponseMessage response = await Http.PostAsJsonAsync(
             "https://api.dingtalk.com/v1.0/oauth2/accessToken",
             new { appKey = config.AppId, appSecret = secret }, cancellationToken).ConfigureAwait(false);
-        using JsonDocument document = JsonDocument.Parse(
+        using var document = JsonDocument.Parse(
             await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
         return document.RootElement.TryGetProperty("accessToken", out _)
             ? new ChannelProbeResult(true, "credentials OK", null)
@@ -98,7 +97,7 @@ internal static class ChannelProbe
     {
         using HttpResponseMessage response = await Http
             .GetAsync($"https://api.telegram.org/bot{token}/getMe", cancellationToken).ConfigureAwait(false);
-        using JsonDocument document = JsonDocument.Parse(
+        using var document = JsonDocument.Parse(
             await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
         JsonElement root = document.RootElement;
         if (!root.TryGetProperty("ok", out JsonElement ok) || !ok.GetBoolean())
@@ -133,7 +132,7 @@ internal static class ChannelProbe
         string url = $"https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid={Uri.EscapeDataString(config.AppId)}"
                      + $"&corpsecret={Uri.EscapeDataString(secret)}";
         using HttpResponseMessage response = await Http.GetAsync(url, cancellationToken).ConfigureAwait(false);
-        using JsonDocument document = JsonDocument.Parse(
+        using var document = JsonDocument.Parse(
             await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
         return document.RootElement.TryGetProperty("access_token", out _)
             ? new ChannelProbeResult(true, "credentials OK", null)

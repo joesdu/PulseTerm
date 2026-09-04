@@ -174,7 +174,7 @@ public sealed class ChannelHub(IPluginContext context) : IAsyncDisposable
 
     private async Task RunWithRetryAsync(Entry entry, Func<InboundMessage, Task> onMessage)
     {
-        TimeSpan backoff = TimeSpan.FromSeconds(1);
+        var backoff = TimeSpan.FromSeconds(1);
         CancellationToken token = entry.Cts.Token;
         while (!token.IsCancellationRequested)
         {

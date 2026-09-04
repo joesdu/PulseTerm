@@ -103,7 +103,7 @@ public sealed class QrCodeTests
         // 与数据无关的那些格子:三个定位图形的中心、时序图形的交替、恒深色模块。
         foreach (string text in new[] { "a", "https://t.me/velashell_bot?startgroup=true", new string('q', 500) })
         {
-            QrCode qr = QrCode.Encode(text);
+            var qr = QrCode.Encode(text);
             foreach ((int cx, int cy) in new[] { (3, 3), (qr.Size - 4, 3), (3, qr.Size - 4) })
             {
                 for (int dy = -4; dy <= 4; dy++)
@@ -133,7 +133,7 @@ public sealed class QrCodeTests
     [TestMethod]
     public void Encode_ShortText_MatchesGoldenMatrix()
     {
-        QrCode qr = QrCode.Encode("hello", QrEcc.High);
+        var qr = QrCode.Encode("hello", QrEcc.High);
         Assert.AreEqual(1, qr.Version);
         AssertMatrix(qr, GoldenShortHigh, "版本 1 / H");
     }
@@ -141,7 +141,7 @@ public sealed class QrCodeTests
     [TestMethod]
     public void Encode_InviteUrl_MatchesGoldenMatrix()
     {
-        QrCode qr = QrCode.Encode("https://t.me/velashell_bot?startgroup=true", QrEcc.Medium);
+        var qr = QrCode.Encode("https://t.me/velashell_bot?startgroup=true", QrEcc.Medium);
         Assert.AreEqual(3, qr.Version);
         AssertMatrix(qr, GoldenInviteMedium, "版本 3 / M");
     }
@@ -150,7 +150,7 @@ public sealed class QrCodeTests
     public void Encode_LongText_MatchesGoldenMatrix()
     {
         // 版本 ≥ 7 才有版本信息块,分块数也大,能一起覆盖交织与版本信息两条路径。
-        QrCode qr = QrCode.Encode(new string('v', 300), QrEcc.Quartile);
+        var qr = QrCode.Encode(new string('v', 300), QrEcc.Quartile);
         Assert.AreEqual(16, qr.Version);
         AssertMatrix(qr, GoldenLongQuartile, "版本 16 / Q");
     }

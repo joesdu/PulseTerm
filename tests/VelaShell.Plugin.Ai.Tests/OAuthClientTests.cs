@@ -79,7 +79,7 @@ public sealed class OAuthClientTests
     [TestMethod]
     public void Pkce_ChallengeIsUrlSafeSha256OfVerifier()
     {
-        PkceCodes codes = PkceCodes.Create();
+        var codes = PkceCodes.Create();
 
         string expected = Convert.ToBase64String(
                 System.Security.Cryptography.SHA256.HashData(Encoding.ASCII.GetBytes(codes.Verifier)))
@@ -144,7 +144,7 @@ public sealed class OAuthClientTests
     [TestMethod]
     public async Task ExchangeCode_SendsVerifierAndTurnsExpiresInIntoAnInstant()
     {
-        var stub = new OAuthStub().Json(
+        OAuthStub stub = new OAuthStub().Json(
             """{"access_token":"at-1","refresh_token":"rt-1","expires_in":3600,"scope":"inference"}""");
         using var http = new HttpClient(stub);
         var codes = PkceCodes.Create();
@@ -175,7 +175,7 @@ public sealed class OAuthClientTests
     public async Task ExchangeCode_FormEncodedResponse_IsParsedToo()
     {
         // 中转/代理层把 Accept 吃掉时,GitHub 之流回的就是这个形状
-        var stub = new OAuthStub().Form("access_token=at-form&scope=repo&token_type=bearer");
+        OAuthStub stub = new OAuthStub().Form("access_token=at-form&scope=repo&token_type=bearer");
         using var http = new HttpClient(stub);
 
         OAuthTokens tokens = await new OAuthClient(http)
@@ -189,7 +189,7 @@ public sealed class OAuthClientTests
     [TestMethod]
     public async Task ExchangeCode_ErrorPayload_ThrowsWithTheCode()
     {
-        var stub = new OAuthStub().Json(
+        OAuthStub stub = new OAuthStub().Json(
             """{"error":"invalid_grant","error_description":"code already used"}""", HttpStatusCode.BadRequest);
         using var http = new HttpClient(stub);
 
@@ -203,7 +203,7 @@ public sealed class OAuthClientTests
     [TestMethod]
     public async Task ExchangeCode_HttpErrorWithoutOAuthPayload_StillReports()
     {
-        var stub = new OAuthStub().Json("<html>gateway down</html>", HttpStatusCode.BadGateway);
+        OAuthStub stub = new OAuthStub().Json("<html>gateway down</html>", HttpStatusCode.BadGateway);
         using var http = new HttpClient(stub);
 
         OAuthException error = await Assert.ThrowsExactlyAsync<OAuthException>(() =>
@@ -216,7 +216,7 @@ public sealed class OAuthClientTests
     [TestMethod]
     public async Task OpenRouter_ExchangesTheCodeForAPlainKey()
     {
-        var stub = new OAuthStub().Json("""{"key":"sk-or-v1-abc"}""");
+        OAuthStub stub = new OAuthStub().Json("""{"key":"sk-or-v1-abc"}""");
         using var http = new HttpClient(stub);
         OAuthConfig config = ProviderCatalog.Find("openrouter")!.CreateProvider().OAuth!;
         var codes = PkceCodes.Create();
@@ -237,7 +237,7 @@ public sealed class OAuthClientTests
     public async Task Refresh_KeepsTheOldRefreshTokenWhenTheServerOmitsIt()
     {
         // RFC 6749 §6 允许服务端不重发 refresh token —— 丢了就再也刷不动了
-        var stub = new OAuthStub().Json("""{"access_token":"at-2","expires_in":600}""");
+        OAuthStub stub = new OAuthStub().Json("""{"access_token":"at-2","expires_in":600}""");
         using var http = new HttpClient(stub);
         var current = new OAuthTokens { AccessToken = "at-1", RefreshToken = "rt-1", Account = "ops@example.com" };
 
@@ -263,7 +263,7 @@ public sealed class OAuthClientTests
     [TestMethod]
     public async Task DeviceCode_PendingThenSlowDown_BacksOffByFiveSecondsThenSucceeds()
     {
-        var stub = new OAuthStub()
+        OAuthStub stub = new OAuthStub()
             .Json("""{"device_code":"dc","user_code":"WXYZ-1234","verification_uri":"https://auth.example/device","interval":2,"expires_in":900}""")
             .Json("""{"error":"authorization_pending"}""", HttpStatusCode.BadRequest)
             .Json("""{"error":"slow_down"}""", HttpStatusCode.BadRequest)
@@ -295,7 +295,7 @@ public sealed class OAuthClientTests
     public async Task DeviceCode_AcceptsMicrosoftsVerificationUrlSpelling()
     {
         // Entra ID 用的是 RFC 定稿前的 verification_url,少一个 "i"
-        var stub = new OAuthStub().Json(
+        OAuthStub stub = new OAuthStub().Json(
             """{"device_code":"dc","user_code":"AB12","verification_url":"https://microsoft.com/devicelogin"}""");
         using var http = new HttpClient(stub);
         OAuthConfig config = Standard();
@@ -310,7 +310,7 @@ public sealed class OAuthClientTests
     [TestMethod]
     public async Task DeviceCode_DeniedByUser_StopsInsteadOfPollingOn()
     {
-        var stub = new OAuthStub().Json("""{"error":"access_denied"}""", HttpStatusCode.BadRequest);
+        OAuthStub stub = new OAuthStub().Json("""{"error":"access_denied"}""", HttpStatusCode.BadRequest);
         using var http = new HttpClient(stub);
         var client = new OAuthClient(http) { Delay = (_, _) => Task.CompletedTask };
         var grant = new DeviceCodeGrant("dc", "AB12", "https://auth.example/device", null,

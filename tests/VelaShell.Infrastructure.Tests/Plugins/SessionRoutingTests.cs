@@ -134,7 +134,11 @@ public class SessionRoutingTests
     {
         SessionProfile profile = new()
         {
-            Name = "prod-1", Host = "10.0.0.1", Port = 22, Username = "root", ConnectionType = ConnectionType.SSH
+            Name = "prod-1",
+            Host = "10.0.0.1",
+            Port = 22,
+            Username = "root",
+            ConnectionType = ConnectionType.SSH
         };
         List<SshSession> sessions = [];
         ISshConnectionService connections = Substitute.For<ISshConnectionService>();

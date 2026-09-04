@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http.Json;
 using System.Net.Sockets;
 using System.Text.Json;
 using VelaShell.Plugin.Ai.Configuration;
@@ -94,7 +93,7 @@ public sealed class McpEndpointTests
             Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
             Assert.IsTrue(response.Headers.TryGetValues("Mcp-Session-Id", out IEnumerable<string>? ids));
             Assert.IsFalse(string.IsNullOrEmpty(ids!.First()));
-            using JsonDocument document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
             JsonElement result = document.RootElement.GetProperty("result");
             Assert.AreEqual("velashell", result.GetProperty("serverInfo").GetProperty("name").GetString());
             Assert.AreEqual("2025-06-18", result.GetProperty("protocolVersion").GetString());

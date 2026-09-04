@@ -54,7 +54,7 @@ public sealed class ProviderLoginTests
     [TestMethod]
     public async Task Pkce_RoundTripsThroughARealLoopbackPort()
     {
-        var stub = new OAuthStub().Json("""{"access_token":"at-1","refresh_token":"rt-1","expires_in":900}""");
+        OAuthStub stub = new OAuthStub().Json("""{"access_token":"at-1","refresh_token":"rt-1","expires_in":900}""");
         using var http = new HttpClient(stub);
         List<string> pages = [];
         List<string> progress = [];
@@ -81,7 +81,7 @@ public sealed class ProviderLoginTests
     [TestMethod]
     public async Task Pkce_StateMismatch_DiscardsTheSignIn()
     {
-        var stub = new OAuthStub().Json("""{"access_token":"should-never-be-used"}""");
+        OAuthStub stub = new OAuthStub().Json("""{"access_token":"should-never-be-used"}""");
         using var http = new HttpClient(stub);
         List<string> pages = [];
         var login = new ProviderLogin(new OAuthClient(http),
@@ -113,7 +113,7 @@ public sealed class ProviderLoginTests
     public async Task Pkce_OpenRouterVariant_WorksWithoutState()
     {
         // OpenRouter 的回调不带 state —— 那一路不能因为"没有 state"就判定失败
-        var stub = new OAuthStub().Json("""{"key":"sk-or-v1-xyz"}""");
+        OAuthStub stub = new OAuthStub().Json("""{"key":"sk-or-v1-xyz"}""");
         using var http = new HttpClient(stub);
         List<string> pages = [];
         OAuthConfig config = ProviderCatalog.Find("openrouter")!.CreateProvider().OAuth!;
@@ -142,7 +142,7 @@ public sealed class ProviderLoginTests
     [TestMethod]
     public async Task DeviceCode_ReportsTheUserCodeAndOpensTheCompleteUri()
     {
-        var stub = new OAuthStub()
+        OAuthStub stub = new OAuthStub()
             .Json("""{"device_code":"dc","user_code":"WXYZ-1234","verification_uri":"https://auth.example/device","verification_uri_complete":"https://auth.example/device?code=WXYZ-1234","interval":1}""")
             .Json("""{"access_token":"at-device"}""");
         using var http = new HttpClient(stub);
@@ -177,7 +177,7 @@ public sealed class ProviderLoginTests
     [TestMethod]
     public async Task DeviceCode_RefusesToOpenANonWebVerificationUri()
     {
-        var stub = new OAuthStub()
+        OAuthStub stub = new OAuthStub()
             .Json("""{"device_code":"dc","user_code":"AB12","verification_uri":"file:///C:/Windows/System32/calc.exe"}""")
             .Json("""{"access_token":"at-device"}""");
         using var http = new HttpClient(stub);
@@ -203,7 +203,7 @@ public sealed class ProviderLoginTests
     [TestMethod]
     public async Task DeviceCode_FallsBackToTheVerificationUriWhenTheCompleteOneIsNotWeb()
     {
-        var stub = new OAuthStub()
+        OAuthStub stub = new OAuthStub()
             .Json("""{"device_code":"dc","user_code":"AB12","verification_uri":"https://auth.example/device","verification_uri_complete":"javascript:alert(1)"}""")
             .Json("""{"access_token":"at-device"}""");
         using var http = new HttpClient(stub);

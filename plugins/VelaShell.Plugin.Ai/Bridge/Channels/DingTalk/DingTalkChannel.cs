@@ -1,7 +1,6 @@
 using System.Buffers;
 using System.Collections.Concurrent;
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
@@ -134,7 +133,7 @@ internal sealed class DingTalkChannel(ChannelConfig config, string clientSecret,
     private async Task<bool> DispatchAsync(ClientWebSocket socket, byte[] raw,
         Func<InboundMessage, Task> onMessage, CancellationToken cancellationToken)
     {
-        using JsonDocument document = JsonDocument.Parse(raw);
+        using var document = JsonDocument.Parse(raw);
         JsonElement root = document.RootElement;
         string type = root.TryGetProperty("type", out JsonElement t) ? t.GetString() ?? "" : "";
         JsonElement headers = root.TryGetProperty("headers", out JsonElement h) ? h : default;
@@ -200,7 +199,7 @@ internal sealed class DingTalkChannel(ChannelConfig config, string clientSecret,
         {
             return null;
         }
-        using JsonDocument document = JsonDocument.Parse(data);
+        using var document = JsonDocument.Parse(data);
         JsonElement root = document.RootElement;
         string messageType = root.TryGetProperty("msgtype", out JsonElement mt) ? mt.GetString() ?? "" : "";
         if (messageType != "text")
@@ -244,7 +243,7 @@ internal sealed class DingTalkChannel(ChannelConfig config, string clientSecret,
                 }
             }, cancellationToken).ConfigureAwait(false);
         string body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-        using JsonDocument document = JsonDocument.Parse(body);
+        using var document = JsonDocument.Parse(body);
         JsonElement root = document.RootElement;
         if (!root.TryGetProperty("endpoint", out JsonElement endpoint) || !root.TryGetProperty("ticket", out JsonElement ticket))
         {
@@ -265,7 +264,7 @@ internal sealed class DingTalkChannel(ChannelConfig config, string clientSecret,
             using HttpResponseMessage response = await _http.PostAsJsonAsync($"{ApiBase}/v1.0/oauth2/accessToken",
                 new { appKey = config.AppId, appSecret = clientSecret }, cancellationToken).ConfigureAwait(false);
             string body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-            using JsonDocument document = JsonDocument.Parse(body);
+            using var document = JsonDocument.Parse(body);
             if (!document.RootElement.TryGetProperty("accessToken", out JsonElement token))
             {
                 throw new InvalidOperationException($"DingTalk token request failed: {Truncate(body)}");
@@ -371,7 +370,7 @@ internal sealed class DingTalkChannel(ChannelConfig config, string clientSecret,
             using HttpResponseMessage upload = await _http.PostAsync(
                 $"https://oapi.dingtalk.com/media/upload?access_token={Uri.EscapeDataString(token)}&type=file",
                 form, cancellationToken).ConfigureAwait(false);
-            using JsonDocument document = JsonDocument.Parse(
+            using var document = JsonDocument.Parse(
                 await upload.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
             if (document.RootElement.TryGetProperty("errcode", out JsonElement code) && code.GetInt32() != 0)
             {

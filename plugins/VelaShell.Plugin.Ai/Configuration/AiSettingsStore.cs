@@ -406,7 +406,7 @@ public sealed class AiSettingsStore(IPluginContext context)
         ArgumentNullException.ThrowIfNull(provider);
         // 按目录现读,不用供应商身上那份快照 —— 否则每加一条新规则,
         // 已经连上的用户都得重新登录一次才拿得到(见 EndpointQuirks)
-        EndpointQuirks quirks = EndpointQuirks.Of(provider.Provider);
+        var quirks = EndpointQuirks.Of(provider.Provider);
         ApplyResponseStore(options, provider, quirks);
         foreach (string raw in quirks.UnsupportedParameters
                                      .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))

@@ -67,8 +67,7 @@ public sealed class ImApprovalBroker(ChannelHub hub, IPluginContext context)
             cancellationToken).ConfigureAwait(false);
 
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(Math.Clamp(timeoutSeconds, 10, 3600)));
-        using CancellationTokenSource linked =
-            CancellationTokenSource.CreateLinkedTokenSource(timeout.Token, cancellationToken);
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token, cancellationToken);
         using (linked.Token.Register(() => completion.TrySetResult(false)))
         {
             bool granted = await completion.Task.ConfigureAwait(false);

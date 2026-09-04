@@ -159,7 +159,7 @@ public sealed class CodexSubscriptionTests
                 ["chatgpt_plan_type"] = "plus"
             }
         });
-        var stub = new OAuthStub().Json(JsonSerializer.Serialize(new Dictionary<string, object>
+        OAuthStub stub = new OAuthStub().Json(JsonSerializer.Serialize(new Dictionary<string, object>
         {
             ["access_token"] = "at-1",
             ["refresh_token"] = "rt-1",
@@ -179,7 +179,7 @@ public sealed class CodexSubscriptionTests
     public async Task Refresh_KeepsTheAccountIdWhenTheServerSendsNoIdToken()
     {
         // 刷新响应通常不带 id_token —— 丢了账号 id,之后每条请求都会缺一个必填头
-        var stub = new OAuthStub().Json("""{"access_token":"at-2","expires_in":3600}""");
+        OAuthStub stub = new OAuthStub().Json("""{"access_token":"at-2","expires_in":3600}""");
         using var http = new HttpClient(stub);
         var current = new OAuthTokens { AccessToken = "at-1", RefreshToken = "rt-1", AccountId = "acct-1234" };
 
@@ -193,7 +193,7 @@ public sealed class CodexSubscriptionTests
     [TestMethod]
     public async Task Exchange_WithoutTheClaim_LeavesTheAccountIdEmptyInsteadOfGuessing()
     {
-        var stub = new OAuthStub().Json(JsonSerializer.Serialize(new Dictionary<string, object>
+        OAuthStub stub = new OAuthStub().Json(JsonSerializer.Serialize(new Dictionary<string, object>
         {
             ["access_token"] = "at-1",
             ["id_token"] = Jwt(new Dictionary<string, object> { ["sub"] = "user-1" })
@@ -210,7 +210,7 @@ public sealed class CodexSubscriptionTests
     public async Task Exchange_WithAMalformedIdToken_StillSucceeds()
     {
         // id_token 解不开不该把整次登录炸掉:access_token 才是要紧的那个
-        var stub = new OAuthStub().Json("""{"access_token":"at-1","id_token":"not-a-jwt"}""");
+        OAuthStub stub = new OAuthStub().Json("""{"access_token":"at-1","id_token":"not-a-jwt"}""");
         using var http = new HttpClient(stub);
 
         OAuthTokens tokens = await new OAuthClient(http)

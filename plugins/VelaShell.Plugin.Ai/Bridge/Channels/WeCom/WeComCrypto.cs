@@ -69,7 +69,7 @@ internal static class WeComCrypto
     public static (string Message, string ReceiveId) Decrypt(byte[] key, string base64)
     {
         byte[] cipher = Convert.FromBase64String(base64);
-        using Aes aes = Aes.Create();
+        using var aes = Aes.Create();
         aes.Key = key;
         aes.IV = key.AsSpan(0, 16).ToArray();
         aes.Mode = CipherMode.CBC;
@@ -100,7 +100,7 @@ internal static class WeComCrypto
     {
         byte[] text = Encoding.UTF8.GetBytes(message);
         byte[] id = Encoding.UTF8.GetBytes(receiveId);
-        var body = new byte[16 + 4 + text.Length + id.Length];
+        byte[] body = new byte[16 + 4 + text.Length + id.Length];
         RandomNumberGenerator.Fill(body.AsSpan(0, 16));
         BinaryPrimitives.WriteInt32BigEndian(body.AsSpan(16, 4), text.Length);
         text.CopyTo(body, 20);
@@ -111,11 +111,11 @@ internal static class WeComCrypto
         {
             pad = PadBlock;
         }
-        var padded = new byte[body.Length + pad];
+        byte[] padded = new byte[body.Length + pad];
         body.CopyTo(padded, 0);
         padded.AsSpan(body.Length).Fill((byte)pad);
 
-        using Aes aes = Aes.Create();
+        using var aes = Aes.Create();
         aes.Key = key;
         aes.Mode = CipherMode.CBC;
         aes.Padding = PaddingMode.None;

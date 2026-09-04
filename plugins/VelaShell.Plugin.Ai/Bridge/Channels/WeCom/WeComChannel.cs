@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
-using System.Net.Http.Headers;
 using System.Net;
-using System.Net.Http.Json;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Xml.Linq;
@@ -219,7 +218,7 @@ internal sealed class WeComChannel(
             string url = $"{ApiBase}/cgi-bin/gettoken?corpid={Uri.EscapeDataString(config.AppId)}"
                          + $"&corpsecret={Uri.EscapeDataString(corpSecret)}";
             using HttpResponseMessage response = await _http.GetAsync(url, cancellationToken).ConfigureAwait(false);
-            using JsonDocument document = JsonDocument.Parse(
+            using var document = JsonDocument.Parse(
                 await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
             if (!document.RootElement.TryGetProperty("access_token", out JsonElement value))
             {
@@ -257,7 +256,7 @@ internal sealed class WeComChannel(
         using HttpResponseMessage response = await _http.PostAsJsonAsync(
             $"{ApiBase}{path}?access_token={Uri.EscapeDataString(accessToken)}", body, cancellationToken)
             .ConfigureAwait(false);
-        using JsonDocument document = JsonDocument.Parse(
+        using var document = JsonDocument.Parse(
             await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
         if (document.RootElement.TryGetProperty("errcode", out JsonElement code) && code.GetInt32() != 0)
         {
@@ -288,7 +287,7 @@ internal sealed class WeComChannel(
             using HttpResponseMessage upload = await _http.PostAsync(
                 $"{ApiBase}/cgi-bin/media/upload?access_token={Uri.EscapeDataString(accessToken)}&type=file",
                 form, cancellationToken).ConfigureAwait(false);
-            using JsonDocument document = JsonDocument.Parse(
+            using var document = JsonDocument.Parse(
                 await upload.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
             if (document.RootElement.TryGetProperty("errcode", out JsonElement code) && code.GetInt32() != 0)
             {
@@ -311,7 +310,7 @@ internal sealed class WeComChannel(
         using HttpResponseMessage response = await _http.PostAsJsonAsync(
             $"{ApiBase}{path}?access_token={Uri.EscapeDataString(accessToken)}", body, cancellationToken)
             .ConfigureAwait(false);
-        using JsonDocument sent = JsonDocument.Parse(
+        using var sent = JsonDocument.Parse(
             await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
         if (sent.RootElement.TryGetProperty("errcode", out JsonElement sendCode) && sendCode.GetInt32() != 0)
         {

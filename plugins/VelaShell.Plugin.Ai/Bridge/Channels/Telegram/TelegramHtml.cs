@@ -28,7 +28,7 @@ internal static partial class TelegramHtml
     public static string Convert(string markdown)
     {
         var sb = new StringBuilder();
-        var fenced = false;
+        bool fenced = false;
         foreach (string raw in (markdown ?? "").Split('\n'))
         {
             string line = raw.TrimEnd('\r');
@@ -85,7 +85,7 @@ internal static partial class TelegramHtml
     private static string Inline(string text)
     {
         var sb = new StringBuilder();
-        var at = 0;
+        int at = 0;
         foreach (Match code in InlineCode().Matches(text))
         {
             sb.Append(Marks(text[at..code.Index]));
