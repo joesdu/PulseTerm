@@ -1,7 +1,10 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:dockc="using:VelaShell.Docking.Controls"
-        xmlns:shapes="using:Avalonia.Controls.Shapes">
+        xmlns:shapes="using:Avalonia.Controls.Shapes"
+        xmlns:behaviors="using:VelaShell.Behaviors"
+        xmlns:conv="using:VelaShell.Converters"
+        xmlns:pc="using:VelaShell.Controls.Controls">
 
     <!-- 终端工作区(自研 VelaDock)底色 + 全局通用样式。标签本身的视觉
          (36px 条 / 32px 标签 / 状态点 / accent 顶线 / 关闭钮)内联在
@@ -20,8 +23,31 @@
     <Style Selector="TextBox[AcceptsReturn=True]">
         <Setter Property="VerticalContentAlignment" Value="Top" />
     </Style>
+    <!-- 数字框全局挂上空值兜底:删空时提示"请输入 x 到 y 之间的数字"而不是绑定抛出的
+         InvalidCastException,离开输入框后自动回到上一个有效值。理由见 NumericInputGuard。 -->
     <Style Selector="NumericUpDown">
         <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="behaviors:NumericInputGuard.Enabled" Value="True" />
+    </Style>
+
+    <!-- 校验提示的呈现:Fluent 默认把整段红色错误文字排进布局里。数字框全长在 "*,Auto"
+         两栏的 Auto 那一侧(设置页每一行、连接配置的"延迟(秒)"都是),一段几十字的文字进来
+         就把 Auto 列撑开,同排的输入框被挤成一条缝 —— 截图里"延迟(秒)"变成一个黑方块,
+         就是旁边那句 InvalidCastException 撑的。换成 14px 的红色警告图标 + 悬停提示:
+         占位恒定,布局纹丝不动,文案一个字没少。 -->
+    <Style Selector="DataValidationErrors">
+        <Setter Property="ErrorTemplate">
+            <DataTemplate>
+                <Border Margin="4,2,0,0" Background="Transparent"
+                        HorizontalAlignment="Right" VerticalAlignment="Center"
+                        ToolTip.Placement="Top" ToolTip.ShowDelay="0"
+                        ToolTip.Tip="{Binding Converter={x:Static conv:ValidationErrorTextConverter.Instance}}">
+                    <pc:LucideIcon Width="14" Height="14"
+                                   Data="{DynamicResource Icon.triangle-alert}"
+                                   Foreground="{DynamicResource VelaError}" />
+                </Border>
+            </DataTemplate>
+        </Setter>
     </Style>
     <Style Selector="Button">
         <Setter Property="VerticalContentAlignment" Value="Center" />

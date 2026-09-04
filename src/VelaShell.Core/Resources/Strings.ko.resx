@@ -4195,4 +4195,10 @@ Windows는 exe 전체 경로 또는 명령 이름(예: notepad), Linux는 명령
   <data name="Recorder_CleanupFailed" xml:space="preserve">
     <value>정리 실패: {0}</value>
   </data>
+  <data name="Validation_NumberRange" xml:space="preserve">
+    <value>{0}~{1} 사이의 숫자를 입력하세요</value>
+  </data>
+  <data name="Validation_NumberRequired" xml:space="preserve">
+    <value>숫자를 입력하세요</value>
+  </data>
 </root>

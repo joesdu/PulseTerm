@@ -26,6 +26,20 @@
       <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
       <Setter Property="CornerRadius" Value="3" />
     </Style>
+    <!-- 端口两栏用 NumericUpDown 而不是 TextBox:目标属性是 int,用文本框绑定时清空或输入字母
+         会把 "Could not convert '' (System.String) to System.Int32" 直接摆在表单里(见
+         Behaviors/NumericInputGuard)。外观照抄上面那条 TextBox —— 内部编辑框本就吃同一条样式,
+         这里只补外壳,视觉与旁边的主机框保持一致。 -->
+    <Style Selector="NumericUpDown">
+      <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize11}" />
+      <Setter Property="MinHeight" Value="26" />
+      <Setter Property="Background" Value="{DynamicResource VelaBgInput}" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
+      <Setter Property="CornerRadius" Value="3" />
+      <Setter Property="ShowButtonSpinner" Value="False" />
+    </Style>
     <Style Selector="TextBlock.form-label">
       <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />
       <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
@@ -302,7 +316,8 @@
              取消勾选可填服务器可达的内网第三方主机。 -->
         <Grid ColumnDefinitions="80,8,*,8,56" RowDefinitions="Auto,4,Auto">
           <TextBlock Grid.Row="0" Grid.Column="0" Classes="form-label" Text="{loc:Localize LocalPort}" />
-          <TextBox   Grid.Row="2" Grid.Column="0" Text="{Binding NewLocalPort}" PlaceholderText="27017" />
+          <NumericUpDown Grid.Row="2" Grid.Column="0" Value="{Binding NewLocalPort}" PlaceholderText="27017"
+                         Minimum="1" Maximum="65535" Increment="1" FormatString="0" />
           <TextBlock Grid.Row="0" Grid.Column="2" Classes="form-label" Text="{loc:Localize Tunnel_TargetHostLabel}"
                      IsVisible="{Binding IsRemoteTargetVisible}" />
           <TextBox   Grid.Row="2" Grid.Column="2"
@@ -312,8 +327,9 @@
                      IsVisible="{Binding IsRemoteTargetVisible}" />
           <TextBlock Grid.Row="0" Grid.Column="4" Classes="form-label" Text="{loc:Localize Port}"
                      IsVisible="{Binding IsRemoteTargetVisible}" />
-          <TextBox   Grid.Row="2" Grid.Column="4" Text="{Binding NewRemotePort}" PlaceholderText="27017"
-                     IsVisible="{Binding IsRemoteTargetVisible}" />
+          <NumericUpDown Grid.Row="2" Grid.Column="4" Value="{Binding NewRemotePort}" PlaceholderText="27017"
+                         Minimum="1" Maximum="65535" Increment="1" FormatString="0"
+                         IsVisible="{Binding IsRemoteTargetVisible}" />
         </Grid>
 
         <CheckBox IsChecked="{Binding ForwardToServerLoopback}"

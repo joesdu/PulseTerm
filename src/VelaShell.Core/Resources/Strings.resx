@@ -4196,4 +4196,10 @@ Choose how much to clean up. Every option rebuilds the store so the space is gen
   <data name="Recorder_CleanupFailed" xml:space="preserve">
     <value>Cleanup failed: {0}</value>
   </data>
+  <data name="Validation_NumberRange" xml:space="preserve">
+    <value>Enter a number between {0} and {1}</value>
+  </data>
+  <data name="Validation_NumberRequired" xml:space="preserve">
+    <value>Enter a number</value>
+  </data>
 </root>

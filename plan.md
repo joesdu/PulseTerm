@@ -1585,3 +1585,70 @@ Disconnected),不是最后一次变更的那个标签说了算。
 `dotnet build VelaShell.slnx` 无警告;`dotnet test VelaShell.slnx` 全绿(2771 通过)。
 新增 1 条端到端用例(走环回 FTP 服务器,对同一条配置开两个文档、关一个、再关一个),
 并已反向验证它对老语义确实报错。
+
+## 40. 2026-09-04 数字输入框删空后别再甩一句转换异常(用户反馈)
+
+现象:连接配置 → 高级选项 → 「认证后执行命令」右边那个「延迟(秒)」,把里面的数字删掉,
+框旁边立刻冒出一整段红字 **`System.InvalidCastException: Could not convert '(null)' (null)
+to System.Int32.`**,同时把同排的命令输入框挤成一条缝。
+
+### 一、根因:空框直接撞在绑定的类型转换上
+
+`NumericUpDown.Value` 是 `decimal?`,而目标属性(设置项、连接配置)是 `int` / `double`。
+用户按退格删空的那一刻控件把 Value 置成 `null`,绑定引擎转换不了,把**异常对象本身**当作
+校验错误交给 `DataValidationErrors` —— 界面于是原样显示异常的 `ToString()`。
+全项目 20 处 `NumericUpDown` 无一例外(端口、超时、保活、日志留存、行高、内边距、回滚行数、
+并发数、限速……),因为这是控件与绑定的默认组合行为,不是哪一处写错了。
+
+布局被挤的那一半是同一件事的副作用:数字框统统长在 `"*,Auto"` 两栏的 Auto 一侧,
+Fluent 默认把整段错误文字排进布局,一段几十字的异常把 Auto 列撑开,`*` 那一栏就被压没了。
+
+### 二、修法:文案、状态、呈现三件事分开
+
+**文案** —— `Behaviors/NumericInputGuard.cs` 用 `DataValidationErrors.ErrorConverter` 把任何
+错误换成一句人话:「请输入 0 到 60 之间的数字」。区间直接读控件自己的 `Minimum` / `Maximum`
+(延迟是 0–60、端口 1–65535、行高 0.8–2.0),按控件的 `FormatString` 渲染 —— 一位小数的
+行高框才不会被写成「0.8 到 2」让人以为上界是整数。两端没有界时退回「请输入数字」。
+五份 resx 各加 `Validation_NumberRange` / `Validation_NumberRequired` 两条。
+
+**状态** —— 同一个行为在 `LostFocus` 上兜底:值还是空的就恢复成上一个有效值。清空只是编辑
+过程中的中间态,人走开之后不该留一个红着的空框 —— 那时视图模型里其实一直是旧值,空框在说谎。
+恢复走 `SetCurrentValue` 而不是直接赋值:直接赋值写的是本地值,优先级高过绑定,会把这个框与
+视图模型的双向绑定就地掐断,此后改设置再也传不回去(已有回归用例钉住)。
+
+**呈现** —— `Themes/DockStyles.axaml` 把 `DataValidationErrors.ErrorTemplate` 换成 14px 的红色
+警告图标 + 悬停提示(文案经 `Converters/ValidationErrorTextConverter` 拼成一段)。占位恒定,
+布局纹丝不动,文案一个字没少。
+
+兜底挂在全局那条 `Style Selector="NumericUpDown"` 上,新加的数字框自动带上,不需要谁记得
+在每个 axaml 里补一句 —— 有一条用例专门守这个。
+
+### 三、顺手改掉两个用 TextBox 装端口的地方
+
+隧道面板的「本地端口」「端口」绑的是 `int NewLocalPort` / `NewRemotePort`,却用的是 `TextBox`,
+删空或输入字母同样会把 `Could not convert '' (System.String) to System.Int32` 摆进表单。
+改成 `NumericUpDown`(1–65535,不显示微调钮),外观照抄本视图那条 TextBox 样式,与旁边的
+主机框逐像素一致(已用 headless 截图核对)。全项目再无绑到数值属性的可编辑 `TextBox`。
+
+顺带一提,输入字母这条路其实**到不了绑定**:控件解析不了的文本自己就拦下了,`Value` 不动,
+失焦时文本回滚。真正会漏到绑定上的只有"清空"。有一条用例把这个前提钉住,免得日后有人以为
+提示丢了。
+
+### 四、设置窗口整卷扫一遍
+
+设置窗口是数字框最密的地方,所以不靠"我改的是全局样式,应该都覆盖到了"这句话交差,
+而是把它整个架起来逐页逐框走一遍(`Every_number_box_in_the_settings_window_is_covered`):
+翻遍 12 个分页、把跟在开关后面的字段(自动重连的间隔与重试、限速上下行、日志留存与目录、
+代理那一整组)全拨出来,**17 个数字框**逐个清空 → 核对提示是区间不是异常 → 挪走焦点 →
+核对值回到原样、红标消失。17 = 常规 7 + 外观 1 + 终端 4 + 传输 4 + 代理 1,与静态清点一致。
+
+同一扇窗里剩下的 **22 个纯文本框**另有一条用例:逐个清空,断言不许冒出异常原文 ——
+真冒出来就说明又有人把数值属性绑到了 `TextBox` 上(隧道面板那两个端口原本就是这么写的)。
+两条都带扫描数量下限,免得哪天页面结构一变,扫不到控件却一路绿。
+
+### 五、验收
+
+`dotnet build VelaShell.slnx` 无警告;`dotnet test VelaShell.slnx` 全绿(2781 通过)。
+新增 10 条 headless UI 用例(`NumericInputGuardUiTests`):全局样式是否挂上、提示文案是否是
+区间而不是异常、失焦是否恢复、恢复后绑定是否还活着、提示是不是定宽图标且文案在悬停里、
+字母输入是否根本到不了绑定、无界与小数框的文案,以及上面那两条设置窗口整卷扫描。
