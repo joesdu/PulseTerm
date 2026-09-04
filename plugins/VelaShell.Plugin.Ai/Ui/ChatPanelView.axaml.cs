@@ -168,6 +168,14 @@ public partial class ChatPanelView : UserControl
         SendButton.Click += (_, _) => _ = SendAsync(InputBox.Text ?? "");
         StopButton.Click += (_, _) => Cts?.Cancel();
         ChatScroll.ScrollChanged += OnChatScrollChanged;
+        // 跳到末尾:点一下回到最新一条,并恢复"粘底"(此后新消息继续跟着走)。
+        // 先乐观隐藏,真正滚到底后 ScrollChanged 会再确认一次。
+        JumpToBottomButton.PointerPressed += (_, e) =>
+        {
+            e.Handled = true;
+            JumpToBottomButton.IsVisible = false;
+            RequestAutoScroll(force: true);
+        };
         // 消息流的实际容器是"当前这一份对话"的面板,运行时挂上;切对话时整体替换(见 SwitchConversation)。
         ChatScroll.Content = _active.Messages;
         NewChatButton.Click += (_, _) => StartNewChat();
@@ -351,6 +359,7 @@ public partial class ChatPanelView : UserControl
         SyncModeUi();
         // 「新会话」也是纯图标钮了(顶栏四枚统一 26×30),文案只剩提示这一处
         ToolTip.SetTip(NewChatButton, $"{_loc["NewChat"]} — {_loc["NewChatTip"]}");
+        ToolTip.SetTip(JumpToBottomButton, _loc["ScrollToBottom"]);
         ToolTip.SetTip(UsageMeterTrack, _loc["MeterTip"]);
         ToolTip.SetTip(SettingsButton, _loc["ModelSettings"]);
         ToolTip.SetTip(ToolsButton, _loc["ConfigureTools"]);
@@ -939,6 +948,7 @@ public partial class ChatPanelView : UserControl
         // 切到别的对话时上一份的后续提问药丸不再相关;各份的后续提问是即时算的,不做保留。
         ClearSuggestions();
         RequestAutoScroll(force: true);
+        UpdateJumpToBottomButton();
     }
 
     /// <summary>
@@ -1087,11 +1097,24 @@ public partial class ChatPanelView : UserControl
     /// </summary>
     private void OnChatScrollChanged(object? sender, ScrollChangedEventArgs e)
     {
-        if (e.ExtentDelta.Y != 0)
+        // 只有"纯滚动"(内容尺寸没变)才更新粘底意图:流式期间内容增长引起的相对位移不算用户上滚。
+        if (e.ExtentDelta.Y == 0)
         {
-            return;
+            _autoScroll = ChatScroll.Offset.Y + ChatScroll.Viewport.Height >= ChatScroll.Extent.Height - 8;
         }
-        _autoScroll = ChatScroll.Offset.Y + ChatScroll.Viewport.Height >= ChatScroll.Extent.Height - 8;
+        // 但"跳到末尾"按钮的显隐要跟着每一次变化走 —— 包括新消息把内容顶长(此时离底更远了)。
+        UpdateJumpToBottomButton();
+    }
+
+    /// <summary>
+    /// "跳到末尾"圆钮的显隐:只有在聊天流可见、内容超出一屏、且当前不在底部时才显形。
+    /// 在底部(含流式粘底)时收起 —— 那会儿没有"跳"的必要。
+    /// </summary>
+    private void UpdateJumpToBottomButton()
+    {
+        bool hasOverflow = ChatScroll.Extent.Height > ChatScroll.Viewport.Height + 8;
+        bool atBottom = ChatScroll.Offset.Y + ChatScroll.Viewport.Height >= ChatScroll.Extent.Height - 8;
+        JumpToBottomButton.IsVisible = ChatScroll.IsVisible && hasOverflow && !atBottom;
     }
 
     /// <summary>

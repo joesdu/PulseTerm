@@ -59,6 +59,8 @@ public partial class ChatPanelView
         {
             ResetClearHistoryButton();
         }
+        // 切到历史/设置时聊天流让位了,"跳到末尾"钮也得收起;切回聊天再按当前位置决定显隐。
+        UpdateJumpToBottomButton();
     }
 
     // ---------- 会话列表 ----------
