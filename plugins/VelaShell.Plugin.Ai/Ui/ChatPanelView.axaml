@@ -82,6 +82,29 @@
       <Setter Property="BorderBrush" Value="{DynamicResource VelaAccent}" />
     </Style>
 
+    <!-- 跳到末尾:滚上去看旧消息时,消息区右下角浮出一枚圆钮,点它回到最新一条。
+         只在"不在底部"时显形(见 UpdateJumpToBottomButton);在底部/流式粘底时不出现。 -->
+    <Style Selector="Border.jumpToBottom">
+      <Setter Property="Width" Value="34" />
+      <Setter Property="Height" Value="34" />
+      <Setter Property="CornerRadius" Value="17" />
+      <Setter Property="Background" Value="{DynamicResource VelaBgSurface}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="HorizontalAlignment" Value="Right" />
+      <Setter Property="VerticalAlignment" Value="Bottom" />
+      <Setter Property="Margin" Value="0,0,24,14" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="BoxShadow" Value="0 2 8 0 #40000000" />
+    </Style>
+    <Style Selector="Border.jumpToBottom:pointerover">
+      <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaAccent}" />
+    </Style>
+    <Style Selector="Border.jumpToBottom:pointerover Path">
+      <Setter Property="Stroke" Value="{DynamicResource VelaTextPrimary}" />
+    </Style>
+
     <!-- 输入框上方的建议药丸(同 Copilot 的后续提问):整枚可点,悬停换强调描边 -->
     <Style Selector="Border.suggestChip">
       <Setter Property="Background" Value="{DynamicResource VelaBgSurface}" />
@@ -927,6 +950,15 @@
            StackPanel 里的东西永远是顶着上沿排的。 -->
       <StackPanel x:Name="EmptyStateHost" IsVisible="False" Spacing="10" MaxWidth="340"
                   VerticalAlignment="Center" HorizontalAlignment="Center" Margin="24,0" />
+      <!-- 跳到末尾的圆钮:浮在消息区右下角,默认隐藏,滚上去时显形(见 UpdateJumpToBottomButton)。
+           摆在 Panel 最后 = 叠在消息流之上;点击回到最新并恢复粘底。 -->
+      <Border x:Name="JumpToBottomButton" Classes="jumpToBottom" IsVisible="False">
+        <Viewbox Width="16" Height="16">
+          <Path Width="24" Height="24" Data="{DynamicResource AiIcon.chevron-down}"
+                Stroke="{DynamicResource VelaTextSecondary}" StrokeThickness="2"
+                StrokeLineCap="Round" StrokeJoin="Round" />
+        </Viewbox>
+      </Border>
     </Panel>
   </DockPanel>
 </UserControl>

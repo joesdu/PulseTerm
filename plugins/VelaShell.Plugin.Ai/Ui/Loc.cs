@@ -112,6 +112,7 @@ public sealed class Loc(string locale)
         ["Interjected"] = ["You added", "你补充了", "你補充了", "追加した内容", "추가한 내용"],
         ["NewChat"] = ["New chat", "新会话", "新會話", "新規チャット", "새 채팅"],
         ["NewChatTip"] = ["Start a new conversation (discards the current one).", "开始新会话(丢弃当前对话)。", "開始新會話(丟棄當前對話)。", "新しい会話を開始します(現在の会話は破棄)。", "새 대화를 시작합니다(현재 대화는 삭제)."],
+        ["ScrollToBottom"] = ["Jump to latest", "跳到最新", "跳到最新", "最新へ移動", "최신으로 이동"],
         ["Settings"] = ["Settings", "设置", "設定", "設定", "설정"],
         ["ModelSettings"] = ["Models", "模型配置", "模型設定", "モデル設定", "모델 설정"],
         ["GlobalSettings"] = ["Global settings", "全局设置", "全域設定", "全体設定", "전역 설정"],
