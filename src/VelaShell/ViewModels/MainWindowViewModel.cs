@@ -129,17 +129,22 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     /// <summary>工作台连接类型(Redis 等)的会话启动器;无插件宿主的单测里为 null。</summary>
     private readonly PluginWorkspaceLauncher? _workspaceLauncher;
 
-    /// <summary>FTP 会话标识 → 会话配置标识:状态事件只带会话标识,树上按配置标识定位节点。</summary>
-    private readonly ConcurrentDictionary<Guid, Guid> _ftpSessionProfiles = new();
-
-    /// <summary>插件协议会话标识 → 会话配置标识;用途同 <see cref="_ftpSessionProfiles" />。</summary>
-    private readonly ConcurrentDictionary<Guid, Guid> _pluginSessionProfiles = new();
-
-    /// <summary>工作台会话 id → 连接配置 id(树上的状态圆点按它定位)。</summary>
-    private readonly ConcurrentDictionary<Guid, Guid> _workspaceProfiles = new();
-
     /// <summary>工作台会话 id → 已打开的停靠文档(插件被停用时要按 id 找到它并关掉)。</summary>
     private readonly ConcurrentDictionary<Guid, PluginWorkspaceDocument> _workspaceDocuments = new();
+
+    /// <summary>
+    /// **活着的**文档型会话(独立 SFTP / FTP / S3 等插件文件系统 / Redis 等工作台):
+    /// 会话 id → (它属于哪条配置, 当前状态)。开文档时登记,关文档时摘掉。
+    /// <para>
+    /// 存在的理由是树上的状态圆点:一条配置可以同时开着好几个文档(点快了开出两个,
+    /// 或者有意开两个盯不同目录),而树上只有一个节点。没有这本册子就只能"最后一次事件说了算",
+    /// 于是关掉两个里的任意一个,节点就变成未连接 —— 明明还有一个活着。
+    /// 终端标签那边靠 <see cref="TabBar" /> 自己就能枚举(#321 已按这条纪律改过),
+    /// 文档没有等价的集合可枚举(<c>Layout.AllDocuments()</c> 在 DocumentClosed 触发时
+    /// 已经把正在关的那个摘掉了,但迟到的状态事件仍会引用它),所以单开一本。
+    /// </para>
+    /// </summary>
+    private readonly ConcurrentDictionary<Guid, (Guid ProfileId, SessionStatus Status)> _documentSessions = new();
 
     /// <summary>工作台会话 id → 为它建的隧道 id(文档关闭时要拆掉,否则本地端口一直占着)。</summary>
     private readonly ConcurrentDictionary<Guid, Guid> _workspaceTunnels = new();
@@ -179,7 +184,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     /// 标签关闭或连接断开时经 <see cref="EvictFileBrowser" /> 驱逐。
     /// </summary>
     private readonly Dictionary<Guid, FileBrowserViewModel> _fileBrowserCache = [];
-    private readonly object _fileBrowserPreferenceSaveSync = new();
+    private readonly Lock _fileBrowserPreferenceSaveSync = new();
     private Task _fileBrowserPreferenceSaveTail = Task.CompletedTask;
     private readonly Lock _sftpCloseTasksSync = new();
     private readonly Dictionary<SftpDocument, Task> _sftpCloseTasks = [];
@@ -2154,21 +2159,79 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     /// 按"最后一次变更"来更新会留下一个走不出去的状态(#321:在已连上的会话上再开一个
     /// 标签、趁它还在连接时立刻关掉,节点会永远停在「连接中」)。
     /// </para>
-    /// <para>没有任何标签属于该配置时归零为 Disconnected —— 最后一个标签关掉即回到未连接。</para>
+    /// <para>
+    /// 参与合并的不只有终端标签,还有该配置名下**活着的文档型会话**(独立 SFTP / FTP /
+    /// S3 等插件文件系统 / Redis 等工作台,见 <see cref="_documentSessions" />)。
+    /// 这些连接一样可以对同一条配置开好几个,而它们原先各自直接往树上写状态、最后一次说了算 ——
+    /// 于是"点快了开出两个 FTP 标签,关掉一个,树上的圆点就灭了"(明明还有一个活着)。
+    /// </para>
+    /// <para>没有任何标签或文档属于该配置时归零为 Disconnected —— 最后一个关掉即回到未连接。</para>
     /// </summary>
     private void RefreshSessionStatus(Guid profileId)
     {
         SessionStatus status = TabBar
             .Tabs.OfType<TerminalTabViewModel>()
             .Where(tab => tab.Profile?.Id == profileId)
+            .Select(tab => tab.ConnectionStatus)
+            .Concat(
+                _documentSessions
+                    .Values.Where(session => session.ProfileId == profileId)
+                    .Select(session => session.Status)
+            )
             .Aggregate(
                 SessionStatus.Disconnected,
-                (best, tab) =>
-                    SessionStatusRank(tab.ConnectionStatus) > SessionStatusRank(best)
-                        ? tab.ConnectionStatus
-                        : best
+                (best, candidate) =>
+                    SessionStatusRank(candidate) > SessionStatusRank(best) ? candidate : best
             );
         Sidebar.SessionTree?.SetSessionStatus(profileId, status);
+    }
+
+    /// <summary>
+    /// 登记一条刚建好的文档型会话并刷新它那条配置在树上的状态。
+    /// </summary>
+    /// <param name="sessionId">会话标识(摘除与状态更新都按它定位)。</param>
+    /// <param name="profileId">
+    /// 树上节点对应的配置标识。刻意由调用方给出**原始** profile 的 Id:登录弹窗可能换过
+    /// 文档里那份配置的字段,而树上的节点始终是按最初那条配置的 Id 建的。
+    /// </param>
+    /// <param name="status">初始状态(建出文档即已连上)。</param>
+    private void TrackDocumentSession(Guid sessionId, Guid profileId, SessionStatus status)
+    {
+        if (sessionId == Guid.Empty || profileId == Guid.Empty)
+        {
+            return;
+        }
+        _documentSessions[sessionId] = (profileId, status);
+        ScheduleSessionStatusRefresh(profileId);
+    }
+
+    /// <summary>
+    /// 更新一条在册文档型会话的状态(掉线 / 重新连上)并刷新树。
+    /// <para>
+    /// 不在册的会话**不复活**:文档已经关掉之后仍可能收到一条迟到的状态事件
+    /// (FTP 的失效是在下一次操作时才暴露的),照单全收会把刚灭掉的圆点重新点亮。
+    /// </para>
+    /// </summary>
+    private void UpdateDocumentSessionStatus(Guid sessionId, SessionStatus status)
+    {
+        if (!_documentSessions.TryGetValue(sessionId, out (Guid ProfileId, SessionStatus Status) tracked))
+        {
+            return;
+        }
+        _documentSessions[sessionId] = (tracked.ProfileId, status);
+        ScheduleSessionStatusRefresh(tracked.ProfileId);
+    }
+
+    /// <summary>
+    /// 摘掉一条已关闭的文档型会话并刷新树。幂等 —— 关闭路径与协议自己的 <c>Closed</c> 事件
+    /// 都会走到这里,谁先到都行。
+    /// </summary>
+    private void ForgetDocumentSession(Guid sessionId)
+    {
+        if (_documentSessions.TryRemove(sessionId, out (Guid ProfileId, SessionStatus Status) tracked))
+        {
+            ScheduleSessionStatusRefresh(tracked.ProfileId);
+        }
     }
 
     /// <summary>多标签合并时的状态优先级,数值越大越"活跃"(见 <see cref="RefreshSessionStatus" />)。</summary>
@@ -3159,7 +3222,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                         QueryDefaultEditorPathAsync));
                 Layout.AddDocument(document);
                 // 与 FTP 同理:连接续体可能落在后台线程上,树节点是绑定属性,必须回主线程再改。
-                SetTreeSessionStatus(current.Id, SessionStatus.Connected);
+                TrackDocumentSession(session.SessionId, current.Id, SessionStatus.Connected);
                 return document;
             }
             catch (OperationCanceledException)
@@ -3250,11 +3313,8 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                         settings.Transfer,
                         FileTransfer,
                         QueryDefaultEditorPathAsync));
-                // 用**原始** profile 的标识登记:登录弹窗可能换过 current 的字段,
-                // 但树上的节点始终是按最初那条配置的 Id 建的。
-                _ftpSessionProfiles[sessionId] = profile.Id;
                 Layout.AddDocument(document);
-                SetTreeSessionStatus(profile.Id, SessionStatus.Connected);
+                TrackDocumentSession(sessionId, profile.Id, SessionStatus.Connected);
                 return document;
             }
             catch (OperationCanceledException)
@@ -3375,11 +3435,8 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                         _pluginProtocols.InvokeActionAsync(sessionId, actionId, path, CancellationToken.None);
                 }
                 var document = new SftpDocument(viewModel);
-                // 用**原始** profile 的标识登记:登录弹窗可能换过 current 的字段,
-                // 但树上的节点始终是按最初那条配置的 Id 建的。
-                _pluginSessionProfiles[sessionId] = profile.Id;
                 Layout.AddDocument(document);
-                SetTreeSessionStatus(profile.Id, SessionStatus.Connected);
+                TrackDocumentSession(sessionId, profile.Id, SessionStatus.Connected);
                 return document;
             }
             catch (OperationCanceledException)
@@ -3619,13 +3676,10 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                 {
                     _workspaceTunnels[session.SessionId] = tunnelId;
                 }
-                // 用**原始** profile 的标识登记:登录弹窗可能换过 current 的字段,
-                // 但树上的节点始终是按最初那条配置的 Id 建的。
-                _workspaceProfiles[session.SessionId] = profile.Id;
                 _workspaceDocuments[session.SessionId] = document;
                 session.Document.StatusChanged += OnWorkspaceStatusChanged;
                 Layout.AddDocument(document);
-                SetTreeSessionStatus(profile.Id, SessionStatus.Connected);
+                TrackDocumentSession(session.SessionId, profile.Id, SessionStatus.Connected);
                 return document;
             }
             catch (OperationCanceledException)
@@ -3734,10 +3788,9 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         document.Workspace.StatusChanged -= OnWorkspaceStatusChanged;
         _workspaceDocuments.TryRemove(document.SessionId, out _);
         _workspaceLauncher?.Forget(document.SessionId);
-        if (_workspaceProfiles.TryRemove(document.SessionId, out Guid profileId))
-        {
-            SetTreeSessionStatus(profileId, SessionStatus.Disconnected);
-        }
+        // 摘掉这一条会话再重算,而不是直接把节点写成「未连接」:
+        // 同一条配置名下可能还开着别的文档或终端标签(#321 那条纪律的文档版)。
+        ForgetDocumentSession(document.SessionId);
         // 先关插件那边的连接,再拆隧道:反过来会让插件的关闭流程对着一条已经断掉的通道超时。
         await document.CloseAsync().ConfigureAwait(true);
         if (_workspaceTunnels.TryRemove(document.SessionId, out Guid tunnelId))
@@ -3880,11 +3933,11 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         }
         Guid sessionId = _workspaceDocuments
             .FirstOrDefault(pair => ReferenceEquals(pair.Value.Workspace, document)).Key;
-        if (sessionId == Guid.Empty || !_workspaceProfiles.TryGetValue(sessionId, out Guid profileId))
+        if (sessionId == Guid.Empty)
         {
             return;
         }
-        SetTreeSessionStatus(profileId, status.State switch
+        UpdateDocumentSessionStatus(sessionId, status.State switch
         {
             ProtocolSessionState.Connected => SessionStatus.Connected,
             ProtocolSessionState.Faulted => SessionStatus.Error,
@@ -3895,15 +3948,14 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     /// <summary>插件协议会话状态变化 → 资源管理器树的状态圆点(理由与线程约束同 FTP 侧)。</summary>
     private void OnPluginSessionStateChanged(object? sender, PluginProtocolSessionStateChange change)
     {
-        if (!_pluginSessionProfiles.TryGetValue(change.SessionId, out Guid profileId))
-        {
-            return;
-        }
         if (change.State == PluginProtocolSessionState.Closed)
         {
-            _pluginSessionProfiles.TryRemove(change.SessionId, out _);
+            // 会话没了就从册子上摘掉,而不是把节点写成「未连接」——
+            // 同一条配置的另一个文档可能还开着。
+            ForgetDocumentSession(change.SessionId);
+            return;
         }
-        SetTreeSessionStatus(profileId, change.State switch
+        UpdateDocumentSessionStatus(change.SessionId, change.State switch
         {
             PluginProtocolSessionState.Connected => SessionStatus.Connected,
             PluginProtocolSessionState.Faulted => SessionStatus.Error,
@@ -3944,33 +3996,35 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     /// </summary>
     private void OnFtpSessionStateChanged(object? sender, FtpSessionStateChange change)
     {
-        if (!_ftpSessionProfiles.TryGetValue(change.SessionId, out Guid profileId))
-        {
-            return;
-        }
         if (change.State == FtpSessionState.Closed)
         {
-            _ftpSessionProfiles.TryRemove(change.SessionId, out _);
+            // 会话没了就从册子上摘掉,而不是把节点写成「未连接」——
+            // 同一条配置的另一个 FTP 文档可能还开着(点快了开出两个,关掉其中一个)。
+            ForgetDocumentSession(change.SessionId);
+            return;
         }
-        SetTreeSessionStatus(profileId, change.State switch
+        UpdateDocumentSessionStatus(change.SessionId, change.State switch
         {
             FtpSessionState.Connected => SessionStatus.Connected,
             // 掉线显示为「离线」而不是「未连接」:文档还开着,用户需要看出是断了而不是没连过。
-            FtpSessionState.Faulted => SessionStatus.Error,
-            _ => SessionStatus.Disconnected,
+            _ => SessionStatus.Error,
         });
     }
 
     /// <summary>
-    /// 在主线程上更新树节点状态(绑定属性不得在后台线程改)。
+    /// 在主线程上重算并写回树节点状态(绑定属性不得在后台线程改)。
+    /// <para>
+    /// 重算而不是直接写一个状态进去:一条配置名下可能同时开着多个标签与多个文档,
+    /// 树上只有一个节点,谁都不该按自己那一份覆盖别人的(见 <see cref="RefreshSessionStatus" />)。
+    /// </para>
     /// <para>
     /// 用 <c>RxSchedulers.MainThreadScheduler</c> 而不是裸 <c>Dispatcher.UIThread.Post</c>:
     /// 与本类其它 VM 更新一致,并且在没有跑 Avalonia 消息循环的宿主(headless 测试)里也能落地
     /// —— 直接 Post 的作业在那种环境下永远不会被执行。
     /// </para>
     /// </summary>
-    private void SetTreeSessionStatus(Guid profileId, SessionStatus status) =>
-        RxSchedulers.MainThreadScheduler.Schedule(() => Sidebar.SessionTree?.SetSessionStatus(profileId, status));
+    private void ScheduleSessionStatusRefresh(Guid profileId) =>
+        RxSchedulers.MainThreadScheduler.Schedule(() => RefreshSessionStatus(profileId));
 
     /// <summary>FTP 缺少登录凭据时才需要弹登录框;匿名登录不需要用户名与口令。</summary>
     private static bool RequiresFtpCredentials(SessionProfile profile) =>
@@ -4662,6 +4716,22 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         }
     }
 
+    /// <summary>
+    /// 测试探针:取该文档正在进行的关闭任务;没有(尚未关闭或已收尾)则返回已完成任务。
+    /// <para>
+    /// <c>DocumentClosed</c> 的处理里是**同步**登记这个任务的,因此
+    /// <c>Layout.CloseDocument(doc)</c> 一返回就能取到它。测试借它等关闭真正跑完,
+    /// 而不是去猜一个毫秒数 —— 关闭是异步的,树上的状态又在关闭的收尾里才更新。
+    /// </para>
+    /// </summary>
+    internal Task GetStandaloneSftpCloseTask(SftpDocument document)
+    {
+        lock (_sftpCloseTasksSync)
+        {
+            return _sftpCloseTasks.TryGetValue(document, out Task? task) ? task : Task.CompletedTask;
+        }
+    }
+
     internal bool HasPendingStandaloneSftpDocuments()
     {
         lock (_sftpCloseTasksSync)
@@ -4676,14 +4746,19 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         try
         {
             await document.ViewModel.CloseAsync().ConfigureAwait(false);
-            await Dispatcher.UIThread.InvokeAsync(() =>
-                Sidebar.SessionTree?.SetSessionStatus(
-                    document.ViewModel.Profile.Id,
-                    SessionStatus.Disconnected));
         }
         catch (Exception ex)
         {
             await Dispatcher.UIThread.InvokeAsync(() => LastConnectionError = ex.Message);
+        }
+        finally
+        {
+            // 摘掉这一条会话再重算,而不是无条件把节点写成「未连接」——
+            // 用户点快了对同一条配置开出两个文档、关掉其中一个时,旧写法会把还活着的那条
+            // 也一起熄掉(树上只有一个节点,而这里按配置 Id 直接覆盖)。
+            // 放在 finally 里:关闭本身失败(服务器已经没影了)也必须把它从册子上摘掉,
+            // 否则那条会话永远"活着",节点再也回不到未连接。
+            ForgetDocumentSession(document.ViewModel.SessionId);
         }
     }
 

@@ -1536,3 +1536,52 @@ banner。立刻注入会被这些输出盖住甚至吞掉,留一两秒才稳。`
 对话框保存时归一化 + 重开回显 + 自动展开高级选项、换成非 FTP 协议时整块不落盘,
 以及文件浏览器的两条 —— 配置路径优先于登录工作目录,以及路径打不开时回退且不留错误提示。
 文档已同步 velashell-docs `zh/host/交互与界面规格.md` §13.1 与 `en/` 镜像。
+
+## 39. 2026-09-04 文档型连接的树状态:关掉一个,别把还活着的另一个也熄了(用户反馈)
+
+现象:点太快对同一条 FTP 配置开出两个标签,关掉其中一个,资源管理器里那条的状态圆点就灭了
+—— 明明还有一个活着。
+
+### 一、根因与 #321 同形,只是那次只修了终端那一半
+
+树上一条配置只有**一个**节点,而名下可以同时开着好几条会话。#321 已经为终端标签定过纪律:
+节点状态是名下**所有**标签的合并结果(`RefreshSessionStatus`,Connected > Connecting > Error >
+Disconnected),不是最后一次变更的那个标签说了算。
+
+文档型连接(独立 SFTP / FTP / S3 等插件文件系统 / Redis 等工作台)漏在了外面,一直是
+"最后一次事件说了算":`CloseSftpDocumentCoreAsync` 按配置 Id **无条件写**「未连接」,
+`CloseWorkspaceDocumentAsync` 同样,`OnFtpSessionStateChanged` / `OnPluginSessionStateChanged`
+收到 `Closed` 也直接写「未连接」。四处都不看"这条配置名下还有没有别的活会话"。
+
+### 二、修法:把文档也纳入同一次合并
+
+新开一本 `_documentSessions`(会话 id → 配置 id + 当前状态),开文档时登记、关文档时摘掉;
+`RefreshSessionStatus` 从"只枚举 TabBar 里的终端标签"改成"终端标签 ∪ 该配置名下在册的文档会话"。
+于是四处关闭路径统一变成「摘掉这一条,然后重算」,谁也不再替别人做主。
+
+**不能拿 `Layout.AllDocuments()` 当这本册子**:`DockWorkspace.CloseDocument` 是先
+`RemoveDocument` 再触发 `DocumentClosed`,正在关的那个已经不在集合里了,而迟到的状态事件
+仍会引用它 —— 于是"还没关完就已经不算数"和"关完了还在算"两头都不对。单开一本反而没有歧义。
+
+顺带删掉 `_ftpSessionProfiles` / `_pluginSessionProfiles` / `_workspaceProfiles` 三本旧册子:
+它们的唯一用途就是这件事,新册子接手后三者只剩写入、无人读取。留着两本能互相打架的账,
+正是这类 bug 复发的温床。
+
+`UpdateDocumentSessionStatus` 对**不在册**的会话直接忽略,不复活它:文档关掉之后仍可能收到
+一条迟到的状态事件(FTP 的失效是在下一次操作时才暴露的),照单全收会把刚灭掉的圆点重新点亮。
+
+### 三、回归用例差点写成一条假绿
+
+第一版用例在"关掉一个之后断言节点仍为活跃",而状态更新是**异步**调度到主线程的 ——
+断言跑在更新之前,于是把修复整个撤掉它照样通过。这种用例比没有更糟。
+
+改成钉在两个确定的时点上:先 `await` 该文档的关闭任务(状态更新是在它的收尾里发起的,
+为此加了一个 `GetStandaloneSftpCloseTask` 测试探针,手法同 `SshTerminalBridge.DrainWritesAsync`),
+再往主线程调度器上压一道栅栏把排队的刷新冲掉。改完之后**验证过它会失败**:
+把 `ForgetDocumentSession` 换回"直接写未连接"的老语义,用例立刻红。
+
+### 四、验收
+
+`dotnet build VelaShell.slnx` 无警告;`dotnet test VelaShell.slnx` 全绿(2771 通过)。
+新增 1 条端到端用例(走环回 FTP 服务器,对同一条配置开两个文档、关一个、再关一个),
+并已反向验证它对老语义确实报错。

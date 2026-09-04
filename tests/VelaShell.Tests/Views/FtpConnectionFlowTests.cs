@@ -1,8 +1,14 @@
 using Avalonia.Headless;
+using NSubstitute;
+using ReactiveUI;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Concurrency;
+using VelaShell.Core.Data;
 using VelaShell.Core.Models;
 using VelaShell.Docking;
 using VelaShell.Infrastructure.Ftp;
 using VelaShell.Infrastructure.Tests.Ftp;
+using VelaShell.Presentation.ViewModels;
 using VelaShell.ViewModels;
 
 namespace VelaShell.Tests.Views;
@@ -91,5 +97,99 @@ public sealed class FtpConnectionFlowTests
         {
             // 临时目录删不掉不影响断言。
         }
+    }
+
+    /// <summary>
+    /// 用户反馈:点太快对同一条 FTP 配置开出两个标签,关掉其中一个,资源管理器里那条的状态
+    /// 圆点就灭了 —— 明明还有一个活着。
+    /// <para>
+    /// 根因与 #321(终端标签那次)同形:树上一条配置只有一个节点,而关闭路径按配置 Id
+    /// **直接写**「未连接」,不看同一条配置名下还有没有别的活会话。终端侧当时改成了
+    /// 「按名下所有标签重算」,文档型连接(SFTP / FTP / S3 / 工作台)漏在了外面。
+    /// </para>
+    /// </summary>
+    [TestMethod]
+    public async Task ClosingOneOfTwoFtpDocumentsForTheSameProfile_KeepsTheTreeNodeActive()
+    {
+        string root = Path.Combine(Path.GetTempPath(), $"vela-ftp-dup-{Guid.NewGuid():N}");
+        using var server = new LoopbackFtpServer(root);
+        File.WriteAllText(Path.Combine(root, "deploy.sh"), "#!/bin/sh\n");
+
+        // 理由同上一条用例:连接链路全程 ConfigureAwait(true),在 headless UI 线程上等它会死锁。
+        await Task.Run(async () =>
+        {
+            var profile = new SessionProfile
+            {
+                Id = Guid.NewGuid(),
+                ConnectionType = ConnectionType.FTP,
+                Name = "外网FTP",
+                Host = "127.0.0.1",
+                Port = server.Port,
+                Username = "deploy",
+                Password = "secret123",
+                Ftp = new FtpSettings { EncryptionMode = FtpEncryptionMode.None, MaxConnections = 2 },
+            };
+            ISessionRepository repository = Substitute.For<ISessionRepository>();
+            repository.GetAllSessionsAsync().Returns(_ => Task.FromResult(new List<SessionProfile> { profile }));
+            repository.GetAllGroupsAsync().Returns(_ => Task.FromResult(new List<ServerGroup>()));
+
+            var ftp = new FtpFileService();
+            var vm = new MainWindowViewModel(sessionRepository: repository, sftpService: ftp, ftpSessionService: ftp);
+            SessionTreeViewModel tree = vm.Sidebar.SessionTree!;
+            await tree.LoadCommand.Execute().FirstAsync();
+            SessionTreeNodeViewModel node = tree.Nodes.Single(item => item.Id == profile.Id);
+
+            SftpDocument first = (await vm.OpenFtpDocumentForProfileAsync(profile))!;
+            SftpDocument second = (await vm.OpenFtpDocumentForProfileAsync(profile))!;
+            Assert.AreNotSame(first, second, "同一条配置开两次应得到两个各自独立的文档。");
+            Assert.IsTrue(
+                SpinWait.SpinUntil(() => node.Status == SessionStatus.Connected, TimeSpan.FromSeconds(5)),
+                "两个文档都开着,节点当然是「活跃」。");
+
+            Guid firstSessionId = first.ViewModel.SessionId;
+            vm.Layout.CloseDocument(first);
+
+            // 「关完之后节点仍是活跃」这条断言必须钉在一个确定的时点上,否则它会因为
+            // "状态更新还没来得及跑"而假通过 —— 那样即使把修复撤掉,用例照样绿。
+            // 两步:先等关闭任务真正跑完(状态更新是在它的收尾里发起的),
+            // 再往主线程调度器上压一道栅栏,把它前面排队的刷新全部冲掉。
+            await vm.GetStandaloneSftpCloseTask(first);
+            await DrainMainThreadAsync();
+
+            Assert.IsFalse(ftp.OwnsSession(firstSessionId), "关掉文档应连同它那条 FTP 会话一起断开。");
+            Assert.AreEqual(
+                SessionStatus.Connected,
+                node.Status,
+                "还有一个文档开着,节点不能因为关掉了另一个就变成未连接(用户反馈的正是这一幕)。");
+
+            vm.Layout.CloseDocument(second);
+            await vm.GetStandaloneSftpCloseTask(second);
+            await DrainMainThreadAsync();
+
+            Assert.AreEqual(
+                SessionStatus.Disconnected,
+                node.Status,
+                "最后一个文档也关掉了,节点必须回到未连接 —— 修复不能反过来让它永远亮着。");
+        });
+
+        try
+        {
+            Directory.Delete(root, true);
+        }
+        catch (IOException)
+        {
+            // 临时目录删不掉不影响断言。
+        }
+    }
+
+    /// <summary>
+    /// 在主线程调度器上压一道栅栏:它跑到时,此刻之前排队的作业(树上的状态刷新走的正是这条队)
+    /// 都已经跑完。用它替代"睡一会儿再看" —— 后者对时序有假设,而且失败时只会偶发。
+    /// </summary>
+    private static Task DrainMainThreadAsync()
+    {
+        var drained = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        RxSchedulers.MainThreadScheduler.Schedule(() => drained.SetResult());
+        return drained.Task;
     }
 }
