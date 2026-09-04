@@ -88,7 +88,10 @@
     <!-- 目标多选器:未勾选时由 VM 回退当前活动终端。 -->
     <Button Grid.Row="0" Classes="target-button" Margin="8,6,8,4">
       <Button.Flyout>
-        <Flyout Placement="BottomEdgeAlignedLeft">
+        <!-- 外观由内容这层 Border 自己画。bare 类把 presenter 自带的底色/描边/内边距/圆角
+             剥掉(见 DockStyles),否则 Border 外面还套一圈 presenter 的框,圆角处露出
+             一圈黑边 —— 与侧栏会话浮层(SidebarView)同一处理。 -->
+        <Flyout Placement="BottomEdgeAlignedLeft" FlyoutPresenterClasses="bare">
           <Border Width="250" MaxHeight="300" Padding="10"
                   Background="{DynamicResource VelaBgSurface}"
                   BorderBrush="{DynamicResource VelaBorderSecondary}"
