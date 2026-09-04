@@ -555,7 +555,7 @@ public sealed class AgentToolboxTests
     {
         using var context = new TestPluginContext();
         SavedSessionInfo saved = context.FakeSessions.AddSaved();
-        var asked = 0;
+        int asked = 0;
         var toolbox = new AgentToolbox(context)
         {
             ApprovalHandler = _ =>

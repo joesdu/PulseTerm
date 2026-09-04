@@ -611,11 +611,11 @@ internal sealed class QrCode
                 {
                     continue;
                 }
-                if (horizontal == pattern || horizontal == reversed)
+                if (horizontal is pattern or reversed)
                 {
                     score += 40;
                 }
-                if (vertical == pattern || vertical == reversed)
+                if (vertical is pattern or reversed)
                 {
                     score += 40;
                 }

@@ -178,7 +178,7 @@ public sealed class AgentToolboxScopeTests
     {
         using var context = new TestPluginContext();
         (_, _, SavedSessionInfo savedTest) = Two(context);
-        var asked = 0;
+        int asked = 0;
         var toolbox = new AgentToolbox(context)
         {
             Scope = new SessionScope { Kind = ScopeKind.Limited, Groups = ["生产"] }.Resolve(context),

@@ -204,7 +204,7 @@ internal sealed class FeishuChannel(ChannelConfig config, string appSecret, IPlu
 
     private async Task PingLoopAsync(ClientWebSocket socket, int pingSeconds, CancellationToken cancellationToken)
     {
-        TimeSpan interval = TimeSpan.FromSeconds(Math.Clamp(pingSeconds, 10, 600));
+        var interval = TimeSpan.FromSeconds(Math.Clamp(pingSeconds, 10, 600));
         // 等待走不抛的那条路:停机时这里被取消是常态,不该每次都在调试输出里留一条异常。
         while (socket.State == WebSocketState.Open
                && await ChannelShutdown.DelayAsync(interval, cancellationToken).ConfigureAwait(false))
@@ -265,7 +265,7 @@ internal sealed class FeishuChannel(ChannelConfig config, string appSecret, IPlu
     /// <summary>把一条 <c>im.message.receive_v1</c> 事件翻成桥接认识的样子(其它事件返回 null)。</summary>
     private InboundMessage? Parse(byte[] payload)
     {
-        using JsonDocument document = JsonDocument.Parse(payload);
+        using var document = JsonDocument.Parse(payload);
         JsonElement root = document.RootElement;
         if (!root.TryGetProperty("header", out JsonElement header)
             || !root.TryGetProperty("event", out JsonElement body))
@@ -318,7 +318,7 @@ internal sealed class FeishuChannel(ChannelConfig config, string appSecret, IPlu
         }
         try
         {
-            using JsonDocument document = JsonDocument.Parse(content);
+            using var document = JsonDocument.Parse(content);
             return document.RootElement.TryGetProperty("text", out JsonElement text) ? text.GetString() ?? "" : "";
         }
         catch (JsonException)

@@ -39,7 +39,7 @@ public sealed class CopilotExchangeTests
     [TestMethod]
     public async Task SignIn_DoesTheSecondExchangeAndKeepsTheLongLivedToken()
     {
-        var stub = new OAuthStub()
+        OAuthStub stub = new OAuthStub()
             .Json("""{"device_code":"dc","user_code":"AB12-CD34","verification_uri":"https://github.com/login/device","interval":1}""")
             .Json("""{"access_token":"gho_longlived","token_type":"bearer","scope":"read:user"}""")
             .Json(ExchangeBody);
@@ -64,7 +64,7 @@ public sealed class CopilotExchangeTests
     [TestMethod]
     public async Task Refresh_RedoesTheExchangeInsteadOfARefreshTokenGrant()
     {
-        var stub = new OAuthStub().Json(ExchangeBody);
+        OAuthStub stub = new OAuthStub().Json(ExchangeBody);
         using var http = new HttpClient(stub);
         var stale = new OAuthTokens
         {
@@ -89,7 +89,7 @@ public sealed class CopilotExchangeTests
     [TestMethod]
     public async Task Exchange_IdentifiesItselfAsAnEditor()
     {
-        var stub = new OAuthStub().Json(ExchangeBody);
+        OAuthStub stub = new OAuthStub().Json(ExchangeBody);
         using var http = new HttpClient(stub);
 
         await new OAuthClient(http).ExchangeForSessionAsync(Copilot(), "gho_x");
@@ -112,7 +112,7 @@ public sealed class CopilotExchangeTests
     [TestMethod]
     public async Task Exchange_WithoutATokenInTheResponse_Fails()
     {
-        var stub = new OAuthStub().Json("""{"message":"no subscription"}""", HttpStatusCode.Forbidden);
+        OAuthStub stub = new OAuthStub().Json("""{"message":"no subscription"}""", HttpStatusCode.Forbidden);
         using var http = new HttpClient(stub);
 
         await Assert.ThrowsExactlyAsync<OAuthException>(() =>
@@ -122,7 +122,7 @@ public sealed class CopilotExchangeTests
     [TestMethod]
     public async Task Exchange_WithoutAnEndpointFallsBackToTheConfiguredBaseUrl()
     {
-        var stub = new OAuthStub().Json("""{"token":"t","expires_at":4102444800}""");
+        OAuthStub stub = new OAuthStub().Json("""{"token":"t","expires_at":4102444800}""");
         using var http = new HttpClient(stub);
 
         OAuthTokens tokens = await new OAuthClient(http).ExchangeForSessionAsync(Copilot(), "gho_x");

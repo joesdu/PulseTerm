@@ -3,7 +3,6 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using Microsoft.Extensions.AI;
 using VelaShell.PluginSdk;
 
 namespace VelaShell.Plugin.Ai.Interop;
@@ -246,97 +245,97 @@ public sealed class McpEndpoint(IPluginContext context, McpServerSettingsStore s
         switch (method)
         {
             case "initialize":
-            {
-                string sessionId = Guid.NewGuid().ToString("n");
-                var host = new McpToolHost(context, _settings);
-                await host.AutoSelectAsync(cancellationToken).ConfigureAwait(false);
-                _sessions[sessionId] = host;
-                EvictIdleSessions();
-                response.AddHeader("Mcp-Session-Id", sessionId);
-                string version = parameters.ValueKind == JsonValueKind.Object
-                                 && parameters.TryGetProperty("protocolVersion", out JsonElement requested)
-                    ? requested.GetString() ?? ProtocolVersion
-                    : ProtocolVersion;
-                await WriteAsync(response, Result(id.Value, new
                 {
-                    protocolVersion = version,
-                    capabilities = new { tools = new { listChanged = false } },
-                    serverInfo = new { name = "velashell", title = "VelaShell", version = context.PluginVersion },
-                    instructions = "Tools act on the SSH sessions the user has open in VelaShell. "
-                                   + "Call list_sessions first, then use_session to pick one. "
-                                   + host.Describe()
-                }), cancellationToken).ConfigureAwait(false);
-                return;
-            }
+                    string sessionId = Guid.NewGuid().ToString("n");
+                    var host = new McpToolHost(context, _settings);
+                    await host.AutoSelectAsync(cancellationToken).ConfigureAwait(false);
+                    _sessions[sessionId] = host;
+                    EvictIdleSessions();
+                    response.AddHeader("Mcp-Session-Id", sessionId);
+                    string version = parameters.ValueKind == JsonValueKind.Object
+                                     && parameters.TryGetProperty("protocolVersion", out JsonElement requested)
+                        ? requested.GetString() ?? ProtocolVersion
+                        : ProtocolVersion;
+                    await WriteAsync(response, Result(id.Value, new
+                    {
+                        protocolVersion = version,
+                        capabilities = new { tools = new { listChanged = false } },
+                        serverInfo = new { name = "velashell", title = "VelaShell", version = context.PluginVersion },
+                        instructions = "Tools act on the SSH sessions the user has open in VelaShell. "
+                                       + "Call list_sessions first, then use_session to pick one. "
+                                       + host.Describe()
+                    }), cancellationToken).ConfigureAwait(false);
+                    return;
+                }
 
             case "ping":
                 await WriteAsync(response, Result(id.Value, new { }), cancellationToken).ConfigureAwait(false);
                 return;
 
             case "tools/list":
-            {
-                if (Resolve(http) is not { } host)
                 {
-                    await WriteAsync(response, Error(id, -32001, "Unknown or expired session; call initialize first."),
-                        cancellationToken).ConfigureAwait(false);
-                    return;
-                }
-                object[] tools =
-                [
-                    .. host.Tools.Select(t => new
+                    if (Resolve(http) is not { } host)
+                    {
+                        await WriteAsync(response, Error(id, -32001, "Unknown or expired session; call initialize first."),
+                            cancellationToken).ConfigureAwait(false);
+                        return;
+                    }
+                    object[] tools =
+                    [
+                        .. host.Tools.Select(t => new
                     {
                         name = t.Name,
                         description = t.Description,
                         inputSchema = t.JsonSchema
                     })
-                ];
-                await WriteAsync(response, Result(id.Value, new { tools }), cancellationToken).ConfigureAwait(false);
-                return;
-            }
-
-            case "tools/call":
-            {
-                if (Resolve(http) is not { } host)
-                {
-                    await WriteAsync(response, Error(id, -32001, "Unknown or expired session; call initialize first."),
-                        cancellationToken).ConfigureAwait(false);
+                    ];
+                    await WriteAsync(response, Result(id.Value, new { tools }), cancellationToken).ConfigureAwait(false);
                     return;
                 }
-                string name = parameters.ValueKind == JsonValueKind.Object
-                              && parameters.TryGetProperty("name", out JsonElement n)
-                    ? n.GetString() ?? ""
-                    : "";
-                var arguments = new Dictionary<string, object?>(StringComparer.Ordinal);
-                if (parameters.ValueKind == JsonValueKind.Object
-                    && parameters.TryGetProperty("arguments", out JsonElement args)
-                    && args.ValueKind == JsonValueKind.Object)
+
+            case "tools/call":
                 {
-                    foreach (JsonProperty property in args.EnumerateObject())
+                    if (Resolve(http) is not { } host)
                     {
-                        arguments[property.Name] = property.Value;
+                        await WriteAsync(response, Error(id, -32001, "Unknown or expired session; call initialize first."),
+                            cancellationToken).ConfigureAwait(false);
+                        return;
                     }
-                }
-                try
-                {
-                    string text = await host.CallAsync(name, arguments, cancellationToken).ConfigureAwait(false);
-                    await WriteAsync(response, Result(id.Value, new
+                    string name = parameters.ValueKind == JsonValueKind.Object
+                                  && parameters.TryGetProperty("name", out JsonElement n)
+                        ? n.GetString() ?? ""
+                        : "";
+                    var arguments = new Dictionary<string, object?>(StringComparer.Ordinal);
+                    if (parameters.ValueKind == JsonValueKind.Object
+                        && parameters.TryGetProperty("arguments", out JsonElement args)
+                        && args.ValueKind == JsonValueKind.Object)
                     {
-                        content = new[] { new { type = "text", text } },
-                        isError = false
-                    }), cancellationToken).ConfigureAwait(false);
-                }
-                catch (Exception ex) when (ex is not OperationCanceledException)
-                {
-                    // 工具出错走 isError,不走 JSON-RPC 错误 —— 前者模型看得到并能改正,
-                    // 后者多数客户端会直接把整轮判失败。
-                    await WriteAsync(response, Result(id.Value, new
+                        foreach (JsonProperty property in args.EnumerateObject())
+                        {
+                            arguments[property.Name] = property.Value;
+                        }
+                    }
+                    try
                     {
-                        content = new[] { new { type = "text", text = ex.Message } },
-                        isError = true
-                    }), cancellationToken).ConfigureAwait(false);
+                        string text = await host.CallAsync(name, arguments, cancellationToken).ConfigureAwait(false);
+                        await WriteAsync(response, Result(id.Value, new
+                        {
+                            content = new[] { new { type = "text", text } },
+                            isError = false
+                        }), cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        // 工具出错走 isError,不走 JSON-RPC 错误 —— 前者模型看得到并能改正,
+                        // 后者多数客户端会直接把整轮判失败。
+                        await WriteAsync(response, Result(id.Value, new
+                        {
+                            content = new[] { new { type = "text", text = ex.Message } },
+                            isError = true
+                        }), cancellationToken).ConfigureAwait(false);
+                    }
+                    return;
                 }
-                return;
-            }
 
             default:
                 await WriteAsync(response, Error(id, -32601, $"Method not found: {method}"), cancellationToken)

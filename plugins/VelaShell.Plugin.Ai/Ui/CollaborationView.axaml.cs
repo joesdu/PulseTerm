@@ -1,7 +1,6 @@
 using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
@@ -495,7 +494,7 @@ public partial class CollaborationView : UserControl
     /// </remarks>
     private static WriteableBitmap RenderQr(string text)
     {
-        QrCode qr = QrCode.Encode(text, QrEcc.Medium);
+        var qr = QrCode.Encode(text, QrEcc.Medium);
         int side = (qr.Size + (QrQuietZone * 2)) * QrScale;
         WriteableBitmap bitmap = new(
             new PixelSize(side, side), new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Opaque);

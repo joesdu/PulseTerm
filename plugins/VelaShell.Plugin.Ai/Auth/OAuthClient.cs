@@ -1,5 +1,4 @@
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Text.Json;
 using VelaShell.Plugin.Ai.Configuration;
 
@@ -234,7 +233,7 @@ public sealed class OAuthClient(HttpClient http)
     {
         try
         {
-            using JsonDocument document = JsonDocument.Parse(body);
+            using var document = JsonDocument.Parse(body);
             return document.RootElement.TryGetProperty("endpoints", out JsonElement endpoints)
                    && endpoints.ValueKind == JsonValueKind.Object
                    && endpoints.TryGetProperty("api", out JsonElement api)
@@ -480,7 +479,7 @@ public sealed class OAuthClient(HttpClient http)
             string segment = parts[1].Replace('-', '+').Replace('_', '/');
             // base64url 去掉了填充,补回来才解得开
             segment = segment.PadRight(segment.Length + ((4 - (segment.Length % 4)) % 4), '=');
-            using JsonDocument document = JsonDocument.Parse(Convert.FromBase64String(segment));
+            using var document = JsonDocument.Parse(Convert.FromBase64String(segment));
             var claims = new Dictionary<string, JsonElement>(StringComparer.Ordinal);
             foreach (JsonProperty property in document.RootElement.EnumerateObject())
             {
@@ -553,7 +552,7 @@ public sealed class OAuthClient(HttpClient http)
         {
             try
             {
-                using JsonDocument document = JsonDocument.Parse(trimmed);
+                using var document = JsonDocument.Parse(trimmed);
                 foreach (JsonProperty property in document.RootElement.EnumerateObject())
                 {
                     result[property.Name] = property.Value.ValueKind switch

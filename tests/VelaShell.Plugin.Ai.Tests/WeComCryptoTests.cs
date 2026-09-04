@@ -57,17 +57,17 @@ public sealed class WeComCryptoTests
         byte[] key = WeComCrypto.ParseKey(SampleKey);
         byte[] text = Encoding.UTF8.GetBytes("hello 世界");
         byte[] corp = Encoding.UTF8.GetBytes("wwCORP");
-        var body = new byte[16 + 4 + text.Length + corp.Length];
+        byte[] body = new byte[16 + 4 + text.Length + corp.Length];
         RandomNumberGenerator.Fill(body.AsSpan(0, 16));
         BinaryPrimitives.WriteInt32BigEndian(body.AsSpan(16, 4), text.Length);
         text.CopyTo(body, 20);
         corp.CopyTo(body, 20 + text.Length);
         // 补位块是 32 而不是 AES 的 16
         int pad = 32 - (body.Length % 32);
-        var padded = new byte[body.Length + pad];
+        byte[] padded = new byte[body.Length + pad];
         body.CopyTo(padded, 0);
         padded.AsSpan(body.Length).Fill((byte)pad);
-        using Aes aes = Aes.Create();
+        using var aes = Aes.Create();
         aes.Key = key;
         aes.Mode = CipherMode.CBC;
         aes.Padding = PaddingMode.None;

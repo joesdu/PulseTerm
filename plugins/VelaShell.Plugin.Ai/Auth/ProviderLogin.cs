@@ -63,7 +63,7 @@ public sealed class ProviderLogin(OAuthClient oauth, Func<Uri, CancellationToken
         IProgress<LoginProgress>? progress, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(prompts);
-        PkceCodes pkce = PkceCodes.Create();
+        var pkce = PkceCodes.Create();
         // 监听要在开浏览器<b>之前</b>起来:授权服务器可能立刻打回(已登录 + 已授权过),
         // 那一下若没人接,用户看到的就是"无法访问此网站"。
         using var listener = new LoopbackRedirectListener(config.RedirectPort, config.RedirectPath, config.RedirectHost);

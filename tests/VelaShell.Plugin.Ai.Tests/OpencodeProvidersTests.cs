@@ -1,7 +1,6 @@
 using System.Net;
 using VelaShell.Plugin.Ai.Auth;
 using VelaShell.Plugin.Ai.Configuration;
-using VelaShell.PluginSdk.Testing;
 
 namespace VelaShell.Plugin.Ai.Tests;
 
@@ -37,7 +36,7 @@ public sealed class OpencodeProvidersTests
     [TestMethod]
     public async Task Xai_SignsInThroughTheDeviceCodeFlow()
     {
-        var stub = new OAuthStub()
+        OAuthStub stub = new OAuthStub()
             .Json("""
                 {"device_code":"dc-1","user_code":"WXYZ-1234",
                  "verification_uri":"https://x.ai/device","interval":1}
@@ -63,7 +62,7 @@ public sealed class OpencodeProvidersTests
     [TestMethod]
     public async Task DeviceCodeRequest_CarriesTheExtraAuthorizeParams()
     {
-        var stub = new OAuthStub()
+        OAuthStub stub = new OAuthStub()
             .Json("""{"device_code":"dc","user_code":"AB","verification_uri":"https://x.ai/device"}""");
         using var http = new HttpClient(stub);
 
@@ -158,7 +157,7 @@ public sealed class OpencodeProvidersTests
         OAuthConfig oauth = ProviderCatalog.Find("digitalocean")!.CreateProvider().OAuth!.Clone();
         oauth.RedirectPort = 0; // 测试里别占那个固定端口,并行跑会互相踩
         // 没有 token 端点可打:任何一次 HTTP 都说明走错路了
-        var stub = new OAuthStub().Json("""{"should":"never be called"}""", HttpStatusCode.InternalServerError);
+        OAuthStub stub = new OAuthStub().Json("""{"should":"never be called"}""", HttpStatusCode.InternalServerError);
         using var http = new HttpClient(stub);
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
         using var browser = new HttpClient();

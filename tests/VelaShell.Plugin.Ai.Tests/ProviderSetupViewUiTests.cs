@@ -78,7 +78,7 @@ public sealed class ProviderSetupViewUiTests
     /// <summary>照用户的操作展开一行:真点在行上(命中测试、冒泡都真跑)。</summary>
     private static async Task ClickRowAsync(Window window, ProviderSetupView view, string entryId)
     {
-        var card = Find<Border>(view, $"SetupRow.{entryId}");
+        Border card = Find<Border>(view, $"SetupRow.{entryId}");
         // 先滚到可见区:目录一长,靠后的行落在窗口外面,坐标算出来是负的,点了什么也不会发生
         card.BringIntoView();
         await PumpAsync(10);
@@ -400,7 +400,7 @@ public sealed class ProviderSetupViewUiTests
                 Find<ToggleButton>(view, "SetupAdvancedToggle").IsChecked = true;
                 await PumpAsync();
 
-                var picker = Find<ComboBox>(view, "SetupModelPicker");
+                ComboBox picker = Find<ComboBox>(view, "SetupModelPicker");
                 Assert.AreSequenceEqual(groq.AvailableModels, (System.Collections.ICollection)picker.ItemsSource!);
                 // 出厂示例正好在列表里,应当已经选中
                 Assert.AreEqual("llama-3.3-70b-versatile", picker.SelectedItem);

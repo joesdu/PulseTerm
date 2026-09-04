@@ -1,5 +1,4 @@
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Text.Json;
 using VelaShell.PluginSdk;
 
@@ -205,7 +204,7 @@ internal sealed class TelegramChannel(ChannelConfig config, string token, IPlugi
             .PostAsync($"https://api.telegram.org/bot{token}/sendDocument", form, cancellationToken)
             .ConfigureAwait(false);
         string payload = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-        using JsonDocument document = JsonDocument.Parse(payload);
+        using var document = JsonDocument.Parse(payload);
         if (!document.RootElement.TryGetProperty("ok", out JsonElement ok) || !ok.GetBoolean())
         {
             throw new InvalidOperationException($"Telegram sendDocument failed: {payload}");
@@ -230,7 +229,7 @@ internal sealed class TelegramChannel(ChannelConfig config, string token, IPlugi
             ? await _http.GetAsync(url, cancellationToken).ConfigureAwait(false)
             : await _http.PostAsJsonAsync(url, body, cancellationToken).ConfigureAwait(false);
         string payload = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-        JsonDocument document = JsonDocument.Parse(payload);
+        var document = JsonDocument.Parse(payload);
         if (document.RootElement.TryGetProperty("ok", out JsonElement ok) && !ok.GetBoolean())
         {
             string description = document.RootElement.TryGetProperty("description", out JsonElement d)

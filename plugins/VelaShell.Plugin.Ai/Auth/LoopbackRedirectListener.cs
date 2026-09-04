@@ -142,7 +142,7 @@ public sealed class LoopbackRedirectListener : IDisposable
     /// <summary>读到请求头结束,取出请求行里的目标(<c>GET /callback?... HTTP/1.1</c> 的中间那段)。</summary>
     private static async Task<string?> ReadRequestTargetAsync(NetworkStream stream, CancellationToken cancellationToken)
     {
-        var buffer = new byte[1024];
+        byte[] buffer = new byte[1024];
         var request = new StringBuilder();
         while (request.Length < MaxRequestBytes)
         {

@@ -46,7 +46,7 @@ public sealed partial class ChatPanelViewUiTests
             {
                 // 枚举值就是索引(Default/Off/Low/Medium/High)
                 Assert.AreEqual((int)ReasoningLevel.High, combo.SelectedIndex);
-                Assert.HasCount(5, (System.Collections.IEnumerable)combo.ItemsSource!);
+                Assert.HasCount(5, combo.ItemsSource!);
             }
             finally
             {
@@ -137,7 +137,7 @@ public sealed partial class ChatPanelViewUiTests
                 ComboBox model = Find<ComboBox>(panel, "ProviderCombo");
                 Assert.AreEqual(Grid.GetColumn(model) + 1, Grid.GetColumn(combo), "就在模型那一列的右边一列");
 
-                var toolbar = Find<Grid>(panel, "InputToolbar");
+                Grid toolbar = Find<Grid>(panel, "InputToolbar");
                 Assert.AreEqual(GridUnitType.Auto, toolbar.ColumnDefinitions[Grid.GetColumn(model)].Width.GridUnitType,
                     "模型那列若是 *,下拉会被推到星号列的最右端,中间空一大段");
                 Assert.AreEqual(GridUnitType.Star,

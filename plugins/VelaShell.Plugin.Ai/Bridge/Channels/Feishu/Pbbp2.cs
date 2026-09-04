@@ -108,8 +108,8 @@ internal static class Pbbp2
         var buffer = new List<byte>(256);
         WriteVarintField(buffer, 1, frame.SeqId);
         WriteVarintField(buffer, 2, frame.LogId);
-        WriteVarintField(buffer, 3, (ulong)(uint)frame.Service);
-        WriteVarintField(buffer, 4, (ulong)(uint)frame.Method);
+        WriteVarintField(buffer, 3, (uint)frame.Service);
+        WriteVarintField(buffer, 4, (uint)frame.Method);
         foreach ((string key, string value) in frame.Headers)
         {
             var header = new List<byte>(key.Length + value.Length + 8);

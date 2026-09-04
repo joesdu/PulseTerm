@@ -1,5 +1,4 @@
 using VelaShell.Core.Models;
-using VelaShell.Core.Protocols;
 using VelaShell.Docking;
 using VelaShell.Infrastructure.Plugins.Protocols;
 using VelaShell.PluginSdk.Protocols;

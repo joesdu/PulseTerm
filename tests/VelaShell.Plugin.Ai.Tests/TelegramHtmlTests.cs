@@ -139,7 +139,7 @@ public sealed class TelegramHtmlTests
 
     private static int Count(string haystack, string needle)
     {
-        var count = 0;
+        int count = 0;
         int at = haystack.IndexOf(needle, StringComparison.Ordinal);
         while (at >= 0)
         {

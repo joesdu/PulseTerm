@@ -203,7 +203,7 @@ public sealed class CollaborationViewUiTests
             await store.SetSecretAsync("c1", "secret", "s3cret");
             await WithViewAsync(context, view =>
             {
-                var panel = view.FindControl<StackPanel>("ChannelsPanel")!;
+                StackPanel panel = view.FindControl<StackPanel>("ChannelsPanel")!;
                 Assert.AreEqual(1, panel.Children.Count);
                 TextBox[] boxes = [.. panel.GetLogicalDescendants().OfType<TextBox>()];
                 Assert.Contains(b => b.Text == "cli_abc", boxes, "the App ID should be shown");
@@ -301,7 +301,7 @@ public sealed class CollaborationViewUiTests
             });
             await WithViewAsync(context, async view =>
             {
-                var channels = view.FindControl<StackPanel>("ChannelsPanel")!;
+                StackPanel channels = view.FindControl<StackPanel>("ChannelsPanel")!;
                 // 升级折算出来的那一行:不限范围
                 ComboBox scope = channels.GetLogicalDescendants().OfType<ComboBox>()
                     .First(c => c.ItemsSource is string[] items && items.Length == 2);
@@ -379,7 +379,7 @@ public sealed class CollaborationViewUiTests
             {
                 await PumpAsync(); // 页面加载完就会刷一次,不必等定时器
 
-                var panel = view.FindControl<StackPanel>("PendingPanel")!;
+                StackPanel panel = view.FindControl<StackPanel>("PendingPanel")!;
                 Assert.AreEqual(1, panel.Children.Count);
                 string[] text = [.. panel.GetLogicalDescendants().OfType<TextBlock>().Select(t => t.Text ?? "")];
                 Assert.Contains("oc_abc", text);
@@ -406,7 +406,7 @@ public sealed class CollaborationViewUiTests
             const string url = "https://t.me/example_bot?startgroup=true";
             const int scale = 6;
             const int quiet = 4;
-            QrCode expected = QrCode.Encode(url, QrEcc.Medium);
+            var expected = QrCode.Encode(url, QrEcc.Medium);
 
             MethodInfo render = typeof(CollaborationView)
                                     .GetMethod("RenderQr", BindingFlags.NonPublic | BindingFlags.Static)
@@ -455,7 +455,7 @@ public sealed class CollaborationViewUiTests
                 view.FindControl<CheckBox>("BridgeEnabledCheck")!.IsChecked = true;
                 view.FindControl<CheckBox>("McpEnabledCheck")!.IsChecked = true;
                 view.FindControl<TextBox>("McpPortBox")!.Text = "9401";
-                var channels = view.FindControl<StackPanel>("ChannelsPanel")!;
+                StackPanel channels = view.FindControl<StackPanel>("ChannelsPanel")!;
                 TextBox[] boxes = [.. channels.GetLogicalDescendants().OfType<TextBox>()];
                 boxes.First(b => b.PasswordChar == '●').Text = "written-secret";
                 // 按钮的 Click 是直接挂的委托,所以走真的路由事件而不是反射调私有方法

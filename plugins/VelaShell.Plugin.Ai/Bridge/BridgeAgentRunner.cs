@@ -211,7 +211,7 @@ public sealed class BridgeAgentRunner(
                 $"{modelLabel}: {ApiErrorText.Describe(ex)}", ex);
         }
 
-        ChatResponse response = updates.ToChatResponse();
+        var response = updates.ToChatResponse();
         conversation.History.AddMessages(response);
         string reply = response.Text.Trim();
         if (reply.Length > 0)

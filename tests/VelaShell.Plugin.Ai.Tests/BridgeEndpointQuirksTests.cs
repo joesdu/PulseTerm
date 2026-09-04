@@ -128,7 +128,7 @@ public sealed class BridgeEndpointQuirksTests
         stale.StoreResponses = true;
         stale.UnsupportedParameters = "";
 
-        EndpointQuirks quirks = EndpointQuirks.Of(stale);
+        var quirks = EndpointQuirks.Of(stale);
 
         Assert.IsFalse(quirks.AllowSystemMessages, "该以目录为准,而不是用户库里那份旧快照");
         Assert.IsFalse(quirks.StoreResponses);

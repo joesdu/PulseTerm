@@ -1,7 +1,7 @@
-using Microsoft.Extensions.AI;
-using OpenAI;
 using System.ClientModel;
 using System.Text.Json;
+using Microsoft.Extensions.AI;
+using OpenAI;
 using VelaShell.Plugin.Ai.Configuration;
 
 namespace VelaShell.Plugin.Ai.Tests;

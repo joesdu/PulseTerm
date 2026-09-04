@@ -19,7 +19,7 @@ public sealed partial class ChatPanelViewUiTests
             (Window window, ChatPanelView panel) = await ShowAsync(context);
             try
             {
-                var scroll = Find<ScrollViewer>(panel, "ChatScroll");
+                ScrollViewer scroll = Find<ScrollViewer>(panel, "ChatScroll");
                 var messages = (StackPanel)scroll.Content!;
                 Border jump = Find<Border>(panel, "JumpToBottomButton");
 

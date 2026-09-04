@@ -1127,7 +1127,7 @@ public sealed class AgentToolbox(IPluginContext context)
             return $"Downloaded to {target} ({entry.Size} bytes). Local tools can read it from there."
                    + (FileSender is not null && IsSendable(target)
                        ? " You can also hand it to the user with send_file."
-                       : "");;
+                       : "");
         }
         catch (Exception ex)
         {
