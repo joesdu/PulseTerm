@@ -53,17 +53,11 @@ public sealed class BreadcrumbUnderscoreUiTests
 
     /// <summary>本地面板(双栏左侧)的面包屑走同一套样式。</summary>
     [TestMethod]
-    public void LocalPaneBreadcrumb_KeepsUnderscoreInsteadOfEatingItAsAccessKey()
-    {
-        RunLocalPaneCase(vm => new LocalFilePaneView { DataContext = vm });
-    }
+    public void LocalPaneBreadcrumb_KeepsUnderscoreInsteadOfEatingItAsAccessKey() => RunLocalPaneCase(vm => new LocalFilePaneView { DataContext = vm });
 
     /// <summary>本地路径选择器对话框的面包屑同理。</summary>
     [TestMethod]
-    public void LocalPathPickerBreadcrumb_KeepsUnderscoreInsteadOfEatingItAsAccessKey()
-    {
-        RunLocalPaneCase(vm => new LocalPathPickerDialog(vm, loadInitial: false));
-    }
+    public void LocalPathPickerBreadcrumb_KeepsUnderscoreInsteadOfEatingItAsAccessKey() => RunLocalPaneCase(vm => new LocalPathPickerDialog(vm, loadInitial: false));
 
     /// <summary>
     /// 在一个名字带下划线的真实临时目录上起本地面板视图模型,交给 <paramref name="createView" />

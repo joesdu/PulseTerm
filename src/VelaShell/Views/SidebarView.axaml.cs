@@ -112,10 +112,7 @@ public partial class SidebarView : UserControl
         CollapsedRail.IsVisible = collapsed;
     }
 
-    private void ExpandSidebar_Click(object? sender, RoutedEventArgs e)
-    {
-        _viewModel?.IsCollapsed = false;
-    }
+    private void ExpandSidebar_Click(object? sender, RoutedEventArgs e) => _viewModel?.IsCollapsed = false;
 
     /// <summary>
     /// 折叠态细条贴哪一边(随设置 → 外观 → 侧边栏位置)。
@@ -132,30 +129,15 @@ public partial class SidebarView : UserControl
             : Avalonia.Layout.HorizontalAlignment.Left;
 
     /// <summary>工具栏折叠按钮。只出现在展开态,所以直接置位而不是取反。</summary>
-    private void CollapseSidebar_Click(object? sender, RoutedEventArgs e)
-    {
-        _viewModel?.IsCollapsed = true;
-    }
+    private void CollapseSidebar_Click(object? sender, RoutedEventArgs e) => _viewModel?.IsCollapsed = true;
 
-    private void OpenConnectionProfile_Click(object? sender, RoutedEventArgs e)
-    {
-        OpenConnectionProfileRequested?.Invoke(this, EventArgs.Empty);
-    }
+    private void OpenConnectionProfile_Click(object? sender, RoutedEventArgs e) => OpenConnectionProfileRequested?.Invoke(this, EventArgs.Empty);
 
-    private void OpenSettings_Click(object? sender, RoutedEventArgs e)
-    {
-        SettingsRequested?.Invoke(this, EventArgs.Empty);
-    }
+    private void OpenSettings_Click(object? sender, RoutedEventArgs e) => SettingsRequested?.Invoke(this, EventArgs.Empty);
 
-    private void OpenPlugins_Click(object? sender, RoutedEventArgs e)
-    {
-        PluginsRequested?.Invoke(this, EventArgs.Empty);
-    }
+    private void OpenPlugins_Click(object? sender, RoutedEventArgs e) => PluginsRequested?.Invoke(this, EventArgs.Empty);
 
-    private void ImportSessions_Click(object? sender, RoutedEventArgs e)
-    {
-        ImportSessionsRequested?.Invoke(this, EventArgs.Empty);
-    }
+    private void ImportSessions_Click(object? sender, RoutedEventArgs e) => ImportSessionsRequested?.Invoke(this, EventArgs.Empty);
 
     private void ToggleQuickCommands_Click(object? sender, RoutedEventArgs e)
     {

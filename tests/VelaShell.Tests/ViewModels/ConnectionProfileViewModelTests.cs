@@ -365,13 +365,11 @@ public sealed class ConnectionProfileViewModelTests
     }
 
     [TestMethod]
-    public void ChoiceItem_StringifiesToTheStoredValue()
-    {
+    public void ChoiceItem_StringifiesToTheStoredValue() =>
         // 可编辑下拉在用户选中一项时,会拿 item.ToString() 去填那个文本框 ——
         // 而那就是接下来落盘的值。返回展示文案的话,存进配置的会是
         // "USB-SERIAL CH340 (COM3)" 这种打不开的东西。
         Assert.AreEqual("COM3", new PluginChoiceItem("COM3", "USB-SERIAL CH340 (COM3)").ToString());
-    }
 
     /// <summary>
     /// 声明了显示条件的字段只在条件成立时出现,并且**改一下就跟着变** ——

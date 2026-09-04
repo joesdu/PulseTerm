@@ -6,8 +6,5 @@ namespace VelaShell.Views.Settings;
 public partial class ProxySettingsPage : UserControl
 {
     /// <summary>初始化代理设置页并加载 XAML 组件。</summary>
-    public ProxySettingsPage()
-    {
-        InitializeComponent();
-    }
+    public ProxySettingsPage() => InitializeComponent();
 }

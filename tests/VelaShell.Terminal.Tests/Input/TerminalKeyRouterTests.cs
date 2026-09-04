@@ -31,23 +31,15 @@ public class TerminalKeyRouterTests
     }
 
     [TestMethod]
-    public void CtrlShiftC_CopiesSelection()
-    {
-        Assert.AreEqual(TerminalKeyActionKind.CopySelection, Classify(Key.C, KeyModifiers.Control | KeyModifiers.Shift).Kind);
-    }
+    public void CtrlShiftC_CopiesSelection() => Assert.AreEqual(TerminalKeyActionKind.CopySelection, Classify(Key.C, KeyModifiers.Control | KeyModifiers.Shift).Kind);
 
     [TestMethod]
-    public void CtrlShiftV_Pastes()
-    {
-        Assert.AreEqual(TerminalKeyActionKind.PasteClipboard, Classify(Key.V, KeyModifiers.Control | KeyModifiers.Shift).Kind);
-    }
+    public void CtrlShiftV_Pastes() => Assert.AreEqual(TerminalKeyActionKind.PasteClipboard, Classify(Key.V, KeyModifiers.Control | KeyModifiers.Shift).Kind);
 
     [TestMethod]
-    public void ShiftInsert_Pastes_InsteadOfEncodingCsi2Tilde()
-    {
+    public void ShiftInsert_Pastes_InsteadOfEncodingCsi2Tilde() =>
         // 必须在编码器之前拦截,否则会被编成 CSI 2~ 发往主机。
         Assert.AreEqual(TerminalKeyActionKind.PasteClipboard, Classify(Key.Insert, KeyModifiers.Shift).Kind);
-    }
 
     [TestMethod]
     public void PageUp_OnMainScreenWithScrollback_ScrollsHistoryUp()
@@ -100,11 +92,9 @@ public class TerminalKeyRouterTests
     }
 
     [TestMethod]
-    public void PlainCharacterKey_ProducesNoAction_TextArrivesViaTextInput()
-    {
+    public void PlainCharacterKey_ProducesNoAction_TextArrivesViaTextInput() =>
         // 无修饰的字符键交给 TextInput 管线(IME/大小写/布局都在那边处理)。
         Assert.AreEqual(TerminalKeyActionKind.None, Classify(Key.A, KeyModifiers.None).Kind);
-    }
 
     [TestMethod]
     public void Backspace_EncodesDelete()

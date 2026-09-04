@@ -294,7 +294,7 @@ public class TerminalBridgeTests
         _shellStream.CanRead.Returns(false);
         _shellStream.CanWrite.Returns(true);
 
-        object gate = new object();
+        object gate = new();
         int inFlight = 0, maxInFlight = 0;
         var received = new MemoryStream();
         _shellStream.WriteAsync(Arg.Any<byte[]>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())

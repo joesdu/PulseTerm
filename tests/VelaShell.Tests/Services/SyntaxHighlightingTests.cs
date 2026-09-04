@@ -74,11 +74,9 @@ public class SyntaxHighlightingTests
         Assert.AreEqual(expected, FileTypeDetector.Detect("deploy", firstLine));
 
     [TestMethod]
-    public void Detect_ExtensionWinsOverShebang()
-    {
+    public void Detect_ExtensionWinsOverShebang() =>
         // 扩展名是更强的信号;shebang 只是无扩展名时的兜底。
         Assert.AreEqual("Python", FileTypeDetector.Detect("tool.py", "#!/bin/bash"));
-    }
 
     [TestMethod]
     [DataRow("notes", null)]

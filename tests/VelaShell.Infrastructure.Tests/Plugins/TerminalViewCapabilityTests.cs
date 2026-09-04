@@ -64,7 +64,7 @@ public class TerminalViewCapabilityTests
     {
         var view = new FakeTerminalView();
         List<byte[]> seen = [];
-        view.UserInput += bytes => seen.Add(bytes);
+        view.UserInput += seen.Add;
 
         view.SimulateUserInput("ls -l\n");
 

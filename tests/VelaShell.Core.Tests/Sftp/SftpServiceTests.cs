@@ -293,7 +293,7 @@ public class SftpServiceTests
 
         // Act
         await _sftpService.UploadFileAsync(_sessionId, localPath, remotePath,
-            new SynchronousProgress<TransferProgress>(p => progressReports.Add(p)));
+            new SynchronousProgress<TransferProgress>(progressReports.Add));
 
         // Assert
         await _sftpClient.Received(1).UploadAsync(Arg.Any<Stream>(),
@@ -334,7 +334,7 @@ public class SftpServiceTests
 
         // Act
         await _sftpService.DownloadFileAsync(_sessionId, remotePath, localPath,
-            new SynchronousProgress<TransferProgress>(p => progressReports.Add(p)));
+            new SynchronousProgress<TransferProgress>(progressReports.Add));
 
         // Assert
         await _sftpClient.Received(1).DownloadAsync(remotePath,
@@ -568,7 +568,7 @@ public class SftpServiceTests
 
         // Act
         await _sftpService.UploadFileAsync(_sessionId, localPath, remotePath,
-            new SynchronousProgress<TransferProgress>(p => progressReports.Add(p)));
+            new SynchronousProgress<TransferProgress>(progressReports.Add));
 
         // Assert —— 进度上报按时间片节流(见 Core/Sftp/TransferProgressThrottle.cs),因此不保证
         // "每个底层回调都对应一次上报"。这里断言的是真正的契约:立刻有首帧、单调不回退、
@@ -608,7 +608,7 @@ public class SftpServiceTests
                    .Returns(Task.CompletedTask);
 
         await _sftpService.UploadFileAsync(_sessionId, localPath, remotePath,
-            new SynchronousProgress<TransferProgress>(p => progressReports.Add(p)));
+            new SynchronousProgress<TransferProgress>(progressReports.Add));
 
         // 十万次回调必须被压到极少数几次(首帧 + 每 100ms 一帧 + 收尾),绝不是十万次。
         Assert.IsLessThan(100, progressReports.Count,

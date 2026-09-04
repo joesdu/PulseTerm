@@ -17,10 +17,7 @@ public sealed class LocalFilePaneViewUiTests
     private static HeadlessUnitTestSession _session = null!;
 
     [ClassInitialize]
-    public static void Init(TestContext _)
-    {
-        _session = HeadlessUnitTestSession.GetOrStartForAssembly(typeof(LocalFilePaneViewUiTests).Assembly);
-    }
+    public static void Init(TestContext _) => _session = HeadlessUnitTestSession.GetOrStartForAssembly(typeof(LocalFilePaneViewUiTests).Assembly);
 
     [TestMethod]
     public async Task InaccessibleRootSelectionRestoresPreviousSelection()

@@ -62,11 +62,9 @@ public class RemotePathInputTests
     }
 
     [TestMethod]
-    public void Backslash_IsAFileNameChar_NotASeparator()
-    {
+    public void Backslash_IsAFileNameChar_NotASeparator() =>
         // POSIX 下 \ 是合法文件名字符;若当成分隔符替换,带反斜杠的目录将永远打不开。
         Assert.AreEqual("/tmp/a\\b", RemotePathInput.Normalize("/tmp/a\\b", "/", null));
-    }
 
     [TestMethod]
     public void BlankInput_MeansNoNavigation()

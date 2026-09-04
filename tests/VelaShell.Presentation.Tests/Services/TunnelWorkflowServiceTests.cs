@@ -36,10 +36,7 @@ public sealed class TunnelWorkflowServiceTests
 
     [TestMethod]
     [TestCategory("TunnelWorkflow")]
-    public void Constructor_NullService_Throws()
-    {
-        Assert.ThrowsExactly<ArgumentNullException>(() => new TunnelWorkflowService(null!));
-    }
+    public void Constructor_NullService_Throws() => Assert.ThrowsExactly<ArgumentNullException>(() => new TunnelWorkflowService(null!));
 
     [TestMethod]
     [TestCategory("TunnelWorkflow")]

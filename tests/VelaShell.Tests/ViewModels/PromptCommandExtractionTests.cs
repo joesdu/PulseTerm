@@ -36,10 +36,7 @@ public class PromptCommandExtractionTests
     }
 
     [TestMethod]
-    public void EmptyCommand_ReturnsNull()
-    {
-        Assert.IsNull(TerminalTabViewModel.ExtractCommandAfterPrompt("pi@NanoPi-R2S:~$ "));
-    }
+    public void EmptyCommand_ReturnsNull() => Assert.IsNull(TerminalTabViewModel.ExtractCommandAfterPrompt("pi@NanoPi-R2S:~$ "));
 
     [TestMethod]
     public void DollarInsideCommand_UsesEarliestPromptMarker()

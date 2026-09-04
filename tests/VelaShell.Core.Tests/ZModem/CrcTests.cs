@@ -17,21 +17,16 @@ public class CrcTests
     }
 
     [TestMethod]
-    public void Crc16Xmodem_Empty_IsZero()
-    {
-        Assert.AreEqual((ushort)0x0000, Crc16Xmodem.Compute([]));
-    }
+    public void Crc16Xmodem_Empty_IsZero() => Assert.AreEqual((ushort)0x0000, Crc16Xmodem.Compute([]));
 
     [TestMethod]
-    public void Crc16Xmodem_MatchesRealLrzszWireValue()
-    {
+    public void Crc16Xmodem_MatchesRealLrzszWireValue() =>
         // 地面真值:真实 Ubuntu 22.04 lrzsz sz 对 ZNAK 帧头 [06 00 00 00 00] 上链的 CRC 是 0xCD85
         // (2026-07-16 实测抓包 "**\x18B0600000000cd85")。lrzsz zm.c 的 updcrc 是旧式 XMODEM 算法,
         // 其「补两个零字节」收尾与本实现的现代查表算法数学等价 —— 增广已内建,绝不能再补。
         // 此前这里断言过 Augment("123456789")==0xDF8B 并声称"已对照 lrzsz 源码验证",实为双重增广:
         // 它让收发两侧自洽地一起错,与真实 sz/rz 的每一个非全零帧头互相报 CRC 错,握手永远谈不拢。
         Assert.AreEqual((ushort)0xCD85, Crc16Xmodem.Compute([0x06, 0x00, 0x00, 0x00, 0x00]));
-    }
 
     [TestMethod]
     public void Crc16Xmodem_ChunkedUpdate_EqualsSinglePass()

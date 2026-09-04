@@ -13,10 +13,7 @@ namespace VelaShell.PluginHost;
 internal sealed class PluginHostApp : Application
 {
     /// <inheritdoc />
-    public override void Initialize()
-    {
-        Styles.Add(new FluentTheme());
-    }
+    public override void Initialize() => Styles.Add(new FluentTheme());
 
     /// <summary>
     /// 把宿主的明暗基底应用到本进程(任意线程可调)。

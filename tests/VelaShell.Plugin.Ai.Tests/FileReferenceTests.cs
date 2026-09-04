@@ -129,10 +129,7 @@ public sealed class FileReferenceTests
     }
 
     [TestMethod]
-    public void Parse_IgnoresUnterminatedQuote()
-    {
-        Assert.IsEmpty(FileReference.Parse("@\"/opt/still typing"));
-    }
+    public void Parse_IgnoresUnterminatedQuote() => Assert.IsEmpty(FileReference.Parse("@\"/opt/still typing"));
 
     [TestMethod]
     public void Expand_ResolvesHome() => Assert.AreEqual("/home/tester/a.txt", FileReference.Expand("~/a.txt", "/home/tester/"));

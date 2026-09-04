@@ -11,10 +11,7 @@ namespace VelaShell.Views.Settings;
 public partial class GeneralSettingsPage : UserControl
 {
     /// <summary>初始化常规设置页并加载 XAML 组件。</summary>
-    public GeneralSettingsPage()
-    {
-        InitializeComponent();
-    }
+    public GeneralSettingsPage() => InitializeComponent();
 
     private async void ExportSettings_Click(object? sender, RoutedEventArgs e)
     {

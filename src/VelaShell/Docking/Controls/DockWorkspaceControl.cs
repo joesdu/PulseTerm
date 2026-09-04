@@ -32,16 +32,10 @@ public sealed class DockWorkspaceControl : Panel
     /// </summary>
     private readonly List<(DockNode Node, DefinitionBase Definition, bool Horizontal)> _observedTracks = [];
 
-    static DockWorkspaceControl()
-    {
-        WorkspaceProperty.Changed.AddClassHandler<DockWorkspaceControl>((control, e) => control.OnWorkspaceChanged(e));
-    }
+    static DockWorkspaceControl() => WorkspaceProperty.Changed.AddClassHandler<DockWorkspaceControl>((control, e) => control.OnWorkspaceChanged(e));
 
     /// <summary>构造工作区控件,并初始化其标签拖拽控制器。</summary>
-    public DockWorkspaceControl()
-    {
-        DragController = new DockDragController(this);
-    }
+    public DockWorkspaceControl() => DragController = new DockDragController(this);
 
     /// <summary>当前渲染的停靠布局树;赋值后整树重建视图。</summary>
     public DockWorkspace? Workspace

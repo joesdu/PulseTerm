@@ -6,8 +6,5 @@ namespace VelaShell.Views.Settings;
 public partial class SnippetsPage : UserControl
 {
     /// <summary>初始化代码片段设置页并加载 XAML 组件。</summary>
-    public SnippetsPage()
-    {
-        InitializeComponent();
-    }
+    public SnippetsPage() => InitializeComponent();
 }

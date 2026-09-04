@@ -412,20 +412,18 @@ public sealed class NumericInputGuardUiTests
 
     private sealed class DelayModel : INotifyPropertyChanged
     {
-        private int _delaySeconds;
-
         public event PropertyChangedEventHandler? PropertyChanged;
 
         public int DelaySeconds
         {
-            get => _delaySeconds;
+            get;
             set
             {
-                if (_delaySeconds == value)
+                if (field == value)
                 {
                     return;
                 }
-                _delaySeconds = value;
+                field = value;
                 PropertyChanged?.Invoke(this, new(nameof(DelaySeconds)));
             }
         }

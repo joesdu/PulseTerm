@@ -6,8 +6,5 @@ namespace VelaShell.Views.Settings;
 public partial class ShortcutsPage : UserControl
 {
     /// <summary>初始化快捷键设置页并加载 XAML 组件。</summary>
-    public ShortcutsPage()
-    {
-        InitializeComponent();
-    }
+    public ShortcutsPage() => InitializeComponent();
 }

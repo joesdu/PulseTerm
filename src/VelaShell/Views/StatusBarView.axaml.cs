@@ -6,8 +6,5 @@ namespace VelaShell.Views;
 public partial class StatusBarView : UserControl
 {
     /// <summary>初始化 <see cref="StatusBarView"/> 并加载 XAML 组件。</summary>
-    public StatusBarView()
-    {
-        InitializeComponent();
-    }
+    public StatusBarView() => InitializeComponent();
 }

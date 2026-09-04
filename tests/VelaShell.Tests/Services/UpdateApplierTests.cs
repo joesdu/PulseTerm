@@ -213,10 +213,7 @@ public class UpdateApplierTests : IDisposable
 
     [TestMethod]
     [TestCategory("Update")]
-    public void SwapFromPayload_WithoutStage_Throws()
-    {
-        Assert.ThrowsExactly<InvalidOperationException>(_applier.SwapFromPayload);
-    }
+    public void SwapFromPayload_WithoutStage_Throws() => Assert.ThrowsExactly<InvalidOperationException>(_applier.SwapFromPayload);
 
     [TestMethod]
     [TestCategory("Update")]
@@ -429,10 +426,7 @@ public class UpdateApplierTests : IDisposable
 
     [TestMethod]
     [TestCategory("Update")]
-    public void TryFinalizeStartup_NothingPending_ReturnsTrue()
-    {
-        Assert.IsTrue(_applier.TryFinalizeStartup());
-    }
+    public void TryFinalizeStartup_NothingPending_ReturnsTrue() => Assert.IsTrue(_applier.TryFinalizeStartup());
 
     // ———————————————————— 自愈 ————————————————————
 
@@ -472,10 +466,7 @@ public class UpdateApplierTests : IDisposable
 
     [TestMethod]
     [TestCategory("Update")]
-    public void IsApplicationDirectoryWritable_TempDir_IsTrue()
-    {
-        Assert.IsTrue(_applier.IsApplicationDirectoryWritable());
-    }
+    public void IsApplicationDirectoryWritable_TempDir_IsTrue() => Assert.IsTrue(_applier.IsApplicationDirectoryWritable());
 
     [TestMethod]
     [TestCategory("Update")]

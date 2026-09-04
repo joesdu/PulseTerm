@@ -17,10 +17,7 @@ namespace VelaShell.Core.Tests.Models;
 public class ProxyDefaultsTests
 {
     [TestMethod]
-    public void FreshSettings_FollowTheSystemProxy()
-    {
-        Assert.AreEqual("system", new AppSettings().Proxy.Type);
-    }
+    public void FreshSettings_FollowTheSystemProxy() => Assert.AreEqual("system", new AppSettings().Proxy.Type);
 
     [TestMethod]
     public void NullType_FallsBackToSystemRatherThanForcingDirect()

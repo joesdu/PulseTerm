@@ -112,14 +112,8 @@ public class HostRegistryTests
     }
 
     [TestMethod]
-    public void Read_MissingFile_ReturnsEmpty()
-    {
-        Assert.IsEmpty(HostRegistry.List(Path.Combine(_base, "nope", HostRegistry.FileName)));
-    }
+    public void Read_MissingFile_ReturnsEmpty() => Assert.IsEmpty(HostRegistry.List(Path.Combine(_base, "nope", HostRegistry.FileName)));
 
     [TestMethod]
-    public void Upsert_WithoutExePath_IsRejected()
-    {
-        Assert.IsFalse(HostRegistry.Upsert(new() { Version = "1.0.0" }, _registry));
-    }
+    public void Upsert_WithoutExePath_IsRejected() => Assert.IsFalse(HostRegistry.Upsert(new() { Version = "1.0.0" }, _registry));
 }

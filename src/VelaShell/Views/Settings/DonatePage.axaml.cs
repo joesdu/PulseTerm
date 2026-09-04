@@ -12,10 +12,7 @@ public partial class DonatePage : UserControl
     private const string WiseLink = "https://wise.com/pay/me/yud162";
 
     /// <summary>初始化捐赠页并加载 XAML 组件。</summary>
-    public DonatePage()
-    {
-        InitializeComponent();
-    }
+    public DonatePage() => InitializeComponent();
 
     /// <summary>点击链接文本:在系统默认浏览器中打开 Wise 付款页。</summary>
     private async void WiseLink_PointerPressed(object? sender, PointerPressedEventArgs e)

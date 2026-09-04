@@ -189,7 +189,7 @@ public sealed class FtpConnectionFlowTests
     private static Task DrainMainThreadAsync()
     {
         var drained = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        RxSchedulers.MainThreadScheduler.Schedule(() => drained.SetResult());
+        RxSchedulers.MainThreadScheduler.Schedule(drained.SetResult);
         return drained.Task;
     }
 }

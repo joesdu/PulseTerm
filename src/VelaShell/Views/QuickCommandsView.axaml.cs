@@ -6,8 +6,5 @@ namespace VelaShell.Views;
 public partial class QuickCommandsView : UserControl
 {
     /// <summary>初始化快捷命令视图并加载 XAML 组件。</summary>
-    public QuickCommandsView()
-    {
-        InitializeComponent();
-    }
+    public QuickCommandsView() => InitializeComponent();
 }

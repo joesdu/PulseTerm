@@ -177,17 +177,11 @@ public struct TerminalCell : IEquatable<TerminalCell>
     /// <param name="left">左操作数。</param>
     /// <param name="right">右操作数。</param>
     /// <returns>相等时返回 true。</returns>
-    public static bool operator ==(TerminalCell left, TerminalCell right)
-    {
-        return left.Equals(right);
-    }
+    public static bool operator ==(TerminalCell left, TerminalCell right) => left.Equals(right);
 
     /// <summary>判断两个单元格是否不相等。</summary>
     /// <param name="left">左操作数。</param>
     /// <param name="right">右操作数。</param>
     /// <returns>不相等时返回 true。</returns>
-    public static bool operator !=(TerminalCell left, TerminalCell right)
-    {
-        return !(left == right);
-    }
+    public static bool operator !=(TerminalCell left, TerminalCell right) => !(left == right);
 }

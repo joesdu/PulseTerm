@@ -23,33 +23,19 @@ public class Osc7WorkingDirectoryTests
     }
 
     [TestMethod]
-    public void Osc7_WithHost_StTerminator_ExtractsPath()
-    {
+    public void Osc7_WithHost_StTerminator_ExtractsPath() =>
         // ESC ] 7 ; file://host/root/temp ESC \
         Assert.AreEqual("/root/temp", CaptureCwd("\e]7;file://myhost/root/temp\e\\"));
-    }
 
     [TestMethod]
-    public void Osc7_EmptyHost_ExtractsPath()
-    {
-        Assert.AreEqual("/var/log", CaptureCwd("\e]7;file:///var/log\e\\"));
-    }
+    public void Osc7_EmptyHost_ExtractsPath() => Assert.AreEqual("/var/log", CaptureCwd("\e]7;file:///var/log\e\\"));
 
     [TestMethod]
-    public void Osc7_PercentEncoded_IsDecoded()
-    {
-        Assert.AreEqual("/a b/c", CaptureCwd("\e]7;file://h/a%20b/c\e\\"));
-    }
+    public void Osc7_PercentEncoded_IsDecoded() => Assert.AreEqual("/a b/c", CaptureCwd("\e]7;file://h/a%20b/c\e\\"));
 
     [TestMethod]
-    public void Osc7_NonFileScheme_DoesNotFire()
-    {
-        Assert.IsNull(CaptureCwd("\e]7;http://example.com/x\e\\"));
-    }
+    public void Osc7_NonFileScheme_DoesNotFire() => Assert.IsNull(CaptureCwd("\e]7;http://example.com/x\e\\"));
 
     [TestMethod]
-    public void Osc7_MalformedNoPath_DoesNotFire()
-    {
-        Assert.IsNull(CaptureCwd("\e]7;file://host\e\\"));
-    }
+    public void Osc7_MalformedNoPath_DoesNotFire() => Assert.IsNull(CaptureCwd("\e]7;file://host\e\\"));
 }

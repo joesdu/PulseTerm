@@ -357,7 +357,9 @@ public static class InfrastructureServiceCollectionExtensions
 
             if (verification == HostKeyVerification.Trusted
                 || HostTrustOnceCache.IsTrusted(host, port, fingerprint))
+            {
                 return true;
+            }
 
             HostKeyDecision decision;
             if (verification == HostKeyVerification.Unknown)
@@ -383,17 +385,21 @@ public static class InfrastructureServiceCollectionExtensions
             {
                 await hostKey.TrustHostKeyAsync(host, port, keyType, fingerprint, ct);
                 if (verification == HostKeyVerification.Changed && alerts is not null)
+                {
                     await alerts.RaiseAsync("hostkey-changed-accepted",
                         Strings.Format("KeySvc_AlertChangedAccepted", target, fingerprint));
+                }
             }
             else if (decision == HostKeyDecision.TrustOnce)
             {
                 HostTrustOnceCache.Remember(host, port, fingerprint);
                 if (alerts is not null)
+                {
                     await alerts.RaiseAsync("hostkey-trusted-once",
                         verification == HostKeyVerification.Changed
                             ? Strings.Format("KeySvc_AlertChangedTrustOnce", target, fingerprint)
                             : Strings.Format("KeySvc_AlertFirstTrustOnce", target, fingerprint));
+                }
             }
             return true;
         };

@@ -77,9 +77,7 @@ public class UpdateManifestTests
 
     [TestMethod]
     [TestCategory("Update")]
-    public void Parse_MalformedJson_Throws()
-    {
+    public void Parse_MalformedJson_Throws() =>
         // JsonReaderException 等派生类也算,用非严格断言。
         Assert.Throws<JsonException>(() => UpdateManifest.Parse("not json"));
-    }
 }

@@ -84,8 +84,5 @@ public class KeyboardShortcutService : IKeyboardShortcutService
         Map(KeyModifiers.Ctrl | KeyModifiers.Shift, KeyCode.Tab, ShortcutContext.Global, ShortcutAction.PreviousTab);
     }
 
-    private void Map(KeyModifiers modifiers, KeyCode key, ShortcutContext context, ShortcutAction action)
-    {
-        _mappings[(modifiers, key, context)] = action;
-    }
+    private void Map(KeyModifiers modifiers, KeyCode key, ShortcutContext context, ShortcutAction action) => _mappings[(modifiers, key, context)] = action;
 }

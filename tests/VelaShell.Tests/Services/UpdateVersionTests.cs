@@ -31,10 +31,7 @@ public class UpdateVersionTests
     [DataRow("1.2.3.4.5")]
     [DataRow("1.-2.3")]
     [DataRow("1.2.3-")]
-    public void TryParse_InvalidInput_Fails(string? text)
-    {
-        Assert.IsFalse(UpdateVersion.TryParse(text, out _));
-    }
+    public void TryParse_InvalidInput_Fails(string? text) => Assert.IsFalse(UpdateVersion.TryParse(text, out _));
 
     [TestMethod]
     [TestCategory("Update")]

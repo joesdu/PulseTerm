@@ -23,10 +23,7 @@ public partial class RemoteFileEditorView : Window
     /// <summary>
     /// 供设计器/XAML 使用的无参构造函数。
     /// </summary>
-    public RemoteFileEditorView()
-    {
-        InitializeComponent();
-    }
+    public RemoteFileEditorView() => InitializeComponent();
 
     /// <summary>
     /// 创建编辑器窗口并加载本地临时副本内容。

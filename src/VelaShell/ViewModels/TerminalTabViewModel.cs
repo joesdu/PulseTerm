@@ -101,10 +101,7 @@ public class TerminalTabViewModel : TabViewModel, IDisposable
 
     /// <summary>创建一个标签并立即挂载实时传输(已建立连接的场景)。</summary>
     public TerminalTabViewModel(ITerminalEmulator terminalEmulator, IShellStreamWrapper shellStream)
-        : this(terminalEmulator)
-    {
-        AttachTransport(shellStream ?? throw new ArgumentNullException(nameof(shellStream)));
-    }
+        : this(terminalEmulator) => AttachTransport(shellStream ?? throw new ArgumentNullException(nameof(shellStream)));
 
     /// <summary>该标签所属会话的唯一标识,用于与宿主的会话管理关联。</summary>
     public Guid SessionId { get; set; }
@@ -966,14 +963,8 @@ public class TerminalTabViewModel : TabViewModel, IDisposable
     }
 
     /// <summary>自动重连尝试计数加一。</summary>
-    public void IncrementReconnectAttempt()
-    {
-        ReconnectAttempts++;
-    }
+    public void IncrementReconnectAttempt() => ReconnectAttempts++;
 
     /// <summary>把自动重连尝试计数归零(连接成功后调用)。</summary>
-    public void ResetReconnectAttempts()
-    {
-        ReconnectAttempts = 0;
-    }
+    public void ResetReconnectAttempts() => ReconnectAttempts = 0;
 }

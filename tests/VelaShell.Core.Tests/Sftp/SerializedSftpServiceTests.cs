@@ -294,10 +294,7 @@ public sealed class SerializedSftpServiceTests
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
-        private async Task InvokeAsync(string operationName, Guid sessionId, CancellationToken cancellationToken)
-        {
-            _ = await InvokeAsync(operationName, sessionId, true, cancellationToken);
-        }
+        private async Task InvokeAsync(string operationName, Guid sessionId, CancellationToken cancellationToken) => _ = await InvokeAsync(operationName, sessionId, true, cancellationToken);
 
         private async Task<T> InvokeAsync<T>(string operationName, Guid sessionId, T result, CancellationToken cancellationToken)
         {

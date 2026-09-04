@@ -31,8 +31,8 @@ public class SettingsViewModelTests
         ISettingsPreviewService preview = new SettingsPreviewService();
         var opacityValues = new List<int>();
         var snapshots = new List<AppSettings>();
-        preview.WindowOpacityPreviewRequested += value => opacityValues.Add(value);
-        preview.PreviewRequested += snapshot => snapshots.Add(snapshot);
+        preview.WindowOpacityPreviewRequested += opacityValues.Add;
+        preview.PreviewRequested += snapshots.Add;
         _settingsService.GetSettingsAsync().Returns(new AppSettings());
 
         SettingsViewModel vm = CreateVm(preview);
@@ -53,7 +53,7 @@ public class SettingsViewModelTests
     {
         ISettingsPreviewService preview = new SettingsPreviewService();
         var snapshots = new List<AppSettings>();
-        preview.PreviewRequested += snapshot => snapshots.Add(snapshot);
+        preview.PreviewRequested += snapshots.Add;
         var baseline = new AppSettings { Appearance = new() { WindowOpacityPercent = 80 } };
         _settingsService.GetSettingsAsync().Returns(baseline);
 

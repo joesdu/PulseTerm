@@ -14,20 +14,14 @@ public class ZdleCodecTests
     [DataRow((byte)0x90)]
     [DataRow((byte)0x91)]
     [DataRow((byte)0x93)]
-    public void NeedsEscape_RequiredBytes_ReturnsTrue(byte value)
-    {
-        Assert.IsTrue(ZdleCodec.NeedsEscape(value));
-    }
+    public void NeedsEscape_RequiredBytes_ReturnsTrue(byte value) => Assert.IsTrue(ZdleCodec.NeedsEscape(value));
 
     [TestMethod]
     [DataRow((byte)0x00)]
     [DataRow((byte)0x41)] // 'A'
     [DataRow((byte)0x7F)]
     [DataRow((byte)0xFF)]
-    public void NeedsEscape_OrdinaryBytes_ReturnsFalse(byte value)
-    {
-        Assert.IsFalse(ZdleCodec.NeedsEscape(value));
-    }
+    public void NeedsEscape_OrdinaryBytes_ReturnsFalse(byte value) => Assert.IsFalse(ZdleCodec.NeedsEscape(value));
 
     [TestMethod]
     public void EscapeByte_Zdle_ProducesEscapedPair()
@@ -103,9 +97,7 @@ public class ZdleCodecTests
     }
 
     [TestMethod]
-    public void ClassifyEscaped_IllegalByte_ReportsInvalid()
-    {
+    public void ClassifyEscaped_IllegalByte_ReportsInvalid() =>
         // 0x00 after ZDLE is not a legal escape (fails the (b & 0x60) == 0x40 test).
         Assert.AreEqual(ZdleTokenKind.Invalid, ZdleCodec.ClassifyEscaped(0x00).Kind);
-    }
 }

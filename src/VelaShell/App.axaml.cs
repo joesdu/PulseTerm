@@ -566,10 +566,7 @@ public class App : Application
         }
     }
 
-    private void OnThemeChanged(string themeName)
-    {
-        ApplyThemeVariant(themeName);
-    }
+    private void OnThemeChanged(string themeName) => ApplyThemeVariant(themeName);
 
     /// <summary>
     /// 应用一套具名主题:先定明暗基底(Fluent 控件与 axaml 里的 ThemeDictionaries 跟着它走),
