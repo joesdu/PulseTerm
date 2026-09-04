@@ -1453,6 +1453,7 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
     {
         _protocolRegistry?.Changed -= OnProtocolsChanged;
         _copyFeedbackReset?.Dispose();
+        GC.SuppressFinalize(this);
     }
 
     /// <summary>把注册表里的协议页签同步到界面(打开对话框时调用)。</summary>
