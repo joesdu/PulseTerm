@@ -166,10 +166,13 @@
                 </Grid>
                 <TextBlock x:Name="McpApprovalHint" Classes="hint" />
 
+                <!-- 范围:与「已授权的聊天」那一段共用勾选框。从前这里是个多行文本框,要用户手打
+                     user@host:port —— 打错一个字就是外部 agent 一台机器也碰不到,而界面上看不出哪里错。 -->
                 <StackPanel>
                   <TextBlock x:Name="McpTargetsLabel" Classes="label" />
-                  <TextBox x:Name="McpTargetsBox" AcceptsReturn="True" MinHeight="56" TextWrapping="NoWrap" />
-                  <TextBlock x:Name="McpTargetsHint" Classes="hint" />
+                  <ComboBox x:Name="McpScopeCombo" MinWidth="220" HorizontalAlignment="Left" Margin="0,2,0,0" />
+                  <StackPanel x:Name="McpScopePanel" />
+                  <TextBlock x:Name="McpTargetsHint" Classes="hint" TextWrapping="Wrap" Margin="0,6,0,0" />
                 </StackPanel>
 
                 <!-- 令牌与接入命令:这两行是用户唯一要复制走的东西,所以给按钮而不是让他手抄 -->

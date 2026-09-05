@@ -15,6 +15,7 @@ using VelaShell.Plugin.Ai.Bridge;
 using VelaShell.Plugin.Ai.Configuration;
 using VelaShell.Plugin.Ai.Interop;
 using VelaShell.Plugin.Ai.Ui;
+using VelaShell.PluginSdk.Sessions;
 using VelaShell.PluginSdk.Testing;
 
 namespace VelaShell.Plugin.Ai.Tests;
@@ -469,6 +470,56 @@ public sealed class CollaborationViewUiTests
             Assert.IsTrue(mcp.Enabled);
             Assert.AreEqual(9401, mcp.Port);
             Assert.AreEqual("written-secret", await bridgeStore.GetSecretAsync("c1", "secret"));
+        });
+    }
+
+    /// <summary>
+    /// 对外 MCP 的范围:界面上勾的是名字,存下来的是已保存配置的 id。
+    /// </summary>
+    /// <remarks>
+    /// 从前这里是个多行文本框,要用户手打 <c>user@host:port</c>。名字会改、会重名,
+    /// 而已保存配置的 id 不会 —— 所以名字只当标签,存的仍旧是 id。
+    /// </remarks>
+    [TestMethod]
+    public void McpScope_TicksMachinesByNameAndSavesTheirIds()
+    {
+        OnUi(async () =>
+        {
+            using var context = new TestPluginContext();
+            var mcpStore = new McpServerSettingsStore(context);
+            SavedSessionInfo watched = context.FakeSessions.AddSaved(name: "观星云", host: "hw.easilynet.top");
+            context.FakeSessions.AddSaved(name: "演示服务器", host: "81.71.157.108");
+            await WithViewAsync(context, async view =>
+            {
+                view.FindControl<ComboBox>("McpScopeCombo")!.SelectedIndex = 1;
+                CheckBox tick = view.FindControl<StackPanel>("McpScopePanel")!
+                    .GetLogicalDescendants().OfType<CheckBox>()
+                    .First(c => (c.Content as string)?.StartsWith("观星云", StringComparison.Ordinal) == true);
+                tick.IsChecked = true;
+                view.FindControl<Button>("SaveButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                await PumpAsync(40);
+            });
+
+            McpServerSettings mcp = await mcpStore.LoadAsync();
+            Assert.IsFalse(mcp.Scope!.IsUnrestricted);
+            Assert.AreSequenceEqual([watched.SavedSessionId], mcp.Scope.SavedIds);
+        });
+    }
+
+    /// <summary>默认那一项是"不限范围" —— 与 IM 授权刻意相反,理由见 <c>McpServerSettings.Scope</c>。</summary>
+    [TestMethod]
+    public void McpScope_DefaultsToNoLimitAndHidesTheChecklist()
+    {
+        OnUi(async () =>
+        {
+            using var context = new TestPluginContext();
+            context.FakeSessions.AddSaved(name: "观星云", host: "hw.easilynet.top");
+            await WithViewAsync(context, view =>
+            {
+                Assert.AreEqual(0, view.FindControl<ComboBox>("McpScopeCombo")!.SelectedIndex);
+                Assert.IsFalse(view.FindControl<StackPanel>("McpScopePanel")!.Children[0].IsVisible);
+                return Task.CompletedTask;
+            });
         });
     }
 }

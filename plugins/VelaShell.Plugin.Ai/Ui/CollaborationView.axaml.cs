@@ -177,7 +177,16 @@ public partial class CollaborationView : UserControl
         FillModes(McpModeCombo);
         FillApprovals(BridgeApprovalCombo);
         FillApprovals(McpApprovalCombo);
+        FillScopeKinds(McpScopeCombo);
         FillKinds();
+    }
+
+    /// <summary>"限不限范围"那个下拉。与授权行上的那一个同文同序。</summary>
+    private void FillScopeKinds(ComboBox combo)
+    {
+        int selected = combo.SelectedIndex;
+        combo.ItemsSource = new[] { _loc["ScopeAll"], _loc["ScopeLimited"] };
+        combo.SelectedIndex = selected < 0 ? 0 : selected;
     }
 
     private void FillModes(ComboBox combo)
@@ -227,8 +236,13 @@ public partial class CollaborationView : UserControl
         McpPortBox.Text = _mcp.Port.ToString();
         McpModeCombo.SelectedIndex = (int)_mcp.Mode;
         McpApprovalCombo.SelectedIndex = (int)_mcp.Approval;
-        McpTargetsBox.Text = _mcp.AllowedTargets;
         McpTokenBox.Text = _token;
+
+        // 范围选择器要等 _saved 到手才建得出来,所以它不在 ApplyLoc 里而在这
+        McpScopePanel.Children.Clear();
+        McpScopePanel.Children.Add(
+            BuildMcpScopePicker(_mcp.Scope ?? new SessionScope(), McpScopeCombo, out Func<SessionScope> readMcpScope));
+        _mcpScope = readMcpScope;
 
         PairScopePanel.Children.Clear();
         PairScopePanel.Children.Add(BuildPairScopePicker(out Func<SessionScope> readPairScope));
@@ -608,6 +622,9 @@ public partial class CollaborationView : UserControl
     /// <summary>读出「给群的配对码」那一段现在勾了什么范围。</summary>
     private Func<SessionScope>? _pairScope;
 
+    /// <summary>读出对外 MCP 那一段现在勾了什么范围。</summary>
+    private Func<SessionScope>? _mcpScope;
+
     /// <param name="scope">
     /// 这个码兑现之后的范围。<see langword="null" /> = 不限范围(给自己单聊的那个按钮)。
     /// </param>
@@ -811,7 +828,8 @@ public partial class CollaborationView : UserControl
             _mcp.Port = ParseInt(McpPortBox.Text, _mcp.Port, 1024, 65535);
             _mcp.Mode = (ChatMode)Math.Max(0, McpModeCombo.SelectedIndex);
             _mcp.Approval = (ApprovalMode)Math.Max(0, McpApprovalCombo.SelectedIndex);
-            _mcp.AllowedTargets = McpTargetsBox.Text ?? "";
+            // 范围选择器建不出来时(这一页还没加载完就点了保存)保持原样,别把它当成"用户清空了"
+            _mcp.Scope = _mcpScope?.Invoke() ?? _mcp.Scope;
             await _mcpStore.SaveAsync(_mcp);
 
             await _restart();

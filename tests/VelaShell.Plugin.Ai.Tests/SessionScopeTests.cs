@@ -1,5 +1,6 @@
 using VelaShell.Plugin.Ai.Agent;
 using VelaShell.Plugin.Ai.Bridge;
+using VelaShell.Plugin.Ai.Interop;
 using VelaShell.PluginSdk.Sessions;
 using VelaShell.PluginSdk.Testing;
 
@@ -157,7 +158,30 @@ public sealed class SessionScopeTests
     // ---- 对外 MCP 那一份 ----
 
     /// <summary>
-    /// <c>AllowedTargets</c> 的语义:清单为空 = 不限范围(默认值不动)。
+    /// 旧的 <c>user@host:port</c> 清单折算成勾选出来的范围。
+    /// </summary>
+    /// <remarks>
+    /// <b>折算的是"哪几台",不是"哪几行字"。</b>清单里的每一行去会话树里找对得上的配置,
+    /// 存下它的 id —— 名字会改、会重名,id 不会;而活会话身上压根没有名字,
+    /// 判定最终仍旧落在"把活会话映射回已保存配置"那一步。
+    /// </remarks>
+    [TestMethod]
+    public void NormalizeScope_FoldsTheLegacyTargetListIntoTickedMachines()
+    {
+        using var context = new TestPluginContext();
+        SavedSessionInfo prod = context.FakeSessions.AddSaved(name: "观星云", host: "10.0.0.1", username: "root");
+        context.FakeSessions.AddSaved(name: "演示服务器", host: "10.0.0.2", username: "root");
+        var settings = new McpServerSettings { AllowedTargets = "root@10.0.0.1:22" };
+
+        settings.NormalizeScope([.. context.FakeSessions.Saved]);
+
+        Assert.IsNotNull(settings.Scope);
+        Assert.IsFalse(settings.Scope.IsUnrestricted);
+        Assert.AreSequenceEqual([prod.SavedSessionId], settings.Scope.SavedIds);
+    }
+
+    /// <summary>
+    /// <b>空清单折算成"不限范围",与升级前逐字相同。</b>
     /// </summary>
     /// <remarks>
     /// MCP 这条路的边界是回环地址 + 令牌 + 只读挡位。把用户自己机器上的 Claude Code / Codex
@@ -165,23 +189,114 @@ public sealed class SessionScopeTests
     /// 而且是刻意相反的。
     /// </remarks>
     [TestMethod]
-    public void TargetListScope_IsEmptyWhenNothingIsConfigured()
+    public void NormalizeScope_LeavesAnEmptyListUnrestricted()
     {
-        Assert.IsTrue(new TargetListScope([]).IsEmpty);
-        Assert.IsTrue(new TargetListScope(["", "   "]).IsEmpty);
-        Assert.IsFalse(new TargetListScope(["root@10.0.0.1:22"]).IsEmpty);
+        var settings = new McpServerSettings();
+
+        settings.NormalizeScope([]);
+
+        Assert.IsTrue(settings.Scope!.IsUnrestricted);
     }
 
+    /// <summary>
+    /// 清单非空却一行都对不上 → <b>受限且一台都没勾</b>,不是回到"允许全部"。
+    /// </summary>
+    /// <remarks>
+    /// 这种配置本来就只放行了几台不在会话树里的机器,把它读成"全都行"是凭空多给。
+    /// 权限的默认值一旦读错方向,错的方向是放开 —— 所以宁可让外部 agent 一台都碰不到,
+    /// 界面上那句"一个都没勾"会直接说出这件事。
+    /// </remarks>
     [TestMethod]
-    public async Task TargetListScope_MatchesUserHostPort()
+    public void NormalizeScope_FailsClosedWhenNothingInTheTreeMatches()
+    {
+        var settings = new McpServerSettings { AllowedTargets = "root@192.168.1.250:22" };
+
+        settings.NormalizeScope([]);
+
+        Assert.IsFalse(settings.Scope!.IsUnrestricted);
+        Assert.IsEmpty(settings.Scope.SavedIds);
+    }
+
+    /// <summary>已经迁移过的配置不再被旧清单改写(否则用户的勾选每次加载都被冲掉)。</summary>
+    [TestMethod]
+    public void NormalizeScope_DoesNotReFoldOnceScopeExists()
+    {
+        using var context = new TestPluginContext();
+        SavedSessionInfo saved = context.FakeSessions.AddSaved(name: "观星云", host: "10.0.0.1", username: "root");
+        var settings = new McpServerSettings
+        {
+            Scope = new SessionScope { Kind = ScopeKind.Limited, SavedIds = [saved.SavedSessionId] },
+            AllowedTargets = "root@10.0.0.99:22"
+        };
+
+        settings.NormalizeScope([.. context.FakeSessions.Saved]);
+
+        Assert.AreSequenceEqual([saved.SavedSessionId], settings.Scope.SavedIds);
+    }
+
+    /// <summary>
+    /// <c>AllowedTargets</c> 折算之后是 <c>Scope</c> 的派生镜像,由每次读写重算。
+    /// </summary>
+    /// <remarks>
+    /// 留着它只为一件事:用户换回旧版本时清单还在。一个派生字段只要有一头没算,
+    /// 它就会开始撒谎 —— 而这一份撒谎的后果是降级之后外部 agent 的范围对不上。
+    /// </remarks>
+    [TestMethod]
+    public void NormalizeScope_RebuildsTheLegacyMirror()
+    {
+        using var context = new TestPluginContext();
+        SavedSessionInfo saved = context.FakeSessions.AddSaved(name: "观星云", host: "10.0.0.1", username: "root");
+        context.FakeSessions.AddSaved(name: "演示服务器", host: "10.0.0.2", username: "root");
+        var settings = new McpServerSettings
+        {
+            Scope = new SessionScope { Kind = ScopeKind.Limited, SavedIds = [saved.SavedSessionId] }
+        };
+
+        settings.NormalizeScope([.. context.FakeSessions.Saved]);
+
+        Assert.AreEqual("root@10.0.0.1:22", settings.AllowedTargets);
+    }
+
+    /// <summary>不限范围时镜像是空的 —— 旧版本读到空清单正是"允许全部"。</summary>
+    [TestMethod]
+    public void NormalizeScope_MirrorsUnrestrictedAsABlankList()
+    {
+        var settings = new McpServerSettings { Scope = new SessionScope(), AllowedTargets = "root@10.0.0.1:22" };
+
+        settings.NormalizeScope([]);
+
+        Assert.AreEqual("", settings.AllowedTargets);
+    }
+
+    /// <summary>
+    /// 迁移还没跑过(取会话树失败之类)时退回旧清单,而不是退回"不限范围"。
+    /// </summary>
+    /// <remarks>
+    /// 一次读取失败不该把用户配好的名单悄悄拆掉,更不该把它读成允许全部。
+    /// 退回去的正好是升级前的行为:既不多给也不少给。
+    /// </remarks>
+    [TestMethod]
+    public async Task ResolveScope_FallsBackToTheLegacyListWhenMigrationHasNotRun()
     {
         using var context = new TestPluginContext();
         SessionInfo allowed = context.FakeSessions.AddConnected(host: "10.0.0.1", username: "root");
         SessionInfo denied = context.FakeSessions.AddConnected(host: "10.0.0.2", username: "root");
-        var scope = new TargetListScope(["root@10.0.0.1:22"]);
+        var settings = new McpServerSettings { AllowedTargets = "root@10.0.0.1:22" };
 
+        ISessionScope scope = settings.ResolveScope(context)!;
+
+        Assert.IsInstanceOfType<TargetListScope>(scope);
         Assert.IsTrue(await scope.AllowsLiveAsync(allowed, CancellationToken.None));
         Assert.IsFalse(await scope.AllowsLiveAsync(denied, CancellationToken.None));
+    }
+
+    /// <summary>迁移没跑过且旧清单也是空的 = 压根没有闸(与不限范围同一条代码路径)。</summary>
+    [TestMethod]
+    public void ResolveScope_HasNoGateWhenNothingWasEverConfigured()
+    {
+        using var context = new TestPluginContext();
+
+        Assert.IsNull(new McpServerSettings().ResolveScope(context));
     }
 
     // ---- 授权的迁移 ----

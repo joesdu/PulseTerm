@@ -22,20 +22,19 @@ namespace VelaShell.Plugin.Ai.Interop;
 /// <c>ApprovalHandler</c> 为 null 时就是这个行为),用户要放开就得显式选
 /// 只读放行或绕过审批 —— 这是一个明摆着的选择,而不是一个悄悄的默认。</para>
 ///
-/// <para><b><see cref="McpServerSettings.AllowedTargets" /> 从前只挡 <c>use_session</c>。</b>
-/// 那是一句空话:工具箱里九个工具都收可选的 <c>session_id</c>,外部 agent
-/// <c>list_sessions</c> 拿到 id 直接传就绕过去了。现在它变成
-/// <see cref="TargetListScope" /> 挂在 <see cref="AgentToolbox.Scope" /> 上,
-/// 每一次工具调用都要过。<b>默认值仍是空 = 不限范围</b> —— 这条路的边界是回环地址、
-/// 令牌与只读挡位,把用户自己机器上的 agent 一起收紧挡不住任何攻击者,只挡得住用户自己。</para>
+/// <para><b><see cref="McpServerSettings.Scope" /> 挡在每一次工具调用上。</b>
+/// 从前那份 <c>user@host:port</c> 清单只挡 <c>use_session</c>,而工具箱里九个工具都收可选的
+/// <c>session_id</c> —— 外部 agent <c>list_sessions</c> 拿到 id 直接传就绕过去了。现在它是一个
+/// <see cref="ISessionScope" />,挂在 <see cref="AgentToolbox.Scope" /> 上,每一次调用都要过。
+/// <b>默认值仍是不限范围</b> —— 这条路的边界是回环地址、令牌与只读挡位,把用户自己机器上的
+/// agent 一起收紧挡不住任何攻击者,只挡得住用户自己。</para>
 /// </remarks>
 internal sealed class McpToolHost
 {
     private readonly IPluginContext _context;
     private readonly McpServerSettings _settings;
     private readonly AgentToolbox _toolbox;
-    private readonly List<string> _allowedTargets;
-    private readonly TargetListScope? _scope;
+    private readonly ISessionScope? _scope;
     private string? _sessionId;
     private string _target = "";
 
@@ -49,11 +48,7 @@ internal sealed class McpToolHost
     {
         _context = context;
         _settings = settings;
-        _allowedTargets =
-        [
-            .. settings.AllowedTargets.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-        ];
-        _scope = _allowedTargets.Count > 0 ? new TargetListScope(_allowedTargets) : null;
+        _scope = settings.ResolveScope(context);
         _toolbox = new AgentToolbox(context)
         {
             SessionIdProvider = () => _sessionId,
@@ -97,12 +92,8 @@ internal sealed class McpToolHost
         [Description("Which session to use: user@host:port, host:port or just host.")] string target,
         CancellationToken cancellationToken = default)
     {
-        if (_allowedTargets.Count > 0
-            && !_allowedTargets.Any(a => string.Equals(a, target, StringComparison.OrdinalIgnoreCase)))
-        {
-            return $"'{target}' is not on the allowlist configured in VelaShell. "
-                   + $"Allowed: {string.Join(", ", _allowedTargets)}";
-        }
+        // 范围外的会话在 ResolveAsync 里就当作不存在,这里不再单独比一遍字符串:
+        // 一句"它不在名单上,名单是 A、B、C"会把拒绝消息本身变成一个探测接口。
         if (await SessionTargets.ResolveAsync(_context, target, cancellationToken, _scope).ConfigureAwait(false) is not { } session)
         {
             string list = await SessionTargets.DescribeAsync(_context, cancellationToken, _scope).ConfigureAwait(false);
