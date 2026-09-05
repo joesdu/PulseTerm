@@ -548,8 +548,9 @@ public sealed class Loc(string locale)
             "外部エージェント側に承認カードを出す画面がないため、「毎回確認」は書き込みを即拒否します。変更を許すには読み取り自動許可かバイパスを選んでください。",
             "외부 에이전트에는 승인 카드를 띄울 화면이 없어 \"매번 확인\"은 쓰기를 즉시 거부합니다. 변경을 허용하려면 읽기 전용 자동 또는 우회를 선택하세요."
         ],
-        ["McpServerTargets"] = ["Allowed servers (one user@host:port per line; blank = all connected)", "允许操作的服务器(每行一个 user@host:port;留空 = 全部已连会话)", "允許操作的伺服器(每行一個 user@host:port;留空 = 全部已連工作階段)", "許可するサーバー(1 行に 1 つ user@host:port、空欄 = 接続中すべて)", "허용할 서버(한 줄에 user@host:port 하나, 비우면 연결된 전체)"],
-        ["McpServerTargetsHint"] = ["The external agent can only pick from this list.", "外部 agent 只能在这个名单里挑。", "外部 agent 只能在這個名單裡挑。", "外部エージェントはこの一覧からのみ選べます。", "외부 에이전트는 이 목록에서만 고를 수 있습니다."],
+        ["McpServerTargets"] = ["Machines the external agent can operate", "外部 agent 能操作的机器", "外部 agent 能操作的機器", "外部エージェントが操作できるマシン", "외부 에이전트가 조작할 수 있는 머신"],
+        ["McpServerTargetsHint"] = ["Ticked machines come from your session tree, and the limit applies to every tool call — not just to picking a session. A session you opened by typing ssh yourself is not in the tree, so a limited scope will not reach it.", "勾选项来自会话树,而且这个限制作用在每一次工具调用上,不只是\"选哪台\"。在终端里手敲 ssh 连出去的会话不在会话树里,受限时碰不到它。", "勾選項來自工作階段樹,而且這個限制作用在每一次工具呼叫上,不只是\"選哪台\"。在終端機裡手敲 ssh 連出去的工作階段不在樹裡,受限時碰不到它。", "チェック項目はセッションツリーから来ており、この制限は「どれを選ぶか」だけでなくすべてのツール呼び出しに効きます。端末で自分で ssh を打って開いたセッションはツリーにないため、範囲を絞ると届きません。", "선택 항목은 세션 트리에서 가져오며, 이 제한은 세션 선택뿐 아니라 모든 도구 호출에 적용됩니다. 터미널에서 직접 ssh로 연 세션은 트리에 없으므로 범위를 제한하면 닿지 않습니다."],
+        ["McpScopeEmptyWarning"] = ["Nothing ticked — the external agent can reach no machine at all.", "一个都没勾:外部 agent 碰不到任何机器。", "一個都沒勾:外部 agent 碰不到任何機器。", "何もチェックされていません。外部エージェントはどのマシンにも到達できません。", "아무것도 선택되지 않았습니다. 외부 에이전트는 어떤 머신에도 접근할 수 없습니다."],
         ["McpServerToken"] = ["Access token", "访问令牌", "存取權杖", "アクセストークン", "액세스 토큰"],
         ["McpServerTokenHint"] = [
             "Anything running on this machine can reach a local port — this token is the only thing that stops it.",

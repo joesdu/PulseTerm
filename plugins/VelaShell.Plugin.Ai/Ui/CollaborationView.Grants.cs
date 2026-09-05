@@ -226,13 +226,22 @@ public partial class CollaborationView
     /// 勾选项来自会话树,不是让用户手打分组名 —— 打错一个字的后果是这份授权碰不到任何机器,
     /// 而界面上看不出哪里错了。
     /// </remarks>
+    /// <param name="scope">当前范围(决定哪些框是勾上的)。</param>
+    /// <param name="groups">分组勾选框(键 = 分组名)。</param>
+    /// <param name="machines">单台勾选框(键 = 已保存会话 id)。</param>
+    /// <param name="empty">"一个都没勾"那句警告(可见性由调用方管)。</param>
+    /// <param name="emptyText">
+    /// 换掉那句警告的措辞。对外 MCP 那一份说的是"外部 agent",不是"这个聊天" ——
+    /// 同一句话摆在两个地方,读的人会以为自己看错了段落。
+    /// </param>
     private StackPanel BuildScopeChecklist(SessionScope scope,
-        out Dictionary<string, CheckBox> groups, out Dictionary<string, CheckBox> machines, out TextBlock empty)
+        out Dictionary<string, CheckBox> groups, out Dictionary<string, CheckBox> machines, out TextBlock empty,
+        string? emptyText = null)
     {
         groups = [];
         machines = [];
         var picker = new StackPanel { Spacing = 6, Margin = new Thickness(0, 8, 0, 0) };
-        empty = new TextBlock { Text = _loc["ScopeEmptyWarning"], TextWrapping = TextWrapping.Wrap };
+        empty = new TextBlock { Text = emptyText ?? _loc["ScopeEmptyWarning"], TextWrapping = TextWrapping.Wrap };
         empty.Classes.Add("hint");
         if (_saved.Count == 0)
         {
@@ -300,6 +309,55 @@ public partial class CollaborationView
         read = () => new SessionScope
         {
             Kind = ScopeKind.Limited,
+            Groups = [.. g.Where(x => x.Value.IsChecked == true).Select(x => x.Key)],
+            SavedIds = [.. m.Where(x => x.Value.IsChecked == true).Select(x => x.Key)]
+        };
+        return checklist;
+    }
+
+    /// <summary>
+    /// 对外 MCP 那一段的范围选择器:一个下拉管"限不限",下面是与 IM 授权同一套勾选框。
+    /// </summary>
+    /// <remarks>
+    /// <b>勾的是名字,存的是 id。</b>与 IM 授权共用 <see cref="BuildScopeChecklist" /> 不只是省代码:
+    /// 从前这里是个多行文本框,要用户手打 <c>user@host:port</c> —— 打错一个字的后果是外部 agent
+    /// 一台机器也碰不到,而界面上看不出哪里错了。名字会改、会重名,已保存配置的 id 不会变,
+    /// 所以名字只当标签用。
+    /// <para>
+    /// 默认那一项是<b>不限范围</b>,与 IM 那边刻意相反(理由见 <c>McpServerSettings.Scope</c>)。
+    /// </para>
+    /// </remarks>
+    /// <param name="scope">当前范围。</param>
+    /// <param name="kind">"限不限"那个下拉(文案由 <c>ApplyLoc</c> 灌)。</param>
+    /// <param name="read">读回界面上勾了什么。</param>
+    private StackPanel BuildMcpScopePicker(SessionScope scope, ComboBox kind, out Func<SessionScope> read)
+    {
+        StackPanel checklist = BuildScopeChecklist(scope,
+            out Dictionary<string, CheckBox> groups, out Dictionary<string, CheckBox> machines, out TextBlock empty,
+            _loc["McpScopeEmptyWarning"]);
+        Dictionary<string, CheckBox> g = groups;
+        Dictionary<string, CheckBox> m = machines;
+        kind.SelectedIndex = scope.IsUnrestricted ? 0 : 1;
+
+        void Sync()
+        {
+            bool limited = kind.SelectedIndex == 1;
+            checklist.IsVisible = limited;
+            empty.IsVisible = limited && _saved.Count > 0
+                              && g.Values.All(c => c.IsChecked != true)
+                              && m.Values.All(c => c.IsChecked != true);
+        }
+
+        kind.SelectionChanged += (_, _) => Sync();
+        foreach (CheckBox check in g.Values.Concat(m.Values))
+        {
+            check.IsCheckedChanged += (_, _) => Sync();
+        }
+        Sync();
+
+        read = () => new SessionScope
+        {
+            Kind = kind.SelectedIndex == 1 ? ScopeKind.Limited : ScopeKind.All,
             Groups = [.. g.Where(x => x.Value.IsChecked == true).Select(x => x.Key)],
             SavedIds = [.. m.Where(x => x.Value.IsChecked == true).Select(x => x.Key)]
         };

@@ -87,6 +87,28 @@ public static class SessionTargets
         return sb.ToString().TrimEnd();
     }
 
+    /// <summary>
+    /// 一条已保存的配置对不对得上一个目标串(<c>[user@]host[:port]</c>)。
+    /// </summary>
+    /// <remarks>
+    /// 只有一处用得上:把对外 MCP 那份旧的 <c>user@host:port</c> 清单折算成勾选出来的范围
+    /// (见 <c>McpServerSettings.NormalizeScope</c>)。规则与 <see cref="ResolveAsync" /> 对活会话的
+    /// 那一套一致 —— 省略的部分不参与比较,已保存配置没填用户名(留到连接时再问)时也不比用户名。
+    /// </remarks>
+    internal static bool Matches(SavedSessionInfo saved, string target)
+    {
+        ArgumentNullException.ThrowIfNull(saved);
+        if (string.IsNullOrWhiteSpace(target))
+        {
+            return false;
+        }
+        (string? user, string host, int? port) = Parse(target);
+        return string.Equals(saved.Host, host, StringComparison.OrdinalIgnoreCase)
+               && (port is not { } p || saved.Port == p)
+               && (user is not { } u || saved.Username.Length == 0
+                   || string.Equals(saved.Username, u, StringComparison.Ordinal));
+    }
+
     /// <summary>拆 <c>[user@]host[:port]</c>。拆不出端口就返回 null(表示"不挑端口")。</summary>
     private static (string? User, string Host, int? Port) Parse(string target)
     {

@@ -50,6 +50,24 @@ public sealed class SessionScope
     public bool IsUnrestricted => Kind == ScopeKind.All;
 
     /// <summary>
+    /// 这条已保存的配置在范围里吗。
+    /// </summary>
+    /// <remarks>
+    /// <b>"在不在范围里"只许有这一份定义。</b>运行期的闸门(<see cref="SavedSessionScope" />)与
+    /// 对外 MCP 重算旧清单镜像(<c>McpServerSettings.NormalizeScope</c>)问的是同一个问题,
+    /// 各写一遍的话两边迟早会漂 —— 而权限判定漂了是不会有人报 bug 的,只会有人多拿到一台机器。
+    /// <para>
+    /// <b>它不看 <see cref="Kind" /></b>:不限范围时压根不该走到这里(见 <see cref="Resolve" />)。
+    /// </para>
+    /// </remarks>
+    public bool Allows(SavedSessionInfo saved)
+    {
+        ArgumentNullException.ThrowIfNull(saved);
+        return SavedIds.Contains(saved.SavedSessionId, StringComparer.Ordinal)
+               || (saved.Group is { Length: > 0 } group && Groups.Contains(group, StringComparer.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
     /// 把这份配置变成运行期的闸门。<b>不限范围时返回 <see langword="null" /></b> ——
     /// 于是"全部"与"没有范围这回事"走的是同一条代码路径,不存在一个可能写错的放行分支。
     /// </summary>
@@ -104,8 +122,6 @@ public sealed class SavedSessionScope(IPluginContext context, SessionScope scope
 {
     private static readonly TimeSpan CacheLife = TimeSpan.FromSeconds(5);
 
-    private readonly HashSet<string> _groups = new(scope.Groups, StringComparer.OrdinalIgnoreCase);
-    private readonly HashSet<string> _savedIds = new(scope.SavedIds, StringComparer.Ordinal);
     private readonly Lock _sync = new();
     private IReadOnlyList<SavedSessionInfo>? _cached;
     private DateTimeOffset _cachedAt;
@@ -116,14 +132,14 @@ public sealed class SavedSessionScope(IPluginContext context, SessionScope scope
         ArgumentNullException.ThrowIfNull(session);
         IReadOnlyList<SavedSessionInfo> saved = await SavedAsync(cancellationToken).ConfigureAwait(false);
         // 对不上任何一条已保存配置时循环自然走完 → false,即失败关闭(理由见类型注释)
-        return saved.Any(candidate => Matches(candidate, session) && Allows(candidate));
+        return saved.Any(candidate => Matches(candidate, session) && scope.Allows(candidate));
     }
 
     /// <inheritdoc />
     public Task<bool> AllowsSavedAsync(SavedSessionInfo saved, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(saved);
-        return Task.FromResult(Allows(saved));
+        return Task.FromResult(scope.Allows(saved));
     }
 
     /// <inheritdoc />
@@ -134,9 +150,9 @@ public sealed class SavedSessionScope(IPluginContext context, SessionScope scope
         {
             parts.Add(string.Join(", ", scope.Groups));
         }
-        if (_savedIds.Count > 0)
+        if (scope.SavedIds.Count > 0)
         {
-            parts.Add($"+{_savedIds.Count}");
+            parts.Add($"+{scope.SavedIds.Count}");
         }
         return parts.Count == 0 ? "—" : string.Join(" ", parts);
     }
@@ -150,10 +166,6 @@ public sealed class SavedSessionScope(IPluginContext context, SessionScope scope
         => string.Equals(saved.Host, session.Host, StringComparison.OrdinalIgnoreCase)
            && saved.Port == session.Port
            && (saved.Username.Length == 0 || string.Equals(saved.Username, session.Username, StringComparison.Ordinal));
-
-    private bool Allows(SavedSessionInfo saved)
-        => _savedIds.Contains(saved.SavedSessionId)
-           || (saved.Group is { Length: > 0 } group && _groups.Contains(group));
 
     private async Task<IReadOnlyList<SavedSessionInfo>> SavedAsync(CancellationToken cancellationToken)
     {
@@ -176,15 +188,16 @@ public sealed class SavedSessionScope(IPluginContext context, SessionScope scope
 }
 
 /// <summary>
-/// 按 <c>user@host:port</c> 清单判定范围(对外 MCP 设置页上那个"允许操作的服务器")。
+/// 按 <c>user@host:port</c> 清单判定范围。<b>只剩一个用处:对外 MCP 那份旧清单还没折算成
+/// <see cref="SessionScope" /> 时的兜底</b>(见 <c>McpServerSettings.ResolveScope</c>)。
 /// </summary>
 /// <remarks>
-/// <b>这一条原来是句空话。</b>它只挡 <c>use_session</c>,而工具箱里九个工具都收可选的
-/// <c>session_id</c> —— 外部 agent 只要 <c>list_sessions</c> 拿到 id 直接传,清单形同虚设。
-/// 做成 <see cref="ISessionScope" /> 之后它作用在每一次工具调用上,界面上写的那句话才是真的。
+/// 设置页上那一栏现在是勾选框,存的是已保存配置的 id;手打的 <c>user@host:port</c> 只在
+/// 升级前的配置里还有。取会话树失败、折算没跑成时退回这里,拿到的正好是升级前的行为 ——
+/// 既不多给也不少给。退回成"不限范围"是不行的:一次读取失败不该把用户配好的名单悄悄拆掉。
 /// <para>
-/// 清单为空仍然是"允许全部",默认值不动:MCP 的边界是回环地址 + 令牌 + 只读挡位,
-/// 把用户自己机器上的 agent 一起收紧挡不住任何攻击者,只挡得住用户自己。
+/// 它与 <see cref="SavedSessionScope" /> 的关键差别是<b>不把活会话映射回已保存配置</b>,
+/// 所以手敲 <c>ssh</c> 连出去的临时会话也能被清单放行 —— 这正是旧语义,留着它就是为了不改它。
 /// </para>
 /// </remarks>
 public sealed class TargetListScope : ISessionScope
