@@ -508,17 +508,46 @@ public partial class CollaborationView : UserControl
     /// </remarks>
     private static WriteableBitmap RenderQr(string text)
     {
-        var qr = QrCode.Encode(text, QrEcc.Medium);
-        int side = (qr.Size + (QrQuietZone * 2)) * QrScale;
+        byte[] pixels = BuildQrPixels(text, out int side);
         WriteableBitmap bitmap = new(
             new PixelSize(side, side), new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Opaque);
-
-        // 二维码固定黑白,不跟着主题反色 —— 反色的码有相当一部分识读器扫不动。
-        byte[] scanline = new byte[side * 4];
         using ILockedFramebuffer frame = bitmap.Lock();
         for (int y = 0; y < side; y++)
         {
+            // 逐行拷:RowBytes 可能比 side*4 大(行首对齐的填充),整块拷会错位。
+            Marshal.Copy(pixels, y * side * 4, frame.Address + (y * frame.RowBytes), side * 4);
+        }
+        return bitmap;
+    }
+
+    /// <summary>
+    /// 把一段链接摊成紧凑排列的 BGRA 像素(每行 <c>side * 4</c> 字节,无填充)。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 二维码固定黑白,不跟着主题反色 —— 反色的码有相当一部分识读器扫不动。
+    /// </para>
+    /// <para>
+    /// <b>为什么把它从 <see cref="RenderQr" /> 里拆出来</b>:「矩阵 → 像素」这一跳原先只能
+    /// 靠"渲染完再 <c>Lock</c> 一次读回来"去验,而那条路<b>根本读不回写进去的字节</b> ——
+    /// 实测第二次 <c>Lock</c> 拿到的是未初始化内存(前几个字节是一个 64 位指针)。
+    /// 于是那条用例一直在对着垃圾内存断言,靠"垃圾字节碰巧不为 0"蒙混过关,
+    /// 偶尔碰上一个 0 字节就红一次 —— 而它红的时候看起来像是二维码画错了。
+    /// 拆成纯函数之后,像素本身可以直接断言,不必再经那趟不可靠的往返。
+    /// </para>
+    /// </remarks>
+    /// <param name="text">要编码的文本。</param>
+    /// <param name="side">位图边长(像素)。</param>
+    /// <returns>长度为 <c>side * side * 4</c> 的 BGRA 像素。</returns>
+    private static byte[] BuildQrPixels(string text, out int side)
+    {
+        var qr = QrCode.Encode(text, QrEcc.Medium);
+        side = (qr.Size + (QrQuietZone * 2)) * QrScale;
+        byte[] pixels = new byte[side * side * 4];
+        for (int y = 0; y < side; y++)
+        {
             int moduleY = (y / QrScale) - QrQuietZone;
+            int rowStart = y * side * 4;
             for (int x = 0; x < side; x++)
             {
                 int moduleX = (x / QrScale) - QrQuietZone;
@@ -526,16 +555,14 @@ public partial class CollaborationView : UserControl
                             && moduleX >= 0 && moduleX < qr.Size
                             && qr[moduleX, moduleY];
                 byte level = dark ? (byte)0 : (byte)255;
-                int offset = x * 4;
-                scanline[offset] = level;
-                scanline[offset + 1] = level;
-                scanline[offset + 2] = level;
-                scanline[offset + 3] = 255;
+                int offset = rowStart + (x * 4);
+                pixels[offset] = level;
+                pixels[offset + 1] = level;
+                pixels[offset + 2] = level;
+                pixels[offset + 3] = 255;
             }
-            // 只拷一行的有效字节:RowBytes 可能比 side*4 大(行首对齐的填充)。
-            Marshal.Copy(scanline, 0, frame.Address + (y * frame.RowBytes), scanline.Length);
         }
-        return bitmap;
+        return pixels;
     }
 
     /// <summary>

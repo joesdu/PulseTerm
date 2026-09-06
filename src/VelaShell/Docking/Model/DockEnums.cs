@@ -41,3 +41,19 @@ public enum DockPosition
     /// <summary>底部区域,在该组下方拆分放置。</summary>
     Bottom
 }
+
+/// <summary>窗格移焦的方向(Alt+方向键)。</summary>
+public enum DockDirection
+{
+    /// <summary>向左。</summary>
+    Left,
+
+    /// <summary>向右。</summary>
+    Right,
+
+    /// <summary>向上。</summary>
+    Up,
+
+    /// <summary>向下。</summary>
+    Down
+}

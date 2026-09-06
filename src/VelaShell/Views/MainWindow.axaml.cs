@@ -20,6 +20,7 @@ using VelaShell.Core.Resources;
 using VelaShell.Core.Services;
 using VelaShell.Core.Ssh;
 using VelaShell.Docking;
+using VelaShell.Infrastructure.Diagnostics;
 using VelaShell.Presentation.Services;
 using VelaShell.Presentation.ViewModels;
 using VelaShell.Security;
@@ -86,11 +87,25 @@ public partial class MainWindow : Window
         {
             grips.IsVisible = WindowState == WindowState.Normal;
         }
-        // 最小化(含隐入托盘)时暂停状态栏的每秒 SSH 探测与周期 ICMP,恢复时重启。
+        // 最小化(含隐入托盘)时暂停状态栏的 SSH 探测与周期 ICMP,恢复时重启。
         if (change.Property == WindowStateProperty && DataContext is MainWindowViewModel vm)
         {
-            vm.SetStatusPollingSuspended(WindowState == WindowState.Minimized);
+            vm.StatusMetrics.SetSuspended(WindowState == WindowState.Minimized);
         }
+    }
+
+    /// <summary>
+    /// 窗口失焦即把状态栏采样降到 10 秒一次,重新聚焦时恢复设置值。
+    /// </summary>
+    /// <remarks>
+    /// 与最小化时的"暂停"是两回事:最小化是完全看不到,直接停;失焦只是没在看,
+    /// 慢一点就好 —— 切回来时状态栏不该是一片空白。每次采样对远端都是一次
+    /// fork/exec + 一条 SSH 通道的建立与拆除,降频是实打实的省。
+    /// </remarks>
+    private void HookFocusThrottling()
+    {
+        Activated += (_, _) => (DataContext as MainWindowViewModel)?.StatusMetrics.SetReduced(false);
+        Deactivated += (_, _) => (DataContext as MainWindowViewModel)?.StatusMetrics.SetReduced(true);
     }
 
     /// <summary>
@@ -155,6 +170,11 @@ public partial class MainWindow : Window
             HookFileBrowserVisibility();
             HookSidebarCollapsed();
         };
+        // 窗格移焦(Alt+方向)必须走隧道阶段的**有条件**拦截,不能进 Window.KeyBindings:
+        // 后者由 KeyboardDevice 在路由事件分发之前无条件匹配,一旦登记就永远从终端手里抢走 ——
+        // 而 Alt+方向在 zsh(向前/向后一个词)与 fish 里都是有人绑的。这里只在确实分屏时吃掉。
+        AddHandler(KeyDownEvent, OnPaneNavigationKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+        HookFocusThrottling();
         // 主题(暗/亮)切换时,按新主题色重建背景令牌覆盖画刷。否则之前设的覆盖仍持旧主题色、
         // 一直 shadow 掉换主题后的令牌值,导致终端/SFTP/侧栏等背景停在旧色,须再动一次滑杆才同步。
         ActualThemeVariantChanged += (_, _) =>
@@ -350,7 +370,7 @@ public partial class MainWindow : Window
         _sidebarAnimation = null;
     }
 
-    private async void OnWindowOpened(object? sender, EventArgs e)
+    private void OnWindowOpened(object? sender, EventArgs e) => FireAndForget.Run(async () =>
     {
         // Avalonia 的 Window 每次 Show() 都会重发 Opened(Hide() 清 _shown,再 Show 即再触发)。
         // 开启“关闭时最小化到托盘”后,从托盘重新显示走的正是 Show(),若在此重复接线,
@@ -361,6 +381,14 @@ public partial class MainWindow : Window
             return;
         }
         _openedInitialized = true;
+        StartupTrace.Mark("WindowOpened");
+        // 真·首帧:Background 优先级排在 Render 之后,所以这个回调跑到时窗口已经画过一次。
+        // 打完点就把整份时间线写进诊断日志 —— 之后的会话恢复是异步的,不算冷启动。
+        Dispatcher.UIThread.Post(() =>
+        {
+            StartupTrace.Mark("FirstFrame");
+            StartupTrace.WriteSummaryOnce();
+        }, DispatcherPriority.Background);
         // 启动期的侧栏状态回填(设置/AppState 异步读回来的折叠态)不做动画,过了这一阵才开闸。
         // 用定时器而不是接在某个初始化步骤之后:回填是视图模型那边异步完成的,这里等不到确切时机,
         // 而"启动后短暂静默"本身就是这道闸要表达的全部意思。
@@ -369,6 +397,19 @@ public partial class MainWindow : Window
         {
             vm.TerminalSearchRequested += OnTerminalSearchRequested;
             vm.TerminalFocusRequested += (_, _) => FocusActiveTerminal(vm);
+            // 关闭已连接标签前的确认对话框由视图提供 —— VM 不认识窗口。
+            vm.CloseConfirmer = (title, body) => MessageDialog.ConfirmAsync(
+                this, title, body, Strings.Get("Main_CloseTabConfirmAction"),
+                Strings.Cancel, MessageDialogKind.Warning, danger: true);
+            // Ctrl+Shift+E:焦点送到会话过滤框。命令那边已经把侧栏展开了,
+            // 这里 Post 一拍再取焦点 —— 展开是动画/布局驱动的,同步 Focus 会落在还没排布的控件上。
+            vm.SessionFilterFocusRequested += (_, _) => Dispatcher.UIThread.Post(() =>
+            {
+                if (this.FindControl<SidebarView>("SidebarHost") is { } host)
+                {
+                    host.FocusTreeFilter();
+                }
+            }, DispatcherPriority.Input);
             vm.NewConnectionRequested += (_, _) => _ = OpenProfileDialogAsync(null);
             vm.SettingsRequested += (_, _) => _ = OpenSettingsAsync();
             vm.SettingsSectionRequested += (_, section) => _ = OpenSettingsAsync(section);
@@ -415,22 +456,22 @@ public partial class MainWindow : Window
             if (vm.Sidebar.SessionTree is { } tree)
             {
                 tree.ConnectRequested += profile =>
-                    Dispatcher.UIThread.Post(() => SafeFireAndForget(() => vm.TryConnectProfileAsync(profile)));
+                    Dispatcher.UIThread.Post(() => FireAndForget.Run(() => vm.TryConnectProfileAsync(profile)));
                 tree.EditRequested += profile =>
                     Dispatcher.UIThread.Post(() => _ = OpenProfileDialogAsync(profile));
 
                 // 打开 SFTP:先连接(已连接则新开标签),随后展开文件浏览面板。
                 tree.OpenSftpRequested += profile =>
-                    Dispatcher.UIThread.Post(() => SafeFireAndForget(() => vm.OpenSftpForProfileAsync(profile)));
+                    Dispatcher.UIThread.Post(() => FireAndForget.Run(() => vm.OpenSftpForProfileAsync(profile)));
 
                 // 端口转发:打开隧道管理面板并预选该服务器(全局非模态,见 fuXS7);
                 // 无需先建立终端会话,面板会在创建隧道时后台自动连接。
                 tree.PortForwardRequested += profile =>
-                    Dispatcher.UIThread.Post(() => SafeFireAndForget(() => { vm.OpenTunnelPanel(profile); return Task.CompletedTask; }));
+                    Dispatcher.UIThread.Post(() => FireAndForget.Run(() => { vm.OpenTunnelPanel(profile); return Task.CompletedTask; }));
 
                 // 连接诊断:对选中的配置打开诊断中心(设计 RGXg1)。
                 tree.DiagnoseRequested += profile =>
-                    Dispatcher.UIThread.Post(() => SafeFireAndForget(() => OpenDiagnosticsDialogAsync(profile)));
+                    Dispatcher.UIThread.Post(() => FireAndForget.Run(() => OpenDiagnosticsDialogAsync(profile)));
 
                 // 断开连接:断开该配置所有已连接的终端标签(保留缓冲以便重连)。
                 // 必须按 Profile.Id 匹配——tab.SessionId 是 SSH 连接会话 ID,与配置 ID
@@ -440,7 +481,7 @@ public partial class MainWindow : Window
                     {
                         foreach (
                             TerminalTabViewModel tab in vm
-                                .TabBar.Tabs.OfType<TerminalTabViewModel>()
+                                .TerminalTabs
                                 .Where(t =>
                                     t.Profile?.Id == profile.Id
                                     && t.ConnectionStatus == SessionStatus.Connected
@@ -479,7 +520,7 @@ public partial class MainWindow : Window
             }
             try
             {
-                _settings = await settingsService.GetSettingsAsync();
+                _settings = await settingsService.GetSnapshotAsync();
                 ApplyWindowAppearance(_settings);
             }
             catch
@@ -488,7 +529,7 @@ public partial class MainWindow : Window
             }
             await RestoreSessionsAsync(_settings);
         }
-    }
+});
 
     /// <summary>
     /// 恢复会话(设置 → 常规 → 启动):重连上次退出时在线的连接。缺凭据的
@@ -911,7 +952,7 @@ public partial class MainWindow : Window
     private bool HasConnectedSessions() =>
         DataContext is MainWindowViewModel vm
         && (
-            vm.TabBar.Tabs.OfType<TerminalTabViewModel>().Any(t => t.IsConnected)
+            vm.TerminalTabs.Any(t => t.IsConnected)
             || vm.Layout.AllDocuments().OfType<SftpDocument>().Any()
         );
 
@@ -977,8 +1018,7 @@ public partial class MainWindow : Window
             {
                 settings.General.LastOpenProfileIds =
                 [
-                    .. vm.TabBar.Tabs
-                        .OfType<TerminalTabViewModel>()
+                    .. vm.TerminalTabs
                         .Where(t => t is { IsConnected: true, Profile: { } p } && p.Id != Guid.Empty)
                         .Select(t => t.Profile!.Id)
                         .Concat(
@@ -1544,7 +1584,7 @@ public partial class MainWindow : Window
         try
         {
             await File.WriteAllTextAsync(path, text);
-            vm.StatusBar.Status = Strings.Format("Main_TerminalExported", path);
+            vm.Toasts.Info(Strings.Format("Main_TerminalExported", path));
         }
         catch (Exception ex)
         {
@@ -1662,22 +1702,38 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// 安全的 fire-and-forget 包装:捕获取消与同步异常,防止未观察的任务异常或
-    /// 同步参数校验失败导致应用崩溃。异步异常(网络失败等)由各方法的 try/catch 自行处理。
+    /// Alt+方向键在分屏时移动窗格焦点;只有一个窗格时**原样放行**给终端。
     /// </summary>
-    private static async void SafeFireAndForget(Func<Task> action)
+    /// <remarks>
+    /// 走隧道阶段(<c>RoutingStrategies.Tunnel</c>)而不是 <c>Window.KeyBindings</c>:
+    /// 后者由 <c>KeyboardDevice</c> 在分发路由事件之前就无条件匹配掉,一旦登记,
+    /// Alt+方向就永远到不了远端 —— 而 zsh(向前/向后一个词)与 fish 里都有人绑它。
+    /// 这里判定"确实有多个窗格"之后才 <c>Handled</c>,其余情况一律让路。
+    /// </remarks>
+    // KeyModifiers / Key 都写全名:VelaShell.Services 里另有一套同名的键盘枚举
+    // (KeyboardShortcutService 的平台无关映射),using 进来会撞车。
+    private void OnPaneNavigationKeyDown(object? sender, Avalonia.Input.KeyEventArgs e)
     {
-        try
+        if (e.KeyModifiers != Avalonia.Input.KeyModifiers.Alt
+            || DataContext is not MainWindowViewModel vm
+            || !vm.Layout.HasMultipleGroups
+            || vm.RunCommand is null)
         {
-            await action().ConfigureAwait(true);
+            return;
         }
-        catch (OperationCanceledException)
+        string? commandId = e.Key switch
         {
-            // 用户取消 / 会话取消:正常事件,不记录。
-        }
-        catch (Exception ex)
+            Avalonia.Input.Key.Left => "pane.focus.left",
+            Avalonia.Input.Key.Right => "pane.focus.right",
+            Avalonia.Input.Key.Up => "pane.focus.up",
+            Avalonia.Input.Key.Down => "pane.focus.down",
+            _ => null
+        };
+        if (commandId is null)
         {
-            System.Diagnostics.Trace.WriteLine($"[VelaShell] Unhandled fire-and-forget error: {ex}");
+            return;
         }
+        vm.RunCommand.Execute(commandId).Subscribe();
+        e.Handled = true;
     }
 }

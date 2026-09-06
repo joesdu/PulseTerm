@@ -3,6 +3,7 @@ using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
+using FireAndForget = VelaShell.Services.FireAndForget;
 
 namespace VelaShell.Views.Settings;
 
@@ -15,16 +16,16 @@ public partial class DonatePage : UserControl
     public DonatePage() => InitializeComponent();
 
     /// <summary>点击链接文本:在系统默认浏览器中打开 Wise 付款页。</summary>
-    private async void WiseLink_PointerPressed(object? sender, PointerPressedEventArgs e)
+    private void WiseLink_PointerPressed(object? sender, PointerPressedEventArgs e) => FireAndForget.Run(async () =>
     {
         if (TopLevel.GetTopLevel(this) is { } top && Uri.TryCreate(WiseLink, UriKind.Absolute, out Uri? uri))
         {
             await top.Launcher.LaunchUriAsync(uri);
         }
-    }
+});
 
     /// <summary>复制 Wise 付款链接,按钮文案短暂切为“已复制”作为反馈。</summary>
-    private async void CopyWiseLink_Click(object? sender, RoutedEventArgs e)
+    private void CopyWiseLink_Click(object? sender, RoutedEventArgs e) => FireAndForget.Run(async () =>
     {
         if (TopLevel.GetTopLevel(this)?.Clipboard is not { } clipboard)
         {
@@ -36,5 +37,5 @@ public partial class DonatePage : UserControl
             button.Content = "已复制";
             DispatcherTimer.RunOnce(() => button.Content = original, TimeSpan.FromSeconds(1.5));
         }
-    }
+});
 }

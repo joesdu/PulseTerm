@@ -53,6 +53,24 @@
       <SolidColorBrush x:Key="VelaStatusConnected" Color="#50FA7B" />
       <SolidColorBrush x:Key="VelaStatusConnecting" Color="#F1FA8C" />
       <SolidColorBrush x:Key="VelaStatusDisconnected" Color="#FF5555" />
+      <!-- 关闭钮悬停红 / 错误浅底 / 会话树拖放高亮 / 会话强调色板 / 同步通道徽章:
+           编译期默认值,运行时由 ThemeTokenApplier 按当前主题的种子色整体替换。 -->
+      <SolidColorBrush x:Key="VelaDangerHover" Color="#E6FF5555" />
+      <SolidColorBrush x:Key="VelaErrorSurface" Color="#26FF5555" />
+      <SolidColorBrush x:Key="VelaDropTargetGroup" Color="#20F1FA8C" />
+      <SolidColorBrush x:Key="VelaDropTargetRemove" Color="#20FF5555" />
+      <SolidColorBrush x:Key="VelaAccentPalette0" Color="#8BE9FD" />
+      <SolidColorBrush x:Key="VelaAccentPalette1" Color="#50FA7B" />
+      <SolidColorBrush x:Key="VelaAccentPalette2" Color="#FFB86C" />
+      <SolidColorBrush x:Key="VelaAccentPalette3" Color="#FF79C6" />
+      <SolidColorBrush x:Key="VelaAccentPalette4" Color="#BD93F9" />
+      <SolidColorBrush x:Key="VelaAccentPalette5" Color="#F1FA8C" />
+      <SolidColorBrush x:Key="VelaAccentPalette6" Color="#FF5555" />
+      <SolidColorBrush x:Key="VelaAccentPalette7" Color="#A4BEFB" />
+      <SolidColorBrush x:Key="VelaSyncChannelA" Color="#FF79C6" />
+      <SolidColorBrush x:Key="VelaSyncChannelB" Color="#8BE9FD" />
+      <SolidColorBrush x:Key="VelaSyncChannelC" Color="#FFB86C" />
+      <SolidColorBrush x:Key="VelaSyncChannelD" Color="#50FA7B" />
       <!-- 文件浏览器行(design frame dyuii):橙色文件夹图标,青色目录名。 -->
       <SolidColorBrush x:Key="VelaFileFolderIcon" Color="#FFB86C" />
       <SolidColorBrush x:Key="VelaFileDirName" Color="#8BE9FD" />
@@ -89,6 +107,23 @@
       <SolidColorBrush x:Key="VelaStatusConnected" Color="#14710A" />
       <SolidColorBrush x:Key="VelaStatusConnecting" Color="#846E15" />
       <SolidColorBrush x:Key="VelaStatusDisconnected" Color="#CB3A2A" />
+      <!-- 同上,亮色(Alucard)一侧的编译期默认值。 -->
+      <SolidColorBrush x:Key="VelaDangerHover" Color="#E6CB3A2A" />
+      <SolidColorBrush x:Key="VelaErrorSurface" Color="#26CB3A2A" />
+      <SolidColorBrush x:Key="VelaDropTargetGroup" Color="#20846E15" />
+      <SolidColorBrush x:Key="VelaDropTargetRemove" Color="#20CB3A2A" />
+      <SolidColorBrush x:Key="VelaAccentPalette0" Color="#036A96" />
+      <SolidColorBrush x:Key="VelaAccentPalette1" Color="#14710A" />
+      <SolidColorBrush x:Key="VelaAccentPalette2" Color="#846E15" />
+      <SolidColorBrush x:Key="VelaAccentPalette3" Color="#A3144D" />
+      <SolidColorBrush x:Key="VelaAccentPalette4" Color="#644AC9" />
+      <SolidColorBrush x:Key="VelaAccentPalette5" Color="#846E15" />
+      <SolidColorBrush x:Key="VelaAccentPalette6" Color="#CB3A2A" />
+      <SolidColorBrush x:Key="VelaAccentPalette7" Color="#345AB0" />
+      <SolidColorBrush x:Key="VelaSyncChannelA" Color="#A3144D" />
+      <SolidColorBrush x:Key="VelaSyncChannelB" Color="#036A96" />
+      <SolidColorBrush x:Key="VelaSyncChannelC" Color="#846E15" />
+      <SolidColorBrush x:Key="VelaSyncChannelD" Color="#14710A" />
       <!-- 文件浏览器行:Alucard 黄色文件夹,青色目录名。 -->
       <SolidColorBrush x:Key="VelaFileFolderIcon" Color="#9E841A" />
       <SolidColorBrush x:Key="VelaFileDirName" Color="#036A96" />

@@ -137,31 +137,12 @@ public sealed class ConnectionWorkflowService(
         {
             return profile;
         }
-        return new()
-        {
-            Id = profile.Id,
-            ConnectionType = profile.ConnectionType,
-            Name = profile.Name,
-            Host = profile.Host,
-            Port = profile.Port,
-            Username = profile.Username,
-            AuthMethod = profile.AuthMethod,
-            Password = null,
-            PrivateKeyPath = profile.PrivateKeyPath,
-            PrivateKeyPassphrase = profile.PrivateKeyPassphrase,
-            GroupId = profile.GroupId,
-            LastConnectedAt = profile.LastConnectedAt,
-            Tags = [.. profile.Tags],
-            // 保留配置自身的勾选:全局开关只影响是否落盘,不改写每条配置的选择。
-            RememberPassword = profile.RememberPassword,
-            JumpHostProfileId = profile.JumpHostProfileId,
-            PostAuthCommand = profile.PostAuthCommand,
-            PostAuthCommandDelaySeconds = profile.PostAuthCommandDelaySeconds,
-            Ftp = profile.Ftp?.Clone(),
-            PluginProtocolId = profile.PluginProtocolId,
-            PluginSettings = SessionProfile.CloneSettings(profile.PluginSettings),
-            PluginSecrets = SessionProfile.CloneSettings(profile.PluginSecrets)
-        };
+        // 只把密码抹掉,其余原样深拷贝。配置自身的 RememberPassword 勾选保留 ——
+        // 全局开关只影响是否落盘,不改写每条配置的选择。
+        // 原先这里逐字段手写,每加一个字段就得记得回来补一行。
+        SessionProfile stripped = profile.Clone();
+        stripped.Password = null;
+        return stripped;
     }
 
     /// <summary>连接结果写入连接历史与审计日志(SonnetDB 时序),失败不影响主流程。</summary>
@@ -243,6 +224,8 @@ public sealed class ConnectionWorkflowService(
                 Password = profile.Password,
                 PrivateKeyPath = profile.PrivateKeyPath,
                 PrivateKeyPassphrase = profile.PrivateKeyPassphrase,
+                // 会话级保活覆盖(F-06);null = 跟随全局。跳板链上每一跳各带各的。
+                KeepAliveSeconds = profile.Terminal?.KeepAliveSeconds,
                 JumpHost = jump
             };
         }
@@ -265,6 +248,7 @@ public sealed class ConnectionWorkflowService(
             Password = profile.Password,
             PrivateKeyPath = profile.PrivateKeyPath,
             PrivateKeyPassphrase = profile.PrivateKeyPassphrase,
+            KeepAliveSeconds = profile.Terminal?.KeepAliveSeconds,
             JumpHost = jump
         };
     }

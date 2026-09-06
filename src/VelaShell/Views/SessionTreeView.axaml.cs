@@ -6,6 +6,7 @@ using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using VelaShell.Presentation.ViewModels;
+using FireAndForget = VelaShell.Services.FireAndForget;
 
 namespace VelaShell.Views;
 
@@ -266,7 +267,7 @@ public partial class SessionTreeView : UserControl
         Canvas.SetTop(DragGhost, Math.Clamp(position.Y + 16, 0, maxTop));
     }
 
-    private async void OnTreeDrop(object? sender, DragEventArgs e)
+    private void OnTreeDrop(object? sender, DragEventArgs e) => FireAndForget.Run(async () =>
     {
         ClearDragFeedback();
         if (
@@ -281,7 +282,7 @@ public partial class SessionTreeView : UserControl
             sessionId,
             viewModel.ResolveDropTargetGroupId(FindNodeAt(e.Source))
         );
-    }
+});
 
     /// <summary>
     /// 只有指针真的离开整棵树时才熄灭高亮。

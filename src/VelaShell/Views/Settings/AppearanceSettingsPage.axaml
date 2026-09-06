@@ -39,8 +39,10 @@
           </ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="x:String">
+              <!-- 提示写的就是色值本身:鼠标悬停能看到十六进制,读屏器也据此念出
+                   "#00D4AA 按钮" —— 否则这排圆点对读屏器就是九个一模一样的匿名按钮。 -->
               <Button Width="24" Height="24" CornerRadius="12" Padding="0"
-                      Cursor="Hand"
+                      Cursor="Hand" ToolTip.Tip="{Binding}"
                       Background="{Binding Converter={x:Static conv:StringToBrushConverter.Instance}}"
                       Command="{Binding $parent[ItemsControl].((vm:SettingsViewModel)DataContext).SetAccentCommand}"
                       CommandParameter="{Binding}" />

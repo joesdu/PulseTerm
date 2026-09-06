@@ -43,7 +43,8 @@ public partial class ChatPanelView
     }
 
     /// <summary>删除这条用户消息及其之后的一切。</summary>
-    private Task DeleteFromAsync(Control bubble) => TruncateAtAsync(bubble);
+    /// <returns>是否真的截断了(用户在确认框里取消时为 false)。</returns>
+    private Task<bool> DeleteFromAsync(Control bubble) => TruncateAtAsync(bubble);
 
     /// <summary>
     /// 重新生成 —— 只对<b>最后一条</b>回复有效。中间那条重跑会让它后面的问答全部失效,

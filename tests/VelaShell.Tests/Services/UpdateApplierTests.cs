@@ -492,4 +492,63 @@ public class UpdateApplierTests : IDisposable
 
         Assert.IsFalse(_applier.TryHandOffToExternalUpdater(Environment.ProcessId));
     }
+
+    // ———————————————————— 启动路径(HasPendingSwap) ————————————————————
+
+    /// <summary>
+    /// 没有换版日志时不算「有待办」—— 也就是绝大多数启动。
+    /// </summary>
+    /// <remarks>
+    /// 这是把更新收尾挪出启动路径的依据:此时留下的活只有清扫陈旧文件,而清扫要
+    /// <b>递归枚举整个应用目录</b>找 <c>*.old</c>,通常一个都找不到,却结结实实压在首帧之前。
+    /// </remarks>
+    [TestMethod]
+    [TestCategory("Update")]
+    public void HasPendingSwap_IsFalse_OnAnOrdinaryStartup()
+    {
+        WriteAppFile("app.exe", "current");
+
+        Assert.IsFalse(_applier.HasPendingSwap());
+    }
+
+    /// <summary>解包完但还没换版(staged / handoff),必须同步收拾。</summary>
+    [TestMethod]
+    [TestCategory("Update")]
+    public void HasPendingSwap_IsTrue_WhenASwapWasStagedButNotApplied()
+    {
+        WriteJournal(UpdateJournal.PhaseStaged, ("app.exe", true));
+
+        Assert.IsTrue(_applier.HasPendingSwap());
+    }
+
+    /// <summary>换到一半崩了:回滚是还原旧版的唯一依据,更要同步。</summary>
+    [TestMethod]
+    [TestCategory("Update")]
+    public void HasPendingSwap_IsTrue_WhenASwapWasInterruptedMidWay()
+    {
+        WriteJournal(UpdateJournal.PhaseApplying, ("app.exe", true));
+
+        Assert.IsTrue(_applier.HasPendingSwap());
+    }
+
+    /// <summary>
+    /// 判定为「无待办」之后,清扫本身仍然照做 —— 只是挪到了后台。
+    /// </summary>
+    /// <remarks>
+    /// 这一条钉住的是「挪到后台」不等于「不做了」:历史版本遗留的 <c>*.old</c> 照样得清掉,
+    /// 否则从 1.1.x 升上来的用户,应用目录里会一直留着一堆旧文件。
+    /// </remarks>
+    [TestMethod]
+    [TestCategory("Update")]
+    public void TheSweepStillRemovesLegacyOldFiles_EvenWithNothingPending()
+    {
+        WriteAppFile("app.exe", "current");
+        WriteAppFile("app.exe.old", "leftover-from-1.1.x");
+
+        Assert.IsFalse(_applier.HasPendingSwap());
+        Assert.IsTrue(_applier.TryFinalizeStartup());
+
+        Assert.IsFalse(AppFileExists("app.exe.old"));
+        Assert.AreEqual("current", ReadAppFile("app.exe"));
+    }
 }

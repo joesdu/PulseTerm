@@ -161,7 +161,7 @@
 
     <!-- 告警通道 -->
     <TextBlock Text="{loc:Localize SetSecurity_SectionAlerts}"
-               Foreground="#74B9FF" FontSize="{DynamicResource VelaFontSize12}" FontWeight="SemiBold" />
+               Foreground="{DynamicResource VelaInfo}" FontSize="{DynamicResource VelaFontSize12}" FontWeight="SemiBold" />
     <Grid ColumnDefinitions="*,Auto">
       <TextBlock Classes="row-label" Text="{loc:Localize SetSecurity_AlertInApp}" VerticalAlignment="Center" />
       <ToggleSwitch Grid.Column="1" IsChecked="{Binding Security.AlertInApp}" VerticalAlignment="Center" />

@@ -17,13 +17,14 @@ public sealed class SftpDocument : DockDocument, IDockViewProvider
         ViewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
         Id = viewModel.SessionId.ToString("N");
         Title = viewModel.Title;
+        IsSessionDocument = true;
     }
 
     /// <summary>SFTP 文档的后台视图模型。</summary>
     public SftpDocumentViewModel ViewModel { get; }
 
     /// <summary>从连接配置派生的强调色画刷,用于视觉标识。</summary>
-    public IBrush ConnectionAccentBrush => ConnectionAccent.BrushFor(ViewModel.Profile.Id);
+    public IBrush ConnectionAccentBrush => ConnectionAccent.BrushForProfile(ViewModel.Profile);
 
     /// <summary>显示连接详情与配置信息的提示文本。</summary>
     public string ConnectionTooltip =>

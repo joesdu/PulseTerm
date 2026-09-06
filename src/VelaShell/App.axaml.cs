@@ -16,6 +16,7 @@ using VelaShell.Core.Services;
 using VelaShell.Core.Ssh;
 using VelaShell.Core.Sync;
 using VelaShell.Infrastructure.DependencyInjection;
+using VelaShell.Infrastructure.Diagnostics;
 using VelaShell.Infrastructure.Startup;
 using VelaShell.Localization;
 using VelaShell.PluginSdk.Logging;
@@ -125,13 +126,16 @@ public class App : Application
             .AddSingleton<IUpdateService>(sp => new UpdateService(
                 "https://github.com/joesdu/VelaShell",
                 channelProvider: async () =>
-                    (await sp.GetRequiredService<ISettingsService>().GetSettingsAsync()).General.UpdateChannel
+                    (await sp.GetRequiredService<ISettingsService>().GetSnapshotAsync()).General.UpdateChannel
             ))
             .AddSingleton(sp => new WindowLayoutStore(sp.GetService<IAppDataStore>()))
             .AddSingleton<QuickCommandsViewModel>()
             .AddSingleton<SettingsViewModel>()
             .AddSingleton<MainWindowViewModel>()
             .BuildServiceProvider();
+        // 容器建完 ≠ 服务建完:这里注册的全是惰性单例,数据库要到第一次解析才真打开。
+        // 所以这个点量的是 Avalonia 平台初始化 + XAML 加载 + 容器构造,不含 IO。
+        StartupTrace.Mark("DI");
         _themeService = _serviceProvider.GetRequiredService<IThemeService>();
 
         // 进程级默认代理:覆盖应用内全部 HttpClient(更新检查、Gist 同步、Webhook、
@@ -188,18 +192,24 @@ public class App : Application
     public override void OnFrameworkInitializationCompleted()
     {
         ApplyPersistedPreferences();
+        // 这一步是启动路径上第一次真正碰数据库(打开 SonnetDB + 读 settings 文档),
+        // 冷启动里最贵的一段多半在这两点之间。
+        StartupTrace.Mark("Settings");
         QuickCommandLoadResult? quickCommandLoad = null;
         if (_serviceProvider?.GetService<IQuickCommandRepository>() is { } quickCommandRepository)
         {
             // 快捷命令迁移必须先于 UI 加载和启动自动同步,避免旧本地/远端结构竞态。
             quickCommandLoad = quickCommandRepository.LoadAsync().GetAwaiter().GetResult();
         }
+        StartupTrace.Mark("QuickCommands");
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             MainWindowViewModel viewModel =
                 _serviceProvider?.GetRequiredService<MainWindowViewModel>()
                 ?? new MainWindowViewModel();
+            StartupTrace.Mark("MainWindowViewModel");
             var mainWindow = new MainWindow { DataContext = viewModel };
+            StartupTrace.Mark("MainWindowView");
             desktop.MainWindow = mainWindow;
 
             // 启动时窗口状态(设置 → 外观):记住上次 / 最大化 / 默认大小。
@@ -308,6 +318,7 @@ public class App : Application
                 DisposeServicesOnExit();
             };
         }
+        StartupTrace.Mark("MainWindowReady");
         base.OnFrameworkInitializationCompleted();
     }
 
@@ -452,8 +463,7 @@ public class App : Application
     {
         SshTerminalBridge[] bridges =
         [
-            .. viewModel.TabBar.Tabs
-                .OfType<TerminalTabViewModel>()
+            .. viewModel.TerminalTabs
                 .Select(tab => tab.Bridge)
                 .OfType<SshTerminalBridge>()
         ];
@@ -512,9 +522,7 @@ public class App : Application
         {
             AppSettings settings = _serviceProvider
                 .GetRequiredService<ISettingsService>()
-                .GetSettingsAsync()
-                .GetAwaiter()
-                .GetResult();
+                .GetSnapshotBlocking();
             _startupSettings = settings;
             _serviceProvider
                 .GetRequiredService<ILocalizationService>()

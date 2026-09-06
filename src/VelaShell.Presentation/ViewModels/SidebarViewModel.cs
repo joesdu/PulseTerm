@@ -87,6 +87,24 @@ public sealed class SidebarViewModel(
     /// <summary>是否有未读消息(控制角标显隐)。</summary>
     public bool HasUnreadNotifications => NotificationUnreadCount > 0;
 
+    /// <summary>
+    /// 底部栏显示的当前身份:活动会话的 <c>用户名@主机</c>,本地终端为本机用户名,
+    /// 无活动标签时为 null(整行隐藏)。由宿主在切换活动标签时推过来 ——
+    /// 侧边栏不认识会话模型,只负责显示这个字符串。
+    /// </summary>
+    public string? ActiveIdentity
+    {
+        get;
+        set
+        {
+            this.RaiseAndSetIfChanged(ref field, value);
+            this.RaisePropertyChanged(nameof(HasActiveIdentity));
+        }
+    }
+
+    /// <summary>是否有可显示的身份(控制底部那一行的显隐)。</summary>
+    public bool HasActiveIdentity => !string.IsNullOrEmpty(ActiveIdentity);
+
     /// <summary>用户点击底部栏铃铛,请求打开消息中心。</summary>
     public event EventHandler? NotificationsRequested;
 

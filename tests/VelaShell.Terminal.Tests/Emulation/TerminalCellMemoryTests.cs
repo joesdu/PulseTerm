@@ -41,6 +41,108 @@ public class TerminalCellMemoryTests
             "TerminalCell 超出 16 字节:回滚缓冲的内存开销会按比例上涨,请检查新增/放宽的字段。");
     }
 
+    /// <summary>
+    /// 宽终端里跑短日志时,回滚缓冲不该按列宽收费。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 这是 P-07 的账:每行固定 <c>new TerminalCell[columns]</c>,16 字节一格,
+    /// 200 列 × 20 万行 ≈ <b>640 MB / 标签页</b> —— 而典型日志行只有几十列非空。
+    /// 行退休进回滚区时按内容截短(<see cref="TerminalRow.TrimToContent" />)之后,
+    /// 占用应当跟着<b>内容</b>走,而不是跟着列宽走。
+    /// </para>
+    /// <para>
+    /// 断言的是<b>存储的格数</b>而不是 <c>GC.GetTotalMemory</c>:后者要强制回收、还受同进程
+    /// 其它用例的残留影响,做门禁必然三天两头误报。格数是精确值,而且正是内存账里的那个乘数。
+    /// </para>
+    /// </remarks>
+    [TestMethod]
+    public void Scrollback_ShortLinesInAWideTerminal_DoNotPayForTheFullWidth()
+    {
+        const int Columns = 200;
+        const int Lines = 10_000;
+        const int LineLength = 20;
+
+        var emulator = new TerminalEmulator(Columns, 24, TerminalType.XtermColor256, Lines * 2);
+        StringBuilder log = new(Lines * (LineLength + 2));
+        for (int i = 0; i < Lines; i++)
+        {
+            log.Append($"line {i}".PadRight(LineLength, '.')).Append("\r\n");
+        }
+        emulator.Feed(Encoding.UTF8.GetBytes(log.ToString()));
+
+        TerminalScreen screen = emulator.Screen;
+        Assert.IsGreaterThan(1000, screen.ScrollbackCount, "样例应当把绝大多数行推进回滚区。");
+
+        long storedCells = 0;
+        for (int row = 0; row < screen.ScrollbackCount; row++)
+        {
+            storedCells += screen.ViewLine(row).StoredColumns;
+        }
+        long naiveCells = (long)screen.ScrollbackCount * Columns;
+
+        // 每行实际内容 20 格,列宽 200 —— 截短后应当落在内容那一侧,而不是列宽那一侧。
+        Assert.IsLessThan(
+            naiveCells / 4,
+            storedCells,
+            $"回滚区存了 {storedCells} 格,整行满宽会是 {naiveCells} 格 —— "
+            + "截短没生效,内存仍按列宽收费(见 TerminalRow 的类型注释)。");
+    }
+
+    /// <summary>截短只丢与默认空格逐字段相等的尾部格,屏幕上看得见的东西一格不动。</summary>
+    /// <remarks>
+    /// 行尾带背景色的空格(程序设了底色再换行)是可见内容。按"没有字符"去截会把它砍掉,
+    /// 那是实打实的画面变化 —— 这条用例把判据钉在"与 default 相等"上。
+    /// </remarks>
+    [TestMethod]
+    public void Trimming_KeepsATrailingColouredRun()
+    {
+        var row = new TerminalRow(80);
+        row.Fill(TerminalCell.Empty);
+        TerminalCell painted = TerminalCell.Blank(TerminalColor.FromIndex(196), CellFlags.None);
+        for (int col = 0; col < 60; col++)
+        {
+            row[col] = painted;
+        }
+
+        row.TrimToContent();
+
+        Assert.AreEqual(80, row.Columns, "逻辑列宽不随截短变化。");
+        Assert.IsGreaterThanOrEqualTo(60, row.StoredColumns, "带背景色的尾部空格是可见内容,不能丢。");
+        Assert.AreEqual(painted, row[59]);
+    }
+
+    /// <summary>截短过的行被写入时先补回满宽 —— "写进去的读得回来"。</summary>
+    [TestMethod]
+    public void AWrittenCellSurvivesEvenPastTheTrimmedTail()
+    {
+        var row = new TerminalRow(80);
+        row.Fill(default);
+        row[0] = new() { Rune = 'x' };
+        row.TrimToContent();
+        Assert.IsLessThan(80, row.StoredColumns, "样例应当确实被截短过。");
+
+        TerminalCell late = new() { Rune = 'y' };
+        row[70] = late;
+
+        Assert.AreEqual(late, row[70]);
+        Assert.AreEqual('x', row[0].Rune);
+        Assert.AreEqual(80, row.Columns);
+    }
+
+    /// <summary>越界读取合成默认空格,而不是抛异常 —— 渲染按屏幕列宽整行扫。</summary>
+    [TestMethod]
+    public void ReadingPastTheTrimmedTailYieldsABlank()
+    {
+        var row = new TerminalRow(80);
+        row.Fill(default);
+        row[0] = new() { Rune = 'x' };
+        row.TrimToContent();
+
+        Assert.AreEqual(default, row[79]);
+        Assert.AreEqual(default, row[40]);
+    }
+
     [TestMethod]
     public void TerminalColor_PackedRoundTrip_PreservesAllKinds()
     {

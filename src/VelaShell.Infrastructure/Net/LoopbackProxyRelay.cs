@@ -78,6 +78,9 @@ public sealed class LoopbackProxyRelay : IDisposable
         }
     }
 
+    // 关闭路径上的 catch 一律吞掉:要关的东西本来就在断,连接已断时 socket 的
+    // Dispose/Stop 抛的是清理噪声,记下来只会在每次关闭时刷一遍日志。
+    // 真出问题的表征是"端口没释放",那由下一次监听失败报出来,而不是这里。
     private void CloseStreams()
     {
         try { _outbound?.Dispose(); } catch { }

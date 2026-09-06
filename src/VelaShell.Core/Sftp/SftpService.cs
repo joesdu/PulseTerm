@@ -648,7 +648,7 @@ public class SftpService(
         }
         try
         {
-            TransferOptions t = (await settingsService.GetSettingsAsync().ConfigureAwait(false)).Transfer;
+            TransferOptions t = (await settingsService.GetSnapshotAsync().ConfigureAwait(false)).Transfer;
             long up = t.BandwidthLimitEnabled ? (long)Math.Max(0, t.UploadLimitMBps) * 1024 * 1024 : 0;
             long down = t.BandwidthLimitEnabled ? (long)Math.Max(0, t.DownloadLimitMBps) * 1024 * 1024 : 0;
             return (up, down, t.PreserveTimestamps);

@@ -498,6 +498,12 @@
   <data name="Split" xml:space="preserve">
     <value>拆分</value>
   </data>
+  <data name="Status_Selected" xml:space="preserve">
+    <value>已选 {0} 字符</value>
+  </data>
+  <data name="Status_ChangeEncoding" xml:space="preserve">
+    <value>切换本会话的编码</value>
+  </data>
   <data name="StatusBar_OpenMonitor" xml:space="preserve">
     <value>打开资源监视器</value>
   </data>
@@ -1233,6 +1239,12 @@
   <data name="Editor_DiscardAndClose" xml:space="preserve">
     <value>放弃并关闭</value>
   </data>
+  <data name="Editor_LoadedStatusFallback" xml:space="preserve">
+    <value>已加载 {0} 字节 —— 不是合法 UTF-8,按 {1} 解码</value>
+  </data>
+  <data name="Editor_TooLarge" xml:space="preserve">
+    <value>文件 {0} MB —— 超出内置编辑器的上限({1} MB),请改用外部编辑器打开。</value>
+  </data>
   <data name="Editor_LoadedStatus" xml:space="preserve">
     <value>UTF 文本 · {0} B · 已就绪</value>
   </data>
@@ -1335,6 +1347,15 @@
   </data>
   <data name="Msg_AuthFailed" xml:space="preserve">
     <value>认证失败：{0} 的用户名、密码或密钥不正确。</value>
+  </data>
+  <data name="Msg_AuthFailedTwoFactorHint" xml:space="preserve">
+    <value>若该主机要求两步验证(keyboard-interactive / OTP),本版无法连接：底层 SSH 库未实现该认证方式。</value>
+  </data>
+  <data name="Toast_ReconnectNow" xml:space="preserve">
+    <value>立即重连</value>
+  </data>
+  <data name="Toast_Dismiss" xml:space="preserve">
+    <value>关闭</value>
   </data>
   <data name="Msg_AuthPromptCancelled" xml:space="preserve">
     <value>该配置未保存凭据,已取消登录验证。</value>
@@ -1708,6 +1729,18 @@
   <data name="Profile_GroupPlaceholder" xml:space="preserve">
     <value>选择或输入新分组名</value>
   </data>
+  <data name="Profile_ErrHostRequired" xml:space="preserve">
+    <value>请填写主机</value>
+  </data>
+  <data name="Profile_ErrPortRange" xml:space="preserve">
+    <value>端口需在 1–65535 之间</value>
+  </data>
+  <data name="Profile_ErrUserRequired" xml:space="preserve">
+    <value>请填写用户名</value>
+  </data>
+  <data name="Profile_ErrKeyMissing" xml:space="preserve">
+    <value>找不到该私钥文件</value>
+  </data>
   <data name="Profile_HostIp" xml:space="preserve">
     <value>主机名 / IP</value>
   </data>
@@ -1734,6 +1767,42 @@
   </data>
   <data name="Profile_PostAuthCommandHint" xml:space="preserve">
     <value>// 只对本条会话生效,重连时同样执行;对所有终端生效的那条在 设置 → 终端 → 会话</value>
+  </data>
+  <data name="Profile_FollowGlobal" xml:space="preserve">
+    <value>跟随全局</value>
+  </data>
+  <data name="Profile_SessionOverrides" xml:space="preserve">
+    <value>会话级终端覆盖</value>
+  </data>
+  <data name="Profile_SessionOverridesHint" xml:space="preserve">
+    <value>保持“跟随全局”的项沿用设置页的值。适合一台机器输出 GBK、另一台 UTF-8,或者希望生产环境的标签是红的、测试环境是绿的。</value>
+  </data>
+  <data name="Profile_OverrideEncoding" xml:space="preserve">
+    <value>编码</value>
+  </data>
+  <data name="Profile_OverrideTerminalType" xml:space="preserve">
+    <value>终端类型</value>
+  </data>
+  <data name="Profile_OverrideColorScheme" xml:space="preserve">
+    <value>配色方案</value>
+  </data>
+  <data name="Profile_OverrideTabColor" xml:space="preserve">
+    <value>标签颜色</value>
+  </data>
+  <data name="Profile_OverrideTabColorPlaceholder" xml:space="preserve">
+    <value>#E05252 — 留空则自动配色</value>
+  </data>
+  <data name="Profile_OverrideStartupDirectory" xml:space="preserve">
+    <value>初始目录</value>
+  </data>
+  <data name="Profile_OverrideStartupDirectoryPlaceholder" xml:space="preserve">
+    <value>/var/log — 留空则停在登录目录</value>
+  </data>
+  <data name="Profile_OverrideKeepAlive" xml:space="preserve">
+    <value>保活间隔(秒)</value>
+  </data>
+  <data name="Profile_OverrideKeepAliveHint" xml:space="preserve">
+    <value>-1 = 跟随全局;0 = 关闭。</value>
   </data>
   <data name="Profile_PostAuthCommandPlaceholder" xml:space="preserve">
     <value>如 sudo su - / tmux attach</value>
@@ -2109,6 +2178,30 @@
   </data>
   <data name="SetGeneral_ClearHistoryDesc" xml:space="preserve">
     <value>// 清除命令历史和最近连接记录</value>
+  </data>
+  <data name="SetGeneral_StatusMetricsInterval" xml:space="preserve">
+    <value>状态栏指标采样间隔(秒)</value>
+  </data>
+  <data name="SetGeneral_StatusMetricsIntervalDesc" xml:space="preserve">
+    <value>每次采样都会在远端新开一条 SSH 通道执行一段命令。调得越低,远端负担越重;窗口失焦时自动降到 10 秒,最小化时暂停。</value>
+  </data>
+  <data name="SetGeneral_ConfirmCloseTab" xml:space="preserve">
+    <value>关闭已连接标签前确认</value>
+  </data>
+  <data name="SetGeneral_ConfirmCloseTabDesc" xml:space="preserve">
+    <value>标签的会话还连着时先问一句;已断开的标签直接关,不打扰。</value>
+  </data>
+  <data name="Main_CloseTabConfirmTitle" xml:space="preserve">
+    <value>关闭这个会话?</value>
+  </data>
+  <data name="Main_CloseTabConfirmBody" xml:space="preserve">
+    <value>{0} 仍处于连接状态,关闭标签会断开它。</value>
+  </data>
+  <data name="Main_CloseTabConfirmMany" xml:space="preserve">
+    <value>有 {0} 个会话仍处于连接状态,关闭会把它们全部断开。</value>
+  </data>
+  <data name="Main_CloseTabConfirmAction" xml:space="preserve">
+    <value>关闭</value>
   </data>
   <data name="SetGeneral_ConfirmBeforeClose" xml:space="preserve">
     <value>退出应用前确认</value>
@@ -2614,6 +2707,12 @@
   <data name="SetTerm_ScrollbackDesc" xml:space="preserve">
     <value>// 终端可回滚查看的最大行数</value>
   </data>
+  <data name="SetTerm_AlternateScroll" xml:space="preserve">
+    <value>备用屏滚轮转方向键</value>
+  </data>
+  <data name="SetTerm_AlternateScrollDesc" xml:space="preserve">
+    <value>vim / less / man 等全屏程序所在的备用屏没有回滚区,滚轮原本毫无反应。开启后滚轮转成光标上下键发给应用。应用仍可用 CSI ?1007 l 自行关闭。</value>
+  </data>
   <data name="SetTerm_ScrollOnKeystroke" xml:space="preserve">
     <value>按键时自动滚动到底部</value>
   </data>
@@ -2878,6 +2977,18 @@
   <data name="Sc_NewTabAlias" xml:space="preserve">
     <value>新建标签(同新建连接)</value>
   </data>
+  <data name="Cmd_GotoTabN" xml:space="preserve">
+    <value>跳到第 N 个标签</value>
+  </data>
+  <data name="Sc_FocusPane" xml:space="preserve">
+    <value>窗格间移动焦点</value>
+  </data>
+  <data name="Sc_NoteSplitOnly" xml:space="preserve">
+    <value>仅在分屏时生效;未分屏时该键原样送往远端</value>
+  </data>
+  <data name="Sc_NoteZoomOutTakesUnitSeparator" xml:space="preserve">
+    <value>会占用 ^_;要发送它请用 Ctrl+Shift+-</value>
+  </data>
   <data name="Sc_NextTab" xml:space="preserve">
     <value>下一个标签页</value>
   </data>
@@ -2967,6 +3078,15 @@ Windows 填 exe 完整路径或命令名(如 notepad);Linux 填命令名(如 ged
   </data>
   <data name="Sidebar_RefreshRecent" xml:space="preserve">
     <value>刷新最近连接</value>
+  </data>
+  <data name="Sidebar_FilterSessions" xml:space="preserve">
+    <value>过滤会话</value>
+  </data>
+  <data name="Sidebar_ClearFilter" xml:space="preserve">
+    <value>清空过滤</value>
+  </data>
+  <data name="Cmd_FilterSessions" xml:space="preserve">
+    <value>过滤会话</value>
   </data>
   <data name="Sidebar_ToggleSection" xml:space="preserve">
     <value>折叠或展开此区域</value>
@@ -3492,6 +3612,54 @@ Windows 填 exe 完整路径或命令名(如 notepad);Linux 填命令名(如 ged
   </data>
   <data name="Notify_UpdateAction" xml:space="preserve">
     <value>前往关于页</value>
+  </data>
+  <data name="Cmd_OpenLogs" xml:space="preserve">
+    <value>打开日志目录</value>
+  </data>
+  <data name="SetAbout_OpenLogs" xml:space="preserve">
+    <value>打开日志目录</value>
+  </data>
+  <data name="Notify_CrashTitle" xml:space="preserve">
+    <value>上次异常退出</value>
+  </data>
+  <data name="Notify_CrashBody" xml:space="preserve">
+    <value>崩溃记录已写入 {0}。打开日志目录可查看,或附在问题反馈里。</value>
+  </data>
+  <data name="Notify_CrashAction" xml:space="preserve">
+    <value>打开日志目录</value>
+  </data>
+  <data name="Notify_KindSystem" xml:space="preserve">
+    <value>系统</value>
+  </data>
+  <data name="Cmd_GotoTab" xml:space="preserve">
+    <value>跳到第 {0} 个标签</value>
+  </data>
+  <data name="Cmd_GotoLastTab" xml:space="preserve">
+    <value>跳到最后一个标签</value>
+  </data>
+  <data name="Cmd_ZoomIn" xml:space="preserve">
+    <value>放大字号</value>
+  </data>
+  <data name="Cmd_ZoomOut" xml:space="preserve">
+    <value>缩小字号</value>
+  </data>
+  <data name="Cmd_ZoomReset" xml:space="preserve">
+    <value>重置字号</value>
+  </data>
+  <data name="Cmd_CloseAllTabs" xml:space="preserve">
+    <value>关闭全部标签</value>
+  </data>
+  <data name="Cmd_FocusPaneLeft" xml:space="preserve">
+    <value>焦点移到左侧窗格</value>
+  </data>
+  <data name="Cmd_FocusPaneRight" xml:space="preserve">
+    <value>焦点移到右侧窗格</value>
+  </data>
+  <data name="Cmd_FocusPaneUp" xml:space="preserve">
+    <value>焦点移到上方窗格</value>
+  </data>
+  <data name="Cmd_FocusPaneDown" xml:space="preserve">
+    <value>焦点移到下方窗格</value>
   </data>
   <data name="Cmd_OpenAbout" xml:space="preserve">
     <value>打开关于页</value>

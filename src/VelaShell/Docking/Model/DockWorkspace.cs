@@ -53,6 +53,17 @@ public sealed class DockWorkspace : DockElement
     /// </summary>
     public event Action<DockDocument>? DocumentRemoved;
 
+    /// <summary>
+    /// 文档进入工作区时触发(组间移动不算)。
+    /// </summary>
+    /// <remarks>
+    /// 与 <see cref="DocumentRemoved" /> 成对,让"工作区是标签集合的唯一事实来源"这件事
+    /// 在生命周期两端都成立。缺了这一半,宿主要挂每个标签的订阅(同步输入、会话状态、
+    /// 快捷命令目标)就只能另存一份平行的标签列表去监听它的 <c>CollectionChanged</c> ——
+    /// 那正是 Q-02 要拆掉的东西。
+    /// </remarks>
+    public event Action<DockDocument>? DocumentAdded;
+
     // ---- 查询 ----
 
     /// <summary>深度遍历布局树,返回其中全部标签组。</summary>
@@ -64,6 +75,63 @@ public sealed class DockWorkspace : DockElement
     /// <summary>查找该文档当前所属的组,未在树上则返回 null。</summary>
     public DockGroup? FindGroup(DockDocument document) =>
         AllGroups().FirstOrDefault(group => group.Documents.Contains(document));
+
+    /// <summary>布局里是否不止一个标签组(= 当前处于分屏状态)。</summary>
+    /// <remarks>
+    /// 窗格移焦手势要靠它做**有条件拦截**:只有一个窗格时 Alt+方向键必须原样送给远端
+    /// (zsh / fish 里有人绑了它),不能被无条件吃掉。
+    /// </remarks>
+    public bool HasMultipleGroups => AllGroups().Skip(1).Any();
+
+    /// <summary>
+    /// 从给定组出发,沿父链找到指定方向上相邻的那个标签组;边缘处返回 null。
+    /// </summary>
+    /// <remarks>
+    /// 做法是沿父链上溯,找第一个**方向匹配**的分栏(左右看水平分栏,上下看垂直分栏),
+    /// 在它的子节点里取相邻的那个,再向下钻到一个具体的组。向左/上时从相邻子树的
+    /// **末端**进入,向右/下时从**首端**进入 —— 这样跨越嵌套分屏时,落点总是视觉上最近的那个窗格。
+    /// </remarks>
+    /// <param name="from">出发的组。</param>
+    /// <param name="direction">方向。</param>
+    /// <returns>相邻的组;该方向上没有邻居时为 null。</returns>
+    public static DockGroup? FindNeighborGroup(DockGroup from, DockDirection direction)
+    {
+        ArgumentNullException.ThrowIfNull(from);
+        bool horizontal = direction is DockDirection.Left or DockDirection.Right;
+        int step = direction is DockDirection.Left or DockDirection.Up ? -1 : 1;
+
+        DockNode node = from;
+        while (node.Parent is { } split)
+        {
+            bool matchesAxis = horizontal == (split.Orientation == DockOrientation.Horizontal);
+            int index = split.Children.IndexOf(node);
+            int target = index + step;
+            if (matchesAxis && index >= 0 && target >= 0 && target < split.Children.Count)
+            {
+                return Descend(split.Children[target], enterFromEnd: step < 0);
+            }
+            node = split;
+        }
+        return null;
+    }
+
+    /// <summary>向下钻到一个具体的组:遇到分栏就按进入方向取首/末子节点。</summary>
+    private static DockGroup? Descend(DockNode node, bool enterFromEnd)
+    {
+        while (true)
+        {
+            switch (node)
+            {
+                case DockGroup group:
+                    return group;
+                case DockSplit { Children.Count: > 0 } split:
+                    node = enterFromEnd ? split.Children[^1] : split.Children[0];
+                    continue;
+                default:
+                    return null;
+            }
+        }
+    }
 
     private static IEnumerable<DockGroup> EnumerateGroups(DockNode node)
     {
@@ -90,6 +158,9 @@ public sealed class DockWorkspace : DockElement
     public void AddDocument(DockDocument document)
     {
         PrimaryGroup.Documents.Add(document);
+        // 先报"来了"再激活:订阅方(宿主的每标签接线)要在活动标签切过去之前就位,
+        // 否则激活回调里读到的还是一个没接好线的标签。
+        DocumentAdded?.Invoke(document);
         ActivateDocument(document);
     }
 
@@ -131,6 +202,67 @@ public sealed class DockWorkspace : DockElement
         DocumentRemoved?.Invoke(document);
     }
 
+    /// <summary>
+    /// 关闭前的拦截器:返回 false 即取消本次关闭。由宿主装上"关闭已连接标签前确认"。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 装在这一层而不是各个入口:用户能触发关闭的地方有六个(标签 ×、Ctrl+W、命令面板、
+    /// 右键的 关闭其他 / 关闭全部 / 关闭左侧 / 关闭右侧),逐个去接必然漏。
+    /// </para>
+    /// <para>
+    /// <see cref="CloseDocument" /> 保持**无条件**:拦截器放行后由它执行,程序性关闭
+    /// (连接失败撤标签、退出时清场)也照旧直接调它,不会被确认框挡住。
+    /// </para>
+    /// </remarks>
+    public Func<IReadOnlyList<DockDocument>, Task<bool>>? CloseInterceptor { get; set; }
+
+    /// <summary>用户语义的关闭请求:先过拦截器,通过了才真的关。</summary>
+    /// <param name="document">要关闭的文档。</param>
+    public void RequestClose(DockDocument document)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        RequestCloseMany([document]);
+    }
+
+    /// <summary>
+    /// 批量关闭请求:一次询问、一次放行,而不是逐个弹确认框把人问烦。
+    /// </summary>
+    /// <param name="documents">要关闭的文档集合(会先取快照,关闭过程改动集合不影响遍历)。</param>
+    public void RequestCloseMany(IEnumerable<DockDocument> documents)
+    {
+        ArgumentNullException.ThrowIfNull(documents);
+        DockDocument[] targets = [.. documents];
+        if (targets.Length == 0)
+        {
+            return;
+        }
+        if (CloseInterceptor is not { } interceptor)
+        {
+            CloseEach(targets);
+            return;
+        }
+        _ = RequestCloseAsync(interceptor, targets);
+    }
+
+    private async Task RequestCloseAsync(
+        Func<IReadOnlyList<DockDocument>, Task<bool>> interceptor,
+        DockDocument[] targets)
+    {
+        if (await interceptor(targets).ConfigureAwait(true))
+        {
+            CloseEach(targets);
+        }
+    }
+
+    private void CloseEach(DockDocument[] targets)
+    {
+        foreach (DockDocument document in targets)
+        {
+            CloseDocument(document);
+        }
+    }
+
     /// <summary>用户语义的关闭:尊重 CanClose,移除后触发 <see cref="DocumentClosed" />。</summary>
     public void CloseDocument(DockDocument document)
     {
@@ -149,23 +281,19 @@ public sealed class DockWorkspace : DockElement
         {
             return;
         }
-        foreach (DockDocument other in group.Documents.Where(d => !ReferenceEquals(d, document)).ToArray())
-        {
-            CloseDocument(other);
-        }
+        // 经 RequestCloseMany:一次确认放行全部,而不是逐个弹框。
+        RequestCloseMany(group.Documents.Where(d => !ReferenceEquals(d, document)).ToArray());
     }
 
     /// <summary>关闭该文档所在组的所有标签(含自身)。</summary>
+    /// <remarks>经 <see cref="RequestCloseMany" />:一次询问放行全部,而不是逐个弹框。</remarks>
     public void CloseAllDocuments(DockDocument document)
     {
         if (FindGroup(document) is not { } group)
         {
             return;
         }
-        foreach (DockDocument doc in group.Documents.ToArray())
-        {
-            CloseDocument(doc);
-        }
+        RequestCloseMany(group.Documents.ToArray());
     }
 
     /// <summary>关闭同组内位于该文档左侧的所有标签。</summary>
@@ -184,10 +312,9 @@ public sealed class DockWorkspace : DockElement
         DockDocument[] targets = left
                                      ? [.. group.Documents.Take(index)]
                                      : [.. group.Documents.Skip(index + 1)];
-        foreach (DockDocument doc in targets)
-        {
-            CloseDocument(doc);
-        }
+        // 「关闭左侧/右侧」同样要过确认闸 —— 一次静默关掉半屏已连接会话,
+        // 恰恰是这道闸要防的事故。
+        RequestCloseMany(targets);
     }
 
     // ---- 拆分与停靠 ----

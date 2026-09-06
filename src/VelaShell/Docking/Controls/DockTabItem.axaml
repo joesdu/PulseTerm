@@ -17,6 +17,18 @@
        3×12 + JB Mono 11 标题 + 11px 关闭钮,元素间距 8。激活 = tab-active 底 +
        2px accent 顶线;悬停 = bg-hover。视觉与原 Dock 重皮肤逐像素一致。 -->
   <UserControl.Styles>
+    <!-- 状态圆点:默认断开(红),connected 绿 / connecting 黄。走样式类 + 动态资源
+         而不是"转换器直接返回画刷" —— 后者切主题后不重算,圆点会停在旧主题的颜色上。
+         与 SessionTreeView.axaml 的状态点同一套写法。 -->
+    <Style Selector="Ellipse.dot">
+      <Setter Property="Fill" Value="{DynamicResource VelaStatusDisconnected}" />
+    </Style>
+    <Style Selector="Ellipse.dot.connected">
+      <Setter Property="Fill" Value="{DynamicResource VelaStatusConnected}" />
+    </Style>
+    <Style Selector="Ellipse.dot.connecting">
+      <Setter Property="Fill" Value="{DynamicResource VelaStatusConnecting}" />
+    </Style>
     <Style Selector="local|DockTabItem">
       <Setter Property="Foreground" Value="{DynamicResource VelaTextTertiary}" />
       <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
@@ -148,8 +160,9 @@
       </TextBlock>
 
       <!-- 状态点:上移 1px,补偿 mono 标题下伸部把视觉中心抬高。 -->
-      <Ellipse Width="7" Height="7" VerticalAlignment="Center"
-               Fill="{Binding Terminal.ConnectionStatus, Converter={x:Static conv:SessionStatusToBrushConverter.Instance}}">
+      <Ellipse Width="7" Height="7" VerticalAlignment="Center" Classes="dot"
+               Classes.connected="{Binding Terminal.ConnectionStatus, Converter={x:Static conv:SessionStatusEqualsConverter.Instance}, ConverterParameter=Connected}"
+               Classes.connecting="{Binding Terminal.ConnectionStatus, Converter={x:Static conv:SessionStatusEqualsConverter.Instance}, ConverterParameter=Connecting}">
         <Ellipse.RenderTransform>
           <TranslateTransform Y="-1" />
         </Ellipse.RenderTransform>

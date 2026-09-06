@@ -66,7 +66,9 @@
         <DataTemplate x:DataType="vm:ShortcutGroup">
           <Border Classes="table">
             <StackPanel>
+              <!-- 组名在内层 TextBlock 上,读屏器读不到按钮本身;显式给个名字。 -->
               <ToggleButton Classes="group-header"
+                            AutomationProperties.Name="{Binding Title}"
                             IsChecked="{Binding IsExpanded, Mode=TwoWay}">
                 <Grid ColumnDefinitions="Auto,8,*,Auto">
                   <Panel Width="11" Height="11" VerticalAlignment="Center">

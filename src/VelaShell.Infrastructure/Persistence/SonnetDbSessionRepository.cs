@@ -130,31 +130,13 @@ public sealed class SonnetDbSessionRepository(SonnetDbEngine engine, ISecretProt
     /// <summary>返回加密副本 —— 不得修改调用方持有的实例(其明文密码仍用于活动连接)。</summary>
     private SessionProfile Protect(SessionProfile profile)
     {
-        return new()
-        {
-            ConnectionType = profile.ConnectionType,
-            Id = profile.Id,
-            Name = profile.Name,
-            Host = profile.Host,
-            Port = profile.Port,
-            Username = profile.Username,
-            AuthMethod = profile.AuthMethod,
-            Password = _protector.Protect(profile.Password),
-            PrivateKeyPath = profile.PrivateKeyPath,
-            PrivateKeyPassphrase = _protector.Protect(profile.PrivateKeyPassphrase),
-            GroupId = profile.GroupId,
-            LastConnectedAt = profile.LastConnectedAt,
-            Tags = [.. profile.Tags],
-            RememberPassword = profile.RememberPassword,
-            JumpHostProfileId = profile.JumpHostProfileId,
-            PostAuthCommand = profile.PostAuthCommand,
-            PostAuthCommandDelaySeconds = profile.PostAuthCommandDelaySeconds,
-            // 深拷贝:这份副本要落盘,不能与调用方共享可变对象。
-            Ftp = profile.Ftp?.Clone(),
-            PluginProtocolId = profile.PluginProtocolId,
-            PluginSettings = SessionProfile.CloneSettings(profile.PluginSettings),
-            PluginSecrets = MapSecrets(profile.PluginSecrets, _protector.Protect)
-        };
+        // Clone 已经把全部字段深拷贝了(它是唯一的拷贝口径,加字段只改那一处);
+        // 这里只覆盖需要加密的三项。原先这里是逐字段手写的,每加一个字段就得记得回来补一行。
+        SessionProfile copy = profile.Clone();
+        copy.Password = _protector.Protect(profile.Password);
+        copy.PrivateKeyPassphrase = _protector.Protect(profile.PrivateKeyPassphrase);
+        copy.PluginSecrets = MapSecrets(profile.PluginSecrets, _protector.Protect);
+        return copy;
     }
 
     /// <summary>

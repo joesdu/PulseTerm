@@ -301,7 +301,7 @@
       <!-- 标签页内失败/断开覆盖层(设计 yxjmg / dcOverlay):连接失败或掉线时居中显示,
            提供“重新连接”“关闭标签页”。连接失败不再弹全局对话框,提示只落在所属标签页内。 -->
       <Border IsVisible="{Binding ShowDisconnectedOverlay}"
-              Background="#66000000"
+              Background="{DynamicResource VelaScrim}"
               HorizontalAlignment="Stretch"
               VerticalAlignment="Stretch">
         <Border Classes="dc-card" Classes.error="{Binding HasConnectionError}"
@@ -317,7 +317,7 @@
 
             <!-- 图标圆底 -->
             <Border Width="48" Height="48" CornerRadius="24"
-                    Background="#26FF6B6B"
+                    Background="{DynamicResource VelaErrorSurface}"
                     HorizontalAlignment="Center">
               <pc:LucideIcon Width="22" Height="22"
                              Data="{StaticResource Icon.wifi-off}"
@@ -388,8 +388,8 @@
                 <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                   <pc:LucideIcon Width="13" Height="13"
                                  Data="{StaticResource Icon.refresh-cw}"
-                                 Foreground="#FFFFFF" VerticalAlignment="Center" />
-                  <TextBlock Text="{loc:Localize Reconnect}" Foreground="#FFFFFF"
+                                 Foreground="{DynamicResource VelaAccentForeground}" VerticalAlignment="Center" />
+                  <TextBlock Text="{loc:Localize Reconnect}" Foreground="{DynamicResource VelaAccentForeground}"
                              FontSize="{DynamicResource VelaFontSize12}" FontWeight="SemiBold" VerticalAlignment="Center" />
                 </StackPanel>
               </Button>

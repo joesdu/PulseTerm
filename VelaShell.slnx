@@ -36,6 +36,7 @@
   <Folder Name="/tests/">
     <File Path="tests/Directory.Build.props" />
 	<File Path="tests/Directory.Packages.props" />
+    <Project Path="tests/VelaShell.Benchmarks/VelaShell.Benchmarks.csproj" />
     <Project Path="tests/VelaShell.Controls.Tests/VelaShell.Controls.Tests.csproj" />
     <Project Path="tests/VelaShell.Core.Tests/VelaShell.Core.Tests.csproj" />
     <Project Path="tests/VelaShell.Infrastructure.Tests/VelaShell.Infrastructure.Tests.csproj" />

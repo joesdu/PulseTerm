@@ -28,6 +28,8 @@ using VelaShell.Core.Sync;
 using VelaShell.Core.Tunnels;
 using VelaShell.Docking;
 using VelaShell.Docking.Model;
+using VelaShell.Infrastructure.Diagnostics;
+using VelaShell.Infrastructure.Net;
 using VelaShell.Infrastructure.Plugins.Protocols;
 using VelaShell.Infrastructure.Pty;
 using VelaShell.PluginSdk.Protocols;
@@ -117,6 +119,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     private readonly ISessionRecordingStore? _recordingStore;
 
     private readonly IAppDataStore? _appDataStore;
+    private readonly PaletteRecency _paletteRecency;
     private readonly ISessionRepository? _sessionRepository;
     private readonly ISettingsService? _settingsService;
     private readonly ISftpService? _sftpService;
@@ -133,18 +136,14 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     private readonly ConcurrentDictionary<Guid, PluginWorkspaceDocument> _workspaceDocuments = new();
 
     /// <summary>
-    /// **活着的**文档型会话(独立 SFTP / FTP / S3 等插件文件系统 / Redis 等工作台):
-    /// 会话 id → (它属于哪条配置, 当前状态)。开文档时登记,关文档时摘掉。
-    /// <para>
-    /// 存在的理由是树上的状态圆点:一条配置可以同时开着好几个文档(点快了开出两个,
-    /// 或者有意开两个盯不同目录),而树上只有一个节点。没有这本册子就只能"最后一次事件说了算",
-    /// 于是关掉两个里的任意一个,节点就变成未连接 —— 明明还有一个活着。
-    /// 终端标签那边靠 <see cref="TabBar" /> 自己就能枚举(#321 已按这条纪律改过),
-    /// 文档没有等价的集合可枚举(<c>Layout.AllDocuments()</c> 在 DocumentClosed 触发时
-    /// 已经把正在关的那个摘掉了,但迟到的状态事件仍会引用它),所以单开一本。
-    /// </para>
+    /// 每条配置名下都有谁活着,以及树上那个圆点该显示什么状态(见 <see cref="SessionStatusRegistry" />)。
     /// </summary>
-    private readonly ConcurrentDictionary<Guid, (Guid ProfileId, SessionStatus Status)> _documentSessions = new();
+    /// <remarks>
+    /// 终端标签那边靠 <see cref="TerminalTabs" /> 自己就能枚举(#321 已按这条纪律改过),
+    /// 文档型会话没有等价的集合可枚举(<c>Layout.AllDocuments()</c> 在 DocumentClosed 触发时
+    /// 已经把正在关的那个摘掉了,但迟到的状态事件仍会引用它),所以账本里只记文档那一半。
+    /// </remarks>
+    private readonly SessionStatusRegistry _sessionStatuses = new();
 
     /// <summary>工作台会话 id → 为它建的隧道 id(文档关闭时要拆掉,否则本地端口一直占着)。</summary>
     private readonly ConcurrentDictionary<Guid, Guid> _workspaceTunnels = new();
@@ -163,7 +162,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     /// <summary>
     /// 每个终端标签的连接状态订阅,用于重算它那条配置在会话树上的状态标签
     /// (见 <see cref="RefreshSessionStatus" />)。与快捷命令目标订阅同生命周期:
-    /// 在 <see cref="OnTabsCollectionChanged" /> 里随标签进出标签栏挂上与退订。
+    /// 在 <see cref="SyncTabSubscriptions" /> 里随文档进出工作区挂上与退订。
     /// </summary>
     private readonly Dictionary<TerminalTabViewModel, IDisposable> _sessionStatusSubscriptions = [];
 
@@ -190,8 +189,6 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     private readonly Dictionary<SftpDocument, Task> _sftpCloseTasks = [];
     private FileTransferViewModel _fileTransfer;
 
-    private bool _latencyPolling;
-    private int _latencyTick;
     private AppSettings? _latestSettings;
     private AppState _appState = new();
     private bool _isApplyingSidebarState;
@@ -204,14 +201,20 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     private IReadOnlyList<SessionProfile> _paletteProfiles = [];
     private SidebarViewModel _sidebar;
     private StatusBarViewModel _statusBar;
-    private bool _statusMetricsPolling;
 
-    // ---- Status-bar live metrics (spec §7: cpu / memory / net for the active session) ----
+    private readonly StatusMetricsPoller _statusMetrics;
 
-    private DispatcherTimer? _statusMetricsTimer;
+    /// <summary>
+    /// 状态栏那一排实时指标(CPU / 内存 / 磁盘 / 网络 / 延迟)的采样循环。
+    /// </summary>
+    /// <remarks>
+    /// 直接把协作者交出去,而不是在这里再包两个转发方法:窗口要按 <c>WindowState</c> 暂停、
+    /// 按 <c>Activated/Deactivated</c> 降频,那是采样循环自己的事,让主窗口视图模型
+    /// 替它转述一遍只是把同一件事写两处。
+    /// </remarks>
+    public StatusMetricsPoller StatusMetrics => _statusMetrics;
     private DispatcherTimer? _fontSizePersistDebounce;
     private int _pendingFontSize;
-    private TabBarViewModel _tabBar;
 
     /// <summary>
     /// 用可选注入的各项服务构造主窗口视图模型:装配命令补全、停靠工作区、侧边栏/标签栏/状态栏、
@@ -248,7 +251,8 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         INotificationCenter? notificationCenter = null,
         IAnnouncementFeed? announcementFeed = null,
         IUpdateService? updateService = null,
-        IThemeService? themeService = null
+        IThemeService? themeService = null,
+        IConnectivityMonitor? connectivityMonitor = null
     )
     {
         // 注册表可注入(DI 里与插件命令桥共享同一单例);无 UI 单测传 null 时自建。
@@ -332,28 +336,44 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
             }
         };
         Layout.ActiveDocumentChanged += SetActiveFromDocument;
+        // 每个标签要挂的那几条订阅(同步输入、会话状态圆点、快捷命令目标)随文档进出工作区
+        // 挂上与退订。原先监听的是 TabBar 那份平行标签列表的 CollectionChanged ——
+        // 两份集合各自变化,谁先谁后取决于调用顺序,漏同步一次就留下悬挂的订阅。
+        Layout.DocumentAdded += _ => SyncTabSubscriptions();
+        Layout.DocumentRemoved += _ => SyncTabSubscriptions();
+        // 关闭已连接会话前的确认闸。装在工作区这一层,六个关闭入口(标签 ×、Ctrl+W、
+        // 命令面板、右键的 关闭其他/全部/左侧/右侧)一处管住。
+        Layout.CloseInterceptor = ConfirmCloseDocumentsAsync;
+
+        // 网络恢复 / 睡眠唤醒:立刻把断开的会话拉起来,而不是干等下一个退避周期。
+        if (connectivityMonitor is { } connectivity)
+        {
+            connectivity.Resumed += () =>
+                RxSchedulers.MainThreadScheduler.Schedule(ReconnectAllAfterResume);
+        }
         _sidebar = new(recentConnectionService, _quickCommandRunner);
         _sidebar.PropertyChanged += OnSidebarStateChanged;
         if (sessionRepository is not null)
         {
             _sidebar.SessionTree = new(sessionRepository);
         }
-        _tabBar = new();
-        _tabBar.Tabs.CollectionChanged += OnTabsCollectionChanged;
         _statusBar = new();
+        // 采样循环拆成了独立协作者(Q-01):定时器、重入闸、失焦降频与四段悬停提示
+        // 彼此紧密、与主窗口其余职责毫不相干。活动标签用委托现取,不缓存 ——
+        // 缓存一份就要再操心"什么时候刷新"。
+        _statusMetrics = new(_statusBar, () => ActiveTerminalTab, metricsService);
         WireBackgroundActivity(backgroundActivity);
         _fileBrowser = new(null, Guid.Empty);
         _fileTransfer = new(transferManager, appDataStore);
-        _tabBar
-            .WhenAnyValue(tabBar => tabBar.ActiveTab)
+        // 活动标签换人时要做的那几件事。挂在 ActiveTerminalTab 上而不是某个标签集合上:
+        // 停靠布局是唯一事实来源,而 ActiveTerminalTab 正是从它的 ActiveDocumentChanged 派生的。
+        // 原先这条订阅挂在 TabBar.ActiveTab 上,于是"谁是活动标签"有两个各自会变的来源,
+        // 还要在两边互相同步并防着回环。
+        this.WhenAnyValue(x => x.ActiveTerminalTab)
             .Subscribe(activeTab =>
             {
-                ActiveTerminalTab = activeTab as TerminalTabViewModel;
-                activeTab?.HasBellAlert = false; // 切换到该标签即清除 Bell 提醒
-                RebindFileBrowser();
-                SyncWorkspaceToActiveTab(activeTab as TerminalTabViewModel);
                 RefreshQuickCommandTargets();
-                RevealActiveSessionInSidebar(activeTab as TerminalTabViewModel);
+                RevealActiveSessionInSidebar(activeTab);
             });
 
         // SFTP 面板“打开/关闭”是每个标签自己的状态:跟踪当前面板实例上的 IsVisible
@@ -379,6 +399,11 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
             )
             .Switch()
             .Subscribe(_ => UpdateStatusBarForActiveTab());
+
+        // 选区字符数:只订阅**活动**标签那一个控件,切标签时改挂。
+        // 订阅全部标签的话,后台标签里的残留选区会把状态栏写成别人的数字。
+        this.WhenAnyValue(x => x.ActiveTerminalTab)
+            .Subscribe(_ => RebindSelectionCounter());
 
         this.WhenAnyValue(x => x.ActiveTerminalTab)
             .Select(tab =>
@@ -408,19 +433,25 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
             {
                 if (notice.InApp)
                 {
-                    StatusBar.Status = notice.Message;
+                    // 安全告警按警告级走浮层:它以前写进状态栏那一个字符串,
+                    // 下一次切标签(会把 Status 刷成"已连接")就被抹掉了 —— 用户可能根本没看见。
+                    Toasts.Warning(notice.Message);
                 }
                 if (notice.Sound)
                 {
                     SystemSound.Alert();
                 }
             });
-        StartStatusMetricsPolling();
+        _statusMetrics.Start();
         SetUpNotificationCenter(notificationCenter, announcementFeed, updateService);
         OpenSettingsCommand = ReactiveCommand.Create(() =>
             SettingsRequested?.Invoke(this, EventArgs.Empty)
         );
-        CommandPalette = new(BuildPaletteItems);
+        // 最近使用记录:让常用命令/会话在同分时排到前面。载入是异步的,先建后载 ——
+        // 载入完成前只是没有加权,不影响面板可用。
+        _paletteRecency = new(appDataStore);
+        CommandPalette = new(BuildPaletteItems, _paletteRecency);
+        _ = _paletteRecency.LoadAsync();
         OpenCommandPaletteCommand = ReactiveCommand.Create(() => CommandPalette.Open());
         IObservable<bool> canToggleFileBrowser = this.WhenAnyValue(x => x.ActiveTerminalTab)
             .Select(tab =>
@@ -444,6 +475,10 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         // 命令注入状态栏,而不是让状态栏去 $parent[Window].DataContext 找:
         // 视图加载早于窗口 DataContext 赋值,跨树查找会在启动时刷一条绑定错误。
         StatusBar.OpenResourceMonitorCommand = OpenResourceMonitorCommand;
+        // 状态栏点编码 → 当场切当前会话的编码。只影响本会话,不写回设置:
+        // 用户多半是在试"这台机器到底是 GBK 还是 UTF-8",试错不该污染全局配置。
+        StatusBar.AvailableEncodings = TerminalEncodings.All;
+        StatusBar.ChangeEncodingCommand = ReactiveCommand.Create<string>(ChangeActiveTabEncoding);
         OpenTraceRouteCommand = ReactiveCommand.Create(OpenTraceRoute, canToggleFileBrowser);
         CloseActiveTabCommand = ReactiveCommand.Create(CloseActiveTab);
         RegisterCommands();
@@ -508,6 +543,15 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     /// 展开按钮各自直接置位(它们只出现在其中一态,取反反而绕)。
     /// </summary>
     public void ToggleSidebar() => Sidebar.IsCollapsed = !Sidebar.IsCollapsed;
+
+    /// <summary>请求把键盘焦点送到会话树的过滤框(Ctrl+Shift+E);侧栏收着就先展开。</summary>
+    public event EventHandler? SessionFilterFocusRequested;
+
+    private void FocusSessionFilter()
+    {
+        Sidebar.IsCollapsed = false;
+        SessionFilterFocusRequested?.Invoke(this, EventArgs.Empty);
+    }
 
     /// <summary>当前活动标签是否支持打开远程文件面板。</summary>
     public bool CanToggleFileBrowser =>
@@ -590,7 +634,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         terminalTab.FileTransfer = _fileTransfer;
         if (_settingsService is { } settings)
         {
-            terminalTab.GetSettingsAsync = settings.GetSettingsAsync;
+            terminalTab.GetSettingsAsync = () => settings.GetSnapshotAsync().AsTask();
         }
     }
 
@@ -601,11 +645,45 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         set => this.RaiseAndSetIfChanged(ref _sidebar, value);
     }
 
-    /// <summary>标签栏视图模型:管理终端标签的集合与激活项。</summary>
-    public TabBarViewModel TabBar
+    /// <summary>切到当前标签组的下一个标签(Ctrl+Tab),到尾回绕。</summary>
+    public ReactiveCommand<RxVoid, RxVoid> NextTabCommand =>
+        field ??= ReactiveCommand.Create(() => CycleTab(1));
+
+    /// <summary>切到当前标签组的上一个标签(Ctrl+Shift+Tab),到头回绕。</summary>
+    public ReactiveCommand<RxVoid, RxVoid> PreviousTabCommand =>
+        field ??= ReactiveCommand.Create(() => CycleTab(-1));
+
+    /// <summary>
+    /// 在当前标签组内循环切换标签。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 只在<b>当前组</b>内循环,而不是全布局的所有文档:分屏之后 Ctrl+Tab 跳到另一个窗格里
+    /// 会让人完全找不到北 —— 焦点跑了,而视线还停在原来那半边。
+    /// </para>
+    /// <para>
+    /// 循环范围是组里的<b>全部</b>文档,不只是终端。这与改动前的行为有一处差别:
+    /// 原先它循环的是 <c>TabBar.Tabs</c>(只有终端标签),于是同时开着终端与 SFTP 面板时,
+    /// Ctrl+Tab 永远到不了 SFTP 那一页 —— 那更像是双模型留下的疏漏,而不是有意设计。
+    /// </para>
+    /// </remarks>
+    /// <param name="step">+1 = 下一个,-1 = 上一个。</param>
+    private void CycleTab(int step)
     {
-        get => _tabBar;
-        set => this.RaiseAndSetIfChanged(ref _tabBar, value);
+        DockGroup? group = Layout.ActiveDocument is { } active
+            ? Layout.FindGroup(active) ?? Layout.PrimaryGroup
+            : Layout.PrimaryGroup;
+        if (group is null || group.Documents.Count == 0)
+        {
+            return;
+        }
+        int current = group.ActiveDocument is { } activeDocument
+            ? group.Documents.IndexOf(activeDocument)
+            : 0;
+        int count = group.Documents.Count;
+        int next = (((current + step) % count) + count) % count;
+        Layout.ActivateDocument(group.Documents[next]);
+        TerminalFocusRequested?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>
@@ -613,7 +691,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     /// </summary>
     (ITerminalEmulator Emulator, string Label)? Services.Plugins.ITerminalResolver.Resolve(Guid sessionId)
     {
-        foreach (TerminalTabViewModel tab in _tabBar.Tabs.OfType<TerminalTabViewModel>())
+        foreach (TerminalTabViewModel tab in TerminalTabs)
         {
             if (tab.SessionId == sessionId)
             {
@@ -625,6 +703,64 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         }
         return null;
     }
+
+    /// <summary>
+    /// 运行时反馈的浮层通道(断线、重连倒计时、连接失败、导出成功……)。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 这些消息以前全往 <c>StatusBar.Status</c> 那一个字符串里写,后写覆盖先写:
+    /// 三条消息挤在一秒内到达时,用户只会看到最后一条,而那条未必是最要紧的;
+    /// 错误与"已导出"也没有任何分级差别。
+    /// </para>
+    /// <para>
+    /// 还顺带修掉一个具体缺陷:<c>StatusBar.Status</c> 的 setter 会按
+    /// <c>value == Strings.Connected</c> 推出 <c>IsConnected</c> —— 于是往它写任何一条
+    /// 瞬时消息,状态栏那个连接圆点就变灰,尽管会话好好的。改道之后 <c>Status</c>
+    /// 只承载连接状态本身,那个推断重新成立。
+    /// </para>
+    /// </remarks>
+    public ToastHostViewModel Toasts { get; } = new(
+        // 到期回调要在 UI 线程上撤提示;DispatcherTimer.RunOnce 是本仓一贯的做法
+        // (侧栏动画、认证后命令延迟都用它),返回的定时器停掉即取消。
+        (delay, callback) =>
+        {
+            DispatcherTimer timer = new() { Interval = delay };
+            timer.Tick += (_, _) =>
+            {
+                // DispatcherTimer 被调度器强引用,不停表会一直唤醒窗口(同 TerminalTabView 的处置)。
+                timer.Stop();
+                callback();
+            };
+            timer.Start();
+            return new TimerHandle(timer);
+        });
+
+    /// <summary>把一个 <see cref="DispatcherTimer" /> 包成可释放的取消句柄。</summary>
+    private sealed class TimerHandle(DispatcherTimer timer) : IDisposable
+    {
+        /// <inheritdoc />
+        public void Dispose() => timer.Stop();
+    }
+
+    /// <summary>
+    /// 当前打开的全部终端标签,按停靠布局里的顺序。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b><see cref="Layout" /> 是标签集合的唯一事实来源。</b>VelaDock 落地之前,
+    /// <c>TabBarViewModel</c> 另存了一份平行的标签列表,于是每一次新增 / 关闭 / 激活
+    /// 都要在两个模型之间手工同步 —— 漏一处的表现是"标签关掉了但树上状态还亮着"
+    /// 或者"分屏之后 Ctrl+Tab 跳错窗格",而两处的症状毫不相干,极难联想到同一个根因
+    /// (§24 / §39 修过两次的就是这类同形 bug)。
+    /// </para>
+    /// <para>
+    /// 每次访问都重新枚举,不做缓存:停靠树本来就很小(几个组、十几个文档),
+    /// 而缓存一份就等于把刚拆掉的那份平行状态又请了回来。
+    /// </para>
+    /// </remarks>
+    public IEnumerable<TerminalTabViewModel> TerminalTabs =>
+        Layout.AllDocuments().OfType<TerminalDocument>().Select(document => document.Terminal);
 
     /// <summary>底部状态栏视图模型:连接状态、延迟、窗口尺寸与会话资源指标。</summary>
     public StatusBarViewModel StatusBar
@@ -734,7 +870,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                 Strings.Get("Cmd_CloseCurrentSession"),
                 Strings.Get("CmdCat_Session"),
                 () => CloseActiveTabCommand.Execute().Subscribe(),
-                () => TabBar.ActiveTab is not null || Layout.ActiveDocument is not null,
+                () => Layout.ActiveDocument is not null,
                 "Ctrl+W"
             )
         );
@@ -879,7 +1015,86 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                 Strings.Get("Cmd_ClearScreen"),
                 Strings.Get("CmdCat_Edit"),
                 () => ActiveTerminalTab?.TerminalEmulator.WriteInput([0x0C]),
-                () => ActiveTerminalTab?.ConnectionStatus == SessionStatus.Connected
+                () => ActiveTerminalTab?.ConnectionStatus == SessionStatus.Connected,
+                "Ctrl+Shift+K"
+            )
+        );
+
+        // 字号缩放:与 Ctrl+滚轮同源(都走 VelaTerminalControl.AdjustFontSize → FontSizeChanged),
+        // 因此缩放结果会跟着现有那条链路持久化,不需要第二套。
+        Commands.Register(
+            new(
+                "view.zoom.in",
+                Strings.Get("Cmd_ZoomIn"),
+                Strings.Get("CmdCat_Edit"),
+                () => ActiveTerminalControl?.AdjustFontSize(1),
+                () => ActiveTerminalControl is not null,
+                "Ctrl+="
+            )
+        );
+        Commands.Register(
+            new(
+                "view.zoom.out",
+                Strings.Get("Cmd_ZoomOut"),
+                Strings.Get("CmdCat_Edit"),
+                () => ActiveTerminalControl?.AdjustFontSize(-1),
+                () => ActiveTerminalControl is not null,
+                "Ctrl+-"
+            )
+        );
+        Commands.Register(
+            new(
+                "view.zoom.reset",
+                Strings.Get("Cmd_ZoomReset"),
+                Strings.Get("CmdCat_Edit"),
+                () => ActiveTerminalControl?.ResetFontSize(_latestSettings?.TerminalFontSize ?? 14),
+                () => ActiveTerminalControl is not null,
+                "Ctrl+0"
+            )
+        );
+
+        // 跳到第 N 个标签:按**活动组内**的第 N 个,而不是全局标签集合 ——
+        // 分屏后每个组有自己的标签条,用户数的是眼前那一条。
+        for (int slot = 1; slot <= 8; slot++)
+        {
+            int captured = slot;
+            Commands.Register(
+                new(
+                    $"tab.goto.{slot}",
+                    Strings.Format("Cmd_GotoTab", slot),
+                    Strings.Get("CmdCat_Session"),
+                    () => GotoTab(captured - 1),
+                    () => Layout.AllDocuments().Any(),
+                    $"Ctrl+Alt+{slot}"
+                )
+            );
+        }
+        Commands.Register(
+            new(
+                "tab.goto.last",
+                Strings.Get("Cmd_GotoLastTab"),
+                Strings.Get("CmdCat_Session"),
+                () => GotoTab(-1),
+                () => Layout.AllDocuments().Any(),
+                "Ctrl+Alt+9"
+            )
+        );
+
+        // 窗格移焦。这几条**不进** Window.KeyBindings —— 那里是无条件抢键,而 Alt+方向
+        // 在 zsh / fish 里有用户绑定。改由 MainWindow 的隧道处理器在"确有多个窗格"时才吃掉。
+        RegisterPaneFocusCommand("pane.focus.left", "Cmd_FocusPaneLeft", DockDirection.Left, "Alt+Left");
+        RegisterPaneFocusCommand("pane.focus.right", "Cmd_FocusPaneRight", DockDirection.Right, "Alt+Right");
+        RegisterPaneFocusCommand("pane.focus.up", "Cmd_FocusPaneUp", DockDirection.Up, "Alt+Up");
+        RegisterPaneFocusCommand("pane.focus.down", "Cmd_FocusPaneDown", DockDirection.Down, "Alt+Down");
+
+        Commands.Register(
+            new(
+                "session.close.all",
+                Strings.Get("Cmd_CloseAllTabs"),
+                Strings.Get("CmdCat_Session"),
+                CloseAllTabs,
+                () => Layout.AllDocuments().Any(),
+                "Ctrl+Shift+W"
             )
         );
         Commands.Register(
@@ -903,6 +1118,16 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         );
         Commands.Register(
             new(
+                "view.sessions.filter",
+                Strings.Get("Cmd_FilterSessions"),
+                Strings.Get("CmdCat_Search"),
+                FocusSessionFilter,
+                Shortcut: "Ctrl+Shift+E",
+                Icon: "Icon.search"
+            )
+        );
+        Commands.Register(
+            new(
                 "app.settings",
                 Strings.Get("Cmd_OpenSettings"),
                 Strings.Get("CmdCat_Edit"),
@@ -918,6 +1143,15 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                 Strings.Get("CmdCat_Edit"),
                 () => SettingsSectionRequested?.Invoke(this, SettingsSectionKey.About),
                 Icon: "Icon.info"
+            )
+        );
+        Commands.Register(
+            new(
+                "app.logs.open",
+                Strings.Get("Cmd_OpenLogs"),
+                Strings.Get("CmdCat_Actions"),
+                () => DiagnosticLog.OpenLogsDirectory(),
+                Icon: "Icon.folder-open"
             )
         );
         Commands.Register(
@@ -945,6 +1179,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                     }
                 },
                 () => Layout.ActiveDocument is not null,
+                "Ctrl+Shift+D",
                 Icon: "Icon.columns-2"
             )
         );
@@ -961,6 +1196,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                     }
                 },
                 () => Layout.ActiveDocument is not null,
+                "Ctrl+Shift+S",
                 Icon: "Icon.rows-2"
             )
         );
@@ -1033,7 +1269,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     public async Task OpenLocalTerminalAsync(LocalShellInfo shell)
     {
         AppSettings settings = _settingsService is not null
-            ? await _settingsService.GetSettingsAsync()
+            ? await _settingsService.GetSnapshotAsync()
             : new();
         _latestSettings = settings;
         ITerminalEmulator terminalEmulator = _terminalEmulatorFactory();
@@ -1071,8 +1307,8 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
             };
         }
         var document = new TerminalDocument(terminalTab);
-        TabBar.AddTab(terminalTab);
-        ActiveTerminalTab = terminalTab;
+        // Layout.AddDocument 自带激活(见 DockWorkspace),ActiveTerminalTab 由
+        // ActiveDocumentChanged 派生 —— 不必也不该在这里再手工设一遍。
         Layout.AddDocument(document);
         UpdateStatusBarForActiveTab();
         try
@@ -1090,7 +1326,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                 shell.Name,
                 ex.Message
             );
-            StatusBar.Status = LastConnectionError;
+            Toasts.Error(LastConnectionError);
         }
     }
 
@@ -1116,7 +1352,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                 shell.Name,
                 ex.Message
             );
-            StatusBar.Status = LastConnectionError;
+            Toasts.Error(LastConnectionError);
         }
     }
 
@@ -1232,7 +1468,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
             ShowModifiedColumn = _latestSettings?.Transfer.ShowModifiedColumn ?? true,
             ColumnVisibilityToggled = PersistColumnVisibility,
             ServerDisplayName = serverName,
-            AccentBrush = tab.Profile is { } p ? ConnectionAccent.BrushFor(p.Id) : null,
+            AccentBrush = tab.Profile is { } p ? ConnectionAccent.BrushForProfile(p) : null,
         };
         // 「文件浏览器跟随终端目录」(map-pin):该会话终端 shell 的 cwd(OSC 7)变化 → 面板同步(仅在开启跟随时)。
         // 先播种当前已知 cwd(供开启开关时立即同步),再订阅后续变化。二者同会话、同生共死,eviction 时解绑。
@@ -1264,7 +1500,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         if (_fileBrowserCache.Remove(sessionId, out FileBrowserViewModel? cached))
         {
             // 解绑「跟随终端目录」订阅(该会话的终端标签 → 面板),再拆除面板。
-            if (TabBar.Tabs.OfType<TerminalTabViewModel>().FirstOrDefault(t => t.SessionId == sessionId) is { } tab)
+            if (TerminalTabs.FirstOrDefault(t => t.SessionId == sessionId) is { } tab)
             {
                 tab.WorkingDirectoryChanged -= cached.OnTerminalWorkingDirectoryChanged;
             }
@@ -1292,9 +1528,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         {
             return;
         }
-        TerminalTabViewModel? owner = _tabBar.Tabs
-            .OfType<TerminalTabViewModel>()
-            .FirstOrDefault(t => t.SessionId == sessionId);
+        TerminalTabViewModel? owner = TerminalTabs.FirstOrDefault(t => t.SessionId == sessionId);
         owner?.FileBrowserOpen = visible;
         PersistAutoOpenFileBrowser(visible);
     }
@@ -1347,7 +1581,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         {
             return null;
         }
-        AppSettings settings = await _settingsService.GetSettingsAsync();
+        AppSettings settings = await _settingsService.GetSnapshotAsync();
         return settings.Transfer.DefaultEditorPath;
     }
 
@@ -1583,73 +1817,20 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     }
 
     /// <summary>把「有可用更新」与订阅资讯源的内容投进消息中心。</summary>
+    /// <remarks>
+    /// "投什么"由 <see cref="NotificationSources" /> 决定(那是可以单独测的决策);
+    /// 这里只负责把结果交给消息中心。
+    /// </remarks>
     private async Task RefreshNotificationSourcesAsync(
         INotificationCenter center, IAnnouncementFeed? feed, IUpdateService? updateService)
     {
-        AppSettings settings = _latestSettings ?? new();
-        List<NotificationItem> incoming = [];
-        if (updateService is not null && settings.Notifications.NotifyUpdates && settings.General.CheckUpdatesOnStartup)
-        {
-            if (await BuildUpdateNotificationAsync(updateService).ConfigureAwait(true) is { } update)
-            {
-                incoming.Add(update);
-            }
-        }
-        if (feed is not null)
-        {
-            IReadOnlyList<NotificationItem> fetched = await feed.FetchAsync().ConfigureAwait(true);
-            incoming.AddRange(settings.Notifications.AllowPromotions
-                                  ? fetched
-                                  : fetched.Where(item => item.Kind != NotificationKind.Promotion));
-        }
+        IReadOnlyList<NotificationItem> incoming =
+            await NotificationSources.CollectAsync(_latestSettings ?? new(), feed, updateService)
+                                     .ConfigureAwait(true);
         if (incoming.Count > 0)
         {
             await center.PublishAsync(incoming).ConfigureAwait(true);
         }
-    }
-
-    /// <summary>
-    /// 检查更新,有新版本就攒一条消息。
-    /// <para>
-    /// 商店版直接跳过:安装目录只读、更新由 Microsoft Store 接管,推一条"去关于页更新"
-    /// 只会把用户送到一个什么也做不了的页面。
-    /// </para>
-    /// </summary>
-    private static async Task<NotificationItem?> BuildUpdateNotificationAsync(IUpdateService updateService)
-    {
-        if (updateService.IsStoreManaged)
-        {
-            return null;
-        }
-        bool hasUpdate;
-        try
-        {
-            hasUpdate = await updateService.CheckForUpdateAsync().ConfigureAwait(true);
-        }
-        catch
-        {
-            // 离线或更新源不可达是常态。
-            return null;
-        }
-        if (!hasUpdate || updateService.AvailableVersion is not { Length: > 0 } available)
-        {
-            return null;
-        }
-        return new()
-        {
-            // id 里带上版本号:同一个版本每次启动都会重投,靠它去重并保住已读状态;
-            // 真出了新版本则是一条新 id,会重新亮起未读。
-            Id = $"update:{available}",
-            Kind = NotificationKind.Update,
-            Title = Strings.Format("Notify_UpdateTitle", available),
-            Body = Strings.Format("Notify_UpdateBody", updateService.CurrentVersion ?? "?"),
-            PublishedAt = DateTime.UtcNow,
-            Link = new()
-            {
-                Label = Strings.Get("Notify_UpdateAction"),
-                CommandId = "app.settings.about"
-            }
-        };
     }
 
     /// <summary>在系统浏览器里打开外链(由消息中心的外链条目调用)。</summary>
@@ -1688,258 +1869,6 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         );
         return session.SessionId;
     }
-
-    /// <summary>
-    /// 每秒轮询一次活动会话的指标到状态栏中。探测运行在专用 SSH exec 通道上,
-    /// 因此绝不触碰终端流;连续采样让采集器获得真实的瞬时 CPU% 和网络速率。
-    /// </summary>
-    private void StartStatusMetricsPolling()
-    {
-        // 无头单元测试在没有 Avalonia 应用的情况下构造此 VM;应跳过。
-        // 延迟测量(ICMP)不依赖 metrics 服务,所以只要有 UI 就启动计时器。
-        if (Application.Current is null)
-        {
-            return;
-        }
-        _statusMetricsTimer = new(
-            TimeSpan.FromSeconds(1),
-            DispatcherPriority.Background,
-            (_, _) =>
-            {
-                _ = PollStatusMetricsAsync();
-                _ = PollLatencyAsync();
-            }
-        );
-        _statusMetricsTimer.Start();
-    }
-
-    /// <summary>
-    /// 窗口最小化/隐入托盘时暂停状态栏指标与延迟轮询(由视图按 WindowState 驱动):
-    /// 用户看不见状态栏时,每秒一次的 SSH exec 探测 + 周期 ICMP 纯属浪费 CPU/网络,
-    /// 还会阻止系统进入低功耗。恢复可见即重启,下一秒就有新数据。
-    /// </summary>
-    public void SetStatusPollingSuspended(bool suspended)
-    {
-        if (_statusMetricsTimer is null)
-        {
-            return;
-        }
-        if (suspended)
-        {
-            _statusMetricsTimer.Stop();
-        }
-        else if (!_statusMetricsTimer.IsEnabled)
-        {
-            _statusMetricsTimer.Start();
-        }
-    }
-
-    /// <summary>
-    /// 状态栏延迟指示(设计 gzmsb sbLatency,之前缺失):每 3 秒对活动标签的主机
-    /// 发一次 ICMP ping,RTT 写入 tab.Latency(经既有 WhenAnyValue 管道刷新状态栏)。
-    /// 目标禁 ICMP 或解析失败时清空显示,不打扰;不用 TCP 探测以免刷爆 sshd 日志。
-    /// </summary>
-    private async Task PollLatencyAsync()
-    {
-        if (_latencyPolling || _latencyTick++ % 3 != 0)
-        {
-            return;
-        }
-        TerminalTabViewModel? tab = ActiveTerminalTab;
-        if (tab?.Profile is null || tab.ConnectionStatus != SessionStatus.Connected)
-        {
-            tab?.Latency = null;
-            return;
-        }
-        _latencyPolling = true;
-        try
-        {
-            using var ping = new Ping();
-            PingReply reply = await ping.SendPingAsync(tab.Profile.Host, TimeSpan.FromSeconds(2));
-
-            // 探测期间用户可能切换了标签;不要把结果写到别的会话上。
-            if (!ReferenceEquals(ActiveTerminalTab, tab))
-            {
-                return;
-            }
-            tab.Latency =
-                reply.Status == IPStatus.Success
-                    ? TimeSpan.FromMilliseconds(reply.RoundtripTime)
-                    : null;
-        }
-        catch
-        {
-            tab.Latency = null;
-        }
-        finally
-        {
-            _latencyPolling = false;
-        }
-    }
-
-    private async Task PollStatusMetricsAsync()
-    {
-        if (_statusMetricsPolling || _metricsService is null)
-        {
-            return;
-        }
-        TerminalTabViewModel? tab = ActiveTerminalTab;
-        if (
-            tab is null
-            || tab.SessionId == Guid.Empty
-            || tab.ConnectionStatus != SessionStatus.Connected
-        )
-        {
-            StatusBar.ClearSessionMetrics();
-            return;
-        }
-        _statusMetricsPolling = true;
-        try
-        {
-            SessionMetrics? metrics = await _metricsService.GetMetricsAsync(tab.SessionId);
-
-            // 探测期间用户可能切换了标签;不要把结果写到别的会话上。
-            if (!ReferenceEquals(ActiveTerminalTab, tab))
-            {
-                return;
-            }
-            if (metrics is null)
-            {
-                StatusBar.ClearSessionMetrics();
-                return;
-            }
-            StatusBar.CpuUsage = $"{metrics.CpuPercent:F2}%";
-            StatusBar.MemUsage = $"{metrics.MemPercent:F1}%";
-            StatusBar.SwapUsage = metrics.SwapTotalBytes > 0 ? $"{metrics.SwapPercent:F1}%" : "--";
-            StatusBar.DiskUsage = metrics.DiskTotalBytes > 0 ? $"{metrics.DiskPercent:F1}%" : "--";
-            StatusBar.UpdateNetwork(
-                metrics.NetRxBytesPerSec,
-                metrics.NetTxBytesPerSec,
-                metrics.HasNetRates
-            );
-
-            // CPU 逐核心、磁盘逐挂载点、网速逐网卡的悬停提示详情。
-            StatusBar.CpuTooltip = BuildCpuTooltip(metrics);
-            StatusBar.MemTooltip = BuildMemTooltip(metrics);
-            StatusBar.DiskTooltip = BuildDiskTooltip(metrics);
-            StatusBar.NetTooltip = BuildNetTooltip(metrics);
-        }
-        catch
-        {
-            // 绝不让失败的探测浮现到 UI 循环里;下次 tick 再重试。
-        }
-        finally
-        {
-            _statusMetricsPolling = false;
-        }
-    }
-
-    private static string BuildCpuTooltip(SessionMetrics m)
-    {
-        var sb = new StringBuilder();
-        sb.Append(Strings.Format("Msg_CpuTooltipTotal", m.CpuPercent, m.CpuCores));
-        if (m.CorePercents is { Count: > 0 } percents)
-        {
-            string corePrefix = Strings.Get("Msg_CpuCorePrefix");
-            for (int i = 0; i < percents.Count; i++)
-            {
-                string name =
-                    i < m.CoreCounters.Count
-                        ? m.CoreCounters[i].Name.Replace("cpu", corePrefix)
-                        : $"{corePrefix}{i}";
-                sb.Append('\n').Append($"{name}: {percents[i]:F0}%");
-            }
-        }
-        else if (m.CoreCounters.Count > 0)
-        {
-            sb.Append('\n').Append(Strings.Get("Msg_PerCoreCollecting"));
-        }
-        return sb.ToString();
-    }
-
-    private static string BuildMemTooltip(SessionMetrics m)
-    {
-        var sb = new StringBuilder();
-        sb.Append(
-            Strings.Format(
-                "Msg_MemTooltip",
-                FormatGb(m.MemUsedBytes),
-                FormatGb(m.MemTotalBytes),
-                m.MemPercent
-            )
-        );
-        if (m.SwapTotalBytes > 0)
-        {
-            sb.Append('\n')
-                .Append(
-                    Strings.Format(
-                        "Msg_SwapTooltip",
-                        FormatGb(m.SwapUsedBytes),
-                        FormatGb(m.SwapTotalBytes),
-                        m.SwapPercent
-                    )
-                );
-        }
-        return sb.ToString();
-    }
-
-    private static string BuildDiskTooltip(SessionMetrics m)
-    {
-        if (m.Disks.Count == 0)
-        {
-            return m.DiskTotalBytes > 0
-                ? Strings.Format(
-                    "Msg_DiskRootTooltip",
-                    FormatGb(m.DiskUsedBytes),
-                    FormatGb(m.DiskTotalBytes),
-                    m.DiskPercent
-                )
-                : Strings.Get("Msg_Disk");
-        }
-        var sb = new StringBuilder(Strings.Get("Msg_DiskUsage"));
-        foreach (DiskUsage d in m.Disks)
-        {
-            sb.Append('\n')
-                .Append(
-                    Strings.Format(
-                        "Msg_DiskMountLine",
-                        d.MountPoint,
-                        FormatGb(d.UsedBytes),
-                        FormatGb(d.TotalBytes),
-                        d.Percent
-                    )
-                );
-        }
-        return sb.ToString();
-    }
-
-    private static string BuildNetTooltip(SessionMetrics m)
-    {
-        var sb = new StringBuilder();
-        sb.Append(
-            m.HasNetRates
-                ? Strings.Format(
-                    "Msg_NetTooltipTotal",
-                    StatusBarViewModel.FormatRate(m.NetRxBytesPerSec),
-                    StatusBarViewModel.FormatRate(m.NetTxBytesPerSec)
-                )
-                : Strings.Get("Msg_NetCollecting")
-        );
-        if (m.NicRates is not { Count: > 0 } rates)
-        {
-            return sb.ToString();
-        }
-        foreach (NetInterfaceRate r in rates)
-        {
-            sb.Append('\n')
-                .Append(
-                    $"{r.Name}: ↓ {StatusBarViewModel.FormatRate(r.RxBytesPerSec)}  ↑ {StatusBarViewModel.FormatRate(r.TxBytesPerSec)}"
-                );
-        }
-        return sb.ToString();
-    }
-
-    private static string FormatGb(long bytes) => (bytes / 1024.0 / 1024.0 / 1024.0).ToString("F1");
 
     /// <summary>
     /// 加载已持久化的最近连接历史(SonnetDB)到侧边栏,使重启后仍保留。
@@ -2077,12 +2006,17 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         }
     }
 
-    private void OnTabsCollectionChanged(
-        object? sender,
-        System.Collections.Specialized.NotifyCollectionChangedEventArgs e
-    )
+    /// <summary>
+    /// 按当前工作区里的终端文档,对齐每个标签的订阅(同步输入、会话状态、快捷命令目标)。
+    /// </summary>
+    /// <remarks>
+    /// 做成"全量对齐"而不是"按增删事件增量处理":这些订阅的登记表是字典,与工作区取差集
+    /// 是幂等的,重复调一次不会出错。增量处理则要求每一次增删都恰好通知一次 ——
+    /// 而这正是 §24 / §39 两次同形 bug 的来源。
+    /// </remarks>
+    private void SyncTabSubscriptions()
     {
-        var currentTabs = TabBar.Tabs.OfType<TerminalTabViewModel>().ToHashSet();
+        var currentTabs = TerminalTabs.ToHashSet();
         foreach (
             TerminalTabViewModel removed in _quickCommandTargetSubscriptions
                 .Keys.Where(tab => !currentTabs.Contains(tab))
@@ -2135,8 +2069,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     /// </summary>
     private void RefreshSessionSyncChannel(Guid profileId)
     {
-        SyncInputChannel? channel = TabBar
-            .Tabs.OfType<TerminalTabViewModel>()
+        SyncInputChannel? channel = TerminalTabs
             .Where(tab => tab.Profile?.Id == profileId)
             .Select(tab => tab.SyncChannel)
             .FirstOrDefault(c => c is not null);
@@ -2158,7 +2091,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     /// </para>
     /// <para>
     /// 参与合并的不只有终端标签,还有该配置名下**活着的文档型会话**(独立 SFTP / FTP /
-    /// S3 等插件文件系统 / Redis 等工作台,见 <see cref="_documentSessions" />)。
+    /// S3 等插件文件系统 / Redis 等工作台,见 <see cref="SessionStatusRegistry" />)。
     /// 这些连接一样可以对同一条配置开好几个,而它们原先各自直接往树上写状态、最后一次说了算 ——
     /// 于是"点快了开出两个 FTP 标签,关掉一个,树上的圆点就灭了"(明明还有一个活着)。
     /// </para>
@@ -2166,20 +2099,9 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     /// </summary>
     private void RefreshSessionStatus(Guid profileId)
     {
-        SessionStatus status = TabBar
-            .Tabs.OfType<TerminalTabViewModel>()
-            .Where(tab => tab.Profile?.Id == profileId)
-            .Select(tab => tab.ConnectionStatus)
-            .Concat(
-                _documentSessions
-                    .Values.Where(session => session.ProfileId == profileId)
-                    .Select(session => session.Status)
-            )
-            .Aggregate(
-                SessionStatus.Disconnected,
-                (best, candidate) =>
-                    SessionStatusRank(candidate) > SessionStatusRank(best) ? candidate : best
-            );
+        SessionStatus status = _sessionStatuses.Merge(
+            profileId,
+            TerminalTabs.Where(tab => tab.Profile?.Id == profileId).Select(tab => tab.ConnectionStatus));
         Sidebar.SessionTree?.SetSessionStatus(profileId, status);
     }
 
@@ -2192,15 +2114,8 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     /// 文档里那份配置的字段,而树上的节点始终是按最初那条配置的 Id 建的。
     /// </param>
     /// <param name="status">初始状态(建出文档即已连上)。</param>
-    private void TrackDocumentSession(Guid sessionId, Guid profileId, SessionStatus status)
-    {
-        if (sessionId == Guid.Empty || profileId == Guid.Empty)
-        {
-            return;
-        }
-        _documentSessions[sessionId] = (profileId, status);
-        ScheduleSessionStatusRefresh(profileId);
-    }
+    private void TrackDocumentSession(Guid sessionId, Guid profileId, SessionStatus status) =>
+        RefreshIfNeeded(_sessionStatuses.Track(sessionId, profileId, status));
 
     /// <summary>
     /// 更新一条在册文档型会话的状态(掉线 / 重新连上)并刷新树。
@@ -2209,41 +2124,28 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     /// (FTP 的失效是在下一次操作时才暴露的),照单全收会把刚灭掉的圆点重新点亮。
     /// </para>
     /// </summary>
-    private void UpdateDocumentSessionStatus(Guid sessionId, SessionStatus status)
-    {
-        if (!_documentSessions.TryGetValue(sessionId, out (Guid ProfileId, SessionStatus Status) tracked))
-        {
-            return;
-        }
-        _documentSessions[sessionId] = (tracked.ProfileId, status);
-        ScheduleSessionStatusRefresh(tracked.ProfileId);
-    }
+    private void UpdateDocumentSessionStatus(Guid sessionId, SessionStatus status) =>
+        RefreshIfNeeded(_sessionStatuses.Update(sessionId, status));
 
     /// <summary>
     /// 摘掉一条已关闭的文档型会话并刷新树。幂等 —— 关闭路径与协议自己的 <c>Closed</c> 事件
     /// 都会走到这里,谁先到都行。
     /// </summary>
-    private void ForgetDocumentSession(Guid sessionId)
+    private void ForgetDocumentSession(Guid sessionId) =>
+        RefreshIfNeeded(_sessionStatuses.Forget(sessionId));
+
+    /// <summary>账本说有配置要刷新时,把刷新排到 UI 线程上。</summary>
+    private void RefreshIfNeeded(Guid? profileId)
     {
-        if (_documentSessions.TryRemove(sessionId, out (Guid ProfileId, SessionStatus Status) tracked))
+        if (profileId is { } id)
         {
-            ScheduleSessionStatusRefresh(tracked.ProfileId);
+            ScheduleSessionStatusRefresh(id);
         }
     }
 
-    /// <summary>多标签合并时的状态优先级,数值越大越"活跃"(见 <see cref="RefreshSessionStatus" />)。</summary>
-    private static int SessionStatusRank(SessionStatus status) =>
-        status switch
-        {
-            SessionStatus.Connected => 3,
-            SessionStatus.Connecting => 2,
-            SessionStatus.Error => 1,
-            _ => 0,
-        };
-
     private void RefreshQuickCommandTargets()
     {
-        (Guid Id, string DisplayName)[] targets = [.. TabBar.Tabs.OfType<TerminalTabViewModel>().Where(tab => tab.IsConnected).Select(tab => (tab.Id, tab.Title))];
+        (Guid Id, string DisplayName)[] targets = [.. TerminalTabs.Where(tab => tab.IsConnected).Select(tab => (tab.Id, tab.Title))];
         _terminalTargetSelector.UpdateTargets(targets);
         _terminalTargetSelector.SetCurrentTarget(ActiveTerminalTab is { IsConnected: true } current ? current.Id : null);
     }
@@ -2254,7 +2156,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     )
     {
         var targetIds = request.TargetIds.ToHashSet();
-        TerminalTabViewModel[] targets = [.. TabBar.Tabs.OfType<TerminalTabViewModel>().Where(tab => tab.IsConnected && targetIds.Contains(tab.Id))];
+        TerminalTabViewModel[] targets = [.. TerminalTabs.Where(tab => tab.IsConnected && targetIds.Contains(tab.Id))];
         bool sent = false;
         foreach (TerminalTabViewModel target in targets)
         {
@@ -2340,7 +2242,12 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                     title,
                     () => _ = TryConnectRecentAsync(captured),
                     Strings.Get("Msg_EnterToConnect"),
-                    isSession: true
+                    isSession: true,
+                    // 同一台机器在"最近连接"与"会话"两个桶里用同一个 id,
+                    // 使用痕迹才不会被拆成两半。
+                    id: captured.ProfileId is { } recentProfileId
+                        ? $"session:{recentProfileId}"
+                        : $"recent:{captured.Host}"
                 )
             );
         }
@@ -2365,7 +2272,8 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                     () => _ = TryConnectProfileAsync(captured),
                     Strings.Get("Msg_EnterToConnect"),
                     groupName,
-                    true
+                    true,
+                    $"session:{captured.Id}"
                 )
             );
         }
@@ -2376,7 +2284,8 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                 Strings.Get("Command"),
                 captured.Title,
                 () => Commands.Execute(captured.Id),
-                captured.Shortcut
+                captured.Shortcut,
+                id: captured.Id
             ))
         );
         return items;
@@ -2386,7 +2295,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     private async Task<AppSettings> LoadSettingsSnapshotAsync()
     {
         AppSettings settings = _settingsService is not null
-            ? await _settingsService.GetSettingsAsync()
+            ? await _settingsService.GetSnapshotAsync()
             : new();
         _latestSettings = settings;
         return settings;
@@ -2403,9 +2312,9 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         string? protocolLabel = null
     )
     {
-        TerminalType terminalType = TerminalTypeExtensions.FromTermName(settings.TerminalType);
+        TerminalType terminalType = TerminalTypeExtensions.FromTermName(SessionTerminalSettings.TerminalType(profile, settings));
         ITerminalEmulator terminalEmulator = _terminalEmulatorFactory();
-        ConfigureTerminal(terminalEmulator, settings, terminalType);
+        ConfigureTerminal(terminalEmulator, settings, terminalType, profile: profile);
 
         // 状态栏连接指示按设计 gzmsb 显示"SSH • <显示名称>"——不暴露用户名与 IP(安全要求);
         // 未配置名称时才退回主机地址。
@@ -2422,9 +2331,9 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                 ? $"{protocol} • {displayName}"
                 : $"{protocol} • {displayName} • {Strings.Get("Msg_ViaJumpHost")}",
             TerminalTypeName = terminalType.ToTermName(),
-            EncodingName = string.IsNullOrWhiteSpace(settings.TerminalEncoding)
-                ? "UTF-8"
-                : settings.TerminalEncoding,
+            // 会话级覆盖优先于全局(F-06):同一个人同时连 UTF-8 的容器和 GBK 的老服务器,
+            // 全局只能配一个,另一边就是满屏乱码。
+            EncodingName = SessionTerminalSettings.Encoding(profile, settings),
             Profile = profile,
         };
         terminalTab.ReconnectRequested += (_, _) => _ = ReconnectTabAsync(terminalTab);
@@ -2437,7 +2346,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
 
         // 树上的状态圆点与「活跃/连接中/离线」标签不在这里订阅:一条配置可能同时开着
         // 多个标签,得取合并结果而不是某一个标签的状态。订阅随标签进出标签栏在
-        // OnTabsCollectionChanged 里挂上与退订(#321)。
+        // SyncTabSubscriptions 里挂上与退订(#321)。
 
         // 资源管理器树节点名前的同步输入频道字母跟随该配置任一标签的频道归属;
         // 标签关闭时经 SyncInputCoordinator.Detach → LeaveSyncChannel 同样走到这里复位。
@@ -2462,8 +2371,8 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         var document = new TerminalDocument(terminalTab);
         // 标签页内失败覆盖层(设计 yxjmg)的“关闭标签页”按钮:闭包捕获 document 以整体移除。
         terminalTab.CloseRequested += (_, _) => CloseTerminalTab(terminalTab);
-        TabBar.AddTab(terminalTab);
-        ActiveTerminalTab = terminalTab;
+        // Layout.AddDocument 自带激活(见 DockWorkspace),ActiveTerminalTab 由
+        // ActiveDocumentChanged 派生 —— 不必也不该在这里再手工设一遍。
         Layout.AddDocument(document);
         UpdateStatusBarForActiveTab();
         return (terminalTab, document);
@@ -2480,7 +2389,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         CancellationToken cancellationToken
     )
     {
-        TerminalType terminalType = TerminalTypeExtensions.FromTermName(settings.TerminalType);
+        TerminalType terminalType = TerminalTypeExtensions.FromTermName(SessionTerminalSettings.TerminalType(profile, settings));
         SshSession session = await _connectionWorkflowService!.ConnectProfileAsync(
             profile,
             cancellationToken
@@ -2570,10 +2479,10 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         try
         {
             AppSettings settings = _settingsService is not null
-                ? await _settingsService.GetSettingsAsync()
+                ? await _settingsService.GetSnapshotAsync()
                 : new();
             _latestSettings = settings;
-            TerminalType terminalType = TerminalTypeExtensions.FromTermName(settings.TerminalType);
+            TerminalType terminalType = TerminalTypeExtensions.FromTermName(SessionTerminalSettings.TerminalType(tab.Profile, settings));
             SshSession session = await _connectionWorkflowService.ConnectProfileAsync(
                 tab.Profile,
                 cancellationToken
@@ -2623,7 +2532,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         {
             // 重连失败:保留标签,标签页内覆盖层显示“连接失败 + 原因”(设计 yxjmg),不弹全局框。
             LastConnectionError = DescribeConnectionError(ex, tab.Profile);
-            StatusBar.Status = LastConnectionError;
+            Toasts.Error(LastConnectionError);
             tab.MarkDisconnected(LastConnectionError);
         }
     }
@@ -2753,6 +2662,52 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     /// 连接断开(设置 → 常规 → 行为/通知):状态栏提醒 + 可选提示音 +
     /// 自动重连(用户主动断开除外,按重连间隔与最大重试执行)。
     /// </summary>
+    /// <summary>
+    /// 网络恢复 / 唤醒之后:把所有"非用户主动断开"的远端会话立刻重连一次,并重置退避计数。
+    /// </summary>
+    /// <remarks>
+    /// 重置计数是关键的一半。之前重试可能已经退到几十秒一次、甚至耗尽了 MaxRetries;
+    /// 而"网络刚回来"是一个全新的、成功率很高的时机,不该继续按旧的挫败节奏走。
+    /// <para>
+    /// 本地终端不在此列:shell 退出是用户意图,自动拉起会没完没了。
+    /// 用户自己点了断开的也不碰 —— 那是明确的意图。
+    /// </para>
+    /// </remarks>
+    internal void ReconnectAllAfterResume()
+    {
+        if (_latestSettings?.General.AutoReconnect != true)
+        {
+            return;
+        }
+        foreach (TerminalTabViewModel tab in TerminalTabs.ToArray())
+        {
+            if (ReconnectPolicy.ShouldReconnect(
+                    autoReconnectEnabled: true,
+                    tab.ConnectionStatus == SessionStatus.Disconnected,
+                    tab.UserRequestedDisconnect,
+                    tab.LocalShell is not null))
+            {
+                tab.ResetReconnectAttempts();
+                _ = ReconnectTabAsync(tab);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 第 <paramref name="attempt" /> 次自动重连之前该等多久(秒)。
+    /// </summary>
+    /// <remarks>
+    /// 指数退避 1、2、4、8… 封顶在用户配的 <paramref name="configuredSeconds" />。
+    /// 固定间隔在两头都不对:网线刚插回来的那一瞬,等满 30 秒才试是白等;
+    /// 而服务器真的宕了,每 30 秒敲一次门也只是徒劳地刷状态栏。
+    /// 从 1 秒起跳能抓住"抖一下就好"的绝大多数情况,退到设置值之后与原行为一致。
+    /// </remarks>
+    /// <param name="attempt">第几次尝试(从 1 起)。</param>
+    /// <param name="configuredSeconds">设置里的重连间隔,作为退避上限。</param>
+    /// <returns>等待秒数。</returns>
+    internal static int ReconnectDelaySeconds(int attempt, int configuredSeconds) =>
+        ReconnectPolicy.DelaySeconds(attempt, configuredSeconds);
+
     private void OnTabDisconnected(TerminalTabViewModel tab)
     {
         StopSessionLogging(tab);
@@ -2771,7 +2726,12 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         }
         if (settings.General.NotifyOnDisconnect)
         {
-            StatusBar.Status = Strings.Format("Msg_TabDisconnected", tab.Title);
+            // 断线带一个「立即重连」按钮:这是用户看到这条消息时唯一想做的事,
+            // 而原先它只是状态栏里一句会被下一条消息盖掉的文字。
+            Toasts.Error(
+                Strings.Format("Msg_TabDisconnected", tab.Title),
+                Strings.Get("Toast_ReconnectNow"),
+                () => _ = ReconnectTabAsync(tab));
             if (!ReferenceEquals(ActiveTerminalTab, tab))
             {
                 tab.HasBellAlert = true;
@@ -2784,29 +2744,34 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
 
         // 无头单元测试在没有 Avalonia 应用的情况下构造此 VM;此处无计时器。
         // 本地终端不自动重开:shell 退出(exit)是用户意图,自动拉起会没完没了。
-        if (
-            !settings.General.AutoReconnect
-            || tab.UserRequestedDisconnect
-            || tab.LocalShell is not null
-            || Application.Current is null
-        )
+        if (Application.Current is null
+            || !ReconnectPolicy.ShouldReconnect(
+                   settings.General.AutoReconnect,
+                   isDisconnected: true,
+                   tab.UserRequestedDisconnect,
+                   tab.LocalShell is not null))
         {
             return;
         }
         int maxRetries = Math.Max(1, settings.General.MaxRetries);
         tab.MaxReconnectAttempts = maxRetries; // 全部自动重连路径共用同一权威值(设置审计 C-02)
-        if (tab.ReconnectAttempts >= maxRetries)
+        if (!ReconnectPolicy.HasAttemptsLeft(tab.ReconnectAttempts, maxRetries))
         {
             return;
         }
         tab.IncrementReconnectAttempt();
-        int delaySeconds = Math.Clamp(settings.General.ReconnectIntervalSeconds, 1, 300);
-        StatusBar.Status = Strings.Format(
-            "Msg_AutoReconnectCountdown",
-            tab.Title,
-            delaySeconds,
-            tab.ReconnectAttempts,
-            maxRetries
+        int delaySeconds = ReconnectDelaySeconds(tab.ReconnectAttempts, settings.General.ReconnectIntervalSeconds);
+        // 倒计时按标签合并:每次重试都刷新同一条,而不是每试一次堆一条。
+        // 三个标签同时掉线时也各占一条,互不覆盖 —— 状态栏那一个字符串做不到这件事。
+        Toasts.Warning(
+            Strings.Format(
+                "Msg_AutoReconnectCountdown",
+                tab.Title,
+                delaySeconds,
+                tab.ReconnectAttempts,
+                maxRetries
+            ),
+            mergeKey: $"reconnect:{tab.SessionId}"
         );
         DispatcherTimer.RunOnce(
             () =>
@@ -2819,7 +2784,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                         ConnectionStatus: SessionStatus.Disconnected,
                         UserRequestedDisconnect: false
                     }
-                    && TabBar.Tabs.Contains(tab)
+                    && TerminalTabs.Contains(tab)
                 )
                 {
                     _ = ReconnectTabAsync(tab);
@@ -2912,6 +2877,10 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     /// <param name="profile">本次连接所用的配置。</param>
     private static void SendPostAuthCommand(TerminalTabViewModel tab, SessionProfile profile)
     {
+        // 初始目录(F-06)先走一步:它是"进去之后先站在哪儿",本条命令则是"站好之后干什么",
+        // 顺序反了的话一条 `tail -f ./app.log` 会在家目录里找不到文件。
+        // 与本条命令拼成一串不行 —— 那条有自己的延迟,而切目录不该等。
+        SendStartupDirectory(tab, profile);
         if (profile.PostAuthCommand?.Trim() is not { Length: > 0 } command)
         {
             return;
@@ -2942,42 +2911,156 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     }
 
     /// <summary>
+    /// 登录后切到会话配置里指定的初始目录(F-06);未指定则什么都不做。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 发的是一条静默 <c>cd</c>,与「认证后执行命令」同一条通道 —— 不另起 exec 通道,
+    /// 因为切目录必须发生在<b>用户那个交互 shell</b> 里,而 exec 通道是另一个进程。
+    /// </para>
+    /// <para>
+    /// 路径用单引号裹住并转义内部的单引号:目录名里带空格是常事(<c>/opt/my app</c>),
+    /// 不裹就变成了两个参数;而带引号的路径不转义则会把后面的内容当成新命令 ——
+    /// 那是把用户自己的配置变成了一条注入。
+    /// </para>
+    /// </remarks>
+    private static void SendStartupDirectory(TerminalTabViewModel tab, SessionProfile profile)
+    {
+        if (SessionTerminalSettings.StartupDirectory(profile) is not { } directory)
+        {
+            return;
+        }
+        tab.SendSilentCommand($"cd '{directory.Replace("'", @"'\''", StringComparison.Ordinal)}'");
+    }
+
+    /// <summary>
     /// 用户语义的关闭标签统一入口(覆盖层关闭按钮 / Esc / Ctrl+W / 命令面板)。
     /// 必须走 <see cref="DockWorkspace.CloseDocument" />:只有它会触发 DocumentClosed,
-    /// 从而把逻辑标签、停靠文档、会话日志与底层 SSH/PTY 传输一并拆干净。
-    /// 直接调 TabBar.CloseTab 只删逻辑标签,会留下可见的僵尸标签并泄漏传输层。
+    /// 从而把停靠文档、会话日志与底层 SSH/PTY 传输一并拆干净。
     /// </summary>
     public void CloseTerminalTab(TerminalTabViewModel tab)
     {
         ArgumentNullException.ThrowIfNull(tab);
-        TerminalDocument? document = Layout
-            .AllDocuments()
-            .OfType<TerminalDocument>()
-            .FirstOrDefault(d => ReferenceEquals(d.Terminal, tab));
-        if (document is not null)
+        // 文档已被静默移除(连接失败路径)时这里找不到 —— 那时该做的收尾在
+        // RemoveTerminalTab 里已经做完了,本方法无事可做。
+        if (FindDocument(tab) is { } document)
         {
-            Layout.CloseDocument(document);
-            return;
-        }
-
-        // 文档已被静默移除(连接失败路径)时只剩逻辑标签需要收尾。
-        if (TabBar.Tabs.Contains(tab))
-        {
-            TabBar.CloseTabCommand.Execute(tab).Subscribe();
+            // RequestClose 而不是 CloseDocument:这是**用户语义**的关闭,要过确认闸。
+            Layout.RequestClose(document);
         }
     }
+
+    /// <summary>找到承载这个标签的停靠文档;标签已被静默移除时为 null。</summary>
+    private TerminalDocument? FindDocument(TerminalTabViewModel tab) =>
+        Layout.AllDocuments()
+              .OfType<TerminalDocument>()
+              .FirstOrDefault(d => ReferenceEquals(d.Terminal, tab));
+
+    /// <summary>
+    /// 跳到当前标签条上的第 N 个文档(0 起;负数 = 最后一个)。
+    /// </summary>
+    /// <remarks>
+    /// 按**活动组内**的顺序而不是全局标签集合:分屏后每个组有自己的标签条,
+    /// 用户数的是眼前那一条。索引超出时落到最后一个,而不是什么都不做 ——
+    /// "Ctrl+Alt+8 但只有 5 个标签"时跳到最后一个比毫无反应更符合预期。
+    /// </remarks>
+    private void GotoTab(int index)
+    {
+        DockGroup? group = Layout.ActiveDocument is { } active
+            ? Layout.FindGroup(active) ?? Layout.PrimaryGroup
+            : Layout.PrimaryGroup;
+        if (group is null || group.Documents.Count == 0)
+        {
+            return;
+        }
+        int slot = index < 0
+            ? group.Documents.Count - 1
+            : Math.Min(index, group.Documents.Count - 1);
+        Layout.ActivateDocument(group.Documents[slot]);
+        TerminalFocusRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>注册一条窗格移焦命令(Alt+方向)。</summary>
+    private void RegisterPaneFocusCommand(string id, string titleKey, DockDirection direction, string shortcut) =>
+        Commands.Register(
+            new(
+                id,
+                Strings.Get(titleKey),
+                Strings.Get("CmdCat_Actions"),
+                () => FocusPane(direction),
+                () => Layout.HasMultipleGroups,
+                shortcut
+            )
+        );
+
+    /// <summary>把焦点移到指定方向上相邻的窗格(没有邻居就什么也不做)。</summary>
+    private void FocusPane(DockDirection direction)
+    {
+        if (Layout.ActiveDocument is not { } active
+            || Layout.FindGroup(active) is not { } current
+            || DockWorkspace.FindNeighborGroup(current, direction) is not { } neighbor)
+        {
+            return;
+        }
+        DockDocument? target = neighbor.ActiveDocument ?? neighbor.Documents.FirstOrDefault();
+        if (target is null)
+        {
+            return;
+        }
+        Layout.ActivateDocument(target);
+        TerminalFocusRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>关闭所有标签(Ctrl+Shift+W)。</summary>
+    /// <remarks>
+    /// 走 <c>RequestCloseMany</c>:一次确认放行全部,而不是逐个弹框;
+    /// 也先取了快照,免得边遍历边关漏掉一半。
+    /// </remarks>
+    private void CloseAllTabs() => Layout.RequestCloseMany(Layout.AllDocuments().ToArray());
+
+    /// <summary>
+    /// 关闭前的确认闸:标签的会话还连着,并且用户没关掉这个开关时,先问一句。
+    /// </summary>
+    /// <remarks>
+    /// 装在 <see cref="DockWorkspace.CloseInterceptor" /> 上,六个关闭入口一处管住。
+    /// 已断开的标签、SFTP / 插件文档一律直接放行 —— 关掉它们不丢任何东西。
+    /// 没有装确认回调(无头测试)时同样放行,不让测试挂在一个永远不会有人点的对话框上。
+    /// </remarks>
+    private async Task<bool> ConfirmCloseDocumentsAsync(IReadOnlyList<DockDocument> documents)
+    {
+        if (_latestSettings?.General.ConfirmCloseConnectedTab != true || CloseConfirmer is not { } confirm)
+        {
+            return true;
+        }
+        TerminalTabViewModel[] connected =
+        [
+            .. documents.OfType<TerminalDocument>()
+                .Select(document => document.Terminal)
+                .Where(tab => tab.IsConnected)
+        ];
+        return connected.Length switch
+        {
+            0 => true,
+            1 => await confirm(
+                Strings.Get("Main_CloseTabConfirmTitle"),
+                Strings.Format("Main_CloseTabConfirmBody", connected[0].Title)).ConfigureAwait(true),
+            _ => await confirm(
+                Strings.Get("Main_CloseTabConfirmTitle"),
+                Strings.Format("Main_CloseTabConfirmMany", connected.Length)).ConfigureAwait(true)
+        };
+    }
+
+    /// <summary>
+    /// 由视图注入的确认对话框(标题、正文 → 用户是否确认)。为 null 时一律放行。
+    /// </summary>
+    public Func<string, string, Task<bool>>? CloseConfirmer { get; set; }
 
     /// <summary>关闭当前活动标签,终端与 SFTP 文档同等对待(Ctrl+W / session.close)。</summary>
     private void CloseActiveTab()
     {
         if (Layout.ActiveDocument is { } document)
         {
-            Layout.CloseDocument(document);
-            return;
-        }
-        if (TabBar.ActiveTab is TerminalTabViewModel tab)
-        {
-            CloseTerminalTab(tab);
+            Layout.RequestClose(document);
         }
     }
 
@@ -2987,14 +3070,12 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         // 防御性驱逐 SFTP 面板缓存:本路径(连接失败/取消)静默移除文档,不触发
         // DocumentClosed,若标签曾短暂连上过,缓存里的面板会悬挂。幂等,无缓存时空操作。
         CloseSftpForTab(tab);
-        if (TabBar.Tabs.Contains(tab))
-        {
-            TabBar.CloseTabCommand.Execute(tab).Subscribe();
-        }
         Layout.RemoveDocument(document);
         if (ReferenceEquals(ActiveTerminalTab, tab))
         {
-            ActiveTerminalTab = TabBar.ActiveTab as TerminalTabViewModel;
+            // 静默移除不触发 ActiveDocumentChanged,活动标签得自己补一次:
+            // 停靠布局里还剩的第一个终端文档,没有就置空。
+            ActiveTerminalTab = TerminalTabs.FirstOrDefault();
         }
         tab.Dispose();
     }
@@ -3117,7 +3198,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
             catch (Exception ex)
             {
                 LastConnectionError = DescribeConnectionError(ex, current);
-                StatusBar.Status = LastConnectionError;
+                Toasts.Error(LastConnectionError);
                 bool isAuth = ex is VelaSshAuthenticationException;
 
                 // 认证失败但无法交互重试(headless):保持既有契约,撤标签、返回 null。
@@ -3331,7 +3412,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                 }
                 // 用户自己点了"不信任",原因他清楚 —— 再弹一扇框只是复述他刚做的决定。
                 LastConnectionError = certificate.Message;
-                StatusBar.Status = LastConnectionError;
+                Toasts.Error(LastConnectionError);
                 return null;
             }
             catch (VelaFtpAuthenticationException auth)
@@ -3459,7 +3540,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                 }
                 // 用户自己点了"不信任",原因他清楚 —— 再弹一扇框只是复述他刚做的决定。
                 LastConnectionError = certificate.Message;
-                StatusBar.Status = LastConnectionError;
+                Toasts.Error(LastConnectionError);
                 return null;
             }
             catch (PluginProtocolAuthenticationException auth)
@@ -3525,7 +3606,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
             // 与 SSH 同口径:标签留着,失败原因画在标签页内的覆盖层上(设计 yxjmg),
             // 用户按 Enter 即重连 —— 撤掉标签会连带把错误信息一起吞掉。
             LastConnectionError = DescribeConnectionError(ex, profile);
-            StatusBar.Status = LastConnectionError;
+            Toasts.Error(LastConnectionError);
             tab.MarkConnectionFailed(LastConnectionError);
             return tab;
         }
@@ -3539,7 +3620,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         AppSettings settings,
         CancellationToken cancellationToken)
     {
-        TerminalType terminalType = TerminalTypeExtensions.FromTermName(settings.TerminalType);
+        TerminalType terminalType = TerminalTypeExtensions.FromTermName(SessionTerminalSettings.TerminalType(profile, settings));
         // 初始行列取模拟器当前值:标签刚建出来还没布局过时它是默认值,
         // 真实尺寸随后由控件的 Resize 通知补上(Telnet 会重发一次 NAWS)。
         var options = new ProtocolTerminalOptions(
@@ -3592,7 +3673,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         catch (Exception ex)
         {
             LastConnectionError = DescribeConnectionError(ex, profile);
-            StatusBar.Status = LastConnectionError;
+            Toasts.Error(LastConnectionError);
             tab.MarkConnectionFailed(LastConnectionError);
         }
     }
@@ -3698,7 +3779,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                 }
                 // 用户自己点了"不信任",原因他清楚 —— 再弹一扇框只是复述他刚做的决定。
                 LastConnectionError = certificate.Message;
-                StatusBar.Status = LastConnectionError;
+                Toasts.Error(LastConnectionError);
                 return null;
             }
             catch (PluginProtocolAuthenticationException auth)
@@ -4106,7 +4187,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     {
         string message = DescribeConnectionError(ex, profile);
         LastConnectionError = message;
-        StatusBar.Status = message;
+        Toasts.Error(message);
         if (ConnectionFailureReporter is not { } report)
         {
             return;
@@ -4140,7 +4221,13 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         // 所有连接错误都掉进兜底文案。派生类型必须排在基类型前面。
         return ex switch
         {
-            VelaSshAuthenticationException => $"{Strings.Format("Msg_AuthFailed", target)}\n{detail}",
+            // 认证失败时补一句两步验证的说明。原文案直接断言"用户名、密码或密钥不正确",
+            // 而服务器只放行 keyboard-interactive(2FA / OTP)时这句是**错的** ——
+            // 凭据没问题,是本版根本不会那套认证:底层 Tmds.Ssh 0.24 的凭据类型只有
+            // 密码 / 私钥 / 证书 / Kerberos / ssh-agent / 无,程序集里连 "keyboard-interactive"
+            // 这个方法名都不存在(有 "publickey")。用户按错文案去反复改密码,永远改不对。
+            VelaSshAuthenticationException =>
+                $"{Strings.Format("Msg_AuthFailed", target)}\n{Strings.Get("Msg_AuthFailedTwoFactorHint")}\n{detail}",
             // TimeoutException 来自 SshConnectionService:底层库内部超时(调用方并未取消)时它对外
             // 统一抛这个类型。不列进来的话真超时会掉进兜底文案,显示一句英文原始消息。
             VelaSshOperationTimeoutException or TimeoutException => Strings.Format("Msg_ConnectTimeout", target),
@@ -4172,7 +4259,8 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         ITerminalEmulator emulator,
         AppSettings settings,
         TerminalType terminalType,
-        bool forceUtf8 = false
+        bool forceUtf8 = false,
+        SessionProfile? profile = null
     )
     {
         if (emulator is VelaTerminalControl control)
@@ -4185,7 +4273,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
             control.FontSizeChanged -= OnTerminalFontSizeChanged;
             control.FontSizeChanged += OnTerminalFontSizeChanged;
         }
-        ApplyLiveTerminalSettings(emulator, settings, forceUtf8);
+        ApplyLiveTerminalSettings(emulator, settings, forceUtf8, profile);
     }
 
     /// <summary>
@@ -4277,90 +4365,17 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     }
 
     /// <summary>
-    /// 把设置里的裸字体族名解析为可寻址的 FontFamily 名:内置字体(随程序分发,
-    /// fonts:VelaShell 集合)必须带集合 URI 前缀才能被字体管理器命中,系统字体名原样返回。
-    /// 这使设置页的自由文本框既能填 "Cascadia Mono" 这类内置族,也能填任意系统字体。
-    /// </summary>
-    private static string ResolveTerminalFontFamily(string name) =>
-        name is "Cascadia Mono"
-            ? $"fonts:VelaShell#{name}"
-            : name;
-
-    /// <summary>
     /// 可在活动会话上安全更改的设置:回滚深度、字体、字号、主机输出编码以及完整的
     /// 终端行为/配色选项集。在标签创建时应用,并每次保存设置后重新应用到所有已打开的标签(#3/#15/#21)。
     /// </summary>
     private void ApplyLiveTerminalSettings(
         ITerminalEmulator emulator,
         AppSettings settings,
-        bool forceUtf8 = false
-    )
-    {
-        emulator.ScrollbackLines = settings.ScrollbackLines;
-        if (emulator is not VelaTerminalControl control)
-        {
-            return;
-        }
-        // 本地终端(ConPTY)输出恒为 UTF-8,不套用面向远端主机的编码设置。
-        control.SetEncoding(forceUtf8 ? Encoding.UTF8 : ResolveEncoding(settings.TerminalEncoding));
-        if (!string.IsNullOrWhiteSpace(settings.TerminalFont))
-        {
-            control.FontFamily = new(
-                $"{ResolveTerminalFontFamily(settings.TerminalFont.Trim())}, fonts:VelaShell#Cascadia Mono, JetBrains Mono, Consolas, monospace"
-            );
-        }
-        if (settings.TerminalFontSize > 0)
-        {
-            control.FontSize = settings.TerminalFontSize;
-        }
-        // 背景图开启时,终端控件自绘填充置全透明(不画背景),终端 tint 改由 TerminalHost 边框单层承担
-        // (VelaBgTerminal 令牌半透明,MainWindow 负责)。若这里仍按不透明度上色,会与该边框两层叠加、
-        // 保存后终端又变得几乎不透明。未开启背景图则恒为不透明(行为不变)。
-        bool backgroundImageActive = !string.IsNullOrWhiteSpace(settings.Appearance.BackgroundImagePath);
-        control.BackgroundOpacity = backgroundImageActive ? 0.0 : 1.0;
-        TerminalBehaviorOptions behavior = settings.TerminalBehavior;
-        control.LineHeight = behavior.LineHeight;
-        control.ContentPadding = behavior.Padding;
-        control.CursorStyle = behavior.CursorStyle;
-        control.CursorBlink = behavior.CursorBlink;
-        control.BellMode = behavior.BellMode;
-        control.AllowRemoteClipboardWrite = behavior.AllowRemoteClipboardWrite;
-        control.ScrollOnOutput = behavior.ScrollOnOutput;
-        control.ShowLineTimestamp = behavior.ShowLineTimestamp;
-        control.ShowLineNumber = behavior.ShowLineNumber;
-        control.ShowFoldMarker = behavior.ShowFoldMarker;
-        control.GutterBlank = behavior.GutterBlank;
-        control.GutterMenu = new(
-            Strings.Get("Gutter_LineNumber"),
-            Strings.Get("Gutter_Timestamp"),
-            Strings.Get("Gutter_FoldMarker"),
-            Strings.Get("Gutter_Blank")
-        );
-        control.ScrollOnKeystroke = behavior.ScrollOnKeystroke;
-        control.CopyOnSelect = behavior.CopyOnSelect;
-        control.RightClickPaste = behavior.RightClickPaste;
-        control.TrimTrailingWhitespaceOnCopy = behavior.TrimTrailingWhitespaceOnCopy;
-        control.DoubleClickSelectsWord = behavior.DoubleClickSelectsWord;
-        control.ConfirmMultilinePaste = behavior.ConfirmMultilinePaste;
-        control.MultilinePasteConfirmation = MultilinePasteConfirmer;
-        control.CtrlCCopiesWhenSelected = behavior.CtrlCCopiesWhenSelected;
-        control.ImeEnabled = behavior.ImeSupport;
-        control.LocalEchoEnabled = behavior.LocalEcho;
-
-        // 现有两种传输的对端都自己回显:SSH 是远端 PTY,本地终端是 ConPTY 里的 shell。
-        // 因此这两类标签上强制忽略「本地回显」开关 —— 否则用户为串口设备打开它之后,
-        // 所有 SSH 与本地标签都会变成每个字符两遍。
-        // 将来接入 Telnet 半双工 / 串口时,在此按传输置 false,让它们走正常逻辑。
-        // (主机显式 CSI 12 l 要求终端回显时仍然生效,不受本项影响。)
-        control.PeerEchoesInput = true;
-
-        // 当前具名主题配套的整套终端配色(VelaDark→Dracula、Nord→Nord…),
-        // 再叠上用户自定义的那几个单色(没改过的颜色一律跟随主题)。
-        control.ThemePalette = TerminalAppearanceMapper.BuildThemePalette(ActiveUiTheme.Terminal);
-        control.PaletteOverrides = TerminalAppearanceMapper.BuildPaletteOverrides(
-            settings.Appearance
-        );
-    }
+        bool forceUtf8 = false,
+        SessionProfile? profile = null
+    ) =>
+        TerminalSettingsApplier.Apply(
+            emulator, settings, ActiveUiTheme, forceUtf8, profile, MultilinePasteConfirmer);
 
     /// <summary>
     /// 当前实际生效的界面主题:「跟随系统」按应用的实际变体落到 VelaDark / VelaLight。
@@ -4386,7 +4401,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     /// </summary>
     public void ApplyTerminalBackgroundOpacityToAllTabs(double opacity)
     {
-        foreach (TerminalTabViewModel tab in TabBar.Tabs.OfType<TerminalTabViewModel>())
+        foreach (TerminalTabViewModel tab in TerminalTabs)
         {
             if (tab.TerminalEmulator.Control is VelaTerminalControl control)
             {
@@ -4405,6 +4420,9 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
             {
                 ApplyShellPreferences(settings);
                 ApplyLiveSettingsToOpenTabs(settings);
+                // 采样间隔改了要当场生效,而不是等下次启动 —— 用户调它多半正是因为
+                // 现在这个频率让远端不好受。
+                _statusMetrics.ConfiguredIntervalSeconds = settings.General.StatusMetricsIntervalSeconds;
 
                 // 已打开的文件浏览器同步最新的传输选项(冲突策略/并发/带宽等)与
                 // “显示隐藏文件”状态(设置审计 C-04:设置中心与工具栏共用一个来源)。
@@ -4581,27 +4599,60 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     /// <summary>把一份设置应用到所有已打开的终端标签(保存与外观预览共用)。</summary>
     private void ApplyLiveSettingsToOpenTabs(AppSettings settings)
     {
-        foreach (TerminalTabViewModel tab in TabBar.Tabs.OfType<TerminalTabViewModel>())
+        foreach (TerminalTabViewModel tab in TerminalTabs)
         {
-            ApplyLiveTerminalSettings(tab.TerminalEmulator, settings, tab.LocalShell is not null);
+            ApplyLiveTerminalSettings(tab.TerminalEmulator, settings, tab.LocalShell is not null, tab.Profile);
         }
     }
 
-    private static Encoding ResolveEncoding(string? name)
+    /// <summary>当前挂着选区计数的控件(切标签时要先摘掉旧的,否则事件会累加)。</summary>
+    private VelaTerminalControl? _selectionCounterSource;
+
+    /// <summary>把状态栏的选区计数改挂到当前活动标签的终端控件上。</summary>
+    private void RebindSelectionCounter()
     {
-        if (string.IsNullOrWhiteSpace(name))
+        if (_selectionCounterSource is { } previous)
         {
-            return Encoding.UTF8;
+            previous.SelectionChanged -= OnActiveSelectionChanged;
         }
-        try
+        _selectionCounterSource = ActiveTerminalControl;
+        if (_selectionCounterSource is { } current)
         {
-            return Encoding.GetEncoding(name);
+            current.SelectionChanged += OnActiveSelectionChanged;
         }
-        catch (ArgumentException)
-        {
-            return Encoding.UTF8;
-        }
+        // 切过去的标签可能本来就带着选区,先同步一次当前值。
+        StatusBar.SelectionLength = 0;
     }
+
+    private void OnActiveSelectionChanged(int length) => StatusBar.SelectionLength = length;
+
+    /// <summary>
+    /// 把活动标签的编码当场换掉(状态栏的编码菜单)。
+    /// </summary>
+    /// <remarks>
+    /// 只作用于当前会话、不写回设置:用户点这个菜单多半是在试"这台机器到底是 GBK 还是
+    /// UTF-8",一次试错不该改掉所有新会话的默认值。想固化就去设置里改。
+    /// </remarks>
+    private void ChangeActiveTabEncoding(string name)
+    {
+        if (ActiveTerminalTab is not { } tab || ActiveTerminalControl is not { } control)
+        {
+            return;
+        }
+        control.SetEncoding(TerminalSettingsApplier.ResolveEncoding(name));
+        tab.EncodingName = name;
+        StatusBar.Encoding = name;
+    }
+
+    /// <summary>
+    /// 当前会话使用的文本编码:活动标签自己的编码优先,其次是全局设置,都没有就是 UTF-8。
+    /// </summary>
+    /// <remarks>
+    /// 内置远程编辑器用它做"UTF-8 解不通时回落到什么"。连 GBK 服务器的人,
+    /// 服务器上的文本文件多半也是 GBK —— 会话编码就是现成的、最靠谱的那个答案。
+    /// </remarks>
+    public Encoding ActiveSessionEncoding =>
+        TerminalSettingsApplier.ResolveEncoding(ActiveTerminalTab?.EncodingName ?? _latestSettings?.TerminalEncoding);
 
     /// <summary>
     /// 将当前活动终端标签的连接详情投射到状态栏中,使左下角的指示器始终反映用户正在看的标签。
@@ -4631,6 +4682,12 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     private void UpdateStatusBarForActiveTab()
     {
         TerminalTabViewModel? tab = ActiveTerminalTab;
+        Sidebar.ActiveIdentity = ResolveActiveIdentity(tab);
+        // 读屏器读到的终端名字:与侧栏底部显示的身份同源,于是"听到的"与"看到的"一致。
+        if (ActiveTerminalControl is { } accessible)
+        {
+            accessible.AccessibleName = ResolveActiveIdentity(tab) ?? tab?.Title;
+        }
         if (tab is null)
         {
             StatusBar.Status = Strings.Ready;
@@ -4653,32 +4710,52 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
             : string.Empty;
     }
 
+    /// <summary>
+    /// 侧边栏底部那一行显示什么身份:远端会话给 <c>用户名@主机</c>(没有用户名时只给主机),
+    /// 本地终端给本机用户名,没有活动标签就什么都不显示。
+    /// 跟着 <see cref="UpdateStatusBarForActiveTab" /> 走 —— 它已经订阅了活动标签与连接状态,
+    /// 切标签/断线都会走到,不需要第二套触发源。
+    /// </summary>
+    internal static string? ResolveActiveIdentity(TerminalTabViewModel? tab) => tab switch
+    {
+        null => null,
+        { Profile: { } profile } => string.IsNullOrWhiteSpace(profile.Username)
+            ? profile.Host
+            : $"{profile.Username}@{profile.Host}",
+        { LocalShell: not null } => Environment.UserName,
+        _ => null
+    };
+
     private void SetActiveFromDocument(DockDocument? dockDocument)
     {
-        if (dockDocument is SftpDocument or PluginWorkspaceDocument)
+        // 切到**工具面板**(AI 聊天,以及任何插件用 PanelDisplayMode.Document 开的面板)时
+        // 什么都不动:它不改变"我在哪台机器上"。
+        //
+        // 曾经这里写的是"不是终端文档就清空活动标签、收起文件浏览器",于是点一下 AI 面板
+        // 状态栏整个空掉、文件浏览器凭空消失,点回终端才回来 —— 而用户开着它就是要它一直在。
+        // 判据改成文档自己声明的 IsSessionDocument,新增文档类型时不必再回来改这里
+        // (那张白名单正是上一次踩坑的原因)。
+        if (dockDocument is not null && !dockDocument.IsSessionDocument)
+        {
+            return;
+        }
+        // 到这里要么是会话文档,要么一个文档都没剩 —— 两种情况下"当前终端"都换人了。
+        if (dockDocument is not TerminalDocument document)
         {
             ActiveTerminalTab = null;
             UpdateStatusBarForActiveTab();
-            // 用空白占位替换底部文件浏览器,使网格行塌缩;
-            // 终端的浏��器保留在 _fileBrowserCache 中,保持其真实的 IsVisible 状态。
             if (FileBrowser.SessionId != Guid.Empty || FileBrowser.IsVisible)
             {
+                // 用空白占位替换底部文件浏览器,使网格行塌缩;
+                // 终端的浏览器保留在 _fileBrowserCache 中,保持其真实的 IsVisible 状态。
                 FileBrowser = CreatePlaceholderFileBrowser();
             }
             return;
         }
-        if (
-            dockDocument is not TerminalDocument document
-            || !TabBar.Tabs.Contains(document.Terminal)
-        )
-        {
-            return;
-        }
+        // 这里就是"活动终端标签"的**唯一**赋值处:停靠布局说哪个文档活着,哪个就活着。
+        // 原先还要反手把 TabBar.ActiveTab 也设一遍(并且防着回环),那份平行状态已经拆掉。
         ActiveTerminalTab = document.Terminal;
-        if (!ReferenceEquals(TabBar.ActiveTab, document.Terminal))
-        {
-            TabBar.ActiveTab = document.Terminal;
-        }
+        document.Terminal.HasBellAlert = false; // 切到该标签即清除 Bell 提醒
         RebindFileBrowser();
     }
 
@@ -4774,33 +4851,10 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         await Task.WhenAll(closeTasks);
     }
 
-    /// <summary>
-    /// TabBar → 工作区反向同步:Ctrl+Tab / Ctrl+Shift+Tab 走 TabBar 的逻辑集合切换标签,
-    /// 文档区必须跟着切到对应文档(原 Dock 集成缺这半边,快捷键切标签时画面不动)。
-    /// </summary>
-    private void SyncWorkspaceToActiveTab(TerminalTabViewModel? tab)
-    {
-        if (tab is null)
-        {
-            return;
-        }
-        TerminalDocument? document = Layout
-            .AllDocuments()
-            .OfType<TerminalDocument>()
-            .FirstOrDefault(d => ReferenceEquals(d.Terminal, tab));
-        if (document is not null && !ReferenceEquals(Layout.ActiveDocument, document))
-        {
-            Layout.ActivateDocument(document);
-        }
-    }
 
     private void OnDocumentClosed(TerminalDocument document)
     {
         TerminalTabViewModel tab = document.Terminal;
-        if (TabBar.Tabs.Contains(tab))
-        {
-            TabBar.CloseTabCommand.Execute(tab).Subscribe();
-        }
         StopSessionLogging(tab);
         CloseSftpForTab(tab);
         tab.Dispose();
@@ -4809,7 +4863,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
 
         // 关闭标签不会再触发 ConnectionStatus 变更(已 Dispose),这里按剩下的标签重算
         // 树上的状态:同配置还有其他标签时取它们的合并状态,一个不剩才回到未连接。
-        // 标签从标签栏移除时 OnTabsCollectionChanged 已经算过一次,这里是幂等兜底
+        // 文档离开工作区时 SyncTabSubscriptions 已经算过一次,这里是幂等兜底
         // ——文档关闭时标签可能已经不在标签栏里了。
         if (tab.Profile is { Id: var profileId } && profileId != Guid.Empty)
         {

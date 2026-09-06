@@ -69,6 +69,14 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
     private string _tagsText = string.Empty;
     private string _username = string.Empty;
 
+    // ---- 会话级终端覆盖项(F-06);null / -1 = 跟随全局 ----
+    private string? _overrideEncoding;
+    private string? _overrideTerminalType;
+    private string? _overrideColorScheme;
+    private string? _overrideTabColor;
+    private string? _overrideStartupDirectory;
+    private int _overrideKeepAliveSeconds = -1;
+
     // ---- 插件协议 ----
     private readonly PluginProtocolRegistry? _protocolRegistry;
     private string? _pluginProtocolId;
@@ -152,6 +160,15 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
             _pluginProtocolId = existing.PluginProtocolId;
             _pluginStored = existing.PluginSettings;
             _pluginStoredSecrets = existing.PluginSecrets;
+            if (existing.Terminal is { } overrides)
+            {
+                _overrideEncoding = overrides.Encoding;
+                _overrideTerminalType = overrides.TerminalType;
+                _overrideColorScheme = overrides.ColorScheme;
+                _overrideTabColor = overrides.TabColor;
+                _overrideStartupDirectory = overrides.StartupDirectory;
+                _overrideKeepAliveSeconds = overrides.KeepAliveSeconds ?? -1;
+            }
         }
         else
         {
@@ -492,6 +509,7 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
             // 下拉形态下当前值与选中项是同一件事;不补这一发,程序化改 Host
             // (读入既有配置、刷新后归位)时下拉显示的还是上一项。
             this.RaisePropertyChanged(nameof(SelectedHostChoice));
+            this.RaisePropertyChanged(nameof(HostError));
         }
     }
 
@@ -499,14 +517,22 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
     public int Port
     {
         get => _port;
-        set => this.RaiseAndSetIfChanged(ref _port, value);
+        set
+        {
+            this.RaiseAndSetIfChanged(ref _port, value);
+            this.RaisePropertyChanged(nameof(PortError));
+        }
     }
 
     /// <summary>登录用户名。</summary>
     public string Username
     {
         get => _username;
-        set => this.RaiseAndSetIfChanged(ref _username, value);
+        set
+        {
+            this.RaiseAndSetIfChanged(ref _username, value);
+            this.RaisePropertyChanged(nameof(UsernameError));
+        }
     }
 
     /// <summary>认证方式(密码或私钥);变更时同步刷新 <see cref="AuthMethodIndex" />。</summary>
@@ -517,6 +543,7 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
         {
             this.RaiseAndSetIfChanged(ref _authMethod, value);
             this.RaisePropertyChanged(nameof(AuthMethodIndex));
+            this.RaisePropertyChanged(nameof(PrivateKeyPathError));
         }
     }
 
@@ -538,7 +565,65 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
     public string? PrivateKeyPath
     {
         get => _privateKeyPath;
-        set => this.RaiseAndSetIfChanged(ref _privateKeyPath, value);
+        set
+        {
+            this.RaiseAndSetIfChanged(ref _privateKeyPath, value);
+            this.RaisePropertyChanged(nameof(PrivateKeyPathError));
+        }
+    }
+
+    // ---- 逐字段的内联校验 ----
+    //
+    // 保存 / 连接 / 测试三个按钮本来就按"主机非空 + 用户名非空 + 端口范围"灰着,
+    // 但用户只看到按钮点不动,看不到**为什么** —— 尤其端口这种要退到 1-65535 才亮的。
+    // 这几条把原因写在字段下方。注意它们只负责"说清楚",按钮的可用性判定仍在
+    // 构造函数里那条 canExecute 上,不在这里重复一遍逻辑。
+
+    /// <summary>主机为空时的提示;没问题为 null。</summary>
+    public string? HostError =>
+        string.IsNullOrWhiteSpace(Host) ? Strings.Get("Profile_ErrHostRequired") : null;
+
+    /// <summary>端口越界时的提示;没问题为 null。</summary>
+    public string? PortError =>
+        Port is >= 1 and <= 65535 ? null : Strings.Get("Profile_ErrPortRange");
+
+    /// <summary>
+    /// 用户名为空时的提示;没问题(或本连接类型允许匿名)为 null。
+    /// </summary>
+    public string? UsernameError =>
+        !string.IsNullOrWhiteSpace(Username)
+        || (ConnectionType == ConnectionType.FTP && FtpAnonymous)
+        || (ConnectionType == ConnectionType.Plugin && (AllowsAnonymous || PluginUnavailable))
+            ? null
+            : Strings.Get("Profile_ErrUserRequired");
+
+    /// <summary>
+    /// 私钥文件不存在时的提示;没问题为 null。
+    /// </summary>
+    /// <remarks>
+    /// 这一条是**新增的校验**,不只是把已有门槛写出来:填错私钥路径原先要等到连接失败、
+    /// 从一句笼统的认证错误里猜。只在密钥认证且填了路径时才判 —— 空路径的含义是
+    /// "用默认密钥",不是错误。
+    /// </remarks>
+    public string? PrivateKeyPathError =>
+        AuthMethod == AuthMethod.PrivateKey
+        && !string.IsNullOrWhiteSpace(PrivateKeyPath)
+        && !FileExistsSafe(PrivateKeyPath)
+            ? Strings.Get("Profile_ErrKeyMissing")
+            : null;
+
+    private static bool FileExistsSafe(string path)
+    {
+        try
+        {
+            return File.Exists(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            // 路径非法或不可访问:当作"存在",把判断留给真正的连接过程 ——
+            // 在这里报错反而会挡住用了特殊路径(UNC、符号链接)的用户。
+            return true;
+        }
     }
 
     /// <summary>私钥口令(私钥受密码保护时使用)。</summary>
@@ -711,6 +796,100 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
     /// 而 SFTP / FTP / 对象存储这些连接根本没有终端,摆一个永远不会执行的输入框只会骗人。
     /// </summary>
     public bool SupportsPostAuthCommand => ConnectionType == ConnectionType.SSH;
+
+    // ---- 会话级终端覆盖项(F-06) ----
+
+    /// <summary>
+    /// 「跟随全局」在各下拉里的占位项。
+    /// </summary>
+    /// <remarks>
+    /// 下拉不能只放具体取值:那样用户一旦选过就再也回不到"跟随全局",而清空一个
+    /// <c>ComboBox</c> 在界面上并不是一个显而易见的动作。显式给一项,选它即写回 null。
+    /// </remarks>
+    public string FollowGlobalOption { get; } = Strings.Get("Profile_FollowGlobal");
+
+    /// <summary>可选编码,首项为「跟随全局」。</summary>
+    public string[] EncodingOptions { get; } = [Strings.Get("Profile_FollowGlobal"), .. TerminalEncodings.All];
+
+    /// <summary>可选终端类型,首项为「跟随全局」。</summary>
+    public string[] TerminalTypeOptions { get; } =
+        [Strings.Get("Profile_FollowGlobal"), "xterm-256color", "xterm", "vt220", "vt100", "linux"];
+
+    /// <summary>可选配色方案,首项为「跟随全局」。</summary>
+    public string[] ColorSchemeOptions { get; } =
+        [Strings.Get("Profile_FollowGlobal"), .. TerminalColorScheme.BuiltIn.Select(scheme => scheme.Name)];
+
+    /// <summary>会话级编码覆盖;「跟随全局」= 不覆盖。</summary>
+    public string OverrideEncoding
+    {
+        get => _overrideEncoding ?? FollowGlobalOption;
+        set => this.RaiseAndSetIfChanged(ref _overrideEncoding, Normalize(value));
+    }
+
+    /// <summary>会话级终端类型覆盖;「跟随全局」= 不覆盖。</summary>
+    public string OverrideTerminalType
+    {
+        get => _overrideTerminalType ?? FollowGlobalOption;
+        set => this.RaiseAndSetIfChanged(ref _overrideTerminalType, Normalize(value));
+    }
+
+    /// <summary>会话级配色方案覆盖;「跟随全局」= 不覆盖。</summary>
+    public string OverrideColorScheme
+    {
+        get => _overrideColorScheme ?? FollowGlobalOption;
+        set => this.RaiseAndSetIfChanged(ref _overrideColorScheme, Normalize(value));
+    }
+
+    /// <summary>
+    /// 标签页颜色(<c>#RRGGBB</c>);留空 = 按配置 id 自动配色。
+    /// </summary>
+    /// <remarks>
+    /// 「生产标红、测试标绿」是运维最常提的诉求,而自动配色恰恰保证同一批机器颜色各不相同 ——
+    /// 两个目标没法用同一套规则同时满足。
+    /// </remarks>
+    public string? OverrideTabColor
+    {
+        get => _overrideTabColor;
+        set => this.RaiseAndSetIfChanged(ref _overrideTabColor, value);
+    }
+
+    /// <summary>登录后自动切换到的目录;留空 = 不切换。</summary>
+    public string? OverrideStartupDirectory
+    {
+        get => _overrideStartupDirectory;
+        set => this.RaiseAndSetIfChanged(ref _overrideStartupDirectory, value);
+    }
+
+    /// <summary>
+    /// 会话级保活心跳间隔(秒);<c>-1</c> = 跟随全局。
+    /// </summary>
+    /// <remarks>
+    /// 用 <c>-1</c> 而不是 null 表示"跟随",是因为承载它的是 <c>NumericUpDown</c> ——
+    /// 那个控件的空值语义已经被 <c>NumericInputGuard</c> 占去表示"正在输入中",
+    /// 再让它兼表"跟随全局"就分不清了。<c>-1</c> 在界面上显示为最小值旁的一格,
+    /// 提示文字说明它的含义。
+    /// </remarks>
+    public int OverrideKeepAliveSeconds
+    {
+        get => _overrideKeepAliveSeconds;
+        set => this.RaiseAndSetIfChanged(
+            ref _overrideKeepAliveSeconds,
+            Math.Clamp(value, FollowGlobalKeepAlive, TerminalOverrides.MaxKeepAliveSeconds));
+    }
+
+    /// <summary>保活输入框里代表「跟随全局」的哨兵值。</summary>
+    /// <remarks>同 <see cref="MaxPostAuthCommandDelaySeconds" />:编译绑定只解析实例成员。</remarks>
+    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "XAML 绑定只解析实例成员。")]
+    public int FollowGlobalKeepAlive => -1;
+
+    /// <summary>保活输入框的上限,供界面绑定。</summary>
+    /// <remarks>同上,不能写成 static,否则 <c>Maximum</c> 会静默绑空、上限消失。</remarks>
+    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "XAML 绑定只解析实例成员。")]
+    public int MaxKeepAliveSeconds => TerminalOverrides.MaxKeepAliveSeconds;
+
+    /// <summary>下拉选中「跟随全局」时归一化为 null。</summary>
+    private string? Normalize(string? value) =>
+        string.IsNullOrWhiteSpace(value) || value == FollowGlobalOption ? null : value;
 
     /// <summary>
     /// FTP / FTPS 连上后远程面板默认打开的目录(高级选项);留空 = 沿用登录工作目录。
@@ -1027,8 +1206,28 @@ public class ConnectionProfileViewModel : ReactiveObject, IDisposable
             PluginSettings = ConnectionType == ConnectionType.Plugin ? CollectPluginValues(secrets: false) : null,
             // 机密与非机密分成两个字典:仓储层在落盘那一刻并不知道某个协议哪些字段是机密
             // (那在插件里),分开存才能做到「机密永远加密」这条不依赖任何查表的硬保证。
-            PluginSecrets = ConnectionType == ConnectionType.Plugin ? CollectPluginValues(secrets: true) : null
+            PluginSecrets = ConnectionType == ConnectionType.Plugin ? CollectPluginValues(secrets: true) : null,
+            // 会话级终端覆盖(F-06)。一项都没设时整个对象存 null,而不是一个全空对象:
+            // 后者会让"有没有覆盖"这件事有了两种表示,也给每条老配置的 JSON 平白多一段。
+            Terminal = BuildTerminalOverrides()
         };
+    }
+
+    /// <summary>把界面上的六个覆盖项收成一个对象;一项都没设时返回 null。</summary>
+    private TerminalOverrides? BuildTerminalOverrides()
+    {
+        TerminalOverrides overrides = new()
+        {
+            Encoding = _overrideEncoding,
+            TerminalType = _overrideTerminalType,
+            ColorScheme = _overrideColorScheme,
+            TabColor = string.IsNullOrWhiteSpace(_overrideTabColor) ? null : _overrideTabColor.Trim(),
+            StartupDirectory = string.IsNullOrWhiteSpace(_overrideStartupDirectory)
+                ? null
+                : _overrideStartupDirectory.Trim(),
+            KeepAliveSeconds = _overrideKeepAliveSeconds < 0 ? null : _overrideKeepAliveSeconds
+        };
+        return overrides.IsEmpty ? null : overrides;
     }
 
     /// <summary>

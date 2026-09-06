@@ -91,7 +91,7 @@ public sealed class InteractiveAuthFlowTests
 
         // 重试用尽后保留失败标签,标签页内显示“连接失败”覆盖层(设计 yxjmg),不再销毁标签。
         Assert.IsNotNull(tab);
-        Assert.HasCount(1, vm.TabBar.Tabs);
+        Assert.HasCount(1, vm.TerminalTabs);
         Assert.AreEqual(SessionStatus.Disconnected, tab.ConnectionStatus);
         Assert.IsTrue(tab.ShowDisconnectedOverlay);
         Assert.IsTrue(tab.HasConnectionError);
@@ -101,6 +101,12 @@ public sealed class InteractiveAuthFlowTests
         // 比对本地化资源而非中文字面量:该文案随 UI 语言变化,写死会让测试只在中文环境通过。
         // 提示后面还会换行附上底层库给出的具体原因(DescribeConnectionError 有意为之,便于用户诊断),
         // 所以断言的是「本地化文案 + \n + 原因」,不是裸文案。
-        Assert.AreEqual($"{Strings.Format("Msg_AuthFailed", "root@h:22")}\ndenied", vm.LastConnectionError);
+        // 中间那一句是两步验证说明(F-11):本版不会 keyboard-interactive,而原文案会把
+        // 那种失败说成"密码不对",把用户引向一条永远改不对的路。
+        Assert.AreEqual(
+            $"{Strings.Format("Msg_AuthFailed", "root@h:22")}"
+            + $"\n{Strings.Get("Msg_AuthFailedTwoFactorHint")}"
+            + "\ndenied",
+            vm.LastConnectionError);
     }
 }

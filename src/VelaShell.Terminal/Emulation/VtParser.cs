@@ -71,6 +71,19 @@ public sealed class VtParser(IVtActions actions)
         for (int i = 0; i < text.Length; i++)
         {
             char c = text[i];
+            // Ground 态的可打印 ASCII 走批量快路径:向前扫到下一个非此类字符为止,整段一次交出。
+            // 纯文本洪流(编译日志、cat 大文件)里这一段就是全部,逐字符分发纯属白跑。
+            // VT52 的文法不同(它自有一条 ConsumeVt52 路径),不参与。
+            if (_state == State.Ground && !Vt52Mode && IsPrintableAscii(c))
+            {
+                int start = i;
+                while (i + 1 < text.Length && IsPrintableAscii(text[i + 1]))
+                {
+                    i++;
+                }
+                actions.PrintRun(text[start..(i + 1)]);
+                continue;
+            }
             if (char.IsHighSurrogate(c) && i + 1 < text.Length && char.IsLowSurrogate(text[i + 1]))
             {
                 Consume(char.ConvertToUtf32(c, text[i + 1]));
@@ -82,6 +95,16 @@ public sealed class VtParser(IVtActions actions)
             }
         }
     }
+
+    /// <summary>
+    /// 可打印 ASCII:<c>0x20</c>(空格)到 <c>0x7E</c>(~)。
+    /// </summary>
+    /// <remarks>
+    /// 上界刻意排除 <c>0x7F</c>(DEL)—— 它是控制字符,走 <c>Execute</c>;
+    /// 下界排除 C0。这个区间里没有代理对、没有组合标记、没有宽字符,
+    /// 所以批量路径可以当作"n 个单宽格"处理。
+    /// </remarks>
+    private static bool IsPrintableAscii(char c) => c is >= (char)0x20 and <= (char)0x7E;
 
     /// <summary>把一段已解码的终端输出喂入状态机,分发对应动作。</summary>
     public void Parse(string text) => Parse(text.AsSpan());

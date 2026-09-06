@@ -1349,15 +1349,7 @@ public class FileBrowserViewModel : ReactiveObject
         {
             return;
         }
-        if (SortColumn == column)
-        {
-            SortDescending = !SortDescending;
-        }
-        else
-        {
-            SortColumn = column;
-            SortDescending = false;
-        }
+        (SortColumn, SortDescending) = RemoteFileSort.NextSortState(column, SortColumn, SortDescending);
         this.RaisePropertyChanged(nameof(NameSortGlyph));
         this.RaisePropertyChanged(nameof(SizeSortGlyph));
         this.RaisePropertyChanged(nameof(PermissionsSortGlyph));
@@ -1374,15 +1366,14 @@ public class FileBrowserViewModel : ReactiveObject
     /// </summary>
     private void RebuildVisibleFiles()
     {
-        IEnumerable<RemoteFileInfoViewModel> visible = _allFiles.Where(f =>
-            ShowHiddenFiles || !f.Name.StartsWith('.')
-        );
+        IEnumerable<RemoteFileInfoViewModel> visible =
+            RemoteFileSort.ApplyHiddenFilter(_allFiles, ShowHiddenFiles);
         var rebuilt = new List<RemoteFileInfoViewModel>();
         if (CurrentPath != "/")
         {
-            rebuilt.Add(RemoteFileInfoViewModel.CreateParentEntry(ParentOf(CurrentPath)));
+            rebuilt.Add(RemoteFileInfoViewModel.CreateParentEntry(RemotePath.Parent(CurrentPath)));
         }
-        foreach (RemoteFileInfoViewModel file in SortFiles(visible))
+        foreach (RemoteFileInfoViewModel file in RemoteFileSort.Sort(visible, SortColumn, SortDescending))
         {
             rebuilt.Add(file);
         }
@@ -1400,49 +1391,6 @@ public class FileBrowserViewModel : ReactiveObject
         {
             SelectedFiles.Add(file);
         }
-    }
-
-    /// <summary>
-    /// 按当前列与方向给行排序,目录始终分组在最前
-    /// (目录的大小无意义,混入大小排序会导致归到奇怪的位置)。
-    /// </summary>
-    private IEnumerable<RemoteFileInfoViewModel> SortFiles(
-        IEnumerable<RemoteFileInfoViewModel> items
-    )
-    {
-        IOrderedEnumerable<RemoteFileInfoViewModel> dirsFirst = items.OrderByDescending(f =>
-            f.IsDirectory
-        );
-        return SortColumn switch
-        {
-            "size" => SortDescending
-                ? dirsFirst.ThenByDescending(f => f.SizeBytes)
-                : dirsFirst.ThenBy(f => f.SizeBytes),
-            "permissions" => SortDescending
-                ? dirsFirst.ThenByDescending(f => f.Permissions, StringComparer.Ordinal)
-                : dirsFirst.ThenBy(f => f.Permissions, StringComparer.Ordinal),
-
-            // 属主/属组查得到名字时排的是名字,查不到时排的是数字 id 的字符串形式
-            // (即 "1000" 排在 "999" 前)—— 混排两种形式的价值不足以为此引入数值特判。
-            "owner" => SortDescending
-                ? dirsFirst.ThenByDescending(f => f.Owner, StringComparer.OrdinalIgnoreCase)
-                : dirsFirst.ThenBy(f => f.Owner, StringComparer.OrdinalIgnoreCase),
-            "group" => SortDescending
-                ? dirsFirst.ThenByDescending(f => f.Group, StringComparer.OrdinalIgnoreCase)
-                : dirsFirst.ThenBy(f => f.Group, StringComparer.OrdinalIgnoreCase),
-            "type" => SortDescending
-                ? dirsFirst.ThenByDescending(
-                    f => f.FileTypeDisplay,
-                    StringComparer.CurrentCultureIgnoreCase
-                )
-                : dirsFirst.ThenBy(f => f.FileTypeDisplay, StringComparer.CurrentCultureIgnoreCase),
-            "modified" => SortDescending
-                ? dirsFirst.ThenByDescending(f => f.LastModified)
-                : dirsFirst.ThenBy(f => f.LastModified),
-            _ => SortDescending
-                ? dirsFirst.ThenByDescending(f => f.Name, StringComparer.OrdinalIgnoreCase)
-                : dirsFirst.ThenBy(f => f.Name, StringComparer.OrdinalIgnoreCase),
-        };
     }
 
     private async Task ActivateAsync(RemoteFileInfoViewModel? file, CancellationToken ct = default)
@@ -1650,7 +1598,7 @@ public class FileBrowserViewModel : ReactiveObject
         {
             return;
         }
-        await NavigateToAsync(ParentOf(CurrentPath), ct);
+        await NavigateToAsync(RemotePath.Parent(CurrentPath), ct);
     }
 
     private async Task RefreshAsync(CancellationToken ct = default) =>
@@ -1780,7 +1728,7 @@ public class FileBrowserViewModel : ReactiveObject
             string name = Path.GetFileName(
                 localPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
             );
-            string remoteSub = CombinePath(remoteDir, name);
+            string remoteSub = RemotePath.Combine(remoteDir, name);
             await _sftpService.EnsureDirectoryAsync(_sessionId, remoteSub, ct);
             foreach (string child in Directory.EnumerateFileSystemEntries(localPath))
             {
@@ -1789,7 +1737,7 @@ public class FileBrowserViewModel : ReactiveObject
         }
         else if (File.Exists(localPath))
         {
-            string remotePath = CombinePath(remoteDir, Path.GetFileName(localPath));
+            string remotePath = RemotePath.Combine(remoteDir, Path.GetFileName(localPath));
             plan.Add(new(TransferType.Upload, localPath, remotePath));
             TransferSink?.UpdatePreparingCount(plan.Count);
         }
@@ -2278,7 +2226,7 @@ public class FileBrowserViewModel : ReactiveObject
         }
         foreach (
             string dir in plan.Where(p => p.Type == TransferType.Upload)
-                .Select(p => ParentOf(p.RemotePath))
+                .Select(p => RemotePath.Parent(p.RemotePath))
                 .Distinct()
         )
         {
@@ -2313,7 +2261,7 @@ public class FileBrowserViewModel : ReactiveObject
         CancellationToken ct
     )
     {
-        if (remoteNames.TryGetValue(ParentOf(remotePath), out HashSet<string>? names))
+        if (remoteNames.TryGetValue(RemotePath.Parent(remotePath), out HashSet<string>? names))
         {
             return names.Contains(NameOf(remotePath));
         }
@@ -2374,14 +2322,10 @@ public class FileBrowserViewModel : ReactiveObject
         CancellationToken ct
     )
     {
-        string dir = ParentOf(remotePath);
-        string name = NameOf(remotePath);
-        int dot = name.LastIndexOf('.');
-        string stem = dot > 0 ? name[..dot] : name;
-        string ext = dot > 0 ? name[dot..] : "";
-        for (int i = 1; i < 10000; i++)
+        string dir = RemotePath.Parent(remotePath);
+        foreach (string name in UniqueNames.Candidates(NameOf(remotePath)))
         {
-            string candidate = CombinePath(dir, $"{stem} ({i}){ext}");
+            string candidate = RemotePath.Combine(dir, name);
             if (!await RemoteExistsAsync(candidate, remoteNames, ct))
             {
                 if (remoteNames.TryGetValue(dir, out HashSet<string>? names))
@@ -2398,11 +2342,9 @@ public class FileBrowserViewModel : ReactiveObject
     private static string NextAvailableLocalName(string localPath)
     {
         string dir = Path.GetDirectoryName(localPath) ?? "";
-        string stem = Path.GetFileNameWithoutExtension(localPath);
-        string ext = Path.GetExtension(localPath);
-        for (int i = 1; i < 10000; i++)
+        foreach (string name in UniqueNames.Candidates(Path.GetFileName(localPath)))
         {
-            string candidate = Path.Combine(dir, $"{stem} ({i}){ext}");
+            string candidate = Path.Combine(dir, name);
             if (!File.Exists(candidate))
             {
                 return candidate;
@@ -2723,7 +2665,7 @@ public class FileBrowserViewModel : ReactiveObject
             ErrorMessage = null;
             await _sftpService.CreateDirectoryAsync(
                 _sessionId,
-                CombinePath(CurrentPath, trimmedName),
+                RemotePath.Combine(CurrentPath, trimmedName),
                 ct
             );
             await RefreshAsync(ct);
@@ -2756,7 +2698,7 @@ public class FileBrowserViewModel : ReactiveObject
             ErrorMessage = null;
             await _sftpService.CreateFileAsync(
                 _sessionId,
-                CombinePath(CurrentPath, trimmedName),
+                RemotePath.Combine(CurrentPath, trimmedName),
                 ct
             );
             await RefreshAsync(ct);
@@ -2787,7 +2729,7 @@ public class FileBrowserViewModel : ReactiveObject
         try
         {
             ErrorMessage = null;
-            string target = CombinePath(ParentOf(file.FullPath), trimmedName);
+            string target = RemotePath.Combine(RemotePath.Parent(file.FullPath), trimmedName);
             await _sftpService.RenameAsync(_sessionId, file.FullPath, target, ct);
             await RefreshAsync(ct);
         }
@@ -2859,7 +2801,7 @@ public class FileBrowserViewModel : ReactiveObject
         var failures = new List<string>();
         foreach (RemoteFileInfoViewModel item in targets)
         {
-            string dest = CombinePath(destDir, item.Name);
+            string dest = RemotePath.Combine(destDir, item.Name);
             if (dest == item.FullPath)
             {
                 continue;
@@ -2902,7 +2844,7 @@ public class FileBrowserViewModel : ReactiveObject
         {
             // 单个:提示完整目标路径(预填同目录同名,方便就地复制一份)。
             RemoteFileInfoViewModel only = targets[0];
-            string suggested = CombinePath(ParentOf(only.FullPath), only.Name);
+            string suggested = RemotePath.Combine(RemotePath.Parent(only.FullPath), only.Name);
             string? destination = await PromptForText(Strings.SftpCopyToPrompt, suggested);
             if (string.IsNullOrWhiteSpace(destination) || destination.Trim() == only.FullPath)
             {
@@ -2922,7 +2864,7 @@ public class FileBrowserViewModel : ReactiveObject
             plan =
             [
                 .. targets
-                    .Select(item => new PlannedFileTransfer(TransferType.Copy, item.FullPath, CombinePath(destDir, item.Name)))
+                    .Select(item => new PlannedFileTransfer(TransferType.Copy, item.FullPath, RemotePath.Combine(destDir, item.Name)))
                     .Where(item => item.RemotePath != item.LocalPath),
             ];
             if (plan.Count == 0)
@@ -3148,18 +3090,6 @@ public class FileBrowserViewModel : ReactiveObject
             DeleteProgressPercent = 0;
             IsLoading = false;
         }
-    }
-
-    /// <summary>Joins a directory and a leaf name into a Unix-style remote path.</summary>
-    private static string CombinePath(string directory, string name) =>
-        directory == "/" ? "/" + name : directory.TrimEnd('/') + "/" + name;
-
-    /// <summary>The parent directory of a Unix-style remote path.</summary>
-    private static string ParentOf(string path)
-    {
-        string trimmed = path.TrimEnd('/');
-        int lastSlash = trimmed.LastIndexOf('/');
-        return lastSlash <= 0 ? "/" : trimmed[..lastSlash];
     }
 
     private void ToggleVisibility() => IsVisible = !IsVisible;

@@ -7,6 +7,7 @@ using Avalonia.VisualTree;
 using ReactiveUI.Primitives;
 using VelaShell.Core.Resources;
 using VelaShell.Core.Sftp;
+using FireAndForget = VelaShell.Services.FireAndForget;
 using VelaShell.ViewModels;
 
 namespace VelaShell.Views;
@@ -283,7 +284,7 @@ public partial class LocalFilePaneView : UserControl
         e.Handled = true;
     }
 
-    private async void OnLocalDrop(object? sender, DragEventArgs e)
+    private void OnLocalDrop(object? sender, DragEventArgs e) => FireAndForget.Run(async () =>
     {
         // 先检查跨面板的远端文件拖拽(VFTP 标记)。
         string? text = e.DataTransfer.TryGetText();
@@ -328,5 +329,5 @@ public partial class LocalFilePaneView : UserControl
             }
             e.Handled = true;
         }
-    }
+});
 }

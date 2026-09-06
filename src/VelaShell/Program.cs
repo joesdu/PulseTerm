@@ -4,6 +4,7 @@ using System.Text;
 using Avalonia;
 using ReactiveUI.Avalonia;
 using VelaShell.Core.Resources;
+using VelaShell.Infrastructure.Diagnostics;
 using VelaShell.Infrastructure.Persistence;
 using VelaShell.Infrastructure.Startup;
 using VelaShell.Services;
@@ -41,6 +42,15 @@ internal static partial class Program
 
         NormalizeWorkingDirectory();
 
+        // 诊断日志要尽早挂上:它一挂,后面每一处 Trace.WriteLine 都自动落盘。
+        // 必须排在 --data-root 解析之后(日志跟着数据根走),排在异常守卫之前
+        // (守卫要往里写崩溃记录)。自己内部全 try/catch,建不出目录也不会挡启动。
+        DiagnosticLog.Initialize(new VelaShellStoragePaths().LogsDirectory);
+
+        // 启动打点的第一个点。刻意排在日志初始化之后 —— 打点本身要落进日志才有意义;
+        // 基准是进程创建时刻,所以这一点的数值里已经含了运行时初始化与 JIT 的开销。
+        StartupTrace.Mark("Main");
+
         // 启用旧代码页(GBK、Big5、Shift_JIS 等)以支持终端编码选项。
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         InstallGlobalExceptionGuards();
@@ -74,7 +84,15 @@ internal static partial class Program
             // 首次运行新版时，先完整迁移旧 LocalAppData 数据。失败则中止启动，绝不能在
             // 新目录另建一个空数据库，让用户误以为原数据丢失。
             VelaShellDataMigration.MigrateIfNeeded(new VelaShellStoragePaths());
+            StartupTrace.Mark("DataMigration");
             FinalizePendingUpdate();
+            StartupTrace.Mark("UpdateFinalize");
+
+            // 数据库在后台先开起来,与 Avalonia 平台初始化和 XAML 加载并行 ——
+            // 打点量出来那两件事各占 ~600 ms 与 ~760 ms,而后者完全不碰数据库。
+            // **必须排在数据迁移之后**:迁移要在旧目录还没人打开时搬完。
+            // DI 那边由 StartupWarmup.Claim 认领同一个实例(绝不能各开一个,SonnetDB 的 WAL 是独占的)。
+            StartupWarmup.Begin(new VelaShellStoragePaths());
             BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
         }
         catch (Exception ex) when (IsDatabaseLockedFailure(ex))
@@ -90,11 +108,16 @@ internal static partial class Program
         {
             // 最后手段:向测试人员弹出可读对话框,而非原始的 .NET 崩溃框。
             Trace.WriteLine($"[VelaShell] Fatal startup error: {ex}");
+            DiagnosticLog.WriteCrash("FatalStartupError", ex);
             ShowMessage(Strings.Format("Boot_StartupFailed", ex.Message), Strings.Get("Boot_StartupErrorTitle"));
             throw;
         }
         finally
         {
+            // 启动在 DI 认领之前就断了(迁移抛异常、库被占用)时,那个后台开出来的引擎
+            // 还占着 WAL —— 不收回的话,用户重开一次就撞上"数据库被占用",
+            // 一个为了快半秒的优化反而把应用变成打不开。已认领的话这里是空操作。
+            StartupWarmup.DiscardIfUnclaimed();
             ReleaseSingleInstanceLock();
         }
     }
@@ -131,6 +154,12 @@ internal static partial class Program
     /// 更新器临时目录与历史版本遗留的 *.old。刚退出的旧进程或更新器进程可能仍持有某些文件,
     /// 因此失败会在后台按退避节奏重试约两分钟,仍不成的留待下次启动。永不抛异常。
     /// </summary>
+    /// <remarks>
+    /// 没有待收拾的换版时(也就是几乎每一次启动)整件事都挪到后台:留下的活只有清扫陈旧文件,
+    /// 而那要**递归枚举整个应用目录**找 <c>*.old</c> —— 上千个文件扫一遍,通常一个都找不到,
+    /// 却结结实实压在首帧之前。回滚那一类仍然同步、仍然尽早,见
+    /// <see cref="UpdateApplier.HasPendingSwap" />。
+    /// </remarks>
     private static void FinalizePendingUpdate()
     {
         if (AppPackaging.IsPackaged)
@@ -141,6 +170,12 @@ internal static partial class Program
         }
         string appDir = Path.GetDirectoryName(Environment.ProcessPath) ?? AppContext.BaseDirectory;
         UpdateApplier applier = new(appDir);
+        if (!applier.HasPendingSwap())
+        {
+            // 纯打扫,晚几秒无所谓。失败也不必重试:下次启动照样会来扫一遍。
+            _ = Task.Run(() => applier.TryFinalizeStartup());
+            return;
+        }
         if (applier.TryFinalizeStartup())
         {
             return;
@@ -280,10 +315,14 @@ internal static partial class Program
         TaskScheduler.UnobservedTaskException += (_, e) =>
         {
             Trace.WriteLine($"[VelaShell] Unobserved task exception: {e.Exception}");
+            DiagnosticLog.WriteCrash("UnobservedTaskException", e.Exception);
             e.SetObserved();
         };
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+        {
             Trace.WriteLine($"[VelaShell] Unhandled domain exception: {e.ExceptionObject}");
+            DiagnosticLog.WriteCrash("UnhandledException", e.ExceptionObject);
+        };
     }
 
     /// <summary>

@@ -18,7 +18,16 @@ public enum NotificationKind
     Security,
 
     /// <summary>运营/推广类消息。</summary>
-    Promotion
+    Promotion,
+
+    /// <summary>
+    /// 应用自身的诊断消息(上次异常退出、日志异常一类)。
+    /// </summary>
+    /// <remarks>
+    /// 走消息中心而不是启动弹窗:崩溃提示要的是"下次打开时能看到并取证",
+    /// 不是在用户想干活的那一刻挡在前面。
+    /// </remarks>
+    System
 }
 
 /// <summary>消息的轻重,决定列表里的强调程度。</summary>

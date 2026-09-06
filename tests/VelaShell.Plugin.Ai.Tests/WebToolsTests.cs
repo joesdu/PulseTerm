@@ -265,6 +265,17 @@ public sealed class WebToolsTests
     private static async Task<FetchResult> FetchAsync(WebSearchOptions options, string url)
         => await new WebAccess(options).FetchAsync(new Uri(url), CancellationToken.None);
 
+    /// <summary>
+    /// 只验"出站放行判定",不真的发请求。返回 null = 放行,否则是拒绝理由。
+    /// </summary>
+    /// <remarks>
+    /// 判定为**放行**的用例必须走这条,不能走 <see cref="FetchAsync" />:放行之后
+    /// 就真的去连了,连不上还要按退避重试几轮 —— 三条这样的用例原先各花 7 秒多,
+    /// 是 AI 插件测试里最大的一块纯等待。判定为拒绝的用例走 FetchAsync 无妨(闸直接短路返回)。
+    /// </remarks>
+    private static async Task<string?> GuardAsync(WebSearchOptions options, string url)
+        => await new WebAccess(options).GuardAsync(new Uri(url), CancellationToken.None);
+
     [TestMethod]
     [DataRow("http://127.0.0.1:8080/admin")]
     [DataRow("http://10.0.0.5/")]
@@ -293,14 +304,9 @@ public sealed class WebToolsTests
     [TestMethod]
     public async Task Fetch_AllowsAnExplicitlyListedInternalHost()
     {
-        // 白名单放行之后就真的去连了 —— 9 号端口不会有人听,所以必然连失败;
-        // 这里要的只是"不再是那句拒绝",证明闸确实让路了。
         var options = new WebSearchOptions { AllowedPrivateHosts = "127.0.0.1:9" };
 
-        FetchResult result = await FetchAsync(options, "http://127.0.0.1:9/");
-
-        Assert.IsFalse(result.Ok, "端口没人听,连不上是预期的");
-        Assert.IsFalse(result.Body.Contains("Refusing", StringComparison.Ordinal), result.Body);
+        Assert.IsNull(await GuardAsync(options, "http://127.0.0.1:9/"), "白名单里的内网主机应当放行");
     }
 
     /// <summary>
@@ -313,10 +319,7 @@ public sealed class WebToolsTests
     {
         var options = new WebSearchOptions { SearxngBaseUrl = "http://127.0.0.1:9" };
 
-        FetchResult result = await FetchAsync(options, "http://127.0.0.1:9/search");
-
-        Assert.IsFalse(result.Ok, "端口没人听,连不上是预期的");
-        Assert.IsFalse(result.Body.Contains("Refusing", StringComparison.Ordinal), result.Body);
+        Assert.IsNull(await GuardAsync(options, "http://127.0.0.1:9/search"), "配过的 SearXNG 实例应当自动过闸");
     }
 
     /// <summary>放行的只有配的那一台,不是"因为配了 SearXNG 所以整个内网都开了"。</summary>
@@ -348,9 +351,7 @@ public sealed class WebToolsTests
     {
         var options = new WebSearchOptions { AllowedPrivateHosts = "http://127.0.0.1:9/" };
 
-        FetchResult result = await FetchAsync(options, "http://127.0.0.1:9/x");
-
-        Assert.IsFalse(result.Body.Contains("Refusing", StringComparison.Ordinal),
+        Assert.IsNull(await GuardAsync(options, "http://127.0.0.1:9/x"),
             "用户多半是直接从地址栏抄过来的,带 scheme 和尾斜杠也得认");
     }
 

@@ -2,7 +2,9 @@ using System.Text;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using AvaloniaEdit.Search;
 using VelaShell.Core.Resources;
+using VelaShell.Services;
 using VelaShell.Services.Syntax;
 
 namespace VelaShell.Views;
@@ -13,10 +15,16 @@ namespace VelaShell.Views;
 /// </summary>
 public partial class RemoteFileEditorView : Window
 {
+    /// <summary>超过这个大小就不再加载进编辑器(内置编辑器面向的是配置文件,不是日志)。</summary>
+    private const long LargeFileThresholdBytes = 5L * 1024 * 1024;
+
     private readonly string _localPath = string.Empty;
     private readonly Func<Task>? _uploadAsync;
     private bool _dirty;
     private Encoding _encoding = new UTF8Encoding(false);
+
+    /// <summary>UTF-8 严格解码失败时的回落编码(当前会话的终端编码)。</summary>
+    private readonly Encoding? _sessionEncoding;
     private bool _forceClose;
     private bool _saving;
 
@@ -32,14 +40,26 @@ public partial class RemoteFileEditorView : Window
     /// <param name="remotePath">文件在服务器上的远程路径。</param>
     /// <param name="localPath">已下载到本地的临时副本路径。</param>
     /// <param name="uploadAsync">保存时用于将临时文件上传回服务器的回调。</param>
-    public RemoteFileEditorView(string fileName, string remotePath, string localPath, Func<Task> uploadAsync)
+    /// <param name="sessionEncoding">
+    /// UTF-8 严格解码失败时的回落编码(当前会话的终端编码);null 表示仍按 UTF-8 处理。
+    /// </param>
+    public RemoteFileEditorView(
+        string fileName,
+        string remotePath,
+        string localPath,
+        Func<Task> uploadAsync,
+        Encoding? sessionEncoding = null)
         : this()
     {
         _localPath = localPath;
         _uploadAsync = uploadAsync;
+        _sessionEncoding = sessionEncoding;
         Title = fileName;
         TitleText.Text = fileName;
         PathText.Text = remotePath;
+        // AvaloniaEdit 自带查找/替换面板(Ctrl+F / Ctrl+H),只是默认没装。
+        // 编辑远端配置时"找一处改一处"是最常做的事,没有它只能靠肉眼翻。
+        SearchPanel.Install(Editor);
         _ = LoadFileAsync();
         Editor.TextChanged += (_, _) =>
         {
@@ -57,6 +77,19 @@ public partial class RemoteFileEditorView : Window
         byte[] bytes;
         try
         {
+            // 大文件保护:整份读进内存 + 交给 AvaloniaEdit 建文档,几十 MB 的日志能把
+            // 窗口卡住半分钟,而"用内置编辑器打开一个 200MB 的 access.log"多半是误点。
+            // 超过阈值就只提示、不加载,让用户改用外部编辑器。
+            var info = new FileInfo(_localPath);
+            if (info.Exists && info.Length > LargeFileThresholdBytes)
+            {
+                Editor.IsReadOnly = true;
+                StatusText.Text = Strings.Format(
+                    "Editor_TooLarge",
+                    (info.Length / (1024.0 * 1024)).ToString("F1"),
+                    (LargeFileThresholdBytes / (1024.0 * 1024)).ToString("F0"));
+                return;
+            }
             bytes = await Task.Run(() => File.ReadAllBytes(_localPath));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -64,11 +97,16 @@ public partial class RemoteFileEditorView : Window
             StatusText.Text = ex.Message;
             return;
         }
-        _encoding = DetectEncoding(bytes);
-        Editor.Text = _encoding.GetString(bytes, PreambleLength(bytes, _encoding), bytes.Length - PreambleLength(bytes, _encoding));
+        EditorEncodingDetector.Result detected = EditorEncodingDetector.Detect(bytes, _sessionEncoding);
+        _encoding = detected.Encoding;
+        Editor.Text = EditorEncodingDetector.Decode(bytes, detected);
         _dirty = false;
         ApplySyntaxHighlighting();
-        StatusText.Text = Strings.Format("Editor_LoadedStatus", bytes.Length.ToString("N0"));
+        StatusText.Text = detected.FellBackToSessionEncoding
+            // 明说回落到了哪个编码:猜错时用户得看得见,才知道该怎么办
+            // (而不是保存之后才发现整篇中文变成了 �)。
+            ? Strings.Format("Editor_LoadedStatusFallback", bytes.Length.ToString("N0"), _encoding.WebName)
+            : Strings.Format("Editor_LoadedStatus", bytes.Length.ToString("N0"));
     }
 
     /// <summary>
@@ -100,39 +138,6 @@ public partial class RemoteFileEditorView : Window
         return end < 0 ? text : text[..end];
     }
 
-    private static Encoding DetectEncoding(byte[] bytes)
-    {
-        if (bytes is [0xEF, 0xBB, 0xBF, ..])
-        {
-            return new UTF8Encoding(true);
-        }
-        if (bytes is [0xFF, 0xFE, ..])
-        {
-            return Encoding.Unicode;
-        }
-        if (bytes is [0xFE, 0xFF, ..])
-        {
-            return Encoding.BigEndianUnicode;
-        }
-        return new UTF8Encoding(false);
-    }
-
-    private static int PreambleLength(byte[] bytes, Encoding encoding)
-    {
-        byte[] preamble = encoding.GetPreamble();
-        if (preamble.Length == 0 || bytes.Length < preamble.Length)
-        {
-            return 0;
-        }
-        for (int i = 0; i < preamble.Length; i++)
-        {
-            if (bytes[i] != preamble[i])
-            {
-                return 0;
-            }
-        }
-        return preamble.Length;
-    }
 
     private async Task SaveAsync()
     {
@@ -165,7 +170,7 @@ public partial class RemoteFileEditorView : Window
     /// </summary>
     protected override void OnKeyDown(KeyEventArgs e)
     {
-        if (e.Key == Key.S && e.KeyModifiers.HasFlag(KeyModifiers.Control))
+        if (e.Key == Key.S && e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Control))
         {
             _ = SaveAsync();
             e.Handled = true;

@@ -396,6 +396,12 @@
   <data name="Split" xml:space="preserve">
     <value>Split</value>
   </data>
+  <data name="Status_Selected" xml:space="preserve">
+    <value>{0} chars selected</value>
+  </data>
+  <data name="Status_ChangeEncoding" xml:space="preserve">
+    <value>Change the encoding for this session</value>
+  </data>
   <data name="StatusBar_OpenMonitor" xml:space="preserve">
     <value>Open resource monitor</value>
   </data>
@@ -1122,6 +1128,12 @@ If this keeps happening, close any other VelaShell windows and try again.</value
   <data name="Editor_DiscardAndClose" xml:space="preserve">
     <value>Discard and close</value>
   </data>
+  <data name="Editor_LoadedStatusFallback" xml:space="preserve">
+    <value>Loaded {0} bytes — not valid UTF-8, decoded as {1}</value>
+  </data>
+  <data name="Editor_TooLarge" xml:space="preserve">
+    <value>File is {0} MB — too large for the built-in editor (limit {1} MB). Use an external editor instead.</value>
+  </data>
   <data name="Editor_LoadedStatus" xml:space="preserve">
     <value>UTF text · {0} B · Ready</value>
   </data>
@@ -1224,6 +1236,15 @@ Paste anyway?</value>
   </data>
   <data name="Msg_AuthFailed" xml:space="preserve">
     <value>Authentication failed: incorrect username, password or key for {0}.</value>
+  </data>
+  <data name="Msg_AuthFailedTwoFactorHint" xml:space="preserve">
+    <value>If this host requires two-factor authentication (keyboard-interactive / OTP), this version cannot connect to it: the underlying SSH library does not implement that method.</value>
+  </data>
+  <data name="Toast_ReconnectNow" xml:space="preserve">
+    <value>Reconnect now</value>
+  </data>
+  <data name="Toast_Dismiss" xml:space="preserve">
+    <value>Dismiss</value>
   </data>
   <data name="Msg_AuthPromptCancelled" xml:space="preserve">
     <value>No saved credentials for this profile; login verification was cancelled.</value>
@@ -1597,6 +1618,18 @@ Paste anyway?</value>
   <data name="Profile_GroupPlaceholder" xml:space="preserve">
     <value>Select or enter a new group name</value>
   </data>
+  <data name="Profile_ErrHostRequired" xml:space="preserve">
+    <value>Host is required</value>
+  </data>
+  <data name="Profile_ErrPortRange" xml:space="preserve">
+    <value>Port must be between 1 and 65535</value>
+  </data>
+  <data name="Profile_ErrUserRequired" xml:space="preserve">
+    <value>Username is required</value>
+  </data>
+  <data name="Profile_ErrKeyMissing" xml:space="preserve">
+    <value>Private key file not found</value>
+  </data>
   <data name="Profile_HostIp" xml:space="preserve">
     <value>Host / IP</value>
   </data>
@@ -1623,6 +1656,42 @@ Paste anyway?</value>
   </data>
   <data name="Profile_PostAuthCommandHint" xml:space="preserve">
     <value>// Applies to this session only, and runs on reconnect too; the global one lives in Settings → Terminal → Session and runs on every terminal</value>
+  </data>
+  <data name="Profile_FollowGlobal" xml:space="preserve">
+    <value>Follow global</value>
+  </data>
+  <data name="Profile_SessionOverrides" xml:space="preserve">
+    <value>Per-session terminal overrides</value>
+  </data>
+  <data name="Profile_SessionOverridesHint" xml:space="preserve">
+    <value>Anything left on "Follow global" uses the value from Settings. Useful when one host speaks GBK and another UTF-8, or when production tabs should be red and staging green.</value>
+  </data>
+  <data name="Profile_OverrideEncoding" xml:space="preserve">
+    <value>Encoding</value>
+  </data>
+  <data name="Profile_OverrideTerminalType" xml:space="preserve">
+    <value>Terminal type</value>
+  </data>
+  <data name="Profile_OverrideColorScheme" xml:space="preserve">
+    <value>Colour scheme</value>
+  </data>
+  <data name="Profile_OverrideTabColor" xml:space="preserve">
+    <value>Tab colour</value>
+  </data>
+  <data name="Profile_OverrideTabColorPlaceholder" xml:space="preserve">
+    <value>#E05252 — leave empty for automatic</value>
+  </data>
+  <data name="Profile_OverrideStartupDirectory" xml:space="preserve">
+    <value>Startup directory</value>
+  </data>
+  <data name="Profile_OverrideStartupDirectoryPlaceholder" xml:space="preserve">
+    <value>/var/log — leave empty to stay in the login directory</value>
+  </data>
+  <data name="Profile_OverrideKeepAlive" xml:space="preserve">
+    <value>Keep-alive (s)</value>
+  </data>
+  <data name="Profile_OverrideKeepAliveHint" xml:space="preserve">
+    <value>-1 = follow global; 0 = disabled.</value>
   </data>
   <data name="Profile_PostAuthCommandPlaceholder" xml:space="preserve">
     <value>e.g. sudo su - / tmux attach</value>
@@ -1998,6 +2067,30 @@ Paste anyway?</value>
   </data>
   <data name="SetGeneral_ClearHistoryDesc" xml:space="preserve">
     <value>// Clear command history and recent connections</value>
+  </data>
+  <data name="SetGeneral_StatusMetricsInterval" xml:space="preserve">
+    <value>Status bar metrics interval (seconds)</value>
+  </data>
+  <data name="SetGeneral_StatusMetricsIntervalDesc" xml:space="preserve">
+    <value>Each sample runs a command on the remote host over its own SSH channel. Lower values cost the server more; the window throttles to 10s when it loses focus and pauses when minimised.</value>
+  </data>
+  <data name="SetGeneral_ConfirmCloseTab" xml:space="preserve">
+    <value>Confirm before closing a connected tab</value>
+  </data>
+  <data name="SetGeneral_ConfirmCloseTabDesc" xml:space="preserve">
+    <value>Ask before closing a tab whose session is still connected. Disconnected tabs close without asking.</value>
+  </data>
+  <data name="Main_CloseTabConfirmTitle" xml:space="preserve">
+    <value>Close this session?</value>
+  </data>
+  <data name="Main_CloseTabConfirmBody" xml:space="preserve">
+    <value>{0} is still connected. Closing the tab disconnects it.</value>
+  </data>
+  <data name="Main_CloseTabConfirmMany" xml:space="preserve">
+    <value>{0} sessions are still connected. Closing disconnects all of them.</value>
+  </data>
+  <data name="Main_CloseTabConfirmAction" xml:space="preserve">
+    <value>Close</value>
   </data>
   <data name="SetGeneral_ConfirmBeforeClose" xml:space="preserve">
     <value>Confirm before exit</value>
@@ -2503,6 +2596,12 @@ Paste anyway?</value>
   <data name="SetTerm_ScrollbackDesc" xml:space="preserve">
     <value>// Maximum number of lines kept in scrollback</value>
   </data>
+  <data name="SetTerm_AlternateScroll" xml:space="preserve">
+    <value>Alternate screen: wheel sends arrow keys</value>
+  </data>
+  <data name="SetTerm_AlternateScrollDesc" xml:space="preserve">
+    <value>In full-screen programs (vim, less, man) the alternate screen has no scrollback, so the wheel does nothing. Turn this on to send cursor up/down instead. Applications can still opt out via CSI ?1007 l.</value>
+  </data>
   <data name="SetTerm_ScrollOnKeystroke" xml:space="preserve">
     <value>Scroll to bottom on keystroke</value>
   </data>
@@ -2767,6 +2866,18 @@ Paste anyway?</value>
   <data name="Sc_NewTabAlias" xml:space="preserve">
     <value>New Tab (same as New Connection)</value>
   </data>
+  <data name="Cmd_GotoTabN" xml:space="preserve">
+    <value>Go to tab N</value>
+  </data>
+  <data name="Sc_FocusPane" xml:space="preserve">
+    <value>Move focus between panes</value>
+  </data>
+  <data name="Sc_NoteSplitOnly" xml:space="preserve">
+    <value>Only when the window is split; otherwise the key goes to the remote shell</value>
+  </data>
+  <data name="Sc_NoteZoomOutTakesUnitSeparator" xml:space="preserve">
+    <value>Takes over ^_; use Ctrl+Shift+- to send it</value>
+  </data>
   <data name="Sc_NextTab" xml:space="preserve">
     <value>Next Tab</value>
   </data>
@@ -2856,6 +2967,15 @@ Overwrite it?</value>
   </data>
   <data name="Sidebar_RefreshRecent" xml:space="preserve">
     <value>Refresh Recent Connections</value>
+  </data>
+  <data name="Sidebar_FilterSessions" xml:space="preserve">
+    <value>Filter sessions</value>
+  </data>
+  <data name="Sidebar_ClearFilter" xml:space="preserve">
+    <value>Clear filter</value>
+  </data>
+  <data name="Cmd_FilterSessions" xml:space="preserve">
+    <value>Filter sessions</value>
   </data>
   <data name="Sidebar_ToggleSection" xml:space="preserve">
     <value>Collapse or expand this section</value>
@@ -3355,6 +3475,54 @@ Overwrite it?</value>
   </data>
   <data name="Notify_UpdateAction" xml:space="preserve">
     <value>Go to About</value>
+  </data>
+  <data name="Cmd_OpenLogs" xml:space="preserve">
+    <value>Open logs folder</value>
+  </data>
+  <data name="SetAbout_OpenLogs" xml:space="preserve">
+    <value>Open logs folder</value>
+  </data>
+  <data name="Notify_CrashTitle" xml:space="preserve">
+    <value>VelaShell closed unexpectedly last time</value>
+  </data>
+  <data name="Notify_CrashBody" xml:space="preserve">
+    <value>A crash report was written to {0}. Open the logs folder to view or attach it to a bug report.</value>
+  </data>
+  <data name="Notify_CrashAction" xml:space="preserve">
+    <value>Open logs folder</value>
+  </data>
+  <data name="Notify_KindSystem" xml:space="preserve">
+    <value>System</value>
+  </data>
+  <data name="Cmd_GotoTab" xml:space="preserve">
+    <value>Go to tab {0}</value>
+  </data>
+  <data name="Cmd_GotoLastTab" xml:space="preserve">
+    <value>Go to last tab</value>
+  </data>
+  <data name="Cmd_ZoomIn" xml:space="preserve">
+    <value>Zoom in</value>
+  </data>
+  <data name="Cmd_ZoomOut" xml:space="preserve">
+    <value>Zoom out</value>
+  </data>
+  <data name="Cmd_ZoomReset" xml:space="preserve">
+    <value>Reset zoom</value>
+  </data>
+  <data name="Cmd_CloseAllTabs" xml:space="preserve">
+    <value>Close all tabs</value>
+  </data>
+  <data name="Cmd_FocusPaneLeft" xml:space="preserve">
+    <value>Focus pane left</value>
+  </data>
+  <data name="Cmd_FocusPaneRight" xml:space="preserve">
+    <value>Focus pane right</value>
+  </data>
+  <data name="Cmd_FocusPaneUp" xml:space="preserve">
+    <value>Focus pane above</value>
+  </data>
+  <data name="Cmd_FocusPaneDown" xml:space="preserve">
+    <value>Focus pane below</value>
   </data>
   <data name="Cmd_OpenAbout" xml:space="preserve">
     <value>Open About</value>

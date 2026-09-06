@@ -45,7 +45,8 @@ public sealed class ExternalLaunchCoordinator(
                 : new AppSettings();
             if (!settings.Security.AllowExternalLaunch)
             {
-                _viewModel.StatusBar.Status = Strings.Get("ExtLaunch_Blocked");
+                // 拦下一次外部拉起是要让用户看见的:走警告级浮层,而不是状态栏里一句会被盖掉的文字。
+                _viewModel.Toasts.Warning(Strings.Get("ExtLaunch_Blocked"));
                 return;
             }
             if (!request.IsSupported)
@@ -64,7 +65,7 @@ public sealed class ExternalLaunchCoordinator(
 
             SessionProfile profile = await ResolveProfileAsync(request).ConfigureAwait(true);
             await AuditAsync(request).ConfigureAwait(true);
-            _viewModel.StatusBar.Status = Strings.Format("ExtLaunch_Connecting", request.DisplayTarget);
+            _viewModel.Toasts.Info(Strings.Format("ExtLaunch_Connecting", request.DisplayTarget));
             await _viewModel.TryConnectProfileAsync(profile).ConfigureAwait(true);
         }
         catch (Exception ex)

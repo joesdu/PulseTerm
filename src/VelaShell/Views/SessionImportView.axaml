@@ -102,7 +102,7 @@
       <!-- 主密码警告 -->
       <Border Grid.Row="2" Margin="20,0,20,10" Padding="12,8" CornerRadius="4"
               Background="{DynamicResource VelaBgInput}"
-              BorderBrush="#66FFB020" BorderThickness="1"
+              BorderBrush="{DynamicResource VelaWarning}" BorderThickness="1"
               IsVisible="{Binding HasMasterPasswordWarning}">
         <TextBlock Text="{Binding MasterPasswordWarning}"
                    Foreground="{DynamicResource VelaTextSecondary}"

@@ -6,6 +6,7 @@ using Avalonia.Platform.Storage;
 using ReactiveUI.Primitives;
 using VelaShell.Core.Import;
 using VelaShell.Presentation.ViewModels;
+using FireAndForget = VelaShell.Services.FireAndForget;
 
 namespace VelaShell.Views;
 
@@ -19,7 +20,7 @@ public partial class SessionImportView : Window
         Opened += OnOpened;
     }
 
-    private async void OnOpened(object? sender, EventArgs e)
+    private void OnOpened(object? sender, EventArgs e) => FireAndForget.Run(async () =>
     {
         if (DataContext is not SessionImportViewModel viewModel)
         {
@@ -34,7 +35,7 @@ public partial class SessionImportView : Window
             }
         });
         await viewModel.InitializeAsync();
-    }
+});
 
     /// <summary>Esc 等价于取消;Enter 直接执行默认(全自动)导入。</summary>
     protected override void OnKeyDown(KeyEventArgs e)
@@ -68,7 +69,7 @@ public partial class SessionImportView : Window
     private void Cancel_Click(object? sender, RoutedEventArgs e) => this.PostClose(null);
 
     /// <summary>为某一个来源手动指定配置文件/会话目录,并立即重扫该来源。</summary>
-    private async void Browse_Click(object? sender, RoutedEventArgs e)
+    private void Browse_Click(object? sender, RoutedEventArgs e) => FireAndForget.Run(async () =>
     {
         if (sender is not Control { DataContext: SessionImportSourceViewModel source })
         {
@@ -86,7 +87,7 @@ public partial class SessionImportView : Window
             source.SourceText = picked;
             source.ScanCommand.Execute().Subscribe();
         }
-    }
+});
 
     private async Task<string?> PickFolderAsync(string title)
     {

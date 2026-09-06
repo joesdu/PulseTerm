@@ -122,13 +122,13 @@
         <Setter Property="Foreground" Value="{DynamicResource VelaAccent}" />
       </Style>
       <Style Selector="Border.tag.connecting">
-        <Setter Property="Background" Value="#20FDCB6E" />
+        <Setter Property="Background" Value="{DynamicResource VelaDropTargetGroup}" />
       </Style>
       <Style Selector="Border.tag.connecting TextBlock">
         <Setter Property="Foreground" Value="{DynamicResource VelaWarning}" />
       </Style>
       <Style Selector="Border.tag.offline">
-        <Setter Property="Background" Value="#20FF6B6B" />
+        <Setter Property="Background" Value="{DynamicResource VelaDropTargetRemove}" />
       </Style>
       <Style Selector="Border.tag.offline TextBlock">
         <Setter Property="Foreground" Value="{DynamicResource VelaError}" />
@@ -403,7 +403,7 @@
               BorderThickness="1"
               BorderBrush="{DynamicResource VelaAccent}"
               Background="{DynamicResource VelaBgActive}"
-              BoxShadow="0 2 8 0 #66000000">
+              BoxShadow="{DynamicResource VelaShadowWindow}">
         <TextBlock x:Name="DragGhostText"
                    FontFamily="{DynamicResource VelaUiMonoFont}"
                    FontSize="{DynamicResource VelaFontSize11}"

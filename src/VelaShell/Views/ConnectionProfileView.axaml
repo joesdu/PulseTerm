@@ -28,6 +28,14 @@
       <Setter Property="FontWeight" Value="Medium" />
       <Setter Property="Margin" Value="0,0,0,5" />
     </Style>
+    <!-- 字段下方的内联校验提示:按钮灰着的时候,得让人看见是为什么。
+         没有错误时 IsVisible=false,整行不占高度,布局不跳。 -->
+    <Style Selector="TextBlock.field-error">
+      <Setter Property="Foreground" Value="{DynamicResource VelaError}" />
+      <Setter Property="FontSize" Value="{DynamicResource VelaFontSize10}" />
+      <Setter Property="Margin" Value="0,4,0,0" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
     <Style Selector="TextBox">
       <Setter Property="Background" Value="{DynamicResource VelaBgInput}" />
       <Setter Property="Foreground" Value="{DynamicResource VelaTextPrimary}" />
@@ -311,11 +319,15 @@
                           Foreground="{DynamicResource VelaTextTertiary}" />
               </Button>
             </Grid>
+            <TextBlock Classes="field-error" Text="{Binding HostError}"
+                       IsVisible="{Binding HostError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
           </StackPanel>
           <StackPanel Grid.Column="2" Width="90" IsVisible="{Binding ShowPortField}">
             <TextBlock Classes="field-label" Text="{loc:Localize Port}" />
             <NumericUpDown Value="{Binding Port}" Minimum="1" Maximum="65535"
                            Increment="1" FormatString="0" ShowButtonSpinner="False" />
+            <TextBlock Classes="field-error" Text="{Binding PortError}"
+                       IsVisible="{Binding PortError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
           </StackPanel>
         </Grid>
 
@@ -325,6 +337,8 @@
           <StackPanel Grid.Column="0">
             <TextBlock Classes="field-label" Text="{Binding UsernameLabel}" />
             <TextBox Text="{Binding Username}" PlaceholderText="root" />
+            <TextBlock Classes="field-error" Text="{Binding UsernameError}"
+                       IsVisible="{Binding UsernameError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
           </StackPanel>
           <StackPanel Grid.Column="2" IsVisible="{Binding RequiresSshAuth}">
             <TextBlock Classes="field-label" Text="{loc:Localize AuthMethodLabel}" />
@@ -367,7 +381,7 @@
         <!-- 明文 FTP 的安全提示:与 SSH 不同,它没有主机身份校验,也不加密 -->
         <Border Padding="10,7" CornerRadius="4"
                 Background="{DynamicResource VelaBgInput}"
-                BorderBrush="#66FFB020" BorderThickness="1"
+                BorderBrush="{DynamicResource VelaWarning}" BorderThickness="1"
                 IsVisible="{Binding ShowFtpPlaintextWarning}">
           <TextBlock Text="{loc:Localize Ftp_PlaintextWarn}"
                      Foreground="{DynamicResource VelaTextSecondary}"
@@ -482,6 +496,9 @@
               <Button Grid.Column="2" Classes="dlg-outline"
                       Content="{loc:Localize BrowseKeyFile}" Click="BrowseKeyFile_Click" />
             </Grid>
+            <!-- 路径填错原先要等到连接失败,再从一句笼统的认证错误里猜。 -->
+            <TextBlock Classes="field-error" Text="{Binding PrivateKeyPathError}"
+                       IsVisible="{Binding PrivateKeyPathError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
           </StackPanel>
           <StackPanel>
             <TextBlock Classes="field-label" Text="{loc:Localize Profile_PassphraseOptional}" />
@@ -559,6 +576,56 @@
                        Foreground="{DynamicResource VelaTextMuted}" FontSize="{DynamicResource VelaFontSize10}" TextWrapping="Wrap" />
           </StackPanel>
 
+          <!-- 会话级终端覆盖(F-06):全局设置只能有一套,但机器不是一样的 ——
+               堡垒机输出 GBK、开发机 UTF-8;生产环境希望标签一眼看出是红的。
+               这些差异按机器走,挤进一个全局开关里就只能二选一。
+               只对 SSH 出现:其余协议没有终端,摆一排永远不生效的下拉只会骗人。 -->
+          <StackPanel IsVisible="{Binding SupportsPostAuthCommand}" Spacing="4">
+            <TextBlock Classes="field-label" Text="{loc:Localize Profile_SessionOverrides}" Margin="0,12,0,0" />
+            <TextBlock Text="{loc:Localize Profile_SessionOverridesHint}"
+                       Foreground="{DynamicResource VelaTextMuted}" FontSize="{DynamicResource VelaFontSize10}" TextWrapping="Wrap" />
+            <Grid ColumnDefinitions="*,8,*" RowDefinitions="Auto,Auto,Auto,Auto" Margin="0,4,0,0">
+              <StackPanel Grid.Row="0" Grid.Column="0">
+                <TextBlock Classes="field-label" Text="{loc:Localize Profile_OverrideEncoding}" />
+                <ComboBox HorizontalAlignment="Stretch"
+                          ItemsSource="{Binding EncodingOptions}"
+                          SelectedItem="{Binding OverrideEncoding}" />
+              </StackPanel>
+              <StackPanel Grid.Row="0" Grid.Column="2">
+                <TextBlock Classes="field-label" Text="{loc:Localize Profile_OverrideTerminalType}" />
+                <ComboBox HorizontalAlignment="Stretch"
+                          ItemsSource="{Binding TerminalTypeOptions}"
+                          SelectedItem="{Binding OverrideTerminalType}" />
+              </StackPanel>
+              <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,8,0,0">
+                <TextBlock Classes="field-label" Text="{loc:Localize Profile_OverrideColorScheme}" />
+                <ComboBox HorizontalAlignment="Stretch"
+                          ItemsSource="{Binding ColorSchemeOptions}"
+                          SelectedItem="{Binding OverrideColorScheme}" />
+              </StackPanel>
+              <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,8,0,0">
+                <TextBlock Classes="field-label" Text="{loc:Localize Profile_OverrideTabColor}" />
+                <TextBox Text="{Binding OverrideTabColor}"
+                         PlaceholderText="{loc:Localize Profile_OverrideTabColorPlaceholder}" />
+              </StackPanel>
+              <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,8,0,0">
+                <TextBlock Classes="field-label" Text="{loc:Localize Profile_OverrideStartupDirectory}" />
+                <TextBox Text="{Binding OverrideStartupDirectory}"
+                         PlaceholderText="{loc:Localize Profile_OverrideStartupDirectoryPlaceholder}" />
+              </StackPanel>
+              <StackPanel Grid.Row="2" Grid.Column="2" Margin="0,8,0,0">
+                <TextBlock Classes="field-label" Text="{loc:Localize Profile_OverrideKeepAlive}" />
+                <NumericUpDown Value="{Binding OverrideKeepAliveSeconds}"
+                               Minimum="{Binding FollowGlobalKeepAlive}"
+                               Maximum="{Binding MaxKeepAliveSeconds}"
+                               Increment="10" FormatString="0" ShowButtonSpinner="False" />
+              </StackPanel>
+              <TextBlock Grid.Row="3" Grid.Column="2" Text="{loc:Localize Profile_OverrideKeepAliveHint}"
+                         Margin="0,4,0,0"
+                         Foreground="{DynamicResource VelaTextMuted}" FontSize="{DynamicResource VelaFontSize10}" TextWrapping="Wrap" />
+            </Grid>
+          </StackPanel>
+
           <!-- FTP / FTPS 的「默认打开路径」:上传目标常年是同一个目录,而 FTP 给的登录工作目录
                往往就是根,每连一次手点四五层是纯粹的重复劳动。只对 FTP 出现——SSH/SFTP 走的是
                登录家目录,插件协议(S3…)自己在描述符里声明字段。 -->
@@ -590,7 +657,7 @@
           <Grid ColumnDefinitions="*,Auto"
                 IsVisible="{Binding HasError}">
             <TextBlock Grid.Column="0" Text="{Binding ErrorMessage}"
-                       Foreground="#FF6B6B" FontSize="{DynamicResource VelaFontSize11}" TextWrapping="Wrap"
+                       Foreground="{DynamicResource VelaError}" FontSize="{DynamicResource VelaFontSize11}" TextWrapping="Wrap"
                        VerticalAlignment="Center" />
             <Button Grid.Column="1" x:Name="CopyErrorButton" Classes="copy-chip"
                     Margin="12,0,0,0"

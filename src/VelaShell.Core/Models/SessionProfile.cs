@@ -134,9 +134,70 @@ public class SessionProfile
     /// </summary>
     public Dictionary<string, string>? PluginSecrets { get; set; }
 
+    /// <summary>
+    /// 会话级的终端覆盖项:编码、终端类型、配色、标签颜色、初始目录、心跳间隔。
+    /// null(整个对象,或其中任一字段)= 跟随全局设置。
+    /// </summary>
+    /// <remarks>
+    /// 单开一个对象而不是把六个字段平铺进来,是为了让「这条配置没有任何覆盖」在落盘时
+    /// 就是一个 <c>null</c> —— 旧数据零迁移,新字段也不会给每条老配置塞六个空值。
+    /// </remarks>
+    public TerminalOverrides? Terminal { get; set; }
+
+    /// <summary>
+    /// 连接建立后自动开启的隧道 id 列表;null 或空 = 不自动开。
+    /// </summary>
+    /// <remarks>
+    /// 存 id 而不是隧道定义本身:同一条隧道可能被多条配置引用,复制一份就会各改各的。
+    /// </remarks>
+    public List<Guid>? AutoStartTunnelIds { get; set; }
+
     /// <summary>返回协议专属设置的深拷贝(两个字典各一份);源为 null 时返回 null。</summary>
     /// <param name="source">源字典。</param>
     /// <returns>深拷贝,或 null。</returns>
     public static Dictionary<string, string>? CloneSettings(Dictionary<string, string>? source) =>
         source is null ? null : new Dictionary<string, string>(source, StringComparer.Ordinal);
+
+    /// <summary>
+    /// 返回本配置的深拷贝。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>加字段只改这一处。</b>此前全仓有四处逐字段手写拷贝(仓储的加密/解密两处、
+    /// 会话树的「复制配置」、连接工作流剥密码那一处),每加一个字段就要四处同步补 —— 漏一处的
+    /// 表现是"某个设置在复制配置之后莫名丢了",而且四处的症状各不相同,极难联想到同一个根因。
+    /// </para>
+    /// <para>
+    /// 字典与列表一律深拷贝:副本要么落盘、要么交给别的界面改,与源共享可变对象迟早互相踩。
+    /// <c>SessionProfileCloneTests</c> 用反射逐属性比对,漏拷一个就红。
+    /// </para>
+    /// </remarks>
+    /// <returns>与本实例等值、但不共享任何可变对象的新实例。</returns>
+    public SessionProfile Clone() =>
+        new()
+        {
+            ConnectionType = ConnectionType,
+            Id = Id,
+            Name = Name,
+            Host = Host,
+            Port = Port,
+            Username = Username,
+            AuthMethod = AuthMethod,
+            Password = Password,
+            RememberPassword = RememberPassword,
+            PrivateKeyPath = PrivateKeyPath,
+            PrivateKeyPassphrase = PrivateKeyPassphrase,
+            GroupId = GroupId,
+            LastConnectedAt = LastConnectedAt,
+            Tags = [.. Tags],
+            JumpHostProfileId = JumpHostProfileId,
+            PostAuthCommand = PostAuthCommand,
+            PostAuthCommandDelaySeconds = PostAuthCommandDelaySeconds,
+            Ftp = Ftp?.Clone(),
+            PluginProtocolId = PluginProtocolId,
+            PluginSettings = CloneSettings(PluginSettings),
+            PluginSecrets = CloneSettings(PluginSecrets),
+            Terminal = Terminal?.Clone(),
+            AutoStartTunnelIds = AutoStartTunnelIds is null ? null : [.. AutoStartTunnelIds]
+        };
 }

@@ -7,6 +7,7 @@ using Avalonia.Platform.Storage;
 using VelaShell.Core.Resources;
 using VelaShell.Infrastructure.Plugins;
 using VelaShell.PluginSdk.Packaging;
+using FireAndForget = VelaShell.Services.FireAndForget;
 using VelaShell.ViewModels;
 
 namespace VelaShell.Views;
@@ -98,7 +99,7 @@ public partial class PluginManagerWindow : Window
         }
     }
 
-    private async void Uninstall_Click(object? sender, RoutedEventArgs e)
+    private void Uninstall_Click(object? sender, RoutedEventArgs e) => FireAndForget.Run(async () =>
     {
         if (sender is not Control { DataContext: PluginRowViewModel row } || ViewModel is not { } vm)
         {
@@ -113,9 +114,9 @@ public partial class PluginManagerWindow : Window
         {
             await vm.UninstallAsync(row);
         }
-    }
+});
 
-    private async void Install_Click(object? sender, RoutedEventArgs e)
+    private void Install_Click(object? sender, RoutedEventArgs e) => FireAndForget.Run(async () =>
     {
         if (ViewModel is not { } vm)
         {
@@ -181,10 +182,10 @@ public partial class PluginManagerWindow : Window
             }
             await vm.InstallFromVpxAsync(path, allowUntrusted);
         }
-    }
+});
 
     /// <summary>点击"插件商店"链接:交给系统默认浏览器打开(地址存放在控件 Tag)。</summary>
-    private async void OpenMarket_Click(object? sender, RoutedEventArgs e)
+    private void OpenMarket_Click(object? sender, RoutedEventArgs e) => FireAndForget.Run(async () =>
     {
         if (sender is not Control { Tag: string url }
             || !Uri.TryCreate(url, UriKind.Absolute, out Uri? uri)
@@ -193,7 +194,7 @@ public partial class PluginManagerWindow : Window
             return;
         }
         await top.Launcher.LaunchUriAsync(uri);
-    }
+});
 
     /// <inheritdoc />
     protected override void OnKeyDown(KeyEventArgs e)

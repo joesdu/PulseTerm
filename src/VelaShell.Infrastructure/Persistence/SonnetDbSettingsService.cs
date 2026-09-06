@@ -24,6 +24,18 @@ public sealed class SonnetDbSettingsService(SonnetDbEngine engine, IReadOnlyList
     /// </summary>
     private volatile string? _settingsJsonCache;
 
+    /// <summary>
+    /// 只读共享快照:与 <see cref="_settingsJsonCache" /> 同源,但省掉每次调用的反序列化。
+    /// 只读调用方(传输调优、代理解析、连接工厂)走 <c>GetSnapshotAsync()</c> 拿它;
+    /// 需要改写的调用方仍走 <see cref="GetSettingsAsync" /> 拿独立实例。
+    /// 保存时整体替换为**新反序列化的**实例(不直接引用调用方传进来的对象,
+    /// 否则调用方后续继续改那个对象会把共享快照一起改掉)。
+    /// </summary>
+    private volatile AppSettings? _snapshot;
+
+    /// <inheritdoc />
+    public AppSettings? CurrentSnapshot => _snapshot;
+
     /// <summary>设置保存成功后触发,携带刚持久化的设置快照,供订阅方刷新缓存或界面。</summary>
     public event Action<AppSettings>? SettingsSaved;
 
@@ -37,19 +49,33 @@ public sealed class SonnetDbSettingsService(SonnetDbEngine engine, IReadOnlyList
         }
         AppSettings settings = await GetOrImportAsync<AppSettings>(SettingsDocId, "settings.json").ConfigureAwait(false);
         settings.Normalize();
-        _settingsJsonCache = SonnetDbJson.Serialize(settings);
+        string serialized = SonnetDbJson.Serialize(settings);
+        _settingsJsonCache = serialized;
+        _snapshot = DeserializeNormalized(serialized);
         return settings;
     }
 
-    /// <summary>持久化应用设置,同步刷新 JSON 缓存并触发 <see cref="SettingsSaved"/>。</summary>
+    /// <summary>持久化应用设置,同步刷新 JSON 缓存与只读快照,并触发 <see cref="SettingsSaved"/>。</summary>
     public async Task SaveSettingsAsync(AppSettings settings)
     {
         ArgumentNullException.ThrowIfNull(settings);
         string json = SonnetDbJson.Serialize(settings);
         await UpsertJsonAsync(SettingsDocId, json).ConfigureAwait(false);
         _settingsJsonCache = json;
+        _snapshot = DeserializeNormalized(json);
         MirrorRenderMode(settings);
         SettingsSaved?.Invoke(settings);
+    }
+
+    /// <summary>从 JSON 反序列化出一份归一化后的独立实例;失败时返回 null(退回按需加载)。</summary>
+    private static AppSettings? DeserializeNormalized(string json)
+    {
+        if (SonnetDbJson.Deserialize<AppSettings>(json) is not { } settings)
+        {
+            return null;
+        }
+        settings.Normalize();
+        return settings;
     }
 
     /// <summary>读取应用运行状态:从文档集合读取,不存在时首次导入既有 state.json 或返回新实例。</summary>

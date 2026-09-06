@@ -133,7 +133,7 @@ public class TerminalTabViewModel : TabViewModel, IDisposable
     /// </summary>
     public Avalonia.Media.IBrush ConnectionAccentBrush =>
         Profile is { } profile
-            ? ConnectionAccent.BrushFor(profile.Id)
+            ? ConnectionAccent.BrushForProfile(profile)
             : Avalonia.Media.Brushes.Transparent;
 
     // ---- 同步输入频道(标签右键菜单 → 同步输入,对等转发见 SyncInputCoordinator) ----
@@ -405,8 +405,10 @@ public class TerminalTabViewModel : TabViewModel, IDisposable
     /// <summary>本会话声明的终端模拟类型。</summary>
     public string TerminalTypeName { get; init; } = "xterm-256color";
 
-    /// <summary>本会话使用的字符编码。</summary>
-    public string EncodingName { get; init; } = "UTF-8";
+    /// <summary>
+    /// 本会话使用的字符编码。可写:状态栏的编码菜单能当场把它切掉(只作用于本会话)。
+    /// </summary>
+    public string EncodingName { get; set; } = "UTF-8";
 
     /// <summary>本标签持有的终端模拟器,跨重连保持不变(拥有滚动缓冲区)。</summary>
     public ITerminalEmulator TerminalEmulator { get; }

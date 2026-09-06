@@ -96,6 +96,10 @@ public class SshTerminalBridge : IDisposable
         // 封口写队列:写循环排空残余(_disposed 已置位,只弃不写)后自行退出。
         _writeQueue.Writer.TryComplete();
 
+        // 读循环可能正等在背压闸上(积压超高水位)。此刻 UI 再也不会来排空了,
+        // 不放行它就会一直挂在那里 —— 下面的 _readTask.Wait 白等满 2 秒才超时返回。
+        ReleaseDrainGate();
+
         // 先释放流、后取消令牌:释放流会以"通道关闭"唤醒挂起的读取,包装层将其吞为 EOF,
         // 读循环无异常退出。若先 Cancel,取消会以 OperationCanceledException 打穿底层库的
         // 整条异步读栈,每次关标签都在调试器里刷一串首次机会异常。令牌保留为兜底:
@@ -127,6 +131,8 @@ public class SshTerminalBridge : IDisposable
             // 吞掉释放期间写任务抛出的异常
         }
         _cts.Dispose();
+        // 闸最后释放:上面两个 Wait 返回之后,读循环已经不可能再碰它。
+        _drainGate.Dispose();
         GC.SuppressFinalize(this);
     }
 
@@ -330,6 +336,11 @@ public class SshTerminalBridge : IDisposable
                         EnqueueForFeed(new(route.TerminalBytes, route.TerminalBytes.Length, Pooled: false));
                     }
                 }
+
+                // 入队之后再看积压:UI 排不过来就在这里等一等,让 SSH 流控把压力回传给远端。
+                // 放在循环末尾而不是开头,是为了让本轮读到的数据先落进队列 —— 否则
+                // 高水位时读到的那一块会在等待期间一直占着读缓冲。
+                await ApplyBackpressureAsync(token).ConfigureAwait(false);
             }
 
             // 当流报告自身不再可读时,循环也会退出。
@@ -405,6 +416,7 @@ public class SshTerminalBridge : IDisposable
         {
             _pending.Add(chunk);
         }
+        Interlocked.Add(ref _pendingBytes, chunk.Length);
 
         // 最多只调度一次待处理的 UI 刷新;后续分块搭它的便车。
         if (Interlocked.CompareExchange(ref _flushScheduled, 1, 0) == 0)
@@ -413,15 +425,109 @@ public class SshTerminalBridge : IDisposable
         }
     }
 
+    /// <summary>
+    /// 积压过高时把读线程按住,等 UI 把它排到低水位以下再继续。
+    /// </summary>
+    /// <remarks>
+    /// 读线程一停,SSH 接收窗口不再推进,压力顺着流控回传到远端 —— 远端的 `cat` 自己会慢下来。
+    /// 这是 OpenSSH 客户端的行为,也是"内存有上限"的唯一可靠办法:
+    /// 只在本地丢弃或无限攒着,都是把问题留给用户。
+    /// </remarks>
+    private async Task ApplyBackpressureAsync(CancellationToken cancellationToken)
+    {
+        if (Interlocked.Read(ref _pendingBytes) <= HighWaterBytes)
+        {
+            return;
+        }
+        try
+        {
+            await _drainGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (ObjectDisposedException)
+        {
+            // Dispose 与本次等待撞上了:读循环随即会因取消而退出。
+        }
+    }
+
     // 多 chunk 合批的复用缓冲:只增不缩,仅在 UI 线程的 FlushPending 内访问,
     // Feed 同步消费不留引用,因此跨帧复用安全。
     private byte[] _combineBuffer = [];
+
+    // ---- 洪流控制:每帧解析预算 + 读线程背压 ----
+    //
+    // 合批本身是对的(它把上百次跨线程跳转压成每帧一次),但原先没有上限:
+    // `cat` 一个几百 MB 的文件、或 `tail -f` 一个刷得很猛的日志,两帧之间能攒下几十 MB,
+    // UI 线程在**一个** Dispatcher 回调里把它们全解析完 —— 期间界面冻结、滚动条不响应、
+    // 别的标签也不刷新;内存则随读取速度无限增长(每块租自 ArrayPool,但池只是延迟归还,
+    // 不限制总量)。
+    //
+    // 两道闸:
+    //   ① 每帧最多解析 FeedBudgetBytes,剩下的以 Background 优先级续帧 —— 界面始终可交互;
+    //   ② 积压超过 HighWaterBytes 时读线程等在 _drainGate 上,降到 LowWaterBytes 再放行。
+    //      读线程一停,SSH 的接收窗口就不再推进,压力顺着流控自然回传到远端 ——
+    //      远端的 `cat` 会自己慢下来。这正是 OpenSSH 客户端的行为。
+
+    /// <summary>每帧最多交给模拟器解析的字节数。</summary>
+    private const int FeedBudgetBytes = 1 << 20; // 1 MB
+
+    /// <summary>积压高水位:超过它读线程就等。</summary>
+    private const long HighWaterBytes = 8L << 20; // 8 MB
+
+    /// <summary>积压低水位:降到它以下才放读线程继续。</summary>
+    private const long LowWaterBytes = 2L << 20; // 2 MB
+
+    /// <summary>当前 <see cref="_pending" /> 里积压的字节数。</summary>
+    private long _pendingBytes;
+
+    /// <summary>
+    /// 读线程的等待闸。初值 0 = 关着;<see cref="ReleaseDrainGate" /> 放一次行。
+    /// </summary>
+    /// <remarks>
+    /// 上限 1:重复放行不该攒出配额,否则读线程能连着冲过好几轮高水位。
+    /// <para>
+    /// <b>积压的实际上界是 <see cref="HighWaterBytes" /> + 两块。</b>一块来自"越界的那一次入队"
+    /// (高水位是入队之后才判的);另一块来自一张陈旧许可 —— 积压跌到低水位时读线程可能
+    /// 并没有在等,那次 <c>Release</c> 就留在信号量里,下一次 <c>WaitAsync</c> 会立刻拿到它、
+    /// 不真的等,于是多放过一块。再下一轮就会真等住。以 16 KB 的读块算,超出上限约 32 KB,
+    /// 不值得为它引入"有没有人在等"的额外记账。
+    /// </para>
+    /// </remarks>
+    private readonly SemaphoreSlim _drainGate = new(0, 1);
+
+    /// <summary>当前积压字节数(背压回归用例读它)。</summary>
+    internal long PendingBytesForTest => Interlocked.Read(ref _pendingBytes);
+
+    /// <summary>最近一次 Feed 交出去的字节数(预算回归用例读它)。</summary>
+    internal int LastFeedBytesForTest { get; private set; }
+
+    /// <summary>放行等在闸上的读线程;没人等就是空操作。</summary>
+    private void ReleaseDrainGate()
+    {
+        // CurrentCount 已经是 1 时再 Release 会抛 SemaphoreFullException。
+        if (_drainGate.CurrentCount == 0)
+        {
+            try
+            {
+                _drainGate.Release();
+            }
+            catch (SemaphoreFullException)
+            {
+                // 与另一个放行者撞上了:闸已经开着,正是想要的结果。
+            }
+            catch (ObjectDisposedException)
+            {
+                // 已 Dispose:读循环也已经在退了。
+            }
+        }
+    }
 
     private void FlushPending()
     {
         // 先重置,使排空期间到达的分块能调度一次全新刷新。
         Interlocked.Exchange(ref _flushScheduled, 0);
 
+        bool more;
+        int taken = 0;
         // 只在锁内摘取,拼接/喂入/归还都在锁外做 —— 读线程不会被 UI 的这段活儿挡住。
         lock (_pendingLock)
         {
@@ -429,8 +535,32 @@ public class SshTerminalBridge : IDisposable
             {
                 return;
             }
-            _draining.AddRange(_pending);
-            _pending.Clear();
+            // 每帧只摘 FeedBudgetBytes,剩下的留到下一帧 —— 见 FeedBudgetBytes 的说明。
+            // 「至少摘一块」是必须的:单块本身就超预算时若一块不摘,这里会空转成死循环。
+            int index = 0;
+            while (index < _pending.Count
+                   && (taken == 0 || taken + _pending[index].Length <= FeedBudgetBytes))
+            {
+                taken += _pending[index].Length;
+                _draining.Add(_pending[index]);
+                index++;
+            }
+            _pending.RemoveRange(0, index);
+            more = _pending.Count > 0;
+        }
+        long pendingNow = Interlocked.Add(ref _pendingBytes, -taken);
+        // 降到低水位以下就放读线程继续跑(见 _drainGate)。
+        if (pendingNow <= LowWaterBytes)
+        {
+            ReleaseDrainGate();
+        }
+        if (more)
+        {
+            // 续帧用 Background 而不是默认的 Normal:Avalonia 的 Render 优先级高于
+            // Background、低于 Normal。用 Normal 续帧会把渲染饿死 —— 界面照样冻住,
+            // 分片就等于白做。用 Background 则是"渲染完这一帧,再解析下一批"。
+            Interlocked.Exchange(ref _flushScheduled, 1);
+            Dispatcher.UIThread.Post(FlushPending, DispatcherPriority.Background);
         }
         try
         {
@@ -486,6 +616,7 @@ public class SshTerminalBridge : IDisposable
             try
             {
                 // 每次刷新只 Feed 一次 => 一次 Updated => 一次重绘,与分块数量无关。
+                LastFeedBytesForTest = length;
                 FeedTerminal(buffer, length);
             }
             catch (Exception ex)

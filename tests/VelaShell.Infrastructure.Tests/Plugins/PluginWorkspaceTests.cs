@@ -18,7 +18,9 @@ namespace VelaShell.Infrastructure.Tests.Plugins;
 /// 页签、凭据、惰性激活、会话生命周期全部复用宿主既有机制,插件只管交出一个控件。
 /// </para>
 /// </summary>
+// 同 IsolatedPluginTests:涉及真实插件进程与按墙钟的等待,串行执行避免并行下的时序抖动。
 [TestClass]
+[DoNotParallelize]
 public sealed class PluginWorkspaceTests
 {
     private const string PluginId = "acme.cache";

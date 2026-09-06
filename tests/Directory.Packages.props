@@ -27,6 +27,9 @@
          装载方那份)。测试宿主在这里就扮演"装载方":不摆这一条,面板一构造就是
          FileNotFoundException。 -->
     <PackageVersion Include="Avalonia.AvaloniaEdit" Version="12.0.0" />
+    <!-- 吞吐与分配基准(见 tests/VelaShell.Benchmarks)。不进 CI 门禁:BDN 的数字受机器
+         负载影响太大,当门禁只会天天误报;它的用处是改动前后在同一台机器上对比。 -->
+    <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
     <PackageVersion Include="ReactiveUI.Testing" Version="24.2.0" />
   </ItemGroup>
 </Project>

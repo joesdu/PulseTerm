@@ -76,7 +76,8 @@ public abstract class DockTabItemBase : UserControl
         PseudoClasses.Set(":selected", Document is not null && ReferenceEquals(Group?.ActiveDocument, Document));
 
     /// <summary>关闭当前标签的文档。</summary>
-    protected void CloseTab_Click(object? sender, RoutedEventArgs e) => Workspace?.CloseDocument(Document!);
+    // 走 RequestClose 而不是 CloseDocument:关闭已连接会话前的确认闸挂在前者上。
+    protected void CloseTab_Click(object? sender, RoutedEventArgs e) => Workspace?.RequestClose(Document!);
     /// <summary>关闭组内除当前标签外的所有文档。</summary>
     protected void CloseOthers_Click(object? sender, RoutedEventArgs e) => Workspace?.CloseOtherDocuments(Document!);
     /// <summary>关闭组内的全部文档。</summary>

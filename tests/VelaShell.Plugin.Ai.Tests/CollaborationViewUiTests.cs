@@ -394,10 +394,17 @@ public sealed class CollaborationViewUiTests
     /// 二维码真的画得出来,而且画的就是编码器给的那张矩阵。
     /// </summary>
     /// <remarks>
-    /// 走的是生产路径本身(反射调 <c>RenderQr</c>),不是在测试里另拼一遍 ——
-    /// 这一段是"编译得过、运行才炸"的高发地带:它自己建 <see cref="WriteableBitmap" />、
-    /// 锁帧缓冲、按 <c>RowBytes</c> 逐行拷字节,任何一处算错都只有真跑一次才看得见。
-    /// 矩阵本身的正确性由 <c>QrCodeTests</c> 把关,这里只管"矩阵 → 像素"这一跳。
+    /// <para>
+    /// 走的是生产路径本身(反射调 <c>BuildQrPixels</c>),不是在测试里另拼一遍 ——
+    /// 矩阵本身的正确性由 <c>QrCodeTests</c> 把关,这里只管"矩阵 → 像素"这一跳:
+    /// 静默区的偏移、每个模块的缩放,任何一处算错都只有真跑一次才看得见。
+    /// </para>
+    /// <para>
+    /// <b>不要改回"渲染完再 Lock 一次读回来"。</b>那是这条用例原本的写法,而它
+    /// <b>根本读不回写进去的字节</b> —— 实测第二次 <c>Lock</c> 拿到的是未初始化内存
+    /// (前几个字节是一个 64 位指针)。于是它一直在对着垃圾内存断言,靠"垃圾字节碰巧不为 0"
+    /// 蒙混过关,偶尔碰上一个 0 字节就红一次,而红的时候看起来像是二维码画错了。
+    /// </para>
     /// </remarks>
     [TestMethod]
     public void QrCode_RendersTheEncodedMatrixToPixels()
@@ -408,19 +415,18 @@ public sealed class CollaborationViewUiTests
             const int scale = 6;
             const int quiet = 4;
             var expected = QrCode.Encode(url, QrEcc.Medium);
-
-            MethodInfo render = typeof(CollaborationView)
-                                    .GetMethod("RenderQr", BindingFlags.NonPublic | BindingFlags.Static)
-                                ?? throw new InvalidOperationException("CollaborationView.RenderQr is gone — update this test.");
-            using var bitmap = (WriteableBitmap)render.Invoke(null, [url])!;
-
             int side = (expected.Size + (quiet * 2)) * scale;
-            Assert.AreEqual(new PixelSize(side, side), bitmap.PixelSize);
 
-            using ILockedFramebuffer frame = bitmap.Lock();
-            byte[] pixels = new byte[frame.RowBytes * side];
-            Marshal.Copy(frame.Address, pixels, 0, pixels.Length);
-            bool IsDark(int x, int y) => pixels[(y * frame.RowBytes) + (x * 4)] == 0;
+            MethodInfo build = typeof(CollaborationView)
+                                   .GetMethod("BuildQrPixels", BindingFlags.NonPublic | BindingFlags.Static)
+                               ?? throw new InvalidOperationException("CollaborationView.BuildQrPixels is gone — update this test.");
+            object?[] args = [url, null];
+            byte[] pixels = (byte[])build.Invoke(null, args)!;
+
+            Assert.AreEqual(side, (int)args[1]!, "边长 = (模块数 + 静默区 ×2) × 缩放");
+            Assert.HasCount(side * side * 4, pixels, "像素紧凑排列,每行 side*4 字节、无填充");
+
+            bool IsDark(int x, int y) => pixels[(y * side * 4) + (x * 4)] == 0;
 
             // 静默区必须是白的,否则识读器框不出符号边界。
             Assert.IsFalse(IsDark(0, 0), "左上角静默区不该是深色");
@@ -435,6 +441,31 @@ public sealed class CollaborationViewUiTests
                     Assert.AreEqual(expected[mx, my], IsDark(px, py), $"模块 ({mx},{my}) 画错了");
                 }
             }
+            return Task.CompletedTask;
+        });
+    }
+
+    /// <summary>渲染出来的位图尺寸与像素缓冲对得上。</summary>
+    /// <remarks>
+    /// 位图那一跳只验尺寸:内容验不了(见上一条 —— 帧缓冲读不回来),
+    /// 但"建出来的位图边长与像素数据一致"是真能验的,而且正是 <c>RowBytes</c> 逐行拷
+    /// 会算错的地方。
+    /// </remarks>
+    [TestMethod]
+    public void QrCode_BitmapMatchesTheEncodedSize()
+    {
+        OnUi(() =>
+        {
+            const string url = "https://t.me/example_bot?startgroup=true";
+            var expected = QrCode.Encode(url, QrEcc.Medium);
+            int side = (expected.Size + 8) * 6;
+
+            MethodInfo render = typeof(CollaborationView)
+                                    .GetMethod("RenderQr", BindingFlags.NonPublic | BindingFlags.Static)
+                                ?? throw new InvalidOperationException("CollaborationView.RenderQr is gone — update this test.");
+            using var bitmap = (WriteableBitmap)render.Invoke(null, [url])!;
+
+            Assert.AreEqual(new PixelSize(side, side), bitmap.PixelSize);
             return Task.CompletedTask;
         });
     }

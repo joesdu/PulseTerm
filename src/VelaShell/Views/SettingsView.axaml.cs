@@ -5,6 +5,8 @@ using Avalonia.Media;
 using ReactiveUI.Primitives;
 using VelaShell.Core.Resources;
 using VelaShell.ViewModels;
+using FireAndForget = VelaShell.Services.FireAndForget;
+using VelaShell.Views.Settings;
 
 namespace VelaShell.Views;
 
@@ -13,18 +15,37 @@ public partial class SettingsView : Window
 {
     private SettingsViewModel? _viewModel;
 
+    /// <summary>页面宿主:按分区按需创建页面并缓存(见 <see cref="SettingsPageHost" />)。</summary>
+    private readonly SettingsPageHost _pages;
+
     /// <summary>初始化 <see cref="SettingsView"/>,加载组件并绑定视图模型的关闭请求。</summary>
     public SettingsView()
     {
         InitializeComponent();
         ApplyMacOsOpaqueWindow();
+        _pages = new(PageHost);
         DataContextChanged += (_, _) =>
         {
+            _viewModel?.PropertyChanged -= OnViewModelPropertyChanged;
             _viewModel?.CloseRequested -= OnCloseRequested;
             _viewModel = DataContext as SettingsViewModel;
             _viewModel?.CloseRequested += OnCloseRequested;
+            _viewModel?.PropertyChanged += OnViewModelPropertyChanged;
+            // 装上视图模型的那一刻就把当前页建出来;窗口打开时看到的就是它。
+            _pages.Show(_viewModel?.SelectedSectionKey ?? SettingsSectionKey.General);
         };
     }
+
+    private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(SettingsViewModel.SelectedSectionKey) && _viewModel is { } vm)
+        {
+            _pages.Show(vm.SelectedSectionKey);
+        }
+    }
+
+    /// <summary>已创建的设置页数量(懒加载回归用例读它)。</summary>
+    internal int CreatedPageCountForTest => _pages.CreatedPageCount;
 
     /// <summary>
     /// macOS 上把设置窗口改为【不透明】,消除滚动卡顿。透明窗口(TransparencyLevelHint=Transparent)
@@ -89,10 +110,10 @@ public partial class SettingsView : Window
     }
 
     /// <summary>恢复默认是破坏性操作:先确认再执行,防止误点丢失全部设置(设置审计 C-11)。</summary>
-    private async void ResetToDefaults_Click(
+    private void ResetToDefaults_Click(
         object? sender,
         Avalonia.Interactivity.RoutedEventArgs e
-    )
+    ) => FireAndForget.Run(async () =>
     {
         if (_viewModel is null)
         {
@@ -108,5 +129,5 @@ public partial class SettingsView : Window
         {
             _viewModel.ResetCommand.Execute().Subscribe();
         }
-    }
+    });
 }

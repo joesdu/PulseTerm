@@ -156,7 +156,7 @@ public partial class ChatPanelView
                     md.Append('`').Append(meta.Model).Append('`');
                     if (meta.ElapsedMs > 0)
                     {
-                        md.Append(" · ").Append(FormatDuration(TimeSpan.FromMilliseconds(meta.ElapsedMs)));
+                        md.Append(" · ").Append(ChatFormatting.Duration(TimeSpan.FromMilliseconds(meta.ElapsedMs)));
                     }
                     md.AppendLine().AppendLine();
                 }

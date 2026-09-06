@@ -23,6 +23,26 @@
     <Style Selector="TextBox[AcceptsReturn=True]">
         <Setter Property="VerticalContentAlignment" Value="Top" />
     </Style>
+    <!-- 图标按钮的无障碍名字:全仓 116 处按钮写过 ToolTip.Tip,但那份文案读屏器读不到 ——
+         对读屏器来说整个界面是一排没有名字的"按钮"。全局挂一次,一百多个图标按钮
+         一次性有了名字,不必逐个补属性。显式设过 AutomationProperties.Name 的地方一律尊重。
+         理由见 Behaviors/AccessibleName。 -->
+    <Style Selector="Button">
+        <Setter Property="behaviors:AccessibleName.FromToolTip" Value="True" />
+    </Style>
+    <Style Selector="ToggleButton">
+        <Setter Property="behaviors:AccessibleName.FromToolTip" Value="True" />
+    </Style>
+    <Style Selector="RepeatButton">
+        <Setter Property="behaviors:AccessibleName.FromToolTip" Value="True" />
+    </Style>
+    <!-- 设置页的开关自己一个字都没有,说明全在同一行左侧的 row-label 上:用眼睛看一目了然,
+         读屏器听到的却只有"开关,已选中"。顺着设置页统一的行结构去取那段文字,
+         三十来个开关一次性有了名字,以后新增的行也自动有。理由见 Behaviors/AccessibleName。 -->
+    <Style Selector="ToggleSwitch">
+        <Setter Property="behaviors:AccessibleName.FromRowLabel" Value="True" />
+    </Style>
+
     <!-- 数字框全局挂上空值兜底:删空时提示"请输入 x 到 y 之间的数字"而不是绑定抛出的
          InvalidCastException,离开输入框后自动回到上一个有效值。理由见 NumericInputGuard。 -->
     <Style Selector="NumericUpDown">

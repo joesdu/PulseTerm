@@ -15,7 +15,22 @@ public interface ISettingsService
     event Action<AppSettings>? SettingsSaved;
 
     /// <summary>读取当前持久化的应用设置;不存在时返回默认值。</summary>
+    /// <remarks>
+    /// 每次调用都返回一个**独立实例**,调用方可以安全修改后再 <see cref="SaveSettingsAsync" />。
+    /// 代价是每次都要反序列化整份 <see cref="AppSettings" />;只读的调用方请改用
+    /// <c>GetSnapshotAsync()</c>(<see cref="SettingsServiceExtensions" />)。
+    /// </remarks>
     Task<AppSettings> GetSettingsAsync();
+
+    /// <summary>
+    /// 与最近一次读取/保存一致的**只读共享实例**;尚未加载过(或测试替身)时为 null。
+    /// </summary>
+    /// <remarks>
+    /// 调用方**不得修改**返回的对象 —— 它被所有只读调用方共享。要改请走
+    /// <see cref="GetSettingsAsync" />。默认实现返回 null,使不关心快照的实现
+    /// (以及测试替身)自动回落到 <see cref="GetSettingsAsync" />。
+    /// </remarks>
+    AppSettings? CurrentSnapshot => null;
 
     /// <summary>持久化应用设置,并触发 <see cref="SettingsSaved" /> 以通知在线消费者。</summary>
     Task SaveSettingsAsync(AppSettings settings);

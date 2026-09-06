@@ -3,12 +3,33 @@ using System.Text;
 namespace VelaShell.Terminal.Emulation;
 
 /// <summary>
-/// 终端网格中的一行:一个固定长度的 <see cref="TerminalCell" /> 数组,外加一个 "wrapped" 标志,
+/// 终端网格中的一行:一个 <see cref="TerminalCell" /> 数组,外加一个 "wrapped" 标志,
 /// 用于在改变列宽时重新排版软换行行,以及为复制而合并行。
 /// </summary>
+/// <remarks>
+/// <para>
+/// <b>存储可以比逻辑列宽短。</b><see cref="Columns" /> 始终是这一行「有多宽」,而
+/// <c>_cells</c> 只存到最后一个有内容的格 —— 行退休进回滚区时由 <see cref="TrimToContent" />
+/// 截短。尾部那段没存的格在读取时按 <c>default</c>(默认色、无属性的空格)合成。
+/// </para>
+/// <para>
+/// 这么做是因为回滚缓冲整行满宽存储的代价按整个缓冲区放大:200 列 × 20 万行 × 16 B ≈
+/// <b>640 MB / 标签页</b>,而典型日志行只有几十列非空。实测(<c>ScrollbackBenchmarks</c>)
+/// 灌 1 万行 20 字符的日志,80 列占 13.6 MB、200 列占 31.9 MB —— 内容一模一样,
+/// 内存却跟着列宽走。
+/// </para>
+/// <para>
+/// <b>截短是无损的</b>:只丢弃与 <c>default</c> 逐字段相等的尾部格,而读取正是合成
+/// <c>default</c>。带背景色的行尾(程序设了底色再换行,屏幕上看得见)不满足这个条件,
+/// 不会被丢。任何写入路径都会先把存储补回逻辑列宽,所以"写了又读"永远拿到自己写的东西。
+/// </para>
+/// </remarks>
 public sealed class TerminalRow(int columns)
 {
     private TerminalCell[] _cells = new TerminalCell[columns];
+
+    /// <summary>本行的逻辑列数;与实际存储长度无关(见类型注释)。</summary>
+    private int _columns = columns;
 
     /// <summary>当该行由自动换行结束(而非显式换行)时为 true。</summary>
     public bool Wrapped { get; set; }
@@ -20,24 +41,145 @@ public sealed class TerminalRow(int columns)
     public DateTime? Timestamp { get; set; }
 
     /// <summary>本行的单元格(列)数量。</summary>
-    public int Columns => _cells.Length;
+    public int Columns => _columns;
+
+    /// <summary>
+    /// 实际存储的列数;截短过的行小于 <see cref="Columns" />。
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Span" /> 只覆盖这一段,批量拷贝的调用方据此夹取值范围。
+    /// </remarks>
+    public int StoredColumns => _cells.Length;
 
     /// <summary>获取或设置指定列索引处的单元格。</summary>
+    /// <remarks>
+    /// 读越界不抛:截短过的行尾部本就没有存储,合成一个 <c>default</c> 空格返回 ——
+    /// 那正是被丢掉的那些格的内容(见类型注释)。渲染、选区、搜索都按屏幕列宽整行扫,
+    /// 让它们各自去判断行有多长只会把这个细节撒得到处都是。
+    /// 写越界则先把存储补回逻辑列宽,保证"写进去的读得回来"。
+    /// </remarks>
     public TerminalCell this[int col]
     {
-        get => _cells[col];
-        set => _cells[col] = value;
+        get => (uint)col < (uint)_cells.Length ? _cells[col] : default;
+        set
+        {
+            EnsureStored();
+            _cells[col] = value;
+        }
     }
 
     /// <summary>返回指定列处单元格的可变引用,用于就地编辑。</summary>
-    public ref TerminalCell CellRef(int col) => ref _cells[col];
+    public ref TerminalCell CellRef(int col)
+    {
+        // 交出去的是可写引用,调用方随时会往里写:必须先有完整存储。
+        EnsureStored();
+        return ref _cells[col];
+    }
 
-    /// <summary>整行单元格的只读切片(reflow 等批量拷贝路径用,免去逐格索引)。</summary>
+    /// <summary>
+    /// 已存储单元格的只读切片(reflow 等批量拷贝路径用,免去逐格索引)。
+    /// </summary>
+    /// <remarks>
+    /// <b>长度是 <see cref="StoredColumns" /> 而非 <see cref="Columns" />。</b>
+    /// 刻意不在这里把存储补回满宽:reflow 会遍历整个回滚区,一路补满就把刚省下的内存
+    /// 全还回去了。切片超出部分的语义与索引器一致 —— 默认空格。
+    /// </remarks>
     public ReadOnlySpan<TerminalCell> Span => _cells;
+
+    /// <summary>
+    /// 整行单元格的可写切片,长度恒为 <see cref="Columns" />。
+    /// </summary>
+    /// <remarks>
+    /// 批量写入路径(<c>TerminalEmulator.PrintRun</c>)用它:逐格走索引器的话,每一格都要
+    /// 付一次边界判断加一次 <see cref="EnsureStored" /> 调用,而那两件事对一整段来说做一次就够。
+    /// <b>拿到的切片在下一次改变本行存储的操作之后即失效</b>,别跨调用持有。
+    /// </remarks>
+    public Span<TerminalCell> WritableSpan
+    {
+        get
+        {
+            EnsureStored();
+            return _cells;
+        }
+    }
+
+    /// <summary>
+    /// 把存储补回逻辑列宽(截短过才有实际动作)。
+    /// </summary>
+    /// <remarks>
+    /// 补出来的格填 <c>default</c>,与截短时丢掉的逐字段相等 —— 所以这是个纯粹的
+    /// 表示变换,内容不变。
+    /// </remarks>
+    private void EnsureStored()
+    {
+        if (_cells.Length >= _columns)
+        {
+            return;
+        }
+        TerminalCell[] next = new TerminalCell[_columns];
+        Array.Copy(_cells, next, _cells.Length);
+        _cells = next;
+    }
+
+    /// <summary>
+    /// 按内容截短存储:丢掉尾部那段与 <c>default</c> 相等的格。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 行退休进回滚区时调用。<b>只对确定不会再被写入的行调用</b> —— 活动屏上的行随时会被
+    /// 写,截了也立刻被 <see cref="EnsureStored" /> 补回去,白折腾一趟。
+    /// </para>
+    /// <para>
+    /// 判据是「与 <c>default</c> 逐字段相等」而不是「没有字符」:行尾带背景色的空格
+    /// (程序设了底色再换行)屏幕上看得见,砍掉就是可见的画面变化。带色的行因此不会被截短,
+    /// 这是对的 —— 它们本来就是有内容的。
+    /// </para>
+    /// </remarks>
+    public void TrimToContent()
+    {
+        int last = _cells.Length - 1;
+        while (last >= 0 && _cells[last] == default)
+        {
+            last--;
+        }
+        int keep = last + 1;
+        if (keep == 0)
+        {
+            _cells = [];
+            return;
+        }
+        if (keep * TrimDenominator > _cells.Length * TrimNumerator)
+        {
+            return;
+        }
+        TerminalCell[] next = new TerminalCell[keep];
+        Array.Copy(_cells, next, keep);
+        _cells = next;
+    }
+
+    /// <summary>
+    /// 至少要能丢掉四分之一的格才值得截短(<c>keep / stored &lt;= 3/4</c>)。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// .NET 的数组没法原地缩短,截短就得<b>新分配一个小数组再拷贝</b>。近满宽的行上
+    /// 这笔买卖是亏的:实测 80 列里写满 76 个字符时,加上截短后累计分配从 14.6 MB 涨到
+    /// 26.4 MB(+80%),换来的常驻内存只省 5%。而每退休一行就走一次这里,是滚动的热路径。
+    /// </para>
+    /// <para>
+    /// 门槛把收益留在真正有收益的地方:宽终端里跑短日志(200 列 × 20 字符)才是 P-07
+    /// 说的那个 640 MB 场景,那里丢掉的是九成格子。
+    /// </para>
+    /// </remarks>
+    private const int TrimNumerator = 3;
+
+    /// <inheritdoc cref="TrimNumerator" />
+    private const int TrimDenominator = 4;
 
     /// <summary>用给定单元格填满整行,并清除 wrapped 标志与时间戳。</summary>
     public void Fill(in TerminalCell cell)
     {
+        EnsureStored();
         for (int i = 0; i < _cells.Length; i++)
         {
             _cells[i] = cell;
@@ -58,6 +200,7 @@ public sealed class TerminalRow(int columns)
     /// </remarks>
     public void FillRange(int start, int endExclusive, in TerminalCell cell)
     {
+        EnsureStored();
         for (int i = Math.Max(0, start); i < Math.Min(_cells.Length, endExclusive); i++)
         {
             _cells[i] = cell;
@@ -75,7 +218,7 @@ public sealed class TerminalRow(int columns)
     /// </summary>
     public void Resize(int columns, in TerminalCell blank)
     {
-        if (columns == _cells.Length)
+        if (columns == _cells.Length && columns == _columns)
         {
             return;
         }
@@ -87,11 +230,13 @@ public sealed class TerminalRow(int columns)
             next[i] = blank;
         }
         _cells = next;
+        _columns = columns;
     }
 
     /// <summary>在 <paramref name="col" /> 处删除 <paramref name="count" /> 个单元格,并将尾部左移。</summary>
     public void DeleteCells(int col, int count, in TerminalCell blank)
     {
+        EnsureStored();
         if (count <= 0 || col >= _cells.Length)
         {
             return;
@@ -104,6 +249,7 @@ public sealed class TerminalRow(int columns)
     /// <summary>在 <paramref name="col" /> 处插入 <paramref name="count" /> 个空白单元格,并将尾部右移。</summary>
     public void InsertCells(int col, int count, in TerminalCell blank)
     {
+        EnsureStored();
         if (count <= 0 || col >= _cells.Length)
         {
             return;
@@ -212,15 +358,18 @@ public sealed class TerminalRow(int columns)
         {
             _cells = new TerminalCell[columns];
         }
+        _columns = columns;
         _cells.AsSpan().Fill(blank);
         Wrapped = false;
         Timestamp = null;
     }
 
     /// <summary>创建本行的深拷贝,保留单元格、wrapped 标志与时间戳。</summary>
+    /// <remarks>截短状态一并复制:拷贝一行不该悄悄把内存翻回满宽。</remarks>
     public TerminalRow Clone()
     {
-        var clone = new TerminalRow(_cells.Length) { Wrapped = Wrapped, Timestamp = Timestamp };
+        var clone = new TerminalRow(_columns) { Wrapped = Wrapped, Timestamp = Timestamp };
+        clone._cells = new TerminalCell[_cells.Length];
         Array.Copy(_cells, clone._cells, _cells.Length);
         return clone;
     }

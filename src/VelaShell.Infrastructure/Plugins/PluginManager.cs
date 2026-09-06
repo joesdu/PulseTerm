@@ -92,9 +92,9 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         new(options.Theme, options.SystemPrefersDark, options.ThemeTokensProvider));
     private readonly Lock _gate = new();
     private readonly CancellationTokenSource _shutdown = new();
-    private readonly List<FileSystemWatcher> _devWatchers = [];
+    /// <summary>开发期插件的重建监视(见 <see cref="PluginDevWatcher" />);未开启自动重载时为 null。</summary>
+    private PluginDevWatcher? _devWatcher;
     private readonly Lock _devDisabledGate = new();
-    private Timer? _devWatchDebounce;
     private bool _started;
     private bool _disposed;
 
@@ -405,13 +405,6 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         return manifest!.Id;
     }
 
-    /// <summary>解压 zip,拒绝绝对路径与 <c>..</c> 逃逸(zip-slip 防护)。</summary>
-    /// <summary>单包条目数上限。</summary>
-    private const int MaxPackageEntries = 10_000;
-
-    /// <summary>单包解压后总字节上限(解压炸弹防护:压缩比可以做到上千倍)。</summary>
-    private const long MaxUnpackedBytes = 512L * 1024 * 1024;
-
     /// <summary>
     /// 打开插件包并安全解包。只认 <c>.vpx</c> 专属容器(魔数 + 摘要 + 可选签名,见
     /// <see cref="VpxContainer" />)—— 改了后缀的 zip 一律拒绝,拒绝原因里带重新打包的办法。
@@ -422,7 +415,7 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         using Stream payload = VpxContainer.OpenPayload(packagePath, out VpxPackageInfo info);
         CheckSignature(packagePath, info, allowUntrustedPackage);
         using var archive = new ZipArchive(payload, ZipArchiveMode.Read);
-        ExtractZipSafely(archive, destination);
+        PluginPackageExtractor.ExtractSafely(archive, destination);
         return info;
     }
 
@@ -656,7 +649,7 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         try
         {
             InstalledPluginReceipt? previous = _trustState.Receipts.GetValueOrDefault(pluginId);
-            _trustState.Receipts[pluginId] = new(pluginId, ComputePluginContentSha256(directory),
+            _trustState.Receipts[pluginId] = new(pluginId, PluginContentHash.Compute(directory),
                 packageInfo.PayloadSha256, packageInfo.Signature?.PublicKey, LegacyAdopted: false, DateTimeOffset.UtcNow);
             try
             {
@@ -707,128 +700,6 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         finally
         {
             _trustStateGate.Release();
-        }
-    }
-
-    private static string ComputePluginContentSha256(string root)
-    {
-        string fullRoot = Path.GetFullPath(root);
-        if ((File.GetAttributes(fullRoot) & FileAttributes.ReparsePoint) != 0)
-        {
-            throw new InvalidDataException("Plugin root is a symbolic link.");
-        }
-        var files = new List<string>();
-        var pending = new Stack<string>();
-        pending.Push(fullRoot);
-        while (pending.TryPop(out string? directory))
-        {
-            foreach (string child in Directory.EnumerateDirectories(directory))
-            {
-                if ((File.GetAttributes(child) & FileAttributes.ReparsePoint) != 0)
-                {
-                    throw new InvalidDataException($"Plugin directory contains a symbolic link: {Path.GetRelativePath(fullRoot, child)}");
-                }
-                pending.Push(child);
-            }
-            foreach (string file in Directory.EnumerateFiles(directory))
-            {
-                if (directory == fullRoot && Path.GetFileName(file).Equals(".disabled", StringComparison.Ordinal))
-                {
-                    continue;
-                }
-                if ((File.GetAttributes(file) & FileAttributes.ReparsePoint) != 0)
-                {
-                    throw new InvalidDataException($"Plugin directory contains a symbolic link: {Path.GetRelativePath(fullRoot, file)}");
-                }
-                files.Add(file);
-            }
-        }
-
-        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        Span<byte> frame = stackalloc byte[8];
-
-        // 读缓冲在循环外开一次并跨文件复用:原先每个文件都新开 64 KB,一个两百来个文件的
-        // 插件光在这里就扔掉十几 MB 垃圾,而这条路径是安装/校验时的启动开销。
-        byte[] buffer = ArrayPool<byte>.Shared.Rent(64 * 1024);
-        try
-        {
-            foreach (string file in files.OrderBy(f => Path.GetRelativePath(fullRoot, f).Replace('\\', '/'), StringComparer.Ordinal))
-            {
-                byte[] path = Encoding.UTF8.GetBytes(Path.GetRelativePath(fullRoot, file).Replace('\\', '/'));
-                BinaryPrimitives.WriteInt32LittleEndian(frame, path.Length);
-                hash.AppendData(frame[..4]);
-                hash.AppendData(path);
-                using FileStream stream = File.OpenRead(file);
-                BinaryPrimitives.WriteInt64LittleEndian(frame, stream.Length);
-                hash.AppendData(frame);
-                int read;
-                while ((read = stream.Read(buffer)) > 0)
-                {
-                    hash.AppendData(buffer.AsSpan(0, read));
-                }
-            }
-        }
-        finally
-        {
-            ArrayPool<byte>.Shared.Return(buffer);
-        }
-        return Convert.ToHexStringLower(hash.GetHashAndReset());
-    }
-
-    private static void ExtractZipSafely(ZipArchive archive, string destination)
-    {
-        string root = Path.GetFullPath(destination + Path.DirectorySeparatorChar);
-        if (archive.Entries.Count > MaxPackageEntries)
-        {
-            throw new InvalidOperationException(
-                $"Rejected package: it has {archive.Entries.Count} entries (limit {MaxPackageEntries}).");
-        }
-        long budget = MaxUnpackedBytes;
-        foreach (ZipArchiveEntry entry in archive.Entries)
-        {
-            string targetPath = Path.GetFullPath(Path.Combine(destination, entry.FullName));
-            if (!targetPath.StartsWith(root, StringComparison.Ordinal))
-            {
-                throw new InvalidOperationException($"Rejected unsafe package entry (path escape): {entry.FullName}");
-            }
-            if (entry.FullName.EndsWith('/') || entry.FullName.EndsWith('\\'))
-            {
-                Directory.CreateDirectory(targetPath);
-                continue;
-            }
-            Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
-            using Stream source = entry.Open();
-            using FileStream target = File.Create(targetPath);
-            // 按实际写出的字节数记账,而不是信 entry.Length —— 中央目录里的长度是包自己写的,
-            // 炸弹包大可以谎报 1 KB 再吐出 10 GB。
-            budget -= CopyBounded(source, target, budget, entry.FullName);
-        }
-    }
-
-    /// <summary>把条目内容拷进目标流,超出预算即中止并抛出。返回实际写出的字节数。</summary>
-    /// <remarks>本方法按 zip 条目逐个调用,缓冲走池:上千条目的包不必扔掉上千个 80 KB 数组。</remarks>
-    private static long CopyBounded(Stream source, Stream destination, long budget, string entryName)
-    {
-        byte[] buffer = ArrayPool<byte>.Shared.Rent(81920);
-        try
-        {
-            long written = 0;
-            int read;
-            while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
-            {
-                written += read;
-                if (written > budget)
-                {
-                    throw new InvalidOperationException(
-                        $"Rejected package: unpacked size exceeds {MaxUnpackedBytes} bytes (while extracting '{entryName}').");
-                }
-                destination.Write(buffer, 0, read);
-            }
-            return written;
-        }
-        finally
-        {
-            ArrayPool<byte>.Shared.Return(buffer);
         }
     }
 
@@ -1670,7 +1541,7 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         string actual;
         try
         {
-            actual = ComputePluginContentSha256(directory);
+            actual = PluginContentHash.Compute(directory);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
         {
@@ -2368,62 +2239,8 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
         {
             return;
         }
-        // 去抖定时器在挂监视器之前建好:留到事件回调里懒建的话,两个几乎同时到达的
-        // 变更事件会各建一个,其中一个从此没人 Dispose。
-        _devWatchDebounce = new(_ => _ = ReloadChangedDevPluginsAsync(), null,
-            Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
-        foreach (string root in options.DevPluginRoots)
-        {
-            if (!Directory.Exists(root))
-            {
-                continue;
-            }
-            try
-            {
-                var watcher = new FileSystemWatcher(root)
-                {
-                    IncludeSubdirectories = true,
-                    NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.Size,
-                    EnableRaisingEvents = true
-                };
-                watcher.Changed += OnDevRootChanged;
-                watcher.Created += OnDevRootChanged;
-                watcher.Renamed += OnDevRootChanged;
-                watcher.Error += (_, e) => Log($"Development watcher on '{root}' failed: {e.GetException().Message}");
-                _devWatchers.Add(watcher);
-                Log($"Watching development plugin root '{root}' for rebuilds.");
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
-            {
-                Log($"Could not watch development plugin root '{root}': {ex.Message}");
-            }
-        }
-    }
-
-    /// <summary>
-    /// 变更去抖:一次 <c>dotnet build</c> 会连着写十几个文件,每个都触发一次重载纯属自找麻烦。
-    /// 最后一次变更之后静默 1.5 秒才动手 —— 也给链接器写完 pdb 留出余地。
-    /// </summary>
-    private void OnDevRootChanged(object sender, FileSystemEventArgs e)
-    {
-        if (_disposed || _shutdown.IsCancellationRequested)
-        {
-            return;
-        }
-        string name = Path.GetFileName(e.FullPath);
-        if (!name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)
-            && !name.Equals(PluginManifestReader.FileName, StringComparison.OrdinalIgnoreCase))
-        {
-            return;
-        }
-        try
-        {
-            _devWatchDebounce?.Change(TimeSpan.FromMilliseconds(1500), Timeout.InfiniteTimeSpan);
-        }
-        catch (ObjectDisposedException)
-        {
-            // 正在停机。
-        }
+        _devWatcher = new(() => _ = ReloadChangedDevPluginsAsync(), Log);
+        _devWatcher.Start(options.DevPluginRoots);
     }
 
     /// <summary>重载那些入口程序集写入时间与装载时不同的开发期插件。</summary>
@@ -2466,21 +2283,8 @@ public sealed class PluginManager(PluginManagerOptions options) : IAsyncDisposab
 
     private void StopDevWatchers()
     {
-        foreach (FileSystemWatcher watcher in _devWatchers)
-        {
-            try
-            {
-                watcher.EnableRaisingEvents = false;
-                watcher.Dispose();
-            }
-            catch (Exception ex) when (ex is IOException or ObjectDisposedException)
-            {
-                // 停机路径:尽力而为。
-            }
-        }
-        _devWatchers.Clear();
-        _devWatchDebounce?.Dispose();
-        _devWatchDebounce = null;
+        _devWatcher?.Dispose();
+        _devWatcher = null;
     }
 
     /// <summary>

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -15,6 +16,7 @@ using VelaShell.Controls.Controls;
 using VelaShell.Core.Models;
 using VelaShell.Core.Resources;
 using VelaShell.Core.Sftp;
+using FireAndForget = VelaShell.Services.FireAndForget;
 using VelaShell.ViewModels;
 
 namespace VelaShell.Views;
@@ -455,7 +457,7 @@ public partial class FileBrowserView : UserControl
         e.Handled = true;
     }
 
-    private async void OnFileListDrop(object? sender, DragEventArgs e)
+    private void OnFileListDrop(object? sender, DragEventArgs e) => FireAndForget.Run(async () =>
     {
         if (DataContext is not FileBrowserViewModel vm)
         {
@@ -477,7 +479,7 @@ public partial class FileBrowserView : UserControl
         }
         await vm.UploadLocalPathsAsync(paths);
         e.Handled = true;
-    }
+});
 
     private static IReadOnlyList<string> ExtractLocalPaths(DragEventArgs e)
     {
@@ -643,7 +645,12 @@ public partial class FileBrowserView : UserControl
         {
             return Task.CompletedTask;
         }
-        var editor = new RemoteFileEditorView(file.Name, file.FullPath, localPath, uploadAsync);
+        // 把会话编码带进去:UTF-8 严格解码失败时(GBK / Big5 / Shift_JIS 文件)
+        // 靠它回落,而不是用会静默把每个中文字变成 � 的替换解码器。
+        Encoding sessionEncoding = owner.DataContext is MainWindowViewModel main
+            ? main.ActiveSessionEncoding
+            : Encoding.UTF8;
+        var editor = new RemoteFileEditorView(file.Name, file.FullPath, localPath, uploadAsync, sessionEncoding);
         editor.Show(owner);
         return Task.CompletedTask;
     }

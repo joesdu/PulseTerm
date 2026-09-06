@@ -15,7 +15,7 @@ public class HeadlessUiTests
     {
         var viewModel = new MainWindowViewModel();
         Assert.IsNotNull(viewModel.Sidebar);
-        Assert.IsNotNull(viewModel.TabBar);
+        Assert.IsNotNull(viewModel.Layout);
         Assert.IsNotNull(viewModel.StatusBar);
         Assert.IsNotNull(viewModel.OpenSettingsCommand);
     }
@@ -29,13 +29,14 @@ public class HeadlessUiTests
         Assert.IsInstanceOfType<SidebarViewModel>(viewModel.Sidebar);
     }
 
+    /// <summary>标签集合的唯一事实来源是停靠工作区(Q-02 拆掉了并存的 TabBarViewModel)。</summary>
     [TestMethod]
     [TestCategory("Integration")]
-    public void MainWindowViewModel_TabBar_IsCorrectType()
+    public void MainWindowViewModel_Layout_IsTheTabSourceOfTruth()
     {
         var viewModel = new MainWindowViewModel();
-        Assert.IsNotNull(viewModel.TabBar);
-        Assert.IsInstanceOfType<TabBarViewModel>(viewModel.TabBar);
+        Assert.IsNotNull(viewModel.Layout);
+        Assert.IsEmpty(viewModel.TerminalTabs);
     }
 
     [TestMethod]

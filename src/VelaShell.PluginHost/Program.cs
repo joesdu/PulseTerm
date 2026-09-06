@@ -78,6 +78,14 @@ internal static class Program
         RemotePluginContext? context = null;
         IVelaPlugin? plugin = null;
 
+        // 上下文要等握手往返完成才建得出来(它需要握手应答里的主题身份),而
+        // connection.Start() 一调用就开始收请求 —— 中间这段窗口里到达的 PluginActivate
+        // 原先直接把 null 传给插件(context! 的那个 ! 就是在掩盖这件事),
+        // 表现为插件激活抛 "Value cannot be null. (Parameter 'context')",而且只在机器忙的时候偶发。
+        // 用一个就绪信号把这段窗口堵上:激活请求等上下文备好再往下走。
+        var contextReady = new TaskCompletionSource<RemotePluginContext>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
         connection.SetNotificationHandler((method, payload) => DispatchNotification(context, method, payload));
         connection.SetRequestHandler(async (method, payload, lifetimeToken) =>
         {
@@ -90,11 +98,16 @@ internal static class Program
                         // 调试内环:VELA_PLUGIN_WAIT_DEBUGGER=1 时先等调试器附上再装载插件程序集,
                         // 这样插件 ActivateAsync 的第一行断点也能命中(附加得晚就只能错过它)。
                         WaitForDebugger(pluginId);
+                        // 等上下文备好。正常情况下握手早就完成、这里立即返回;
+                        // 只有"宿主抢在握手应答之前发来激活"的那一小段窗口才真的等一下。
+                        RemotePluginContext ready = await contextReady.Task
+                            .WaitAsync(TimeSpan.FromSeconds(15), CancellationToken.None)
+                            .ConfigureAwait(false);
                         // 装载与激活合并在此:失败以错误应答回宿主(那边标 Failed 并回收本进程)。
                         var loadContext = new PluginAssemblyLoadContext(pluginId, entryPath);
                         Assembly assembly = loadContext.LoadFromAssemblyPath(entryPath);
                         plugin = (IVelaPlugin)Activator.CreateInstance(PluginEntryLocator.FindEntryType(assembly))!;
-                        await plugin.ActivateAsync(context!, shutdownSource.Token).ConfigureAwait(false);
+                        await plugin.ActivateAsync(ready, shutdownSource.Token).ConfigureAwait(false);
                         return null;
                     }
                 case PluginRpc.PluginDeactivate:
@@ -141,6 +154,8 @@ internal static class Program
                                   ?? throw new InvalidOperationException("Empty handshake response.");
         // 构造上下文时即按握手带来的主题身份把明暗基底贴好(见 RemotePluginContext)。
         context = new(connection, pluginId, pluginVersion, dataDirectory, hello, shutdownSource.Token);
+        // 放行可能已经在等的激活请求(见上面 contextReady 的说明)。
+        contextReady.TrySetResult(context);
 
         int code = await ExitCode.Task.ConfigureAwait(false);
         await connection.DisposeAsync().ConfigureAwait(false);
