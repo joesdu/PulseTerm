@@ -190,6 +190,13 @@
     <Setter Property="MinHeight" Value="{DynamicResource VelaScrollBarSize}" />
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderBrush" Value="Transparent" />
+    <!-- 悬停展开的延迟。Avalonia 的 ScrollBar 并不在 OnPointerEntered 里直接展开,而是
+         ExpandAfterDelay(ShowDelay),默认 0.5s —— 鼠标压在这根 2px 细条上要等半秒才变粗,
+         体感是"滚动条不出来"(#378)。
+         这里取 150ms:一次有意的悬停等不出焦躁,而指针从正文横穿过滑道那一下(通常几十毫秒)
+         还没到点就已经离开,不会一路划过去把滚动条一条条撑开。置 0 反而容易被这种擦碰误触。
+         HideDelay 保持默认 2s:移开就立刻缩回,同样会闪。 -->
+    <Setter Property="ShowDelay" Value="0:0:0.15" />
 
     <Style Selector="^:vertical">
       <Setter Property="ContextFlyout" Value="{StaticResource VelaVerticalScrollBarContextFlyout}" />

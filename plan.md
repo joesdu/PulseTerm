@@ -1743,3 +1743,42 @@ MCP 默认 **`ScopeKind.All` = 允许全部**,与 IM 授权「空 = 一个都不
 关面板后设置不变且新标签仍自动打开、开面板后设置不变且新标签仍不自动打开(两条都额外断言
 `SaveCount == 0`,顺手拦住别的路径偷偷存盘);连开带关的竞态用例随写回一起删掉,
 测试替身 `MemorySettingsService` 的保存延时开关也没人用了,一并去掉。
+
+## 43. 2026-09-06 滚动条:悬停别等半秒,新建连接别一进来就是粗条(#378)
+
+两件事,同一根滚动条。
+
+用户反馈其一(#378):鼠标压在滚动条上,它要等一会儿才变粗 —— Windows Terminal 是立刻的。
+其二:新建连接(Redis 这类字段多的协议)一打开,右侧就顶着一条完全展开的粗滚动条,
+不是别处那种收着的细线。
+
+### 一、根因
+
+**等一会儿**:Avalonia 的 `ScrollBar.OnPointerEntered` 并不直接展开,而是
+`ExpandAfterDelay()` —— 挂一个 `DispatcherTimer`,延迟取 `ShowDelay`,默认 **0.5 秒**。
+本主题的未激活态是一根贴边 2px 细线,于是用户的体感就是"指针都放上去了,滚动条不出来"。
+
+**一进来就是粗的**:`ConnectionProfileView` 的表单区写了 `ScrollViewer.AllowAutoHide="False"`,
+本意是"表单被窗口高度上限截断时,别让人以为字段没了"。但这个开关在 Avalonia 里的含义不是
+"可见",而是**常驻展开**:`ScrollBar.UpdateIsExpandedState` 里 `if (!AllowAutoHide) IsExpanded = true`。
+于是滑道、两端箭头、6px 居中滑块全程挂着,整个应用只有这一处长这样。
+
+### 二、修法
+
+- `Themes/ScrollBarThemes.axaml` 的 `{x:Type ScrollBar}` 加一条 `ShowDelay = 0:0:0.15`,
+  全应用的横/纵滚动条(含终端回滚条那条独立 `ScrollBar`)一次生效。
+  没有一路置 0:指针从正文横穿滑道那一下只有几十毫秒,零延迟会被这种擦碰一路误触,
+  滚动条跟着鼠标一条条撑开。150ms 卡在两者之间 —— 一次有意的悬停等不出焦躁,擦碰则还没
+  到点就已经离开。收起那侧的 `HideDelay` 保持默认 2s:移开就立刻缩回,同样会闪。
+- `ConnectionProfileView` 去掉 `AllowAutoHide="False"`。原来的顾虑不成立:本主题的未激活态
+  是一根**可见的** 2px 细条(不是 Fluent 那种整条隐形),截断照样看得见;悬停也不再等半秒,
+  affordance 一点没少。
+
+### 三、验收
+
+`dotnet test VelaShell.slnx` 全绿(跳过的仍是那些按环境早退的集成用例)。
+新增两条用例:`ScrollBarStyleTests.PointerEnteringTheBar_ExpandsItAfterAShortDelay_NotHalfASecond`
+钉住 ShowDelay=150ms 且 HideDelay 仍是 2s;`ConnectionProfileViewUiTests.FormScrollBar_StartsCollapsed_EvenWhenTheFormIsTruncated`
+在一块 320px 高的矮屏上确认表单确实需要滚动、而滚动条仍是收起的 —— 把
+`AllowAutoHide="False"` 贴回去,这条会红。`DESIGN.md` 5.8 补了两条:展开时机,以及
+"`AllowAutoHide=false` 等于常驻展开,不要拿它当'让人看见能滚'的手段"。

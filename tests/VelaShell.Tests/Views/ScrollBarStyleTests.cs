@@ -90,6 +90,37 @@ public sealed class ScrollBarStyleTests
     }
 
     /// <summary>
+    /// 悬停展开只等 150ms,不是 Avalonia 默认的半秒(#378)。
+    /// </summary>
+    /// <remarks>
+    /// <c>ScrollBar.OnPointerEntered</c> 并不直接展开,而是 <c>ExpandAfterDelay(ShowDelay)</c>,
+    /// 默认 0.5s —— 鼠标停在那根 2px 细条上要等半秒才变粗,用户读到的是"滚动条不出来"。
+    /// <para>
+    /// 也不置 0:指针从正文横穿滑道那一下只有几十毫秒,零延迟会被这种擦碰一路误触。150ms
+    /// 卡在两者之间 —— 有意的悬停等不出焦躁,擦碰则还没到点就已经离开。
+    /// </para>
+    /// <para>
+    /// 收起那侧刻意保持默认的 2s:掠过就立刻缩回同样会闪。
+    /// </para>
+    /// </remarks>
+    [TestMethod]
+    public void PointerEnteringTheBar_ExpandsItAfterAShortDelay_NotHalfASecond()
+    {
+        OnUi(() =>
+        {
+            WithScrollBar(Orientation.Vertical, allowAutoHide: true, (bar, _) =>
+            {
+                Assert.AreEqual(TimeSpan.FromMilliseconds(150), bar.ShowDelay,
+                    "悬停展开的等待:半秒太长,零又会被擦碰误触。");
+                Assert.AreEqual(TimeSpan.FromSeconds(2), bar.HideDelay, "收起那侧保持 Avalonia 默认。");
+            });
+
+            WithScrollBar(Orientation.Horizontal, allowAutoHide: true, (bar, _) =>
+                Assert.AreEqual(TimeSpan.FromMilliseconds(150), bar.ShowDelay));
+        });
+    }
+
+    /// <summary>
     /// 滚动条各部件的无障碍名字要跟界面语言走,不能是硬编码的英文。
     /// </summary>
     /// <remarks>

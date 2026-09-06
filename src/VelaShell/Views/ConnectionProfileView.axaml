@@ -266,12 +266,15 @@
       </Border>
 
       <!-- 表单 -->
-      <!-- AllowAutoHide=False:滚动条常驻。表单被高度上限截断时,自动隐藏的滚动条
-           要等鼠标滚一下才现身,用户看到的就是"字段没了"。 -->
+      <!-- 滚动条走全应用的两态方案(Themes/ScrollBarThemes.axaml),不在这里按住 AllowAutoHide。
+           这里原先写了 AllowAutoHide=False,想解决的是"表单被高度上限截断、用户以为字段没了";
+           但那个开关的含义是【常驻展开】(ScrollBar.UpdateIsExpandedState:不许自动隐藏就是
+           IsExpanded=true),于是新建连接一打开,右侧就顶着一条带滑道和两端箭头的粗滚动条,
+           和全应用其它地方都不一样。本主题的未激活态本来就是一根可见的 2px 细条(不是 Fluent
+           那种整条隐形),截断照样看得见;悬停又已经是即时展开,affordance 不缺。 -->
       <ScrollViewer Grid.Row="2"
                     VerticalScrollBarVisibility="Auto"
-                    HorizontalScrollBarVisibility="Disabled"
-                    ScrollViewer.AllowAutoHide="False">
+                    HorizontalScrollBarVisibility="Disabled">
       <StackPanel Margin="20,18" Spacing="14">
 
         <!-- 主机名/IP + 端口。插件协议可以改写这一格的标签与占位(S3 的「服务端点」),
