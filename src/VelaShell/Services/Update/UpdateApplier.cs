@@ -676,7 +676,14 @@ public sealed class UpdateApplier(string applicationDirectory)
     /// </summary>
     private static string? NormalizeEntryPath(string rawPath)
     {
-        string path = rawPath.Replace('\\', '/').TrimStart('/');
+        string path = rawPath.Replace('\\', '/');
+        // 绝对路径当场拒收,而且两种写法在两个平台上都要拒:Path.IsPathRooted 在 Linux 上认不出
+        // "C:/x"(那儿只是个带冒号的文件名),而先 TrimStart('/') 再问它,又会把 "/x" 悄悄改写成
+        // 相对路径放行 —— zip 条目本就不该以斜杠开头,那是包被做过手脚的信号,不是待归一化的写法。
+        if (IsAbsoluteEntryPath(path))
+        {
+            throw new InvalidDataException($"Update package contains a suspicious entry path: {rawPath}");
+        }
         while (path.StartsWith("./", StringComparison.Ordinal))
         {
             path = path[2..];
@@ -686,7 +693,7 @@ public sealed class UpdateApplier(string applicationDirectory)
             return null;
         }
         string[] segments = path.Split('/');
-        if (Path.IsPathRooted(path) || segments.Any(s => s is "" or "." or ".."))
+        if (segments.Any(s => s is "" or "." or ".."))
         {
             throw new InvalidDataException($"Update package contains a suspicious entry path: {rawPath}");
         }
@@ -697,6 +704,14 @@ public sealed class UpdateApplier(string applicationDirectory)
         }
         return Path.Combine(segments);
     }
+
+    /// <summary>
+    /// 判定(已把反斜杠统一成 <c>/</c> 的)包内路径是否为绝对路径。不走
+    /// <see cref="Path.IsPathRooted(string)" />:那是按当前平台判的,而更新包可能在任一平台上打出来。
+    /// </summary>
+    private static bool IsAbsoluteEntryPath(string slashedPath) =>
+        slashedPath.StartsWith('/') // Unix 绝对路径,以及反斜杠归一化后的 UNC "//server/share"
+        || (slashedPath.Length >= 2 && slashedPath[1] == ':' && char.IsAsciiLetter(slashedPath[0])); // 盘符
 
     private void EnsureInsideApplicationDirectory(string relativePath, string rawPath)
     {

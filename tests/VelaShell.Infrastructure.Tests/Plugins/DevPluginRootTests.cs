@@ -41,7 +41,7 @@ public class DevPluginRootTests
         [
             "# 这是注释",
             "",
-            @"C:\work\my-plugin\bin\Debug",
+            Abs("work", "my-plugin", "bin", "Debug"),
             "   ",
             "# 又一条注释"
         ];
@@ -54,7 +54,8 @@ public class DevPluginRootTests
     [TestMethod]
     public void Resolve_DuplicateEntries_AreCollapsed()
     {
-        string[] lines = [@"C:\a\b", @"C:\a\b\", @"C:\A\B"];
+        // 三种写法同指一处:原样、带结尾分隔符、改大小写。
+        string[] lines = [Abs("a", "b"), Abs("a", "b") + Path.DirectorySeparatorChar, Abs("A", "B")];
         Assert.ContainsSingle(DevPluginRootResolver.Resolve(_base, readFile: _ => lines));
     }
 
@@ -67,7 +68,7 @@ public class DevPluginRootTests
     public void Resolve_MalformedLine_DoesNotThrow()
     {
         // 写坏的一行不该让宿主起不来 —— 跳过它,别的照常生效。
-        string[] lines = ["\0not a path", @"C:\good"];
+        string[] lines = ["\0not a path", Abs("good")];
         IReadOnlyList<string> roots = DevPluginRootResolver.Resolve(_base, readFile: _ => lines);
         Assert.ContainsSingle(roots);
     }
@@ -77,9 +78,9 @@ public class DevPluginRootTests
     {
         // 参数优先于登记文件:同时开两个插件工程时,各自的启动配置各说各的,
         // 而登记文件是机器级全局状态,必然互相串味。
-        string[] lines = [@"C:\from-file"];
+        string[] lines = [Abs("from-file")];
         IReadOnlyList<string> roots = DevPluginRootResolver.Resolve(
-            _base, [@"C:\from-args"], _ => lines);
+            _base, [Abs("from-args")], _ => lines);
 
         Assert.HasCount(2, roots);
         Assert.EndsWith("from-args", roots[0]);
@@ -89,8 +90,9 @@ public class DevPluginRootTests
     [TestMethod]
     public void Resolve_SameRootFromArgsAndFile_IsCollapsed()
     {
-        string[] lines = [@"C:\shared\bin\Debug"];
-        Assert.ContainsSingle(DevPluginRootResolver.Resolve(_base, [@"C:\shared\bin\Debug\"], _ => lines));
+        string[] lines = [Abs("shared", "bin", "Debug")];
+        Assert.ContainsSingle(DevPluginRootResolver.Resolve(
+            _base, [Abs("shared", "bin", "Debug") + Path.DirectorySeparatorChar], _ => lines));
     }
 
     [TestMethod]
@@ -150,6 +152,15 @@ public class DevPluginRootTests
 
         await manager.DisposeAsync();
     }
+
+    /// <summary>
+    /// 拼一条本平台的绝对路径(Windows <c>C:\a\b</c> / Unix <c>/a/b</c>)。解析器最终落到
+    /// <see cref="Path.GetFullPath(string)" />:写死 <c>C:\a\b</c> 在 Linux 上只是一个带反斜杠的
+    /// 相对文件名,会被拼到测试进程的当前目录后面,结尾分隔符也不再是分隔符 —— 归一化与去重
+    /// 全部失效,断言测的就不是它要测的东西了。
+    /// </summary>
+    private static string Abs(params string[] segments) =>
+        Path.Combine(OperatingSystem.IsWindows() ? @"C:\" : "/", Path.Combine(segments));
 
     private static void WritePlugin(string directory, string id)
     {

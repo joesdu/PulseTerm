@@ -23,11 +23,16 @@ public class VelaShellStartupArgumentsTests
     [TestMethod]
     public void Parse_SpaceAndEqualsForms_BothWork()
     {
-        var args = VelaShellStartupArguments.Parse(
-            ["--dev-root", @"C:\work\a\bin\Debug", "--data-root=C:\\Users\\joe\\.velashell-dev"]);
+        // 路径必须按本平台写:--dev-root 的值允许用 Path.PathSeparator 串成多条,
+        // 而那个分隔符在 Linux 上正是冒号 —— 写死 "C:\..." 会被切成 "C" 与 "\work\..." 两条。
+        string devRoot = Abs("work", "a", "bin", "Debug");
+        string dataRoot = Abs("Users", "joe", ".velashell-dev");
 
-        Assert.AreEqual(@"C:\work\a\bin\Debug", args.DevPluginRoots.Single());
-        Assert.AreEqual(@"C:\Users\joe\.velashell-dev", args.DataRoot);
+        var args = VelaShellStartupArguments.Parse(
+            ["--dev-root", devRoot, $"--data-root={dataRoot}"]);
+
+        Assert.AreEqual(devRoot, args.DevPluginRoots.Single());
+        Assert.AreEqual(dataRoot, args.DataRoot);
     }
 
     [TestMethod]
@@ -71,4 +76,8 @@ public class VelaShellStartupArgumentsTests
         Assert.IsEmpty(args.DevPluginRoots);
         Assert.AreEqual("/tmp/x", args.DataRoot);
     }
+
+    /// <summary>拼一条本平台的绝对路径(Windows <c>C:\a\b</c> / Unix <c>/a/b</c>)。</summary>
+    private static string Abs(params string[] segments) =>
+        Path.Combine(OperatingSystem.IsWindows() ? @"C:\" : "/", Path.Combine(segments));
 }
