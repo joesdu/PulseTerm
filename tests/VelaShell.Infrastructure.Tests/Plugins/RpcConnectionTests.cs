@@ -1,4 +1,5 @@
 using System.IO.Pipes;
+using VelaShell.Infrastructure.Plugins.Isolated;
 using System.Net.Sockets;
 using System.Runtime.ExceptionServices;
 using System.Text.Json;
@@ -18,7 +19,8 @@ public class RpcConnectionTests
         Func<string, JsonElement?, CancellationToken, Task<object?>>? serverHandler = null,
         Action<string, JsonElement?>? serverNotifications = null)
     {
-        string name = $"velashell-test-{Guid.NewGuid():N}";
+        // 名字走产品的生成器:macOS 的域套接字路径只有 104 字节,自己拼一个就会越界。
+        string name = PluginProcessClient.CreatePipeName();
         var serverPipe = new NamedPipeServerStream(name, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
         var clientPipe = new NamedPipeClientStream(".", name, PipeDirection.InOut, PipeOptions.Asynchronous);
         Task wait = serverPipe.WaitForConnectionAsync();

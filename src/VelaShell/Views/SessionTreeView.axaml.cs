@@ -33,6 +33,9 @@ public partial class SessionTreeView : UserControl
     /// <summary>被拖会话的显示名,拖起时快照下来给幽灵标签用(拖放过程中不再依赖手势状态)。</summary>
     private string _dragLabel = string.Empty;
 
+    /// <summary>光标最后一次报出的位置(叠层坐标系),用来在幽灵标签量出真实尺寸后重新夹一次。</summary>
+    private Point _dragGhostAnchor;
+
     /// <summary>初始化会话树视图并加载 XAML 组件。</summary>
     public SessionTreeView()
     {
@@ -47,6 +50,9 @@ public partial class SessionTreeView : UserControl
         SessionTreeRoot.AddHandler(DragDrop.DragLeaveEvent, OnTreeDragLeave);
         SessionTreeRoot.AddHandler(PointerMovedEvent, OnTreePointerMoved);
         SessionTreeRoot.AddHandler(PointerReleasedEvent, OnTreePointerReleased, RoutingStrategies.Bubble, true);
+
+        // 排布定下真实尺寸之后再夹一次(见 ClampGhostIntoOverlay)。
+        DragGhost.SizeChanged += (_, _) => ClampGhostIntoOverlay();
     }
 
     private void OnDataContextChanged(object? sender, EventArgs e)
@@ -251,20 +257,34 @@ public partial class SessionTreeView : UserControl
         DragGhost.IsVisible = true;
 
         // 先量一次再摆位:标签宽度随文案变,不夹住的话拖到右下角时会被裁掉半截。
-        // 多留 1px:布局取整会把实际排布尺寸再涨到下一个整像素,按 DesiredSize 卡死会正好溢出。
-        const double layoutRoundingSlack = 1;
         DragGhost.Measure(Size.Infinity);
-        Size ghost = DragGhost.DesiredSize;
-        double maxLeft = Math.Max(
-            0,
-            DragOverlay.Bounds.Width - ghost.Width - layoutRoundingSlack
-        );
-        double maxTop = Math.Max(
-            0,
-            DragOverlay.Bounds.Height - ghost.Height - layoutRoundingSlack
-        );
-        Canvas.SetLeft(DragGhost, Math.Clamp(position.X + 12, 0, maxLeft));
-        Canvas.SetTop(DragGhost, Math.Clamp(position.Y + 16, 0, maxTop));
+        _dragGhostAnchor = position;
+        ClampGhostIntoOverlay();
+    }
+
+    /// <summary>
+    /// 把幽灵标签夹回叠层里。
+    /// </summary>
+    /// <remarks>
+    /// <b>夹的依据必须是排布之后的真实尺寸,不能是 <c>DesiredSize</c>。</b>标签的高度取决于
+    /// 字体度量,而字体是逐平台解析的:同一段文案在 macOS 上排出来比手工量到的
+    /// <c>DesiredSize</c> 高 3px,拖到底边时标签就有一截露在叠层外面。
+    /// <para>
+    /// 所以摆位分两步:<see cref="ShowDragFeedback" /> 先按手工量到的尺寸摆一次(拖动时
+    /// 不能等下一帧,否则标签会滞后于光标),排布定下真实 <c>Bounds</c> 后
+    /// <c>SizeChanged</c> 再夹一次。尺寸没变时第二次是原地不动的。
+    /// </para>
+    /// </remarks>
+    private void ClampGhostIntoOverlay()
+    {
+        // 排布还没跑过时 Bounds 是空的,退回手工量到的尺寸。
+        Size ghost = DragGhost.Bounds.Size is { Width: > 0, Height: > 0 } arranged
+            ? arranged
+            : DragGhost.DesiredSize;
+        double maxLeft = Math.Max(0, DragOverlay.Bounds.Width - ghost.Width);
+        double maxTop = Math.Max(0, DragOverlay.Bounds.Height - ghost.Height);
+        Canvas.SetLeft(DragGhost, Math.Clamp(_dragGhostAnchor.X + 12, 0, maxLeft));
+        Canvas.SetTop(DragGhost, Math.Clamp(_dragGhostAnchor.Y + 16, 0, maxTop));
     }
 
     private void OnTreeDrop(object? sender, DragEventArgs e) => FireAndForget.Run(async () =>

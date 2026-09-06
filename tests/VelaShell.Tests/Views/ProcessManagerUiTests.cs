@@ -59,10 +59,20 @@ public sealed class ProcessManagerUiTests
         {
             using var fixture = Fixture.Show();
 
-            // 圆角靠自己画:窗口透明,里面是一张 8px 圆角卡片。指望 DWM 给被拥有的
-            // 弹出窗加圆角是不成立的,那正是这个窗口曾经四角发方的原因。
             Border card = fixture.Find<Border>("RootCard");
-            Assert.AreEqual(new CornerRadius(8), card.CornerRadius);
+            if (OperatingSystem.IsMacOS())
+            {
+                // macOS 上这个窗口<b>刻意</b>是不透明矩形:透明窗口会让整窗每帧走全表面
+                // alpha 合成,滚动明显掉帧。圆角交给系统画,自绘的那套一并压平。
+                Assert.AreEqual(default, card.CornerRadius, "macOS 上卡片应是压平的矩形。");
+                Assert.AreEqual(default, card.Margin, "压平后不该再给投影留边距。");
+            }
+            else
+            {
+                // 圆角靠自己画:窗口透明,里面是一张 8px 圆角卡片。指望 DWM 给被拥有的
+                // 弹出窗加圆角是不成立的,那正是这个窗口曾经四角发方的原因。
+                Assert.AreEqual(new CornerRadius(8), card.CornerRadius);
+            }
             Assert.IsTrue(card.ClipToBounds, "内容必须裁到圆角内,否则表格会画到圆角外面。");
         });
     }
@@ -74,10 +84,18 @@ public sealed class ProcessManagerUiTests
         {
             using var fixture = Fixture.Show();
 
+            Border card = fixture.Find<Border>("RootCard");
+            if (OperatingSystem.IsMacOS())
+            {
+                // macOS 走不透明矩形窗口(见 Window_DrawsItsOwnRoundedCard),投影由系统给,
+                // 自绘的那份被刻意清掉 —— 留着只会画在窗口边缘之外被裁掉。
+                Assert.AreEqual(0, card.BoxShadow.Count, "macOS 上不该再自绘投影。");
+                return;
+            }
+
             // 投影是这类窗口区分层级的唯一手段(#171),而它有两种"静悄悄失效"的方式:
             // 令牌名写错 → DynamicResource 解析不到,BoxShadow 静静地空着;外边距不够 →
             // 投影画在窗口矩形之外被裁掉,画了等于没画。两种都不报错,只是看起来没有阴影。
-            Border card = fixture.Find<Border>("RootCard");
             Assert.IsGreaterThan(0, card.BoxShadow.Count, "VelaShadowWindow 令牌没解析出投影。");
 
             double reach = 0;

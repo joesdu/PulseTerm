@@ -78,9 +78,19 @@ public sealed class BridgeRouterTests
             return $"m{Sent.Count}";
         }
 
+        /// <remarks>
+        /// 这里<b>必须</b>和 <see cref="SendAsync" /> 用同一把锁。进度改写是
+        /// <c>_ = hub.EditAsync(…)</c> 发出去的,跑在线程池上,与正在发消息的那一轮、
+        /// 与测试线程的 <see cref="Snapshot" /> 都并发。<c>List&lt;T&gt;.Add</c> 不是线程安全的:
+        /// 两次并发的 Add 会写进同一个槽位再各自把 <c>_size</c> 加一,留下一个含<b>重复元素</b>
+        /// 的列表 —— 而这些用例数的正是"某条文案出现了几次"。
+        /// </remarks>
         public Task EditAsync(OutboundTarget target, string messageId, string text, CancellationToken cancellationToken)
         {
-            Sent.Add($"[edit {messageId}] {text}");
+            lock (Sent)
+            {
+                Sent.Add($"[edit {messageId}] {text}");
+            }
             return Task.CompletedTask;
         }
 
@@ -570,9 +580,12 @@ public sealed class BridgeRouterTests
         harness.Channel.ReleaseHeld();
         await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(30));
 
-        int started = harness.Channel.Snapshot()
-            .Count(t => t.Contains("Working on it", StringComparison.Ordinal));
-        Assert.AreEqual(1, started, "排队中的那条在停止之后仍然跑起来了。");
+        List<string> transcript = harness.Channel.Snapshot();
+        int started = transcript.Count(t => t.Contains("Working on it", StringComparison.Ordinal));
+        // 失败时把整段对话打出来:光看"期望 1 实际 2"分不清多出来的那条是排队的消息真跑了,
+        // 还是第一轮在被取消的收尾里又发了一次。
+        Assert.AreEqual(1, started,
+            $"排队中的那条在停止之后仍然跑起来了。完整记录:{string.Join(" | ", transcript)}");
     }
 
     /// <summary>

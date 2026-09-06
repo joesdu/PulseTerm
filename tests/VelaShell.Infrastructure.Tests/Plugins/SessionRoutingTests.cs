@@ -1,4 +1,5 @@
 using System.IO.Pipes;
+using VelaShell.Infrastructure.Plugins.Isolated;
 using NSubstitute;
 using VelaShell.Core.Data;
 using VelaShell.Core.Models;
@@ -62,7 +63,8 @@ public class SessionRoutingTests
     /// <summary>建起一对管道 + 路由,插件那侧是一个裸 <see cref="RpcConnection" />。</summary>
     private static async Task<(RpcConnection Plugin, IAsyncDisposable Cleanup)> ConnectAsync(ISessionsApi sessions)
     {
-        string name = $"velashell-test-{Guid.NewGuid():N}";
+        // 名字走产品的生成器:macOS 的域套接字路径只有 104 字节,自己拼一个就会越界。
+        string name = PluginProcessClient.CreatePipeName();
         var serverPipe = new NamedPipeServerStream(name, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
         var clientPipe = new NamedPipeClientStream(".", name, PipeDirection.InOut, PipeOptions.Asynchronous);
         Task wait = serverPipe.WaitForConnectionAsync();
