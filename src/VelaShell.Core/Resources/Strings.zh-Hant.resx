@@ -480,6 +480,36 @@
   <data name="Settings" xml:space="preserve">
     <value>設定</value>
   </data>
+  <data name="ScrollBar_ColumnLeft" xml:space="preserve">
+    <value>向左捲動</value>
+  </data>
+  <data name="ScrollBar_ColumnRight" xml:space="preserve">
+    <value>向右捲動</value>
+  </data>
+  <data name="ScrollBar_HorizontalThumb" xml:space="preserve">
+    <value>水平捲動位置</value>
+  </data>
+  <data name="ScrollBar_LineDown" xml:space="preserve">
+    <value>向下捲動</value>
+  </data>
+  <data name="ScrollBar_LineUp" xml:space="preserve">
+    <value>向上捲動</value>
+  </data>
+  <data name="ScrollBar_PageDown" xml:space="preserve">
+    <value>向下翻頁</value>
+  </data>
+  <data name="ScrollBar_PageLeft" xml:space="preserve">
+    <value>向左翻頁</value>
+  </data>
+  <data name="ScrollBar_PageRight" xml:space="preserve">
+    <value>向右翻頁</value>
+  </data>
+  <data name="ScrollBar_PageUp" xml:space="preserve">
+    <value>向上翻頁</value>
+  </data>
+  <data name="ScrollBar_VerticalThumb" xml:space="preserve">
+    <value>垂直捲動位置</value>
+  </data>
   <data name="Notifications" xml:space="preserve">
     <value>通知</value>
   </data>
@@ -1293,8 +1323,17 @@
   <data name="KeySvc_InvalidName" xml:space="preserve">
     <value>金鑰名稱無效。</value>
   </data>
-  <data name="KeySvc_UnknownType" xml:space="preserve">
-    <value>未知</value>
+  <data name="KeySvc_ImportBadPublicKey" xml:space="preserve">
+    <value>{0} 不是可解析的 SSH 公鑰,未匯入任何內容。</value>
+  </data>
+  <data name="KeySvc_ImportNotAPrivateKey" xml:space="preserve">
+    <value>{0} 看起來不是私鑰(沒有 PEM 標頭),未匯入任何內容。</value>
+  </data>
+  <data name="KeySvc_ImportPrivateKeyMissing" xml:space="preserve">
+    <value>找不到私鑰檔案:{0}</value>
+  </data>
+  <data name="KeySvc_ImportPublicKeyMissing" xml:space="preserve">
+    <value>缺少配對的公鑰 {0}。請連同 .pub 一起匯入 —— 只有私鑰的金鑰不會出現在本清單中。</value>
   </data>
   <data name="Main_CloseConfirmBody" xml:space="preserve">
     <value>仍有使用中的工作階段，關閉視窗將中斷所有連線。確定結束嗎?</value>
@@ -1906,6 +1945,27 @@
   <data name="Recorder_Title" xml:space="preserve">
     <value>工作階段錄製與回放</value>
   </data>
+  <data name="Recorder_StorageBacklog" xml:space="preserve">
+    <value>儲存寫入跟不上終端輸出(待寫資料超過 {0} MB)</value>
+  </data>
+  <data name="Recorder_StopTimedOut" xml:space="preserve">
+    <value>工作階段關閉前最後幾塊沒能寫完</value>
+  </data>
+  <data name="Recorder_StoppedTitle" xml:space="preserve">
+    <value>工作階段錄製已停止</value>
+  </data>
+  <data name="Recorder_StoppedBody" xml:space="preserve">
+    <value>「{0}」的錄製已停止:{1}。已經寫入的部分仍可回放。</value>
+  </data>
+  <data name="SessionLog_Backlog" xml:space="preserve">
+    <value>記錄檔寫入跟不上終端輸出(待寫資料超過 {0} MB)</value>
+  </data>
+  <data name="SessionLog_StoppedTitle" xml:space="preserve">
+    <value>工作階段記錄已停止</value>
+  </data>
+  <data name="SessionLog_StoppedBody" xml:space="preserve">
+    <value>「{0}」的記錄已停止:{1}。已經寫入的部分仍在磁碟上。</value>
+  </data>
   <data name="SetAbout_Changelog" xml:space="preserve">
     <value>更新日誌</value>
   </data>
@@ -2236,6 +2296,27 @@
   <data name="SetGeneral_ImportExportDesc" xml:space="preserve">
     <value>// 僅備份或搬移應用程式設定;連線、群組、金鑰與程式碼片段不包含在內</value>
   </data>
+  <data name="SetGeneral_ExportDone" xml:space="preserve">
+    <value>設定已匯出到 {0}。密碼從不寫進匯出檔案,匯入後需要重新填寫。</value>
+  </data>
+  <data name="SetGeneral_ExportFailed" xml:space="preserve">
+    <value>匯出失敗:{0}</value>
+  </data>
+  <data name="SetGeneral_ImportDone" xml:space="preserve">
+    <value>設定已匯入,確認無誤後儲存。</value>
+  </data>
+  <data name="SetGeneral_ImportDoneNeedsSecrets" xml:space="preserve">
+    <value>設定已匯入。代理密碼不隨匯出走,請到「網路」重新填寫後再儲存。</value>
+  </data>
+  <data name="SetGeneral_ImportFailed" xml:space="preserve">
+    <value>無法讀取該檔案:{0}</value>
+  </data>
+  <data name="SetGeneral_ImportInvalid" xml:space="preserve">
+    <value>該檔案不是 VelaShell 的設定匯出檔案,現有設定未作變更。</value>
+  </data>
+  <data name="SetGeneral_ImportTooLarge" xml:space="preserve">
+    <value>該檔案 {0} MB,超過設定檔案 {1} MB 的上限,現有設定未作變更。</value>
+  </data>
   <data name="SetGeneral_KeepAliveInterval" xml:space="preserve">
     <value>心跳間隔(秒)</value>
   </data>
@@ -2328,6 +2409,9 @@
   </data>
   <data name="SetKeys_DeleteKey" xml:space="preserve">
     <value>刪除金鑰</value>
+  </data>
+  <data name="SetKeys_DeleteKeyConfirm" xml:space="preserve">
+    <value>確定刪除金鑰對「{0}」嗎?這會從磁碟上刪除 {1} 及其 .pub。本機其他工具可能正在使用同一把金鑰,且此操作無法復原。</value>
   </data>
   <data name="SetKeys_Generate" xml:space="preserve">
     <value>產生金鑰</value>
@@ -3079,15 +3163,6 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   <data name="Sidebar_RefreshRecent" xml:space="preserve">
     <value>重新整理最近連線</value>
   </data>
-  <data name="Sidebar_FilterSessions" xml:space="preserve">
-    <value>篩選工作階段</value>
-  </data>
-  <data name="Sidebar_ClearFilter" xml:space="preserve">
-    <value>清空篩選</value>
-  </data>
-  <data name="Cmd_FilterSessions" xml:space="preserve">
-    <value>篩選工作階段</value>
-  </data>
   <data name="Sidebar_ToggleSection" xml:space="preserve">
     <value>摺疊或展開此區域</value>
   </data>
@@ -3156,6 +3231,9 @@ Windows 填 exe 完整路徑或命令名稱(如 notepad);Linux 填命令名稱(�
   </data>
   <data name="Svc_RemoteUpdateFailed" xml:space="preserve">
     <value>遠端更新失敗({0}):{1}</value>
+  </data>
+  <data name="Svc_RemoteEditDraftKept" xml:space="preserve">
+    <value>{0} 未能上傳。你改過的副本保留在 {1}。</value>
   </data>
   <data name="Svc_Ungrouped" xml:space="preserve">
     <value>未分組</value>

@@ -42,10 +42,40 @@ public sealed class BridgeRouterTests
             return Task.Delay(Timeout.Infinite, cancellationToken);
         }
 
-        public Task<string?> SendAsync(OutboundTarget target, string text, CancellationToken cancellationToken)
+        /// <summary>
+        /// 发出去的内容含这段文字时,先记下再<b>挂住</b>,直到 <see cref="ReleaseHeld" /> 放行。
+        /// </summary>
+        /// <remarks>
+        /// 用来精确制造"某一轮正占着闸"的状态,好让下一条消息真的排进队列 ——
+        /// 靠 Sleep 去碰这个时序既慢又不稳。
+        /// </remarks>
+        public string? HoldSendsContaining { get; set; }
+
+        private readonly TaskCompletionSource _held = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        /// <summary>放行被挂住的那次发送。</summary>
+        public void ReleaseHeld() => _held.TrySetResult();
+
+        /// <summary>已发内容的快照(发送发生在别的线程上,读要加同一把锁)。</summary>
+        public List<string> Snapshot()
         {
-            Sent.Add(text);
-            return Task.FromResult<string?>($"m{Sent.Count}");
+            lock (Sent)
+            {
+                return [.. Sent];
+            }
+        }
+
+        public async Task<string?> SendAsync(OutboundTarget target, string text, CancellationToken cancellationToken)
+        {
+            lock (Sent)
+            {
+                Sent.Add(text);
+            }
+            if (HoldSendsContaining is { } needle && text.Contains(needle, StringComparison.Ordinal))
+            {
+                await _held.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+            }
+            return $"m{Sent.Count}";
         }
 
         public Task EditAsync(OutboundTarget target, string messageId, string text, CancellationToken cancellationToken)
@@ -511,6 +541,83 @@ public sealed class BridgeRouterTests
         await harness.SendAsync($"/pair {code}", chatId: "chat-new");
 
         Assert.IsEmpty(harness.Pairing.Pending());
+    }
+    // ———————————————————— 停止要覆盖排队中的请求 ————————————————————
+
+    /// <summary>
+    /// 停桥接时,还排在闸上的那条消息不能在闸放开之后自己跑起来。
+    /// </summary>
+    /// <remarks>
+    /// 取消范围以前只有 <c>conversation.Running</c> —— 那是**已经跑起来**的轮次。
+    /// 排队中的消息不在里面,于是"停止桥接"之后它照常拿到执行机会:调模型、跑工具、
+    /// 往聊天里发消息。用户看到的是关掉的机器人过一会儿又自己说话了。
+    /// </remarks>
+    [TestMethod]
+    public async Task CancelAll_StopsAMessageThatIsStillWaitingInTheQueue()
+    {
+        await using var harness = new Harness();
+        await harness.StartAsync();
+        // 第一轮会卡在"正在处理…"这条占位消息上,于是它一直占着本聊天的闸。
+        harness.Channel.HoldSendsContaining = "Working on it";
+
+        Task first = harness.SendAsync("first question");
+        await WaitUntilAsync(() => harness.Channel.Snapshot().Any(t => t.Contains("Working on it", StringComparison.Ordinal)));
+
+        Task second = harness.SendAsync("second question");
+        await WaitUntilAsync(() => harness.Channel.Snapshot().Any(t => t.Contains("queued", StringComparison.OrdinalIgnoreCase)));
+
+        harness.Router.CancelAll();
+        harness.Channel.ReleaseHeld();
+        await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(30));
+
+        int started = harness.Channel.Snapshot()
+            .Count(t => t.Contains("Working on it", StringComparison.Ordinal));
+        Assert.AreEqual(1, started, "排队中的那条在停止之后仍然跑起来了。");
+    }
+
+    /// <summary>
+    /// 一个聊天里连着刷,排到上限就直接回绝,不再默默收下。
+    /// </summary>
+    /// <remarks>
+    /// 队列以前没有上限:刷二十条就排二十条,一条接一条真跑给模型 ——
+    /// 用户早忘了前面问过什么,账单却照走。
+    /// </remarks>
+    [TestMethod]
+    public async Task Queue_HasAnUpperBoundPerChat()
+    {
+        await using var harness = new Harness();
+        await harness.StartAsync();
+        harness.Channel.HoldSendsContaining = "Working on it";
+
+        Task first = harness.SendAsync("first");
+        await WaitUntilAsync(() => harness.Channel.Snapshot().Any(t => t.Contains("Working on it", StringComparison.Ordinal)));
+
+        // 上限之外再来一条,应当被当场回绝。
+        var queued = new List<Task>();
+        for (int i = 0; i < 8; i++)
+        {
+            queued.Add(harness.SendAsync($"flood {i}"));
+        }
+        await WaitUntilAsync(() => harness.Channel.Snapshot().Any(t => t.Contains("dropped", StringComparison.OrdinalIgnoreCase)));
+
+        harness.Router.CancelAll();
+        harness.Channel.ReleaseHeld();
+        await Task.WhenAll(queued.Append(first)).WaitAsync(TimeSpan.FromSeconds(30));
+
+        Assert.IsGreaterThan(
+            0,
+            harness.Channel.Snapshot().Count(t => t.Contains("dropped", StringComparison.OrdinalIgnoreCase)),
+            "刷了八条也一条都没回绝 —— 队列仍然没有上限。");
+    }
+
+    /// <summary>轮询等待某个条件成立(不用固定 Sleep 去赌时序)。</summary>
+    private static async Task WaitUntilAsync(Func<bool> done)
+    {
+        for (int i = 0; i < 3_000 && !done(); i++)
+        {
+            await Task.Delay(10);
+        }
+        Assert.IsTrue(done(), "等待的条件没能在超时内成立。");
     }
 }
 

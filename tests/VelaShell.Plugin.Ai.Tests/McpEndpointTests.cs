@@ -241,6 +241,85 @@ public sealed class McpEndpointTests
         Assert.IsNull(endpoint.Url);
     }
 
+    // ———————————————————— 资源预算 ————————————————————
+    //
+    // 这个端点跑在用户的桌面程序进程里。合法的本机客户端也会误用(脚本跑飞、把整个仓库
+    // 塞进一个 tools/call、连着 initialize 上千次),而以前这里一条上限都没有 ——
+    // 撑爆的是他正开着的终端。
+
+    /// <summary>超大正文当场回绝,而不是整份读进内存之后再说。</summary>
+    [TestMethod]
+    public async Task OversizedRequestBody_IsRejected()
+    {
+        using var context = new TestPluginContext();
+        (McpEndpoint endpoint, int port, string token) = await StartAsync(context);
+        await using (endpoint)
+        {
+            using HttpClient client = CreateClient(port, token);
+            using var message = new HttpRequestMessage(HttpMethod.Post, "mcp")
+            {
+                // 5 MB > 4 MB 上限。
+                Content = new StringContent(new string('x', 5 * 1024 * 1024))
+            };
+
+            using HttpResponseMessage response = await client.SendAsync(message);
+
+            Assert.AreEqual(HttpStatusCode.RequestEntityTooLarge, response.StatusCode);
+            Assert.IsTrue(endpoint.IsRunning, "回绝一个超大请求不该把服务端搞挂。");
+        }
+    }
+
+    /// <summary>正常大小的请求不受影响(别为了设上限把好人也挡了)。</summary>
+    [TestMethod]
+    public async Task ANormalSizedRequest_StillWorks()
+    {
+        using var context = new TestPluginContext();
+        (McpEndpoint endpoint, int port, string token) = await StartAsync(context);
+        await using (endpoint)
+        {
+            using HttpClient client = CreateClient(port, token);
+            string sessionId = await InitializeAsync(client);
+
+            using JsonDocument document = await RpcAsync(
+                client, new { jsonrpc = "2.0", id = 2, method = "tools/list" }, sessionId);
+
+            Assert.IsTrue(document.RootElement.TryGetProperty("result", out _));
+        }
+    }
+
+    /// <summary>
+    /// 会话数有上限:连着 initialize 不会让字典无限涨。
+    /// </summary>
+    /// <remarks>
+    /// 闲置淘汰以前只在 initialize 里顺带跑一次,而淘汰阈值是两小时 —— 短时间内
+    /// 反复 initialize(客户端重连、脚本重试)一个都淘汰不掉,会话只增不减。
+    /// </remarks>
+    [TestMethod]
+    public async Task SessionCount_HasAnUpperBound()
+    {
+        using var context = new TestPluginContext();
+        (McpEndpoint endpoint, int port, string token) = await StartAsync(context);
+        await using (endpoint)
+        {
+            using HttpClient client = CreateClient(port, token);
+            var refused = 0;
+            for (int i = 0; i < 40; i++)
+            {
+                using var message = new HttpRequestMessage(HttpMethod.Post, "mcp")
+                {
+                    Content = JsonContent.Create(new { jsonrpc = "2.0", id = i, method = "initialize" })
+                };
+                using HttpResponseMessage response = await client.SendAsync(message);
+                if (response.StatusCode == HttpStatusCode.ServiceUnavailable)
+                {
+                    refused++;
+                }
+            }
+
+            Assert.IsGreaterThan(0, refused, "开了 40 个会话一个都没被拦下 —— 会话数仍然没有上限。");
+        }
+    }
+
     private static async Task<string> InitializeAsync(HttpClient client)
     {
         using var message = new HttpRequestMessage(HttpMethod.Post, "mcp")

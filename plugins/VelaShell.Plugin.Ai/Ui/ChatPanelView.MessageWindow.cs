@@ -50,7 +50,10 @@ public partial class ChatPanelView
             MessagesPanel.Children.RemoveAt(bannerOffset);
             moved.Add(child);
         }
-        CollapsedMessages.InsertRange(0, moved);
+        // 追加而不是插到头部。每次折叠摘的都是**当时最旧的**那批存活消息,所以第二批
+        // 一定比第一批新 —— InsertRange(0, …) 会把新批排到旧批前面,折叠两次以上再点开
+        // "显示更早的",消息就以 B批 → A批 → 当前 的顺序出现,用户/助手配对随之错位。
+        CollapsedMessages.AddRange(moved);
         ShowCollapsedBanner();
     }
 

@@ -45,6 +45,19 @@ public sealed class TerminalPalette
     /// <summary>选中文本背后所绘制的填充色。</summary>
     public Rgba SelectionBackground { get; set; } = new(0x60, 0x1C, 0x2A, 0x3F);
 
+    /// <summary>终端内搜索:非当前命中项背后的填充色。</summary>
+    /// <remarks>
+    /// 这是**界面交互色**,与 ANSI 那 256 个"远端程序指定的数据颜色"性质完全不同 ——
+    /// 后者必须原样呈现,前者该跟着应用主题走。它和 <see cref="SearchCurrentBackground" />
+    /// 曾经是渲染器里的两个 <c>static readonly</c> 常量,亮色主题下压在浅底上几乎看不见。
+    /// 现在与 <see cref="SelectionBackground" /> 同一条路径:由 ApplyDesignPalette 按
+    /// 明暗变体设定,主题热切换时随之更新。
+    /// </remarks>
+    public Rgba SearchMatchBackground { get; set; } = new(0x59, 0xFD, 0xCB, 0x6E);
+
+    /// <summary>终端内搜索:当前命中项背后的填充色(须与其余命中项可区分)。</summary>
+    public Rgba SearchCurrentBackground { get; set; } = new(0x73, 0x00, 0xD4, 0xAA);
+
     /// <summary>获取给定调色板索引(0-255,掩码为一个字节)对应的解析后颜色。</summary>
     public Rgba this[int index] => _colors[index & 0xFF];
 

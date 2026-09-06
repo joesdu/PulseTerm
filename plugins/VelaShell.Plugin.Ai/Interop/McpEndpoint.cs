@@ -33,12 +33,39 @@ public sealed class McpEndpoint(IPluginContext context, McpServerSettingsStore s
     /// <summary>一个外部会话闲置多久后丢掉。</summary>
     private static readonly TimeSpan SessionIdleTimeout = TimeSpan.FromHours(2);
 
+    // ———————————————————— 资源预算 ————————————————————
+    //
+    // 这几条以前一条都没有。合法的本机客户端也会误用(脚本跑飞、把整个仓库塞进一个
+    // tools/call、并发压测),而这里跑在用户的桌面程序进程里 —— 撑爆的是他正在用的终端。
+
+    /// <summary>请求正文上限。超过直接 413,<b>不先整份读进内存再判断</b>。</summary>
+    private const int MaxRequestBytes = 4 * 1024 * 1024;
+
+    /// <summary>同时处理的请求数上限。超出回 503,让客户端自己退避。</summary>
+    private const int MaxConcurrentRequests = 8;
+
+    /// <summary>单个请求的处理时限。tools/call 可能是一条远程命令,给得宽,但不能没有。</summary>
+    private static readonly TimeSpan RequestTimeout = TimeSpan.FromMinutes(5);
+
+    /// <summary>同时保有的外部会话数上限。</summary>
+    private const int MaxSessions = 32;
+
+    /// <summary>闲置会话的清扫间隔(以前只在 initialize 时顺带扫一次)。</summary>
+    private static readonly TimeSpan SessionSweepInterval = TimeSpan.FromMinutes(5);
+
     private readonly ConcurrentDictionary<string, McpToolHost> _sessions = new();
     private readonly SemaphoreSlim _reloadGate = new(1, 1);
+
+    /// <summary>并发请求闸。</summary>
+    private readonly SemaphoreSlim _requestSlots = new(MaxConcurrentRequests, MaxConcurrentRequests);
+
+    /// <summary>在跑的请求处理任务;停端点时要等它们收completed,不能把监听一关就走人。</summary>
+    private readonly ConcurrentDictionary<Task, byte> _inFlight = new();
 
     private HttpListener? _listener;
     private CancellationTokenSource? _cts;
     private Task? _loop;
+    private Timer? _sweeper;
     private McpServerSettings _settings = new();
     private string _token = "";
 
@@ -70,6 +97,9 @@ public sealed class McpEndpoint(IPluginContext context, McpServerSettingsStore s
             _listener = listener;
             _cts = new CancellationTokenSource();
             _loop = AcceptLoopAsync(listener, _cts.Token);
+            // 闲置会话以前只在 initialize 里顺带扫 —— 一个再也不来的客户端留下的会话
+            // 因此永远不会被清掉。改成定时扫。
+            _sweeper = new Timer(_ => EvictIdleSessions(), null, SessionSweepInterval, SessionSweepInterval);
             context.Log.Info($"MCP server listening on {Url} (mode {settings.Mode}, approval {settings.Approval}).");
         }
         catch (HttpListenerException ex)
@@ -99,6 +129,11 @@ public sealed class McpEndpoint(IPluginContext context, McpServerSettingsStore s
 
     private async Task StopCoreAsync()
     {
+        if (_sweeper is { } sweeper)
+        {
+            await sweeper.DisposeAsync().ConfigureAwait(false);
+            _sweeper = null;
+        }
         if (_cts is { } cts)
         {
             await cts.CancelAsync().ConfigureAwait(false);
@@ -117,6 +152,23 @@ public sealed class McpEndpoint(IPluginContext context, McpServerSettingsStore s
             }
         }
         _loop = null;
+
+        // 在跑的请求要等完。以前只等 accept 循环 —— 于是"停掉 MCP 服务"之后,
+        // 已经进来的 tools/call 还在后台继续在用户的机器上执行命令。
+        Task[] pending = [.. _inFlight.Keys];
+        if (pending.Length > 0)
+        {
+            try
+            {
+                await Task.WhenAll(pending).WaitAsync(TimeSpan.FromSeconds(10)).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is TimeoutException or OperationCanceledException)
+            {
+                context.Log.Warn("MCP server: some in-flight requests did not finish within the stop budget.");
+            }
+        }
+        _inFlight.Clear();
+
         _cts?.Dispose();
         _cts = null;
         _sessions.Clear();
@@ -135,29 +187,59 @@ public sealed class McpEndpoint(IPluginContext context, McpServerSettingsStore s
             {
                 return; // 监听被关掉了
             }
-            // 一次请求一个任务:tools/call 可能跑几十秒(一条远程命令),不能占着 accept 循环
-            _ = Task.Run(async () =>
+            // 一次请求一个任务:tools/call 可能跑几十秒(一条远程命令),不能占着 accept 循环。
+            // 任务要**登记**下来:停端点时得等它们收完,不能把监听一关就当结束了。
+            Task worker = Task.Run(() => ServeAsync(http, cancellationToken), cancellationToken);
+            _inFlight[worker] = 0;
+            _ = worker.ContinueWith(t => _inFlight.TryRemove(t, out _), CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+        }
+    }
+
+    /// <summary>
+    /// 处理一个请求:先抢并发名额,再加单请求时限,最后一定关掉响应。
+    /// </summary>
+    private async Task ServeAsync(HttpListenerContext http, CancellationToken cancellationToken)
+    {
+        bool slotHeld = false;
+        try
+        {
+            // 名额满了就当场回绝,而不是把请求攒在进程里 —— 攒着的每一个都占着一个
+            // HttpListenerContext 和一份正文缓冲。
+            slotHeld = await _requestSlots.WaitAsync(TimeSpan.Zero, cancellationToken).ConfigureAwait(false);
+            if (!slotHeld)
             {
-                try
-                {
-                    await HandleAsync(http, cancellationToken).ConfigureAwait(false);
-                }
-                catch (Exception ex)
-                {
-                    context.Log.Warn($"MCP server: request failed: {ex.Message}");
-                }
-                finally
-                {
-                    try
-                    {
-                        http.Response.Close();
-                    }
-                    catch (Exception)
-                    {
-                        // 客户端先断了
-                    }
-                }
-            }, cancellationToken);
+                http.Response.StatusCode = 503;
+                http.Response.AddHeader("Retry-After", "1");
+                await WriteAsync(http.Response, """{"error":"server busy"}""", cancellationToken).ConfigureAwait(false);
+                return;
+            }
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            deadline.CancelAfter(RequestTimeout);
+            await HandleAsync(http, deadline.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // 停端点或请求超时:连接关掉即可,客户端会自己看到断开。
+        }
+        catch (Exception ex)
+        {
+            context.Log.Warn($"MCP server: request failed: {ex.Message}");
+        }
+        finally
+        {
+            if (slotHeld)
+            {
+                _requestSlots.Release();
+            }
+            try
+            {
+                http.Response.Close();
+            }
+            catch (Exception)
+            {
+                // 客户端先断了
+            }
         }
     }
 
@@ -196,10 +278,21 @@ public sealed class McpEndpoint(IPluginContext context, McpServerSettingsStore s
                 return;
         }
 
-        string body;
-        using (var reader = new StreamReader(request.InputStream, Encoding.UTF8))
+        // 正文有上限,而且**先看声明的长度再读**:整份读进来之后才判断,等于让任何本机进程
+        // 都能凭一个请求把桌面程序的内存顶上去。没有 Content-Length 的分块请求由下面的
+        // 限长读兜底。
+        if (request.ContentLength64 > MaxRequestBytes)
         {
-            body = await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+            response.StatusCode = 413;
+            await WriteAsync(response, """{"error":"request body too large"}""", cancellationToken).ConfigureAwait(false);
+            return;
+        }
+        string? body = await ReadBodyAsync(request, cancellationToken).ConfigureAwait(false);
+        if (body is null)
+        {
+            response.StatusCode = 413;
+            await WriteAsync(response, """{"error":"request body too large"}""", cancellationToken).ConfigureAwait(false);
+            return;
         }
         JsonDocument document;
         try
@@ -246,11 +339,19 @@ public sealed class McpEndpoint(IPluginContext context, McpServerSettingsStore s
         {
             case "initialize":
                 {
+                    // 先扫一遍闲置的,再判上限:满了就明确回绝,而不是让会话字典一路涨下去。
+                    EvictIdleSessions();
+                    if (_sessions.Count >= MaxSessions)
+                    {
+                        response.StatusCode = 503;
+                        await WriteAsync(response, Error(id, -32000, "Too many MCP sessions are open. Close some and retry."),
+                            cancellationToken).ConfigureAwait(false);
+                        return;
+                    }
                     string sessionId = Guid.NewGuid().ToString("n");
                     var host = new McpToolHost(context, _settings);
                     await host.AutoSelectAsync(cancellationToken).ConfigureAwait(false);
                     _sessions[sessionId] = host;
-                    EvictIdleSessions();
                     response.AddHeader("Mcp-Session-Id", sessionId);
                     string version = parameters.ValueKind == JsonValueKind.Object
                                      && parameters.TryGetProperty("protocolVersion", out JsonElement requested)
@@ -348,6 +449,25 @@ public sealed class McpEndpoint(IPluginContext context, McpServerSettingsStore s
         => SessionId(http.Request) is { Length: > 0 } id && _sessions.TryGetValue(id, out McpToolHost? host)
             ? host
             : null;
+
+    /// <summary>
+    /// 限长读取请求正文;超过 <see cref="MaxRequestBytes" /> 返回 <see langword="null" />。
+    /// </summary>
+    private static async Task<string?> ReadBodyAsync(HttpListenerRequest request, CancellationToken cancellationToken)
+    {
+        var buffer = new MemoryStream();
+        byte[] chunk = new byte[16 * 1024];
+        int read;
+        while ((read = await request.InputStream.ReadAsync(chunk, cancellationToken).ConfigureAwait(false)) > 0)
+        {
+            if (buffer.Length + read > MaxRequestBytes)
+            {
+                return null;
+            }
+            buffer.Write(chunk, 0, read);
+        }
+        return Encoding.UTF8.GetString(buffer.GetBuffer(), 0, (int)buffer.Length);
+    }
 
     private void EvictIdleSessions()
     {

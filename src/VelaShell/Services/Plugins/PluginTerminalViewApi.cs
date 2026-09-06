@@ -53,26 +53,68 @@ internal sealed class PluginTerminalView(VelaTerminalControl control) : IPluginT
 
     public int Rows => control.Rows;
 
+    /// <summary>
+    /// 待喂给控件的字节。后台线程写、UI 线程取走,<see cref="_pendingGate" /> 保护。
+    /// </summary>
+    /// <remarks>
+    /// <b>合批而不是每块一次 Post。</b>读循环一次最多读 16KB,一条刷屏的命令会在几十毫秒里
+    /// 产出上百块 —— 原先每块都 <c>Dispatcher.Post</c> 一次,就是上百次跨线程调度,每次都
+    /// 唤醒一轮 UI 调度器。SSH 那条桥早就合批了(见 <c>SshTerminalBridge.EnqueueForFeed</c>),
+    /// 插件终端这条路一直是另一套写法。
+    /// </remarks>
+    private readonly MemoryStream _pending = new();
+
+    private readonly Lock _pendingGate = new();
+
+    /// <summary>已经排了一次 UI 刷新还没跑到;后续的块搭它的便车。0/1。</summary>
+    private int _flushScheduled;
+
     public void Feed(ReadOnlySpan<byte> data)
     {
         if (_disposed || data.IsEmpty)
         {
             return;
         }
-        // 读循环在后台线程,渲染必须回 UI 线程。span 不能跨越 await/Post,先拷一份。
-        byte[] copy = data.ToArray();
+        // 已经在 UI 线程上就直接喂,不必绕一圈(插件同步写欢迎语走的就是这条)。
+        // 但要先把攒着的排出去,否则这一段会插到它们前面,字节顺序就乱了。
         if (Dispatcher.UIThread.CheckAccess())
         {
-            control.Feed(copy);
+            FlushPending();
+            control.Feed(data);
             return;
         }
-        Dispatcher.UIThread.Post(() =>
+        lock (_pendingGate)
         {
-            if (!_disposed)
+            _pending.Write(data);
+        }
+        if (Interlocked.CompareExchange(ref _flushScheduled, 1, 0) == 0)
+        {
+            Dispatcher.UIThread.Post(FlushPending);
+        }
+    }
+
+    /// <summary>在 UI 线程上把攒下的字节一次喂给控件。</summary>
+    private void FlushPending()
+    {
+        Interlocked.Exchange(ref _flushScheduled, 0);
+        byte[] batch;
+        lock (_pendingGate)
+        {
+            if (_pending.Length == 0)
             {
-                control.Feed(copy);
+                return;
             }
-        });
+            // 一次批次一次拷贝(原先是每块一次),随后清空复用、保住已长起来的容量。
+            batch = _pending.ToArray();
+            _pending.SetLength(0);
+            _pending.Position = 0;
+        }
+        // 解析与渲染绝不能压在锁里:那会把后台读线程的入队一起挡住,
+        // 而且控件的回调有机会重入这里。
+        if (!_disposed)
+        {
+            control.Feed(batch);
+        }
     }
 
     public void Write(string text)
@@ -250,6 +292,13 @@ internal sealed class PluginTerminalView(VelaTerminalControl control) : IPluginT
         }
         cts?.Cancel();
         cts?.Dispose();
+        // 还攒着的字节直接丢掉:视图都要销毁了,再喂进去没有意义,
+        // 而留着它等一次永远不会跑的 Post 只是白占内存。
+        lock (_pendingGate)
+        {
+            _pending.SetLength(0);
+            _pending.Position = 0;
+        }
         OnUi(control.Dispose);
     }
 }

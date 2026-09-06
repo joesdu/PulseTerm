@@ -153,7 +153,8 @@
            在 TextBox 之前截获,回车/Esc 同理)。列表一旦能拿焦点,用户点一下结果之后
            就再也打不出字了。选中态仍由视图模型的 IsSelected 驱动,ListBox 自己那套
            选中底色已在下面的样式里压掉 —— 表头行本来也不该显出被选中的样子。 -->
-      <ListBox ItemsSource="{Binding Rows}" MaxHeight="360"
+      <ListBox x:Name="ResultsList"
+               ItemsSource="{Binding Rows}" MaxHeight="360"
                Focusable="False"
                Background="Transparent" BorderThickness="0" Padding="0"
                ScrollViewer.VerticalScrollBarVisibility="Auto"

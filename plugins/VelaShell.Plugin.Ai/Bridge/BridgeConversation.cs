@@ -57,6 +57,15 @@ public sealed class BridgeConversation(string channelId, string chatId)
     /// <summary>正在跑的那一轮的取消源(<c>/stop</c> 用它掐掉)。</summary>
     public CancellationTokenSource? Running { get; set; }
 
+    /// <summary>
+    /// 正在 <see cref="Gate" /> 上排队等着跑的消息条数(不含正在跑的那一轮)。
+    /// </summary>
+    /// <remarks>
+    /// 队列此前没有上限:一个群里连着刷二十条,就会有二十条排在那儿,一条接一条地
+    /// 真跑给模型 —— 用户早已忘了前面问过什么,账单却照走。
+    /// </remarks>
+    public int Queued;
+
     /// <summary>丢掉上下文,开一段新的。</summary>
     public void Reset()
     {

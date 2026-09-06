@@ -81,22 +81,27 @@ public class CrossPlatformPublishTests : IDisposable
         };
     }
 
-    private bool SkipIfNotNativeRid(string rid)
+    /// <summary>
+    /// 没开开关、或当前平台不是这个 RID 的原生平台,就把本用例标为<b>未执行</b>。
+    /// </summary>
+    /// <remarks>
+    /// 以前是"写一行 <c>[SKIP]</c> 日志然后 return":框架看到的是一次正常返回,报告上写着
+    /// "通过"。于是一份全绿的报告里混着一批<b>一次 publish 都没跑过</b>的用例 ——
+    /// 而发布这条路恰恰是最需要如实知道"到底验没验过"的地方。
+    /// </remarks>
+    private static void RequireNativePublish(string rid)
     {
-        // These tests run actual `dotnet publish` which takes several minutes.
-        // Only run when VELASHELL_PUBLISH_TESTS=1 environment variable is set.
+        // 这些用例真的会跑 `dotnet publish`,一次好几分钟,所以默认不跑。
         if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("VELASHELL_PUBLISH_TESTS")))
         {
-            TestContext.WriteLine($"[SKIP] Publish tests are opt-in. Set VELASHELL_PUBLISH_TESTS=1 to enable. (RID: {rid})");
-            return true;
+            Assert.Inconclusive($"Publish tests are opt-in. Set VELASHELL_PUBLISH_TESTS=1 to enable. (RID: {rid})");
         }
-
         if (!IsNativeRid(rid))
         {
-            TestContext.WriteLine($"[SKIP] Skipping publish test for {rid}: current platform is {RuntimeInformation.RuntimeIdentifier}. Cross-compilation for non-native RIDs may not be supported without additional workloads.");
-            return true;
+            Assert.Inconclusive(
+                $"Skipping publish test for {rid}: current platform is {RuntimeInformation.RuntimeIdentifier}. "
+                + "Cross-compilation for non-native RIDs may not be supported without additional workloads.");
         }
-        return false;
     }
 
     [TestMethod]
@@ -104,7 +109,7 @@ public class CrossPlatformPublishTests : IDisposable
     public void Publish_OsxArm64_Succeeds()
     {
         const string rid = "osx-arm64";
-        if (SkipIfNotNativeRid(rid)) return;
+        RequireNativePublish(rid);
 
         (int exitCode, string? stdout, string? stderr) = RunDotnetPublish(rid);
 
@@ -122,7 +127,7 @@ public class CrossPlatformPublishTests : IDisposable
     public void Publish_WinX64_Succeeds()
     {
         const string rid = "win-x64";
-        if (SkipIfNotNativeRid(rid)) return;
+        RequireNativePublish(rid);
 
         (int exitCode, string? stdout, string? stderr) = RunDotnetPublish(rid);
 
@@ -140,7 +145,7 @@ public class CrossPlatformPublishTests : IDisposable
     public void Publish_LinuxX64_Succeeds()
     {
         const string rid = "linux-x64";
-        if (SkipIfNotNativeRid(rid)) return;
+        RequireNativePublish(rid);
 
         (int exitCode, string? stdout, string? stderr) = RunDotnetPublish(rid);
 

@@ -2042,4 +2042,43 @@ public class FileBrowserViewModelTests
 
         Assert.IsNull(_vm.ErrorMessage);
     }
+
+    /// <summary>
+    /// 换目录时,上一次列举要被<b>主动取消</b>,而不只是回来了不用。
+    /// </summary>
+    /// <remarks>
+    /// 只做"过时结果检查"的话,A→B 连着点两下会让两次列举一起压在同一条 SFTP 通道上,
+    /// 最想看的 B 反而排在 A 后面。目录越大越明显 —— 而"点错了赶紧点对的"恰恰是
+    /// 大目录下最常见的操作。
+    /// </remarks>
+    [TestMethod]
+    [TestCategory("FileBrowser")]
+    public async Task NavigatingAway_CancelsThePreviousListing()
+    {
+        var firstStarted = new TaskCompletionSource();
+        CancellationToken firstToken = default;
+        _sftpService
+            .ListDirectoryAsync(_sessionId, "/slow", Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                firstToken = call.Arg<CancellationToken>();
+                firstStarted.TrySetResult();
+                // 永远不自己完成:只有被取消才结束 —— 正是"大目录还在列"的样子。
+                return Task.Delay(Timeout.Infinite, firstToken)
+                           .ContinueWith(_ => new List<RemoteFileInfo>(), TaskContinuationOptions.None);
+            });
+        _sftpService
+            .ListDirectoryAsync(_sessionId, "/fast", Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new List<RemoteFileInfo>()));
+
+        _vm.CurrentPath = "/slow";
+        Task slow = _vm.RefreshCommand.Execute().FirstAsync().ToTask();
+        await firstStarted.Task;
+
+        _vm.CurrentPath = "/fast";
+        await _vm.RefreshCommand.Execute().FirstAsync();
+
+        Assert.IsTrue(firstToken.IsCancellationRequested, "上一次列举没有被取消,它还占着通道。");
+        await slow;
+    }
 }

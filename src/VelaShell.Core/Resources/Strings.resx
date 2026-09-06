@@ -377,6 +377,36 @@
   <data name="Settings" xml:space="preserve">
     <value>Settings</value>
   </data>
+  <data name="ScrollBar_ColumnLeft" xml:space="preserve">
+    <value>Scroll left</value>
+  </data>
+  <data name="ScrollBar_ColumnRight" xml:space="preserve">
+    <value>Scroll right</value>
+  </data>
+  <data name="ScrollBar_HorizontalThumb" xml:space="preserve">
+    <value>Horizontal scroll position</value>
+  </data>
+  <data name="ScrollBar_LineDown" xml:space="preserve">
+    <value>Scroll down</value>
+  </data>
+  <data name="ScrollBar_LineUp" xml:space="preserve">
+    <value>Scroll up</value>
+  </data>
+  <data name="ScrollBar_PageDown" xml:space="preserve">
+    <value>Page down</value>
+  </data>
+  <data name="ScrollBar_PageLeft" xml:space="preserve">
+    <value>Page left</value>
+  </data>
+  <data name="ScrollBar_PageRight" xml:space="preserve">
+    <value>Page right</value>
+  </data>
+  <data name="ScrollBar_PageUp" xml:space="preserve">
+    <value>Page up</value>
+  </data>
+  <data name="ScrollBar_VerticalThumb" xml:space="preserve">
+    <value>Vertical scroll position</value>
+  </data>
   <data name="Notifications" xml:space="preserve">
     <value>Notifications</value>
   </data>
@@ -1182,8 +1212,17 @@ If this keeps happening, close any other VelaShell windows and try again.</value
   <data name="KeySvc_InvalidName" xml:space="preserve">
     <value>Invalid key name.</value>
   </data>
-  <data name="KeySvc_UnknownType" xml:space="preserve">
-    <value>Unknown</value>
+  <data name="KeySvc_ImportBadPublicKey" xml:space="preserve">
+    <value>{0} is not a readable SSH public key; nothing was imported.</value>
+  </data>
+  <data name="KeySvc_ImportNotAPrivateKey" xml:space="preserve">
+    <value>{0} does not look like a private key (no PEM header); nothing was imported.</value>
+  </data>
+  <data name="KeySvc_ImportPrivateKeyMissing" xml:space="preserve">
+    <value>Private key not found: {0}</value>
+  </data>
+  <data name="KeySvc_ImportPublicKeyMissing" xml:space="preserve">
+    <value>The matching public key {0} is missing. Import both files — a key without its .pub does not show up in this list.</value>
   </data>
   <data name="Main_CloseConfirmBody" xml:space="preserve">
     <value>Active sessions are still running; closing the window will disconnect them all. Quit anyway?</value>
@@ -1795,6 +1834,27 @@ Paste anyway?</value>
   <data name="Recorder_Title" xml:space="preserve">
     <value>Session Recording &amp; Playback</value>
   </data>
+  <data name="Recorder_StorageBacklog" xml:space="preserve">
+    <value>storage could not keep up with the terminal output (more than {0} MB was waiting to be written)</value>
+  </data>
+  <data name="Recorder_StopTimedOut" xml:space="preserve">
+    <value>the final chunks could not be written before the session closed</value>
+  </data>
+  <data name="Recorder_StoppedTitle" xml:space="preserve">
+    <value>Session recording stopped</value>
+  </data>
+  <data name="Recorder_StoppedBody" xml:space="preserve">
+    <value>Recording of “{0}” stopped: {1}. What was already written is still playable.</value>
+  </data>
+  <data name="SessionLog_Backlog" xml:space="preserve">
+    <value>the log file could not keep up with the terminal output (more than {0} MB was waiting to be written)</value>
+  </data>
+  <data name="SessionLog_StoppedTitle" xml:space="preserve">
+    <value>Session logging stopped</value>
+  </data>
+  <data name="SessionLog_StoppedBody" xml:space="preserve">
+    <value>Logging of “{0}” stopped: {1}. What was already written is still on disk.</value>
+  </data>
   <data name="SetAbout_Changelog" xml:space="preserve">
     <value>Changelog</value>
   </data>
@@ -2125,6 +2185,27 @@ Paste anyway?</value>
   <data name="SetGeneral_ImportExportDesc" xml:space="preserve">
     <value>// Backs up or migrates app settings only; connections, groups, keys and snippets are not included</value>
   </data>
+  <data name="SetGeneral_ExportDone" xml:space="preserve">
+    <value>Settings exported to {0}. Passwords are never included in an export and must be re-entered after importing.</value>
+  </data>
+  <data name="SetGeneral_ExportFailed" xml:space="preserve">
+    <value>Export failed: {0}</value>
+  </data>
+  <data name="SetGeneral_ImportDone" xml:space="preserve">
+    <value>Settings imported. Review them, then save.</value>
+  </data>
+  <data name="SetGeneral_ImportDoneNeedsSecrets" xml:space="preserve">
+    <value>Settings imported. The proxy password is not part of an export — re-enter it under Network before saving.</value>
+  </data>
+  <data name="SetGeneral_ImportFailed" xml:space="preserve">
+    <value>Could not read that file: {0}</value>
+  </data>
+  <data name="SetGeneral_ImportInvalid" xml:space="preserve">
+    <value>That file is not a VelaShell settings export. Nothing was changed.</value>
+  </data>
+  <data name="SetGeneral_ImportTooLarge" xml:space="preserve">
+    <value>That file is {0} MB, past the {1} MB limit for a settings file. Nothing was changed.</value>
+  </data>
   <data name="SetGeneral_KeepAliveInterval" xml:space="preserve">
     <value>Keep-alive interval (s)</value>
   </data>
@@ -2217,6 +2298,9 @@ Paste anyway?</value>
   </data>
   <data name="SetKeys_DeleteKey" xml:space="preserve">
     <value>Delete key</value>
+  </data>
+  <data name="SetKeys_DeleteKeyConfirm" xml:space="preserve">
+    <value>Delete the key pair “{0}”? This removes {1} and its .pub from disk. Other tools on this machine may be using the same key, and it cannot be undone.</value>
   </data>
   <data name="SetKeys_Generate" xml:space="preserve">
     <value>Generate key</value>
@@ -2968,15 +3052,6 @@ Overwrite it?</value>
   <data name="Sidebar_RefreshRecent" xml:space="preserve">
     <value>Refresh Recent Connections</value>
   </data>
-  <data name="Sidebar_FilterSessions" xml:space="preserve">
-    <value>Filter sessions</value>
-  </data>
-  <data name="Sidebar_ClearFilter" xml:space="preserve">
-    <value>Clear filter</value>
-  </data>
-  <data name="Cmd_FilterSessions" xml:space="preserve">
-    <value>Filter sessions</value>
-  </data>
   <data name="Sidebar_ToggleSection" xml:space="preserve">
     <value>Collapse or expand this section</value>
   </data>
@@ -3045,6 +3120,9 @@ Overwrite it?</value>
   </data>
   <data name="Svc_RemoteUpdateFailed" xml:space="preserve">
     <value>Remote update failed ({0}): {1}</value>
+  </data>
+  <data name="Svc_RemoteEditDraftKept" xml:space="preserve">
+    <value>{0} was not uploaded. Your edited copy is kept at {1}.</value>
   </data>
   <data name="Svc_Ungrouped" xml:space="preserve">
     <value>Ungrouped</value>

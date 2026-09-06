@@ -931,8 +931,17 @@
   <data name="KeySvc_InvalidName" xml:space="preserve">
     <value>鍵の名前が無効です。</value>
   </data>
-  <data name="KeySvc_UnknownType" xml:space="preserve">
-    <value>不明</value>
+  <data name="KeySvc_ImportBadPublicKey" xml:space="preserve">
+    <value>{0} は解析できる SSH 公開鍵ではありません。何もインポートされていません。</value>
+  </data>
+  <data name="KeySvc_ImportNotAPrivateKey" xml:space="preserve">
+    <value>{0} は秘密鍵ではないようです (PEM ヘッダーがありません)。何もインポートされていません。</value>
+  </data>
+  <data name="KeySvc_ImportPrivateKeyMissing" xml:space="preserve">
+    <value>秘密鍵が見つかりません: {0}</value>
+  </data>
+  <data name="KeySvc_ImportPublicKeyMissing" xml:space="preserve">
+    <value>対になる公開鍵 {0} がありません。.pub も一緒にインポートしてください。公開鍵のない鍵はこの一覧に表示されません。</value>
   </data>
   <data name="KeyType" xml:space="preserve">
     <value>鍵の種類</value>
@@ -1674,6 +1683,27 @@
   <data name="Recorder_Title" xml:space="preserve">
     <value>セッションの録画と再生</value>
   </data>
+  <data name="Recorder_StorageBacklog" xml:space="preserve">
+    <value>ストレージへの書き込みが端末出力に追いつきませんでした (未書き込みデータが {0} MB を超過)</value>
+  </data>
+  <data name="Recorder_StopTimedOut" xml:space="preserve">
+    <value>セッション終了までに最後のチャンクを書き込めませんでした</value>
+  </data>
+  <data name="Recorder_StoppedTitle" xml:space="preserve">
+    <value>セッション録画を停止しました</value>
+  </data>
+  <data name="Recorder_StoppedBody" xml:space="preserve">
+    <value>「{0}」の録画を停止しました: {1}。すでに書き込まれた分は再生できます。</value>
+  </data>
+  <data name="SessionLog_Backlog" xml:space="preserve">
+    <value>ログファイルへの書き込みが端末出力に追いつきませんでした (未書き込みデータが {0} MB を超過)</value>
+  </data>
+  <data name="SessionLog_StoppedTitle" xml:space="preserve">
+    <value>セッションログを停止しました</value>
+  </data>
+  <data name="SessionLog_StoppedBody" xml:space="preserve">
+    <value>「{0}」のログを停止しました: {1}。すでに書き込まれた分はディスクに残っています。</value>
+  </data>
   <data name="Refresh" xml:space="preserve">
     <value>更新</value>
   </data>
@@ -2016,6 +2046,27 @@
   <data name="SetGeneral_ImportExportDesc" xml:space="preserve">
     <value>// アプリ設定のみをバックアップ/移行します。接続、グループ、鍵、スニペットは含まれません</value>
   </data>
+  <data name="SetGeneral_ExportDone" xml:space="preserve">
+    <value>設定を {0} にエクスポートしました。パスワードはエクスポートに含まれないため、インポート後に再入力してください。</value>
+  </data>
+  <data name="SetGeneral_ExportFailed" xml:space="preserve">
+    <value>エクスポートに失敗しました: {0}</value>
+  </data>
+  <data name="SetGeneral_ImportDone" xml:space="preserve">
+    <value>設定をインポートしました。内容を確認してから保存してください。</value>
+  </data>
+  <data name="SetGeneral_ImportDoneNeedsSecrets" xml:space="preserve">
+    <value>設定をインポートしました。プロキシのパスワードはエクスポートに含まれません。「ネットワーク」で再入力してから保存してください。</value>
+  </data>
+  <data name="SetGeneral_ImportFailed" xml:space="preserve">
+    <value>ファイルを読み取れませんでした: {0}</value>
+  </data>
+  <data name="SetGeneral_ImportInvalid" xml:space="preserve">
+    <value>このファイルは VelaShell の設定エクスポートではありません。設定は変更されていません。</value>
+  </data>
+  <data name="SetGeneral_ImportTooLarge" xml:space="preserve">
+    <value>このファイルは {0} MB で、設定ファイルの上限 {1} MB を超えています。設定は変更されていません。</value>
+  </data>
   <data name="SetGeneral_KeepAliveInterval" xml:space="preserve">
     <value>キープアライブ間隔(秒)</value>
   </data>
@@ -2108,6 +2159,9 @@
   </data>
   <data name="SetKeys_DeleteKey" xml:space="preserve">
     <value>鍵を削除</value>
+  </data>
+  <data name="SetKeys_DeleteKeyConfirm" xml:space="preserve">
+    <value>鍵ペア「{0}」を削除しますか? {1} とその .pub をディスクから削除します。同じ鍵をこのマシンの他のツールが使っている可能性があり、元に戻せません。</value>
   </data>
   <data name="SetKeys_Generate" xml:space="preserve">
     <value>鍵を生成</value>
@@ -2586,6 +2640,36 @@
   <data name="Settings" xml:space="preserve">
     <value>設定</value>
   </data>
+  <data name="ScrollBar_ColumnLeft" xml:space="preserve">
+    <value>左へスクロール</value>
+  </data>
+  <data name="ScrollBar_ColumnRight" xml:space="preserve">
+    <value>右へスクロール</value>
+  </data>
+  <data name="ScrollBar_HorizontalThumb" xml:space="preserve">
+    <value>水平スクロール位置</value>
+  </data>
+  <data name="ScrollBar_LineDown" xml:space="preserve">
+    <value>下へスクロール</value>
+  </data>
+  <data name="ScrollBar_LineUp" xml:space="preserve">
+    <value>上へスクロール</value>
+  </data>
+  <data name="ScrollBar_PageDown" xml:space="preserve">
+    <value>1 ページ下へ</value>
+  </data>
+  <data name="ScrollBar_PageLeft" xml:space="preserve">
+    <value>1 ページ左へ</value>
+  </data>
+  <data name="ScrollBar_PageRight" xml:space="preserve">
+    <value>1 ページ右へ</value>
+  </data>
+  <data name="ScrollBar_PageUp" xml:space="preserve">
+    <value>1 ページ上へ</value>
+  </data>
+  <data name="ScrollBar_VerticalThumb" xml:space="preserve">
+    <value>垂直スクロール位置</value>
+  </data>
   <data name="Settings_ResetConfirmMessage" xml:space="preserve">
     <value>すべてのページの設定を初期値に戻します(「設定を保存」をクリックするまでディスクには書き込まれません)。続行しますか?</value>
   </data>
@@ -2865,15 +2949,6 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   <data name="Sidebar_RefreshRecent" xml:space="preserve">
     <value>最近の接続を更新</value>
   </data>
-  <data name="Sidebar_FilterSessions" xml:space="preserve">
-    <value>セッションを絞り込む</value>
-  </data>
-  <data name="Sidebar_ClearFilter" xml:space="preserve">
-    <value>絞り込みをクリア</value>
-  </data>
-  <data name="Cmd_FilterSessions" xml:space="preserve">
-    <value>セッションを絞り込む</value>
-  </data>
   <data name="Sidebar_ToggleSection" xml:space="preserve">
     <value>このセクションを折りたたむ／展開する</value>
   </data>
@@ -2957,6 +3032,9 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   </data>
   <data name="Svc_RemoteUpdateFailed" xml:space="preserve">
     <value>リモート更新に失敗しました({0}):{1}</value>
+  </data>
+  <data name="Svc_RemoteEditDraftKept" xml:space="preserve">
+    <value>{0} をアップロードできませんでした。編集済みのコピーは {1} に残してあります。</value>
   </data>
   <data name="Svc_Ungrouped" xml:space="preserve">
     <value>未分類</value>

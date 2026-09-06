@@ -27,9 +27,37 @@ public partial class KeyManagementPage : UserControl
             AllowMultiple = false,
             SuggestedStartLocation = await StorageDefaults.SshAsync(top)
         });
-        if (files.AsParallel().FirstOrDefault()?.TryGetLocalPath() is { Length: > 0 } path)
+        if (files.Count > 0 && files[0].TryGetLocalPath() is { Length: > 0 } path)
         {
             await viewModel.SshKeys.ImportAsync(path);
+        }
+});
+
+    /// <summary>
+    /// 删除密钥前先确认,并把**将要删掉的实际文件**摆出来。
+    /// </summary>
+    /// <remarks>
+    /// 这个按钮是列表行里一枚 24×24 的垃圾桶图标,挨着"复制公钥",误点非常容易;
+    /// 而它删的是 <c>~/.ssh</c> 下真实的私钥和公钥 —— git、ansible、云控制台多半也在用
+    /// 同一把,删掉不可撤销,也没有回收站。此前它直接绑命令,点下去当场就没了。
+    /// </remarks>
+    private void DeleteKey_Click(object? sender, RoutedEventArgs e) => FireAndForget.Run(async () =>
+    {
+        if (sender is not Control { DataContext: SshKeyInfo key }
+            || DataContext is not SettingsViewModel viewModel
+            || TopLevel.GetTopLevel(this) is not Window owner)
+        {
+            return;
+        }
+        bool confirmed = await MessageDialog.ConfirmAsync(
+            owner,
+            Strings.Get("SetKeys_DeleteKey"),
+            Strings.Format("SetKeys_DeleteKeyConfirm", key.Name, key.PrivateKeyPath),
+            kind: MessageDialogKind.Warning,
+            danger: true);
+        if (confirmed)
+        {
+            await viewModel.SshKeys.DeleteAsync(key);
         }
 });
 

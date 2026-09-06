@@ -19,7 +19,6 @@ public class SshKeyManagerViewModel : ReactiveObject
         FilteredKeys = [];
         KeyNames = [];
         RefreshCommand = ReactiveCommand.CreateFromTask(RefreshAsync);
-        DeleteCommand = ReactiveCommand.CreateFromTask<SshKeyInfo>(DeleteAsync);
         GenerateCommand = ReactiveCommand.CreateFromTask(GenerateAsync);
         this.WhenAnyValue(x => x.SearchQuery).Subscribe(_ => ApplyFilter());
     }
@@ -57,8 +56,8 @@ public class SshKeyManagerViewModel : ReactiveObject
     /// <summary>重新枚举密钥列表的命令。</summary>
     public ReactiveCommand<RxVoid, RxVoid> RefreshCommand { get; }
 
-    /// <summary>删除指定密钥的命令。</summary>
-    public ReactiveCommand<SshKeyInfo, RxVoid> DeleteCommand { get; }
+    // 删除**刻意不提供命令**:直接绑命令就没有确认这一步了(它以前正是这么绑的)。
+    // 走 DeleteAsync,由密钥管理页先弹确认再调用。
 
     /// <summary>生成新 RSA 密钥的命令。</summary>
     public ReactiveCommand<RxVoid, RxVoid> GenerateCommand { get; }
@@ -152,7 +151,11 @@ public class SshKeyManagerViewModel : ReactiveObject
         }
     }
 
-    private async Task DeleteAsync(SshKeyInfo key)
+    /// <summary>
+    /// 删除一把密钥并刷新列表。<b>确认在调用方(密钥管理页)做</b> —— 它拿得到窗口,
+    /// 也才能把将要删掉的实际路径摆给用户看。
+    /// </summary>
+    public async Task DeleteAsync(SshKeyInfo key)
     {
         if (_keyService is null)
         {

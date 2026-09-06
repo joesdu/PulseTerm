@@ -20,15 +20,15 @@ namespace VelaShell.Tests.Views;
 [TestCategory("SidebarUi")]
 public class SidebarQuickCommandsUiTests
 {
-    // SessionAndQuickGrid 的行序:0 = 会话过滤框,1 = 会话树,2 = 分隔条,3 = 快捷命令区。
+    // SessionAndQuickGrid 的行序:0 = 会话树,1 = 分隔条,2 = 快捷命令区。
     // 具名而不是散落的字面量 —— 上一次往这个网格顶部插一行时,三条用例同时以
     // "预期 36 实际 0" 这种看不出原因的方式失败。
 
     /// <summary>快捷命令区所在的行。</summary>
-    private const int QuickRow = 3;
+    private const int QuickRow = 2;
 
     /// <summary>快捷命令区上方分隔条所在的行。</summary>
-    private const int SplitterRow = 2;
+    private const int SplitterRow = 1;
 
     /// <summary>最近连接区在 <c>SidebarSectionsGrid</c>(另一个网格)里所在的行。</summary>
     private const int RecentRow = 2;
@@ -497,6 +497,123 @@ public class SidebarQuickCommandsUiTests
             window.Close();
         });
     }
+
+    // ———————————————————— 窗口变矮时三块区域不许互相压 ————————————————————
+    //
+    // 两层嵌套网格各有各的 MinHeight:外层给「会话+快捷命令」那一行留 80,而内层实际要
+    // 38(过滤框) + 80(会话树) + 5(分隔条) + 100(快捷命令) = 223。窗口一矮,内层就按自己的
+    // 下限排下去、撑出外层给的那一格 —— 快捷命令直接画到「最近连接」身上,而最近连接被
+    // 挤出可视区。这不是滚动能救的:两块内容是真的重叠在一起。
+
+    /// <summary>矮窗口下,快捷命令区不得越过它那一格的下沿。</summary>
+    [TestMethod]
+    public void ShortWindow_QuickCommandsDoesNotSpillOverRecentConnections()
+    {
+        OnUi(() =>
+        {
+            (Window window, SidebarView view) = ShowShortSidebar();
+
+            Border quick = view.FindControl<Border>("QuickCommandsSection")!;
+            Border recent = view.FindControl<Border>("RecentConnectionsSection")!;
+            Rect quickBounds = Bounds(quick, view);
+            Rect recentBounds = Bounds(recent, view);
+
+            Assert.IsLessThanOrEqualTo(
+                recentBounds.Top + 0.5,
+                quickBounds.Bottom,
+                $"快捷命令区画到了 {quickBounds.Bottom:F0},而最近连接区从 {recentBounds.Top:F0} 开始 —— 两块重叠了。");
+            window.Close();
+        });
+    }
+
+    /// <summary>矮窗口下,三块区域都要留在侧栏里,一块都不能被挤出去。</summary>
+    [TestMethod]
+    public void ShortWindow_EverySectionStaysInsideTheSidebar()
+    {
+        OnUi(() =>
+        {
+            (Window window, SidebarView view) = ShowShortSidebar();
+
+            Grid sections = view.FindControl<Grid>("SidebarSectionsGrid")!;
+            double available = sections.Bounds.Height;
+            double used = sections.RowDefinitions.Sum(row => row.ActualHeight);
+
+            Assert.IsLessThanOrEqualTo(
+                available + 0.5,
+                used,
+                $"三行合计 {used:F0}px,而容器只有 {available:F0}px —— 多出来的部分正压在下一块上。");
+
+            // 用 sections 自己的坐标系量:它的 Bounds 是相对父级的,跨系相减会得到假结论。
+            Border recent = view.FindControl<Border>("RecentConnectionsSection")!;
+            Assert.IsLessThanOrEqualTo(
+                sections.Bounds.Height + 0.5,
+                Bounds(recent, sections).Bottom,
+                "最近连接区被挤出了侧栏可视区。");
+            Assert.IsGreaterThan(
+                0,
+                Bounds(recent, sections).Height,
+                "最近连接区被压成了零高度。");
+            window.Close();
+        });
+    }
+
+    /// <summary>窗口足够高时,记住的高度照旧生效(别为了修矮窗口把正常情况也压扁)。</summary>
+    [TestMethod]
+    public void TallWindow_KeepsTheRememberedSectionHeights()
+    {
+        OnUi(() =>
+        {
+            (Window window, SidebarView view) = ShowSidebar(900);
+
+            Grid inner = view.FindControl<Grid>("SessionAndQuickGrid")!;
+            Grid sections = view.FindControl<Grid>("SidebarSectionsGrid")!;
+
+            Assert.IsGreaterThanOrEqualTo(
+                100,
+                inner.RowDefinitions[QuickRow].ActualHeight,
+                "高窗口下快捷命令区不该被压到最小高度以下。");
+            Assert.IsGreaterThanOrEqualTo(
+                100,
+                sections.RowDefinitions[RecentRow].ActualHeight,
+                "高窗口下最近连接区不该被压到最小高度以下。");
+            window.Close();
+        });
+    }
+
+    /// <summary>造一个两块可选区域都展开、且高度不够用的侧栏。</summary>
+    private static (Window Window, SidebarView View) ShowShortSidebar() => ShowSidebar(360);
+
+    private static (Window Window, SidebarView View) ShowSidebar(double height)
+    {
+        IQuickCommandRepository repository = Substitute.For<IQuickCommandRepository>();
+        var library = new QuickCommandsViewModel(repository);
+        var runner = new QuickCommandRunnerViewModel(library);
+        var viewModel = new SidebarViewModel(quickCommands: runner)
+        {
+            IsQuickCommandsVisible = true,
+            QuickCommandsExpanded = true,
+            RecentConnectionsExpanded = true
+        };
+        var view = new SidebarView { DataContext = viewModel };
+        var window = new Window { Width = 260, Height = height, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+        return (window, view);
+    }
+
+    /// <summary>
+    /// 某个控件在 <paramref name="root" /> 坐标系里的位置。
+    /// </summary>
+    /// <remarks>
+    /// 起点用 <c>new Rect(Size)</c> 而不是 <c>target.Bounds</c>:后者本身已经是"在父级里的
+    /// 位置",再乘一次 <c>TransformToVisual</c> 等于把位移算两遍
+    /// (实测量到 296,而真实位置是 148)。
+    /// </remarks>
+    private static Rect Bounds(Visual target, Visual root) =>
+        new Rect(target.Bounds.Size)
+            .TransformToAABB(target.TransformToVisual(root) ?? Matrix.Identity);
 
     private static void Relayout(Window window)
     {

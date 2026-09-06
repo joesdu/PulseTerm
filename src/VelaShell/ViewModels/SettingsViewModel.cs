@@ -23,6 +23,24 @@ namespace VelaShell.ViewModels;
 /// <summary>设置左侧导航项(图标为 PathIcon 几何)。</summary>
 public sealed record SettingsSection(string Name, string Icon);
 
+/// <summary>导入设置的结果。</summary>
+/// <remarks>
+/// 之前这里只有一个 <c>bool</c>,而调用方把它丢掉了 —— 选错文件、文件是坏的,
+/// 界面上什么都不会发生,用户只能以为"导入了但没生效"。分成几种结果是为了让
+/// 界面能分别说清:文件读不了、内容不是设置、导入成功但秘密要重填。
+/// </remarks>
+public enum SettingsImportResult
+{
+    /// <summary>内容不是合法的设置 JSON;现有设置未被改动。</summary>
+    Invalid,
+
+    /// <summary>已应用。</summary>
+    Applied,
+
+    /// <summary>已应用,但导出时被抹掉的秘密(代理密码)需要重新填写。</summary>
+    AppliedNeedsSecrets
+}
+
 /// <summary>
 /// 设置页左侧分区的稳定标识,供"直接跳到某一页"的入口(消息中心、命令注册表)使用。
 /// <para>
@@ -829,6 +847,17 @@ public class SettingsViewModel : ReactiveObject
         private set => this.RaiseAndSetIfChanged(ref field, value);
     } = string.Empty;
 
+    /// <summary>导入/导出的结果回显(常规页“导入导出”行下方)。</summary>
+    /// <remarks>
+    /// 这两个动作以前全程无声:导出到哪儿了、导入成没成、文件坏没坏,一律看不见。
+    /// 文本里<b>不放秘密值</b>,只说哪些设置需要重新填。
+    /// </remarks>
+    public string ImportExportStatus
+    {
+        get;
+        set => this.RaiseAndSetIfChanged(ref field, value);
+    } = string.Empty;
+
     /// <summary>外观页强调色色板(设计 ZAbb9)。</summary>
     public string[] AccentSwatches { get; } =
     ["#00D4AA", "#3498DB", "#9B59B6", "#E74C3C", "#F39C12", "#1ABC9C", "#E91E63"];
@@ -1254,29 +1283,54 @@ public class SettingsViewModel : ReactiveObject
         }
     }
 
-    /// <summary>配置导出为 JSON 文本(常规页“导出”)。</summary>
-    public string BuildExportJson() => JsonSerializer.Serialize(_loaded, exportJsonOption);
-
-    /// <summary>从导出的 JSON 导入配置(常规页“导入”);格式非法时返回 false。</summary>
-    public bool TryApplyImportedJson(string json)
+    /// <summary>
+    /// 配置导出为 JSON 文本(常规页“导出”)。<b>秘密字段一律不出现在导出里。</b>
+    /// </summary>
+    /// <remarks>
+    /// 导出文件的用途是备份、换机迁移、贴给别人排查 —— 三种用途都会让它离开本机。
+    /// 之前这里直接序列化整份 <see cref="AppSettings" />,代理密码就跟着走了,
+    /// 而用户完全看不出这个文件里有凭据。抹掉的字段导入后需要重新填,由
+    /// <see cref="SettingsImportResult.AppliedNeedsSecrets" /> 告诉界面。
+    /// <para>
+    /// 抹的是<b>副本</b>:直接改 <c>_loaded</c> 等于点一次导出就把用户配好的代理密码清了。
+    /// </para>
+    /// </remarks>
+    public string BuildExportJson()
     {
+        AppSettings redacted = JsonClone(_loaded);
+        redacted.Proxy.Password = string.Empty;
+        return JsonSerializer.Serialize(redacted, exportJsonOption);
+    }
+
+    /// <summary>从导出的 JSON 导入配置(常规页“导入”)。</summary>
+    /// <param name="json">导入文件的内容。</param>
+    /// <returns>导入结果;失败时现有设置保持不变。</returns>
+    public SettingsImportResult TryApplyImportedJson(string json)
+    {
+        AppSettings? imported;
         try
         {
-            AppSettings? imported = JsonSerializer.Deserialize<AppSettings>(json, jsonOption);
-            if (imported is null)
-            {
-                return false;
-            }
-            imported.Normalize();
-            _loaded = imported;
-            ApplyToViewModel(imported);
-            PreviewCurrent();
-            return true;
+            imported = JsonSerializer.Deserialize<AppSettings>(json, jsonOption);
         }
         catch (JsonException)
         {
-            return false;
+            return SettingsImportResult.Invalid;
         }
+        if (imported is null)
+        {
+            return SettingsImportResult.Invalid;
+        }
+        // 先算"要不要补填秘密",再 Normalize —— 前者看的就是导出时被抹掉的那些字段。
+        // 只有 http / socks5 才读用户名密码(none / system 根本不消费它们)。
+        bool needsSecrets =
+            imported.Proxy.Type is "http" or "socks5"
+            && !string.IsNullOrEmpty(imported.Proxy.Username)
+            && string.IsNullOrEmpty(imported.Proxy.Password);
+        imported.Normalize();
+        _loaded = imported;
+        ApplyToViewModel(imported);
+        PreviewCurrent();
+        return needsSecrets ? SettingsImportResult.AppliedNeedsSecrets : SettingsImportResult.Applied;
     }
 
     private async Task LoadAsync()

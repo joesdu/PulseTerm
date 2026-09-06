@@ -20,13 +20,44 @@ public partial class RemoteFileEditorView : Window
 
     private readonly string _localPath = string.Empty;
     private readonly Func<Task>? _uploadAsync;
-    private bool _dirty;
+
+    /// <summary>编辑修订号:每次内容变化 +1。</summary>
+    /// <remarks>
+    /// 脏状态曾经是一个 <c>bool</c>,保存成功就无条件清掉 —— 而"保存"是<b>异步</b>的:
+    /// 保存文本 A(上传要几秒)→ 期间接着敲出 B → A 上传成功 → <c>_dirty = false</c>,
+    /// B 于是被当成已保存,关窗不再提示,改动直接没了。改成修订号之后,上传成功只确认
+    /// <b>它自己那一份快照的号</b>,号在此期间又涨过就仍然是脏的。
+    /// </remarks>
+    private long _revision;
+
+    /// <summary>已确认落到远端的修订号。<c>_revision</c> 与它相等即为干净。</summary>
+    private long _savedRevision;
+
     private Encoding _encoding = new UTF8Encoding(false);
 
     /// <summary>UTF-8 严格解码失败时的回落编码(当前会话的终端编码)。</summary>
     private readonly Encoding? _sessionEncoding;
     private bool _forceClose;
     private bool _saving;
+
+    /// <summary>保存进行中又按了一次保存:等这一轮结束再补一轮,而不是把这次请求丢掉。</summary>
+    private bool _resaveRequested;
+
+    /// <summary>当前在跑的保存任务;关窗要等它落地(临时副本正被上传读着,不能先删)。</summary>
+    private Task? _saveTask;
+
+    /// <summary>内容是否有未落到远端的改动。</summary>
+    private bool IsDirty => _revision != _savedRevision;
+
+    /// <summary>脏状态(回归用例读它:"保存 A 期间敲出 B" 之后必须仍为脏)。</summary>
+    internal bool IsDirtyForTest => IsDirty;
+
+    /// <summary>发起一次保存并把任务交出去,便于回归用例按受控顺序推进。</summary>
+    internal Task SaveForTestAsync()
+    {
+        BeginSave();
+        return _saveTask ?? Task.CompletedTask;
+    }
 
     /// <summary>
     /// 供设计器/XAML 使用的无参构造函数。
@@ -63,7 +94,7 @@ public partial class RemoteFileEditorView : Window
         _ = LoadFileAsync();
         Editor.TextChanged += (_, _) =>
         {
-            _dirty = true;
+            _revision++;
             StatusText.Text = Strings.Get("Editor_Unsaved");
         };
     }
@@ -71,10 +102,14 @@ public partial class RemoteFileEditorView : Window
     private async Task LoadFileAsync()
     {
         // 磁盘读取放后台线程:同步 ReadAllBytes 在构造(UI 线程)里读大文件会卡住
-        // 窗口打开;读完回 UI 线程装配编辑器。TextChanged 在读取完成后才可能触发
-        // 用户编辑,先把 _dirty 复位放在赋值之后。
+        // 窗口打开;读完回 UI 线程装配编辑器。修订号基线取在赋值之后(赋值自己也会
+        // 触发一次 TextChanged)。
         // 保留原文件的 BOM/编码:UTF-8(无 BOM)为缺省,识别 UTF-8 BOM 与 UTF-16 LE/BE。
         byte[] bytes;
+        // 读盘期间锁住编辑器。窗口是先显示、后台再读文件的,这中间用户完全可以开始打字,
+        // 而读完那一下 `Editor.Text = …` 会把敲进去的内容整段冲掉 —— 且不留痕迹。
+        // 读失败时**保持只读**:内容压根没进来,让人编辑再保存等于拿空白覆盖远端文件。
+        Editor.IsReadOnly = true;
         try
         {
             // 大文件保护:整份读进内存 + 交给 AvaloniaEdit 建文档,几十 MB 的日志能把
@@ -100,7 +135,9 @@ public partial class RemoteFileEditorView : Window
         EditorEncodingDetector.Result detected = EditorEncodingDetector.Detect(bytes, _sessionEncoding);
         _encoding = detected.Encoding;
         Editor.Text = EditorEncodingDetector.Decode(bytes, detected);
-        _dirty = false;
+        // 赋值本身会触发 TextChanged 把修订号推上去,所以基线在赋值之后才能取。
+        _savedRevision = _revision;
+        Editor.IsReadOnly = false;
         ApplySyntaxHighlighting();
         StatusText.Text = detected.FellBackToSessionEncoding
             // 明说回落到了哪个编码:猜错时用户得看得见,才知道该怎么办
@@ -139,24 +176,49 @@ public partial class RemoteFileEditorView : Window
     }
 
 
+    /// <summary>发起一次保存并记住这个任务(关窗要等它)。</summary>
+    private void BeginSave() => _saveTask = SaveAsync();
+
     private async Task SaveAsync()
     {
-        if (_saving || _uploadAsync is null)
+        if (_uploadAsync is null)
         {
             return;
         }
+        if (_saving)
+        {
+            // 上传途中又按了保存:记下来,等这轮走完再补一轮。直接返回等于把这次
+            // Ctrl+S 静静吃掉 —— 用户以为存上了,其实没有。
+            _resaveRequested = true;
+            return;
+        }
         _saving = true;
-        StatusText.Text = Strings.Get("Editor_Saving");
         try
         {
-            await File.WriteAllTextAsync(_localPath, Editor.Text, _encoding);
-            await _uploadAsync();
-            _dirty = false;
-            StatusText.Text = Strings.Format("Editor_SavedStatus", DateTime.Now.ToString("HH:mm:ss"));
-        }
-        catch (Exception ex)
-        {
-            StatusText.Text = Strings.Format("Editor_SaveFailed", ex.Message);
+            do
+            {
+                _resaveRequested = false;
+                // 快照与它的修订号必须在同一刻取:上传成功后只确认这一号,
+                // 期间敲出来的新内容仍然算脏。
+                long snapshot = _revision;
+                string text = Editor.Text;
+                StatusText.Text = Strings.Get("Editor_Saving");
+                try
+                {
+                    await File.WriteAllTextAsync(_localPath, text, _encoding);
+                    await _uploadAsync();
+                }
+                catch (Exception ex)
+                {
+                    StatusText.Text = Strings.Format("Editor_SaveFailed", ex.Message);
+                    return; // 失败不自动重试:改动还在编辑器里,由用户决定下一步。
+                }
+                _savedRevision = snapshot;
+                StatusText.Text = IsDirty
+                    // 存上的是快照那一份,而之后又改过 —— 状态栏必须照实说"还有未保存的"。
+                    ? Strings.Get("Editor_Unsaved")
+                    : Strings.Format("Editor_SavedStatus", DateTime.Now.ToString("HH:mm:ss"));
+            } while (_resaveRequested);
         }
         finally
         {
@@ -172,7 +234,7 @@ public partial class RemoteFileEditorView : Window
     {
         if (e.Key == Key.S && e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Control))
         {
-            _ = SaveAsync();
+            BeginSave();
             e.Handled = true;
             return;
         }
@@ -192,12 +254,44 @@ public partial class RemoteFileEditorView : Window
     /// </summary>
     protected override void OnClosing(WindowClosingEventArgs e)
     {
-        if (_dirty && !_forceClose)
+        if (_forceClose)
+        {
+            base.OnClosing(e);
+            return;
+        }
+        if (_saving)
+        {
+            // 保存还在跑就关窗有两重问题:OnClosed 会删掉整个临时目录,而上传正读着
+            // 那个文件;上传即便成功,结果也没人再看得到。先等它落地,再走正常的脏检查。
+            e.Cancel = true;
+            StatusText.Text = Strings.Get("Editor_Saving");
+            _ = WaitForSaveThenCloseAsync();
+            base.OnClosing(e);
+            return;
+        }
+        if (IsDirty)
         {
             e.Cancel = true;
             _ = ConfirmDiscardAndCloseAsync();
         }
         base.OnClosing(e);
+    }
+
+    private async Task WaitForSaveThenCloseAsync()
+    {
+        if (_saveTask is { } task)
+        {
+            try
+            {
+                await task;
+            }
+            catch (Exception)
+            {
+                // SaveAsync 自己已经把失败写进状态栏了;这里只是等它结束。
+            }
+        }
+        // 推迟一拍再关:此刻仍在被取消的那次 Close 的调用栈上。
+        this.PostClose();
     }
 
     private async Task ConfirmDiscardAndCloseAsync()
@@ -233,7 +327,7 @@ public partial class RemoteFileEditorView : Window
         base.OnClosed(e);
     }
 
-    private void Save_Click(object? sender, RoutedEventArgs e) => _ = SaveAsync();
+    private void Save_Click(object? sender, RoutedEventArgs e) => BeginSave();
 
     // 推迟关闭:同步 Close 会让本轮点击的后续路由打到已销毁的窗口刷 "PlatformImpl is null"
     // 警告(见 WindowCloseExtensions)。OnClosing 的未保存守卫照常触发。

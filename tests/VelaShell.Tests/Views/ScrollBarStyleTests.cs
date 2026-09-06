@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
@@ -6,6 +7,9 @@ using Avalonia.Headless;
 using Avalonia.Layout;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using VelaShell.Core.Localization;
+using VelaShell.Core.Resources;
+using VelaShell.Localization;
 
 namespace VelaShell.Tests.Views;
 
@@ -81,6 +85,48 @@ public sealed class ScrollBarStyleTests
                 Assert.IsGreaterThan(0, thumb.Padding.Top, "展开后的滑块仍铺满滑道");
                 Assert.IsLessThan(BarSize / 2, ThumbVisualThickness(thumb, Orientation.Horizontal),
                     "展开后的滑块该明显比滑道细");
+            });
+        });
+    }
+
+    /// <summary>
+    /// 滚动条各部件的无障碍名字要跟界面语言走,不能是硬编码的英文。
+    /// </summary>
+    /// <remarks>
+    /// 模板里这十处名字("Line up"、"Page down"、"Position"……)是替换 Fluent 模板时一并
+    /// 抄进来的英文。整个应用支持五种语言,读屏器用户听到的却是中文界面里蹦出英文部件名。
+    /// </remarks>
+    [TestMethod]
+    public void ThePartsOfAScrollBar_AreNamedInTheUiLanguage()
+    {
+        OnUi(() =>
+        {
+            LocalizedStrings.Instance.Attach(new LocalizationService());
+
+            WithScrollBar(Orientation.Vertical, allowAutoHide: false, (bar, thumb) =>
+            {
+                Assert.AreEqual(Strings.Get("ScrollBar_VerticalThumb"), AutomationProperties.GetName(thumb));
+                foreach ((string part, string key) in new[]
+                         {
+                             ("PART_LineUpButton", "ScrollBar_LineUp"),
+                             ("PART_LineDownButton", "ScrollBar_LineDown"),
+                             ("PART_PageUpButton", "ScrollBar_PageUp"),
+                             ("PART_PageDownButton", "ScrollBar_PageDown")
+                         })
+                {
+                    Control control = bar.GetVisualDescendants().OfType<Control>().Single(c => c.Name == part);
+                    string name = AutomationProperties.GetName(control);
+                    Assert.AreEqual(Strings.Get(key), name, $"{part} 的名字没走本地化。");
+                    Assert.IsFalse(string.IsNullOrWhiteSpace(name));
+                }
+            });
+
+            WithScrollBar(Orientation.Horizontal, allowAutoHide: false, (bar, thumb) =>
+            {
+                Assert.AreEqual(Strings.Get("ScrollBar_HorizontalThumb"), AutomationProperties.GetName(thumb));
+                Control left = bar.GetVisualDescendants().OfType<Control>()
+                    .Single(c => c.Name == "PART_LineUpButton");
+                Assert.AreEqual(Strings.Get("ScrollBar_ColumnLeft"), AutomationProperties.GetName(left));
             });
         });
     }

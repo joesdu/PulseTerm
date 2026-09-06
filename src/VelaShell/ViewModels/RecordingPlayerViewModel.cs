@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Avalonia.Threading;
 using ReactiveUI;
 using ReactiveUI.Primitives;
@@ -60,6 +61,20 @@ public class RecordingPlayerViewModel : ReactiveObject
 
     private List<RecordingChunk> _chunks = [];
     private int _nextChunkIndex;
+
+    /// <summary>
+    /// 录制加载的代次。选中项一变就自增,加载回来先比对代次,过时的结果直接丢弃。
+    /// </summary>
+    /// <remarks>
+    /// 没有它的话:选中 A、紧接着选中 B,若 A 的读取后返回(大录制很常见),
+    /// A 的块会盖掉 B 的,界面显示的是 B、放出来的却是 A。删除、清空选择、
+    /// 关闭窗口期间同样可能被一个迟到的旧结果复活。与文件浏览器的
+    /// <c>_navigationVersion</c> 是同一套思路。
+    /// </remarks>
+    private long _loadVersion;
+
+    /// <summary>当前这次加载的取消源;新的选择到来时取消上一次,让它尽快退出而不是白读到底。</summary>
+    private CancellationTokenSource? _loadCts;
 
     /// <summary>构造回放中心视图模型。</summary>
     /// <param name="store">会话录制存储(读取/删除录制与块)。</param>
@@ -257,24 +272,64 @@ public class RecordingPlayerViewModel : ReactiveObject
     }
 
     /// <summary>导出为 asciicast v2(asciinema 通用格式,可被 asciinema-player 等工具回放)。</summary>
+    /// <remarks>
+    /// 三处曾经的坑,改之前先读:
+    /// <list type="number">
+    /// <item>
+    /// <b>数字不能走字符串插值。</b>原先是 <c>$"[{ms / 1000.0:0.000}, …]"</c>,在以逗号作小数点的
+    /// 区域设置(fr-FR、de-DE、ru-RU…)下会写出 <c>[1,234, "o", …]</c> —— 那是个四元素数组,
+    /// 整个文件在任何播放器里都解析不了。交给 <see cref="JsonSerializer" /> 写,它恒用不变文化。
+    /// </item>
+    /// <item>
+    /// <b>解码必须跨块连续。</b>原先每块各自 <c>Encoding.UTF8.GetString</c>,而块边界是按
+    /// 600ms/64KB 切的,和字符边界毫无关系 —— 一个"中"字的三个字节被切成 2+1 时,两块各自
+    /// 解出一个 U+FFFD,原字彻底丢失。<see cref="Decoder" /> 会把不完整的尾字节留到下一块。
+    /// </item>
+    /// <item>
+    /// <b>尺寸取录制里记的真实值</b>,不再写死 120×32(见 <see cref="SessionRecording.Columns" />)。
+    /// </item>
+    /// </list>
+    /// </remarks>
     public string BuildAsciicast()
     {
+        RecordingItemViewModel? item = SelectedRecording;
         var builder = new StringBuilder();
-        builder.AppendLine(JsonSerializer.Serialize(new
-        {
-            version = 2,
-            width = 120,
-            height = 32,
-            timestamp = SelectedRecording is { } item ? new DateTimeOffset(item.Model.StartedAtUtc).ToUnixTimeSeconds() : 0,
-            title = SelectedRecording?.Label
-        }));
+        builder.AppendLine(JsonSerializer.Serialize(new AsciicastHeader(
+            2,
+            item?.Model.Columns ?? SessionRecording.DefaultColumns,
+            item?.Model.Rows ?? SessionRecording.DefaultRows,
+            // Kind 未必是 Utc(经存储往返后常为 Unspecified),直接构造 DateTimeOffset 会按
+            // 本地时区换算,导出的开始时刻会偏掉整整一个时区。
+            item is null
+                ? 0
+                : new DateTimeOffset(DateTime.SpecifyKind(item.Model.StartedAtUtc, DateTimeKind.Utc)).ToUnixTimeSeconds(),
+            item?.Label)));
+
+        Decoder decoder = new UTF8Encoding(false).GetDecoder();
+        char[] chars = [];
         foreach (RecordingChunk chunk in _chunks)
         {
-            string data = JsonSerializer.Serialize(Encoding.UTF8.GetString(chunk.Data));
-            builder.AppendLine($"[{chunk.OffsetMs / 1000.0:0.000}, \"o\", {data}]");
+            int max = decoder.GetCharCount(chunk.Data, 0, chunk.Data.Length, flush: false);
+            if (chars.Length < max)
+            {
+                chars = new char[max];
+            }
+            int count = decoder.GetChars(chunk.Data, 0, chunk.Data.Length, chars, 0, flush: false);
+            // 整行一次序列化:时间是 double、类型是 "o"、数据是字符串,三者的转义与格式
+            // 全交给 JSON 写入器,不再自己拼。
+            builder.AppendLine(JsonSerializer.Serialize<object[]>(
+                [Math.Round(chunk.OffsetMs / 1000.0, 3), "o", new string(chars, 0, count)]));
         }
         return builder.ToString();
     }
+
+    /// <summary>asciicast v2 的头部行。字段名即格式规定的名字,不能改。</summary>
+    private sealed record AsciicastHeader(
+        [property: JsonPropertyName("version")] int Version,
+        [property: JsonPropertyName("width")] int Width,
+        [property: JsonPropertyName("height")] int Height,
+        [property: JsonPropertyName("timestamp")] long Timestamp,
+        [property: JsonPropertyName("title")] string? Title);
 
     /// <summary>是否已选中录制且存在可回放的录制块。</summary>
     public bool HasSelection => SelectedRecording is not null && _chunks.Count > 0;
@@ -300,28 +355,65 @@ public class RecordingPlayerViewModel : ReactiveObject
 
     private async Task LoadSelectedAsync(RecordingItemViewModel? item)
     {
+        long version = Interlocked.Increment(ref _loadVersion);
+
+        // 上一次加载还在读就让它尽快退出。只 Cancel、不 Dispose —— 拥有它的那次调用会在
+        // 自己的 finally 里释放;在这里释放会让它正在用的 token 变成已释放对象。
+        var cts = new CancellationTokenSource();
+        CancellationTokenSource? previous = Interlocked.Exchange(ref _loadCts, cts);
+        try
+        {
+            previous?.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+            // 上一次已经收尾完毕,无需取消。
+        }
+
         Pause();
         _chunks = [];
         _nextChunkIndex = 0;
         PositionMs = 0;
+        // 清空选择/切换录制的这一刻 HasSelection 就变成了 false,得通知出去,
+        // 否则播放与导出按钮会停在上一份录制的可用状态上。
+        this.RaisePropertyChanged(nameof(HasSelection));
         if (item is null)
         {
             PlaybackTitle = Strings.Get("Msg_SelectRecordingToPlay");
             DurationMs = 0;
+            Status = "";
+            cts.Dispose();
             return;
         }
         PlaybackTitle = Strings.Format("Msg_PlaybackTitle", item.Label, item.StartText);
         try
         {
-            _chunks = await _store.GetChunksAsync(item.Model.Id);
+            List<RecordingChunk> chunks = await _store.GetChunksAsync(item.Model.Id, cts.Token);
+            if (version != Volatile.Read(ref _loadVersion))
+            {
+                return; // 期间又选了别的:这份结果已经没人要了。
+            }
+            _chunks = chunks;
             DurationMs = Math.Max(item.Model.DurationMs, _chunks.Count > 0 ? _chunks[^1].OffsetMs : 0);
             ResetSink?.Invoke();
             Status = _chunks.Count > 0 ? "" : Strings.Get("Msg_RecordingEmpty");
             this.RaisePropertyChanged(nameof(HasSelection));
         }
+        catch (OperationCanceledException)
+        {
+            // 被后一次选择取代,静默退出。
+        }
         catch (Exception ex)
         {
-            Status = Strings.Format("Msg_LoadRecordingFailed", ex.Message);
+            if (version == Volatile.Read(ref _loadVersion))
+            {
+                Status = Strings.Format("Msg_LoadRecordingFailed", ex.Message);
+            }
+        }
+        finally
+        {
+            Interlocked.CompareExchange(ref _loadCts, null, cts);
+            cts.Dispose();
         }
     }
 

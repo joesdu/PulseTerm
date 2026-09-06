@@ -45,10 +45,7 @@ public class TransferRealChannelIntegrationTests
     [Timeout(120_000)]
     public async Task RemoteSz_OverRealSshChannel_IsDetectedAndReceivedIntact()
     {
-        if (SkipIfPrerequisitesMissing())
-        {
-            return;
-        }
+        RequireLrzsz();
 
         // 已知随机负载放进容器(二进制内容顺带覆盖转义路径:含 CAN/XON/XOFF 等须转义字节)。
         byte[] payload = RandomNumberGenerator.GetBytes(64 * 1024);
@@ -94,10 +91,7 @@ public class TransferRealChannelIntegrationTests
     [Timeout(120_000)]
     public async Task RemoteRz_OverRealSshChannel_ReceivesOurUploadIntact()
     {
-        if (SkipIfPrerequisitesMissing())
-        {
-            return;
-        }
+        RequireLrzsz();
 
         byte[] payload = RandomNumberGenerator.GetBytes(64 * 1024);
         string localFile = Path.Combine(Path.GetTempPath(), $"zm-ul-{Guid.NewGuid():N}.bin");
@@ -157,10 +151,7 @@ public class TransferRealChannelIntegrationTests
     [Timeout(60_000)]
     public async Task WriteAfterConnectionTornDown_IsSilentNoOp_AndFlipsCanWrite()
     {
-        if (SkipIfDockerOrSshMissing())
-        {
-            return;
-        }
+        RequireDockerAndSsh();
 
         TmdsSshClientWrapper client = await ConnectAsync();
         IShellStreamWrapper shell = await client.CreateShellStreamAsync("xterm-256color", 120, 32, 0, 0, 16384);
@@ -183,20 +174,24 @@ public class TransferRealChannelIntegrationTests
         Assert.IsFalse(shell.CanRead, "Dispose 后不应再声称可读。");
     }
 
-    /// <summary>只需要 Docker + SSH 服务器的用例用这个门(不涉及 lrzsz)。</summary>
-    private bool SkipIfDockerOrSshMissing()
+    /// <summary>
+    /// 只需要 Docker + SSH 服务器的用例用这个门(不涉及 lrzsz)。
+    /// </summary>
+    /// <remarks>
+    /// 用 <see cref="Assert.Inconclusive(string)" /> 而不是"写一行日志然后 return":
+    /// 后者在框架看来是一次正常返回,报告上写着"通过" —— 于是一份全绿的报告里混着
+    /// 一批<b>一行断言都没跑</b>的用例,看报告的人无从分辨。
+    /// </remarks>
+    private static void RequireDockerAndSsh()
     {
         if (!DockerAvailable.Value)
         {
-            TestContext.WriteLine("[SKIP] Docker 不可用。运行 'docker compose -f docker-compose.test.yml up -d' 以启用。");
-            return true;
+            Assert.Inconclusive("Docker 不可用。运行 'docker compose -f docker-compose.test.yml up -d' 以启用。");
         }
         if (!IsSshServerReachable())
         {
-            TestContext.WriteLine($"[SKIP] SSH 测试服务器 {TestHost}:{TestPort} 不可达。");
-            return true;
+            Assert.Inconclusive($"SSH 测试服务器 {TestHost}:{TestPort} 不可达。");
         }
-        return false;
     }
 
     private static async Task<TmdsSshClientWrapper> ConnectAsync()
@@ -216,24 +211,14 @@ public class TransferRealChannelIntegrationTests
         return client;
     }
 
-    private bool SkipIfPrerequisitesMissing()
+    /// <summary>还额外需要容器内 lrzsz 的用例用这个门。<see cref="RequireDockerAndSsh" /> 说明了为什么用 Inconclusive。</summary>
+    private static void RequireLrzsz()
     {
-        if (!DockerAvailable.Value)
-        {
-            TestContext.WriteLine("[SKIP] Docker 不可用。运行 'docker compose -f docker-compose.test.yml up -d' 以启用。");
-            return true;
-        }
-        if (!IsSshServerReachable())
-        {
-            TestContext.WriteLine($"[SKIP] SSH 测试服务器 {TestHost}:{TestPort} 不可达。");
-            return true;
-        }
+        RequireDockerAndSsh();
         if (!LrzszAvailable.Value)
         {
-            TestContext.WriteLine("[SKIP] 容器内 lrzsz 不可用且无法安装(可能无外网)。");
-            return true;
+            Assert.Inconclusive("容器内 lrzsz 不可用且无法安装(可能无外网)。");
         }
-        return false;
     }
 
     /// <summary>容器里确保 sz/rz 可用:已装直接过,否则 apk 装一次(容器无外网时优雅跳过)。</summary>

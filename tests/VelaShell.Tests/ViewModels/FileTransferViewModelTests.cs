@@ -308,14 +308,14 @@ public class FileTransferViewModelTests
     public void BeginBatch_ShowsRemainingCount_AndCountsDownAsFilesSettle()
     {
         using var cts = new CancellationTokenSource();
-        _vm.BeginBatch(3, cts);
+        Guid batch = _vm.BeginBatch(3, cts);
         Assert.IsTrue(_vm.IsBatchActive);
         Assert.AreEqual(3, _vm.PendingCount); // remaining count, not stuck at 1
-        _vm.NotifyBatchItemSettled();
+        _vm.NotifyBatchItemSettled(batch);
         Assert.AreEqual(2, _vm.PendingCount);
-        _vm.NotifyBatchItemSettled();
+        _vm.NotifyBatchItemSettled(batch);
         Assert.AreEqual(1, _vm.PendingCount);
-        _vm.EndBatch();
+        _vm.EndBatch(batch);
         Assert.IsFalse(_vm.IsBatchActive);
         Assert.AreEqual(0, _vm.PendingCount); // falls back to (empty) active count
     }
@@ -407,6 +407,165 @@ public class FileTransferViewModelTests
         _vm.BeginBatch(3, cts);
         _vm.UpdatePreparingCount(99); // 迟到的扫描回调不得污染"剩余"徽标
         Assert.AreEqual(3, _vm.PendingCount);
+    }
+
+    // ———————————————————— 多批次:两台服务器同时传 ————————————————————
+    //
+    // 传输浮窗是全窗口共享的一个。以前它只记得住"最后登记的那个批次"的取消源与剩余计数,
+    // 于是并排开两个面板同时传东西时,取消与计数都只对得上其中一个。
+
+    /// <summary>先结束的批次不能把另一个还在跑的批次一起宣告结束。</summary>
+    [TestMethod]
+    [TestCategory("FileTransfer")]
+    public void EndingOneBatch_DoesNotEndAnotherThatIsStillRunning()
+    {
+        using var first = new CancellationTokenSource();
+        using var second = new CancellationTokenSource();
+        Guid a = _vm.BeginBatch(2, first);
+        Guid b = _vm.BeginBatch(5, second);
+        Assert.AreEqual(7, _vm.PendingCount, "两个批次的剩余数应当相加。");
+
+        _vm.EndBatch(a);
+
+        Assert.IsTrue(_vm.IsBatchActive, "另一个批次还在跑,不该显示为空闲。");
+        Assert.AreEqual(5, _vm.PendingCount, "先结束的批次把另一个的剩余计数也清掉了。");
+    }
+
+    /// <summary>结算一个批次的文件,不能减到另一个批次头上。</summary>
+    [TestMethod]
+    [TestCategory("FileTransfer")]
+    public void SettlingAFile_OnlyCountsAgainstItsOwnBatch()
+    {
+        using var first = new CancellationTokenSource();
+        using var second = new CancellationTokenSource();
+        Guid a = _vm.BeginBatch(2, first);
+        Guid b = _vm.BeginBatch(2, second);
+
+        _vm.NotifyBatchItemSettled(a);
+        _vm.NotifyBatchItemSettled(a);
+        _vm.EndBatch(a);
+
+        Assert.AreEqual(2, _vm.PendingCount, "b 的两个文件一个都没传完,计数却被 a 减掉了。");
+        _vm.EndBatch(b);
+        Assert.IsFalse(_vm.IsBatchActive);
+    }
+
+    // ———————————————————— 并发上限是全窗口的,不是每批次的 ————————————————————
+    //
+    // 「设置 → 文件传输 → 最大并发传输数」写的是一个数,没有限定词。闸以前挂在每个批次上,
+    // 于是双栏面板各拖一个文件夹是 2N、三个标签同时传是 3N。用户调小它想要的恰恰是
+    // "别把线路占满",实际并发却在翻倍。
+
+    /// <summary>名额发满之后,再要就得等 —— 不管请求来自哪个批次。</summary>
+    [TestMethod]
+    [TestCategory("FileTransfer")]
+    public async Task TransferSlots_AreSharedAcrossBatches()
+    {
+        // 上限 2:头两个当场拿到,第三个必须等。
+        IDisposable first = await _vm.AcquireTransferSlotAsync(2, CancellationToken.None);
+        IDisposable second = await _vm.AcquireTransferSlotAsync(2, CancellationToken.None);
+
+        Task<IDisposable> third = _vm.AcquireTransferSlotAsync(2, CancellationToken.None);
+        Assert.IsFalse(third.IsCompleted, "上限是 2,第三个请求却当场拿到了名额。");
+
+        first.Dispose();
+        IDisposable granted = await third.WaitAsync(TimeSpan.FromSeconds(5));
+
+        second.Dispose();
+        granted.Dispose();
+        Assert.AreEqual(2, _vm.AvailableTransferSlotsForTest);
+    }
+
+    /// <summary>调大上限立刻放行等着的请求。</summary>
+    [TestMethod]
+    [TestCategory("FileTransfer")]
+    public async Task RaisingTheLimit_ReleasesAWaiter()
+    {
+        IDisposable held = await _vm.AcquireTransferSlotAsync(1, CancellationToken.None);
+        Task<IDisposable> waiting = _vm.AcquireTransferSlotAsync(1, CancellationToken.None);
+        Assert.IsFalse(waiting.IsCompleted);
+
+        // 用户把上限从 1 改到 3:下一次取名额时生效。
+        IDisposable extra = await _vm.AcquireTransferSlotAsync(3, CancellationToken.None);
+
+        IDisposable granted = await waiting.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.AreEqual(3, _vm.TransferSlotLimitForTest);
+
+        held.Dispose();
+        extra.Dispose();
+        granted.Dispose();
+    }
+
+    /// <summary>
+    /// 调小上限不能把调用方挂住 —— 多出来的名额记成欠账,等它们各自传完再扣。
+    /// </summary>
+    /// <remarks>
+    /// 直接去"抢回"多余名额就得等正在传的文件结束,而调用方是 UI 线程上的批次启动。
+    /// </remarks>
+    [TestMethod]
+    [TestCategory("FileTransfer")]
+    public async Task LoweringTheLimit_NeverBlocks_AndTakesEffectAsSlotsComeBack()
+    {
+        IDisposable a = await _vm.AcquireTransferSlotAsync(4, CancellationToken.None);
+        IDisposable b = await _vm.AcquireTransferSlotAsync(4, CancellationToken.None);
+        IDisposable c = await _vm.AcquireTransferSlotAsync(4, CancellationToken.None);
+        Assert.AreEqual(4, _vm.TransferSlotLimitForTest);
+
+        // 上限改成 1。此刻有 3 个在用、1 个闲着:闲着的当场收掉,其余记欠账。
+        Task<IDisposable> queued = _vm.AcquireTransferSlotAsync(1, CancellationToken.None);
+        Assert.IsFalse(queued.IsCompleted, "上限已降到 1,新请求不该还能拿到名额。");
+        Assert.AreEqual(1, _vm.TransferSlotLimitForTest);
+
+        // 前两个归还时被欠账吃掉,第三个归还才真的空出那唯一的名额。
+        a.Dispose();
+        Assert.IsFalse(queued.IsCompleted);
+        b.Dispose();
+        Assert.IsFalse(queued.IsCompleted);
+        c.Dispose();
+
+        IDisposable granted = await queued.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.AreEqual(1, _vm.TransferSlotLimitForTest);
+        granted.Dispose();
+    }
+
+    /// <summary>等名额时被取消:不算拿到,也不该凭空多还一个回去。</summary>
+    [TestMethod]
+    [TestCategory("FileTransfer")]
+    public async Task CancellingWhileWaitingForASlot_DoesNotLeakOne()
+    {
+        IDisposable held = await _vm.AcquireTransferSlotAsync(1, CancellationToken.None);
+        using var cts = new CancellationTokenSource();
+        Task<IDisposable> waiting = _vm.AcquireTransferSlotAsync(1, cts.Token);
+
+        await cts.CancelAsync();
+        await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => waiting);
+
+        held.Dispose();
+        Assert.AreEqual(1, _vm.AvailableTransferSlotsForTest, "取消的等待者把名额算多了。");
+    }
+
+    /// <summary>
+    /// 「全部取消」必须每个批次都真的收到取消信号。
+    /// </summary>
+    /// <remarks>
+    /// 以前只取消最后登记的那一个,却把所有活动行涂成「已取消」—— 界面说停了,
+    /// 另一台服务器上的传输还在往盘上写。这是最难察觉的一类错:用户不会去核对。
+    /// </remarks>
+    [TestMethod]
+    [TestCategory("FileTransfer")]
+    public void CancelAll_CancelsEveryActiveBatch_NotJustTheLastOne()
+    {
+        using var first = new CancellationTokenSource();
+        using var second = new CancellationTokenSource();
+        _vm.AddTransfer(CreateTask(status: TransferStatus.InProgress));
+        _vm.BeginBatch(3, first);
+        _vm.BeginBatch(4, second);
+
+        _vm.CancelAllCommand.Execute().Subscribe();
+
+        Assert.IsTrue(second.IsCancellationRequested);
+        Assert.IsTrue(first.IsCancellationRequested, "更早的那个批次没有收到取消 —— 它还在传。");
+        Assert.AreEqual(TransferStatus.Cancelled, _vm.Transfers[0].Status);
     }
 
     [TestMethod]

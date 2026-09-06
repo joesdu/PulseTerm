@@ -35,10 +35,9 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         Color.FromArgb(0x30, 0xFF, 0xFF, 0xFF)
     );
 
-    // ---- Search highlights (spec §5.3: 命中项高亮) --------------------------
+    // 搜索命中项的底色见 TerminalPalette.SearchMatchBackground / SearchCurrentBackground
+    // (spec §5.3):它们是界面交互色,跟主题走,不再是这里的两个固定常量。
 
-    private static readonly Rgba SearchMatchBg = new(0x59, 0xFD, 0xCB, 0x6E); // amber, ~35%
-    private static readonly Rgba SearchCurrentBg = new(0x73, 0x00, 0xD4, 0xAA); // accent, ~45%
     private readonly Dictionary<uint, ImmutableSolidColorBrush> _brushCache = [];
     private readonly Dictionary<uint, ImmutablePen> _penCache = [];
 
@@ -1173,6 +1172,10 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
             palette.DefaultBackground = Rgba.FromRgb(0xFD, 0xF6, 0xE3); // base3
             palette.CursorColor = Rgba.FromRgb(0x65, 0x7B, 0x83);
             palette.SelectionBackground = new(0x40, 0x58, 0x6E, 0x75); // base01 @25%(方案原生选区 base2 与背景过近,取更可辨的半透明灰蓝)
+            // 搜索高亮:亮底上要压得住又不能盖住字形。暗色那套(半透明琥珀 / 青)贴到
+            // Solarized Light 的米色底上几乎看不出来,所以两个变体各给一套。
+            palette.SearchMatchBackground = new(0x66, 0xB5, 0x89, 0x00); // yellow @40%
+            palette.SearchCurrentBackground = new(0x80, 0x2A, 0xA1, 0x98); // cyan @50%
             palette.SetAnsi(0, Rgba.FromRgb(0x07, 0x36, 0x42)); // black  = base02
             palette.SetAnsi(1, Rgba.FromRgb(0xDC, 0x32, 0x2F)); // red
             palette.SetAnsi(2, Rgba.FromRgb(0x85, 0x99, 0x00)); // green
@@ -1195,6 +1198,8 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         palette.DefaultBackground = Rgba.FromRgb(0x28, 0x2A, 0x36);
         palette.CursorColor = Rgba.FromRgb(0xF8, 0xF8, 0xF2);
         palette.SelectionBackground = new(0x99, 0x44, 0x47, 0x5A); // dracula selection
+        palette.SearchMatchBackground = new(0x59, 0xF1, 0xFA, 0x8C); // dracula yellow @35%
+        palette.SearchCurrentBackground = new(0x73, 0x8B, 0xE9, 0xFD); // dracula cyan @45%
         palette.SetAnsi(0, Rgba.FromRgb(0x21, 0x22, 0x2C)); // black
         palette.SetAnsi(1, Rgba.FromRgb(0xFF, 0x55, 0x55)); // red
         palette.SetAnsi(2, Rgba.FromRgb(0x50, 0xFA, 0x7B)); // green
@@ -2308,7 +2313,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
                 {
                     if (col >= Start && col < End)
                     {
-                        bg = Current ? SearchCurrentBg : SearchMatchBg;
+                        bg = Current ? palette.SearchCurrentBackground : palette.SearchMatchBackground;
                         break;
                     }
                 }
