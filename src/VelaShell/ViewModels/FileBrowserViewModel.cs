@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using Avalonia.Controls;
 using Avalonia.Threading;
@@ -2077,7 +2078,12 @@ public class FileBrowserViewModel : ReactiveObject
                 // 工作任务**刻意不用 Task.Run**:RunTransferAsync 与传输面板的记账都在
                 // UI 线程上做(ObservableCollection),从 UI 线程直接调用异步方法,续体才会
                 // 回到 UI 线程。丢到线程池上就是跨线程改绑定集合。
-                var queue = new Queue<PlannedFileTransfer>(resolved);
+                // 队列必须是线程安全的。曾经这里是普通的 Queue<T>,理由写着"只在 UI 线程上
+                // 进出" —— 那个假设站不住:续体回不回 UI 线程取决于有没有同步上下文
+                // (单元测试里就没有),而且任何一层 ConfigureAwait(false) 都能把它打破。
+                // 两个工作任务同时 Dequeue 的后果不是抛异常那么显眼,而是**静默漏传文件**:
+                // 实测在 Linux 上每批稳定少传一到两个,界面上还显示成功。
+                var queue = new ConcurrentQueue<PlannedFileTransfer>(resolved);
                 int workerCount = Math.Min(maxConcurrent, resolved.Count);
                 var workers = new Task[workerCount];
                 for (int i = 0; i < workerCount; i++)
@@ -2090,13 +2096,12 @@ public class FileBrowserViewModel : ReactiveObject
                 {
                     while (true)
                     {
-                        PlannedFileTransfer item;
-                        // 队列只在 UI 线程上进出(见上),不需要额外加锁。
-                        if (queue.Count == 0 || cts.IsCancellationRequested)
+                        if (cts.IsCancellationRequested
+                            || !queue.TryDequeue(out PlannedFileTransfer? item)
+                            || item is null)
                         {
                             return;
                         }
-                        item = queue.Dequeue();
                         // 名额在**每个文件**上取放,不是一个工作任务霸着一个:这样上限
                         // 才是"同时在传几个文件",而不是"起了几个工作任务"。
                         using (await AcquireTransferSlotAsync(maxConcurrent, cts.Token))

@@ -247,7 +247,18 @@ public sealed class McpEndpointTests
     // 塞进一个 tools/call、连着 initialize 上千次),而以前这里一条上限都没有 ——
     // 撑爆的是他正开着的终端。
 
-    /// <summary>超大正文当场回绝,而不是整份读进内存之后再说。</summary>
+    /// <summary>
+    /// 超大正文当场回绝,而不是整份读进内存之后再说;且回绝之后服务端照常服务。
+    /// </summary>
+    /// <remarks>
+    /// <b>客户端看到什么是平台相关的,不能作为断言对象。</b>服务端认出 Content-Length 超限后
+    /// 立刻回 413 并关掉连接 —— 而此时客户端往往还在往外灌那 5MB。Windows 的 HTTP.SYS 会把
+    /// 剩余请求体吸收掉,客户端读到 413;Linux/macOS 上内核直接给出 <c>Broken pipe</c>,
+    /// 客户端连响应都读不到。<b>两者都是"被回绝"</b>,差别只在谁先断。
+    /// <para>
+    /// 所以这里断言的是真正的不变量:请求没被处理、服务端没被搞挂、后续正常请求照旧能用。
+    /// </para>
+    /// </remarks>
     [TestMethod]
     public async Task OversizedRequestBody_IsRejected()
     {
@@ -256,16 +267,33 @@ public sealed class McpEndpointTests
         await using (endpoint)
         {
             using HttpClient client = CreateClient(port, token);
-            using var message = new HttpRequestMessage(HttpMethod.Post, "mcp")
+            HttpStatusCode? status = null;
+            try
             {
-                // 5 MB > 4 MB 上限。
-                Content = new StringContent(new string('x', 5 * 1024 * 1024))
-            };
+                using var message = new HttpRequestMessage(HttpMethod.Post, "mcp")
+                {
+                    // 5 MB > 4 MB 上限。
+                    Content = new StringContent(new string('x', 5 * 1024 * 1024))
+                };
+                using HttpResponseMessage response = await client.SendAsync(message);
+                status = response.StatusCode;
+            }
+            catch (HttpRequestException)
+            {
+                // 服务端先关了连接 —— 同样是被回绝,只是我们没机会读到那个 413。
+            }
 
-            using HttpResponseMessage response = await client.SendAsync(message);
+            Assert.IsTrue(
+                status is null or HttpStatusCode.RequestEntityTooLarge,
+                $"超大正文既没被回绝也没断开,而是拿到了 {status}。");
 
-            Assert.AreEqual(HttpStatusCode.RequestEntityTooLarge, response.StatusCode);
-            Assert.IsTrue(endpoint.IsRunning, "回绝一个超大请求不该把服务端搞挂。");
+            // 真正要守住的:回绝一个超大请求不能把服务端搞挂,后面的正常请求还得能用。
+            Assert.IsTrue(endpoint.IsRunning);
+            using HttpClient healthy = CreateClient(port, token);
+            string sessionId = await InitializeAsync(healthy);
+            using JsonDocument document = await RpcAsync(
+                healthy, new { jsonrpc = "2.0", id = 2, method = "tools/list" }, sessionId);
+            Assert.IsTrue(document.RootElement.TryGetProperty("result", out _), "服务端在超大请求之后不再正常服务。");
         }
     }
 

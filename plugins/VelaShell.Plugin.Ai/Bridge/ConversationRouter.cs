@@ -328,11 +328,20 @@ public sealed class ConversationRouter(
             chatGateHeld = true;
             await turnGate.WaitAsync(lifetime).ConfigureAwait(false);
             turnGateHeld = true;
+            // 拿到闸之后**再确认一次**。停桥接会同时做两件事:取消生命周期、以及让正在跑的
+            // 那一轮结束(它随即归还闸)。于是排队的这条会同时看到"许可可用"与"令牌已取消",
+            // 而 SemaphoreSlim 在两者同时成立时不保证优先报取消 —— 谁先谁后由调度决定。
+            // Windows 上一直是取消赢,Linux/macOS 上则观察到许可赢,排队的消息照样开跑。
+            lifetime.ThrowIfCancellationRequested();
         }
         catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException)
         {
             // 停了(或闸被换掉了):这条消息就到此为止,一个字都不发给模型。
-            // 只归还真正拿到手的那一把。
+            // 只归还真正拿到手的那几把。
+            if (turnGateHeld)
+            {
+                turnGate.Release();
+            }
             if (chatGateHeld)
             {
                 conversation.Gate.Release();
