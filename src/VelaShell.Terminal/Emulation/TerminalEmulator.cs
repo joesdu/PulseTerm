@@ -166,6 +166,70 @@ public sealed class TerminalEmulator : IVtActions
         }
     }
 
+    /// <summary>
+    /// 批量打印快路径实际接住了多少个字符(测试用)。
+    /// </summary>
+    /// <remarks>
+    /// 快路径与逐字符路径产出必须一致,而"一致"最省事的作弊方式就是快路径压根没触发 ——
+    /// 那样等价性用例会全部空过。<c>PrintRunEquivalenceTests</c> 靠这个计数确认它真的跑了。
+    /// </remarks>
+    internal int PrintRunCharsForTest { get; private set; }
+
+    /// <inheritdoc />
+    public void PrintRun(ReadOnlySpan<char> text)
+    {
+        PrintRunCharsForTest += text.Length;
+        // 有三种情况下"连续写 n 个单宽格"不成立,交回逐字符路径 —— 它才是语义的定义者:
+        //   单次移位在等一个字符、当前 G 集是 DEC 图形集(要逐个映射)、插入模式(每格都要挪行)。
+        // 三者都是罕见状态,退化一次不影响纯文本洪流这个主场景。
+        if (_singleShift >= 0 || _decGraphics[_gl] || Modes.InsertMode)
+        {
+            foreach (char c in text)
+            {
+                Print(c);
+            }
+            return;
+        }
+        TerminalCell template = new() { Foreground = _fg, Background = _bg, Flags = _flags };
+        int i = 0;
+        while (i < text.Length)
+        {
+            if (_pendingWrap)
+            {
+                Screen.ActiveLine(Screen.CursorY).Wrapped = true;
+                CarriageReturnLineFeed();
+                _pendingWrap = false;
+            }
+            int x = Screen.CursorX;
+            int take = Math.Min(text.Length - i, Screen.Columns - x);
+            TerminalRow row = Screen.ActiveLine(Screen.CursorY);
+            // 整段取一次可写切片:逐格走索引器的话,每一格都要付一次边界判断加一次
+            // EnsureStored 调用,而那两件事对一整段来说做一次就够。
+            Span<TerminalCell> cells = row.WritableSpan.Slice(x, take);
+            for (int k = 0; k < take; k++)
+            {
+                template.Rune = text[i + k];
+                cells[k] = template;
+            }
+            // 行时间戳按段取一次,与逐字符路径同一语义(该行最后收到输出的时间)。
+            row.Timestamp = _feedTimestamp;
+            i += take;
+            int end = x + take;
+            if (end >= Screen.Columns)
+            {
+                // 与 Print 逐字对齐:写满一行后光标停在最后一列,是否置待换行由 AutoWrap 决定。
+                // 关掉 AutoWrap 时后续字符会反复覆盖最后一列 —— 这里每轮 take 恰好是 1,
+                // 行为与逐字符路径逐字相同。
+                Screen.SetCursorX(Screen.Columns - 1);
+                _pendingWrap = Modes.AutoWrap;
+            }
+            else
+            {
+                Screen.SetCursorX(end);
+            }
+        }
+    }
+
     // ---- IVtActions:C0 控制字符 -------------------------------------------
 
     /// <summary>执行一个 C0 控制字符(BEL、BS、HT、LF/VT/FF、CR、SO/SI)。</summary>
@@ -797,6 +861,11 @@ public sealed class TerminalEmulator : IVtActions
                     break;
                 case 1015:
                     Modes.MouseEncoding = set ? MouseEncoding.Urxvt : MouseEncoding.Default;
+                    break;
+                case 1007:
+                    // 备用屏滚轮转方向键(xterm alternateScroll)。应用可以关掉它,
+                    // 比如自己实现了滚动、不希望收到一串方向键的全屏程序。
+                    Modes.AlternateScroll = set;
                     break;
                 case 1047:
                     SwitchAlternate(set);

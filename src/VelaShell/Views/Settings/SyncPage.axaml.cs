@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Input;
+using FireAndForget = VelaShell.Services.FireAndForget;
 
 namespace VelaShell.Views.Settings;
 
@@ -10,7 +11,7 @@ public partial class SyncPage : UserControl
     public SyncPage() => InitializeComponent();
 
     /// <summary>指引卡片中的链接:Tag 即 URL,点击在系统默认浏览器打开。</summary>
-    private async void OpenLink_PointerPressed(object? sender, PointerPressedEventArgs e)
+    private void OpenLink_PointerPressed(object? sender, PointerPressedEventArgs e) => FireAndForget.Run(async () =>
     {
         if (sender is Control { Tag: string url } &&
             TopLevel.GetTopLevel(this) is { } top &&
@@ -18,5 +19,5 @@ public partial class SyncPage : UserControl
         {
             await top.Launcher.LaunchUriAsync(uri);
         }
-    }
+});
 }

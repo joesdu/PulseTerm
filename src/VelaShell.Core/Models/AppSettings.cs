@@ -112,6 +112,36 @@ public class AppSettings
             }
             Proxy.DefaultsMigrated = true;
         }
+
+        ClampNumbers();
+    }
+
+    /// <summary>
+    /// 把数值项夹回各自的合法区间。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="Normalize" /> 此前只做字段迁移,不钳制任何数值 —— 于是一份损坏的、
+    /// 手改过的、或来自更早版本的配置能把 <c>ScrollbackLines</c> 写成一个天文数字
+    /// (200 列 × 20 万行 × 16 字节 ≈ 640 MB / 标签),把字号写成 0,把端口写成 -1。
+    /// 设置页的 <c>NumericUpDown</c> 拦得住手输,拦不住磁盘上的内容。
+    /// </para>
+    /// <para>
+    /// 区间与各设置页 <c>NumericUpDown</c> 的 <c>Minimum</c>/<c>Maximum</c> 取同一口径 ——
+    /// 两处对不上的话,会出现"设置页显示的值一保存就变"这种说不清的行为。
+    /// </para>
+    /// </remarks>
+    private void ClampNumbers()
+    {
+        ScrollbackLines = Math.Clamp(ScrollbackLines, 100, 200_000);
+        TerminalFontSize = Math.Clamp(TerminalFontSize, 6, 40);
+        DefaultPort = Math.Clamp(DefaultPort, 1, 65535);
+        General.ConnectTimeoutSeconds = Math.Clamp(General.ConnectTimeoutSeconds, 1, 600);
+        General.KeepAliveSeconds = Math.Clamp(General.KeepAliveSeconds, 0, 3600);
+        General.MaxRetries = Math.Clamp(General.MaxRetries, 0, 100);
+        General.ReconnectIntervalSeconds = Math.Clamp(General.ReconnectIntervalSeconds, 1, 300);
+        General.StatusMetricsIntervalSeconds = Math.Clamp(General.StatusMetricsIntervalSeconds, 1, 60);
+        Transfer.MaxConcurrentTransfers = Math.Clamp(Transfer.MaxConcurrentTransfers, 1, 16);
     }
 }
 
@@ -237,6 +267,35 @@ public class GeneralOptions : ObservableOptions
     // 行为
     /// <summary>退出应用前确认;开启“最小化到托盘”后点关闭按钮只隐藏窗口,不触发本确认(设置审计 C-03)。</summary>
     public bool ConfirmBeforeClose
+    {
+        get;
+        set => Set(ref field, value);
+    } = true;
+
+    /// <summary>
+    /// 状态栏资源指标的采样间隔(秒):1 / 2 / 5 / 10,默认 2。
+    /// </summary>
+    /// <remarks>
+    /// 每次采样对远端是**一次 fork/exec + 一条 SSH 通道的建立与拆除**,命令本身是一串
+    /// <c>/proc</c> 读取 + <c>nproc</c> + <c>df</c>。原先钉死 1 秒:高 RTT 链路上一次采样
+    /// 自身就要几百毫秒,低配 VPS 上用户会在自己的资源监视器里看到 VelaShell 制造的负载。
+    /// 默认改为 2 秒并可调 —— 状态栏那几个数字并不需要秒级新鲜度。
+    /// </remarks>
+    public int StatusMetricsIntervalSeconds
+    {
+        get;
+        set => Set(ref field, value);
+    } = 2;
+
+    /// <summary>
+    /// 关闭**仍连着**的标签前先确认(默认开)。
+    /// </summary>
+    /// <remarks>
+    /// 与 <see cref="ConfirmBeforeClose" /> 是两回事:那条管整个应用退出,这条管单个会话。
+    /// 一个误点的 × 意味着一条断掉的 SSH 会话 —— 跑着长任务时代价不小,
+    /// 而且"关闭其他/左侧/右侧"一次能带走一整排。已断开的标签不询问。
+    /// </remarks>
+    public bool ConfirmCloseConnectedTab
     {
         get;
         set => Set(ref field, value);
@@ -579,6 +638,18 @@ public class TerminalBehaviorOptions : ObservableOptions
         get;
         set => Set(ref field, value);
     }
+
+    /// <summary>
+    /// 开 = 在备用屏(vim / less / man 等全屏程序)里滚轮转成光标上下键发给应用。
+    /// 备用屏没有回滚区,关掉时未开鼠标追踪的程序里滚轮完全没反应。
+    /// 默认开,与 xterm(alternateScroll)/ Windows Terminal / iTerm2 一致;
+    /// 应用还能用 <c>CSI ?1007 l</c> 单独关掉自己那一份。
+    /// </summary>
+    public bool AlternateScroll
+    {
+        get;
+        set => Set(ref field, value);
+    } = true;
 
     /// <summary>开 = 每行左侧显示 [HH:mm:ss] 收行时间(默认关,占用左侧宽度)。与 <see cref="ShowLineNumber" /> 独立。</summary>
     public bool ShowLineTimestamp

@@ -18,6 +18,18 @@
        这不是样式问题,是"没注册模板"的默认行为。 -->
 
   <UserControl.Styles>
+    <!-- 状态圆点:默认断开(红),connected 绿 / connecting 黄。走样式类 + 动态资源
+         而不是"转换器直接返回画刷" —— 后者切主题后不重算,圆点会停在旧主题的颜色上。
+         与 SessionTreeView.axaml 的状态点同一套写法。 -->
+    <Style Selector="Ellipse.dot">
+      <Setter Property="Fill" Value="{DynamicResource VelaStatusDisconnected}" />
+    </Style>
+    <Style Selector="Ellipse.dot.connected">
+      <Setter Property="Fill" Value="{DynamicResource VelaStatusConnected}" />
+    </Style>
+    <Style Selector="Ellipse.dot.connecting">
+      <Setter Property="Fill" Value="{DynamicResource VelaStatusConnecting}" />
+    </Style>
     <Style Selector="local|WorkspaceDockTabItem">
       <Setter Property="Foreground" Value="{DynamicResource VelaTextTertiary}" />
       <Setter Property="FontFamily" Value="{DynamicResource VelaUiMonoFont}" />
@@ -74,8 +86,9 @@
   <Border x:Name="TabRoot" MinHeight="32" Padding="14,0" BorderThickness="0,2,0,0"
           BorderBrush="Transparent" VerticalAlignment="Stretch">
     <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-      <Ellipse Width="7" Height="7" VerticalAlignment="Center"
-               Fill="{Binding Status, Converter={x:Static conv:SessionStatusToBrushConverter.Instance}}" />
+      <Ellipse Width="7" Height="7" VerticalAlignment="Center" Classes="dot"
+               Classes.connected="{Binding Status, Converter={x:Static conv:SessionStatusEqualsConverter.Instance}, ConverterParameter=Connected}"
+               Classes.connecting="{Binding Status, Converter={x:Static conv:SessionStatusEqualsConverter.Instance}, ConverterParameter=Connecting}" />
       <Border Width="3" Height="12" CornerRadius="1.5" VerticalAlignment="Center"
               Background="{Binding ConnectionAccentBrush}" />
       <pc:LucideIcon Width="13" Height="13" Data="{StaticResource Icon.hard-drive}"

@@ -20,6 +20,78 @@ public sealed class LocalFilePaneViewModelTests
         Assert.AreEqual(Path.GetFullPath(temp.Path), viewModel.CurrentPath);
     }
 
+    // ---- 目录变化自动刷新 ----
+    //
+    // 远端面板早有静默刷新,本地面板却要手按 F5:在本地解个压、下个文件,面板还停在旧内容上。
+    // 这几条钉住"挂得上、换得掉、释放得干净、监视不了时不炸"。
+
+    [TestMethod]
+    public async Task NavigatingToADirectory_StartsWatchingIt()
+    {
+        var fs = new FakeLocalFileSystem();
+        fs.SetChildren("/a", new LocalFileSystemEntry("f.txt", "/a/f.txt", false, 1, DateTime.UtcNow));
+        using var vm = new LocalFilePaneViewModel(new TransferOptions(), fs, new FakeLocalRootProvider());
+
+        await vm.NavigateToAsync("/a");
+
+        Assert.AreEqual(Path.GetFullPath("/a"), fs.WatchedDirectory);
+        Assert.AreEqual(1, fs.WatchCount);
+    }
+
+    [TestMethod]
+    public async Task NavigatingAway_SwapsTheWatcherInsteadOfStacking()
+    {
+        var fs = new FakeLocalFileSystem();
+        using var vm = new LocalFilePaneViewModel(new TransferOptions(), fs, new FakeLocalRootProvider());
+
+        await vm.NavigateToAsync("/a");
+        await vm.NavigateToAsync("/b");
+
+        Assert.AreEqual(2, fs.WatchCount);
+        Assert.AreEqual(1, fs.DisposedWatchCount, "切目录必须把上一个监视器释放掉,否则句柄一路累加。");
+        Assert.AreEqual(Path.GetFullPath("/b"), fs.WatchedDirectory);
+    }
+
+    [TestMethod]
+    public async Task Dispose_StopsWatching()
+    {
+        var fs = new FakeLocalFileSystem();
+        var vm = new LocalFilePaneViewModel(new TransferOptions(), fs, new FakeLocalRootProvider());
+        await vm.NavigateToAsync("/a");
+
+        vm.Dispose();
+
+        Assert.AreEqual(1, fs.DisposedWatchCount);
+        Assert.IsNull(fs.WatchedDirectory);
+    }
+
+    [TestMethod]
+    public async Task UnsupportedWatch_DegradesQuietly()
+    {
+        // 网络盘上 FileSystemWatcher 装不起来。那只是"没有自动刷新",不是错误 ——
+        // 既不该抛,也不该在面板上留一条错误信息。
+        var fs = new FakeLocalFileSystem { WatchUnsupported = true };
+        using var vm = new LocalFilePaneViewModel(new TransferOptions(), fs, new FakeLocalRootProvider());
+
+        await vm.NavigateToAsync("/a");
+
+        Assert.AreEqual(Path.GetFullPath("/a"), vm.CurrentPath);
+        Assert.IsNull(vm.ErrorMessage);
+    }
+
+    [TestMethod]
+    public async Task DisposingTwice_IsSafe()
+    {
+        var fs = new FakeLocalFileSystem();
+        var vm = new LocalFilePaneViewModel(new TransferOptions(), fs, new FakeLocalRootProvider());
+        await vm.NavigateToAsync("/a");
+
+        vm.Dispose();
+        vm.Dispose();
+
+        Assert.AreEqual(1, fs.DisposedWatchCount);
+    }
+
     [TestMethod]
     public void ParentEntry_ExposesOnlyParentIconState()
     {
@@ -451,6 +523,47 @@ public sealed class LocalFilePaneViewModelTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             return Task.FromResult<Stream>(new MemoryStream());
+        }
+
+        // ---- 目录监视(自动刷新) ----
+
+        /// <summary>当前被监视的目录;没在监视时为 null。</summary>
+        public string? WatchedDirectory { get; private set; }
+
+        /// <summary>累计装过的监视器数量(切目录应当是"换一个",不是"再加一个")。</summary>
+        public int WatchCount { get; private set; }
+
+        /// <summary>已释放的监视器数量。</summary>
+        public int DisposedWatchCount { get; private set; }
+
+        /// <summary>置 true 时 <see cref="Watch" /> 返回 null,模拟网络盘等监视不了的情形。</summary>
+        public bool WatchUnsupported { get; set; }
+
+        private Action? _onChanged;
+
+        /// <summary>模拟目录发生了变化。</summary>
+        public void RaiseChanged() => _onChanged?.Invoke();
+
+        public IDisposable? Watch(string directory, Action onChanged)
+        {
+            if (WatchUnsupported)
+            {
+                return null;
+            }
+            WatchedDirectory = directory;
+            WatchCount++;
+            _onChanged = onChanged;
+            return new WatchHandle(this);
+        }
+
+        private sealed class WatchHandle(FakeLocalFileSystem owner) : IDisposable
+        {
+            public void Dispose()
+            {
+                owner.DisposedWatchCount++;
+                owner.WatchedDirectory = null;
+                owner._onChanged = null;
+            }
         }
     }
 

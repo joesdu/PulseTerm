@@ -272,7 +272,18 @@ internal class WebAccess(WebSearchOptions options)
     // ---- 闸门 ----
 
     /// <summary>过闸;放行返回 null,拦下返回给模型看的原因。</summary>
-    private async Task<string?> GuardAsync(Uri url, CancellationToken cancellationToken)
+    /// <summary>
+    /// 出站放行判定:返回 null 表示放行,否则返回拒绝理由文本。
+    /// </summary>
+    /// <remarks>
+    /// internal 而不是 private,是为了让"这个 URL 该不该放行"能被**单独**验证。
+    /// 经 FetchAsync 走一遍的代价是:放行之后会真的发请求,打不通再按退避重试几轮 ——
+    /// 三条只想验放行判定的用例因此各花 7 秒多,占了整个 AI 插件测试时长的可观一块。
+    /// </remarks>
+    /// <param name="url">目标地址。</param>
+    /// <param name="cancellationToken">取消标记(DNS 解析用)。</param>
+    /// <returns>放行时为 null;否则为拒绝理由。</returns>
+    internal async Task<string?> GuardAsync(Uri url, CancellationToken cancellationToken)
     {
         if (url.Scheme != Uri.UriSchemeHttp && url.Scheme != Uri.UriSchemeHttps)
         {

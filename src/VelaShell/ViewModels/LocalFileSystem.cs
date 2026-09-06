@@ -44,6 +44,18 @@ internal interface ILocalFileSystem
 
     /// <summary>以给定模式(如 Append 用于续传)打开文件写入。</summary>
     Task<Stream> OpenWriteAsync(string path, FileMode mode, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// 监视一个目录的直接子项变化;返回的句柄被释放即停止监视。
+    /// </summary>
+    /// <remarks>
+    /// 监视不了(网络盘、句柄耗尽、目录已消失)时返回 null,调用方退化为"不自动刷新" ——
+    /// 这不是错误,不该弹任何东西。
+    /// </remarks>
+    /// <param name="directory">要监视的目录。</param>
+    /// <param name="onChanged">目录内容变化时回调(可能在任意线程上)。</param>
+    /// <returns>停止监视用的句柄;无法监视时为 null。</returns>
+    IDisposable? Watch(string directory, Action onChanged);
 }
 
 /// <summary>枚举平台本地根,避免面板与 DriveInfo 耦合。</summary>
@@ -203,6 +215,40 @@ internal sealed class PhysicalLocalFileSystem : ILocalFileSystem
             },
             cancellationToken
         );
+
+    /// <inheritdoc />
+    public IDisposable? Watch(string directory, Action onChanged)
+    {
+        ArgumentNullException.ThrowIfNull(onChanged);
+        try
+        {
+            var watcher = new FileSystemWatcher(directory)
+            {
+                // 只看直接子项:递归监视一个大目录树代价高,而面板只显示一层。
+                IncludeSubdirectories = false,
+                NotifyFilter = NotifyFilters.FileName
+                               | NotifyFilters.DirectoryName
+                               | NotifyFilters.Size
+                               | NotifyFilters.LastWrite
+            };
+            watcher.Created += (_, _) => onChanged();
+            watcher.Deleted += (_, _) => onChanged();
+            watcher.Renamed += (_, _) => onChanged();
+            watcher.Changed += (_, _) => onChanged();
+            // 缓冲区溢出(短时间大量变化)时 FileSystemWatcher 会丢事件并抛 Error。
+            // 丢了就整体刷一次 —— 这正好是我们唯一要做的事。
+            watcher.Error += (_, _) => onChanged();
+            watcher.EnableRaisingEvents = true;
+            return watcher;
+        }
+        catch (Exception ex) when (ex is ArgumentException or IOException
+                                       or UnauthorizedAccessException or NotSupportedException)
+        {
+            // 网络盘、已消失的目录、句柄耗尽:退化为"不自动刷新",不是错误,不弹任何东西。
+            System.Diagnostics.Trace.WriteLine($"[LocalFilePane] 无法监视 {directory}:{ex.Message}");
+            return null;
+        }
+    }
 }
 
 internal sealed class PhysicalLocalRootProvider : ILocalRootProvider

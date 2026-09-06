@@ -118,6 +118,9 @@
               Command="{Binding RepairUpdateCommand}"
               IsVisible="{Binding ShowInAppUpdateControls}"
               ToolTip.Tip="{loc:Localize SetAbout_RepairUpdateTip}" />
+      <!-- 排障入口:发布版的 Trace 与崩溃记录都落在这个目录里,反馈问题时直接捞。 -->
+      <Button Classes="dlg-outline" Content="{loc:Localize SetAbout_OpenLogs}"
+              Command="{Binding OpenLogsDirectoryCommand}" />
       <TextBlock Classes="row-desc" Text="{Binding UpdateStatus}" VerticalAlignment="Center"
                  IsVisible="{Binding UpdateStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
     </StackPanel>

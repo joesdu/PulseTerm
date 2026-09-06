@@ -94,6 +94,48 @@ public sealed class StatusBarViewModel(ISequencer scheduler) : ReactiveObject, I
         set => this.RaiseAndSetIfChanged(ref field, value);
     } = "UTF-8";
 
+    /// <summary>
+    /// 当前选区的字符数;0 表示没有选区(此处不显示这一段)。
+    /// </summary>
+    /// <remarks>
+    /// 复制之前想确认"到底选中了多少",除了看高亮范围没有别的办法 ——
+    /// 尤其是多段选区与跨屏拖选。
+    /// </remarks>
+    public int SelectionLength
+    {
+        get;
+        set
+        {
+            this.RaiseAndSetIfChanged(ref field, value);
+            this.RaisePropertyChanged(nameof(HasSelection));
+            this.RaisePropertyChanged(nameof(SelectionLabel));
+        }
+    }
+
+    /// <summary>是否有选区(控制"已选 N 字符"那一段的显隐)。</summary>
+    public bool HasSelection => SelectionLength > 0;
+
+    /// <summary>"已选 N 字符"。</summary>
+    public string SelectionLabel => Strings.Format("Status_Selected", SelectionLength);
+
+    /// <summary>
+    /// 可热切的编码列表(状态栏点编码弹出的菜单)。由宿主注入,与设置页共用同一张表。
+    /// </summary>
+    public IReadOnlyList<string> AvailableEncodings
+    {
+        get;
+        set => this.RaiseAndSetIfChanged(ref field, value);
+    } = [];
+
+    /// <summary>
+    /// 切换当前会话编码的命令(参数是编码名)。只影响当前会话,不写回设置。
+    /// </summary>
+    public ICommand? ChangeEncodingCommand
+    {
+        get;
+        set => this.RaiseAndSetIfChanged(ref field, value);
+    }
+
     /// <summary>会话已运行时长文本(hh:mm:ss),由计时器刷新。</summary>
     public string Uptime
     {

@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:VelaShell.ViewModels"
              xmlns:loc="using:VelaShell.Localization"
+             xmlns:ctl="using:VelaShell.Controls"
              mc:Ignorable="d" d:DesignWidth="560" d:DesignHeight="440"
              x:Class="VelaShell.Views.CommandPaletteView"
              x:DataType="vm:CommandPaletteViewModel"
@@ -143,16 +144,39 @@
         </Grid>
       </Border>
 
-      <!-- Results -->
-      <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="360">
-        <ItemsControl ItemsSource="{Binding Groups}">
-          <ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="vm:CommandPaletteGroup">
-              <StackPanel>
-                <TextBlock Classes="cat" Text="{Binding Category}" />
-                <ItemsControl ItemsSource="{Binding Items}">
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate x:DataType="vm:CommandPaletteItem">
+      <!-- 结果:摊平成**单个** ListBox。原先是"分组的 ItemsControl 里再套一层条目的
+           ItemsControl",嵌在 ScrollViewer 里一条也虚拟化不了 —— 保存了几百台机器的用户,
+           每敲一个字符都要把全部结果的控件树重建一遍。
+           摊平后表头与条目是同一列表里的两种行,按类型各用一个 DataTemplate。
+
+           Focusable=False 是必须的:焦点必须一直留在搜索框上(方向键由本视图的隧道处理器
+           在 TextBox 之前截获,回车/Esc 同理)。列表一旦能拿焦点,用户点一下结果之后
+           就再也打不出字了。选中态仍由视图模型的 IsSelected 驱动,ListBox 自己那套
+           选中底色已在下面的样式里压掉 —— 表头行本来也不该显出被选中的样子。 -->
+      <ListBox ItemsSource="{Binding Rows}" MaxHeight="360"
+               Focusable="False"
+               Background="Transparent" BorderThickness="0" Padding="0"
+               ScrollViewer.VerticalScrollBarVisibility="Auto"
+               ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+        <ListBox.Styles>
+          <Style Selector="ListBoxItem">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="MinHeight" Value="0" />
+          </Style>
+          <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+          </Style>
+          <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+          </Style>
+        </ListBox.Styles>
+        <ListBox.DataTemplates>
+          <DataTemplate x:DataType="vm:CommandPaletteHeader">
+            <TextBlock Classes="cat" Text="{Binding Category}" />
+          </DataTemplate>
+          <DataTemplate x:DataType="vm:CommandPaletteItem">
                       <Border Classes="pal-item"
                               Classes.selected="{Binding IsSelected}"
                               Height="38"
@@ -164,11 +188,14 @@
                             <Ellipse Width="7" Height="7"
                                      IsVisible="{Binding IsSession}"
                                      Fill="{DynamicResource VelaStatusConnected}" />
-                            <TextBlock Text="{Binding Title}"
-                                       Foreground="{DynamicResource VelaTextPrimary}"
-                                       FontFamily="{DynamicResource VelaUiMonoFont}"
-                                       FontSize="{DynamicResource VelaFontSize12}"
-                                       VerticalAlignment="Center" />
+                            <!-- 命中的字符加粗着强调色:同样能匹配的一堆结果里,一眼看出"为什么是它"。 -->
+                            <ctl:HighlightTextBlock Text="{Binding Title}"
+                                                    Highlights="{Binding Highlights}"
+                                                    HighlightBrush="{DynamicResource VelaAccent}"
+                                                    Foreground="{DynamicResource VelaTextPrimary}"
+                                                    FontFamily="{DynamicResource VelaUiMonoFont}"
+                                                    FontSize="{DynamicResource VelaFontSize12}"
+                                                    VerticalAlignment="Center" />
                             <Border IsVisible="{Binding Tag, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                     Background="{DynamicResource VelaAccentDim}"
                                     CornerRadius="2" Padding="6,1" VerticalAlignment="Center">
@@ -186,14 +213,9 @@
                                      VerticalAlignment="Center" />
                         </Grid>
                       </Border>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
-              </StackPanel>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-      </ScrollViewer>
+          </DataTemplate>
+        </ListBox.DataTemplates>
+      </ListBox>
 
     </DockPanel>
   </Border>

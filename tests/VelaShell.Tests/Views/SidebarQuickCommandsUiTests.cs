@@ -20,6 +20,19 @@ namespace VelaShell.Tests.Views;
 [TestCategory("SidebarUi")]
 public class SidebarQuickCommandsUiTests
 {
+    // SessionAndQuickGrid 的行序:0 = 会话过滤框,1 = 会话树,2 = 分隔条,3 = 快捷命令区。
+    // 具名而不是散落的字面量 —— 上一次往这个网格顶部插一行时,三条用例同时以
+    // "预期 36 实际 0" 这种看不出原因的方式失败。
+
+    /// <summary>快捷命令区所在的行。</summary>
+    private const int QuickRow = 3;
+
+    /// <summary>快捷命令区上方分隔条所在的行。</summary>
+    private const int SplitterRow = 2;
+
+    /// <summary>最近连接区在 <c>SidebarSectionsGrid</c>(另一个网格)里所在的行。</summary>
+    private const int RecentRow = 2;
+
     private static HeadlessUnitTestSession _session = null!;
 
     [ClassInitialize]
@@ -56,17 +69,17 @@ public class SidebarQuickCommandsUiTests
             )!;
 
             Assert.IsTrue(content.IsVisible);
-            Assert.IsGreaterThan(36, grid.RowDefinitions[2].ActualHeight);
+            Assert.IsGreaterThan(36, grid.RowDefinitions[QuickRow].ActualHeight);
 
             toggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Relayout(window);
             Assert.IsFalse(content.IsVisible);
-            Assert.AreEqual(36, grid.RowDefinitions[2].ActualHeight);
+            Assert.AreEqual(36, grid.RowDefinitions[QuickRow].ActualHeight);
 
             toggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Relayout(window);
             Assert.IsTrue(content.IsVisible);
-            Assert.IsGreaterThan(36, grid.RowDefinitions[2].ActualHeight);
+            Assert.IsGreaterThan(36, grid.RowDefinitions[QuickRow].ActualHeight);
             window.Close();
         });
     }
@@ -94,14 +107,14 @@ public class SidebarQuickCommandsUiTests
 
             Assert.IsFalse(section.IsVisible);
             Assert.IsFalse(splitter.IsVisible);
-            Assert.AreEqual(0, grid.RowDefinitions[1].ActualHeight);
-            Assert.AreEqual(0, grid.RowDefinitions[2].ActualHeight);
+            Assert.AreEqual(0, grid.RowDefinitions[SplitterRow].ActualHeight);
+            Assert.AreEqual(0, grid.RowDefinitions[QuickRow].ActualHeight);
 
             viewModel.IsQuickCommandsVisible = true;
             Relayout(window);
             Assert.IsTrue(section.IsVisible);
             Assert.IsTrue(splitter.IsVisible);
-            Assert.IsGreaterThan(36, grid.RowDefinitions[2].ActualHeight);
+            Assert.IsGreaterThan(36, grid.RowDefinitions[QuickRow].ActualHeight);
             window.Close();
         });
     }
@@ -138,8 +151,8 @@ public class SidebarQuickCommandsUiTests
             Button quickToggle = view.FindControl<Button>("QuickCommandsToggle")!;
             Button recentToggle = view.FindControl<Button>("RecentConnectionsToggle")!;
 
-            Assert.AreEqual(36, quickGrid.RowDefinitions[2].ActualHeight);
-            Assert.AreEqual(36, sectionsGrid.RowDefinitions[2].ActualHeight);
+            Assert.AreEqual(36, quickGrid.RowDefinitions[QuickRow].ActualHeight);
+            Assert.AreEqual(36, sectionsGrid.RowDefinitions[RecentRow].ActualHeight);
 
             quickToggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             recentToggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -147,19 +160,19 @@ public class SidebarQuickCommandsUiTests
 
             Assert.IsTrue(viewModel.QuickCommandsExpanded);
             Assert.IsTrue(viewModel.RecentConnectionsExpanded);
-            Assert.AreEqual(220, quickGrid.RowDefinitions[2].ActualHeight, 1);
-            Assert.AreEqual(210, sectionsGrid.RowDefinitions[2].ActualHeight, 1);
+            Assert.AreEqual(220, quickGrid.RowDefinitions[QuickRow].ActualHeight, 1);
+            Assert.AreEqual(210, sectionsGrid.RowDefinitions[RecentRow].ActualHeight, 1);
 
-            quickGrid.RowDefinitions[2].Height = new(260);
+            quickGrid.RowDefinitions[QuickRow].Height = new(260);
             Relayout(window);
             quickToggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Relayout(window);
             Assert.AreEqual(260, viewModel.QuickCommandsHeight, 1);
-            Assert.AreEqual(36, quickGrid.RowDefinitions[2].ActualHeight);
+            Assert.AreEqual(36, quickGrid.RowDefinitions[QuickRow].ActualHeight);
 
             quickToggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Relayout(window);
-            Assert.AreEqual(260, quickGrid.RowDefinitions[2].ActualHeight, 1);
+            Assert.AreEqual(260, quickGrid.RowDefinitions[QuickRow].ActualHeight, 1);
             window.Close();
         });
     }
@@ -260,19 +273,19 @@ public class SidebarQuickCommandsUiTests
 
             Assert.IsTrue(content.IsVisible);
             Assert.IsTrue(splitter.IsVisible);
-            Assert.IsGreaterThan(36, grid.RowDefinitions[2].ActualHeight);
+            Assert.IsGreaterThan(36, grid.RowDefinitions[RecentRow].ActualHeight);
 
             toggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Relayout(window);
             Assert.IsFalse(content.IsVisible);
             Assert.IsFalse(splitter.IsVisible);
-            Assert.AreEqual(36, grid.RowDefinitions[2].ActualHeight);
+            Assert.AreEqual(36, grid.RowDefinitions[RecentRow].ActualHeight);
 
             toggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Relayout(window);
             Assert.IsTrue(content.IsVisible);
             Assert.IsTrue(splitter.IsVisible);
-            Assert.IsGreaterThan(36, grid.RowDefinitions[2].ActualHeight);
+            Assert.IsGreaterThan(36, grid.RowDefinitions[RecentRow].ActualHeight);
             window.Close();
         });
     }

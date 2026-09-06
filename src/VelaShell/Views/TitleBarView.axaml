@@ -70,7 +70,7 @@
          不允许后代选择器)。 -->
     <ControlTheme x:Key="VelaCaptionCloseButton" TargetType="Button" BasedOn="{StaticResource VelaCaptionButton}">
       <Style Selector="^:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-        <Setter Property="Background" Value="#E81123" />
+        <Setter Property="Background" Value="{DynamicResource VelaDangerHover}" />
       </Style>
     </ControlTheme>
 

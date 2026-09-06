@@ -123,7 +123,7 @@
     </Style>
     <Style Selector="Button.dlg-danger">
       <Setter Property="Background" Value="Transparent" />
-      <Setter Property="Foreground" Value="#FF6B6B" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaError}" />
       <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderSecondary}" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="Height" Value="30" />
@@ -233,21 +233,15 @@
       <!-- 右侧内容 -->
       <Grid Grid.Column="1" RowDefinitions="*,Auto">
 
+        <!-- 按需创建当前页,创建过的缓存住(装配在代码隐藏的 SettingsPageHost 里)。
+             原先 12 页全部常驻、靠 IsVisible 切换 —— 窗口一打开就把 12 棵控件树全建出来
+             (外观页 9 个 ItemsControl、快捷键页 8 个),而用户多半只看其中一两页。
+
+             用 Panel + 代码隐藏而不是 ContentControl + IDataTemplate:后者会把 Content
+             (分区标识)当作页面的 DataContext,于是每个页面的绑定都去 SettingsSectionKey
+             上找属性,整窗设置项全部失灵。普通子元素则照常继承窗口的 DataContext。 -->
         <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
-          <Panel Margin="28,24">
-            <pages:GeneralSettingsPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=0}" />
-            <pages:AppearanceSettingsPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=1}" />
-            <pages:TerminalSettingsPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=2}" />
-            <pages:KeyManagementPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=3}" />
-            <pages:ShortcutsPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=4}" />
-            <pages:TransferSettingsPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=5}" />
-            <pages:SecurityAuditPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=6}" />
-            <pages:ProxySettingsPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=7}" />
-            <pages:SnippetsPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=8}" />
-            <pages:SyncPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=9}" />
-            <pages:AboutPage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=10}" />
-            <pages:DonatePage IsVisible="{Binding SelectedSectionIndex, Converter={x:Static conv:IntEqualsConverter.Instance}, ConverterParameter=11}" />
-          </Panel>
+          <Panel x:Name="PageHost" Margin="28,24" />
         </ScrollViewer>
 
         <!-- 底部:恢复默认 / 取消 / 保存设置 -->

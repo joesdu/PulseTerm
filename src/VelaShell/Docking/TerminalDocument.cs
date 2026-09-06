@@ -20,6 +20,7 @@ public sealed class TerminalDocument : DockDocument, IDockViewProvider
         Terminal = terminal;
         Id = terminal.Id.ToString("N");
         Title = terminal.Title;
+        IsSessionDocument = true;
     }
 
     /// <summary>本文档所承载的终端标签视图模型。</summary>

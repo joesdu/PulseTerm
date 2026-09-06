@@ -16,6 +16,7 @@ using VelaShell.Core.Sftp;
 using VelaShell.Core.Ssh;
 using VelaShell.Core.Sync;
 using VelaShell.Core.Tunnels;
+using VelaShell.Infrastructure.Diagnostics;
 using VelaShell.Infrastructure.Ftp;
 using VelaShell.Infrastructure.Import;
 using VelaShell.Infrastructure.Net;
@@ -49,7 +50,10 @@ public static class InfrastructureServiceCollectionExtensions
         // 而它自己不依赖任何东西。
         services.AddSingleton<IBackgroundActivityService, BackgroundActivityService>();
         services.AddSingleton<VelaShellStoragePaths>();
-        services.AddSingleton<SonnetDbEngine>(sp => new(sp.GetRequiredService<VelaShellStoragePaths>()));
+        // 认领 Program.Main 起的那次后台预热(见 StartupWarmup):数据库在 Avalonia 初始化的
+        // 同时就已经开着了。没预热过(测试、设计期)就地新建,行为不变。
+        services.AddSingleton<SonnetDbEngine>(sp =>
+            StartupWarmup.Claim(sp.GetRequiredService<VelaShellStoragePaths>()));
         services.AddSingleton<ISecretProtector>(sp => new AesSecretProtector(sp.GetRequiredService<VelaShellStoragePaths>()));
         services.AddSingleton<ISessionRepository>(sp =>
         {
@@ -96,6 +100,9 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IProxyResolver>(sp =>
             new ProxyResolver(sp.GetRequiredService<ISettingsService>()));
 
+        // 网络恢复 / 睡眠唤醒的信号源:断开的会话据此立即重连一次,而不是干等 keepalive 超时。
+        services.AddSingleton<IConnectivityMonitor>(_ => new ConnectivityMonitor());
+
         // 消息中心(侧边栏铃铛)与它订阅的资讯源。
         services.AddSingleton<INotificationCenter>(sp =>
             new NotificationCenter(sp.GetRequiredService<IAppDataStore>()));
@@ -103,7 +110,7 @@ public static class InfrastructureServiceCollectionExtensions
         {
             ISettingsService settings = sp.GetRequiredService<ISettingsService>();
             return new HttpAnnouncementFeed(
-                async () => (await settings.GetSettingsAsync().ConfigureAwait(false)).Notifications.FeedUrl,
+                async () => (await settings.GetSnapshotAsync().ConfigureAwait(false)).Notifications.FeedUrl,
                 HttpAnnouncementFeed.DescribeAudience);
         });
 
@@ -135,7 +142,7 @@ public static class InfrastructureServiceCollectionExtensions
                 // 每次传输现读一次,用户中途调了限速正在跑的传输也跟着变。
                 TransferOptionsProvider = async _ =>
                 {
-                    TransferOptions transfer = (await settings.GetSettingsAsync().ConfigureAwait(false)).Transfer;
+                    TransferOptions transfer = (await settings.GetSnapshotAsync().ConfigureAwait(false)).Transfer;
                     long up = transfer.BandwidthLimitEnabled ? (long)Math.Max(0, transfer.UploadLimitMBps) * 1024 * 1024 : 0;
                     long down = transfer.BandwidthLimitEnabled ? (long)Math.Max(0, transfer.DownloadLimitMBps) * 1024 * 1024 : 0;
                     return new(up, down, transfer.PreserveTimestamps);
@@ -202,7 +209,7 @@ public static class InfrastructureServiceCollectionExtensions
             string? configured = null;
             try
             {
-                configured = sp.GetService<ISettingsService>()?.GetSettingsAsync().GetAwaiter().GetResult()
+                configured = sp.GetService<ISettingsService>().GetSnapshotBlocking()
                                .General.GeoIpDatabasePath;
             }
             catch
@@ -224,15 +231,23 @@ public static class InfrastructureServiceCollectionExtensions
 
     private static TimeSpan ConnectTimeout(ISettingsService? s)
     {
-        try { return TimeSpan.FromSeconds(Math.Clamp(s?.GetSettingsAsync().GetAwaiter().GetResult().General.ConnectTimeoutSeconds ?? 10, 1, 600)); }
+        try { return TimeSpan.FromSeconds(Math.Clamp(s.GetSnapshotBlocking().General.ConnectTimeoutSeconds, 1, 600)); }
         catch { return TimeSpan.FromSeconds(10); }
     }
 
-    private static TimeSpan KeepAliveInterval(ISettingsService? s)
+    /// <summary>
+    /// 保活心跳间隔:本次连接有会话级覆盖就用它,否则跟随全局设置。
+    /// </summary>
+    /// <remarks>
+    /// 覆盖值随 <see cref="VelaConnectionInfo.KeepAliveSeconds" /> 一路带下来(F-06)。
+    /// 跳板链上每一跳各带各的 —— 这一层手里只有一个 <c>ConnectionInfo</c>,
+    /// 它自己无从知道当前这一跳对应哪条配置。
+    /// </remarks>
+    private static TimeSpan KeepAliveInterval(ISettingsService? s, VelaConnectionInfo? ci = null)
     {
         try
         {
-            int sec = s?.GetSettingsAsync().GetAwaiter().GetResult().General.KeepAliveSeconds ?? 0;
+            int sec = ci?.KeepAliveSeconds ?? s.GetSnapshotBlocking().General.KeepAliveSeconds;
             return sec > 0 ? TimeSpan.FromSeconds(sec) : TimeSpan.Zero;
         }
         catch { return TimeSpan.Zero; }
@@ -240,7 +255,7 @@ public static class InfrastructureServiceCollectionExtensions
 
     private static SecurityOptions GetSecurityOptions(ISettingsService? s)
     {
-        try { return s?.GetSettingsAsync().GetAwaiter().GetResult().Security ?? new(); }
+        try { return s.GetSnapshotBlocking().Security; }
         catch { return new(); }
     }
 
@@ -270,7 +285,7 @@ public static class InfrastructureServiceCollectionExtensions
         {
             Port = ci.Port,
             ConnectTimeout = ConnectTimeout(settings),
-            KeepAliveInterval = KeepAliveInterval(settings),
+            KeepAliveInterval = KeepAliveInterval(settings, ci),
 
             // 连接必须只由 TmdsSshClientWrapper.ConnectAsync 显式发起。
             // Tmds.Ssh 的 AutoConnect 默认为 true:会话掉线后,任何一次后续操作

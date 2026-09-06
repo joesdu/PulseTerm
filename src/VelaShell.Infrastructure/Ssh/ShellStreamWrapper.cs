@@ -114,6 +114,7 @@ public class ShellStreamWrapper(RemoteProcess process) : IShellStreamWrapper
     {
         if (_disposed) return;
         _disposed = true;
+        // 子进程可能已经自己退了;Dispose 抛的是清理噪声,吞掉即可。
         try { _process.Dispose(); } catch { }
         GC.SuppressFinalize(this);
     }

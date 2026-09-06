@@ -39,7 +39,7 @@
     </Style>
     <Style Selector="Button.dlg-danger">
       <Setter Property="Background" Value="Transparent" />
-      <Setter Property="Foreground" Value="#FF6B6B" />
+      <Setter Property="Foreground" Value="{DynamicResource VelaError}" />
       <Setter Property="BorderThickness" Value="0" />
       <Setter Property="Padding" Value="6,2" />
       <Setter Property="CornerRadius" Value="3" />

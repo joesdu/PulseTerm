@@ -66,30 +66,37 @@ public sealed partial class AreSequenceEqualAwaitTests
     [TestMethod]
     public async Task Bug_IsStillPresent_WhenAwaitSitsInTheArgumentList()
     {
-        (byte[] payload, string path) = await WriteTempAsync();
+        byte[] payload = Encoding.UTF8.GetBytes(new string('x', 40_000) + "-tail");
+
+        bool threw = false;
         try
         {
-            bool threw = false;
-            try
-            {
-                // 就是这一句会误报。两边内容一模一样,它却说序列不等。
-                Assert.AreSequenceEqual(payload, await File.ReadAllBytesAsync(path));
-            }
-            catch (AssertFailedException)
-            {
-                threw = true;
-            }
-
-            Assert.IsTrue(
-                threw,
-                "MSTest 的 Assert.AreSequenceEqual 看起来已经修好了(实参里的 await 不再丢操作数)。"
-                + "确认之后,请把本文件删掉,并把全仓那些为绕开它而写的"
-                + "「先 await 到局部变量」的注释一并清理。");
+            // 就是这一句会误报。两边内容一模一样,它却说序列不等。
+            Assert.AreSequenceEqual(payload, await SuspendThenReturnAsync(payload));
         }
-        finally
+        catch (AssertFailedException)
         {
-            File.Delete(path);
+            threw = true;
         }
+
+        Assert.IsTrue(
+            threw,
+            "MSTest 的 Assert.AreSequenceEqual 看起来已经修好了(实参里的 await 不再丢操作数)。"
+            + "确认之后,请把本文件删掉,并把全仓那些为绕开它而写的"
+            + "「先 await 到局部变量」的注释一并清理。");
+    }
+
+    /// <summary>一定会挂起的 await —— 引信要的就是这个。</summary>
+    /// <remarks>
+    /// 早先这里读的是一个真实临时文件。但 <c>File.ReadAllBytesAsync</c> 命中页缓存时会
+    /// **同步**返回,await 不挂起,于是碰不到那个 bug —— 引信就误报"MSTest 修好了"。
+    /// 这恰恰是本文件注释里写的那种"侥幸",引信自己却踩了进去(全量跑时红过一次,
+    /// 单跑三遍全绿)。<c>Task.Yield</c> 保证让出,与文件系统和机器快慢都无关。
+    /// </remarks>
+    private static async Task<byte[]> SuspendThenReturnAsync(byte[] payload)
+    {
+        await Task.Yield();
+        return payload;
     }
 
     /// <summary>绕法本身必须是有效的 —— 否则上面那条引信就失去参照。</summary>

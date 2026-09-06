@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.Json;
@@ -12,6 +13,7 @@ using VelaShell.Core.Resources;
 using VelaShell.Core.Services;
 using VelaShell.Core.Ssh;
 using VelaShell.Core.Sync;
+using VelaShell.Infrastructure.Diagnostics;
 using VelaShell.Infrastructure.Persistence;
 using VelaShell.Presentation.ViewModels;
 using VelaShell.Services;
@@ -228,6 +230,7 @@ public class SettingsViewModel : ReactiveObject
             }
         });
         RepairUpdateCommand = ReactiveCommand.CreateFromTask(RepairUpdateStateAsync);
+        OpenLogsDirectoryCommand = ReactiveCommand.Create(() => { DiagnosticLog.OpenLogsDirectory(); });
 
         // 商店版(MSIX)装在只读的 WindowsApps 下,更新由 Microsoft Store 接管:
         // 应用内的检查/下载/换版/修复一律无意义,整块换成一句说明,免得用户白点。
@@ -513,8 +516,25 @@ public class SettingsViewModel : ReactiveObject
     public int SelectedSectionIndex
     {
         get;
-        set => this.RaiseAndSetIfChanged(ref field, value);
+        set
+        {
+            this.RaiseAndSetIfChanged(ref field, value);
+            this.RaisePropertyChanged(nameof(SelectedSectionKey));
+        }
     }
+
+    /// <summary>
+    /// 当前分区的稳定标识,由 <see cref="SelectedSectionIndex" /> 派生。
+    /// </summary>
+    /// <remarks>
+    /// 设置窗口据它按需创建页面。原先 12 页全部常驻、靠 <c>IsVisible</c> 切换 ——
+    /// 窗口一打开就把 12 棵控件树全建出来(单外观页就有 9 个 ItemsControl),
+    /// 而用户多半只看其中一两页。
+    /// </remarks>
+    public SettingsSectionKey SelectedSectionKey =>
+        Enum.IsDefined((SettingsSectionKey)SelectedSectionIndex)
+            ? (SettingsSectionKey)SelectedSectionIndex
+            : SettingsSectionKey.General;
 
     /// <summary>
     /// 跳到指定分区。<see cref="SettingsSectionKey" /> 的顺序与 <see cref="BuildSections" />
@@ -562,9 +582,8 @@ public class SettingsViewModel : ReactiveObject
         "vt52",
     ];
 
-    /// <summary>终端编码下拉可选值。</summary>
-    public string[] AvailableEncodings { get; } =
-    ["UTF-8", "GBK", "GB18030", "Big5", "Shift_JIS", "EUC-KR", "ISO-8859-1"];
+    /// <summary>终端编码下拉可选值(与状态栏的编码热切菜单共用同一张表)。</summary>
+    public string[] AvailableEncodings { get; } = TerminalEncodings.All;
 
     /// <summary>更新通道下拉可选值。</summary>
     public string[] AvailableUpdateChannels { get; } = ["stable", "preview"];
@@ -720,6 +739,9 @@ public class SettingsViewModel : ReactiveObject
 
     /// <summary>修复更新状态命令:清掉卡住的更新残留,让检查更新能重新走通。</summary>
     public ReactiveCommand<RxVoid, RxVoid> RepairUpdateCommand { get; }
+
+    /// <summary>打开日志目录命令(关于页):发布版的 Trace 与崩溃记录都落在那里。</summary>
+    public ReactiveCommand<RxVoid, RxVoid> OpenLogsDirectoryCommand { get; }
 
     /// <summary>检查更新的状态提示文本。</summary>
     public string UpdateStatus
@@ -1545,7 +1567,13 @@ public class SettingsViewModel : ReactiveObject
         {
             _themeService.SetAccent(_baseline.AccentColor);
         }
-        catch (ArgumentException) { }
+        catch (ArgumentException ex)
+        {
+            // 基线里的强调色解析不了(手改过配置文件、或是更早版本写进去的格式)。
+            // 回滚预览时不该因此炸掉:保持当前强调色即可,但要留痕 ——
+            // 否则用户会看到"取消设置之后强调色没回去"而完全无从查起。
+            Trace.WriteLine($"[SettingsViewModel] 回滚强调色失败,保持当前值:{ex.Message}");
+        }
         _previewService?.Preview(_baseline);
     }
 

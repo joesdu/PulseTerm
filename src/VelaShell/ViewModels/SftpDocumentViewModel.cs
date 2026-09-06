@@ -177,7 +177,9 @@ public sealed class SftpDocumentViewModel : ReactiveObject, IAsyncDisposable
             session.PropertyChanged -= OnSessionPropertyChanged;
         }
         RemoteFiles.Detach();
-        LocalFiles.Detach();
+        // Dispose 而不只是 Detach:本地面板还挂着一个 FileSystemWatcher(目录自动刷新),
+        // 不释放就是一个跟着文档一起泄漏的系统句柄。
+        LocalFiles.Dispose();
     }
 
     /// <summary>关闭 SFTP 会话并清理资源,确保仅执行一次。</summary>

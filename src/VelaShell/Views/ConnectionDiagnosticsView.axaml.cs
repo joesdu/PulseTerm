@@ -4,6 +4,7 @@ using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using ReactiveUI.Primitives;
 using VelaShell.Core.Resources;
+using FireAndForget = VelaShell.Services.FireAndForget;
 using VelaShell.ViewModels;
 
 namespace VelaShell.Views;
@@ -53,7 +54,7 @@ public partial class ConnectionDiagnosticsView : Window
     }
 
     /// <summary>导出诊断报告为文本文件(设计 RGXg1 exportDiag)。</summary>
-    private async void ExportReport_Click(object? sender, RoutedEventArgs e)
+    private void ExportReport_Click(object? sender, RoutedEventArgs e) => FireAndForget.Run(async () =>
     {
         if (DataContext is not ConnectionDiagnosticsViewModel viewModel)
         {
@@ -83,5 +84,5 @@ public partial class ConnectionDiagnosticsView : Window
         {
             await MessageDialog.ShowMessageAsync(this, Strings.Get("Main_ExportFailed"), ex.Message, MessageDialogKind.Error);
         }
-    }
+});
 }

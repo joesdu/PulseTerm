@@ -7,10 +7,12 @@ using VelaShell.Core.Models;
 using VelaShell.Core.Sftp;
 using VelaShell.Core.Sync;
 using VelaShell.Core.Tunnels;
+using VelaShell.Docking;
 using VelaShell.Presentation.Commands;
 using VelaShell.Presentation.Services;
 using VelaShell.Presentation.ViewModels;
 using VelaShell.Services;
+using VelaShell.Tests.TestSupport;
 using VelaShell.Terminal;
 using VelaShell.ViewModels;
 
@@ -42,7 +44,7 @@ public class MainWindowViewModelTests
         var vm = new MainWindowViewModel();
 
         Assert.IsNotNull(vm.Sidebar);
-        Assert.IsNotNull(vm.TabBar);
+        Assert.IsNotNull(vm.Layout);
         Assert.IsNotNull(vm.StatusBar);
     }
 
@@ -108,7 +110,8 @@ public class MainWindowViewModelTests
             SessionId = Guid.NewGuid(),
             ConnectionStatus = SessionStatus.Connected,
         };
-        vm.TabBar.AddTab(first);
+        var firstDocument = new TerminalDocument(first);
+        vm.Layout.AddDocument(firstDocument);
         Assert.IsTrue(vm.CanToggleFileBrowser);
         Assert.IsTrue(
             vm.FileBrowser.IsVisible,
@@ -124,16 +127,18 @@ public class MainWindowViewModelTests
             SessionId = Guid.NewGuid(),
             ConnectionStatus = SessionStatus.Connected,
         };
-        vm.TabBar.AddTab(second);
+        var secondDocument = new TerminalDocument(second);
+        vm.Layout.AddDocument(secondDocument);
         Assert.IsTrue(
             vm.FileBrowser.IsVisible,
             "第一个标签隐藏面板不影响新标签:新标签按设置自动打开。"
         );
 
         // 面板开关是每个标签自己的状态:切回隐藏过的标签保持隐藏,切回打开的恢复显示。
-        vm.TabBar.ActiveTab = first;
+        // 切标签走工作区(Q-02 之后它是唯一事实来源),ActiveTerminalTab 由它派生。
+        vm.Layout.ActivateDocument(firstDocument);
         Assert.IsFalse(vm.FileBrowser.IsVisible, "切回曾隐藏面板的标签:面板保持隐藏。");
-        vm.TabBar.ActiveTab = second;
+        vm.Layout.ActivateDocument(secondDocument);
         Assert.IsTrue(vm.FileBrowser.IsVisible, "切回面板开着的标签:面板自动恢复显示。");
 
         second.ConnectionStatus = SessionStatus.Disconnected;
@@ -144,7 +149,7 @@ public class MainWindowViewModelTests
             LocalShell = new("pwsh", "PowerShell", "pwsh.exe"),
             ConnectionStatus = SessionStatus.Connected,
         };
-        vm.TabBar.AddTab(local);
+        vm.Layout.AddDocument(new TerminalDocument(local));
         Assert.IsFalse(vm.CanToggleFileBrowser);
     }
 
@@ -160,7 +165,7 @@ public class MainWindowViewModelTests
         {
             Profile = new() { Name = "server", Host = "server.example" },
         };
-        vm.TabBar.AddTab(tab);
+        vm.Layout.AddDocument(new TerminalDocument(tab));
         QuickCommandRunnerViewModel runner = vm.Sidebar.QuickCommands!;
         Assert.IsEmpty(runner.Targets);
 
@@ -186,7 +191,7 @@ public class MainWindowViewModelTests
         var vm = new MainWindowViewModel(quickCommands: library);
         ITerminalEmulator emulator = Substitute.For<ITerminalEmulator>();
         var tab = new TerminalTabViewModel(emulator) { ConnectionStatus = SessionStatus.Connected };
-        vm.TabBar.AddTab(tab);
+        vm.Layout.AddDocument(new TerminalDocument(tab));
         bool focusRequested = false;
         vm.TerminalFocusRequested += (_, _) => focusRequested = true;
 
@@ -226,9 +231,9 @@ public class MainWindowViewModelTests
         var first = new TerminalTabViewModel(Substitute.For<ITerminalEmulator>());
         var second = new TerminalTabViewModel(Substitute.For<ITerminalEmulator>());
         var other = new TerminalTabViewModel(Substitute.For<ITerminalEmulator>());
-        vm.TabBar.AddTab(first);
-        vm.TabBar.AddTab(second);
-        vm.TabBar.AddTab(other);
+        vm.Layout.AddDocument(new TerminalDocument(first));
+        vm.Layout.AddDocument(new TerminalDocument(second));
+        vm.Layout.AddDocument(new TerminalDocument(other));
         first.JoinSyncChannel(SyncInputChannel.A);
         second.JoinSyncChannel(SyncInputChannel.A);
         other.JoinSyncChannel(SyncInputChannel.B);
@@ -246,10 +251,10 @@ public class MainWindowViewModelTests
     {
         var vm = new MainWindowViewModel();
         var tab = new TerminalTabViewModel(Substitute.For<ITerminalEmulator>());
-        vm.TabBar.AddTab(tab);
+        vm.Layout.AddDocument(new TerminalDocument(tab));
         tab.JoinSyncChannel(SyncInputChannel.C);
 
-        vm.TabBar.Tabs.Remove(tab);
+        vm.Layout.RemoveDocument(vm.Layout.AllDocuments().OfType<TerminalDocument>().First(d => ReferenceEquals(d.Terminal, tab)));
 
         Assert.IsFalse(tab.IsInSyncChannel);
     }
@@ -269,8 +274,8 @@ public class MainWindowViewModelTests
         {
             ConnectionStatus = SessionStatus.Connected,
         };
-        vm.TabBar.AddTab(first);
-        vm.TabBar.AddTab(second);
+        vm.Layout.AddDocument(new TerminalDocument(first));
+        vm.Layout.AddDocument(new TerminalDocument(second));
         first.JoinSyncChannel(SyncInputChannel.A);
         second.JoinSyncChannel(SyncInputChannel.A);
 
@@ -291,7 +296,7 @@ public class MainWindowViewModelTests
         var vm = new MainWindowViewModel(settingsService: settingsService);
 
         var tab = new TerminalTabViewModel(emulator);
-        vm.TabBar.Tabs.Add(tab);
+        vm.Layout.AddDocument(new TerminalDocument(tab));
 
         // Saving settings must re-apply live values to already-open terminals (#3/#15/#21).
         settingsService.SettingsSaved += Raise.Event<Action<AppSettings>>(
@@ -458,7 +463,7 @@ public class MainWindowViewModelTests
     {
         MainWindowViewModel vm = await CreateInitializedVmAsync(autoOpenFileBrowser: true);
 
-        vm.TabBar.AddTab(CreateConnectedSshTab());
+        vm.Layout.AddDocument(new TerminalDocument(CreateConnectedSshTab()));
 
         Assert.IsTrue(vm.FileBrowser.IsVisible, "开关开启:新连接的标签自动打开面板。");
     }
@@ -469,7 +474,7 @@ public class MainWindowViewModelTests
     {
         MainWindowViewModel vm = await CreateInitializedVmAsync(autoOpenFileBrowser: false);
 
-        vm.TabBar.AddTab(CreateConnectedSshTab());
+        vm.Layout.AddDocument(new TerminalDocument(CreateConnectedSshTab()));
 
         Assert.IsFalse(vm.FileBrowser.IsVisible, "开关关闭:新连接的标签不自动打开面板。");
     }
@@ -483,17 +488,17 @@ public class MainWindowViewModelTests
             autoOpenFileBrowser: false, settingsService);
 
         TerminalTabViewModel first = CreateConnectedSshTab();
-        vm.TabBar.AddTab(first);
+        vm.Layout.AddDocument(new TerminalDocument(first));
         Assert.IsFalse(vm.FileBrowser.IsVisible);
 
         // 运行中保存设置(开关改为开启):已开标签不受影响,之后新开的标签立即生效。
         settingsService.SettingsSaved += Raise.Event<Action<AppSettings>>(
             new AppSettings { TerminalBehavior = new() { AutoOpenFileBrowser = true } });
 
-        vm.TabBar.AddTab(CreateConnectedSshTab());
+        vm.Layout.AddDocument(new TerminalDocument(CreateConnectedSshTab()));
         Assert.IsTrue(vm.FileBrowser.IsVisible, "保存后的开关状态对新标签立即生效。");
 
-        vm.TabBar.ActiveTab = first;
+        vm.Activate(first);
         Assert.IsFalse(vm.FileBrowser.IsVisible, "已存在标签保持自己原有的面板状态。");
     }
 
@@ -506,7 +511,7 @@ public class MainWindowViewModelTests
         MainWindowViewModel vm = await CreateInitializedVmAsync(settingsService);
 
         TerminalTabViewModel first = CreateConnectedSshTab();
-        vm.TabBar.AddTab(first);
+        vm.Layout.AddDocument(new TerminalDocument(first));
         Assert.IsTrue(vm.FileBrowser.IsVisible);
 
         // 模拟面板右上角关闭按钮:直接改当前面板实例的可见性。
@@ -518,12 +523,12 @@ public class MainWindowViewModelTests
             "手动关闭后,下次启动默认值要落成关闭。");
 
         TerminalTabViewModel second = CreateConnectedSshTab();
-        vm.TabBar.AddTab(second);
+        vm.Layout.AddDocument(new TerminalDocument(second));
         Assert.IsFalse(vm.FileBrowser.IsVisible, "保存后的默认值会影响之后的新标签。");
 
-        vm.TabBar.ActiveTab = first;
+        vm.Activate(first);
         Assert.IsFalse(vm.FileBrowser.IsVisible, "切回关闭过面板的标签:保持关闭。");
-        vm.TabBar.ActiveTab = second;
+        vm.Activate(second);
         Assert.IsFalse(vm.FileBrowser.IsVisible, "切回按关闭默认值创建的标签:保持关闭。");
     }
 
@@ -536,7 +541,7 @@ public class MainWindowViewModelTests
         MainWindowViewModel vm = await CreateInitializedVmAsync(settingsService);
 
         TerminalTabViewModel first = CreateConnectedSshTab();
-        vm.TabBar.AddTab(first);
+        vm.Layout.AddDocument(new TerminalDocument(first));
         Assert.IsFalse(vm.FileBrowser.IsVisible);
 
         vm.ToggleFileBrowser();
@@ -558,7 +563,7 @@ public class MainWindowViewModelTests
             TimeSpan.FromMilliseconds(50));
         MainWindowViewModel vm = await CreateInitializedVmAsync(settingsService);
 
-        vm.TabBar.AddTab(CreateConnectedSshTab());
+        vm.Layout.AddDocument(new TerminalDocument(CreateConnectedSshTab()));
         Assert.IsTrue(vm.FileBrowser.IsVisible);
 
         vm.FileBrowser.IsVisible = false;
@@ -599,9 +604,9 @@ public class MainWindowViewModelTests
         );
         await vm.InitializeAsync();
 
-        vm.TabBar.AddTab(
+        vm.Layout.AddDocument(new TerminalDocument(
             new TerminalTabViewModel(Substitute.For<ITerminalEmulator>()) { Profile = profile }
-        );
+        ));
 
         Assert.AreEqual(profile.Id, vm.Sidebar.SessionTree?.SelectedNode?.Id);
     }
@@ -633,9 +638,9 @@ public class MainWindowViewModelTests
         );
         await vm.InitializeAsync();
 
-        vm.TabBar.AddTab(
+        vm.Layout.AddDocument(new TerminalDocument(
             new TerminalTabViewModel(Substitute.For<ITerminalEmulator>()) { Profile = profile }
-        );
+        ));
 
         Assert.IsNull(vm.Sidebar.SessionTree?.SelectedNode);
     }

@@ -833,12 +833,14 @@ public sealed class ResourceMonitorWindowViewModel : ReactiveObject, IDisposable
         // 交换分区不进明细列表 —— 卡片底部已经有一条带进度条的固定区,重复一行是噪音。
         MemoryDetails = details;
 
-        Fill(TopMemoryProcesses, m.TopByMemory.Select(p => new ProcessRow(
+        Merge(TopMemoryProcesses, m.TopByMemory.Select(p => new ProcessRow(
             p.Pid, p.Command, p.CpuPercent.ToString("F1", CultureInfo.InvariantCulture) + "%",
             MetricFormat.Bytes(p.RssBytes),
             m.MemTotalBytes > 0 ? p.RssBytes * 100.0 / m.MemTotalBytes : 0,
             p.SharedBytes is { } shared ? MetricFormat.Bytes(shared) : NotAvailable,
-            p.SwapBytes is { } swap ? MetricFormat.Bytes(swap) : NotAvailable)));
+            p.SwapBytes is { } swap ? MetricFormat.Bytes(swap) : NotAvailable)),
+            static row => row.Pid,
+            static (row, incoming) => row.Update(incoming));
     }
 
     private void ApplyDisk(SessionMetrics m)
@@ -929,10 +931,12 @@ public sealed class ResourceMonitorWindowViewModel : ReactiveObject, IDisposable
             ];
         }
 
-        Fill(Partitions, m.Disks.Select(d => new PartitionRow(
+        Merge(Partitions, m.Disks.Select(d => new PartitionRow(
             d.MountPoint, d.Source,
             $"{MetricFormat.Bytes(d.UsedBytes)} / {MetricFormat.Bytes(d.TotalBytes)}",
-            d.Percent, d.FsType is { Length: > 0 } fs ? fs : NotAvailable)));
+            d.Percent, d.FsType is { Length: > 0 } fs ? fs : NotAvailable)),
+            static row => row.MountPoint,
+            static (row, incoming) => row.Update(incoming));
     }
 
     private void ApplyNetwork(SessionMetrics m)
@@ -1022,14 +1026,16 @@ public sealed class ResourceMonitorWindowViewModel : ReactiveObject, IDisposable
         // 而不是留一块没有任何解释的空白。
         if (m.ConnectionRates is { Count: > 0 } connections)
         {
-            Fill(TopConnections, connections
+            Merge(TopConnections, connections
                 .OrderByDescending(c => c.RxBytesPerSec + c.TxBytesPerSec)
                 .Take(8)
                 .Select(c => new ConnectionRow(
                     c.Peer,
                     c.Process.Length > 0 ? c.Process : NotAvailable,
                     MetricFormat.Rate(c.RxBytesPerSec),
-                    MetricFormat.Rate(c.TxBytesPerSec))));
+                    MetricFormat.Rate(c.TxBytesPerSec))),
+                static row => (row.Peer, row.Process),
+                static (row, incoming) => row.Update(incoming));
         }
         else if (m.HasConnectionProbe && m.Connections.Count == 0)
         {
@@ -1169,9 +1175,11 @@ public sealed class ResourceMonitorWindowViewModel : ReactiveObject, IDisposable
         }
         NavGpuSub = Strings.Format("Monitor_NavGpu", SelectedGpu.UtilPercent, Gpus.Count);
 
-        Fill(GpuProcesses, m.GpuProcesses.Select(p => new GpuProcessRow(
+        Merge(GpuProcesses, m.GpuProcesses.Select(p => new GpuProcessRow(
             p.GpuIndex >= 0 ? p.GpuIndex.ToString(CultureInfo.InvariantCulture) : "--",
-            p.Pid, p.Name, MetricFormat.Bytes(p.MemBytes))));
+            p.Pid, p.Name, MetricFormat.Bytes(p.MemBytes))),
+            static row => (row.GpuText, row.Pid),
+            static (row, incoming) => row.Update(incoming));
     }
 
     private void UpdateHeader(SessionMetrics? m = null)
@@ -1253,8 +1261,10 @@ public sealed class ResourceMonitorWindowViewModel : ReactiveObject, IDisposable
         }
         if (CoreViewMode == CoreView.List)
         {
-            Fill(CoreRows, Enumerable.Range(0, n).Select(i => new CoreRow(
-                _coreLabels[i], _corePercents[i], MetricFormat.Percent(_corePercents[i]))));
+            Merge(CoreRows, Enumerable.Range(0, n).Select(i => new CoreRow(
+                _coreLabels[i], _corePercents[i], MetricFormat.Percent(_corePercents[i]))),
+                    static row => row.Label,
+                    static (row, incoming) => row.Update(incoming));
         }
     }
 
@@ -1282,8 +1292,10 @@ public sealed class ResourceMonitorWindowViewModel : ReactiveObject, IDisposable
         RaiseCoreViewFlags();
         if (parsed == CoreView.List)
         {
-            Fill(CoreRows, Enumerable.Range(0, CorePercents.Count).Select(i => new CoreRow(
-                _coreLabels[i], _corePercents[i], MetricFormat.Percent(_corePercents[i]))));
+            Merge(CoreRows, Enumerable.Range(0, CorePercents.Count).Select(i => new CoreRow(
+                _coreLabels[i], _corePercents[i], MetricFormat.Percent(_corePercents[i]))),
+                    static row => row.Label,
+                    static (row, incoming) => row.Update(incoming));
         }
     }
 
@@ -1343,19 +1355,61 @@ public sealed class ResourceMonitorWindowViewModel : ReactiveObject, IDisposable
         return row;
     }
 
-    /// <summary>把只读快照铺进集合:逐项替换而不是清空重建,避免列表每秒闪一下。</summary>
-    private static void Fill<T>(ObservableCollection<T> target, IEnumerable<T> source)
+    /// <summary>
+    /// 把新采样并入集合:按 key 复用已有行,只更新属性;顺序不同就原地 Move,多出来的从尾部删。
+    /// </summary>
+    /// <remarks>
+    /// 取代原来那个「逐索引整项替换」的 <c>Fill</c>。整项替换看上去也不闪,但每换一个元素
+    /// <c>ItemsControl</c> 都会销毁并重新生成容器与模板:1 秒档下进程页每秒要重建上百个模板实例,
+    /// 空闲 CPU 明显,而且选中行每次刷新都被冲掉。同一个窗口里的
+    /// <see cref="ProcessManagerViewModel" />(:337 <c>Merge</c> / :373 <c>ApplyView</c>)早就是
+    /// 「同 key 复用 + 原地 Move」的写法,这里对齐它 —— <c>Move</c> 而不是删了再插,
+    /// 也是那边注释里写明的教训(选中项被冲掉)。
+    /// </remarks>
+    /// <typeparam name="TRow">行视图模型。</typeparam>
+    /// <typeparam name="TKey">行的身份键(PID / 挂载点 / 核号…)。</typeparam>
+    /// <param name="target">要更新的集合。</param>
+    /// <param name="source">本轮采样产出的行(新建的临时对象,只用来取值)。</param>
+    /// <param name="keyOf">从行取身份键。</param>
+    /// <param name="update">把新采样写进复用行。</param>
+    /// <summary>把 <see cref="Merge{TRow,TKey}" /> 暴露给行复用回归用例。</summary>
+    internal static void MergeForTest<TRow, TKey>(
+        ObservableCollection<TRow> target,
+        IEnumerable<TRow> source,
+        Func<TRow, TKey> keyOf,
+        Action<TRow, TRow> update)
+        where TRow : class
+        where TKey : notnull
+        => Merge(target, source, keyOf, update);
+
+    private static void Merge<TRow, TKey>(
+        ObservableCollection<TRow> target,
+        IEnumerable<TRow> source,
+        Func<TRow, TKey> keyOf,
+        Action<TRow, TRow> update)
+        where TRow : class
+        where TKey : notnull
     {
-        int index = 0;
-        foreach (T item in source)
+        Dictionary<TKey, TRow> byKey = new(target.Count);
+        foreach (TRow existing in target)
         {
-            if (index < target.Count)
+            byKey[keyOf(existing)] = existing;
+        }
+        int index = 0;
+        foreach (TRow incoming in source)
+        {
+            if (byKey.TryGetValue(keyOf(incoming), out TRow? row))
             {
-                target[index] = item;
+                update(row, incoming);
+                int at = target.IndexOf(row);
+                if (at != index)
+                {
+                    target.Move(at, index);
+                }
             }
             else
             {
-                target.Add(item);
+                target.Insert(index, incoming);
             }
             index++;
         }

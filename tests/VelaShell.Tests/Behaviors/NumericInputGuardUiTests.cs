@@ -301,6 +301,12 @@ public sealed class NumericInputGuardUiTests
         for (int section = 0; section <= 11; section++)
         {
             viewModel.SelectedSectionIndex = section;
+            // 页面是**按需创建**的(见 SettingsPageSelector):第一次切到某一页时,
+            // 控件树刚建出来,绑定还没把值推进去 —— 此刻读 NumericUpDown.Value 会读到 null。
+            // 真实使用中这一瞬发生在同一帧内、用户看不见,但测试是在帧之间读的,
+            // 所以要多跑一轮把绑定落定,否则"原值"取到的是 null。
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
             yield return section;

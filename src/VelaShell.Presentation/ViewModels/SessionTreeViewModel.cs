@@ -32,6 +32,7 @@ public sealed class SessionTreeViewModel : ReactiveObject
         Nodes.CollectionChanged += OnNodesChanged;
         _hasNoSessions = true;
         LoadCommand = ReactiveCommand.CreateFromTask(LoadTreeAsync);
+        ClearFilterCommand = ReactiveCommand.Create(() => { FilterText = string.Empty; });
         IObservable<bool> hasSelectedSession = this.WhenAnyValue(x => x.SelectedNode)
             .Select(node => node is { IsGroup: false });
         ConnectCommand = ReactiveCommand.Create(
@@ -177,12 +178,20 @@ public sealed class SessionTreeViewModel : ReactiveObject
     private void SyncRows()
     {
         var desired = new List<SessionTreeNodeViewModel>(Rows.Count);
-        foreach (SessionTreeNodeViewModel node in Nodes)
+        string query = FilterText.Trim();
+        if (query.Length > 0)
         {
-            desired.Add(node);
-            if (node.IsGroup && node.IsExpanded)
+            BuildFilteredRows(desired, query);
+        }
+        else
+        {
+            foreach (SessionTreeNodeViewModel node in Nodes)
             {
-                desired.AddRange(node.Children);
+                desired.Add(node);
+                if (node.IsGroup && node.IsExpanded)
+                {
+                    desired.AddRange(node.Children);
+                }
             }
         }
         var keep = new HashSet<SessionTreeNodeViewModel>(desired);
@@ -222,6 +231,128 @@ public sealed class SessionTreeViewModel : ReactiveObject
             : Nodes.FirstOrDefault(node => node.IsGroup && node.Children.Contains(selected));
     }
 
+    /// <summary>
+    /// 过滤态下的行:命中的会话,加上它们所属的分组行(分组名自身命中时整组展示)。
+    /// </summary>
+    /// <remarks>
+    /// 过滤做在 <see cref="SyncRows" /> 这一层而不是另建一个 <c>FilteredRows</c> 集合:
+    /// 拖放、选中、状态圆点全部绑在 <see cref="Rows" /> 上,换一个集合等于把这些都再接一遍。
+    /// </remarks>
+    private void BuildFilteredRows(List<SessionTreeNodeViewModel> desired, string query)
+    {
+        foreach (SessionTreeNodeViewModel node in Nodes)
+        {
+            if (!node.IsGroup)
+            {
+                if (Matches(node, query))
+                {
+                    desired.Add(node);
+                }
+                continue;
+            }
+            bool groupNameHit = Contains(node.Name, query);
+            List<SessionTreeNodeViewModel> hits = groupNameHit
+                ? [.. node.Children]
+                : [.. node.Children.Where(child => Matches(child, query))];
+            if (hits.Count == 0 && !groupNameHit)
+            {
+                continue;
+            }
+            desired.Add(node);
+            desired.AddRange(hits);
+        }
+    }
+
+    /// <summary>节点是否命中过滤词:名称 / 主机 / 用户名 / 标签任一包含即可。</summary>
+    private bool Matches(SessionTreeNodeViewModel node, string query)
+    {
+        if (Contains(node.Name, query))
+        {
+            return true;
+        }
+        if (!_sessionCache.TryGetValue(node.Id, out SessionProfile? session))
+        {
+            return false;
+        }
+        return Contains(session.Host, query)
+               || Contains(session.Username, query)
+               || session.Tags.Any(tag => Contains(tag, query));
+    }
+
+    private static bool Contains(string? text, string query) =>
+        text is { Length: > 0 } && text.Contains(query, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// 会话树的过滤词。非空时只显示命中的会话(及其所属分组),清空即恢复原样。
+    /// </summary>
+    /// <remarks>
+    /// 进入过滤态时先记下每个分组当前的展开状态,过滤期间把有命中的分组强制展开;
+    /// 清空时按记录逐一还原 —— 否则用户"搜一下再清空"就把自己精心折叠好的树全展开了。
+    /// <c>QuickCommandsViewModel</c> 的搜索是同一套做法。
+    /// </remarks>
+    public string FilterText
+    {
+        get;
+        set
+        {
+            string next = value ?? string.Empty;
+            if (field == next)
+            {
+                return;
+            }
+            bool wasFiltering = field.Trim().Length > 0;
+            bool isFiltering = next.Trim().Length > 0;
+            field = next;
+            this.RaisePropertyChanged();
+            this.RaisePropertyChanged(nameof(HasFilter));
+
+            if (!wasFiltering && isFiltering)
+            {
+                CaptureExpansion();
+            }
+            if (isFiltering)
+            {
+                // 命中的分组必须是展开态,否则箭头方向与实际展示的内容对不上。
+                foreach (SessionTreeNodeViewModel group in Nodes.Where(node => node.IsGroup))
+                {
+                    group.IsExpanded = true;
+                }
+            }
+            else if (wasFiltering)
+            {
+                RestoreExpansion();
+            }
+            SyncRows();
+        }
+    } = string.Empty;
+
+    /// <summary>当前是否处于过滤态(过滤框有内容)。</summary>
+    public bool HasFilter => FilterText.Trim().Length > 0;
+
+    /// <summary>进入过滤态之前各分组的展开状态,用于清空过滤后还原。</summary>
+    private readonly Dictionary<Guid, bool> _expansionBeforeFilter = [];
+
+    private void CaptureExpansion()
+    {
+        _expansionBeforeFilter.Clear();
+        foreach (SessionTreeNodeViewModel group in Nodes.Where(node => node.IsGroup))
+        {
+            _expansionBeforeFilter[group.Id] = group.IsExpanded;
+        }
+    }
+
+    private void RestoreExpansion()
+    {
+        foreach (SessionTreeNodeViewModel group in Nodes.Where(node => node.IsGroup))
+        {
+            if (_expansionBeforeFilter.TryGetValue(group.Id, out bool expanded))
+            {
+                group.IsExpanded = expanded;
+            }
+        }
+        _expansionBeforeFilter.Clear();
+    }
+
     /// <summary>是否当前没有任何会话,用于驱动空状态提示的显示。</summary>
     public bool HasNoSessions
     {
@@ -244,6 +375,9 @@ public sealed class SessionTreeViewModel : ReactiveObject
 
     /// <summary>从仓储加载并重建整棵会话树。</summary>
     public ReactiveCommand<RxVoid, RxVoid> LoadCommand { get; }
+
+    /// <summary>清空会话树过滤词的命令(过滤框右侧的 × 与 Esc 都走它)。</summary>
+    public ReactiveCommand<RxVoid, RxVoid> ClearFilterCommand { get; }
 
     /// <summary>连接选中的会话,触发 <see cref="ConnectRequested" />。</summary>
     public ReactiveCommand<RxVoid, RxVoid> ConnectCommand { get; }
@@ -615,28 +749,13 @@ public sealed class SessionTreeViewModel : ReactiveObject
         {
             return;
         }
-        var copy = new SessionProfile
-        {
-            ConnectionType = source.ConnectionType,
-            Name = Strings.Format("Svc_CopySuffix", source.Name),
-            Host = source.Host,
-            Port = source.Port,
-            Username = source.Username,
-            AuthMethod = source.AuthMethod,
-            Password = source.Password,
-            RememberPassword = source.RememberPassword,
-            PrivateKeyPath = source.PrivateKeyPath,
-            PrivateKeyPassphrase = source.PrivateKeyPassphrase,
-            GroupId = source.GroupId,
-            Tags = [.. source.Tags],
-            JumpHostProfileId = source.JumpHostProfileId,
-            PostAuthCommand = source.PostAuthCommand,
-            PostAuthCommandDelaySeconds = source.PostAuthCommandDelaySeconds,
-            Ftp = source.Ftp?.Clone(),
-            PluginProtocolId = source.PluginProtocolId,
-            PluginSettings = SessionProfile.CloneSettings(source.PluginSettings),
-            PluginSecrets = SessionProfile.CloneSettings(source.PluginSecrets),
-        };
+        SessionProfile copy = source.Clone();
+        // 副本是一条新配置:换个 id、改个名字,其余原样。原先这里逐字段手写,
+        // 每加一个字段就得记得回来补一行 —— 漏了的表现是"复制之后某个设置莫名丢了"。
+        copy.Id = Guid.NewGuid();
+        copy.Name = Strings.Format("Svc_CopySuffix", source.Name);
+        // 复制出来的是一条从未连过的配置,"上次连接时间"不该跟着抄过来。
+        copy.LastConnectedAt = null;
         await _repository.SaveSessionAsync(copy);
         await LoadTreeAsync();
     }

@@ -8,7 +8,11 @@ namespace VelaShell.Infrastructure.Tests.Plugins;
 /// 隔离模式真实端到端:PluginManager 拉起真实的 VelaShell.PluginHost 子进程,
 /// 经命名管道握手、跨进程激活夹具插件、停用后进程回收。
 /// </summary>
+// 这一族用例会真的拉起、杀掉、回收 VelaShell.PluginHost **子进程**,并按墙钟时间等状态收敛。
+// 与别的类并行跑时,几套子进程互相抢 CPU,等待窗口被拖长到超时 —— 表现就是
+// "单跑 2 秒就过,全量跑 31 秒还挂",而且挂的是哪一条只取决于调度顺序。串行执行本类即可根治。
 [TestClass]
+[DoNotParallelize]
 [TestCategory("Plugins")]
 public class IsolatedPluginTests
 {

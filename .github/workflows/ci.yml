@@ -1,0 +1,80 @@
+# PR / 推送门禁:构建 + 全量测试。发布流水线(release.yml)只在 publish Release 时跑,
+# 在此之前没有任何自动检查 —— 包括 Dependabot 开的依赖升级 PR,合进来之前没人跑过一次测试。
+#
+# 几处刻意的选择,改之前先读:
+#   * 用 **Debug**:强名签名只在 Release 打开(src/Directory.Build.props),Debug 不需要
+#     VelaShell.snk。fork 与 Dependabot 的 PR 拿不到仓库 secret,用 Release 会直接构建失败。
+#   * 排除 DockerIntegration / CrossPlatform:前者要 Docker 守护进程,后者要
+#     VELASHELL_PUBLISH_TESTS=1。两者在没有环境时都按早退处理并记为通过,在 CI 上跑纯属浪费。
+#   * 矩阵带上 ubuntu:本进程内的 UI 测试走 Avalonia.Headless 不需要显示服务器,顺带把
+#     #if LINUX 的 UseWayland 分支也编译到 —— 那段代码在 Windows 上永远编译不到,回归了
+#     也看不见。唯一例外是隔离插件拉起的 PluginHost 子进程(见下方 matrix 的 launcher)。
+#   * -warnaserror:当前基线就是 0 警告,守住它。
+#   * **不加** dotnet format --verify-no-changes:CRLF 工作树与 end_of_line = lf 的
+#     .editorconfig 会产生十几万条 ENDOFLINE 噪音,先把换行统一了再加这一步。
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+
+# 同一分支上新推送会取消上一次还在跑的检查:PR 连推几次时不必把 runner 全占满。
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: 构建与测试 (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # 一个平台挂掉不影响另一个继续跑完 —— 平台相关的回归要能一次看全。
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            launcher: ""
+          # 隔离插件测试要拉起真正的 PluginHost 子进程,那是个 Avalonia.Desktop 程序:
+          # Linux 上 UsePlatformDetect 落到 X11,没有显示服务器就 XOpenDisplay failed
+          # 直接 abort(退出码 134),插件连管道都来不及连。本进程内的 UI 测试走
+          # Avalonia.Headless 不受影响,子进程不吃这套 —— 给它一块虚拟屏。
+          - os: ubuntu-latest
+            launcher: "xvfb-run -a"
+    steps:
+      - uses: actions/checkout@v7
+
+      # runner 镜像通常已带这些,列全是为了镜像换代时不至于悄悄少一个 —— 已装的 apt 直接跳过。
+      - name: 安装虚拟显示 (Linux)
+        if: runner.os == 'Linux'
+        run: >
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends
+          xvfb libx11-6 libice6 libsm6 libfontconfig1
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: 构建
+        run: dotnet build VelaShell.slnx -c Debug --nologo -warnaserror
+
+      - name: 测试
+        run: >
+          ${{ matrix.launcher }}
+          dotnet test VelaShell.slnx -c Debug --no-build --nologo
+          --filter "TestCategory!=DockerIntegration&TestCategory!=CrossPlatform"
+          --logger "trx;LogFilePrefix=ci"
+          --results-directory artifacts/trx
+
+      # 失败也要传:-v 默认不打印失败用例名,trx 是唯一能定位到具体是哪一条的东西。
+      # 偶发失败(见 plan-claude.md Q-06)就靠攒这些 trx 才有得查。
+      - name: 上传测试结果
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: trx-${{ matrix.os }}
+          path: artifacts/trx/*.trx
+          if-no-files-found: warn

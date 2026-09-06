@@ -65,6 +65,14 @@ public sealed class TerminalModes
     /// </summary>
     public bool SendReceive = true; // SRM (12)
 
+    /// <summary>
+    /// 备用屏滚轮转方向键(xterm 的 alternateScroll 资源 / DECSET ?1007)。
+    /// 置位时,在备用屏且未开启鼠标追踪的情况下,滚轮转成光标上下键发给应用 ——
+    /// 这样 less / man / 未开 mouse 的 vim 里滚轮才有反应(否则备用屏没有回滚区,滚轮什么都不做)。
+    /// 与 xterm / Windows Terminal / iTerm2 一致,默认开启;应用可用 <c>CSI ?1007 l</c> 关掉。
+    /// </summary>
+    public bool AlternateScroll = true; // xterm ?1007
+
     /// <summary>将所有模式恢复为终端复位后的默认状态。</summary>
     public void Reset()
     {
@@ -82,6 +90,7 @@ public sealed class TerminalModes
         InsertMode = false;
         NewLineMode = false;
         SendReceive = true;
+        AlternateScroll = true;
     }
 }
 

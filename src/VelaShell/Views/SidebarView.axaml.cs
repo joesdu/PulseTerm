@@ -6,6 +6,7 @@ using ReactiveUI.Primitives;
 using VelaShell.Core.Models;
 using VelaShell.Core.Resources;
 using VelaShell.Presentation.ViewModels;
+using FireAndForget = VelaShell.Services.FireAndForget;
 
 namespace VelaShell.Views;
 
@@ -17,6 +18,14 @@ public partial class SidebarView : UserControl
     private const double MaximumRememberedHeight = 1200;
     private SidebarViewModel? _viewModel;
     private SessionTreeViewModel? _sessionTree;
+
+    /// <summary>把键盘焦点送到会话过滤框并全选其内容(Ctrl+Shift+E)。</summary>
+    /// <remarks>全选是为了"再按一次就能重新输入",而不是接在旧词后面。</remarks>
+    public void FocusTreeFilter()
+    {
+        TreeFilterBox.Focus();
+        TreeFilterBox.SelectAll();
+    }
 
     /// <summary>创建侧边栏视图并加载其可视组件。</summary>
     public SidebarView()
@@ -155,8 +164,9 @@ public partial class SidebarView : UserControl
     private void ApplyQuickCommandsVisibility()
     {
         bool visible = _viewModel is { IsQuickCommandsVisible: true, QuickCommands: not null };
-        RowDefinition splitterRow = SessionAndQuickGrid.RowDefinitions[1];
-        RowDefinition quickCommandsRow = SessionAndQuickGrid.RowDefinitions[2];
+        // 行索引 +1:第 0 行现在是会话过滤框(见 SidebarView.axaml)。
+        RowDefinition splitterRow = SessionAndQuickGrid.RowDefinitions[2];
+        RowDefinition quickCommandsRow = SessionAndQuickGrid.RowDefinitions[3];
         if (
             !visible
             && QuickCommandsSection.IsVisible
@@ -252,7 +262,7 @@ public partial class SidebarView : UserControl
         {
             return;
         }
-        double height = SessionAndQuickGrid.RowDefinitions[2].ActualHeight;
+        double height = SessionAndQuickGrid.RowDefinitions[3].ActualHeight;
         if (height > CollapsedHeight)
         {
             _viewModel.QuickCommandsHeight = NormalizeHeight(height, SessionAndQuickGrid, 160);
@@ -296,7 +306,7 @@ public partial class SidebarView : UserControl
     /// 清除最近连接是破坏性操作(整段连接历史不可恢复):先确认再执行
     /// (设置审计 §12 破坏性操作需确认,与常规设置页的“清除历史记录”同一处置)。
     /// </summary>
-    private async void ClearRecentConnections_Click(object? sender, RoutedEventArgs e)
+    private void ClearRecentConnections_Click(object? sender, RoutedEventArgs e) => FireAndForget.Run(async () =>
     {
         if (_viewModel is null || TopLevel.GetTopLevel(this) is not Window owner)
         {
@@ -310,5 +320,5 @@ public partial class SidebarView : UserControl
         {
             _viewModel.RecentConnections.ClearCommand.Execute().Subscribe();
         }
-    }
+});
 }

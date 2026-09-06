@@ -149,6 +149,35 @@ internal static class ThemeTokenApplier
             ["VelaWarningForeground"] = OnSolid(warning, accentForeground),
             ["VelaSuccessForeground"] = OnSolid(success, accentForeground),
 
+            // 关闭按钮悬停时的红底(标题栏、各工具窗口右上角)。原先六处都硬写着
+            // Windows 的 #E81123,在 Sakura / GitHub Light 这类主题上是一块外来色。
+            ["VelaDangerHover"] = WithAlpha(error, 0xE6),
+            // 错误态的浅底面板(重连提示条一类):同色相压到很淡,不抢正文。
+            ["VelaErrorSurface"] = WithAlpha(error, 0x26),
+
+            // ——— 会话树拖放高亮 ———
+            // 拖到分组上 = 并入(黄),拖到分组外 = 移出(红)。都要很淡:它铺在整行底下。
+            ["VelaDropTargetGroup"] = WithAlpha(yellow, 0x20),
+            ["VelaDropTargetRemove"] = WithAlpha(error, 0x20),
+
+            // ——— 会话强调色板(标签强调条 / 会话徽标) ———
+            // 原先是 ConnectionAccent 里写死的 8 个 Dracula 色值,亮色主题下整体失配。
+            // 改为从当前主题的种子色派生:每个色都已经过 UiThemeCatalogTests 的对比度尺子。
+            ["VelaAccentPalette0"] = info,
+            ["VelaAccentPalette1"] = success,
+            ["VelaAccentPalette2"] = warning,
+            ["VelaAccentPalette3"] = magenta,
+            ["VelaAccentPalette4"] = accent,
+            ["VelaAccentPalette5"] = yellow,
+            ["VelaAccentPalette6"] = error,
+            ["VelaAccentPalette7"] = Blend(info, accent, 0.5),
+
+            // ——— 同步输入通道徽章(A/B/C/D 四个广播组) ———
+            ["VelaSyncChannelA"] = magenta,
+            ["VelaSyncChannelB"] = info,
+            ["VelaSyncChannelC"] = warning,
+            ["VelaSyncChannelD"] = success,
+
             // ——— 遮罩 ———
             // 两档:轻(点空白处即关的浮层)与重(模态抽屉/对话框)。
             ["VelaScrim"] = WithAlpha(scrim, 0x99),

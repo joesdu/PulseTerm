@@ -484,6 +484,12 @@
   <data name="Editor_DiscardAndClose" xml:space="preserve">
     <value>버리고 닫기</value>
   </data>
+  <data name="Editor_LoadedStatusFallback" xml:space="preserve">
+    <value>{0} 바이트를 불러왔습니다 —— 올바른 UTF-8 이 아니라 {1} 로 해석했습니다</value>
+  </data>
+  <data name="Editor_TooLarge" xml:space="preserve">
+    <value>파일이 {0} MB 로, 내장 편집기 한도({1} MB)를 넘습니다. 외부 편집기를 사용하세요.</value>
+  </data>
   <data name="Editor_LoadedStatus" xml:space="preserve">
     <value>UTF 텍스트 · {0} B · 준비됨</value>
   </data>
@@ -1025,6 +1031,15 @@
   <data name="Msg_AuthFailed" xml:space="preserve">
     <value>인증 실패: {0}의 사용자 이름, 비밀번호 또는 키가 올바르지 않습니다.</value>
   </data>
+  <data name="Msg_AuthFailedTwoFactorHint" xml:space="preserve">
+    <value>이 호스트가 2단계 인증(keyboard-interactive / OTP)을 요구하는 경우 이 버전으로는 연결할 수 없습니다: 기반 SSH 라이브러리가 해당 방식을 구현하지 않습니다.</value>
+  </data>
+  <data name="Toast_ReconnectNow" xml:space="preserve">
+    <value>지금 다시 연결</value>
+  </data>
+  <data name="Toast_Dismiss" xml:space="preserve">
+    <value>닫기</value>
+  </data>
   <data name="Msg_AuthPromptCancelled" xml:space="preserve">
     <value>이 프로필에 저장된 자격 증명이 없어 로그인 인증이 취소되었습니다.</value>
   </data>
@@ -1454,6 +1469,18 @@
   <data name="Profile_GroupPlaceholder" xml:space="preserve">
     <value>그룹 선택 또는 새 그룹 이름 입력</value>
   </data>
+  <data name="Profile_ErrHostRequired" xml:space="preserve">
+    <value>호스트를 입력하세요</value>
+  </data>
+  <data name="Profile_ErrPortRange" xml:space="preserve">
+    <value>포트는 1~65535 범위여야 합니다</value>
+  </data>
+  <data name="Profile_ErrUserRequired" xml:space="preserve">
+    <value>사용자 이름을 입력하세요</value>
+  </data>
+  <data name="Profile_ErrKeyMissing" xml:space="preserve">
+    <value>개인 키 파일을 찾을 수 없습니다</value>
+  </data>
   <data name="Profile_HostIp" xml:space="preserve">
     <value>호스트 이름 / IP</value>
   </data>
@@ -1480,6 +1507,42 @@
   </data>
   <data name="Profile_PostAuthCommandHint" xml:space="preserve">
     <value>// 이 세션에만 적용되며 재연결 시에도 실행됩니다. 모든 터미널에 적용되는 항목은 설정 → 터미널 → 세션에 있습니다</value>
+  </data>
+  <data name="Profile_FollowGlobal" xml:space="preserve">
+    <value>전역 설정 따름</value>
+  </data>
+  <data name="Profile_SessionOverrides" xml:space="preserve">
+    <value>세션별 터미널 재정의</value>
+  </data>
+  <data name="Profile_SessionOverridesHint" xml:space="preserve">
+    <value>"전역 설정 따름"으로 둔 항목은 설정 페이지 값을 사용합니다. 한 호스트는 GBK, 다른 호스트는 UTF-8인 경우나 운영 탭은 빨강·검증 탭은 초록으로 하고 싶을 때 유용합니다.</value>
+  </data>
+  <data name="Profile_OverrideEncoding" xml:space="preserve">
+    <value>인코딩</value>
+  </data>
+  <data name="Profile_OverrideTerminalType" xml:space="preserve">
+    <value>터미널 유형</value>
+  </data>
+  <data name="Profile_OverrideColorScheme" xml:space="preserve">
+    <value>색 구성표</value>
+  </data>
+  <data name="Profile_OverrideTabColor" xml:space="preserve">
+    <value>탭 색상</value>
+  </data>
+  <data name="Profile_OverrideTabColorPlaceholder" xml:space="preserve">
+    <value>#E05252 — 비워 두면 자동 배색</value>
+  </data>
+  <data name="Profile_OverrideStartupDirectory" xml:space="preserve">
+    <value>시작 디렉터리</value>
+  </data>
+  <data name="Profile_OverrideStartupDirectoryPlaceholder" xml:space="preserve">
+    <value>/var/log — 비워 두면 로그인 디렉터리 유지</value>
+  </data>
+  <data name="Profile_OverrideKeepAlive" xml:space="preserve">
+    <value>연결 유지(초)</value>
+  </data>
+  <data name="Profile_OverrideKeepAliveHint" xml:space="preserve">
+    <value>-1 = 전역 설정 따름, 0 = 사용 안 함.</value>
   </data>
   <data name="Profile_PostAuthCommandPlaceholder" xml:space="preserve">
     <value>예: sudo su - / tmux attach</value>
@@ -1895,6 +1958,30 @@
   </data>
   <data name="SetGeneral_ClearHistoryDesc" xml:space="preserve">
     <value>// 명령 기록과 최근 연결 기록 지우기</value>
+  </data>
+  <data name="SetGeneral_StatusMetricsInterval" xml:space="preserve">
+    <value>상태 표시줄 지표 수집 간격(초)</value>
+  </data>
+  <data name="SetGeneral_StatusMetricsIntervalDesc" xml:space="preserve">
+    <value>수집할 때마다 원격에서 SSH 채널을 새로 열어 명령을 실행합니다. 값이 작을수록 서버 부담이 커집니다. 창이 비활성이면 10초로 늦추고, 최소화하면 중단합니다.</value>
+  </data>
+  <data name="SetGeneral_ConfirmCloseTab" xml:space="preserve">
+    <value>연결된 탭을 닫기 전에 확인</value>
+  </data>
+  <data name="SetGeneral_ConfirmCloseTabDesc" xml:space="preserve">
+    <value>세션이 아직 연결된 탭을 닫을 때 확인합니다. 끊긴 탭은 묻지 않고 닫습니다.</value>
+  </data>
+  <data name="Main_CloseTabConfirmTitle" xml:space="preserve">
+    <value>이 세션을 닫을까요?</value>
+  </data>
+  <data name="Main_CloseTabConfirmBody" xml:space="preserve">
+    <value>{0} 은(는) 아직 연결되어 있습니다. 탭을 닫으면 연결이 끊깁니다.</value>
+  </data>
+  <data name="Main_CloseTabConfirmMany" xml:space="preserve">
+    <value>{0} 개 세션이 아직 연결되어 있습니다. 닫으면 모두 끊깁니다.</value>
+  </data>
+  <data name="Main_CloseTabConfirmAction" xml:space="preserve">
+    <value>닫기</value>
   </data>
   <data name="SetGeneral_ConfirmBeforeClose" xml:space="preserve">
     <value>종료 전 확인</value>
@@ -2400,6 +2487,12 @@
   <data name="SetTerm_ScrollbackDesc" xml:space="preserve">
     <value>// 스크롤백에 보관할 최대 줄 수</value>
   </data>
+  <data name="SetTerm_AlternateScroll" xml:space="preserve">
+    <value>대체 화면에서 휠을 방향키로 변환</value>
+  </data>
+  <data name="SetTerm_AlternateScrollDesc" xml:space="preserve">
+    <value>vim / less / man 같은 전체 화면 프로그램의 대체 화면에는 스크롤백이 없어 휠이 아무 동작도 하지 않습니다. 켜면 커서 위/아래 키로 전송합니다. 애플리케이션은 CSI ?1007 l 로 끌 수 있습니다.</value>
+  </data>
   <data name="SetTerm_ScrollOnKeystroke" xml:space="preserve">
     <value>키 입력 시 맨 아래로 스크롤</value>
   </data>
@@ -2667,6 +2760,18 @@
   <data name="Sc_NewTabAlias" xml:space="preserve">
     <value>새 탭(새 연결과 동일)</value>
   </data>
+  <data name="Cmd_GotoTabN" xml:space="preserve">
+    <value>N번째 탭으로</value>
+  </data>
+  <data name="Sc_FocusPane" xml:space="preserve">
+    <value>창 사이로 포커스 이동</value>
+  </data>
+  <data name="Sc_NoteSplitOnly" xml:space="preserve">
+    <value>분할했을 때만 동작하며, 그렇지 않으면 키가 원격으로 전달됩니다</value>
+  </data>
+  <data name="Sc_NoteZoomOutTakesUnitSeparator" xml:space="preserve">
+    <value>^_ 를 가로챕니다. 보내려면 Ctrl+Shift+- 를 사용하세요</value>
+  </data>
   <data name="Sc_NextTab" xml:space="preserve">
     <value>다음 탭</value>
   </data>
@@ -2760,6 +2865,15 @@ Windows는 exe 전체 경로 또는 명령 이름(예: notepad), Linux는 명령
   <data name="Sidebar_RefreshRecent" xml:space="preserve">
     <value>최근 연결 새로 고침</value>
   </data>
+  <data name="Sidebar_FilterSessions" xml:space="preserve">
+    <value>세션 필터</value>
+  </data>
+  <data name="Sidebar_ClearFilter" xml:space="preserve">
+    <value>필터 지우기</value>
+  </data>
+  <data name="Cmd_FilterSessions" xml:space="preserve">
+    <value>세션 필터</value>
+  </data>
   <data name="Sidebar_ToggleSection" xml:space="preserve">
     <value>이 영역 접기 또는 펼치기</value>
   </data>
@@ -2768,6 +2882,12 @@ Windows는 exe 전체 경로 또는 명령 이름(예: notepad), Linux는 명령
   </data>
   <data name="Split" xml:space="preserve">
     <value>분할</value>
+  </data>
+  <data name="Status_Selected" xml:space="preserve">
+    <value>{0}자 선택됨</value>
+  </data>
+  <data name="Status_ChangeEncoding" xml:space="preserve">
+    <value>이 세션의 인코딩 변경</value>
   </data>
   <data name="StatusBar_OpenMonitor" xml:space="preserve">
     <value>리소스 모니터 열기</value>
@@ -3318,6 +3438,54 @@ Windows는 exe 전체 경로 또는 명령 이름(예: notepad), Linux는 명령
   </data>
   <data name="Notify_UpdateAction" xml:space="preserve">
     <value>정보 페이지로 이동</value>
+  </data>
+  <data name="Cmd_OpenLogs" xml:space="preserve">
+    <value>로그 폴더 열기</value>
+  </data>
+  <data name="SetAbout_OpenLogs" xml:space="preserve">
+    <value>로그 폴더 열기</value>
+  </data>
+  <data name="Notify_CrashTitle" xml:space="preserve">
+    <value>지난번에 예기치 않게 종료됨</value>
+  </data>
+  <data name="Notify_CrashBody" xml:space="preserve">
+    <value>충돌 보고서를 {0} 에 기록했습니다. 로그 폴더를 열어 확인하거나 버그 리포트에 첨부하세요.</value>
+  </data>
+  <data name="Notify_CrashAction" xml:space="preserve">
+    <value>로그 폴더 열기</value>
+  </data>
+  <data name="Notify_KindSystem" xml:space="preserve">
+    <value>시스템</value>
+  </data>
+  <data name="Cmd_GotoTab" xml:space="preserve">
+    <value>{0}번째 탭으로</value>
+  </data>
+  <data name="Cmd_GotoLastTab" xml:space="preserve">
+    <value>마지막 탭으로</value>
+  </data>
+  <data name="Cmd_ZoomIn" xml:space="preserve">
+    <value>글자 확대</value>
+  </data>
+  <data name="Cmd_ZoomOut" xml:space="preserve">
+    <value>글자 축소</value>
+  </data>
+  <data name="Cmd_ZoomReset" xml:space="preserve">
+    <value>글자 크기 초기화</value>
+  </data>
+  <data name="Cmd_CloseAllTabs" xml:space="preserve">
+    <value>모든 탭 닫기</value>
+  </data>
+  <data name="Cmd_FocusPaneLeft" xml:space="preserve">
+    <value>왼쪽 창으로</value>
+  </data>
+  <data name="Cmd_FocusPaneRight" xml:space="preserve">
+    <value>오른쪽 창으로</value>
+  </data>
+  <data name="Cmd_FocusPaneUp" xml:space="preserve">
+    <value>위쪽 창으로</value>
+  </data>
+  <data name="Cmd_FocusPaneDown" xml:space="preserve">
+    <value>아래쪽 창으로</value>
   </data>
   <data name="Cmd_OpenAbout" xml:space="preserve">
     <value>정보 페이지 열기</value>

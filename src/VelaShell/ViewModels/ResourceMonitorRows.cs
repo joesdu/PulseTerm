@@ -99,12 +99,73 @@ public static class MetricFormat
 /// <param name="Percent">用于排序/着色的主指标百分比。</param>
 /// <param name="SharedText">共享驻留内存文本;探不到为占位符。</param>
 /// <param name="SwapText">已换出内存文本;探不到为占位符。</param>
-public sealed record ProcessRow(
+public sealed class ProcessRow(
     int Pid, string Command, string CpuText, string MemoryText, double Percent,
-    string SharedText = "--", string SwapText = "--")
+    string SharedText = "--", string SwapText = "--") : ReactiveObject
 {
+    /// <summary>进程号,同时是行复用的 key。</summary>
+    public int Pid { get; } = Pid;
+
+    /// <summary>命令行文本。</summary>
+    public string Command
+    {
+        get;
+        set => this.RaiseAndSetIfChanged(ref field, value);
+    } = Command;
+
+    /// <summary>CPU 占用文本。</summary>
+    public string CpuText
+    {
+        get;
+        set => this.RaiseAndSetIfChanged(ref field, value);
+    } = CpuText;
+
+    /// <summary>内存占用文本。</summary>
+    public string MemoryText
+    {
+        get;
+        set => this.RaiseAndSetIfChanged(ref field, value);
+    } = MemoryText;
+
+    /// <summary>占物理内存总量的比例(0-100)。</summary>
+    public double Percent
+    {
+        get;
+        set
+        {
+            this.RaiseAndSetIfChanged(ref field, value);
+            this.RaisePropertyChanged(nameof(PercentText));
+        }
+    } = Percent;
+
+    /// <summary>共享驻留内存文本;探不到为占位符。</summary>
+    public string SharedText
+    {
+        get;
+        set => this.RaiseAndSetIfChanged(ref field, value);
+    } = SharedText;
+
+    /// <summary>已换出内存文本;探不到为占位符。</summary>
+    public string SwapText
+    {
+        get;
+        set => this.RaiseAndSetIfChanged(ref field, value);
+    } = SwapText;
+
     /// <summary>该进程占物理内存总量的比例文本。</summary>
     public string PercentText => MetricFormat.Percent(Percent);
+
+    /// <summary>把同一 PID 的新采样就地写进本行(不新建对象,容器与选中态得以保留)。</summary>
+    public void Update(ProcessRow source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        Command = source.Command;
+        CpuText = source.CpuText;
+        MemoryText = source.MemoryText;
+        Percent = source.Percent;
+        SharedText = source.SharedText;
+        SwapText = source.SwapText;
+    }
 }
 
 /// <summary>分区(挂载点)表中的一行。</summary>
@@ -113,8 +174,46 @@ public sealed record ProcessRow(
 /// <param name="UsedText">已用 / 总量文本。</param>
 /// <param name="Percent">使用率(0-100)。</param>
 /// <param name="FsType">文件系统类型;df 不给这一列时为空串。</param>
-public sealed record PartitionRow(string MountPoint, string Source, string UsedText, double Percent, string FsType = "")
+public sealed class PartitionRow(string MountPoint, string Source, string UsedText, double Percent, string FsType = "")
+    : ReactiveObject
 {
+    /// <summary>挂载点,同时是行复用的 key。</summary>
+    public string MountPoint { get; } = MountPoint;
+
+    /// <summary>设备来源。</summary>
+    public string Source
+    {
+        get;
+        set => this.RaiseAndSetIfChanged(ref field, value);
+    } = Source;
+
+    /// <summary>已用 / 总量文本。</summary>
+    public string UsedText
+    {
+        get;
+        set => this.RaiseAndSetIfChanged(ref field, value);
+    } = UsedText;
+
+    /// <summary>使用率(0-100)。</summary>
+    public double Percent
+    {
+        get;
+        set
+        {
+            this.RaiseAndSetIfChanged(ref field, value);
+            this.RaisePropertyChanged(nameof(PercentText));
+            this.RaisePropertyChanged(nameof(IsWarn));
+            this.RaisePropertyChanged(nameof(IsCrit));
+        }
+    } = Percent;
+
+    /// <summary>文件系统类型;df 不给这一列时为空串。</summary>
+    public string FsType
+    {
+        get;
+        set => this.RaiseAndSetIfChanged(ref field, value);
+    } = FsType;
+
     /// <summary>使用率文本。</summary>
     public string PercentText => MetricFormat.Percent(Percent);
 
@@ -123,6 +222,16 @@ public sealed record PartitionRow(string MountPoint, string Source, string UsedT
 
     /// <inheritdoc cref="IsWarn" />
     public bool IsCrit => Percent > MeterThresholds.Crit;
+
+    /// <summary>把同一挂载点的新采样就地写进本行。</summary>
+    public void Update(PartitionRow source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        Source = source.Source;
+        UsedText = source.UsedText;
+        Percent = source.Percent;
+        FsType = source.FsType;
+    }
 }
 
 /// <summary>占用条转色的阈值(规范 §11),与 <c>MeterBar</c> 的默认值保持同一口径。</summary>
@@ -140,7 +249,36 @@ internal static class MeterThresholds
 /// <param name="Pid">进程号。</param>
 /// <param name="Name">进程名。</param>
 /// <param name="MemoryText">显存占用文本。</param>
-public sealed record GpuProcessRow(string GpuText, int Pid, string Name, string MemoryText);
+public sealed class GpuProcessRow(string GpuText, int Pid, string Name, string MemoryText) : ReactiveObject
+{
+    /// <summary>所属 GPU 文本;与 <see cref="Pid" /> 一起构成行复用的 key。</summary>
+    public string GpuText { get; } = GpuText;
+
+    /// <summary>进程号。</summary>
+    public int Pid { get; } = Pid;
+
+    /// <summary>进程名。</summary>
+    public string Name
+    {
+        get;
+        set => this.RaiseAndSetIfChanged(ref field, value);
+    } = Name;
+
+    /// <summary>显存占用文本。</summary>
+    public string MemoryText
+    {
+        get;
+        set => this.RaiseAndSetIfChanged(ref field, value);
+    } = MemoryText;
+
+    /// <summary>把同一 (GPU, PID) 的新采样就地写进本行。</summary>
+    public void Update(GpuProcessRow source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        Name = source.Name;
+        MemoryText = source.MemoryText;
+    }
+}
 
 /// <summary>一张 GPU 的卡片行:每张卡自带利用率与显存的历史曲线。</summary>
 public sealed class GpuCardRow(int index, string name) : ReactiveObject
@@ -435,13 +573,68 @@ public sealed class NicRow(string name) : ReactiveObject
 /// <param name="Process">进程名;非 root 时多数连接取不到,显示占位符。</param>
 /// <param name="RxText">下行速率文本。</param>
 /// <param name="TxText">上行速率文本。</param>
-public sealed record ConnectionRow(string Peer, string Process, string RxText, string TxText);
+public sealed class ConnectionRow(string Peer, string Process, string RxText, string TxText) : ReactiveObject
+{
+    /// <summary>对端地址;与 <see cref="Process" /> 一起构成行复用的 key。</summary>
+    public string Peer { get; } = Peer;
+
+    /// <summary>进程名;非 root 时多数连接取不到,显示占位符。</summary>
+    public string Process { get; } = Process;
+
+    /// <summary>下行速率文本。</summary>
+    public string RxText
+    {
+        get;
+        set => this.RaiseAndSetIfChanged(ref field, value);
+    } = RxText;
+
+    /// <summary>上行速率文本。</summary>
+    public string TxText
+    {
+        get;
+        set => this.RaiseAndSetIfChanged(ref field, value);
+    } = TxText;
+
+    /// <summary>把同一 (对端, 进程) 的新采样就地写进本行。</summary>
+    public void Update(ConnectionRow source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        RxText = source.RxText;
+        TxText = source.TxText;
+    }
+}
 
 /// <summary>逻辑处理器列表视图中的一行。</summary>
 /// <param name="Label">核心标签(如 CPU12)。</param>
 /// <param name="Percent">当前占用率(0-100),驱动占用条与阈值着色。</param>
 /// <param name="PercentText">占用率文本。</param>
-public sealed record CoreRow(string Label, double Percent, string PercentText);
+public sealed class CoreRow(string Label, double Percent, string PercentText) : ReactiveObject
+{
+    /// <summary>核心标签(如 CPU12),同时是行复用的 key。</summary>
+    public string Label { get; } = Label;
+
+    /// <summary>当前占用率(0-100),驱动占用条与阈值着色。</summary>
+    public double Percent
+    {
+        get;
+        set => this.RaiseAndSetIfChanged(ref field, value);
+    } = Percent;
+
+    /// <summary>占用率文本。</summary>
+    public string PercentText
+    {
+        get;
+        set => this.RaiseAndSetIfChanged(ref field, value);
+    } = PercentText;
+
+    /// <summary>把同一核心的新采样就地写进本行。</summary>
+    public void Update(CoreRow source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        Percent = source.Percent;
+        PercentText = source.PercentText;
+    }
+}
 
 /// <summary>“键 — 值” 明细行(CPU / GPU / 网卡详情等处复用)。</summary>
 /// <param name="Key">左侧标签。</param>

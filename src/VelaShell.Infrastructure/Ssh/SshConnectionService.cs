@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using VelaShell.Core.Models;
 using VelaShell.Core.Ssh;
@@ -92,17 +93,25 @@ public class SshConnectionService(
         }
         if (_clients.TryRemove(sessionId, out ISshClientWrapper? client))
         {
+            // Disconnect/Dispose 为同步 socket 关闭,通道已断开时可能抛出清理噪声。
+            // 吞掉是对的(要断的东西已经断了),但**必须留痕**:这里正是排查
+            // "会话关不干净、句柄泄漏" 时唯一能看到的地方。
             try
             {
-                // Disconnect/Dispose 为同步 socket 关闭,通道已断开时可能抛出清理噪声。
                 client.Disconnect();
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Trace.WriteLine($"[SshConnectionService] 会话 {sessionId} 断开时报错(忽略):{ex.Message}");
+            }
             try
             {
                 client.Dispose();
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Trace.WriteLine($"[SshConnectionService] 会话 {sessionId} 释放时报错(忽略):{ex.Message}");
+            }
         }
         session.Status = SessionStatus.Disconnected;
         if (logger is not null && logger.IsEnabled(LogLevel.Information))

@@ -1,13 +1,14 @@
 using System.Collections.ObjectModel;
 using ReactiveUI;
 using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Concurrency;
 using VelaShell.Core.Models;
 using VelaShell.Core.Resources;
 
 namespace VelaShell.ViewModels;
 
 /// <summary>SFTP 双栏文档本地侧的领域视图模型。</summary>
-public sealed class LocalFilePaneViewModel : ReactiveObject
+public sealed class LocalFilePaneViewModel : ReactiveObject, IDisposable
 {
     private readonly TransferOptions _transferOptions;
     private readonly ILocalFileSystem _fileSystem;
@@ -310,6 +311,7 @@ public sealed class LocalFilePaneViewModel : ReactiveObject
             {
                 RestoreSelection(selected);
             }
+            RearmWatcher(canonical);
         }
         catch (OperationCanceledException)
         {
@@ -336,6 +338,77 @@ public sealed class LocalFilePaneViewModel : ReactiveObject
         string.IsNullOrEmpty(CurrentPath)
             ? LoadInitialAsync(cancellationToken)
             : NavigateToAsync(CurrentPath, cancellationToken);
+
+    // ---- 目录变化自动刷新 ----
+
+    /// <summary>当前目录的监视句柄(切目录时换,释放即停)。</summary>
+    private IDisposable? _watcher;
+
+    /// <summary>防抖计时器:解压、批量拷贝会在几十毫秒内打出上百个事件。</summary>
+    private Timer? _watchDebounce;
+
+    /// <summary>防抖窗口。够长以合并一次批量操作,够短以让用户觉得"它自己就更新了"。</summary>
+    private static readonly TimeSpan WatchDebounce = TimeSpan.FromMilliseconds(300);
+
+    /// <summary>
+    /// 把目录监视改挂到新的当前目录。
+    /// </summary>
+    /// <remarks>
+    /// 远端面板早就有静默刷新了,本地面板却要手按 F5 —— 在本地解个压、下个文件,
+    /// 面板还停在旧内容上。这里补齐对称性:监视不了(网络盘等)就静默退化,不报错。
+    /// </remarks>
+    private void RearmWatcher(string directory)
+    {
+        _watcher?.Dispose();
+        _watcher = _fileSystem.Watch(directory, OnDirectoryChanged);
+    }
+
+    private void OnDirectoryChanged()
+    {
+        // FileSystemWatcher 的回调在线程池线程上;这里只重置计时器,真正的刷新
+        // 由计时器回调发起,并且要回到 UI 线程 —— 刷新会动 ObservableCollection。
+        _watchDebounce ??= new(_ => RefreshFromWatcher(), null, Timeout.Infinite, Timeout.Infinite);
+        _watchDebounce.Change(WatchDebounce, Timeout.InfiniteTimeSpan);
+    }
+
+    private void RefreshFromWatcher()
+    {
+        if (_lifetime.IsCancellationRequested || string.IsNullOrEmpty(CurrentPath))
+        {
+            return;
+        }
+        RxSchedulers.MainThreadScheduler.Schedule(() =>
+        {
+            // 期间用户可能已经导航走了 —— NavigateToAsync 自带版本号守卫,
+            // 这里再挡一次纯粹是少发一次没用的列举。
+            if (!_lifetime.IsCancellationRequested && !string.IsNullOrEmpty(CurrentPath))
+            {
+                _ = NavigateToAsync(CurrentPath, _lifetime.Token);
+            }
+        });
+    }
+
+    private bool _disposed;
+
+    /// <summary>停掉目录监视与防抖计时器,并取消未完成的本地工作。</summary>
+    /// <remarks>
+    /// 幂等:文档关闭路径与宿主的清理路径都可能调到它,重复调用不该在
+    /// 已释放的 <see cref="CancellationTokenSource" /> 上炸掉。
+    /// </remarks>
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+        _disposed = true;
+        _watcher?.Dispose();
+        _watcher = null;
+        _watchDebounce?.Dispose();
+        _watchDebounce = null;
+        _lifetime.Cancel();
+        _lifetime.Dispose();
+    }
 
     /// <summary>导航到父目录,停留在文件系统根处。</summary>
     public Task GoUpAsync(CancellationToken cancellationToken = default) =>

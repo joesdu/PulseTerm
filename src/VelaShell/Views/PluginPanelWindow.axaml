@@ -28,7 +28,7 @@
       <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
     </Style>
     <Style Selector="Button.caption-close:pointerover /template/ ContentPresenter">
-      <Setter Property="Background" Value="#E81123" />
+      <Setter Property="Background" Value="{DynamicResource VelaDangerHover}" />
     </Style>
   </Window.Styles>
 

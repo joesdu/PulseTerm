@@ -17,6 +17,16 @@ public class PluginInstallUninstallTests
     private string _appRoot = null!;
     private string _userRoot = null!;
     private string _dataRoot = null!;
+
+    /// <summary>
+    /// 测试自备的 SonnetDB(信任库/安装回执)所在处。**必须落在 <see cref="_dataRoot" /> 之外**:
+    /// PluginManager 启动时会把数据根下每个不对应已装插件的子目录当作卸载残留整个删掉
+    /// (见 PurgeUninstalledDataAsync),而这些库的目录名不是插件 id。Windows 上删不动仍被打开的
+    /// 文件,目录侥幸留存;Linux 允许删掉正被打开的文件,于是引擎 Dispose 回写 catalog 时
+    /// 撞上 DirectoryNotFoundException —— 同一份测试在两个平台上的结局不同,根子在放错了地方。
+    /// </summary>
+    private string _trustDbRoot = null!;
+
     private RecordingDataStore _dataStore = null!;
 
     private sealed class RecordingDataStore : IPluginDataStore
@@ -40,8 +50,10 @@ public class PluginInstallUninstallTests
         _appRoot = Path.Combine(baseDir, "app-plugins");
         _userRoot = Path.Combine(baseDir, "user-plugins");
         _dataRoot = Path.Combine(baseDir, "plugin-data");
+        _trustDbRoot = Path.Combine(baseDir, "test-dbs");
         Directory.CreateDirectory(_appRoot);
         Directory.CreateDirectory(_userRoot);
+        Directory.CreateDirectory(_trustDbRoot);
         _dataStore = new();
     }
 
@@ -249,7 +261,7 @@ public class PluginInstallUninstallTests
     [TestMethod]
     public async Task TrustPublisher_PersistsKey_AndFuturePackagesInstallWithoutBypass()
     {
-        using var engine = new SonnetDbEngine(Path.Combine(_dataRoot, "trust-db"));
+        using var engine = new SonnetDbEngine(Path.Combine(_trustDbRoot, "trust-db"));
         var repository = new PluginTrustRepository(engine, new TestSecretProtector());
         using var publisher = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         string first = BuildSignedVpx(publisher, "acme.signed-one");
@@ -278,7 +290,7 @@ public class PluginInstallUninstallTests
     [TestMethod]
     public async Task Restart_ModifiedInstalledPlugin_IsRejectedByProtectedReceipt()
     {
-        using var engine = new SonnetDbEngine(Path.Combine(_dataRoot, "receipt-db"));
+        using var engine = new SonnetDbEngine(Path.Combine(_trustDbRoot, "receipt-db"));
         var repository = new PluginTrustRepository(engine, new TestSecretProtector());
         PluginManager manager = CreateManager(repository);
         await manager.StartAsync();
@@ -301,7 +313,7 @@ public class PluginInstallUninstallTests
     {
         // 内容校验推迟到发现之后:页签在校验有结论之前就已经挂出去了。
         // 校验判负时必须把它撤下来 —— 留着的话用户点下去只会得到一次静默的无反应。
-        using var engine = new SonnetDbEngine(Path.Combine(_dataRoot, "tab-withdraw-db"));
+        using var engine = new SonnetDbEngine(Path.Combine(_trustDbRoot, "tab-withdraw-db"));
         var repository = new PluginTrustRepository(engine, new TestSecretProtector());
         const string id = "acme.tab-tamper";
         const string workspace = """, "contributes": { "workspaces": [ { "id": "acme.tab-tamper.cache", "displayName": "Cache", "defaultPort": 6379 } ] }, "activationEvents": ["onWorkspace:acme.tab-tamper.cache"]""";
@@ -329,7 +341,7 @@ public class PluginInstallUninstallTests
     {
         // 命令行 vela-plugin install 与"直接把目录放进插件根"落到的都是这条路径:
         // 目录先于宿主存在,没有受保护收据。文档写明这两条路都能装,宿主必须收养它而不是拒绝。
-        using var engine = new SonnetDbEngine(Path.Combine(_dataRoot, "direct-drop-db"));
+        using var engine = new SonnetDbEngine(Path.Combine(_trustDbRoot, "direct-drop-db"));
         var repository = new PluginTrustRepository(engine, new TestSecretProtector());
         PluginManager firstRun = CreateManager(repository);
         await firstRun.StartAsync(); // 先建一次空的信任状态。
@@ -356,7 +368,7 @@ public class PluginInstallUninstallTests
     {
         // 旁装换来的代价就是没有事后防篡改(CLI 手册明写)。这里的内容变化通常是
         // `vela-plugin update` 换了版本 —— 把它判成"被人动过"会让更新完的插件全变红。
-        using var engine = new SonnetDbEngine(Path.Combine(_dataRoot, "sideload-update-db"));
+        using var engine = new SonnetDbEngine(Path.Combine(_trustDbRoot, "sideload-update-db"));
         var repository = new PluginTrustRepository(engine, new TestSecretProtector());
         const string id = "acme.sideload-update";
         Directory.Move(StagePlugin(id), Path.Combine(_userRoot, id));
@@ -380,7 +392,7 @@ public class PluginInstallUninstallTests
     {
         // vela-plugin uninstall 只删目录,够不着宿主进程里的信任库。留着那份孤儿收据,
         // 同一个 id 再装回来时内容必然与旧收据对不上,插件会以"文件被改过"被拒。
-        using var engine = new SonnetDbEngine(Path.Combine(_dataRoot, "orphan-receipt-db"));
+        using var engine = new SonnetDbEngine(Path.Combine(_trustDbRoot, "orphan-receipt-db"));
         var repository = new PluginTrustRepository(engine, new TestSecretProtector());
         const string id = "acme.reinstalled";
         // 懒激活:入口 dll 始终没被装载,测试才能像命令行那样把目录整个删掉。

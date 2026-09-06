@@ -4,6 +4,7 @@ using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using VelaShell.Core.Recording;
 using VelaShell.Core.Resources;
+using FireAndForget = VelaShell.Services.FireAndForget;
 using VelaShell.Terminal.Rendering;
 using VelaShell.ViewModels;
 
@@ -107,7 +108,7 @@ public partial class RecordingPlayerView : Window
     /// 清理录制数据:先摆出占用现状,再让用户选清理力度。
     /// 时序库的删除只写墓碑不腾空间,所以这里给的三档都会走 drop 重建把字节真正还回去。
     /// </summary>
-    private async void Cleanup_Click(object? sender, RoutedEventArgs e)
+    private void Cleanup_Click(object? sender, RoutedEventArgs e) => FireAndForget.Run(async () =>
     {
         if (_viewModel is not { } vm)
         {
@@ -183,7 +184,7 @@ public partial class RecordingPlayerView : Window
         {
             CleanupButton.IsEnabled = true;
         }
-    }
+});
 
     private static string FormatBytes(long bytes) => bytes switch
     {
@@ -194,7 +195,7 @@ public partial class RecordingPlayerView : Window
     };
 
     /// <summary>导出选中录制为 asciicast v2(.cast)文件。</summary>
-    private async void ExportRecording_Click(object? sender, RoutedEventArgs e)
+    private void ExportRecording_Click(object? sender, RoutedEventArgs e) => FireAndForget.Run(async () =>
     {
         if (_viewModel is not { HasSelection: true } vm)
         {
@@ -211,5 +212,5 @@ public partial class RecordingPlayerView : Window
         {
             await File.WriteAllTextAsync(path, vm.BuildAsciicast());
         }
-    }
+});
 }

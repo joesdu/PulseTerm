@@ -162,11 +162,29 @@
       <!-- 字号加大后每行更高,列表上限跟着抬一档,可见条数与改字号前基本持平。
            横向滚动必须显式关掉:开着的话每行按"不换行的理想宽度"量出各自不同的宽度,
            行内靠右的元素就会各停在各自的右边缘 —— 一列本该对齐的动作变成参差不齐。 -->
-      <ScrollViewer MaxHeight="440"
-                    VerticalScrollBarVisibility="Auto"
-                    HorizontalScrollBarVisibility="Disabled">
-        <ItemsControl ItemsSource="{Binding Items}">
-          <ItemsControl.ItemTemplate>
+      <!-- 用 ListBox 而不是 ScrollViewer + ItemsControl:前者自带 VirtualizingStackPanel,
+           只为可见的十来行生成容器。消息历史是会一直攒的(资讯源 + 更新 + 崩溃提示),
+           攒到几百条时非虚拟化列表每次打开铃铛都要把它们全建一遍。
+           ListBoxItem 的选中/悬停底色压掉:这是一张只读列表,没有"选中一条"的语义。 -->
+      <ListBox MaxHeight="440" ItemsSource="{Binding Items}"
+               Background="Transparent" BorderThickness="0" Padding="0"
+               ScrollViewer.VerticalScrollBarVisibility="Auto"
+               ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+        <ListBox.Styles>
+          <Style Selector="ListBoxItem">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="MinHeight" Value="0" />
+          </Style>
+          <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+          </Style>
+          <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+          </Style>
+        </ListBox.Styles>
+          <ListBox.ItemTemplate>
             <DataTemplate x:DataType="vm:NotificationItemViewModel">
               <Border Classes="msg-row"
                       BorderBrush="{DynamicResource VelaBorderPrimary}"
@@ -264,9 +282,8 @@
                 </Grid>
               </Border>
             </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-      </ScrollViewer>
+          </ListBox.ItemTemplate>
+      </ListBox>
 
     </StackPanel>
     </Border>

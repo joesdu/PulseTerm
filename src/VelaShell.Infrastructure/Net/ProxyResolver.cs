@@ -38,7 +38,7 @@ public sealed class ProxyResolver(ISettingsService settings) : IProxyResolver
 
     private ProxyOptions ReadOptions()
     {
-        try { return settings.GetSettingsAsync().GetAwaiter().GetResult().Proxy; }
+        try { return settings.GetSnapshotBlocking().Proxy; }
         catch { return new(); }
     }
 

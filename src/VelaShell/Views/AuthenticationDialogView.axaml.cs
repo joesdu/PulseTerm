@@ -4,6 +4,7 @@ using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using ReactiveUI.Primitives;
 using VelaShell.Core.Resources;
+using FireAndForget = VelaShell.Services.FireAndForget;
 using VelaShell.ViewModels;
 
 namespace VelaShell.Views;
@@ -59,7 +60,7 @@ public partial class AuthenticationDialogView : Window
         }
     }
 
-    private async void BrowseKeyFile_Click(object? sender, RoutedEventArgs e)
+    private void BrowseKeyFile_Click(object? sender, RoutedEventArgs e) => FireAndForget.Run(async () =>
     {
         if (DataContext is not AuthenticationDialogViewModel viewModel)
         {
@@ -75,5 +76,5 @@ public partial class AuthenticationDialogView : Window
         {
             viewModel.PrivateKeyPath = path;
         }
-    }
+});
 }

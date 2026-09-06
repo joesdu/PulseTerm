@@ -75,26 +75,45 @@
       <!-- 会话树 + 可选的快捷命令。 -->
       <Grid x:Name="SessionAndQuickGrid" Grid.Row="0">
         <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
           <RowDefinition Height="*" MinHeight="80" />
           <RowDefinition Height="0" />
           <RowDefinition Height="0" MinHeight="0" />
         </Grid.RowDefinitions>
 
-        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto"
+        <!-- 会话过滤:主机多起来之后,靠滚动找一台是不现实的。按 名称/主机/用户名/标签
+             过滤,命中的分组自动展开,清空后恢复原来的折叠状态。 -->
+        <Grid Grid.Row="0" Margin="8,6,8,4" ColumnDefinitions="*,Auto">
+          <TextBox x:Name="TreeFilterBox" Height="26"
+                   Text="{Binding SessionTree.FilterText}"
+                   PlaceholderText="{loc:Localize Sidebar_FilterSessions}"
+                   FontSize="{DynamicResource VelaFontSize10}" Padding="7,3,24,3" />
+          <Button Grid.Column="0" HorizontalAlignment="Right" VerticalAlignment="Center"
+                  Margin="0,0,4,0" Width="18" Height="18" Padding="0"
+                  Background="Transparent" BorderThickness="0"
+                  IsVisible="{Binding SessionTree.HasFilter}"
+                  Command="{Binding SessionTree.ClearFilterCommand}"
+                  ToolTip.Tip="{loc:Localize Sidebar_ClearFilter}">
+            <pc:LucideIcon Width="11" Height="11" Data="{StaticResource Icon.x}"
+                           Foreground="{DynamicResource VelaTextMuted}" />
+          </Button>
+        </Grid>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
                       HorizontalScrollBarVisibility="Disabled">
           <views:SessionTreeView DataContext="{Binding SessionTree}" Padding="0,8" />
         </ScrollViewer>
 
-        <Border x:Name="QuickCommandsDivider" Grid.Row="1" Height="1"
+        <Border x:Name="QuickCommandsDivider" Grid.Row="2" Height="1"
                 VerticalAlignment="Center"
                 Background="{DynamicResource VelaBorderPrimary}"
                 IsVisible="False" />
-        <GridSplitter x:Name="QuickCommandsSplitter" Grid.Row="1"
+        <GridSplitter x:Name="QuickCommandsSplitter" Grid.Row="2"
                       Background="Transparent" ResizeDirection="Rows"
                       HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                       IsVisible="False" />
 
-        <Border x:Name="QuickCommandsSection" Grid.Row="2" IsVisible="False">
+        <Border x:Name="QuickCommandsSection" Grid.Row="3" IsVisible="False">
           <Grid RowDefinitions="36,*">
             <Border Grid.Row="0" BorderThickness="0,0,0,1"
                     BorderBrush="{DynamicResource VelaBorderPrimary}" Padding="8,0">
@@ -233,15 +252,20 @@
     <Border Grid.Row="2" BorderThickness="0,1,0,0"
             BorderBrush="{DynamicResource VelaBorderPrimary}" Padding="12,0">
       <Grid ColumnDefinitions="*,Auto">
-        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <!-- 当前身份:活动会话的 用户名@主机(本地终端为本机用户名)。无活动标签时整行隐藏,
+             不再显示设计稿留下的 "root" 占位符。 -->
+        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center"
+                    IsVisible="{Binding HasActiveIdentity}"
+                    ToolTip.Tip="{Binding ActiveIdentity}">
           <Border Width="22" Height="22" CornerRadius="11"
                   Background="{DynamicResource VelaAccentDim}">
             <pc:LucideIcon Width="12" Height="12" Data="{StaticResource Icon.user}"
                            Foreground="{DynamicResource VelaAccent}"
                            HorizontalAlignment="Center" VerticalAlignment="Center" />
           </Border>
-          <TextBlock Text="root" Foreground="{DynamicResource VelaTextSecondary}"
+          <TextBlock Text="{Binding ActiveIdentity}" Foreground="{DynamicResource VelaTextSecondary}"
                      FontFamily="{DynamicResource VelaUiMonoFont}" FontSize="{DynamicResource VelaFontSize11}"
+                     TextTrimming="CharacterEllipsis" MaxWidth="150"
                      VerticalAlignment="Center" />
         </StackPanel>
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"

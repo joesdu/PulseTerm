@@ -32,7 +32,20 @@ public partial class ShortcutCatalogTests
         ["OemComma"] = ",",
         ["OemPeriod"] = ".",
         ["OemMinus"] = "-",
-        ["OemPlus"] = "+",
+        // OemPlus 是 =/+ 那颗键;我们的绑定不带 Shift,所以表里按未上档的键帽写作 "="
+        // (主流终端的文档也是 Ctrl+= / Ctrl+-)。
+        ["OemPlus"] = "=",
+        // Avalonia 的数字键名是 D0…D9(D 表示 digit),表里按键帽写作 0…9。
+        ["D0"] = "0",
+        ["D1"] = "1",
+        ["D2"] = "2",
+        ["D3"] = "3",
+        ["D4"] = "4",
+        ["D5"] = "5",
+        ["D6"] = "6",
+        ["D7"] = "7",
+        ["D8"] = "8",
+        ["D9"] = "9",
     };
 
     [GeneratedRegex(@"<KeyBinding\s+Gesture=""([^""]+)""")]
@@ -153,8 +166,42 @@ public partial class ShortcutCatalogTests
                             && line.Contains(combo, StringComparison.Ordinal));
     }
 
-    private static HashSet<string> CatalogCombos() =>
-        [.. ShortcutCatalog.Flatten(ShortcutCatalog.Build()).Select(Combo)];
+    private static HashSet<string> CatalogCombos()
+    {
+        HashSet<string> combos = [];
+        foreach (ShortcutItem item in ShortcutCatalog.Flatten(ShortcutCatalog.Build()))
+        {
+            combos.Add(Combo(item));
+            combos.UnionWith(ExpandRange(item));
+        }
+        return combos;
+    }
+
+    /// <summary>
+    /// 把「Ctrl+Alt+1 … 8」这种<b>区间</b>行展开成它覆盖的每一个具体手势。
+    /// </summary>
+    /// <remarks>
+    /// 跳标签是 8 个手势共用一条说明。总表里写成 8 行纯属噪音(设置页与文档都要读的),
+    /// 写成一行区间才是给人看的形态;但绑定核对是逐条来的,所以这里替它展开。
+    /// 约定:键序列里出现 "…",表示它前后两个键是区间的首尾。
+    /// </remarks>
+    private static IEnumerable<string> ExpandRange(ShortcutItem item)
+    {
+        int ellipsis = Array.IndexOf(item.Keys, "…");
+        if (ellipsis <= 0
+            || ellipsis + 1 >= item.Keys.Length
+            || !int.TryParse(item.Keys[ellipsis - 1], out int from)
+            || !int.TryParse(item.Keys[ellipsis + 1], out int to)
+            || to < from)
+        {
+            yield break;
+        }
+        string prefix = string.Join('+', item.Keys.Take(ellipsis - 1));
+        for (int digit = from; digit <= to; digit++)
+        {
+            yield return prefix.Length > 0 ? $"{prefix}+{digit}" : digit.ToString();
+        }
+    }
 
     private static string Combo(ShortcutItem item) => string.Join('+', item.Keys);
 

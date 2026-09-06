@@ -58,7 +58,7 @@ public sealed class StandaloneSftpDocumentBehaviorTests
 
         await workflow.Received(1).ConnectProfileAsync(profile, Arg.Any<CancellationToken>());
         Assert.AreEqual(0, terminalFactoryCalls, "SFTP must not create a terminal emulator.");
-        Assert.IsEmpty(vm.TabBar.Tabs, "Standalone SFTP must not create a terminal tab.");
+        Assert.IsEmpty(vm.TerminalTabs, "Standalone SFTP must not create a terminal tab.");
     }
 
     [TestMethod]
@@ -77,7 +77,7 @@ public sealed class StandaloneSftpDocumentBehaviorTests
         await vm.OpenSftpForProfileAsync(profile);
 
         await workflow.Received(1).ConnectProfileAsync(profile, Arg.Any<CancellationToken>());
-        Assert.IsEmpty(vm.TabBar.Tabs, "Standalone SFTP must be represented by a document, not a terminal tab.");
+        Assert.IsEmpty(vm.TerminalTabs, "Standalone SFTP must be represented by a document, not a terminal tab.");
     }
 
     [TestMethod]
@@ -440,11 +440,11 @@ public sealed class StandaloneSftpDocumentBehaviorTests
         await _session.Dispatch(() =>
         {
             var vm = new MainWindowViewModel(workflow, sftpService: sftp);
-            vm.TabBar.AddTab(new TerminalTabViewModel(Substitute.For<ITerminalEmulator>())
+            vm.Layout.AddDocument(new TerminalDocument(new TerminalTabViewModel(Substitute.For<ITerminalEmulator>())
             {
                 Profile = terminalProfile,
                 ConnectionStatus = SessionStatus.Connected,
-            });
+            }));
             vm.Layout.AddDocument(new SftpDocument(
                 new SftpDocumentViewModel(
                     sftpProfile,

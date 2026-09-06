@@ -18,7 +18,6 @@ public static class PresentationServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         services.AddSingleton<StatusBarViewModel>();
-        services.AddSingleton<TabBarViewModel>();
         services.AddSingleton<SidebarViewModel>();
         services.AddSingleton<IConnectionWorkflowService, ConnectionWorkflowService>();
         services.AddSingleton<IConnectionDiagnosticsService, ConnectionDiagnosticsService>();

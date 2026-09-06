@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <!-- 不是测试工程。tests/ 目录下的一切默认会被 `dotnet test` 捞进去跑,而这里没有
+         测试适配器,捞进去只会报"未发现测试"。显式声明让它被跳过。 -->
+    <IsTestProject>false</IsTestProject>
+    <!-- BenchmarkDotNet 要求被测代码在 Release 下运行,否则它自己会拒绝启动。
+         这里钉死,免得有人 `dotnet run` 时忘了 -c Release 然后困惑于一句报错。 -->
+    <Configuration Condition="'$(Configuration)' == ''">Release</Configuration>
+    <!-- 基准方法都是 public 且必须能被 BDN 反射到,XML 文档注释对它们没有意义。 -->
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CA1822;</NoWarn>
+    <!-- BDN 会为每个 job 生成并编译一个宿主工程,ServerGC/分层编译等由 job 决定。 -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\VelaShell.Core\VelaShell.Core.csproj" />
+    <ProjectReference Include="..\..\src\VelaShell.Terminal\VelaShell.Terminal.csproj" />
+  </ItemGroup>
+
+</Project>

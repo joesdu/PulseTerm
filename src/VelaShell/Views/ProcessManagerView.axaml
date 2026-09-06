@@ -47,7 +47,7 @@
       <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
     </Style>
     <Style Selector="Button.caption-close:pointerover /template/ ContentPresenter">
-      <Setter Property="Background" Value="#E81123" />
+      <Setter Property="Background" Value="{DynamicResource VelaDangerHover}" />
     </Style>
     <!-- 列头:整块可点、无按钮外观,与文件浏览器的 col-header 同规格。 -->
     <Style Selector="Button.col-header">

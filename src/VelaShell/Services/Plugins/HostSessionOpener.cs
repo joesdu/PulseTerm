@@ -67,7 +67,7 @@ internal sealed class HostSessionOpener(
             {
                 return false;
             }
-            TerminalTabViewModel? tab = vm.TabBar.Tabs.OfType<TerminalTabViewModel>()
+            TerminalTabViewModel? tab = vm.TerminalTabs
                                           .FirstOrDefault(t => t.SessionId == sessionId);
             if (tab is null)
             {

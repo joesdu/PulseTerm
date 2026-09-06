@@ -84,6 +84,8 @@ internal sealed class MeteredPortForwardHandle : IPortForwardHandle
         _userStopped = true;
         _stopped = true;
         _upstreamStopped.Dispose();
+        // 停止路径上的 catch 一律吞掉:要停的东西本来就在停,重复停止与已断连接抛的都是
+        // 清理噪声。记它只会在每次关隧道时刷日志;真出问题会由下一次监听失败报出来。
         try { _cts.Cancel(); } catch { }
         try { _listener.Stop(); } catch { }
         try { _upstream?.Dispose(); } catch { }

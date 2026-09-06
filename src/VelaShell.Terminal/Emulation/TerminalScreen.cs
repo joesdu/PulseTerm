@@ -226,6 +226,10 @@ public sealed class TerminalScreen
             TerminalRow retired = _lines[ScrollTop];
             if (fullScreen && MaxScrollback > 0)
             {
+                // 退休就是"从此只读"的那一刻:把整行满宽存储截到最后一个有内容的格。
+                // 回滚区是内存大头(200 列 × 20 万行 × 16 B ≈ 640 MB/标签页),而典型日志行
+                // 只有几十列非空。截短无损,理由见 TerminalRow 的类型注释。
+                retired.TrimToContent();
                 _scrollback.Add(retired);
                 TrimScrollbackToMax();
             }
@@ -446,6 +450,8 @@ public sealed class TerminalScreen
             {
                 if (MaxScrollback > 0)
                 {
+                    // 与 ScrollUp 同理:进了回滚区就是只读了,按内容截短。
+                    _lines[i].TrimToContent();
                     _scrollback.Add(_lines[i]);
                     TrimScrollbackToMax();
                 }
@@ -557,7 +563,10 @@ public sealed class TerminalScreen
                     len = Math.Max(len, cursorCol + 1);
                     cursorOffset = cells.Count + cursorCol;
                 }
-                cells.AddRange(row.Span[..len]);
+                // 回滚行的存储可能比逻辑列宽短(退休时按内容截过)。len 取自 LastOccupied,
+                // 天然落在存储内;上面那条光标分支才可能超出去,而光标那一行永远在活动屏上、
+                // 从不截短。仍夹一道:宁可少收几个尾部空格,也不该在拖拽改窗口大小时抛出。
+                cells.AddRange(row.Span[..Math.Min(len, row.StoredColumns)]);
             }
 
             // 内容已整段复制进 cells,physical[i..j] 这些行对象到此确定无人再读 ——
@@ -594,6 +603,9 @@ public sealed class TerminalScreen
         _scrollbackStart = 0;
         for (int r = 0; r < screenStart; r++)
         {
+            // reflow 重排出来的行是按新列宽满宽发的。落进回滚区的这一批同样只读,
+            // 不在这里截一次的话,拖一下窗口大小就把之前省下的内存全还回去了。
+            rebuilt[r].TrimToContent();
             _scrollback.Add(rebuilt[r]);
         }
         if (_scrollback.Count > MaxScrollback)

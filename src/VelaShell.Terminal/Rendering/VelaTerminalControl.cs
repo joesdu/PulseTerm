@@ -171,6 +171,38 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     {
         InvalidateVisual();
         _overlay.InvalidateVisual();
+        RaiseSelectionChangedIfNeeded();
+    }
+
+    /// <summary>选区发生变化时触发,携带选中的字符数(0 = 没有选区)。</summary>
+    /// <remarks>状态栏据此显示"已选 N 字符"。</remarks>
+    public event Action<int>? SelectionChanged;
+
+    // 上一次上报过的选区指纹与字符数。指纹是三个廉价字段的组合;只有它变了才去
+    // 真的把选中文本materialise 一遍 —— 否则输出洪流下每帧算一次选区文本会很贵。
+    private (int Extra, (int, int)? Anchor, (int, int)? Caret, bool Block) _selectionFingerprint = (-1, null, null, false);
+    private int _reportedSelectionLength = -1;
+
+    private void RaiseSelectionChangedIfNeeded()
+    {
+        if (SelectionChanged is null)
+        {
+            return;
+        }
+        (int, (int, int)?, (int, int)?, bool) fingerprint =
+            (_extraSelections.Count, _selectionAnchor, _selectionCaret, _blockSelection);
+        if (fingerprint == _selectionFingerprint)
+        {
+            return;
+        }
+        _selectionFingerprint = fingerprint;
+        int length = HasSelectionAnchor ? GetSelectedText().Length : 0;
+        if (length == _reportedSelectionLength)
+        {
+            return;
+        }
+        _reportedSelectionLength = length;
+        SelectionChanged(length);
     }
 
     private VelaTerminalControl(TerminalEmulator emulator)
@@ -703,10 +735,6 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     /// <summary>当前网格的行数。</summary>
     public int Rows => Emulator.Rows;
 
-    // 遗留接口成员:为与既有绑定的源码兼容性而保留。
-    /// <summary>遗留回滚缓冲区,仅为与既有绑定的源码兼容性而保留。</summary>
-    public ScrollbackBuffer ScrollbackBuffer { get; } = new(1);
-
     /// <summary>缓冲行总数(回滚区 + 可见屏幕)。</summary>
     public int TotalLines => Emulator.Screen.TotalRows;
 
@@ -825,10 +853,19 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         // ReSharper disable once AsyncVoidMethod
         Dispatcher.UIThread.Post(async void () =>
         {
-            IClipboard? clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
-            if (clipboard is not null)
+            try
             {
-                await clipboard.SetTextAsync(text);
+                IClipboard? clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+                if (clipboard is not null)
+                {
+                    await clipboard.SetTextAsync(text);
+                }
+            }
+            catch (Exception ex)
+            {
+                // 剪贴板被别的进程独占是常事(Windows 上尤其)。这里是 async void:
+                // 不兜住就是进程级未处理异常 —— 远端一次 yank 把整个应用带走。
+                System.Diagnostics.Trace.WriteLine($"[VelaTerminalControl] 远端剪贴板写入失败:{ex.Message}");
             }
         });
     }
@@ -1353,6 +1390,73 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     /// 向待处理运行追加一个字形;每当风格或前景色变化时,先冲刷当前运行再开启新运行。
     /// 自上一字形起跳过的列(空格、空白)被并入上一字形的步进中,以保持对齐精确。
     /// </summary>
+    // ---- 背景矩形合批 ----
+    // 与字形合批同构的状态机:相邻同色的非默认背景合成一个 FillRectangle。
+    // 全屏 TUI(htop 的占用条、带主题的 vim)与大段选区原先是 O(行 × 列) 个矩形指令,
+    // 200×50 的窗口最坏一万次;合批后大片同色区域只发一次。
+    // -1 表示当前没有待发的 run。
+    private int _bgRunStart = -1;
+    private int _bgRunEnd;
+    private uint _bgRunPacked;
+    private IBrush? _bgRunBrush;
+
+    /// <summary>整帧发出的背景矩形数量(合批守门用例读它)。</summary>
+    internal int BackgroundRectCountForTest { get; private set; }
+
+    /// <summary>
+    /// 把一格的背景并入当前 run:颜色变了、列不连续、或退回默认背景,就先把上一段发出去。
+    /// 默认背景不画(那是画布本身的颜色)。
+    /// </summary>
+    private void AppendBackground(DrawingContext context, double y, Rgba bg, int col, int width, Rgba defaultBackground)
+    {
+        if (bg.Equals(defaultBackground))
+        {
+            FlushBackgroundRun(context, y);
+            return;
+        }
+        if (_bgRunStart >= 0 && (bg.Packed != _bgRunPacked || col != _bgRunEnd))
+        {
+            FlushBackgroundRun(context, y);
+        }
+        if (_bgRunStart < 0)
+        {
+            _bgRunStart = col;
+            _bgRunPacked = bg.Packed;
+            _bgRunBrush = BrushFor(bg);
+        }
+        _bgRunEnd = col + width;
+    }
+
+    /// <summary>
+    /// 发出当前背景 run(若有)。
+    /// </summary>
+    /// <remarks>
+    /// **不变量:背景必须画在同一格的任何前景之前。** 字形是攒批后延迟画的,而下划线、
+    /// 删除线、以及主字体覆盖不到时的 <c>FormattedText</c> 回退都是即时画的;背景一旦
+    /// 也变成延迟画,就必须在这些绘制发生之前冲刷,否则「A 红底样式 X,B 红底样式 Y」
+    /// 这种序列会在 B 处先画出 A 的字形、再画整段红底把它盖掉。
+    /// 因此 <see cref="FlushGlyphRun" /> 在真的要画字形时先调用本方法,而下划线、删除线、
+    /// <c>FormattedText</c> 回退三处即时绘制各自显式再调一次 —— 光靠 <c>FlushGlyphRun</c>
+    /// 挡不住:批次为空时它直接返回,背景就留到行尾才发,反过来盖住刚画的字
+    /// (整行 CJK 走的正是这条空批次 + 即时绘制的路径)。
+    /// <para>
+    /// 代价:背景 run 会在每处字形 run 断裂点(样式或前景色变化)被迫断开。所以合并收益
+    /// 集中在**大片同色区域**(选区、搜索高亮、占用条、彩色分隔行),而同底色但前景色频繁
+    /// 变化的行(vim 状态行)仍接近逐格 —— 这是次序正确性的必然代价,不是缺陷。
+    /// </para>
+    /// </remarks>
+    private void FlushBackgroundRun(DrawingContext context, double y)
+    {
+        if (_bgRunStart < 0)
+        {
+            return;
+        }
+        context.FillRectangle(_bgRunBrush!, CellRect(_bgRunStart, _bgRunEnd - _bgRunStart, y));
+        BackgroundRectCountForTest++;
+        _bgRunStart = -1;
+        _bgRunBrush = null;
+    }
+
     private void AppendGlyph(
         DrawingContext context,
         double y,
@@ -1428,6 +1532,8 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         {
             return;
         }
+        // 字形要画在背景之上:先把待发的背景 run 落地,否则它会盖掉这批字形。
+        FlushBackgroundRun(context, y);
         GlyphTypeface? gtf = _runStyle >= 0 ? _styleTypefaces[_runStyle] : null;
         if (gtf is not null && _runBrush is not null)
         {
@@ -1618,6 +1724,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     public override void Render(DrawingContext context)
     {
         BodyRenderCountForTest++;
+        BackgroundRectCountForTest = 0;
         TerminalScreen screen = Emulator.Screen;
         TerminalPalette palette = Emulator.Palette;
         RefreshPixelGrid();
@@ -2170,6 +2277,9 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         // 本行落在各选区段内的列区间:逐行算一次,格子循环里只做区间比较 ——
         // 多段选区不会把渲染热路径变成 O(格 × 段)。
         int rowSpans = CollectRowSpans(spans, absoluteRow, cols);
+        // 本行的搜索命中区间同样逐行取一次:原先每一格都要在字典里 TryGetValue 一遍。
+        List<(int Start, int End, bool Current)>? rowSearchSpans = null;
+        _ = _searchHighlights?.TryGetValue(absoluteRow, out rowSearchSpans);
         int col = 0;
         while (col < cols)
         {
@@ -2192,15 +2302,9 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
             {
                 bg = palette.SelectionBackground;
             }
-            if (
-                _searchHighlights is not null
-                && _searchHighlights.TryGetValue(
-                    absoluteRow,
-                    out List<(int Start, int End, bool Current)>? searchSpans
-                )
-            )
+            if (rowSearchSpans is not null)
             {
-                foreach ((int Start, int End, bool Current) in searchSpans)
+                foreach ((int Start, int End, bool Current) in rowSearchSpans)
                 {
                     if (col >= Start && col < End)
                     {
@@ -2224,10 +2328,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
                 fg = SemanticColor(palette, kind);
                 semanticUnderline = kind is SemanticKind.Url or SemanticKind.IpAddress;
             }
-            if (!bg.Equals(palette.DefaultBackground))
-            {
-                context.FillRectangle(BrushFor(bg), CellRect(col, width, y));
-            }
+            AppendBackground(context, y, bg, col, width, palette.DefaultBackground);
 
             // 空白/空格/不可见单元不绘制字形;它只留出一段空隙由下一运行的
             // 步进吸收。其余内容在主要字体能覆盖时批量并入 GlyphRun,
@@ -2248,7 +2349,11 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
                 }
                 else
                 {
+                    // 逐单元 FormattedText 回退(CJK、组合字符、主字体缺字形)是**即时**绘制。
+                    // 只调 FlushGlyphRun 不够:批次为空时它直接返回,背景 run 就留到行尾才发,
+                    // 结果是背景矩形盖住已经画好的字 —— 整行 CJK 必然触发。显式冲一次背景。
                     FlushGlyphRun(context, y);
+                    FlushBackgroundRun(context, y);
                     FormattedText ft = GlyphFor(cell, fg, bold, italic);
                     context.DrawText(ft, new(col * CellWidthForTest, y + _glyphYOffset));
                 }
@@ -2258,6 +2363,9 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
                 || semanticUnderline
             )
             {
+                // 下划线/删除线是**即时**绘制,不像字形那样攒批;后发的背景矩形会把它盖掉,
+                // 所以画之前必须先把待发的背景 run 冲出去(见 FlushBackgroundRun 的不变量说明)。
+                FlushBackgroundRun(context, y);
                 double uy = y + CellHeightForTest - 1.5;
                 context.DrawLine(
                     PenFor(fg),
@@ -2267,6 +2375,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
             }
             if ((cell.Flags & CellFlags.Strikethrough) != 0)
             {
+                FlushBackgroundRun(context, y);
                 double sy = y + CellHeightForTest / 2;
                 context.DrawLine(
                     PenFor(fg),
@@ -2278,7 +2387,9 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         }
 
         // 把本行中仍被批量缓存的剩余字形全部发出(运行从不跨越行边界)。
+        // FlushGlyphRun 会先冲背景 run,所以行尾的最后一段背景也在这里落地。
         FlushGlyphRun(context, y);
+        FlushBackgroundRun(context, y);
     }
 
     /// <summary>
@@ -2724,6 +2835,8 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     {
         base.OnLostFocus(e);
         _hasFocus = false;
+        // 焦点走了,修饰键状态就不再可信 —— 撤掉链接悬停的手型与地址提示。
+        ClearLinkHover();
         UpdateCursorBlinkTimer();
         InvalidateTerminal();
     }
@@ -3031,6 +3144,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
+        UpdateLinkHover(e);
 
         // 折叠列悬停提示:指针在折叠列上时记住其绝对行(用于画 ▾ 折叠手柄),移出则清除。
         // 空白行(最后一行输出之下)不给提示——那里折叠无意义且极易误点(内容消失事故)。
@@ -3083,10 +3197,80 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         }
     }
 
+    // ---- 链接悬停反馈 ----
+    //
+    // URL 与 IP 一直画着下划线,但"能不能点、点了去哪"全靠猜:Ctrl 按下时光标不变手型,
+    // 也没有任何提示告诉你完整地址(终端里的长 URL 经常被折行截断)。
+    // 只在 Ctrl 按下时才做匹配 —— 否则每一次鼠标移动都要跑一遍正则。
+
+    private static readonly Cursor HandCursor = new(StandardCursorType.Hand);
+
+    /// <summary>当前悬停命中的链接文本;没有命中时为 null。</summary>
+    private string? _hoveredLink;
+
+    /// <summary>
+    /// 按住 Ctrl 悬停在 URL 上时把光标变成手型,并用提示气泡给出完整地址。
+    /// </summary>
+    /// <remarks>
+    /// 复用 <see cref="SemanticMatcher.UrlAt" /> —— 与 Ctrl+点击是同一个判定函数,
+    /// 于是"看起来能点"和"真的能点"永远一致,不会出现指了手型却点不开的情况。
+    /// </remarks>
+    private void UpdateLinkHover(PointerEventArgs e)
+    {
+        if (_selecting || !e.KeyModifiers.HasFlag(KeyModifiers.Control))
+        {
+            ClearLinkHover();
+            return;
+        }
+        (int row, int col) = PointToCell(e.GetPosition(this));
+        string lineText = row >= 0 && row < Emulator.Screen.TotalRows
+            ? Emulator.Screen.ViewLine(row).GetText()
+            : string.Empty;
+        string? url = SemanticMatcher.UrlAt(lineText, col);
+        if (url == _hoveredLink)
+        {
+            return;
+        }
+        if (url is null)
+        {
+            // 先清再置位:ClearLinkHover 以 _hoveredLink 判断"有没有东西要清",
+            // 顺序反了它会当场早退,手型与提示就留在屏幕上撤不掉。
+            ClearLinkHover();
+            return;
+        }
+        _hoveredLink = url;
+        Cursor = HandCursor;
+        ToolTip.SetTip(this, url);
+        ToolTip.SetIsOpen(this, true);
+    }
+
+    private void ClearLinkHover()
+    {
+        if (_hoveredLink is null)
+        {
+            return;
+        }
+        _hoveredLink = null;
+        Cursor = Cursor.Default;
+        ToolTip.SetIsOpen(this, false);
+        ToolTip.SetTip(this, null);
+    }
+
+    /// <summary>松开 Ctrl 就撤掉手型与地址提示 —— 此刻已经点不开了,再指着手型是在骗人。</summary>
+    protected override void OnKeyUp(KeyEventArgs e)
+    {
+        base.OnKeyUp(e);
+        if (e.Key is Key.LeftCtrl or Key.RightCtrl)
+        {
+            ClearLinkHover();
+        }
+    }
+
     /// <summary>指针离开控件时清除折叠列悬停标记。</summary>
     protected override void OnPointerExited(PointerEventArgs e)
     {
         base.OnPointerExited(e);
+        ClearLinkHover();
         if (_foldHoverAbs != -1)
         {
             _foldHoverAbs = -1;
@@ -3125,6 +3309,57 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
     public event Action<double>? FontSizeChanged;
 
     /// <summary>
+    /// 用户设置里的「备用屏滚轮转方向键」总开关(设置 → 终端 → 滚动)。
+    /// 与应用侧的 <c>DECSET ?1007</c> 是与的关系:两边都开才转。
+    /// </summary>
+    public bool AlternateScrollEnabled { get; set; } = true;
+
+    /// <summary>
+    /// 读屏器读到的控件名字,由宿主填成标签标题(<c>用户名@主机</c>)。
+    /// </summary>
+    /// <remarks>
+    /// 终端完全自绘,屏幕上那一屏字对读屏器来说什么都不是 —— 没有这个名字,
+    /// 用户只会听到一个匿名控件,连"我在哪台机器上"都无从得知。
+    /// </remarks>
+    public string? AccessibleName { get; set; }
+
+    /// <inheritdoc />
+    protected override Avalonia.Automation.Peers.AutomationPeer OnCreateAutomationPeer() =>
+        new TerminalAutomationPeer(this);
+
+    /// <summary>字号可调范围的下限。</summary>
+    public const double MinFontSize = 6;
+
+    /// <summary>字号可调范围的上限。</summary>
+    public const double MaxFontSize = 40;
+
+    /// <summary>
+    /// 按步长调整字号并触发 <see cref="FontSizeChanged" />(Ctrl+滚轮与 Ctrl+加/减 共用)。
+    /// </summary>
+    /// <remarks>
+    /// 改变 FontSize 会重算单元格度量、reflow 网格并调整 PTY 尺寸,所以夹在
+    /// [<see cref="MinFontSize" />, <see cref="MaxFontSize" />] 内;夹住不动时不发事件,
+    /// 避免在边界上反复触发持久化写盘。
+    /// </remarks>
+    /// <param name="delta">步长(正数放大)。</param>
+    public void AdjustFontSize(int delta) => ApplyFontSize(FontSize + delta);
+
+    /// <summary>把字号重置到给定值(Ctrl+0:回到设置里的字号)。</summary>
+    /// <param name="size">目标字号。</param>
+    public void ResetFontSize(double size) => ApplyFontSize(size);
+
+    private void ApplyFontSize(double size)
+    {
+        double next = Math.Clamp(size, MinFontSize, MaxFontSize);
+        if (Math.Abs(next - FontSize) <= 0.01)
+        {
+            return;
+        }
+        FontSize = next;
+        FontSizeChanged?.Invoke(next);
+    }
+
+    /// <summary>
     /// Ctrl+滚轮缩放字体;否则转发给应用鼠标追踪或滚动回滚区。
     /// 本地回滚区中按住 Alt 使用五倍步长快速滚动。
     /// </summary>
@@ -3136,12 +3371,7 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         // reflow 网格并调整 PTY 尺寸。
         if (e.KeyModifiers.HasFlag(KeyModifiers.Control))
         {
-            double next = Math.Clamp(FontSize + (e.Delta.Y > 0 ? 1 : -1), 6, 40);
-            if (Math.Abs(next - FontSize) > 0.01)
-            {
-                FontSize = next;
-                FontSizeChanged?.Invoke(next);
-            }
+            AdjustFontSize(e.Delta.Y > 0 ? 1 : -1);
             e.Handled = true;
             return;
         }
@@ -3156,6 +3386,38 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
                 SendMouse(TerminalMouseEventType.Press, button, e.GetPosition(this), e.KeyModifiers)
             )
             {
+                e.Handled = true;
+                return;
+            }
+        }
+        // 备用屏滚轮转方向键(xterm alternateScroll / DECSET ?1007)。备用屏没有回滚区,
+        // 所以未开鼠标追踪时滚轮原本什么都不做 —— less / man / 未开 mouse 的 vim 里
+        // 滚轮"没反应"就是这么来的。转成光标上下键发给应用,与 xterm / Windows Terminal /
+        // iTerm2 的默认行为一致。走 InputEncoder 而不是手写 ESC [ A:DECCKM 开着时
+        // 应用要的是 SS3 A,编码器已经会判。
+        if (
+            AlternateScrollEnabled
+            && Emulator.Modes.AlternateScroll
+            && Emulator.IsAlternateScreen
+            && Emulator.Modes.Mouse == MouseTracking.None
+            && e.Delta.Y != 0
+        )
+        {
+            int lines = Math.Max(1, (int)Math.Round(Math.Abs(e.Delta.Y) * WheelScrollLines));
+            byte[]? one = InputEncoder.Encode(
+                e.Delta.Y > 0 ? Key.Up : Key.Down,
+                KeyModifiers.None,
+                Emulator.Modes,
+                Emulator.Type
+            );
+            if (one is { Length: > 0 })
+            {
+                byte[] payload = new byte[one.Length * lines];
+                for (int i = 0; i < lines; i++)
+                {
+                    one.CopyTo(payload, i * one.Length);
+                }
+                SendTypedInput(payload);
                 e.Handled = true;
                 return;
             }
@@ -3222,16 +3484,31 @@ public sealed partial class VelaTerminalControl : Control, ITerminalEmulator
         _blockSelection = false;
     }
 
+    /// <summary>
+    /// 在系统浏览器里打开一条链接(Ctrl+点击 URL)。
+    /// </summary>
+    /// <remarks>
+    /// 这里的 <c>async void</c> 自带 try/catch 兜住全部异常。终端项目在宿主项目之下,
+    /// 用不了 <c>VelaShell.Services.FireAndForget</c>;而没有这道兜底的话,一个打不开的
+    /// 协议处理器(用户把 http 关联到一个已卸载的浏览器)就会以未处理异常掀翻整个进程。
+    /// </remarks>
     private async void OpenLink(string url)
     {
-        var top = TopLevel.GetTopLevel(this);
-        if (top is null)
+        try
         {
-            return;
+            var top = TopLevel.GetTopLevel(this);
+            if (top is null)
+            {
+                return;
+            }
+            if (Uri.TryCreate(url, UriKind.Absolute, out Uri? uri))
+            {
+                await top.Launcher.LaunchUriAsync(uri);
+            }
         }
-        if (Uri.TryCreate(url, UriKind.Absolute, out Uri? uri))
+        catch (Exception ex)
         {
-            await top.Launcher.LaunchUriAsync(uri);
+            System.Diagnostics.Trace.WriteLine($"[VelaTerminalControl] 打开链接失败 {url}:{ex}");
         }
     }
 

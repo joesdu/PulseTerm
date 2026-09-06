@@ -1,0 +1,82 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VelaShell.Presentation.ViewModels"
+             xmlns:loc="using:VelaShell.Localization"
+             xmlns:pc="using:VelaShell.Controls.Controls"
+             x:Class="VelaShell.Views.ToastHostView"
+             x:DataType="vm:ToastHostViewModel"
+             IsVisible="{Binding HasToasts}">
+
+  <!-- 运行时反馈的浮层通道。锚在右下、贴着状态栏 —— 用户在状态栏那一带找"刚才发生了什么",
+       浮层长在同一片区域才接得上原来的习惯;右上已经被传输提示占着。
+       外层不设 Background、不参与命中测试:整块铺开也不会挡住底下的终端。 -->
+  <UserControl.Styles>
+    <Style Selector="Border.toast">
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Padding" Value="12,9" />
+      <Setter Property="MinWidth" Value="260" />
+      <Setter Property="MaxWidth" Value="420" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Background" Value="{DynamicResource VelaBgElevated}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource VelaBorderPrimary}" />
+      <Setter Property="BoxShadow" Value="{DynamicResource VelaShadowWindow}" />
+    </Style>
+    <!-- 分级只改左侧那一道色条,不改整块底色:整块染色在深色主题下会把正文压得读不清,
+         而一道色条在余光里同样分得出轻重。 -->
+    <Style Selector="Border.accent">
+      <Setter Property="Width" Value="3" />
+      <Setter Property="CornerRadius" Value="2" />
+    </Style>
+  </UserControl.Styles>
+
+  <ItemsControl ItemsSource="{Binding Toasts}"
+                HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                Margin="0,0,16,12">
+    <ItemsControl.ItemsPanel>
+      <ItemsPanelTemplate>
+        <StackPanel Orientation="Vertical" Spacing="8" />
+      </ItemsPanelTemplate>
+    </ItemsControl.ItemsPanel>
+    <ItemsControl.ItemTemplate>
+      <DataTemplate x:DataType="vm:ToastViewModel">
+        <Border Classes="toast">
+          <Grid ColumnDefinitions="Auto,10,*,Auto,Auto">
+            <Border Grid.Column="0" Classes="accent"
+                    Background="{DynamicResource VelaAccent}"
+                    IsVisible="{Binding IsInfo}" />
+            <Border Grid.Column="0" Classes="accent"
+                    Background="{DynamicResource VelaWarning}"
+                    IsVisible="{Binding IsWarning}" />
+            <Border Grid.Column="0" Classes="accent"
+                    Background="{DynamicResource VelaError}"
+                    IsVisible="{Binding IsError}" />
+
+            <TextBlock Grid.Column="2" Text="{Binding Message}"
+                       Foreground="{DynamicResource VelaTextPrimary}"
+                       FontSize="{DynamicResource VelaFontSize11}"
+                       TextWrapping="Wrap" VerticalAlignment="Center" />
+
+            <!-- 操作按钮(如断线的「立即重连」):这是用户看到这条消息时唯一想做的事,
+                 让他去别处找入口等于把提示又变成了纯文字。 -->
+            <Button Grid.Column="3" Classes="dlg-outline"
+                    Margin="10,0,0,0" Padding="10,3"
+                    IsVisible="{Binding HasAction}"
+                    Content="{Binding ActionLabel}"
+                    Command="{Binding $parent[ItemsControl].((vm:ToastHostViewModel)DataContext).InvokeCommand}"
+                    CommandParameter="{Binding}" />
+
+            <Button Grid.Column="4" Margin="6,0,0,0" Padding="4"
+                    Background="Transparent" BorderThickness="0"
+                    ToolTip.Tip="{loc:Localize Toast_Dismiss}"
+                    Command="{Binding $parent[ItemsControl].((vm:ToastHostViewModel)DataContext).DismissCommand}"
+                    CommandParameter="{Binding}">
+              <pc:LucideIcon Width="12" Height="12"
+                             Data="{StaticResource Icon.x}"
+                             Foreground="{DynamicResource VelaTextTertiary}" />
+            </Button>
+          </Grid>
+        </Border>
+      </DataTemplate>
+    </ItemsControl.ItemTemplate>
+  </ItemsControl>
+</UserControl>

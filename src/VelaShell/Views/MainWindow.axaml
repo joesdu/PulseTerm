@@ -28,8 +28,8 @@
     <!-- Ctrl+W 必须走宿主的关闭命令:TabBar.CloseActiveTabCommand 只删逻辑标签,
          会留下仍在显示的停靠标签并泄漏 SSH/PTY 传输。 -->
     <KeyBinding Gesture="Ctrl+W" Command="{Binding CloseActiveTabCommand}" />
-    <KeyBinding Gesture="Ctrl+Tab" Command="{Binding TabBar.NextTabCommand}" />
-    <KeyBinding Gesture="Ctrl+Shift+Tab" Command="{Binding TabBar.PreviousTabCommand}" />
+    <KeyBinding Gesture="Ctrl+Tab" Command="{Binding NextTabCommand}" />
+    <KeyBinding Gesture="Ctrl+Shift+Tab" Command="{Binding PreviousTabCommand}" />
     <KeyBinding Gesture="Ctrl+OemComma" Command="{Binding OpenSettingsCommand}" />
     <KeyBinding Gesture="Ctrl+P" Command="{Binding OpenCommandPaletteCommand}" />
     <KeyBinding Gesture="Ctrl+K" Command="{Binding OpenCommandPaletteCommand}" />
@@ -39,6 +39,36 @@
     <KeyBinding Gesture="Ctrl+Shift+L" Command="{Binding RunCommand}" CommandParameter="terminal.linegutter" />
     <!-- Ctrl+B:折叠/展开左侧资源管理器(与 VS Code / Zed 同键位)。 -->
     <KeyBinding Gesture="Ctrl+B" Command="{Binding ToggleSidebarCommand}" />
+
+    <!-- 分屏。Ctrl+Shift+S 的 S = stack(下方分屏);它在终端里没有用途,可以安全占用。 -->
+    <KeyBinding Gesture="Ctrl+Shift+D" Command="{Binding RunCommand}" CommandParameter="split.horizontal" />
+    <KeyBinding Gesture="Ctrl+Shift+S" Command="{Binding RunCommand}" CommandParameter="split.vertical" />
+
+    <!-- 跳到第 N 个标签。用 Ctrl+Alt+数字 而不是 Ctrl+数字:Ctrl+2…7 是控制字符
+         (^@ ^[ ^\ ^] ^^ ^_),占掉它们等于让远端再也收不到这六个字节。
+         Windows Terminal 出于同样的原因也用 Ctrl+Alt+数字。 -->
+    <KeyBinding Gesture="Ctrl+Alt+D1" Command="{Binding RunCommand}" CommandParameter="tab.goto.1" />
+    <KeyBinding Gesture="Ctrl+Alt+D2" Command="{Binding RunCommand}" CommandParameter="tab.goto.2" />
+    <KeyBinding Gesture="Ctrl+Alt+D3" Command="{Binding RunCommand}" CommandParameter="tab.goto.3" />
+    <KeyBinding Gesture="Ctrl+Alt+D4" Command="{Binding RunCommand}" CommandParameter="tab.goto.4" />
+    <KeyBinding Gesture="Ctrl+Alt+D5" Command="{Binding RunCommand}" CommandParameter="tab.goto.5" />
+    <KeyBinding Gesture="Ctrl+Alt+D6" Command="{Binding RunCommand}" CommandParameter="tab.goto.6" />
+    <KeyBinding Gesture="Ctrl+Alt+D7" Command="{Binding RunCommand}" CommandParameter="tab.goto.7" />
+    <KeyBinding Gesture="Ctrl+Alt+D8" Command="{Binding RunCommand}" CommandParameter="tab.goto.8" />
+    <KeyBinding Gesture="Ctrl+Alt+D9" Command="{Binding RunCommand}" CommandParameter="tab.goto.last" />
+
+    <!-- 字号缩放。Ctrl+- 会抢走 ^_(emacs undo 的一种按法);Ctrl+Shift+- 仍原样送到远端。 -->
+    <KeyBinding Gesture="Ctrl+OemPlus" Command="{Binding RunCommand}" CommandParameter="view.zoom.in" />
+    <KeyBinding Gesture="Ctrl+OemMinus" Command="{Binding RunCommand}" CommandParameter="view.zoom.out" />
+    <KeyBinding Gesture="Ctrl+D0" Command="{Binding RunCommand}" CommandParameter="view.zoom.reset" />
+
+    <KeyBinding Gesture="Ctrl+Shift+K" Command="{Binding RunCommand}" CommandParameter="edit.clear" />
+    <KeyBinding Gesture="Ctrl+Shift+W" Command="{Binding RunCommand}" CommandParameter="session.close.all" />
+    <KeyBinding Gesture="Ctrl+Shift+E" Command="{Binding RunCommand}" CommandParameter="view.sessions.filter" />
+
+    <!-- 窗格移焦(Alt+方向)**不在这里** —— KeyBindings 是无条件抢键,而 Alt+方向
+         在 zsh / fish 里有用户绑定。见 MainWindow.axaml.cs 的 OnPaneNavigationKeyDown:
+         只有确实存在多个窗格时才吃掉这个按键。 -->
   </Window.KeyBindings>
 
   <!-- 无边框窗体:与本应用全部对话框同款的 WindowDecorations="None" 全自绘模式
@@ -80,6 +110,14 @@
       <views:NotificationPanelView DataContext="{Binding NotificationPanel}"
                                    HorizontalAlignment="Left" VerticalAlignment="Bottom"
                                    Margin="12,0,0,48" />
+    </Panel>
+    <!-- 运行时反馈的浮层通道(断线、重连倒计时、连接失败、导出成功……)。锚在右下、
+         贴着状态栏 —— 用户在状态栏那一带找"刚才发生了什么",浮层长在同一片区域才接得上
+         原来的习惯;右上已经被传输提示占着。ZIndex 高于隧道/消息面板:提示是要被看见的,
+         被别的浮层压住就失去了意义。
+         外层 Panel 铺满整行、不设 Background,不参与命中测试,不会挡住底下的终端。 -->
+    <Panel Grid.Row="1" ZIndex="70">
+      <views:ToastHostView DataContext="{Binding Toasts}" />
     </Panel>
     <!-- 自绘标题栏:logo/名称 + 全局功能图标 + 最小化/最大化/关闭 -->
     <views:TitleBarView x:Name="TitleBarHost" Grid.Row="0" DataContext="{Binding}" />
@@ -140,15 +178,15 @@
           IsVisible="{Binding CommandPalette.IsOpen}">
       <Grid.Styles>
         <Style Selector="Button.backdrop /template/ ContentPresenter#PART_ContentPresenter">
-          <Setter Property="Background" Value="#66000000" />
+          <Setter Property="Background" Value="{DynamicResource VelaScrim}" />
         </Style>
         <Style Selector="Button.backdrop:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-          <Setter Property="Background" Value="#66000000" />
+          <Setter Property="Background" Value="{DynamicResource VelaScrim}" />
         </Style>
       </Grid.Styles>
       <Button Classes="backdrop"
               Command="{Binding CommandPalette.CloseCommand}"
-              Background="#66000000"
+              Background="{DynamicResource VelaScrim}"
               BorderThickness="0"
               CornerRadius="0"
               HorizontalAlignment="Stretch"

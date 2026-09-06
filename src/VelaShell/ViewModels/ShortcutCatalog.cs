@@ -94,9 +94,18 @@ public static class ShortcutCatalog
             Group("Sc_GroupTabsAndPanels",
                 [
                     Item("CloseTab", [Ctrl, "W"]),
+                    Item("Cmd_CloseAllTabs", [Ctrl, Shift, "W"]),
                     Item("Sc_NextTab", [Ctrl, "Tab"]),
                     Item("Sc_PrevTab", [Ctrl, Shift, "Tab"]),
+                    // Ctrl+数字 会吃掉 ^@ ^[ ^\ ^] ^^ ^_ 六个控制字符,所以跳标签用 Ctrl+Alt+数字
+                    // (Windows Terminal 同样如此)。数的是**当前标签条**上的第几个,分屏后按组算。
+                    Item("Cmd_GotoTabN", [Ctrl, Alt, "1", "…", "8"]),
+                    Item("Cmd_GotoLastTab", [Ctrl, Alt, "9"]),
+                    Item("Dock_SplitHorizontal", [Ctrl, Shift, "D"]),
+                    Item("Dock_SplitVertical", [Ctrl, Shift, "S"]),
+                    Item("Sc_FocusPane", [Alt, "←", "→", "↑", "↓"], "Sc_NoteSplitOnly"),
                     Item("Cmd_ToggleSidebar", [Ctrl, "B"]),
+                    Item("Cmd_FilterSessions", [Ctrl, Shift, "E"]),
                     Item("Sc_ToggleFileBrowser", [Ctrl, Shift, "F"]),
                     Item("Cmd_TunnelManager", [Ctrl, Shift, "T"]),
                     Item("Cmd_ToggleLineGutter", [Ctrl, Shift, "L"]),
@@ -122,6 +131,11 @@ public static class ShortcutCatalog
                     Item("Sc_Reconnect", ["Enter"], "Sc_NoteDisconnected"),
                     Item("Sc_ReconnectAlt", [Ctrl, "R"], "Sc_NoteDisconnected"),
                     Item("Sc_CloseDisconnectedTab", ["Esc"], "Sc_NoteDisconnected"),
+                    Item("Cmd_ClearScreen", [Ctrl, Shift, "K"]),
+                    // Ctrl+- 会抢走 ^_(emacs undo 的一种按法);要发 ^_ 请用 Ctrl+Shift+-。
+                    Item("Cmd_ZoomIn", [Ctrl, "="]),
+                    Item("Cmd_ZoomOut", [Ctrl, "-"], "Sc_NoteZoomOutTakesUnitSeparator"),
+                    Item("Cmd_ZoomReset", [Ctrl, "0"]),
                 ]
             ),
             Group("Sc_GroupCompletion",

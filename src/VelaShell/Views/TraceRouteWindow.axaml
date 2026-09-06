@@ -37,7 +37,7 @@
       <Setter Property="Background" Value="{DynamicResource VelaBgHover}" />
     </Style>
     <Style Selector="Button.caption-close:pointerover /template/ ContentPresenter">
-      <Setter Property="Background" Value="#E81123" />
+      <Setter Property="Background" Value="{DynamicResource VelaDangerHover}" />
     </Style>
     <Style Selector="Button.tool">
       <Setter Property="Background" Value="Transparent" />
@@ -147,7 +147,7 @@
           <!-- 缺库时的引导:说明 + 官方下载直链 + 选择本地文件。放在窗口里而不是设置页 ——
                用户是在这儿发现地图空的,修复入口就该在这儿。 -->
           <Border VerticalAlignment="Bottom" HorizontalAlignment="Stretch"
-                  Background="#C0000000" Padding="10,8"
+                  Background="{DynamicResource VelaScrimStrong}" Padding="10,8"
                   IsVisible="{Binding GeoDatabaseMissing}">
             <StackPanel Spacing="6">
               <TextBlock Text="{loc:Localize Trace_MapNeedsDatabase}"
@@ -173,7 +173,7 @@
           </Border>
           <!-- 已加载时只在角落标一行来源,CC BY 4.0 要求署名。 -->
           <Border VerticalAlignment="Bottom" HorizontalAlignment="Right"
-                  Background="#80000000" Padding="6,3" Margin="0,0,6,6"
+                  Background="{DynamicResource VelaScrim}" Padding="6,3" Margin="0,0,6,6"
                   IsVisible="{Binding !GeoDatabaseMissing}">
             <TextBlock Text="{loc:Localize Trace_GeoAttribution}"
                        Foreground="{DynamicResource VelaTextMuted}" FontSize="{DynamicResource VelaFontSize9}" />

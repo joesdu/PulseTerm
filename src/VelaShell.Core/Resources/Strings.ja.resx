@@ -484,6 +484,12 @@
   <data name="Editor_DiscardAndClose" xml:space="preserve">
     <value>破棄して閉じる</value>
   </data>
+  <data name="Editor_LoadedStatusFallback" xml:space="preserve">
+    <value>{0} バイトを読み込みました —— 正しい UTF-8 ではないため {1} として解釈しました</value>
+  </data>
+  <data name="Editor_TooLarge" xml:space="preserve">
+    <value>ファイルは {0} MB —— 内蔵エディターの上限({1} MB)を超えています。外部エディターをお使いください。</value>
+  </data>
   <data name="Editor_LoadedStatus" xml:space="preserve">
     <value>UTF テキスト · {0} B · 準備完了</value>
   </data>
@@ -1025,6 +1031,15 @@
   <data name="Msg_AuthFailed" xml:space="preserve">
     <value>認証に失敗しました: {0} のユーザー名、パスワードまたは鍵が正しくありません。</value>
   </data>
+  <data name="Msg_AuthFailedTwoFactorHint" xml:space="preserve">
+    <value>このホストが二要素認証(keyboard-interactive / OTP)を要求する場合、このバージョンでは接続できません: 基盤の SSH ライブラリがその方式を実装していません。</value>
+  </data>
+  <data name="Toast_ReconnectNow" xml:space="preserve">
+    <value>今すぐ再接続</value>
+  </data>
+  <data name="Toast_Dismiss" xml:space="preserve">
+    <value>閉じる</value>
+  </data>
   <data name="Msg_AuthPromptCancelled" xml:space="preserve">
     <value>このプロファイルには資格情報が保存されていないため、ログイン認証をキャンセルしました。</value>
   </data>
@@ -1454,6 +1469,18 @@
   <data name="Profile_GroupPlaceholder" xml:space="preserve">
     <value>グループを選択または新しい名前を入力</value>
   </data>
+  <data name="Profile_ErrHostRequired" xml:space="preserve">
+    <value>ホストを入力してください</value>
+  </data>
+  <data name="Profile_ErrPortRange" xml:space="preserve">
+    <value>ポートは 1〜65535 の範囲で指定してください</value>
+  </data>
+  <data name="Profile_ErrUserRequired" xml:space="preserve">
+    <value>ユーザー名を入力してください</value>
+  </data>
+  <data name="Profile_ErrKeyMissing" xml:space="preserve">
+    <value>秘密鍵ファイルが見つかりません</value>
+  </data>
   <data name="Profile_HostIp" xml:space="preserve">
     <value>ホスト名 / IP</value>
   </data>
@@ -1480,6 +1507,42 @@
   </data>
   <data name="Profile_PostAuthCommandHint" xml:space="preserve">
     <value>// このセッションのみに適用され、再接続時にも実行されます。すべてのターミナルに適用されるものは 設定 → ターミナル → セッション にあります</value>
+  </data>
+  <data name="Profile_FollowGlobal" xml:space="preserve">
+    <value>グローバルに従う</value>
+  </data>
+  <data name="Profile_SessionOverrides" xml:space="preserve">
+    <value>セッション単位の端末上書き</value>
+  </data>
+  <data name="Profile_SessionOverridesHint" xml:space="preserve">
+    <value>「グローバルに従う」のままの項目は設定ページの値を使います。片方が GBK、もう片方が UTF-8 のホストや、本番タブを赤・検証タブを緑にしたい場合に便利です。</value>
+  </data>
+  <data name="Profile_OverrideEncoding" xml:space="preserve">
+    <value>エンコーディング</value>
+  </data>
+  <data name="Profile_OverrideTerminalType" xml:space="preserve">
+    <value>端末タイプ</value>
+  </data>
+  <data name="Profile_OverrideColorScheme" xml:space="preserve">
+    <value>配色</value>
+  </data>
+  <data name="Profile_OverrideTabColor" xml:space="preserve">
+    <value>タブの色</value>
+  </data>
+  <data name="Profile_OverrideTabColorPlaceholder" xml:space="preserve">
+    <value>#E05252 — 空欄で自動配色</value>
+  </data>
+  <data name="Profile_OverrideStartupDirectory" xml:space="preserve">
+    <value>初期ディレクトリ</value>
+  </data>
+  <data name="Profile_OverrideStartupDirectoryPlaceholder" xml:space="preserve">
+    <value>/var/log — 空欄ならログインディレクトリのまま</value>
+  </data>
+  <data name="Profile_OverrideKeepAlive" xml:space="preserve">
+    <value>キープアライブ(秒)</value>
+  </data>
+  <data name="Profile_OverrideKeepAliveHint" xml:space="preserve">
+    <value>-1 = グローバルに従う、0 = 無効。</value>
   </data>
   <data name="Profile_PostAuthCommandPlaceholder" xml:space="preserve">
     <value>例: sudo su - / tmux attach</value>
@@ -1895,6 +1958,30 @@
   </data>
   <data name="SetGeneral_ClearHistoryDesc" xml:space="preserve">
     <value>// コマンド履歴と最近の接続を消去</value>
+  </data>
+  <data name="SetGeneral_StatusMetricsInterval" xml:space="preserve">
+    <value>ステータスバーの取得間隔(秒)</value>
+  </data>
+  <data name="SetGeneral_StatusMetricsIntervalDesc" xml:space="preserve">
+    <value>取得のたびにリモートで SSH チャネルを新規に開いてコマンドを実行します。短くするほどサーバー負荷が増えます。ウィンドウが非アクティブなら 10 秒に、最小化中は停止します。</value>
+  </data>
+  <data name="SetGeneral_ConfirmCloseTab" xml:space="preserve">
+    <value>接続中のタブを閉じる前に確認</value>
+  </data>
+  <data name="SetGeneral_ConfirmCloseTabDesc" xml:space="preserve">
+    <value>セッションが接続中のタブを閉じるときに確認します。切断済みのタブはそのまま閉じます。</value>
+  </data>
+  <data name="Main_CloseTabConfirmTitle" xml:space="preserve">
+    <value>このセッションを閉じますか?</value>
+  </data>
+  <data name="Main_CloseTabConfirmBody" xml:space="preserve">
+    <value>{0} はまだ接続中です。タブを閉じると切断されます。</value>
+  </data>
+  <data name="Main_CloseTabConfirmMany" xml:space="preserve">
+    <value>{0} 個のセッションがまだ接続中です。閉じるとすべて切断されます。</value>
+  </data>
+  <data name="Main_CloseTabConfirmAction" xml:space="preserve">
+    <value>閉じる</value>
   </data>
   <data name="SetGeneral_ConfirmBeforeClose" xml:space="preserve">
     <value>終了前に確認</value>
@@ -2400,6 +2487,12 @@
   <data name="SetTerm_ScrollbackDesc" xml:space="preserve">
     <value>// スクロールバックで保持する最大行数</value>
   </data>
+  <data name="SetTerm_AlternateScroll" xml:space="preserve">
+    <value>代替画面でホイールを方向キーに変換</value>
+  </data>
+  <data name="SetTerm_AlternateScrollDesc" xml:space="preserve">
+    <value>vim / less / man などの全画面プログラムが使う代替画面にはスクロールバックがなく、ホイールは何も起きません。オンにするとカーソル上下キーとして送信します。アプリ側は CSI ?1007 l で無効化できます。</value>
+  </data>
   <data name="SetTerm_ScrollOnKeystroke" xml:space="preserve">
     <value>キー入力時に最下部へスクロール</value>
   </data>
@@ -2667,6 +2760,18 @@
   <data name="Sc_NewTabAlias" xml:space="preserve">
     <value>新しいタブ(新規接続と同じ)</value>
   </data>
+  <data name="Cmd_GotoTabN" xml:space="preserve">
+    <value>N 番目のタブへ</value>
+  </data>
+  <data name="Sc_FocusPane" xml:space="preserve">
+    <value>ペイン間でフォーカス移動</value>
+  </data>
+  <data name="Sc_NoteSplitOnly" xml:space="preserve">
+    <value>分割時のみ有効。分割していないときはそのままリモートへ送られます</value>
+  </data>
+  <data name="Sc_NoteZoomOutTakesUnitSeparator" xml:space="preserve">
+    <value>^_ を占有します。送信するには Ctrl+Shift+- を使ってください</value>
+  </data>
   <data name="Sc_NextTab" xml:space="preserve">
     <value>次のタブ</value>
   </data>
@@ -2760,6 +2865,15 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   <data name="Sidebar_RefreshRecent" xml:space="preserve">
     <value>最近の接続を更新</value>
   </data>
+  <data name="Sidebar_FilterSessions" xml:space="preserve">
+    <value>セッションを絞り込む</value>
+  </data>
+  <data name="Sidebar_ClearFilter" xml:space="preserve">
+    <value>絞り込みをクリア</value>
+  </data>
+  <data name="Cmd_FilterSessions" xml:space="preserve">
+    <value>セッションを絞り込む</value>
+  </data>
   <data name="Sidebar_ToggleSection" xml:space="preserve">
     <value>このセクションを折りたたむ／展開する</value>
   </data>
@@ -2768,6 +2882,12 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   </data>
   <data name="Split" xml:space="preserve">
     <value>分割</value>
+  </data>
+  <data name="Status_Selected" xml:space="preserve">
+    <value>{0} 文字を選択中</value>
+  </data>
+  <data name="Status_ChangeEncoding" xml:space="preserve">
+    <value>このセッションの文字コードを変更</value>
   </data>
   <data name="StatusBar_OpenMonitor" xml:space="preserve">
     <value>リソースモニターを開く</value>
@@ -3318,6 +3438,54 @@ Windows は exe のフルパスまたはコマンド名(例: notepad)、Linux �
   </data>
   <data name="Notify_UpdateAction" xml:space="preserve">
     <value>バージョン情報を開く</value>
+  </data>
+  <data name="Cmd_OpenLogs" xml:space="preserve">
+    <value>ログフォルダーを開く</value>
+  </data>
+  <data name="SetAbout_OpenLogs" xml:space="preserve">
+    <value>ログフォルダーを開く</value>
+  </data>
+  <data name="Notify_CrashTitle" xml:space="preserve">
+    <value>前回、予期せず終了しました</value>
+  </data>
+  <data name="Notify_CrashBody" xml:space="preserve">
+    <value>クラッシュレポートを {0} に書き出しました。ログフォルダーを開いて確認するか、不具合報告に添付してください。</value>
+  </data>
+  <data name="Notify_CrashAction" xml:space="preserve">
+    <value>ログフォルダーを開く</value>
+  </data>
+  <data name="Notify_KindSystem" xml:space="preserve">
+    <value>システム</value>
+  </data>
+  <data name="Cmd_GotoTab" xml:space="preserve">
+    <value>{0} 番目のタブへ</value>
+  </data>
+  <data name="Cmd_GotoLastTab" xml:space="preserve">
+    <value>最後のタブへ</value>
+  </data>
+  <data name="Cmd_ZoomIn" xml:space="preserve">
+    <value>文字を大きく</value>
+  </data>
+  <data name="Cmd_ZoomOut" xml:space="preserve">
+    <value>文字を小さく</value>
+  </data>
+  <data name="Cmd_ZoomReset" xml:space="preserve">
+    <value>文字サイズをリセット</value>
+  </data>
+  <data name="Cmd_CloseAllTabs" xml:space="preserve">
+    <value>すべてのタブを閉じる</value>
+  </data>
+  <data name="Cmd_FocusPaneLeft" xml:space="preserve">
+    <value>左のペインへ</value>
+  </data>
+  <data name="Cmd_FocusPaneRight" xml:space="preserve">
+    <value>右のペインへ</value>
+  </data>
+  <data name="Cmd_FocusPaneUp" xml:space="preserve">
+    <value>上のペインへ</value>
+  </data>
+  <data name="Cmd_FocusPaneDown" xml:space="preserve">
+    <value>下のペインへ</value>
   </data>
   <data name="Cmd_OpenAbout" xml:space="preserve">
     <value>バージョン情報を開く</value>

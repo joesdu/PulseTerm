@@ -2,6 +2,7 @@ using NSubstitute;
 using ReactiveUI.Primitives;
 using VelaShell.Core.Data;
 using VelaShell.Core.Models;
+using VelaShell.Docking;
 using VelaShell.Presentation.ViewModels;
 using VelaShell.Terminal;
 using VelaShell.ViewModels;
@@ -28,19 +29,19 @@ public sealed class SessionTreeStatusFromTabsTests
             await CreateLoadedAsync();
 
         TerminalTabViewModel first = CreateTab(profile, SessionStatus.Connected);
-        vm.TabBar.AddTab(first);
+        vm.Layout.AddDocument(new TerminalDocument(first));
         Assert.AreEqual(SessionStatus.Connected, node.Status);
 
         // 同一条配置再开一个标签:握手期间节点仍应显示「活跃」——那条已连上的会话还在。
         TerminalTabViewModel second = CreateTab(profile, SessionStatus.Connecting);
-        vm.TabBar.AddTab(second);
+        vm.Layout.AddDocument(new TerminalDocument(second));
         Assert.AreEqual(
             SessionStatus.Connected,
             node.Status,
             "已连上的会话不该因为旁边多了个正在握手的标签而退回「连接中」。"
         );
 
-        vm.TabBar.CloseTabCommand.Execute(second).Subscribe();
+        vm.CloseTerminalTab(second);
 
         Assert.AreEqual(
             SessionStatus.Connected,
@@ -57,10 +58,10 @@ public sealed class SessionTreeStatusFromTabsTests
 
         // 连接失败/取消会静默把标签从标签栏摘掉(RemoveTerminalTab),不走 DocumentClosed。
         TerminalTabViewModel only = CreateTab(profile, SessionStatus.Connecting);
-        vm.TabBar.AddTab(only);
+        vm.Layout.AddDocument(new TerminalDocument(only));
         Assert.AreEqual(SessionStatus.Connecting, node.Status);
 
-        vm.TabBar.CloseTabCommand.Execute(only).Subscribe();
+        vm.CloseTerminalTab(only);
 
         Assert.AreEqual(
             SessionStatus.Disconnected,
@@ -76,9 +77,9 @@ public sealed class SessionTreeStatusFromTabsTests
             await CreateLoadedAsync();
 
         TerminalTabViewModel connected = CreateTab(profile, SessionStatus.Connected);
-        vm.TabBar.AddTab(connected);
+        vm.Layout.AddDocument(new TerminalDocument(connected));
         TerminalTabViewModel failing = CreateTab(profile, SessionStatus.Connecting);
-        vm.TabBar.AddTab(failing);
+        vm.Layout.AddDocument(new TerminalDocument(failing));
 
         failing.ConnectionStatus = SessionStatus.Error;
 
@@ -103,7 +104,7 @@ public sealed class SessionTreeStatusFromTabsTests
         (MainWindowViewModel vm, _, SessionTreeNodeViewModel node) =
             await CreateLoadedAsync();
 
-        vm.TabBar.AddTab(CreateTab(new SessionProfile { Id = Guid.NewGuid(), Name = "other" }, SessionStatus.Connected));
+        vm.Layout.AddDocument(new TerminalDocument(CreateTab(new SessionProfile { Id = Guid.NewGuid(), Name = "other" }, SessionStatus.Connected)));
 
         Assert.AreEqual(SessionStatus.Disconnected, node.Status);
     }

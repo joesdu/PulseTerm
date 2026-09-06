@@ -7,6 +7,7 @@ using VelaShell.Core.Sftp;
 using VelaShell.Core.Ssh;
 using VelaShell.Docking;
 using VelaShell.Presentation.Services;
+using VelaShell.Tests.TestSupport;
 using VelaShell.Terminal;
 using VelaShell.ViewModels;
 
@@ -109,8 +110,8 @@ public sealed class MainWindowSshFeatureTests
         Assert.IsNotNull(tab);
         Assert.AreEqual("Prod", tab.Title);
         Assert.AreEqual(SessionStatus.Connected, tab.ConnectionStatus);
-        Assert.AreSame(tab, vm.TabBar.ActiveTab);
-        Assert.HasCount(1, vm.TabBar.Tabs);
+        Assert.AreSame(tab, vm.ActiveTerminalTab);
+        Assert.HasCount(1, vm.TerminalTabs);
         // 设计 gzmsb 调整(cfe16d2):状态栏只显示"SSH • <显示名称>",不暴露用户名/IP/端口(安全要求)。
         Assert.AreEqual("SSH • Prod", vm.StatusBar.ConnectionInfo);
         Assert.AreEqual(Strings.Connected, vm.StatusBar.Status);
@@ -216,13 +217,18 @@ public sealed class MainWindowSshFeatureTests
         var vm = new MainWindowViewModel(workflow, sshConnectionService, () => Substitute.For<ITerminalEmulator>());
         TerminalTabViewModel? tab = await vm.TryConnectProfileAsync(profile);
         Assert.IsNull(tab);
-        Assert.IsEmpty(vm.TabBar.Tabs);
+        Assert.IsEmpty(vm.TerminalTabs);
         Assert.IsFalse(string.IsNullOrEmpty(vm.LastConnectionError));
 
         // 比对本地化资源而非中文字面量:该文案随 UI 语言变化,写死会让测试只在中文环境通过。
         // 提示后面还会换行附上底层库给出的具体原因(DescribeConnectionError 有意为之,便于用户诊断)。
+        // 中间那一句是两步验证说明:服务器只放行 keyboard-interactive(2FA / OTP)时,
+        // "用户名、密码或密钥不正确"是**错的** —— 凭据没问题,是本版根本不会那套认证。
+        // 少了这句,用户会照着错文案反复改密码,永远改不对(F-11)。
         Assert.AreEqual(
-            $"{Strings.Format("Msg_AuthFailed", "root@prod.example.com:22")}\nPermission denied (password).",
+            $"{Strings.Format("Msg_AuthFailed", "root@prod.example.com:22")}"
+            + $"\n{Strings.Get("Msg_AuthFailedTwoFactorHint")}"
+            + "\nPermission denied (password).",
             vm.LastConnectionError);
     }
 
@@ -246,7 +252,7 @@ public sealed class MainWindowSshFeatureTests
         var vm = new MainWindowViewModel(workflow, sshConnectionService, () => Substitute.For<ITerminalEmulator>());
         TerminalTabViewModel? tab = await vm.TryConnectProfileAsync(profile);
         Assert.IsNotNull(tab);
-        Assert.HasCount(1, vm.TabBar.Tabs);
+        Assert.HasCount(1, vm.TerminalTabs);
         Assert.AreEqual(SessionStatus.Disconnected, tab.ConnectionStatus);
         Assert.IsTrue(tab.ShowDisconnectedOverlay);
         Assert.IsTrue(tab.HasConnectionError);
@@ -303,8 +309,8 @@ public sealed class MainWindowSshFeatureTests
         // Reconnect in place — same tab, not a new one.
         await vm.ReconnectTabAsync(tab);
         Assert.AreEqual(SessionStatus.Connected, tab.ConnectionStatus);
-        Assert.HasCount(1, vm.TabBar.Tabs);
-        Assert.AreSame(tab, vm.TabBar.Tabs.First());
+        Assert.HasCount(1, vm.TerminalTabs);
+        Assert.AreSame(tab, vm.TerminalTabs.First());
     }
 
     [TestMethod]
@@ -364,7 +370,7 @@ public sealed class MainWindowSshFeatureTests
         TerminalTabViewModel? tab = await vm.TryConnectRecentAsync(entry);
 
         Assert.IsNull(tab);
-        Assert.IsEmpty(vm.TabBar.Tabs);
+        Assert.IsEmpty(vm.TerminalTabs);
         await workflow.DidNotReceive().ConnectProfileAsync(Arg.Any<SessionProfile>(), Arg.Any<CancellationToken>());
     }
 
@@ -410,7 +416,7 @@ public sealed class MainWindowSshFeatureTests
         TerminalTabViewModel? tab = await vm.OpenSftpForProfileAsync(profile);
 
         Assert.IsNull(tab);
-        Assert.IsEmpty(vm.TabBar.Tabs);
+        Assert.IsEmpty(vm.TerminalTabs);
         Assert.HasCount(1, vm.Layout.AllDocuments().OfType<SftpDocument>());
         await workflow.Received(1).ConnectProfileAsync(profile, Arg.Any<CancellationToken>());
         await sshClient.DidNotReceive().CreateShellStreamAsync(
@@ -439,10 +445,10 @@ public sealed class MainWindowSshFeatureTests
             ConnectionStatus = SessionStatus.Connected,
             ConnectionSummary = "SSH • b@host-b:22"
         };
-        vm.TabBar.AddTab(tabA);
-        vm.TabBar.AddTab(tabB); // B becomes active
+        vm.Layout.AddDocument(new TerminalDocument(tabA));
+        vm.Layout.AddDocument(new TerminalDocument(tabB)); // B becomes active
         Assert.AreEqual("SSH • b@host-b:22", vm.StatusBar.ConnectionInfo);
-        vm.TabBar.ActiveTab = tabA; // switch back to A
+        vm.Activate(tabA); // switch back to A
         Assert.AreEqual("SSH • a@host-a:22", vm.StatusBar.ConnectionInfo);
     }
 }

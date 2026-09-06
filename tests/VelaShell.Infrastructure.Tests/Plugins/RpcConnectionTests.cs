@@ -1,4 +1,5 @@
 using System.IO.Pipes;
+using System.Net.Sockets;
 using System.Runtime.ExceptionServices;
 using System.Text.Json;
 using VelaShell.PluginSdk;
@@ -174,7 +175,8 @@ public class RpcConnectionTests
         }
         lock (thrown)
         {
-            Assert.IsEmpty(thrown, $"关闭连接不应抛任何异常,实际抛出:{string.Join(", ", thrown.Select(e => e.GetType().Name))}");
+            List<Exception> ours = [.. thrown.Where(IsNotPipeTeardownNoise)];
+            Assert.IsEmpty(ours, $"关闭连接不应抛任何异常,实际抛出:{string.Join(", ", ours.Select(e => e.GetType().Name))}");
         }
     }
 
@@ -201,4 +203,15 @@ public class RpcConnectionTests
             await cleanup();
         }
     }
+
+    /// <summary>
+    /// Windows 上关闭管道句柄会把待决的读干净地完成,一条异常都不该有,所以全都算数。
+    /// Linux/macOS 的命名管道是 Unix domain socket 实现的:本端 close 时,对端还挂着的那个读
+    /// 必然先在 BCL 内部抛 SocketException(ECONNRESET/EPIPE),再被包成 IOException,
+    /// 然后才由 SDK 的读循环正常吞掉。那是运行时的收尾方式,不在我们能改的范围内,放它过去 ——
+    /// 这条测试真正盯的是**自家**的取消异常(把 lifetime token 传给 ReadAsync 会把待决的读撕成
+    /// OperationCanceledException),那种异常在任何平台上都仍然会让断言失败。
+    /// </summary>
+    private static bool IsNotPipeTeardownNoise(Exception ex) =>
+        OperatingSystem.IsWindows() || ex is not (SocketException or IOException);
 }

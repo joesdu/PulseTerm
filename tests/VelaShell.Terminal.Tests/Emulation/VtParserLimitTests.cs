@@ -133,6 +133,8 @@ public class VtParserLimitTests
 
         public void Print(int rune) { }
 
+        public void PrintRun(ReadOnlySpan<char> text) { }
+
         public void Execute(char control) { }
 
         public void EscDispatch(string intermediates, char final) { }

@@ -49,6 +49,7 @@ public class NotificationItemViewModel(NotificationItem item) : ReactiveObject
         NotificationKind.Update => Strings.Get("Notify_KindUpdate"),
         NotificationKind.Security => Strings.Get("Notify_KindSecurity"),
         NotificationKind.Promotion => Strings.Get("Notify_KindPromotion"),
+        NotificationKind.System => Strings.Get("Notify_KindSystem"),
         _ => Strings.Get("Notify_KindNews")
     };
 

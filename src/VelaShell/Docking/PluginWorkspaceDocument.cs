@@ -38,6 +38,7 @@ public sealed class PluginWorkspaceDocument : DockDocument, IDockViewProvider
         SessionId = sessionId;
         Id = sessionId.ToString("N");
         Title = string.IsNullOrWhiteSpace(profile.Name) ? profile.Host : profile.Name;
+        IsSessionDocument = true;
         Status = Map(SafeState());
         // 标签上的状态圆点跟着插件报的状态走。插件在**任意线程**触发这个事件,
         // 而属性通知会直接驱动绑定 —— 不封送回 UI 线程就是一次跨线程改可视树。
@@ -91,7 +92,7 @@ public sealed class PluginWorkspaceDocument : DockDocument, IDockViewProvider
     public IWorkspaceDocument Workspace { get; }
 
     /// <summary>从连接配置派生的强调色画刷,用于视觉标识(与终端/SFTP 标签同一套)。</summary>
-    public IBrush ConnectionAccentBrush => ConnectionAccent.BrushFor(Profile.Id);
+    public IBrush ConnectionAccentBrush => ConnectionAccent.BrushForProfile(Profile);
 
     /// <summary>显示连接详情的提示文本。</summary>
     public string ConnectionTooltip => $"{Title} · {TypeName} · {Profile.Host}:{Profile.Port}";

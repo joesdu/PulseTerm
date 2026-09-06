@@ -4,6 +4,7 @@ using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using VelaShell.Core.Resources;
 using VelaShell.Core.Ssh;
+using FireAndForget = VelaShell.Services.FireAndForget;
 using VelaShell.ViewModels;
 
 namespace VelaShell.Views.Settings;
@@ -14,7 +15,7 @@ public partial class KeyManagementPage : UserControl
     /// <summary>初始化密钥管理设置页并加载 XAML 组件。</summary>
     public KeyManagementPage() => InitializeComponent();
 
-    private async void ImportKey_Click(object? sender, RoutedEventArgs e)
+    private void ImportKey_Click(object? sender, RoutedEventArgs e) => FireAndForget.Run(async () =>
     {
         if (DataContext is not SettingsViewModel viewModel || TopLevel.GetTopLevel(this) is not { } top)
         {
@@ -30,13 +31,13 @@ public partial class KeyManagementPage : UserControl
         {
             await viewModel.SshKeys.ImportAsync(path);
         }
-    }
+});
 
-    private async void CopyPublicKey_Click(object? sender, RoutedEventArgs e)
+    private void CopyPublicKey_Click(object? sender, RoutedEventArgs e) => FireAndForget.Run(async () =>
     {
         if (sender is Control { DataContext: SshKeyInfo key } && TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
         {
             await clipboard.SetTextAsync(key.PublicKeyLine ?? key.Fingerprint);
         }
-    }
+});
 }

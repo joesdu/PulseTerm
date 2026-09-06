@@ -7,7 +7,10 @@ using VelaShell.TestPlugin;
 namespace VelaShell.Infrastructure.Tests.Plugins;
 
 /// <summary>惰性激活(蓝图 D7)与空闲回收(蓝图 04)的行为验证。</summary>
+// 同 IsolatedPluginTests:真的拉起/回收子进程并按墙钟等收敛,必须串行,
+// 否则空闲回收的等待窗口会被并行负载吃掉。
 [TestClass]
+[DoNotParallelize]
 [TestCategory("Plugins")]
 public class LazyActivationTests
 {

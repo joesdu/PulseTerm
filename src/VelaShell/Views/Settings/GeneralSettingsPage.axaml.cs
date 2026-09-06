@@ -3,6 +3,7 @@ using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using ReactiveUI.Primitives;
 using VelaShell.Core.Resources;
+using FireAndForget = VelaShell.Services.FireAndForget;
 using VelaShell.ViewModels;
 
 namespace VelaShell.Views.Settings;
@@ -13,7 +14,7 @@ public partial class GeneralSettingsPage : UserControl
     /// <summary>初始化常规设置页并加载 XAML 组件。</summary>
     public GeneralSettingsPage() => InitializeComponent();
 
-    private async void ExportSettings_Click(object? sender, RoutedEventArgs e)
+    private void ExportSettings_Click(object? sender, RoutedEventArgs e) => FireAndForget.Run(async () =>
     {
         if (DataContext is not SettingsViewModel viewModel || TopLevel.GetTopLevel(this) is not { } top)
         {
@@ -30,9 +31,9 @@ public partial class GeneralSettingsPage : UserControl
         {
             await File.WriteAllTextAsync(path, viewModel.BuildExportJson());
         }
-    }
+});
 
-    private async void ImportSettings_Click(object? sender, RoutedEventArgs e)
+    private void ImportSettings_Click(object? sender, RoutedEventArgs e) => FireAndForget.Run(async () =>
     {
         if (DataContext is not SettingsViewModel viewModel || TopLevel.GetTopLevel(this) is not { } top)
         {
@@ -48,10 +49,10 @@ public partial class GeneralSettingsPage : UserControl
         {
             viewModel.TryApplyImportedJson(await File.ReadAllTextAsync(path));
         }
-    }
+});
 
     /// <summary>清除历史是破坏性操作:先确认再执行(设置审计 §12 破坏性操作需确认)。</summary>
-    private async void ClearHistory_Click(object? sender, RoutedEventArgs e)
+    private void ClearHistory_Click(object? sender, RoutedEventArgs e) => FireAndForget.Run(async () =>
     {
         if (DataContext is not SettingsViewModel viewModel || TopLevel.GetTopLevel(this) is not Window owner)
         {
@@ -62,5 +63,5 @@ public partial class GeneralSettingsPage : UserControl
         {
             viewModel.ClearHistoryCommand.Execute().Subscribe();
         }
-    }
+});
 }

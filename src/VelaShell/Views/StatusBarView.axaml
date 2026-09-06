@@ -148,8 +148,31 @@
         <TextBlock Text="{Binding WindowSize}"
                    Foreground="{DynamicResource VelaTextMuted}" />
         <Border Classes="divider" />
-        <TextBlock Text="{Binding Encoding}"
-                   Foreground="{DynamicResource VelaTextMuted}" />
+        <!-- 编码可点:弹出菜单当场切当前会话的编码。远端 locale 与本地不一致时,
+             一屏乱码到底是 GBK 还是 UTF-8,试一下比翻设置快得多;只影响本会话,不写回设置。 -->
+        <Button Classes="monitor" Padding="4,0" Height="20" VerticalAlignment="Center"
+                Background="Transparent" BorderThickness="0" CornerRadius="4" Cursor="Hand"
+                ToolTip.Tip="{loc:Localize Status_ChangeEncoding}">
+          <Button.Flyout>
+            <MenuFlyout ItemsSource="{Binding AvailableEncodings}" Placement="Top">
+              <MenuFlyout.ItemContainerTheme>
+                <ControlTheme TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+                  <Setter Property="Header" Value="{Binding}" />
+                  <Setter Property="Command"
+                          Value="{Binding $parent[UserControl].((pvm:StatusBarViewModel)DataContext).ChangeEncodingCommand}" />
+                  <Setter Property="CommandParameter" Value="{Binding}" />
+                </ControlTheme>
+              </MenuFlyout.ItemContainerTheme>
+            </MenuFlyout>
+          </Button.Flyout>
+          <TextBlock Text="{Binding Encoding}"
+                     Foreground="{DynamicResource VelaTextMuted}" />
+        </Button>
+        <!-- 选区字符数:只有真的选中了东西才占位。 -->
+        <Border Classes="divider" IsVisible="{Binding HasSelection}" />
+        <TextBlock Text="{Binding SelectionLabel}"
+                   Foreground="{DynamicResource VelaTextSecondary}"
+                   IsVisible="{Binding HasSelection}" />
       </StackPanel>
 
     </Grid>

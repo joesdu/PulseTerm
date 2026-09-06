@@ -734,13 +734,13 @@ public partial class ChatPanelView : UserControl
         if (window > 0 && LastInputTokens > 0)
         {
             int percent = (int)Math.Min(100, Math.Round(LastInputTokens * 100.0 / window));
-            label.Append($"{Compact(LastInputTokens)}/{Compact(window)} · {percent}%");
+            label.Append($"{ChatFormatting.Compact(LastInputTokens)}/{ChatFormatting.Compact(window)} · {percent}%");
             detail.AppendLine(_loc.F("UsageContextLine", $"{LastInputTokens:N0}", $"{window:N0}", percent));
             SetUsageMeter(percent);
         }
         else
         {
-            label.Append($"↑{Compact(TotalInputTokens)} ↓{Compact(TotalOutputTokens)}");
+            label.Append($"↑{ChatFormatting.Compact(TotalInputTokens)} ↓{ChatFormatting.Compact(TotalOutputTokens)}");
             // 不知道窗口多大就画不出占比,整条隐掉(留一根空槽反而像"用量为零")
             UsageMeterTrack.IsVisible = false;
         }
@@ -825,15 +825,6 @@ public partial class ChatPanelView : UserControl
                 + (TotalCachedInputTokens * cachedPrice)
                 + (TotalOutputTokens * provider.OutputPricePerMillion)) / 1_000_000d;
     }
-
-    /// <summary>把 token 计数压成 <c>12.3k</c> / <c>1.2M</c> 这种短形式(工具条按字符宽度计价)。</summary>
-    private static string Compact(long value) => value switch
-    {
-        >= 1_000_000 => $"{value / 1_000_000.0:0.#}M",
-        >= 10_000 => $"{value / 1000.0:0}k",
-        >= 1_000 => $"{value / 1000.0:0.#}k",
-        _ => value.ToString()
-    };
 
     private string? SelectedSessionId
         => _sessions.Count > 0 && SessionCombo.SelectedIndex >= 0 && SessionCombo.SelectedIndex < _sessions.Count
@@ -1397,7 +1388,7 @@ public partial class ChatPanelView : UserControl
                     break;
                 }
                 catch (Exception ex) when (attempt < StreamRetries && updates.Count == 0
-                                           && !token.IsCancellationRequested && IsTransient(ex))
+                                           && !token.IsCancellationRequested && TransientFailure.IsTransient(ex))
                 {
                     _context.Log.Warn($"Stream failed before any content (attempt {attempt + 1}): {ex.Message}");
                     // 重试是瞬时故障,给 warn 色区别于普通提示;成功后连色带字一起撤掉
@@ -1522,27 +1513,6 @@ public partial class ChatPanelView : UserControl
     /// 拖到二十秒后才告诉用户。
     /// </summary>
     private const int StreamRetries = 1;
-
-    /// <summary>
-    /// 这个异常值不值得重来一次。只认"再试一次可能就好了"的那些:
-    /// 网络层故障、超时、以及服务端的 408/429/5xx。参数错、鉴权失败重试一万次也一样。
-    /// </summary>
-    private static bool IsTransient(Exception ex)
-    {
-        for (Exception? current = ex; current is not null; current = current.InnerException)
-        {
-            switch (current)
-            {
-                case HttpRequestException:
-                case IOException:
-                case TimeoutException:
-                    return true;
-                case System.ClientModel.ClientResultException { Status: 408 or 429 or >= 500 and < 600 }:
-                    return true;
-            }
-        }
-        return false;
-    }
 
     /// <summary>回复底部显示的模型名:优先模型 id,没填就退回接入名称。</summary>
     private static string ModelLabel(ResolvedModel provider)
@@ -2294,7 +2264,7 @@ public partial class ChatPanelView : UserControl
             {
                 _thinkingText.Append(meta.Thinking);
                 _thinking = new Collapsible(_owner, _owner._loc.F("ThinkingDone",
-                    FormatDuration(TimeSpan.FromMilliseconds(meta.ThinkingMs))), trailingIconKey: "AiIcon.sparkles");
+                    ChatFormatting.Duration(TimeSpan.FromMilliseconds(meta.ThinkingMs))), trailingIconKey: "AiIcon.sparkles");
                 _stack.Children.Insert(1, _thinking.Root);
                 _thinking.SetBody(meta.Thinking);
                 // 时长已经是存下来的,别让后面的 AppendText 再去按"现在"算一遍
@@ -2492,7 +2462,7 @@ public partial class ChatPanelView : UserControl
                 return;
             }
             _thinkingElapsed = TimeSpan.FromMilliseconds(Environment.TickCount64 - _thinkingStartedAt);
-            _thinking.SetTitle(_owner._loc.F("ThinkingDone", FormatDuration(_thinkingElapsed.Value)));
+            _thinking.SetTitle(_owner._loc.F("ThinkingDone", ChatFormatting.Duration(_thinkingElapsed.Value)));
         }
 
         /// <summary>
@@ -2534,7 +2504,7 @@ public partial class ChatPanelView : UserControl
             }
             if (elapsed is { } span)
             {
-                parts.Add(FormatDuration(span));
+                parts.Add(ChatFormatting.Duration(span));
             }
             meta.Text = string.Join(" · ", parts);
             ToolTip.SetTip(meta, meta.Text);
@@ -2564,13 +2534,6 @@ public partial class ChatPanelView : UserControl
             ToolTip.SetTip(button, _loc["CopyReply"]);
         }, TimeSpan.FromSeconds(1.6));
     }
-
-    /// <summary>把一段时长写成人读的短形式(<c>0.8s</c> / <c>12.3s</c> / <c>1m 5s</c>)。</summary>
-    private static string FormatDuration(TimeSpan span) => span.TotalSeconds switch
-    {
-        < 60 => $"{span.TotalSeconds:0.#}s",
-        _ => $"{(int)span.TotalMinutes}m {span.Seconds}s"
-    };
 
     /// <summary>
     /// 一段流式 Markdown。追加直接进 <see cref="ObservableStringBuilder" />,由
@@ -2786,7 +2749,7 @@ public partial class ChatPanelView : UserControl
             var argsText = new TextBlock
             {
                 Classes = { "toolArgs" },
-                Text = OneLine(argumentsJson, 160),
+                Text = ChatFormatting.OneLine(argumentsJson, 160),
                 Margin = new Thickness(8, 0, 8, 0)
             };
             Grid.SetColumn(argsText, 2);
@@ -2850,12 +2813,6 @@ public partial class ChatPanelView : UserControl
             }
             _details.IsVisible = !_details.IsVisible;
             _chevron.RenderTransform = _details.IsVisible ? new RotateTransform(90) : null;
-        }
-
-        private static string OneLine(string text, int max)
-        {
-            string flat = text.Replace('\n', ' ').Replace('\r', ' ');
-            return flat.Length <= max ? flat : flat[..max] + "…";
         }
     }
 }
