@@ -145,21 +145,33 @@ public sealed class ConversationRouter(
     /// <remarks>
     /// 取消生命周期即可同时命中两者 —— 排队的等待带着这个令牌,正在跑的那一轮的
     /// 取消源也链到它。随后换上一个新的生命周期,好让桥接还能被重新启动。
+    /// <para>
+    /// <b>顺序要紧:生命周期必须先取消,才能去动正在跑的那些轮次。</b>反过来的话,取消
+    /// 正在跑的一轮会让它当场收尾,而收尾的 <c>finally</c> 会归还聊天闸 —— 排队中的那条
+    /// 于是在 <c>stopping.Cancel()</c> 落地<b>之前</b>拿到许可、通过取消检查,然后照常
+    /// 调模型、往聊天里发消息。用户看到的是:点了停止,机器人过一会儿又自己说起话来。
+    /// 这条曾经在 CI 上偶发(Linux 少数几次),因为它要求取消这一步之后当前线程恰好被
+    /// 调度出去,让那一轮把整段收尾跑完。
+    /// </para>
     /// </remarks>
     public void CancelAll()
     {
         CancellationTokenSource stopping;
+        BridgeConversation[] conversations;
         lock (_sync)
         {
             stopping = _lifetime;
             _lifetime = new CancellationTokenSource();
-            foreach (BridgeConversation conversation in _conversations.Values)
-            {
-                conversation.Running?.Cancel();
-                approvals.Cancel(conversation.ChatKey);
-            }
+            conversations = [.. _conversations.Values];
         }
+
+        // 先断掉排队那条的活路,再去掐正在跑的。
         stopping.Cancel();
+        foreach (BridgeConversation conversation in conversations)
+        {
+            conversation.Running?.Cancel();
+            approvals.Cancel(conversation.ChatKey);
+        }
         stopping.Dispose();
     }
 
