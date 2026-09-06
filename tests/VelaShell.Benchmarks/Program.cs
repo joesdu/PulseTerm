@@ -32,14 +32,22 @@ public static class Program
         bool smoke = args.Contains(SmokeSwitch, StringComparer.Ordinal);
         string[] forwarded = [.. args.Where(a => !string.Equals(a, SmokeSwitch, StringComparison.Ordinal))];
 
-        // 进程内跑,不生成子工程。BenchmarkDotNet 0.15.8 的运行时 moniker 表里没有 net11.0,
-        // 默认工具链一上来就 `GetRuntimeVersion not implemented for NotRecognized` 崩掉。
+        // 进程内跑,不生成子工程。这条最初是 BenchmarkDotNet 0.15.8 的绕行:它的运行时
+        // moniker 表里没有 net11.0,默认工具链一上来就
+        // `GetRuntimeVersion not implemented for NotRecognized` 崩掉。
         // 代价是没有进程隔离(BDN 会就此警告一句):被测代码与宿主共用一个运行时,
-        // 环境变量、已加载的程序集、GC 状态都是同一份。对本仓这些纯 CPU/分配的基准够用,
-        // 等 BDN 认识 net11.0 之后换回默认工具链即可。
+        // 环境变量、已加载的程序集、GC 状态都是同一份。对本仓这些纯 CPU/分配的基准够用。
+        //
+        // 0.16.0-preview.1 起 CsProjCoreToolchain 已经有了 NetCoreApp11_0,原来那条
+        // "等 BDN 认识 net11.0 就换回默认工具链"的退出条件已经满足 —— 但换回去要真跑一轮
+        // 子进程基准才敢说没问题,而基准不进 CI 门禁,坏了也没人拦得住。所以先原样保留,
+        // 换工具链单独做、单独验。
+        //
+        // 静态成员名在 0.16 里从 Instance 改成了 Default(构造函数也从 (bool) 变成
+        // (InProcessEmitSettings))。这里用静态成员,不受构造函数变更影响。
         IConfig config = DefaultConfig.Instance;
         Job job = (smoke ? Job.ShortRun.WithId("smoke") : Job.Default)
-            .WithToolchain(InProcessEmitToolchain.Instance);
+            .WithToolchain(InProcessEmitToolchain.Default);
         config = config.AddJob(job);
         BenchmarkSwitcher
             .FromAssembly(typeof(Program).Assembly)
