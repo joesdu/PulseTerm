@@ -1707,3 +1707,39 @@ MCP 默认 **`ScopeKind.All` = 允许全部**,与 IM 授权「空 = 一个都不
 
 **待办**:velashell-docs 尚未同步 —— 对外 MCP 那一节的「允许操作的服务器」描述要跟着改
 (中英两棵树),与第 33 节那条待办一起。
+
+## 42. 2026-09-06 开一下 SFTP 面板,别把设置里的开关也给拨了(#377)
+
+用户反馈:设置 → 终端里关掉了「连接后自动打开文件浏览器」,可只要点一下标题栏右上角的
+「SFTP 文件浏览器」按钮,回头再看设置,那个开关自己变成开启了。
+
+### 一、根因:把「这次想看一眼」当成了「以后都这样」
+
+`MainWindowViewModel.RememberFileBrowserStateForTab` 在把面板的显示/隐藏记到标签上之后,
+还顺手调了一次 `PersistAutoOpenFileBrowser`,把这一下开/关异步写回
+`AppSettings.TerminalBehavior.AutoOpenFileBrowser`。于是开面板 = 打开设置项,关面板 = 关闭
+设置项 —— 用户在设置页做的决定,被终端里一次随手操作覆盖掉了,而且没有任何提示。
+
+这与这一项自己的说明是矛盾的。设置页上那行描述从来都写着「决定**新连接**的远程会话是否自动
+打开;此后每个标签页各自记忆自己的显示/隐藏状态,互不影响」(五份 resx 一致),
+`ToggleFileBrowser` 也一直是按标签记忆设计的。写回是后加的一条捷径,把「会话级的临时状态」
+和「全局默认值」这两层混成了一层。
+
+### 二、修法:删掉写回,两层各归各位
+
+- `RememberFileBrowserStateForTab` 只写 `TerminalTabViewModel.FileBrowserOpen`(标签生命周期
+  内的记忆,切回来照它恢复),不再碰设置。
+- `PersistAutoOpenFileBrowser` / `PersistAutoOpenFileBrowserAsync` 连同那条序列化保存队列
+  (`_fileBrowserPreferenceSaveSync` / `_fileBrowserPreferenceSaveTail`)一并移除 —— 没有了写回,
+  也就没有了要串起来防乱序的东西。
+- `AppSettings.AutoOpenFileBrowser` 的注释改回实情:本项只由用户在设置页改动。
+
+行为分层现在是三段,与文案对得上:设置项 = 新标签首次连接时的初值;标签 = 该标签此后的开/关;
+面板实例 = 当下这一屏。上面一层不被下面一层反向污染。
+
+### 三、验收
+
+`dotnet test VelaShell.slnx` 全绿。原来那三条钉「写回」的用例改成钉「不写回」:
+关面板后设置不变且新标签仍自动打开、开面板后设置不变且新标签仍不自动打开(两条都额外断言
+`SaveCount == 0`,顺手拦住别的路径偷偷存盘);连开带关的竞态用例随写回一起删掉,
+测试替身 `MemorySettingsService` 的保存延时开关也没人用了,一并去掉。
