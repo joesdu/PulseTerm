@@ -87,6 +87,30 @@ internal sealed class PluginProcessClient : IAsyncDisposable
     }
 
     /// <summary>
+    /// 管道名的长度上限。
+    /// </summary>
+    /// <remarks>
+    /// <b>这个名字必须短。</b>Unix 上 .NET 把命名管道实现成一个 Unix 域套接字,路径是
+    /// <c>$TMPDIR/CoreFxPipe_&lt;名字&gt;</c>,而 <b>macOS 的 sun_path 上限只有 104 字节</b>。
+    /// macOS 的每用户临时目录形如
+    /// <c>/var/folders/d8/hvxvltxn0fl4rmnd52sncbth0000gn/T/</c> —— 光它就占了 48,
+    /// 再加 <c>CoreFxPipe_</c> 的 11,留给名字的只剩 45。
+    /// <para>
+    /// 原来的名字是 <c>velashell-plugin-</c> + 32 位 GUID = 49,<b>刚好越界</b>:macOS 上
+    /// 隔离插件一个都起不来,报 <c>invalid length for use with domain sockets</c>。
+    /// Windows 的命名管道与 Linux 的 108 字节上限都容得下,所以这条一直没被发现,
+    /// 直到 CI 加上 macOS。
+    /// </para>
+    /// <para>
+    /// 认证靠的是握手令牌(另一个完整 GUID),名字只需要唯一 —— 24 位十六进制(96 位)绰绰有余。
+    /// </para>
+    /// </remarks>
+    internal const int MaxPipeNameLength = 32;
+
+    /// <summary>生成一个够短、够唯一的管道名(见 <see cref="MaxPipeNameLength" />)。</summary>
+    internal static string CreatePipeName() => "vsp-" + Guid.NewGuid().ToString("N")[..24];
+
+    /// <summary>
     /// 建管道 → 拉起进程 → 握手 → 激活。任何一步失败都抛出,并保证进程与管道被回收。
     /// </summary>
     public static async Task<PluginProcessClient> StartAsync(PluginManifest manifest, string entryPath,
@@ -95,7 +119,7 @@ internal sealed class PluginProcessClient : IAsyncDisposable
         Func<Task<IReadOnlyList<ThemeTokenDto>>>? themeTokens = null,
         IPluginEmbedHost? embedHost = null, bool waitForDebugger = false)
     {
-        string pipeName = $"velashell-plugin-{Guid.NewGuid():N}";
+        string pipeName = CreatePipeName();
         string token = Guid.NewGuid().ToString("N");
         var pipe = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1,
             PipeTransmissionMode.Byte, PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
