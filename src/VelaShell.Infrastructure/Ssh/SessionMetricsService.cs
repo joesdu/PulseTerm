@@ -10,14 +10,49 @@ namespace VelaShell.Infrastructure.Ssh;
 /// /proc/stat 的 jiffies 增量(一次性的 loadavg 近似会滞后约一分钟),网速取自
 /// /proc/net/dev 的字节计数器增量。
 /// </summary>
-public sealed class SessionMetricsService(ISshConnectionService connectionService) : ISessionMetricsService
+public sealed class SessionMetricsService : ISessionMetricsService, IDisposable
 {
-    private readonly ISshConnectionService _connectionService = connectionService ?? throw new ArgumentNullException(nameof(connectionService));
+    private readonly ISshConnectionService _connectionService;
     // 按 (会话, 采集范围) 分开存上一次采样。状态栏走 Basic、资源窗口走 Full,两者各跑各的轮询;
     // 共用一格会互相踩:Basic 那次不含磁盘 IO 计数,窗口下一次差分就永远算不出速率,
     // 而且两次采样间隔被压到几十毫秒后,CPU 细分会跳出"内核 100%"这种鬼值。
     private readonly ConcurrentDictionary<(Guid Session, MetricsScope Scope), Sample> _lastSamples = new();
     private readonly ConcurrentDictionary<Guid, SessionStaticInfo> _staticInfo = new();
+
+    /// <summary>
+    /// 构造并订阅断连事件,以便会话一关就把它的采样缓存丢掉。
+    /// </summary>
+    /// <remarks>
+    /// 清理曾经只写在 <see cref="GetMetricsAsync(Guid, MetricsScope, CancellationToken)" />
+    /// 里"发现连接已断"的那个分支上 —— 可关掉的会话正是**不会再被轮询**的会话,
+    /// 那个分支永远走不到。于是每连一次、关一次,字典里就多留一份静态信息(CPU 型号、
+    /// 磁盘型号、网卡属性)和最多五份采样,连开关几十次就再也不掉下去了。
+    /// </remarks>
+    /// <param name="connectionService">SSH 连接服务(探测在其现有连接上执行)。</param>
+    public SessionMetricsService(ISshConnectionService connectionService)
+    {
+        _connectionService = connectionService ?? throw new ArgumentNullException(nameof(connectionService));
+        _connectionService.SessionDisconnected += OnSessionDisconnected;
+    }
+
+    /// <summary>取消订阅。本服务是单例,与宿主同寿,这里只为不在测试之间互相拖住对方。</summary>
+    public void Dispose() => _connectionService.SessionDisconnected -= OnSessionDisconnected;
+
+    private void OnSessionDisconnected(SshSession session) => Forget(session.SessionId);
+
+    /// <summary>丢掉一条会话的全部缓存(所有采集范围的采样 + 静态信息)。</summary>
+    private void Forget(Guid sessionId)
+    {
+        foreach (MetricsScope scope in Enum.GetValues<MetricsScope>())
+        {
+            _lastSamples.TryRemove((sessionId, scope), out _);
+        }
+        _staticInfo.TryRemove(sessionId, out _);
+    }
+
+    /// <summary>当前缓存的会话数(回归用例读它:连开关 N 次后必须回到活跃规模)。</summary>
+    internal int CachedSessionCountForTest =>
+        _lastSamples.Keys.Select(k => k.Session).Concat(_staticInfo.Keys).Distinct().Count();
 
     /// <inheritdoc />
     public Task<SessionMetrics?> GetMetricsAsync(Guid sessionId, CancellationToken cancellationToken = default) =>
@@ -33,11 +68,8 @@ public sealed class SessionMetricsService(ISshConnectionService connectionServic
         ISshClientWrapper? client = _connectionService.GetClient(sessionId);
         if (client is null || !client.IsConnected)
         {
-            foreach (MetricsScope stale in (MetricsScope[])[MetricsScope.Basic, MetricsScope.Detail, MetricsScope.Gpu, MetricsScope.Processes, MetricsScope.Full])
-            {
-                _lastSamples.TryRemove((sessionId, stale), out _);
-            }
-            _staticInfo.TryRemove(sessionId, out _);
+            // 兜底:断连事件没赶上(或压根没发,比如底层连接自己掉了)时仍能清掉。
+            Forget(sessionId);
             return null;
         }
         if (!await IsPosixRemoteAsync(sessionId, client, cancellationToken).ConfigureAwait(false))

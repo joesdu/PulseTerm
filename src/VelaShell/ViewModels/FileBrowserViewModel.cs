@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using Avalonia.Controls;
 using Avalonia.Threading;
@@ -68,6 +69,16 @@ public class FileBrowserViewModel : ReactiveObject
 
     private string _currentPath;
     private long _navigationVersion;
+
+    /// <summary>
+    /// 当前这次目录列举的取消源。新的导航到来时取消上一次。
+    /// </summary>
+    /// <remarks>
+    /// 光有 <see cref="_navigationVersion" /> 只能做到"回来了也不用",而那次列举本身还在
+    /// 跑完:A→B→C 连着点三下,三次列举会真的一起压在同一条 SFTP 通道上,
+    /// 最想看的 C 反而排在最后。目录越大越明显。
+    /// </remarks>
+    private CancellationTokenSource? _navigationCts;
 
     /// <summary>取消正在进行的删除;由删除浮层的取消按钮触发。</summary>
     private CancellationTokenSource? _deleteCts;
@@ -269,13 +280,44 @@ public class FileBrowserViewModel : ReactiveObject
     }
 
     /// <summary>
-    /// 将一个操作令牌关联到本浏览器的生命周期。命令从不传入令牌,因此
-    /// 常见情形就是直接复用生命周期令牌本身(无需分配)。
+    /// 把一个操作令牌关联到本浏览器的生命周期,并交出**可释放的**作用域。
     /// </summary>
-    private CancellationToken WithLifetime(CancellationToken ct) =>
-        ct.CanBeCanceled
-            ? CancellationTokenSource.CreateLinkedTokenSource(ct, _lifetime.Token).Token
-            : _lifetime.Token;
+    /// <remarks>
+    /// 这里以前返回的是 <c>CreateLinkedTokenSource(…).Token</c> —— 关联源本身当场就没人
+    /// 拿得到了,自然也没人 Dispose。关联的实现是往父令牌上挂一个回调,不 Dispose 就一直挂着:
+    /// 一个开着不关的文件面板,每做一次可取消的操作(导航、传输、删除)就往
+    /// <see cref="_lifetime" /> 上多留一份注册,直到标签关闭才一起释放。
+    /// <para>
+    /// 常见情形是调用方根本没传令牌(命令不带),此时不分配任何东西,直接用生命周期令牌。
+    /// </para>
+    /// </remarks>
+    private LifetimeScope LinkToLifetime(CancellationToken ct) => new(ct, _lifetime.Token);
+
+    /// <summary>
+    /// <see cref="LinkToLifetime" /> 的作用域:持有关联源,离开作用域即释放注册。
+    /// </summary>
+    private readonly struct LifetimeScope : IDisposable
+    {
+        private readonly CancellationTokenSource? _linked;
+
+        internal LifetimeScope(CancellationToken operation, CancellationToken lifetime)
+        {
+            if (!operation.CanBeCanceled || operation == lifetime)
+            {
+                // 没传令牌,或传进来的就是生命周期令牌本身 —— 再关联一次纯属自缠。
+                _linked = null;
+                Token = lifetime;
+                return;
+            }
+            _linked = CancellationTokenSource.CreateLinkedTokenSource(operation, lifetime);
+            Token = _linked.Token;
+        }
+
+        /// <summary>本次操作应当使用的令牌。</summary>
+        public CancellationToken Token { get; }
+
+        public void Dispose() => _linked?.Dispose();
+    }
 
     /// <summary>危险操作确认文案加服务器名前缀,多标签下防止删错服务器上的文件。</summary>
     private string WithServerTag(string message) =>
@@ -1225,8 +1267,23 @@ public class FileBrowserViewModel : ReactiveObject
 
     private async Task NavigateToAsync(string path, CancellationToken ct = default)
     {
-        ct = WithLifetime(ct);
+        using LifetimeScope lifetime = LinkToLifetime(ct);
         long navigationVersion = Interlocked.Increment(ref _navigationVersion);
+
+        // 上一次列举没用了就让它尽快退出,而不是任由它跑完还占着通道。
+        // 只 Cancel、不 Dispose —— 拥有它的那次调用在自己的 finally 里释放。
+        var navigation = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
+        CancellationTokenSource? previous = Interlocked.Exchange(ref _navigationCts, navigation);
+        try
+        {
+            previous?.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+            // 上一次已经收尾完毕。
+        }
+        ct = navigation.Token;
+
         try
         {
             ErrorMessage = null;
@@ -1272,7 +1329,8 @@ public class FileBrowserViewModel : ReactiveObject
         }
         catch (OperationCanceledException)
         {
-            // 列举中途被拆除(标签关闭 / 面板重绑定)——已无人关注本实例,故不报错。
+            // 被下一次导航取代,或列举中途被拆除(标签关闭 / 面板重绑定)——
+            // 已无人关注这次结果,故不报错。
         }
         catch (Exception ex)
         {
@@ -1287,6 +1345,8 @@ public class FileBrowserViewModel : ReactiveObject
             {
                 IsDirectoryLoading = false;
             }
+            Interlocked.CompareExchange(ref _navigationCts, null, navigation);
+            navigation.Dispose();
         }
     }
 
@@ -1311,7 +1371,8 @@ public class FileBrowserViewModel : ReactiveObject
 
     private async Task LoadInitialCoreAsync(CancellationToken ct)
     {
-        ct = WithLifetime(ct);
+        using LifetimeScope lifetime = LinkToLifetime(ct);
+        ct = lifetime.Token;
         var candidates = new List<string>();
         // 配置里的「默认打开路径」排第一;它进不去时下面两个候选照旧兜底。
         if (!string.IsNullOrWhiteSpace(InitialRemotePath))
@@ -1919,6 +1980,25 @@ public class FileBrowserViewModel : ReactiveObject
     /// 文件夹下载取消)均可以此触发。浮窗显示剩余文件数;返回值指示是否所有文件
     /// 均已完成(false 表示用户取消了)。
     /// </summary>
+    /// <summary>
+    /// 取一个全局并发传输名额。没有传输浮窗(单元测试、无 SFTP 的宿主)时不限流 ——
+    /// 那种场景下也不存在"多个面板共享一个窗口"这回事,并发本来就由工作任务数封顶。
+    /// </summary>
+    private Task<IDisposable> AcquireTransferSlotAsync(int limit, CancellationToken ct) =>
+        TransferSink is { } sink
+            ? sink.AcquireTransferSlotAsync(limit, ct)
+            : Task.FromResult<IDisposable>(UnlimitedSlot.Instance);
+
+    /// <summary>没有浮窗时的空名额:释放它什么也不做。</summary>
+    private sealed class UnlimitedSlot : IDisposable
+    {
+        public static readonly UnlimitedSlot Instance = new();
+
+        public void Dispose()
+        {
+        }
+    }
+
     private async Task<bool> RunTransferBatchAsync(
         IReadOnlyList<PlannedFileTransfer> plan,
         CancellationToken ct
@@ -1969,28 +2049,62 @@ public class FileBrowserViewModel : ReactiveObject
             return true;
         }
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        TransferSink?.BeginBatch(resolved.Count, cts);
+        // 批次 id 一路带到结算与收尾:多个面板同时传输时,谁也不能替别人宣布结束
+        // (见 FileTransferViewModel._batches 的说明)。
+        Guid batchId = TransferSink?.BeginBatch(resolved.Count, cts) ?? Guid.Empty;
         bool completed = false;
         try
         {
             // 最大并发传输数(设置 → 文件传输):1 = 既有的顺序行为。
+            // 名额是**全窗口共享**的(见 FileTransferViewModel._transferSlots):设置里写 4,
+            // 无论开几个面板、拖几批,同时真正在传的就是 4 个。
             int maxConcurrent = Math.Clamp(TransferOptions.MaxConcurrentTransfers, 1, 16);
             if (maxConcurrent <= 1 || resolved.Count == 1)
             {
                 foreach (PlannedFileTransfer item in resolved)
                 {
+                    // 顺序路径同样要过闸:否则"上限 1"的两个批次会各跑各的,合起来是 2。
+                    using IDisposable slot = await AcquireTransferSlotAsync(maxConcurrent, cts.Token);
                     await RunTransferAsync(item.Type, item.LocalPath, item.RemotePath, item.ResumeOffset, cts.Token, conflictDecision);
-                    TransferSink?.NotifyBatchItemSettled();
+                    TransferSink?.NotifyBatchItemSettled(batchId);
                 }
             }
             else
             {
-                using var gate = new SemaphoreSlim(maxConcurrent);
-                var workers = resolved
-                    .Select(async item =>
+                // 固定数量的工作任务消费一条队列,而不是"每个文件一个 async 状态机 +
+                // 一次信号量等待"。拖入一个十万文件的目录时,后者要当场造出十万个
+                // Task 与十万个等待者 —— 那笔开销全压在按下回车到第一个文件开始传之间。
+                //
+                // 工作任务**刻意不用 Task.Run**:RunTransferAsync 与传输面板的记账都在
+                // UI 线程上做(ObservableCollection),从 UI 线程直接调用异步方法,续体才会
+                // 回到 UI 线程。丢到线程池上就是跨线程改绑定集合。
+                // 队列必须是线程安全的。曾经这里是普通的 Queue<T>,理由写着"只在 UI 线程上
+                // 进出" —— 那个假设站不住:续体回不回 UI 线程取决于有没有同步上下文
+                // (单元测试里就没有),而且任何一层 ConfigureAwait(false) 都能把它打破。
+                // 两个工作任务同时 Dequeue 的后果不是抛异常那么显眼,而是**静默漏传文件**:
+                // 实测在 Linux 上每批稳定少传一到两个,界面上还显示成功。
+                var queue = new ConcurrentQueue<PlannedFileTransfer>(resolved);
+                int workerCount = Math.Min(maxConcurrent, resolved.Count);
+                var workers = new Task[workerCount];
+                for (int i = 0; i < workerCount; i++)
+                {
+                    workers[i] = RunWorkerAsync();
+                }
+                await Task.WhenAll(workers);
+
+                async Task RunWorkerAsync()
+                {
+                    while (true)
                     {
-                        await gate.WaitAsync(cts.Token);
-                        try
+                        if (cts.IsCancellationRequested
+                            || !queue.TryDequeue(out PlannedFileTransfer? item)
+                            || item is null)
+                        {
+                            return;
+                        }
+                        // 名额在**每个文件**上取放,不是一个工作任务霸着一个:这样上限
+                        // 才是"同时在传几个文件",而不是"起了几个工作任务"。
+                        using (await AcquireTransferSlotAsync(maxConcurrent, cts.Token))
                         {
                             await RunTransferAsync(
                                 item.Type,
@@ -2000,15 +2114,10 @@ public class FileBrowserViewModel : ReactiveObject
                                 cts.Token,
                                 conflictDecision
                             );
-                            TransferSink?.NotifyBatchItemSettled();
                         }
-                        finally
-                        {
-                            gate.Release();
-                        }
-                    })
-                    .ToList();
-                await Task.WhenAll(workers);
+                        TransferSink?.NotifyBatchItemSettled(batchId);
+                    }
+                }
             }
             completed = true;
             return true;
@@ -2020,7 +2129,7 @@ public class FileBrowserViewModel : ReactiveObject
         }
         finally
         {
-            TransferSink?.EndBatch();
+            TransferSink?.EndBatch(batchId);
 
             // 传输完成后显示通知(设置 → 文件传输):提示音 + 临时展开传输面板。
             // 用 ShowPanelTransient 而非 ShowPanel:后者会钉住面板、杀掉自动隐藏倒计时,
@@ -2566,23 +2675,47 @@ public class FileBrowserViewModel : ReactiveObject
 
     /// <summary>
     /// 从传输面板重试一个失败项:重新探测续传起点(半截文件还在就从断点继续,起点核实与
-    /// 安全回退由 SftpService 兜底)后单文件重跑。独立取消域,不属于任何批次。
+    /// 安全回退由 SftpService 兜底)后单文件重跑。
     /// </summary>
+    /// <remarks>
+    /// <b>重试登记成一个单文件批次</b>,而不是像以前那样全程 <c>CancellationToken.None</c>。
+    /// 用 None 意味着「全部取消」按它无可奈何:面板上明明写着已取消,这一条却还在传,
+    /// 而且没有任何办法停下来 —— 只能等它自己传完。
+    /// </remarks>
     private async Task RetryTransferAsync(TransferType type, string localPath, string remotePath)
     {
         var planned = new PlannedFileTransfer(type, localPath, remotePath);
         PlannedFileTransfer resolved = planned;
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+        Guid batchId = TransferSink?.BeginBatch(1, cts) ?? Guid.Empty;
         try
         {
-            Dictionary<string, HashSet<string>> remoteNames =
-                await ListRemoteNamesForUploadsAsync([planned], CancellationToken.None);
-            resolved = await TryResumeAsync(planned, remoteNames, CancellationToken.None) ?? planned;
+            try
+            {
+                Dictionary<string, HashSet<string>> remoteNames =
+                    await ListRemoteNamesForUploadsAsync([planned], cts.Token);
+                resolved = await TryResumeAsync(planned, remoteNames, cts.Token) ?? planned;
+            }
+            catch
+            {
+                // 续传探测失败不阻断重试:退回整份重传。
+            }
+            // 重试也占一个全局名额:否则连点几个失败项的"重试",并发就绕过上限跑出去了。
+            using (await AcquireTransferSlotAsync(
+                       Math.Clamp(TransferOptions.MaxConcurrentTransfers, 1, 16), cts.Token))
+            {
+                await RunTransferAsync(resolved.Type, resolved.LocalPath, resolved.RemotePath, resolved.ResumeOffset, cts.Token);
+            }
+            TransferSink?.NotifyBatchItemSettled(batchId);
         }
-        catch
+        catch (OperationCanceledException)
         {
-            // 续传探测失败不阻断重试:退回整份重传。
+            // 用户按了取消。
         }
-        await RunTransferAsync(resolved.Type, resolved.LocalPath, resolved.RemotePath, resolved.ResumeOffset, CancellationToken.None);
+        finally
+        {
+            TransferSink?.EndBatch(batchId);
+        }
     }
 
     /// <summary>

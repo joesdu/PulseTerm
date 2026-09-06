@@ -401,15 +401,6 @@ public partial class MainWindow : Window
             vm.CloseConfirmer = (title, body) => MessageDialog.ConfirmAsync(
                 this, title, body, Strings.Get("Main_CloseTabConfirmAction"),
                 Strings.Cancel, MessageDialogKind.Warning, danger: true);
-            // Ctrl+Shift+E:焦点送到会话过滤框。命令那边已经把侧栏展开了,
-            // 这里 Post 一拍再取焦点 —— 展开是动画/布局驱动的,同步 Focus 会落在还没排布的控件上。
-            vm.SessionFilterFocusRequested += (_, _) => Dispatcher.UIThread.Post(() =>
-            {
-                if (this.FindControl<SidebarView>("SidebarHost") is { } host)
-                {
-                    host.FocusTreeFilter();
-                }
-            }, DispatcherPriority.Input);
             vm.NewConnectionRequested += (_, _) => _ = OpenProfileDialogAsync(null);
             vm.SettingsRequested += (_, _) => _ = OpenSettingsAsync();
             vm.SettingsSectionRequested += (_, section) => _ = OpenSettingsAsync(section);

@@ -566,6 +566,7 @@ public sealed class Loc(string locale)
         // ── IM 桥接:发进聊天里的那些话。跟随宿主语言,不跟随发消息的人 ──
         ["BridgeThinking"] = ["Working on it…", "正在处理…", "正在處理…", "処理中…", "처리 중…"],
         ["BridgeBusy"] = ["Still on the previous request — queued.", "上一条还没跑完,已排队。", "上一條還沒跑完,已排隊。", "前の依頼を処理中です。順番待ちに入れました。", "이전 요청을 처리 중입니다. 대기열에 넣었습니다."],
+        ["BridgeQueueFull"] = ["Too many requests queued for this chat — this one was dropped. Wait for the current one to finish.", "这个聊天排队的请求太多了,本条已丢弃。等当前这轮跑完再说。", "這個聊天排隊的請求太多了,本條已丟棄。等目前這輪跑完再說。", "このチャットの順番待ちが多すぎます。この依頼は破棄しました。現在の処理が終わるまでお待ちください。", "이 채팅의 대기열이 너무 깁니다. 이 요청은 버렸습니다. 현재 작업이 끝날 때까지 기다려 주세요."],
         ["BridgeRunningTool"] = ["running {0}…", "正在调用 {0}…", "正在呼叫 {0}…", "{0} を実行中…", "{0} 실행 중…"],
         ["BridgeFooter"] = ["— {0} · {1}s · {2} tool call(s)", "— {0} · {1}s · {2} 次工具调用", "— {0} · {1}s · {2} 次工具呼叫", "— {0} · {1}s · ツール {2} 回", "— {0} · {1}s · 도구 {2}회"],
         ["BridgeNoModel"] = ["No AI model is configured in VelaShell yet.", "VelaShell 里还没配置模型。", "VelaShell 裡還沒設定模型。", "VelaShell にモデルが設定されていません。", "VelaShell에 모델이 설정되지 않았습니다."],

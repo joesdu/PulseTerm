@@ -11,7 +11,8 @@
         x:DataType="vm:SettingsViewModel"
         Title="{loc:Localize Settings}"
         Width="948" Height="768"
-        CanResize="False"
+        MinWidth="760" MinHeight="480"
+        CanResize="True"
         WindowDecorations="None"
         TransparencyLevelHint="Transparent"
         Background="Transparent"
@@ -36,7 +37,7 @@
     <!-- 说明文字固定为界面字号的 85%(VelaFontSizeDesc),不走等比阶梯:
          说明是次要信息,字号跟着基准 1:1 放大反而会盖过它上面的标签。
          默认换行:说明有长有短,不换行的话长句子会顶出设置行右边的控件、跑到可视区外
-         (窗口 CanResize=False,横向没有滚动条可以救)。放在【左列】的说明才会真的换行 ——
+         (内容区只有纵向滚动条,横向没有可以救)。放在【左列】的说明才会真的换行 ——
          横向 StackPanel 里的短标注(如 "MB/s")按无限宽度量,这条设置对它们是空操作。 -->
     <Style Selector="TextBlock.row-desc">
       <Setter Property="Foreground" Value="{DynamicResource VelaTextMuted}" />

@@ -544,15 +544,6 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
     /// </summary>
     public void ToggleSidebar() => Sidebar.IsCollapsed = !Sidebar.IsCollapsed;
 
-    /// <summary>请求把键盘焦点送到会话树的过滤框(Ctrl+Shift+E);侧栏收着就先展开。</summary>
-    public event EventHandler? SessionFilterFocusRequested;
-
-    private void FocusSessionFilter()
-    {
-        Sidebar.IsCollapsed = false;
-        SessionFilterFocusRequested?.Invoke(this, EventArgs.Empty);
-    }
-
     /// <summary>当前活动标签是否支持打开远程文件面板。</summary>
     public bool CanToggleFileBrowser =>
         _sftpService is not null
@@ -1114,16 +1105,6 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                 ToggleSidebar,
                 Shortcut: "Ctrl+B",
                 Icon: "Icon.panel-left"
-            )
-        );
-        Commands.Register(
-            new(
-                "view.sessions.filter",
-                Strings.Get("Cmd_FilterSessions"),
-                Strings.Get("CmdCat_Search"),
-                FocusSessionFilter,
-                Shortcut: "Ctrl+Shift+E",
-                Icon: "Icon.search"
             )
         );
         Commands.Register(
@@ -2624,7 +2605,9 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         StopSessionLogging(tab);
         if (settings.General.SessionLogging && tab.Bridge is not null)
         {
-            SessionLogWriter? writer = SessionLogService.CreateWriter(tab.Title);
+            SessionLogWriter? writer = SessionLogService.CreateWriter(
+                tab.Title,
+                reason => ReportCaptureStopped("SessionLog_StoppedTitle", "SessionLog_StoppedBody", tab.Title, reason));
             if (writer is not null)
             {
                 tab.Bridge.DataReceived += writer.Write;
@@ -2640,10 +2623,46 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
             && tab.Bridge is not null
         )
         {
-            var recorder = new SessionRecorder(_recordingStore, tab.Title);
+            // 尺寸取连接建立那一刻的真实列/行,导出 asciicast 的头部才对得上;
+            // 此前写死 120×32,任何别的尺寸导出后回放都错行。
+            var recorder = new SessionRecorder(
+                _recordingStore,
+                tab.Title,
+                tab.TerminalEmulator.Columns,
+                tab.TerminalEmulator.Rows,
+                reason => ReportCaptureStopped("Recorder_StoppedTitle", "Recorder_StoppedBody", tab.Title, reason));
             tab.Bridge.DataReceived += recorder.Write;
             _sessionRecorders[tab] = recorder;
         }
+    }
+
+    /// <summary>
+    /// 录制或会话日志中途停了 —— 必须让用户知道。
+    /// </summary>
+    /// <remarks>
+    /// 这两件事都是"开着就不管了"的后台功能:悄悄停掉,用户会一直以为整场操作都留着记录,
+    /// 直到事后要用时才发现只有开头。所以走消息中心(可回看),而不是一闪而过的状态栏。
+    /// 回调可能来自任意线程,发布本身是异步的,这里不等它。
+    /// </remarks>
+    private void ReportCaptureStopped(string titleKey, string bodyKey, string sessionTitle, string reason)
+    {
+        System.Diagnostics.Trace.WriteLine($"[VelaShell] {titleKey}: {sessionTitle}: {reason}");
+        if (_notificationCenter is not { } center)
+        {
+            return;
+        }
+        _ = center.PublishAsync([
+            new NotificationItem
+            {
+                // 每个会话每次连接只报一条,重复投递会被中心按 id 去重。
+                Id = $"capture-stopped:{titleKey}:{sessionTitle}:{DateTime.UtcNow:yyyyMMddHHmm}",
+                Kind = NotificationKind.System,
+                Severity = NotificationSeverity.Warning,
+                Title = Strings.Get(titleKey),
+                Body = Strings.Format(bodyKey, sessionTitle, reason),
+                PublishedAt = DateTime.UtcNow
+            }
+        ]);
     }
 
     private void StopSessionLogging(TerminalTabViewModel tab)

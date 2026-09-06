@@ -23,6 +23,27 @@ public class SessionRecording
 
     /// <summary>录制时长(毫秒);以最后一块输出的偏移为准。</summary>
     public long DurationMs { get; set; }
+
+    /// <summary>录制开始时终端的列数。</summary>
+    /// <remarks>
+    /// 导出 asciicast 时要写进头部,播放器据此决定画布宽度。此前这里是写死的 120×32,
+    /// 于是任何非该尺寸的会话导出后回放都会错行。<see cref="DefaultColumns" /> 只作为
+    /// 本字段出现之前录下的老数据的兜底值。
+    /// <para>
+    /// 会话中途的 resize 目前不入录:那需要在数据块之外再开一条事件流,
+    /// 属于独立改动。头部尺寸取的是录制开始的那一刻。
+    /// </para>
+    /// </remarks>
+    public int Columns { get; set; } = DefaultColumns;
+
+    /// <summary>录制开始时终端的行数。见 <see cref="Columns" />。</summary>
+    public int Rows { get; set; } = DefaultRows;
+
+    /// <summary>尺寸缺失(本字段出现之前的老录制)时使用的列数。</summary>
+    public const int DefaultColumns = 120;
+
+    /// <summary>尺寸缺失(本字段出现之前的老录制)时使用的行数。</summary>
+    public const int DefaultRows = 32;
 }
 
 /// <summary>一块录制数据:相对录制开始的毫秒偏移 + 原始终端输出字节。</summary>

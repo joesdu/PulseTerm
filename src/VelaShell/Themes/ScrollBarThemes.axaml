@@ -1,5 +1,6 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:loc="using:VelaShell.Localization"
                     x:CompileBindings="False">
 
   <!-- ============================== 滚动条(全应用统一) ==============================
@@ -215,7 +216,7 @@
                               Focusable="False"
                               MinWidth="{DynamicResource VelaScrollBarSize}"
                               Height="{DynamicResource VelaScrollBarSize}"
-                              AutomationProperties.Name="Line up">
+                              AutomationProperties.Name="{loc:Localize ScrollBar_LineUp}">
                   <PathIcon Data="{StaticResource VelaScrollBarArrowUp}"
                             Width="{DynamicResource VelaScrollBarArrowSize}"
                             Height="{DynamicResource VelaScrollBarArrowSize}" />
@@ -234,14 +235,14 @@
                                   Classes="largeIncrease"
                                   Theme="{StaticResource VelaScrollBarPageButton}"
                                   Focusable="False"
-                                  AutomationProperties.Name="Page up" />
+                                  AutomationProperties.Name="{loc:Localize ScrollBar_PageUp}" />
                   </Track.DecreaseButton>
                   <Track.IncreaseButton>
                     <RepeatButton Name="PART_PageDownButton"
                                   Classes="largeIncrease"
                                   Theme="{StaticResource VelaScrollBarPageButton}"
                                   Focusable="False"
-                                  AutomationProperties.Name="Page down" />
+                                  AutomationProperties.Name="{loc:Localize ScrollBar_PageDown}" />
                   </Track.IncreaseButton>
                   <!-- 未激活:右边缘 2px 细条(16 − 14 内缩);展开态在下面的样式里改写。 -->
                   <Thumb Theme="{StaticResource VelaScrollBarThumb}"
@@ -249,7 +250,7 @@
                          MinHeight="{DynamicResource VelaScrollBarSize}"
                          Padding="14,0,0,0"
                          CornerRadius="1"
-                         AutomationProperties.Name="Position" />
+                         AutomationProperties.Name="{loc:Localize ScrollBar_VerticalThumb}" />
                 </Track>
 
                 <RepeatButton Name="PART_LineDownButton"
@@ -258,7 +259,7 @@
                               Focusable="False"
                               MinWidth="{DynamicResource VelaScrollBarSize}"
                               Height="{DynamicResource VelaScrollBarSize}"
-                              AutomationProperties.Name="Line down">
+                              AutomationProperties.Name="{loc:Localize ScrollBar_LineDown}">
                   <PathIcon Data="{StaticResource VelaScrollBarArrowDown}"
                             Width="{DynamicResource VelaScrollBarArrowSize}"
                             Height="{DynamicResource VelaScrollBarArrowSize}" />
@@ -295,7 +296,7 @@
                               Focusable="False"
                               MinHeight="{DynamicResource VelaScrollBarSize}"
                               Width="{DynamicResource VelaScrollBarSize}"
-                              AutomationProperties.Name="Column left">
+                              AutomationProperties.Name="{loc:Localize ScrollBar_ColumnLeft}">
                   <PathIcon Data="{StaticResource VelaScrollBarArrowLeft}"
                             Width="{DynamicResource VelaScrollBarArrowSize}"
                             Height="{DynamicResource VelaScrollBarArrowSize}" />
@@ -313,14 +314,14 @@
                                   Classes="largeIncrease"
                                   Theme="{StaticResource VelaScrollBarPageButton}"
                                   Focusable="False"
-                                  AutomationProperties.Name="Page left" />
+                                  AutomationProperties.Name="{loc:Localize ScrollBar_PageLeft}" />
                   </Track.DecreaseButton>
                   <Track.IncreaseButton>
                     <RepeatButton Name="PART_PageDownButton"
                                   Classes="largeIncrease"
                                   Theme="{StaticResource VelaScrollBarPageButton}"
                                   Focusable="False"
-                                  AutomationProperties.Name="Page right" />
+                                  AutomationProperties.Name="{loc:Localize ScrollBar_PageRight}" />
                   </Track.IncreaseButton>
                   <!-- 未激活:下边缘 2px 细条;展开态在下面的样式里改写。 -->
                   <Thumb Theme="{StaticResource VelaScrollBarThumb}"
@@ -328,7 +329,7 @@
                          MinWidth="{DynamicResource VelaScrollBarSize}"
                          Padding="0,14,0,0"
                          CornerRadius="1"
-                         AutomationProperties.Name="Position" />
+                         AutomationProperties.Name="{loc:Localize ScrollBar_HorizontalThumb}" />
                 </Track>
 
                 <RepeatButton Name="PART_LineDownButton"
@@ -337,7 +338,7 @@
                               Focusable="False"
                               MinHeight="{DynamicResource VelaScrollBarSize}"
                               Width="{DynamicResource VelaScrollBarSize}"
-                              AutomationProperties.Name="Column right">
+                              AutomationProperties.Name="{loc:Localize ScrollBar_ColumnRight}">
                   <PathIcon Data="{StaticResource VelaScrollBarArrowRight}"
                             Width="{DynamicResource VelaScrollBarArrowSize}"
                             Height="{DynamicResource VelaScrollBarArrowSize}" />

@@ -16,16 +16,23 @@ public partial class SidebarView : UserControl
     private const double CollapsedHeight = 36;
     private const double MinimumExpandedHeight = 100;
     private const double MaximumRememberedHeight = 1200;
+
+    /// <summary>会话树无论如何都要留下的高度(约两行)。</summary>
+    private const double SessionTreeFloor = 60;
+
+    /// <summary>展开状态下分隔条的高度。</summary>
+    private const double SplitterHeight = 5;
+
+    // SessionAndQuickGrid 的行序:0 = 会话树,1 = 分隔条,2 = 快捷命令区。
+    private const int TreeRow = 0;
+    private const int QuickSplitterRow = 1;
+    private const int QuickRow = 2;
+
     private SidebarViewModel? _viewModel;
     private SessionTreeViewModel? _sessionTree;
 
-    /// <summary>把键盘焦点送到会话过滤框并全选其内容(Ctrl+Shift+E)。</summary>
-    /// <remarks>全选是为了"再按一次就能重新输入",而不是接在旧词后面。</remarks>
-    public void FocusTreeFilter()
-    {
-        TreeFilterBox.Focus();
-        TreeFilterBox.SelectAll();
-    }
+    /// <summary>正在夹取行高;防止赋值再触发一轮而自我递归。</summary>
+    private bool _clampingSections;
 
     /// <summary>创建侧边栏视图并加载其可视组件。</summary>
     public SidebarView()
@@ -34,6 +41,9 @@ public partial class SidebarView : UserControl
         DataContextChanged += OnDataContextChanged;
         QuickCommandsSplitter.DragCompleted += (_, _) => CaptureQuickCommandsHeight();
         RecentConnectionsSplitter.DragCompleted += (_, _) => CaptureRecentConnectionsHeight();
+        // 侧栏变矮时重新分配三块区域的高度。记住的高度是绝对像素,窗口一小就装不下 ——
+        // 不重算的话它们会各按各的下限排下去,直接压在一起(见 ClampSectionHeights)。
+        SidebarSectionsGrid.SizeChanged += (_, _) => ClampSectionHeights();
     }
 
     /// <summary>用户请求打开“新建连接”配置弹窗时触发(顶部新建按钮)。</summary>
@@ -164,9 +174,8 @@ public partial class SidebarView : UserControl
     private void ApplyQuickCommandsVisibility()
     {
         bool visible = _viewModel is { IsQuickCommandsVisible: true, QuickCommands: not null };
-        // 行索引 +1:第 0 行现在是会话过滤框(见 SidebarView.axaml)。
-        RowDefinition splitterRow = SessionAndQuickGrid.RowDefinitions[2];
-        RowDefinition quickCommandsRow = SessionAndQuickGrid.RowDefinitions[3];
+        RowDefinition splitterRow = SessionAndQuickGrid.RowDefinitions[QuickSplitterRow];
+        RowDefinition quickCommandsRow = SessionAndQuickGrid.RowDefinitions[QuickRow];
         if (
             !visible
             && QuickCommandsSection.IsVisible
@@ -209,6 +218,8 @@ public partial class SidebarView : UserControl
             QuickCommandsDivider.IsVisible = false;
             QuickCommandsSplitter.IsVisible = false;
         }
+        // 上面按"记住的高度"定的值可能装不下,交给夹取做最终裁决。
+        ClampSectionHeights();
     }
 
     private void ToggleRecentConnections_Click(object? sender, RoutedEventArgs e)
@@ -254,6 +265,8 @@ public partial class SidebarView : UserControl
             RecentConnectionsDivider.IsVisible = false;
             RecentConnectionsSplitter.IsVisible = false;
         }
+        // 同上:记住的高度装不下时由夹取兜底。
+        ClampSectionHeights();
     }
 
     private void CaptureQuickCommandsHeight()
@@ -262,7 +275,7 @@ public partial class SidebarView : UserControl
         {
             return;
         }
-        double height = SessionAndQuickGrid.RowDefinitions[3].ActualHeight;
+        double height = SessionAndQuickGrid.RowDefinitions[QuickRow].ActualHeight;
         if (height > CollapsedHeight)
         {
             _viewModel.QuickCommandsHeight = NormalizeHeight(height, SessionAndQuickGrid, 160);
@@ -279,6 +292,91 @@ public partial class SidebarView : UserControl
         if (height > CollapsedHeight)
         {
             _viewModel.RecentConnectionsHeight = NormalizeHeight(height, SidebarSectionsGrid, 180);
+        }
+    }
+
+    /// <summary>
+    /// 按当前可用高度重新分配「会话树 / 快捷命令 / 最近连接」三块的高度。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 这三块分处两层嵌套网格,各有各的 <c>MinHeight</c>,而记住的高度是<b>绝对像素</b>。
+    /// 侧栏一矮,两边的下限加起来就超过了可用高度:外层只给「会话+快捷命令」那一行留
+    /// 80px,内层却按 过滤框 + 会话树(80) + 分隔条 + 快捷命令(100) 排下去 ——
+    /// 多出来的部分不会被压缩,而是直接画到「最近连接」身上,最近连接本身则被挤出可视区。
+    /// 这不是加滚动条能救的:两块内容是真的重叠在一起。
+    /// </para>
+    /// <para>
+    /// 分配顺序按"谁先让步"来定:会话树是主体,永远先留 <see cref="SessionTreeFloor" />;
+    /// 两块可选区域在空间不够时逐步退到只剩表头(<see cref="CollapsedHeight" />),
+    /// 而不是把别人挤走。空间够时各自拿回记住的高度,行为与以前一致。
+    /// </para>
+    /// </remarks>
+    private void ClampSectionHeights()
+    {
+        double available = SidebarSectionsGrid.Bounds.Height;
+        if (_clampingSections || !double.IsFinite(available) || available <= 0)
+        {
+            return;
+        }
+        _clampingSections = true;
+        try
+        {
+            RowDefinition sessionRow = SidebarSectionsGrid.RowDefinitions[0];
+            RowDefinition recentRow = SidebarSectionsGrid.RowDefinitions[2];
+            RowDefinition treeRow = SessionAndQuickGrid.RowDefinitions[TreeRow];
+            RowDefinition quickRow = SessionAndQuickGrid.RowDefinitions[QuickRow];
+
+            bool quickVisible = QuickCommandsSection.IsVisible;
+            bool quickExpanded = quickVisible && _viewModel?.QuickCommandsExpanded == true;
+            bool recentExpanded = _viewModel?.RecentConnectionsExpanded ?? true;
+
+            double sessionFloor = SessionTreeFloor;
+            double quickFloor = quickVisible ? CollapsedHeight : 0;
+            double quickSplitter = quickExpanded ? SplitterHeight : 0;
+            double recentSplitter = recentExpanded ? SplitterHeight : 0;
+
+            // 最近连接:先给它想要的,但上面那一整块的底线要留出来。
+            double recentWanted = recentExpanded
+                ? Math.Max(MinimumExpandedHeight, _viewModel?.RecentConnectionsHeight ?? 180)
+                : CollapsedHeight;
+            double roomForRecent = available - recentSplitter - sessionFloor - quickFloor - quickSplitter;
+            double recentHeight = Math.Clamp(
+                recentWanted, CollapsedHeight, Math.Max(CollapsedHeight, roomForRecent));
+
+            // 会话 + 快捷命令那一格拿到的实际高度。
+            double sessionArea = Math.Max(0, available - recentSplitter - recentHeight);
+
+            // 快捷命令:在这一格里给它想要的,给会话树留下底线。
+            double quickWanted = quickExpanded
+                ? Math.Max(MinimumExpandedHeight, _viewModel?.QuickCommandsHeight ?? 160)
+                : quickFloor;
+            double roomForQuick = sessionArea - quickSplitter - sessionFloor;
+            double quickHeight = quickVisible
+                ? Math.Clamp(quickWanted, CollapsedHeight, Math.Max(CollapsedHeight, roomForQuick))
+                : 0;
+
+            // MinHeight 必须跟着降下来 —— 否则网格会把行重新顶回下限,前面算的全白算。
+            SetRow(recentRow, recentHeight, recentExpanded ? MinimumExpandedHeight : CollapsedHeight);
+            SetRow(quickRow, quickHeight, quickExpanded ? MinimumExpandedHeight : quickFloor);
+            sessionRow.MinHeight = Math.Min(sessionFloor, sessionArea);
+            treeRow.MinHeight = Math.Min(
+                SessionTreeFloor,
+                Math.Max(0, sessionArea - quickSplitter - quickHeight));
+        }
+        finally
+        {
+            _clampingSections = false;
+        }
+    }
+
+    /// <summary>给一行定死高度,并把下限压到不高于它(下限高于高度就等于没夹取)。</summary>
+    private static void SetRow(RowDefinition row, double height, double preferredMinimum)
+    {
+        row.MinHeight = Math.Min(preferredMinimum, height);
+        if (Math.Abs(row.Height.Value - height) > 0.5 || !row.Height.IsAbsolute)
+        {
+            row.Height = new GridLength(height);
         }
     }
 

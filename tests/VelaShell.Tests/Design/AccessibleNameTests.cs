@@ -11,6 +11,7 @@ using VelaShell.Core.Data;
 using VelaShell.Core.Localization;
 using VelaShell.Core.Models;
 using VelaShell.Core.Services;
+using VelaShell.Core.Sftp;
 using VelaShell.Localization;
 using VelaShell.Terminal.Rendering;
 using VelaShell.ViewModels;
@@ -214,6 +215,86 @@ public sealed class AccessibleNameTests
             window.Close();
         });
     }
+
+    /// <summary>
+    /// 设置窗之外的几块主界面同样不许有无名按钮。
+    /// </summary>
+    /// <remarks>
+    /// 计划点名的高频操作正落在这几块:文件删除/上传(文件面板)、传输取消(传输浮窗)、
+    /// 录制播放与清理(回放中心)。设置窗那条扫描守不到它们 —— 那是另一棵可视树。
+    /// </remarks>
+    [TestMethod]
+    [DynamicData(nameof(NamedSurfaces))]
+    public void EveryVisibleButtonOnAMainSurfaceHasAName(string surface, Func<Control> build)
+    {
+        OnUi(() =>
+        {
+            Control content = build();
+            var window = new Window { Width = 1200, Height = 700, Content = content };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+
+            List<string> nameless = [];
+            int checkedCount = 0;
+            foreach (Button button in window.GetVisualDescendants().OfType<Button>()
+                         .Where(b => b.IsEffectivelyVisible && !IsTemplatePart(b)))
+            {
+                checkedCount++;
+                // 判据用 AutomationPeer 的实际产出,而不是"有没有写 Name / 有没有字符串内容":
+                // 列表头那种"StackPanel 里放一个 TextBlock"的按钮,读屏器本来就读得出来,
+                // 再给它加一个 Name 只会让人听两遍(计划里明确不要这种机械重复)。
+                if (string.IsNullOrWhiteSpace(ControlAutomationPeer.CreatePeerForElement(button).GetName()))
+                {
+                    nameless.Add(button.Name ?? DescribeShape(button));
+                }
+            }
+
+            Assert.IsGreaterThan(0, checkedCount, $"{surface}:一个按钮都没扫到,这条测试成了空壳。");
+            Assert.IsEmpty(nameless,
+                $"{surface} 上以下按钮读屏器读不出名字(既没有 AutomationProperties.Name,也没有文字内容或 ToolTip):"
+                + $"{Environment.NewLine}{string.Join(Environment.NewLine, nameless.Distinct())}");
+
+            window.Close();
+        });
+    }
+
+    /// <summary>被扫描的几块界面。每一项都是"能独立挂进 headless 窗口"的那种视图。</summary>
+    public static IEnumerable<object[]> NamedSurfaces =>
+    [
+        ["远端文件面板", () => (Control)new FileBrowserView
+        {
+            DataContext = new FileBrowserViewModel(Substitute.For<ISftpService>(), Guid.NewGuid()) { IsVisible = true }
+        }],
+        ["传输浮窗", () => (Control)new FileTransferView
+        {
+            DataContext = BuildVisibleTransferPanel()
+        }],
+        ["本地文件面板", () => (Control)new LocalFilePaneView
+        {
+            DataContext = new LocalFilePaneViewModel(new TransferOptions())
+        }]
+    ];
+
+    private static FileTransferViewModel BuildVisibleTransferPanel()
+    {
+        var viewModel = new FileTransferViewModel(null);
+        viewModel.AddTransfer(new TransferTask
+        {
+            Id = Guid.NewGuid(),
+            Type = TransferType.Upload,
+            LocalPath = "/tmp/app.conf",
+            RemotePath = "/etc/app.conf",
+            Status = TransferStatus.InProgress
+        });
+        viewModel.ShowPanel();
+        return viewModel;
+    }
+
+    /// <summary>没有 x:Name 的按钮:用它的图标/内容类型描述一下,好让失败信息能定位。</summary>
+    private static string DescribeShape(Button button) =>
+        $"{button.GetType().Name}(content: {button.Content?.GetType().Name ?? "null"})";
 
     /// <summary>按钮是不是有个读得出来的名字(自动化名字、文字内容,或提示)。</summary>
     private static bool Describes(Button button) =>

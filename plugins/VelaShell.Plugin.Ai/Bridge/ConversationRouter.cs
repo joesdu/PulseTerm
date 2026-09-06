@@ -26,6 +26,22 @@ public sealed class ConversationRouter(
     private readonly Lock _sync = new();
     private SemaphoreSlim _turnGate = new(2, 2);
 
+    /// <summary>
+    /// 桥接这一轮"开着"的生命周期。停桥接即取消它,重启换一个新的。
+    /// </summary>
+    /// <remarks>
+    /// 没有它的时候,取消范围只覆盖<b>已经跑起来</b>的那几轮(<c>conversation.Running</c>)——
+    /// 而排在两道闸上的消息一个都不在里面。于是"停止桥接"之后,那些消息会在闸放开时
+    /// 照常开跑:调模型、执行工具、往聊天里发消息,而用户以为已经关掉了。
+    /// 排队时间也不计入轮次超时(超时源是拿到闸之后才建的),排得越久跑得越晚。
+    /// </remarks>
+    private CancellationTokenSource _lifetime = new();
+
+    /// <summary>
+    /// 单个聊天最多排多少条待处理消息(不含正在跑的那一轮),超出直接回绝。
+    /// </summary>
+    private const int MaxQueuedPerChat = 3;
+
     /// <summary>当前生效的桥接设置(由 <see cref="BridgeService" /> 在重载时换掉)。</summary>
     public BridgeSettings Settings { get; private set; } = new();
 
@@ -53,9 +69,10 @@ public sealed class ConversationRouter(
         Settings = bridge;
         Loc = loc;
         int limit = Math.Clamp(bridge.MaxConcurrentTurns, 1, 16);
-        SemaphoreSlim old = _turnGate;
+        // 换掉旧闸但**不 Dispose**:此刻可能正有消息等在它上面,释放会让那些等待
+        // 抛 ObjectDisposedException。SemaphoreSlim 只在用过 AvailableWaitHandle 时才需要
+        // 显式释放,这里从来没用过,交给 GC 即可。
         _turnGate = new SemaphoreSlim(limit, limit);
-        old.Dispose();
     }
 
     /// <summary>处理一条入站消息。<b>不抛</b> —— 上游那条读循环不该被一条消息带崩。</summary>
@@ -122,16 +139,48 @@ public sealed class ConversationRouter(
         }
     }
 
-    /// <summary>掐掉全部正在跑的轮次(停桥接时)。</summary>
+    /// <summary>
+    /// 掐掉全部轮次(停桥接时):<b>正在跑的和还在排队的都算</b>。
+    /// </summary>
+    /// <remarks>
+    /// 取消生命周期即可同时命中两者 —— 排队的等待带着这个令牌,正在跑的那一轮的
+    /// 取消源也链到它。随后换上一个新的生命周期,好让桥接还能被重新启动。
+    /// <para>
+    /// <b>顺序要紧:生命周期必须先取消,才能去动正在跑的那些轮次。</b>反过来的话,取消
+    /// 正在跑的一轮会让它当场收尾,而收尾的 <c>finally</c> 会归还聊天闸 —— 排队中的那条
+    /// 于是在 <c>stopping.Cancel()</c> 落地<b>之前</b>拿到许可、通过取消检查,然后照常
+    /// 调模型、往聊天里发消息。用户看到的是:点了停止,机器人过一会儿又自己说起话来。
+    /// 这条曾经在 CI 上偶发(Linux 少数几次),因为它要求取消这一步之后当前线程恰好被
+    /// 调度出去,让那一轮把整段收尾跑完。
+    /// </para>
+    /// </remarks>
     public void CancelAll()
+    {
+        CancellationTokenSource stopping;
+        BridgeConversation[] conversations;
+        lock (_sync)
+        {
+            stopping = _lifetime;
+            _lifetime = new CancellationTokenSource();
+            conversations = [.. _conversations.Values];
+        }
+
+        // 先断掉排队那条的活路,再去掐正在跑的。
+        stopping.Cancel();
+        foreach (BridgeConversation conversation in conversations)
+        {
+            conversation.Running?.Cancel();
+            approvals.Cancel(conversation.ChatKey);
+        }
+        stopping.Dispose();
+    }
+
+    /// <summary>取本轮生命周期的令牌(取的那一刻的那一份)。</summary>
+    private CancellationToken CurrentLifetimeToken()
     {
         lock (_sync)
         {
-            foreach (BridgeConversation conversation in _conversations.Values)
-            {
-                conversation.Running?.Cancel();
-                approvals.Cancel(conversation.ChatKey);
-            }
+            return _lifetime.Token;
         }
     }
 
@@ -258,16 +307,70 @@ public sealed class ConversationRouter(
     private async Task RunTurnAsync(BridgeConversation conversation, ChannelConfig config, ChatGrant grant,
         InboundMessage message)
     {
+        // 停止之后到达、或停止期间还排着的消息一律不再执行。这个令牌一路带到两道闸的
+        // 等待里 —— 排队的消息因此和正在跑的那一轮一样,受"停止桥接"管辖。
+        CancellationToken lifetime = CurrentLifetimeToken();
+        if (lifetime.IsCancellationRequested)
+        {
+            return;
+        }
+
         // 同一个聊天串行:后来的排队,而不是插进上一轮的工具循环中间
         bool queued = conversation.Gate.CurrentCount == 0;
         if (queued)
         {
+            if (Interlocked.Increment(ref conversation.Queued) > MaxQueuedPerChat)
+            {
+                // 排太多了。继续收下只会在很久以后把一串陈年问题挨个真跑给模型。
+                Interlocked.Decrement(ref conversation.Queued);
+                await hub.SendAsync(conversation.ChannelId, conversation.Reply, Loc["BridgeQueueFull"], CancellationToken.None)
+                    .ConfigureAwait(false);
+                return;
+            }
             await hub.SendAsync(conversation.ChannelId, conversation.Reply, Loc["BridgeBusy"], CancellationToken.None)
                 .ConfigureAwait(false);
         }
-        await conversation.Gate.WaitAsync().ConfigureAwait(false);
-        await _turnGate.WaitAsync().ConfigureAwait(false);
-        using var turn = new CancellationTokenSource(TimeSpan.FromSeconds(Math.Clamp(Settings.TurnTimeoutSeconds, 30, 3600)));
+
+        bool chatGateHeld = false;
+        bool turnGateHeld = false;
+        SemaphoreSlim turnGate = _turnGate;
+        try
+        {
+            await conversation.Gate.WaitAsync(lifetime).ConfigureAwait(false);
+            chatGateHeld = true;
+            await turnGate.WaitAsync(lifetime).ConfigureAwait(false);
+            turnGateHeld = true;
+            // 拿到闸之后**再确认一次**。停桥接会同时做两件事:取消生命周期、以及让正在跑的
+            // 那一轮结束(它随即归还闸)。于是排队的这条会同时看到"许可可用"与"令牌已取消",
+            // 而 SemaphoreSlim 在两者同时成立时不保证优先报取消 —— 谁先谁后由调度决定。
+            // Windows 上一直是取消赢,Linux/macOS 上则观察到许可赢,排队的消息照样开跑。
+            lifetime.ThrowIfCancellationRequested();
+        }
+        catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException)
+        {
+            // 停了(或闸被换掉了):这条消息就到此为止,一个字都不发给模型。
+            // 只归还真正拿到手的那几把。
+            if (turnGateHeld)
+            {
+                turnGate.Release();
+            }
+            if (chatGateHeld)
+            {
+                conversation.Gate.Release();
+            }
+            return;
+        }
+        finally
+        {
+            if (queued)
+            {
+                Interlocked.Decrement(ref conversation.Queued);
+            }
+        }
+
+        // 超时源链到生命周期:停桥接时正在跑的这一轮也当场结束,不必依赖 Running 被看见。
+        using var turn = CancellationTokenSource.CreateLinkedTokenSource(lifetime);
+        turn.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(Settings.TurnTimeoutSeconds, 30, 3600)));
         conversation.Running = turn;
         string? placeholder = null;
         DateTimeOffset lastEdit = DateTimeOffset.MinValue;
@@ -316,8 +419,16 @@ public sealed class ConversationRouter(
         {
             conversation.Running = null;
             approvals.Cancel(conversation.ChatKey);
-            _turnGate.Release();
-            conversation.Gate.Release();
+            // 归还的必须是**当初拿的那一把**:设置重载会把 _turnGate 换掉,
+            // 释放新闸等于凭空多给一个名额,总并发上限就此失守。
+            if (turnGateHeld)
+            {
+                turnGate.Release();
+            }
+            if (chatGateHeld)
+            {
+                conversation.Gate.Release();
+            }
         }
     }
 

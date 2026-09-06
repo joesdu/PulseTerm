@@ -147,6 +147,10 @@
         <Button Classes="dlg-outline" Content="{loc:Localize SetGeneral_Import}" Click="ImportSettings_Click" />
       </StackPanel>
     </Grid>
+    <!-- 导入/导出的结果回显:这两个动作以前全程无声,坏文件和写盘失败都看不见。 -->
+    <TextBlock Classes="row-desc" TextWrapping="Wrap"
+               Text="{Binding ImportExportStatus}"
+               IsVisible="{Binding ImportExportStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
 
     <Border Classes="sep" />
 

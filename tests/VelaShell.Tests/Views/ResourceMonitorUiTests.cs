@@ -218,9 +218,23 @@ public sealed partial class ResourceMonitorUiTests
             Assert.IsGreaterThan(6, dense.EffectiveColumns, "192 核该密排,不能只排几列。");
             Assert.IsGreaterThanOrEqualTo(dense.MinCellWidth, dense.EffectiveCellSize.Width);
             Assert.IsGreaterThanOrEqualTo(dense.MinCellHeight, dense.EffectiveCellSize.Height);
-            // 放不下就该滚动:内容高度必须超过视口。
+            // 放不下就该滚动。
+            //
+            // 注意别把"视口装不下 192 个格子"当成前提:网格高度是 max(内容, 视口),而视口
+            // 大小随平台变 —— macOS 的这个窗口刻意压平成矩形(不透明窗口,见
+            // ProcessManagerUiTests),少了 16px 的卡片外边距,横竖各多出 32px,192 个格子
+            // 就正好排得下。真正的不变量是两条:网格高度绝不低于内容高度(否则底部几行被
+            // 裁掉,且滚不到),以及内容确实超过视口时要撑出滚动区。
             ScrollViewer scroller = dense.GetVisualAncestors().OfType<ScrollViewer>().First();
-            Assert.IsGreaterThan(scroller.Viewport.Height, dense.Bounds.Height, "192 核应该撑出滚动区。");
+            int rows = (int)Math.Ceiling(192.0 / dense.EffectiveColumns);
+            double content = (rows * dense.EffectiveCellSize.Height) + ((rows - 1) * dense.CellGap);
+            Assert.IsGreaterThanOrEqualTo(
+                content, dense.Bounds.Height,
+                $"网格被压到 {dense.Bounds.Height},装不下 {rows} 行共 {content} —— 底部几行会被裁掉。");
+            if (content > scroller.Viewport.Height)
+            {
+                Assert.IsGreaterThan(scroller.Viewport.Height, dense.Bounds.Height, "内容超过视口却没撑出滚动区。");
+            }
             many.Close();
         });
     }

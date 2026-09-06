@@ -136,8 +136,7 @@
                                 ToolTip.Tip="{loc:Localize Edit}"
                                 IsVisible="{Binding !IsBuiltIn}"
                                 VerticalAlignment="Center"
-                                Command="{Binding $parent[UserControl].((vm:SettingsViewModel)DataContext).Snippets.BeginEditCommand}"
-                                CommandParameter="{Binding}">
+                                Click="EditSnippet_Click">
                           <pc:LucideIcon Width="13" Height="13"
                                          Data="{StaticResource Icon.pencil}"
                                          Foreground="{DynamicResource VelaTextTertiary}" />
@@ -146,8 +145,7 @@
                                 ToolTip.Tip="{loc:Localize Delete}"
                                 IsVisible="{Binding !IsBuiltIn}"
                                 VerticalAlignment="Center"
-                                Command="{Binding $parent[UserControl].((vm:SettingsViewModel)DataContext).Snippets.DeleteCommandCommand}"
-                                CommandParameter="{Binding}">
+                                Click="DeleteSnippet_Click">
                           <pc:LucideIcon Width="13" Height="13"
                                          Data="{StaticResource Icon.trash-2}"
                                          Foreground="{DynamicResource VelaStatusError}" />
@@ -165,26 +163,32 @@
 
     <Border Classes="sep" />
 
-    <StackPanel Spacing="10" DataContext="{Binding Snippets.EditingCommand}"
-                IsVisible="{Binding Converter={x:Static ObjectConverters.IsNotNull}}">
+    <!-- 这一块以前把自己的 DataContext 劫持成 Snippets.EditingCommand,纯粹是为了让
+         IsVisible 能写成"当前值不为 null"。代价是里面每一个控件都得用
+         $parent[UserControl].DataContext.… 绕回页面的视图模型 —— 而 `.DataContext`
+         在绑定路径里是**显式的一环**:页面刚 new 出来、还没挂进可视树那一刻它就是 null,
+         于是每开一次设置就刷一屏 "Value is null"。
+         直接把条件写进 IsVisible,DataContext 保持继承,里面全部回到普通绑定。 -->
+    <StackPanel Spacing="10"
+                IsVisible="{Binding Snippets.EditingCommand, Converter={x:Static ObjectConverters.IsNotNull}}">
       <TextBlock Classes="section-title" Text="{loc:Localize QuickCmd_EditSnippet}" />
       <Grid ColumnDefinitions="*,8,*">
-        <TextBox Text="{Binding $parent[UserControl].((vm:SettingsViewModel)DataContext).Snippets.NewName}"
+        <TextBox Text="{Binding Snippets.NewName}"
                  PlaceholderText="{loc:Localize SetSnippets_NamePlaceholder}" />
         <ComboBox Grid.Column="2" IsEditable="True"
-                  ItemsSource="{Binding $parent[UserControl].((vm:SettingsViewModel)DataContext).Snippets.Categories}"
-                  Text="{Binding $parent[UserControl].((vm:SettingsViewModel)DataContext).Snippets.NewCategory}"
+                  ItemsSource="{Binding Snippets.Categories}"
+                  Text="{Binding Snippets.NewCategory}"
                   PlaceholderText="{loc:Localize QuickCmd_GroupPlaceholder}" />
       </Grid>
-      <TextBox Text="{Binding $parent[UserControl].((vm:SettingsViewModel)DataContext).Snippets.NewCommandText}"
+      <TextBox Text="{Binding Snippets.NewCommandText}"
                PlaceholderText="{loc:Localize SetSnippets_CommandPlaceholder}" />
-      <TextBox Text="{Binding $parent[UserControl].((vm:SettingsViewModel)DataContext).Snippets.NewDescription}"
+      <TextBox Text="{Binding Snippets.NewDescription}"
                PlaceholderText="{loc:Localize Description}" />
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
         <Button Classes="dlg-outline" Content="{loc:Localize Cancel}"
-                Command="{Binding $parent[UserControl].((vm:SettingsViewModel)DataContext).Snippets.CancelEditCommand}" />
+                Command="{Binding Snippets.CancelEditCommand}" />
         <Button Classes="dlg-primary" Content="{loc:Localize Save}"
-                Command="{Binding $parent[UserControl].((vm:SettingsViewModel)DataContext).Snippets.SaveEditCommand}" />
+                Command="{Binding Snippets.SaveEditCommand}" />
       </StackPanel>
     </StackPanel>
 

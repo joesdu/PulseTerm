@@ -64,7 +64,6 @@
 
     <KeyBinding Gesture="Ctrl+Shift+K" Command="{Binding RunCommand}" CommandParameter="edit.clear" />
     <KeyBinding Gesture="Ctrl+Shift+W" Command="{Binding RunCommand}" CommandParameter="session.close.all" />
-    <KeyBinding Gesture="Ctrl+Shift+E" Command="{Binding RunCommand}" CommandParameter="view.sessions.filter" />
 
     <!-- 窗格移焦(Alt+方向)**不在这里** —— KeyBindings 是无条件抢键,而 Alt+方向
          在 zsh / fish 里有用户绑定。见 MainWindow.axaml.cs 的 OnPaneNavigationKeyDown:

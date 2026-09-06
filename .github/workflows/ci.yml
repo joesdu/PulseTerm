@@ -5,7 +5,10 @@
 #   * 用 **Debug**:强名签名只在 Release 打开(src/Directory.Build.props),Debug 不需要
 #     VelaShell.snk。fork 与 Dependabot 的 PR 拿不到仓库 secret,用 Release 会直接构建失败。
 #   * 排除 DockerIntegration / CrossPlatform:前者要 Docker 守护进程,后者要
-#     VELASHELL_PUBLISH_TESTS=1。两者在没有环境时都按早退处理并记为通过,在 CI 上跑纯属浪费。
+#     VELASHELL_PUBLISH_TESTS=1。没有环境时它们会 Assert.Inconclusive(如实记为跳过),
+#     在 CI 上跑一遍只是白花时间,不跑也不会掩盖什么。
+#   * **本仓检出在 VelaShell/ 子目录**:文档仓库要与它并排(velashell-docs/),
+#     快捷键总表与《快捷键参考》的比对用例才找得到。所以各步都带 working-directory。
 #   * 矩阵带上 ubuntu:本进程内的 UI 测试走 Avalonia.Headless 不需要显示服务器,顺带把
 #     #if LINUX 的 UseWayland 分支也编译到 —— 那段代码在 Windows 上永远编译不到,回归了
 #     也看不见。唯一例外是隔离插件拉起的 PluginHost 子进程(见下方 matrix 的 launcher)。
@@ -44,8 +47,32 @@ jobs:
           # Avalonia.Headless 不受影响,子进程不吃这套 —— 给它一块虚拟屏。
           - os: ubuntu-latest
             launcher: "xvfb-run -a"
+          # macOS 上路径、进程与文件系统的行为都自成一套(大小写不敏感但保留大小写的卷、
+          # 应用包结构、`open -a` 起编辑器、区分 /tmp 与 /private/tmp 的真实路径)。
+          # release.yml 早就在 macos-latest 上完整构建并打包 osx-x64/osx-arm64,
+          # 但那要等到 publish Release 才跑 —— 在此之前 macOS 上的回归无人拦截。
+          # runner 是带图形会话的真机,PluginHost 子进程不需要额外的虚拟屏。
+          - os: macos-latest
+            launcher: ""
     steps:
       - uses: actions/checkout@v7
+        with:
+          path: VelaShell
+
+      # 快捷键总表与文档仓库里那份《快捷键参考》要逐条对齐,把关的用例是
+      # ShortcutCatalogTests.Doc_ListsEveryCatalogEntry —— 文档在另一个仓库,拿不到就
+      # Assert.Inconclusive(如实记为跳过)。不检出它,这条用例在 CI 上永远不跑,
+      # 那份文档里"由本用例把关"的承诺就是空的。
+      #
+      # continue-on-error:文档仓库私有、改名或临时不可达时,门禁不该因此拦下代码 PR。
+      # 检出失败的后果是那条用例回到"跳过",报告里看得见 —— 不是伪通过。
+      - name: 检出文档仓库
+        id: docs
+        continue-on-error: true
+        uses: actions/checkout@v7
+        with:
+          repository: VelaShellLabs/velashell-docs
+          path: velashell-docs
 
       # runner 镜像通常已带这些,列全是为了镜像换代时不至于悄悄少一个 —— 已装的 apt 直接跳过。
       - name: 安装虚拟显示 (Linux)
@@ -56,12 +83,20 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          global-json-file: global.json
+          global-json-file: VelaShell/global.json
 
       - name: 构建
+        working-directory: VelaShell
         run: dotnet build VelaShell.slnx -c Debug --nologo -warnaserror
 
+      # 环境缺失的用例现在一律 Assert.Inconclusive(如实记为「跳过」),不再是
+      # 「写一行 [SKIP] 日志然后 return」那种在报告里显示为通过的伪装。
+      # 所以这里的过滤只是省时间,不再兼着"掩盖伪通过"的作用。
       - name: 测试
+        working-directory: VelaShell
+        env:
+          # 检出成功才指过去;失败时不设,文档比对用例照旧记为跳过(见上面那步的说明)。
+          VELASHELL_DOCS_DIR: ${{ steps.docs.outcome == 'success' && format('{0}/velashell-docs', github.workspace) || '' }}
         run: >
           ${{ matrix.launcher }}
           dotnet test VelaShell.slnx -c Debug --no-build --nologo
@@ -71,10 +106,11 @@ jobs:
 
       # 失败也要传:-v 默认不打印失败用例名,trx 是唯一能定位到具体是哪一条的东西。
       # 偶发失败(见 plan-claude.md Q-06)就靠攒这些 trx 才有得查。
+      # trx 里现在能分清「通过」与「未执行」,查"这条到底验没验过"不必再翻日志找 [SKIP]。
       - name: 上传测试结果
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: trx-${{ matrix.os }}
-          path: artifacts/trx/*.trx
+          path: VelaShell/artifacts/trx/*.trx
           if-no-files-found: warn

@@ -105,7 +105,6 @@ public static class ShortcutCatalog
                     Item("Dock_SplitVertical", [Ctrl, Shift, "S"]),
                     Item("Sc_FocusPane", [Alt, "←", "→", "↑", "↓"], "Sc_NoteSplitOnly"),
                     Item("Cmd_ToggleSidebar", [Ctrl, "B"]),
-                    Item("Cmd_FilterSessions", [Ctrl, Shift, "E"]),
                     Item("Sc_ToggleFileBrowser", [Ctrl, Shift, "F"]),
                     Item("Cmd_TunnelManager", [Ctrl, Shift, "T"]),
                     Item("Cmd_ToggleLineGutter", [Ctrl, Shift, "L"]),

@@ -67,11 +67,12 @@
                                 Data="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"
                                 Foreground="{DynamicResource VelaTextTertiary}" />
                     </Button>
+                    <!-- 破坏性操作:删的是 ~/.ssh 下真实的私钥与公钥,别的工具(git、
+                         ansible、云控制台)多半也在用同一把。先弹确认(设置审计 §12)。 -->
                     <Button Width="24" Height="24" Padding="0" Background="Transparent"
                             CornerRadius="3" Cursor="Hand"
                             ToolTip.Tip="{loc:Localize SetKeys_DeleteKey}"
-                            Command="{Binding $parent[ItemsControl].((vm:SettingsViewModel)DataContext).SshKeys.DeleteCommand}"
-                            CommandParameter="{Binding}">
+                            Click="DeleteKey_Click">
                       <PathIcon Width="13" Height="13"
                                 Data="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"
                                 Foreground="{DynamicResource VelaTextTertiary}" />

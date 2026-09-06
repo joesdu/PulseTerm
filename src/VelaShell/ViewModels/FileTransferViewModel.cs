@@ -32,6 +32,40 @@ public class FileTransferViewModel : ReactiveObject, IDraggablePanel
     /// <summary>面板里同时存在的行数上限,超出丢弃最旧的已结束行。</summary>
     private const int RowLimit = 100;
 
+    /// <summary>并发传输名额的硬上限,与设置项的取值范围一致(见 <c>AppSettings.Normalize</c>)。</summary>
+    private const int MaxTransferSlots = 16;
+
+    /// <summary>
+    /// 全窗口共享的并发传输名额。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 「设置 → 文件传输 → 最大并发传输数」写的是一个数,没有任何限定词,读起来就是全局的。
+    /// 而闸此前是<b>每批次一个</b>:双栏面板左右各拖一个文件夹是 2N,开三个服务器标签同时传
+    /// 是 3N,同一面板先后拖两批也是 2N。用户把这个值调小,想要的恰恰是"别把线路占满"
+    /// (跳板机、按流量计费的链路、生产机上不想抢 IO),实际并发却在悄悄翻倍。
+    /// </para>
+    /// <para>
+    /// 名额放在这里,是因为传输浮窗本来就是全窗口共享的那一个(各文件面板的
+    /// <c>TransferSink</c> 都指向它)—— 它是唯一天然知道"这个窗口一共在传几个"的地方。
+    /// </para>
+    /// </remarks>
+    private readonly SemaphoreSlim _transferSlots = new(0, MaxTransferSlots);
+
+    private readonly Lock _slotGate = new();
+
+    /// <summary>流通中的名额总数(空闲的 + 已被占用的)。</summary>
+    private int _issuedSlots;
+
+    /// <summary>
+    /// 待回收的名额数:上限被调小时产生,由后续的归还逐个抵消。
+    /// </summary>
+    /// <remarks>
+    /// 调小上限时不能直接去"抢回"多余的名额 —— 那要等正在传的文件结束,会把调用方
+    /// (UI 线程上的批次启动)挂住。记成欠账,等它们各自传完归还时顺手扣掉,一次都不用等。
+    /// </remarks>
+    private int _slotDebt;
+
     // 可空:无参构造的宿主(单元测试/无 SFTP 服务的场景)不提供传输管理器。
     private readonly ITransferManager? _transferManager;
 
@@ -40,10 +74,22 @@ public class FileTransferViewModel : ReactiveObject, IDraggablePanel
 
     private IDisposable? _autoHide;
 
-    // 当前批次(一个文件夹/多文件的下载或上传):尚未完成的文件数,
-    // 以及用于取消剩余所有文件(包括正在传输的那个)的令牌源。
-    private CancellationTokenSource? _batchCts;
-    private int _batchRemaining;
+    /// <summary>
+    /// 当前所有活动批次(一个文件夹/多文件的下载或上传各算一个),按批次 id 索引。
+    /// </summary>
+    /// <remarks>
+    /// <b>这里以前只有一个 <c>_batchCts</c> 和一个 <c>_batchRemaining</c></b>,而传输浮窗是
+    /// 全窗口共享的:两台服务器同时传东西,后开的批次直接把前一个的取消源覆盖掉,于是
+    /// <list type="bullet">
+    /// <item>「全部取消」只真的停掉最后那个批次,别的照传不误 —— 而界面上所有行都被涂成
+    /// 「已取消」,这是<b>伪取消</b>:用户以为停了,数据还在往服务器上写;</item>
+    /// <item>先结束的批次调 <c>EndBatch()</c>,把另一个还在跑的批次的剩余计数和
+    /// 「批次进行中」状态一起清掉,头部徽标随即胡说八道。</item>
+    /// </list>
+    /// 现在每个批次拿自己的 id,只结算自己那一份。
+    /// </remarks>
+    private readonly Dictionary<Guid, ActiveBatch> _batches = [];
+
     private bool _hidePending;
     private bool _isPointerOver;
 
@@ -78,18 +124,119 @@ public class FileTransferViewModel : ReactiveObject, IDraggablePanel
     /// <summary>进行中(传输中或排队中)的任务数量。</summary>
     public int ActiveCount => Transfers.Count(t => t.IsActive);
 
-    /// <summary>当前是否正在运行一个可取消的传输批次。</summary>
-    public bool IsBatchActive => _batchCts is not null;
+    /// <summary>当前是否有<b>任何</b>可取消的传输批次在跑。</summary>
+    public bool IsBatchActive => _batches.Count > 0;
 
     /// <summary>
     /// 头部徽标(design 9Ralg):准备阶段随扫描发现的文件数递增;
-    /// 批处理期间为尚待传输的文件数(递减);其余情况为进行中的单文件传输数。
+    /// 批处理期间为尚待传输的文件数(全部批次相加,递减);其余情况为进行中的单文件传输数。
     /// </summary>
     public int PendingCount => IsPreparing
                                    ? _preparingCount
                                    : IsBatchActive
-                                       ? _batchRemaining
+                                       ? _batches.Values.Sum(b => b.Remaining)
                                        : ActiveCount;
+
+    /// <summary>
+    /// 取一个并发传输名额;拿到之前一直等。释放返回的对象即归还名额。
+    /// </summary>
+    /// <param name="limit">当前设置里的上限。每次调用都带上,设置改了下一次就生效。</param>
+    /// <param name="cancellationToken">等待期间的取消(取消了就没拿到,不必归还)。</param>
+    /// <returns>归还名额用的句柄。</returns>
+    public async Task<IDisposable> AcquireTransferSlotAsync(int limit, CancellationToken cancellationToken)
+    {
+        ApplySlotLimit(limit);
+        await _transferSlots.WaitAsync(cancellationToken);
+        return new TransferSlot(this);
+    }
+
+    /// <summary>当前空闲名额数(回归用例读它)。</summary>
+    internal int AvailableTransferSlotsForTest => _transferSlots.CurrentCount;
+
+    /// <summary>当前生效的并发上限(回归用例读它)。</summary>
+    internal int TransferSlotLimitForTest
+    {
+        get
+        {
+            lock (_slotGate)
+            {
+                return _issuedSlots - _slotDebt;
+            }
+        }
+    }
+
+    /// <summary>把流通名额数调到 <paramref name="limit" />。<b>绝不阻塞</b>(见 <see cref="_slotDebt" />)。</summary>
+    private void ApplySlotLimit(int limit)
+    {
+        limit = Math.Clamp(limit, 1, MaxTransferSlots);
+        lock (_slotGate)
+        {
+            int effective = _issuedSlots - _slotDebt;
+            if (limit > effective)
+            {
+                // 先抵消欠账(那些名额还在流通,只是记着要收回),不够再发新的。
+                int need = limit - effective;
+                int fromDebt = Math.Min(_slotDebt, need);
+                _slotDebt -= fromDebt;
+                for (int i = fromDebt; i < need; i++)
+                {
+                    _transferSlots.Release();
+                    _issuedSlots++;
+                }
+                return;
+            }
+            if (limit == effective)
+            {
+                return;
+            }
+            _slotDebt += effective - limit;
+            // 池子里还闲着的名额可以当场收掉,不用等谁归还。
+            while (_slotDebt > 0 && _transferSlots.Wait(0))
+            {
+                _slotDebt--;
+                _issuedSlots--;
+            }
+        }
+    }
+
+    private void ReleaseTransferSlot()
+    {
+        lock (_slotGate)
+        {
+            if (_slotDebt > 0)
+            {
+                // 上限已经调小:这个名额收回,不放回池子。
+                _slotDebt--;
+                _issuedSlots--;
+                return;
+            }
+        }
+        _transferSlots.Release();
+    }
+
+    /// <summary>一个已占用的并发名额;释放即归还。</summary>
+    private sealed class TransferSlot(FileTransferViewModel owner) : IDisposable
+    {
+        private bool _released;
+
+        public void Dispose()
+        {
+            if (_released)
+            {
+                return;
+            }
+            _released = true;
+            owner.ReleaseTransferSlot();
+        }
+    }
+
+    /// <summary>一个活动批次:剩余文件数 + 取消它自己那一批的令牌源。</summary>
+    private sealed class ActiveBatch(CancellationTokenSource cts, int remaining)
+    {
+        public CancellationTokenSource Cts { get; } = cts;
+
+        public int Remaining { get; set; } = remaining;
+    }
 
     /// <summary>上传/下载是否仍在扫描目录以制定计划。</summary>
     public bool IsPreparing
@@ -184,36 +331,44 @@ public class FileTransferViewModel : ReactiveObject, IDraggablePanel
     }
 
     /// <summary>
-    /// 开始一个包含 <paramref name="totalFiles" /> 个传输的可取消批次。随后
-    /// 头部显示剩余计数,并提供触发 <paramref name="cts" /> 的取消控件。
+    /// 开始一个包含 <paramref name="totalFiles" /> 个传输的可取消批次,返回它的 id。
     /// </summary>
-    public void BeginBatch(int totalFiles, CancellationTokenSource cts)
+    /// <remarks>
+    /// 调用方必须把这个 id 一路带到 <see cref="NotifyBatchItemSettled" /> 与
+    /// <see cref="EndBatch" />,否则又会回到"谁结束都算大家结束"的老问题上。
+    /// </remarks>
+    /// <param name="totalFiles">本批次的文件数。</param>
+    /// <param name="cts">取消<b>本批次</b>剩余文件(含正在传的那个)的令牌源。</param>
+    /// <returns>批次 id。</returns>
+    public Guid BeginBatch(int totalFiles, CancellationTokenSource cts)
     {
         // 准备阶段结束,徽标从"已发现"切换为"剩余"。
         _isPreparing = false;
         _preparingCount = 0;
         this.RaisePropertyChanged(nameof(IsPreparing));
-        _batchCts = cts;
-        _batchRemaining = totalFiles;
+        var id = Guid.NewGuid();
+        _batches[id] = new ActiveBatch(cts, totalFiles);
         this.RaisePropertyChanged(nameof(IsBatchActive));
         this.RaisePropertyChanged(nameof(PendingCount));
+        return id;
     }
 
-    /// <summary>将当前批次中的一个文件标记为完成,并递减剩余计数。</summary>
-    public void NotifyBatchItemSettled()
+    /// <summary>把指定批次里的一个文件标记为完成,递减<b>该批次</b>的剩余计数。</summary>
+    /// <param name="batchId"><see cref="BeginBatch" /> 返回的批次 id。</param>
+    public void NotifyBatchItemSettled(Guid batchId)
     {
-        if (_batchRemaining > 0)
+        if (_batches.TryGetValue(batchId, out ActiveBatch? batch) && batch.Remaining > 0)
         {
-            _batchRemaining--;
+            batch.Remaining--;
         }
         this.RaisePropertyChanged(nameof(PendingCount));
     }
 
-    /// <summary>结束当前批次;浮窗恢复为空闲徽标并恢复自动隐藏。</summary>
-    public void EndBatch()
+    /// <summary>结束指定批次;全部批次都结束后浮窗才恢复空闲徽标与自动隐藏。</summary>
+    /// <param name="batchId"><see cref="BeginBatch" /> 返回的批次 id。</param>
+    public void EndBatch(Guid batchId)
     {
-        _batchCts = null;
-        _batchRemaining = 0;
+        _batches.Remove(batchId);
         this.RaisePropertyChanged(nameof(IsBatchActive));
         this.RaisePropertyChanged(nameof(PendingCount));
 
@@ -221,16 +376,26 @@ public class FileTransferViewModel : ReactiveObject, IDraggablePanel
         NotifyTaskSettled();
     }
 
+    /// <summary>
+    /// 取消全部:每一个活动批次都要真的收到取消信号。
+    /// </summary>
+    /// <remarks>
+    /// 之前只取消"最后登记的那一个"却把所有活动行涂成已取消 —— 界面说停了,
+    /// 另一台服务器上的传输还在继续写。行的状态只有在**取消确实发出去之后**才可以改。
+    /// </remarks>
     private void CancelAll()
     {
         // Cancel() 内联运行传输的取消回调;加保护,使行为异常的回调绝不会从取消按钮处让应用崩溃。
-        try
+        foreach (ActiveBatch batch in _batches.Values.ToList())
         {
-            _batchCts?.Cancel();
-        }
-        catch
-        {
-            // 尽力而为:批次已在拆除中。
+            try
+            {
+                batch.Cts.Cancel();
+            }
+            catch (Exception ex) when (ex is ObjectDisposedException or AggregateException)
+            {
+                // 尽力而为:这个批次已在拆除中。
+            }
         }
 
         // 立即反映取消状态;正在运行的文件会随其流关闭而逐步结束。

@@ -48,6 +48,53 @@ public partial class SettingsView : Window
     internal int CreatedPageCountForTest => _pages.CreatedPageCount;
 
     /// <summary>
+    /// 打开时把窗口收进当前屏幕的工作区。
+    /// </summary>
+    /// <remarks>
+    /// 这里以前钉死 948×768 且 <c>CanResize=False</c>。1366×768 的笔记本工作区高度只有
+    /// 约 728(减去任务栏),150% 缩放下更小 —— 窗口比屏幕高,底部那条 52px 的
+    /// 「保存 / 取消 / 恢复默认」就落到屏幕外,而不可缩放意味着<b>没有任何办法</b>够到它:
+    /// 键盘 Tab 过去焦点也在可视区外。
+    /// <para>
+    /// 内容区本来就是 ScrollViewer、底部操作条是独立的一行,所以缩小窗口只会让可滚动区变短,
+    /// 操作条始终贴在底边。这里只负责初始尺寸不越界,并把窗口摆回工作区中央。
+    /// </para>
+    /// </remarks>
+    protected override void OnOpened(EventArgs e)
+    {
+        base.OnOpened(e);
+        FitIntoWorkArea();
+    }
+
+    private void FitIntoWorkArea()
+    {
+        if ((Screens.ScreenFromWindow(this) ?? Screens.Primary) is not { } screen)
+        {
+            return;
+        }
+        // WorkingArea 是物理像素,而窗口尺寸按 DIP 计 —— 高 DPI 下不换算就会算出
+        // 一个"看起来放得下"的假结论。
+        double scaling = screen.Scaling > 0 ? screen.Scaling : 1.0;
+        double availableWidth = screen.WorkingArea.Width / scaling;
+        double availableHeight = screen.WorkingArea.Height / scaling;
+
+        // 留一点余量,免得正好顶到工作区边缘(某些桌面环境的自动隐藏面板会占掉几像素)。
+        const double margin = 16;
+        double width = Math.Clamp(Width, MinWidth, Math.Max(MinWidth, availableWidth - margin));
+        double height = Math.Clamp(Height, MinHeight, Math.Max(MinHeight, availableHeight - margin));
+        if (Math.Abs(width - Width) < 0.5 && Math.Abs(height - Height) < 0.5)
+        {
+            return; // 放得下,保持 CenterOwner 定好的位置。
+        }
+        Width = width;
+        Height = height;
+        // 尺寸变了,CenterOwner 算出来的位置就不再居中(还可能把标题栏顶出屏幕外)。
+        Position = new PixelPoint(
+            screen.WorkingArea.X + (int)Math.Max(0, (screen.WorkingArea.Width - (width * scaling)) / 2),
+            screen.WorkingArea.Y + (int)Math.Max(0, (screen.WorkingArea.Height - (height * scaling)) / 2));
+    }
+
+    /// <summary>
     /// macOS 上把设置窗口改为【不透明】,消除滚动卡顿。透明窗口(TransparencyLevelHint=Transparent)
     /// 在 macOS 上会让整窗每帧走全表面 alpha 合成,滚动时(即便内容只是纯文本行)明显掉帧;
     /// 不透明的主窗口则顺滑。代价是自绘的圆角/外投影浮层观感——故一并抹平外边距、圆角、外框与投影,

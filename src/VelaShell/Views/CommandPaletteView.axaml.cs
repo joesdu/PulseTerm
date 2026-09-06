@@ -4,7 +4,6 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
-using Avalonia.VisualTree;
 using VelaShell.ViewModels;
 
 namespace VelaShell.Views;
@@ -77,22 +76,28 @@ public partial class CommandPaletteView : UserControl
         }
     }
 
-    /// <summary>
-    /// 键盘导航后把选中项滚入可视区:结果区是嵌套 ItemsControl(非 ListBox),
-    /// 没有内建的选中跟随滚动,超出可视范围后选中项会不可见,需手动 BringIntoView。
-    /// </summary>
+    /// <summary>键盘导航后把选中项滚入可视区。</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>必须走 <see cref="ItemsControl.ScrollIntoView(object)" />,不能自己去可视树里找容器。</b>
+    /// 结果列表是<b>虚拟化</b>的(摊平成单个 ListBox 就是为了这个),可视区之外的条目
+    /// 根本没有实例化 —— 旧写法按 <c>Classes="pal-item"</c> + DataContext 去找 Border,
+    /// 找到的永远只是"已经看得见的那些",于是:向下走时靠虚拟化预留的那点缓冲一顿一顿地挪,
+    /// 向上走则完全不动(上方的容器已被回收),选中态就这么走出了可视区。
+    /// </para>
+    /// <para>
+    /// <c>ScrollIntoView</c> 按<b>下标</b>定位,不需要容器已经存在,虚拟化面板会自己滚过去
+    /// 再实例化。
+    /// </para>
+    /// </remarks>
     private void ScrollSelectedIntoView()
     {
-        if (_vm?.SelectedItem is not { } selected)
+        // 本视图的 InitializeComponent 是手写的(AvaloniaXamlLoader.Load),不走代码生成,
+        // 所以 x:Name 不会变成字段 —— 只能 FindControl(同文件里的 SearchBox 也是这么取的)。
+        if (_vm?.SelectedItem is { } selected && this.FindControl<ListBox>("ResultsList") is { } list)
         {
-            return;
+            list.ScrollIntoView(selected);
         }
-
-        // 面板未虚拟化(StackPanel 容器),条目已全部实例化,按 DataContext 定位容器即可。
-        Border? container = this.GetVisualDescendants()
-                                .OfType<Border>()
-                                .FirstOrDefault(b => b.Classes.Contains("pal-item") && ReferenceEquals(b.DataContext, selected));
-        container?.BringIntoView();
     }
 
     private void OnItemTapped(object? sender, TappedEventArgs e)

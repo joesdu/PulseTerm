@@ -87,28 +87,33 @@ public class SshIntegrationTests
         }
     }
 
-    private bool SkipIfDockerUnavailable()
+    /// <summary>
+    /// 没有 Docker 就把本用例标为<b>未执行</b>,而不是让它安静地记成通过。
+    /// </summary>
+    /// <remarks>
+    /// 这里以前是 <c>TestContext.WriteLine("[SKIP] …"); return;</c> —— 测试框架看到的是
+    /// 一次正常返回,于是报告上写着"通过"。结果是一份"全绿"的报告里混着一批
+    /// <b>一行断言都没跑</b>的用例,而看报告的人无从分辨。
+    /// <see cref="Assert.Inconclusive(string)" /> 抛出的异常会被框架记为跳过,
+    /// TRX 里也就据实写着"未执行"。
+    /// </remarks>
+    private static void RequireDocker()
     {
         if (!DockerAvailable.Value)
         {
-            TestContext.WriteLine("[SKIP] Docker is not available. Run 'docker compose -f docker-compose.test.yml up -d' to enable SSH integration tests.");
-            return true;
+            Assert.Inconclusive(
+                "Docker is not available. Run 'docker compose -f docker-compose.test.yml up -d' to enable SSH integration tests.");
         }
-        return false;
     }
 
-    private bool SkipIfSshServerUnavailable()
+    private static void RequireSshServer()
     {
-        if (SkipIfDockerUnavailable())
-        {
-            return true;
-        }
+        RequireDocker();
         if (!IsSshServerReachable())
         {
-            TestContext.WriteLine($"[SKIP] SSH test server not reachable at {TestHost}:{TestPort}. Run 'docker compose -f docker-compose.test.yml up -d' to start it.");
-            return true;
+            Assert.Inconclusive(
+                $"SSH test server not reachable at {TestHost}:{TestPort}. Run 'docker compose -f docker-compose.test.yml up -d' to start it.");
         }
-        return false;
     }
 
     private static ConnectionInfo CreateTestConnectionInfo(
@@ -132,10 +137,7 @@ public class SshIntegrationTests
     [TestCategory("DockerIntegration")]
     public async Task ConnectAsync_WithValidCredentials_EstablishesSession()
     {
-        if (SkipIfSshServerUnavailable())
-        {
-            return;
-        }
+        RequireSshServer();
         ISshClientWrapper? mockClient = Substitute.For<ISshClientWrapper>();
         mockClient.IsConnected.Returns(true);
         mockClient.ConnectAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
@@ -153,10 +155,7 @@ public class SshIntegrationTests
     [TestCategory("DockerIntegration")]
     public async Task ConnectAsync_WithInvalidPassword_ThrowsAndSetsErrorStatus()
     {
-        if (SkipIfSshServerUnavailable())
-        {
-            return;
-        }
+        RequireSshServer();
         ISshClientWrapper? mockClient = Substitute.For<ISshClientWrapper>();
         mockClient.ConnectAsync(Arg.Any<CancellationToken>())
                   .Returns(Task.FromException(new VelaSshAuthenticationException("Authentication failed")));
@@ -170,10 +169,7 @@ public class SshIntegrationTests
     [TestCategory("DockerIntegration")]
     public async Task ConnectAsync_WithUnreachableHost_ThrowsConnectionError()
     {
-        if (SkipIfSshServerUnavailable())
-        {
-            return;
-        }
+        RequireSshServer();
         ISshClientWrapper? mockClient = Substitute.For<ISshClientWrapper>();
         mockClient.ConnectAsync(Arg.Any<CancellationToken>())
                   .Returns(Task.FromException(new SocketException((int)SocketError.ConnectionRefused)));
@@ -187,10 +183,7 @@ public class SshIntegrationTests
     [TestCategory("DockerIntegration")]
     public async Task DisconnectAsync_AfterConnect_ChangesSessionStatus()
     {
-        if (SkipIfSshServerUnavailable())
-        {
-            return;
-        }
+        RequireSshServer();
         ISshClientWrapper? mockClient = Substitute.For<ISshClientWrapper>();
         mockClient.IsConnected.Returns(true);
         mockClient.ConnectAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
@@ -208,10 +201,7 @@ public class SshIntegrationTests
     [TestCategory("DockerIntegration")]
     public async Task MultipleSessions_CanConnectConcurrently()
     {
-        if (SkipIfSshServerUnavailable())
-        {
-            return;
-        }
+        RequireSshServer();
         var clients = new List<ISshClientWrapper>();
 
         ISshClientWrapper ClientFactory(ConnectionInfo _)
@@ -239,10 +229,7 @@ public class SshIntegrationTests
     [TestCategory("DockerIntegration")]
     public async Task ConnectAsync_SessionAppearsInSessionsList()
     {
-        if (SkipIfSshServerUnavailable())
-        {
-            return;
-        }
+        RequireSshServer();
         ISshClientWrapper? mockClient = Substitute.For<ISshClientWrapper>();
         mockClient.IsConnected.Returns(true);
         mockClient.ConnectAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
@@ -259,10 +246,7 @@ public class SshIntegrationTests
     [TestCategory("DockerIntegration")]
     public async Task ConnectAsync_WithPrivateKeyAuth_CreatesSession()
     {
-        if (SkipIfSshServerUnavailable())
-        {
-            return;
-        }
+        RequireSshServer();
         ISshClientWrapper? mockClient = Substitute.For<ISshClientWrapper>();
         mockClient.IsConnected.Returns(true);
         mockClient.ConnectAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
@@ -286,10 +270,7 @@ public class SshIntegrationTests
     [TestCategory("DockerIntegration")]
     public async Task DisposeAsync_DisconnectsAllActiveSessions()
     {
-        if (SkipIfSshServerUnavailable())
-        {
-            return;
-        }
+        RequireSshServer();
         var clients = new List<ISshClientWrapper>();
 
         ISshClientWrapper ClientFactory(ConnectionInfo _)

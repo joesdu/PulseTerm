@@ -324,16 +324,39 @@ public sealed class TerminalRow(int columns)
     /// </remarks>
     /// <param name="destination">接收行文本的目标缓冲。</param>
     /// <returns>写入的字符数;缓冲不足时为 -1。</returns>
-    public int CopyTextTo(Span<char> destination)
+    public int CopyTextTo(Span<char> destination) => CopyTextTo(destination, default);
+
+    /// <summary>
+    /// 同 <see cref="CopyTextTo(Span{char})" />,并为写出的每个字符记下它来自哪一**屏幕列**。
+    /// </summary>
+    /// <remarks>
+    /// <b>字符下标不等于屏幕列</b>,三种情形都会让两者错开:
+    /// <list type="bullet">
+    /// <item>宽字符(CJK)占两列却只产出一个字符,其尾格 <c>AppendTo</c> 写 0 个字符;</item>
+    /// <item>组合标记(<c>e</c> + U+0301)产出两个字符却仍占一列;</item>
+    /// <item>补充平面的 emoji 产出一对代理项(两个字符)。</item>
+    /// </list>
+    /// 拿字符下标当列用,高亮和自动选区就会整体左移 —— 在纯 ASCII 行上永远看不出来,
+    /// 一遇中文或 emoji 立刻错位。<paramref name="columnOfChar" /> 传空即退化为不记录。
+    /// </remarks>
+    /// <param name="destination">接收行文本的目标缓冲。</param>
+    /// <param name="columnOfChar">与 <paramref name="destination" /> 等长的列映射;传 <c>default</c> 表示不需要。</param>
+    /// <returns>写入的字符数;任一缓冲不足时为 -1。</returns>
+    public int CopyTextTo(Span<char> destination, Span<int> columnOfChar)
     {
+        bool mapping = !columnOfChar.IsEmpty;
         int lastNonBlank = LastNonBlank();
         int written = 0;
-        for (int i = 0; i <= lastNonBlank; i++)
+        for (int col = 0; col <= lastNonBlank; col++)
         {
-            int n = _cells[i].AppendTo(destination[written..]);
-            if (n < 0)
+            int n = _cells[col].AppendTo(destination[written..]);
+            if (n < 0 || (mapping && written + n > columnOfChar.Length))
             {
                 return -1;
+            }
+            if (mapping)
+            {
+                columnOfChar.Slice(written, n).Fill(col);
             }
             written += n;
         }
