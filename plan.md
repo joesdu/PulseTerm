@@ -1846,3 +1846,38 @@ VM 里那次调用保留 —— 它还顺手驱逐文件面板(`EvictFileBrowser
 
 文档同步:velashell-docs `zh/host/交互与界面规格.md` 与 `en/host/interaction-and-ui-specs.md`
 的「断开连接状态」补上自动重连的适用边界(只救没人要它结束的断开,四种例外)。
+
+## 45. 2026-09-07 新开标签页时,上一个会话的 SFTP 面板要立刻收起(#385)
+
+用户反馈:设置里的「连接后自动打开文件浏览器」是关闭的,手动在当前标签开了 SFTP 文件管理器,
+再开一个新标签页时文件浏览器还挂在下面,要等新连接握手成功才消失。
+
+### 一、根因:「还没有会话」这一态被当成了「什么都别动」
+
+`MainWindowViewModel.RebindFileBrowser` 对没有 SFTP 会话的标签有两条分支,处理方式却不一样:
+
+- 本地终端(ConPTY)与插件终端协议(Telnet…):**换成隐藏的空占位**,面板立刻收起;
+- `tab.SessionId == Guid.Empty`:**直接 return**,什么都不换。
+
+而新开的 SSH 标签正好落在第二条上 —— 会话 id 要到握手完成才由 `RunHandshakeAsync` 赋值
+(`CreateConnectingTab` 建标签时它还是 `Guid.Empty`),`Layout.AddDocument` 的激活先到,
+`SetActiveFromDocument` → `RebindFileBrowser` 撞上那句 return,于是 `FileBrowser` 仍然是上一个
+会话那个可见的实例。等握手完成再走一次 `ShowFileBrowserForActiveSession`,这才换成新标签自己的
+面板(设置关着 → 隐藏),表现就是「连上之后才消失」。
+
+那句 return 原本大概是想说「会话还没就位,等等再绑」——「等等再绑」是对的,但期间不该继续
+展示别人的面板。上一版加本地终端分支时留下的注释其实已经点出这一点(「不能靠下面那句
+SessionId == Guid.Empty 兜底 —— 它是 return 而不是换占位」),只是没有把它一起改掉。
+
+### 二、修法:三种「没有 SFTP 会话」的标签合成一条,一律换占位
+
+三条并成一个判断,进去就把 `FileBrowser` 换成隐藏的空占位。上一个面板不 `Detach`
+(仍按其会话留在 `_fileBrowserCache` 里),它的开关状态也仍记在缓存实例与所属标签上,
+切回那个标签时照旧恢复展示 —— 收起的只是「当前这一屏」,不是那个标签的记忆。
+
+### 三、验收
+
+`dotnet test VelaShell.slnx` 全绿。新增
+`MainWindowViewModelTests.FileBrowser_ConnectingTab_HidesPreviousSessionPanelImmediately`:
+设置关着 → 手动开面板 → 开一个 `Connecting` 且 `SessionId` 为空的新标签 → 断言面板立刻隐藏
+且不指向任何会话,再切回原标签断言面板恢复。把那条 return 加回去,这条用例会红。

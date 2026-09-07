@@ -43,6 +43,18 @@ public sealed class ToastHostViewModel : ReactiveObject, IDisposable
     public static readonly TimeSpan WarningLifetime = TimeSpan.FromSeconds(10);
 
     /// <summary>
+    /// 错误级的停留时长 —— 三档里最久,但依然会自己走。
+    /// </summary>
+    /// <remarks>
+    /// 曾经是"永不自动消失",理由是"用户没看见的错误等于没报"。那个理由只成立了一半:
+    /// 错误确实该留得比别的久,可留到<b>要人伸手去点</b>就变成了另一回事 ——
+    /// 每条错误都欠用户一次点击,连着掉几次线,屏幕右下角就攒出一摞谁也不会去读的卡片。
+    /// 而"断了"这件事本身在标签页覆盖层和状态栏上一直摆着,浮层只是替它喊一嗓子,
+    /// 喊完就该退场。20 秒足够在低头看别处之后抬眼看见,又不至于赖着不走。
+    /// </remarks>
+    public static readonly TimeSpan ErrorLifetime = TimeSpan.FromSeconds(20);
+
+    /// <summary>
     /// 同时最多显示几条。
     /// </summary>
     /// <remarks>
@@ -120,7 +132,7 @@ public sealed class ToastHostViewModel : ReactiveObject, IDisposable
     public ToastViewModel Warning(string message, string? mergeKey = null) =>
         Show(new(ToastSeverity.Warning, message) { MergeKey = mergeKey });
 
-    /// <summary>推一条错误级提示(不自动消失)。</summary>
+    /// <summary>推一条错误级提示(停留 <see cref="ErrorLifetime" /> 后自动消失)。</summary>
     /// <param name="message">正文。</param>
     /// <param name="actionLabel">操作按钮文案;null = 无按钮。</param>
     /// <param name="action">点击操作按钮时执行。</param>
@@ -180,16 +192,16 @@ public sealed class ToastHostViewModel : ReactiveObject, IDisposable
         HasToasts = false;
     }
 
-    /// <summary>某一分级的停留时长;错误级返回 null(不自动消失)。</summary>
+    /// <summary>某一分级的停留时长。</summary>
     /// <param name="severity">分级。</param>
-    /// <returns>停留时长,或 null。</returns>
+    /// <returns>停留时长;null = 不自动消失(当前没有这样的分级,留给以后)。</returns>
     public static TimeSpan? LifetimeOf(ToastSeverity severity) =>
         severity switch
         {
             ToastSeverity.Info => InfoLifetime,
             ToastSeverity.Warning => WarningLifetime,
-            // 错误不自动消失:一条转瞬即逝的错误与没报错没有区别。
-            _ => null
+            // 错误留得最久,但同样自己走 —— 理由见 ErrorLifetime。
+            _ => ErrorLifetime
         };
 
     /// <summary>(重新)开始这一条的自动消失计时。</summary>

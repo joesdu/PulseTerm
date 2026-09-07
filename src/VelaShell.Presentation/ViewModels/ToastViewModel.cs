@@ -2,7 +2,7 @@ using ReactiveUI;
 
 namespace VelaShell.Presentation.ViewModels;
 
-/// <summary>提示的分级;决定配色、图标与是否自动消失。</summary>
+/// <summary>提示的分级;决定配色、图标与停留多久。</summary>
 public enum ToastSeverity
 {
     /// <summary>一次成功的操作、一条无关痛痒的告知。看一眼就够,自动消失。</summary>
@@ -11,7 +11,7 @@ public enum ToastSeverity
     /// <summary>需要留意但不必立刻处理(重连倒计时、降级运行)。停留久一些。</summary>
     Warning,
 
-    /// <summary>出错了。<b>不自动消失</b> —— 用户没看见的错误等于没报。</summary>
+    /// <summary>出错了。停留最久,但同样会自己走 —— 见 <c>ToastHostViewModel.ErrorLifetime</c>。</summary>
     Error
 }
 
@@ -25,8 +25,9 @@ public enum ToastSeverity
 /// 用户只会看到最后一条,而那条未必是最要紧的。
 /// </para>
 /// <para>
-/// 分级不只是配色:<see cref="ToastSeverity.Error" /> 不自动消失。一条转瞬即逝的错误
-/// 与没报错没有区别,而用户往往正低头看别处。
+/// 分级不只是配色,还决定停留多久:<see cref="ToastSeverity.Error" /> 留得最久 ——
+/// 一条转瞬即逝的错误与没报错没有区别,而用户往往正低头看别处。但"最久"不等于"不走":
+/// 一条要人伸手去点的浮层,在用户眼里和一个卡住的弹窗没有分别。
 /// </para>
 /// </remarks>
 public sealed class ToastViewModel : ReactiveObject

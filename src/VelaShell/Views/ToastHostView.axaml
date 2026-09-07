@@ -10,6 +10,9 @@
   <!-- 运行时反馈的浮层通道。锚在右下、贴着状态栏 —— 用户在状态栏那一带找"刚才发生了什么",
        浮层长在同一片区域才接得上原来的习惯;右上已经被传输提示占着。
        外层不设 Background、不参与命中测试:整块铺开也不会挡住底下的终端。 -->
+  <!-- 底边距要跨过状态栏(24px + 1px 顶边框)再留 12px 空隙 —— 宿主 Panel 铺满的是
+       整个下半区,包含状态栏在内。原先只留 12px,浮层正好压在状态栏上:那一条恰恰是
+       用户被这条提示引过去要看的地方(延迟、连接状态),盖住它等于自断后路。 -->
   <UserControl.Styles>
     <Style Selector="Border.toast">
       <Setter Property="CornerRadius" Value="6" />
@@ -31,7 +34,7 @@
 
   <ItemsControl ItemsSource="{Binding Toasts}"
                 HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                Margin="0,0,16,12">
+                Margin="0,0,16,37">
     <ItemsControl.ItemsPanel>
       <ItemsPanelTemplate>
         <StackPanel Orientation="Vertical" Spacing="8" />

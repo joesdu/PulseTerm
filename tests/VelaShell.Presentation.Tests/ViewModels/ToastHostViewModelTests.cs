@@ -29,17 +29,31 @@ public sealed class ToastHostViewModelTests
     }
 
     [TestMethod]
-    public void ErrorStaysUntilDismissed()
+    public void ErrorOutlivesWarningButStillLeavesOnItsOwn()
     {
         FakeClock clock = new();
-        // 一条转瞬即逝的错误与没报错没有区别,而用户往往正低头看别处。
+        // 一条转瞬即逝的错误与没报错没有区别 —— 所以留得最久;
+        // 但要人伸手去点才肯走的浮层,在用户眼里和一个卡住的弹窗没有分别。
+        using ToastHostViewModel host = new(clock.Schedule);
+        host.Error("连接失败");
+
+        clock.Advance(ToastHostViewModel.WarningLifetime + TimeSpan.FromMilliseconds(1));
+        Assert.HasCount(1, host.Toasts, "错误该比警告留得久。");
+
+        clock.Advance(
+            ToastHostViewModel.ErrorLifetime - ToastHostViewModel.WarningLifetime);
+        Assert.IsEmpty(host.Toasts, "错误留得久,但不该赖着不走。");
+    }
+
+    [TestMethod]
+    public void ErrorCanStillBeDismissedEarly()
+    {
+        FakeClock clock = new();
         using ToastHostViewModel host = new(clock.Schedule);
         ToastViewModel toast = host.Error("连接失败");
 
-        clock.Advance(TimeSpan.FromMinutes(10));
-        Assert.HasCount(1, host.Toasts, "错误不该自动消失。");
-
         host.Dismiss(toast);
+
         Assert.IsEmpty(host.Toasts);
     }
 
