@@ -18,13 +18,13 @@ public sealed class ReconnectPolicyTests
     public void ADroppedRemoteSessionReconnects() =>
         Assert.IsTrue(ReconnectPolicy.ShouldReconnect(
             autoReconnectEnabled: true, isDisconnected: true,
-            userRequestedDisconnect: false, isLocalShell: false));
+            userRequestedDisconnect: false, isLocalShell: false, remoteShellExited: false));
 
     [TestMethod]
     public void TheGlobalSwitchWins() =>
         Assert.IsFalse(ReconnectPolicy.ShouldReconnect(
             autoReconnectEnabled: false, isDisconnected: true,
-            userRequestedDisconnect: false, isLocalShell: false));
+            userRequestedDisconnect: false, isLocalShell: false, remoteShellExited: false));
 
     /// <summary>用户自己点了断开的不碰。</summary>
     /// <remarks>那是明确的意图,自动连回去等于跟用户较劲。</remarks>
@@ -32,7 +32,7 @@ public sealed class ReconnectPolicyTests
     public void AManualDisconnectIsRespected() =>
         Assert.IsFalse(ReconnectPolicy.ShouldReconnect(
             autoReconnectEnabled: true, isDisconnected: true,
-            userRequestedDisconnect: true, isLocalShell: false));
+            userRequestedDisconnect: true, isLocalShell: false, remoteShellExited: false));
 
     /// <summary>本地终端不自动重开。</summary>
     /// <remarks>shell 退出(<c>exit</c>)是用户意图,自动拉起会没完没了。</remarks>
@@ -40,13 +40,24 @@ public sealed class ReconnectPolicyTests
     public void ALocalShellIsNeverRelaunched() =>
         Assert.IsFalse(ReconnectPolicy.ShouldReconnect(
             autoReconnectEnabled: true, isDisconnected: true,
-            userRequestedDisconnect: false, isLocalShell: true));
+            userRequestedDisconnect: false, isLocalShell: true, remoteShellExited: false));
+
+    /// <summary>在远端敲 <c>exit</c> 退出的不碰(#383)。</summary>
+    /// <remarks>
+    /// 那和点断开按钮是同一个意图,只是入口不同。漏掉这一条,用户就**退不掉**:
+    /// exit 之后标签自己又连上了,而这正是 #383 报的现象。
+    /// </remarks>
+    [TestMethod]
+    public void ARemoteShellThatExitedIsNotDraggedBack() =>
+        Assert.IsFalse(ReconnectPolicy.ShouldReconnect(
+            autoReconnectEnabled: true, isDisconnected: true,
+            userRequestedDisconnect: false, isLocalShell: false, remoteShellExited: true));
 
     [TestMethod]
     public void AStillConnectedSessionIsLeftAlone() =>
         Assert.IsFalse(ReconnectPolicy.ShouldReconnect(
             autoReconnectEnabled: true, isDisconnected: false,
-            userRequestedDisconnect: false, isLocalShell: false));
+            userRequestedDisconnect: false, isLocalShell: false, remoteShellExited: false));
 
     [TestMethod]
     public void AttemptsRunOutAtTheConfiguredLimit()

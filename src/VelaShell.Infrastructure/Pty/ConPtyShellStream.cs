@@ -44,6 +44,16 @@ public sealed partial class ConPtyShellStream : IShellStreamWrapper
     /// <summary>流是否可写:未关闭且未释放时为 <c>true</c>。</summary>
     public bool CanWrite => !_closed && !_disposed;
 
+    /// <summary>
+    /// 读端走到头的原因。本地 shell 只有一种收场 —— 子进程自己退了(用户敲 <c>exit</c>、
+    /// 或进程被杀),断管与句柄关闭说的都是同一件事。
+    /// </summary>
+    /// <remarks>
+    /// 本地终端本就不参与自动重连(见 <c>ReconnectPolicy.ShouldReconnect</c> 的
+    /// <c>isLocalShell</c>),这里如实填写只是为了让这个属性在每种流上含义一致。
+    /// </remarks>
+    public ShellCloseReason CloseReason => ShellCloseReason.RemoteExited;
+
     /// <summary>本地 shell 无登录握手,故恒返回 <c>null</c>(不参与 Expect 匹配)。</summary>
     public string? Expect(string regex, TimeSpan timeout) => null; // 本地 shell 无登录握手。
 

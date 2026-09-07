@@ -216,6 +216,72 @@ public class TerminalTabViewModelTests
         );
     }
 
+    /// <summary>在远端敲 <c>exit</c> 之后,标签记住"是它自己退的"(#383)。</summary>
+    /// <remarks>
+    /// 这是自动重连唯一能据以放手的信号:少了它,exit 之后标签会被自动连回来,
+    /// 用户按常规办法根本退不掉。
+    /// </remarks>
+    [TestMethod]
+    [TestCategory("TerminalTab")]
+    public void ARemoteShellThatExits_IsRememberedAsSuch()
+    {
+        var vm = new TerminalTabViewModel(_terminalEmulator);
+        vm.AttachTransport(ClosingStream(ShellCloseReason.RemoteExited));
+        vm.Start();
+
+        WaitUntil(() => vm.RemoteShellExited);
+        Assert.IsTrue(vm.RemoteShellExited);
+    }
+
+    /// <summary>掉线不是用户意图,不能被当成 exit —— 那正是自动重连要救的场景。</summary>
+    [TestMethod]
+    [TestCategory("TerminalTab")]
+    public void ADroppedConnection_IsNotMistakenForAnExit()
+    {
+        var vm = new TerminalTabViewModel(_terminalEmulator);
+        vm.AttachTransport(ClosingStream(ShellCloseReason.ConnectionLost));
+        vm.Start();
+
+        WaitUntil(() => vm.ConnectionStatus == SessionStatus.Disconnected || vm.RemoteShellExited);
+        Assert.IsFalse(vm.RemoteShellExited);
+    }
+
+    /// <summary>重连挂上新传输后标志复位,否则一次 exit 会永久禁掉这个标签的自动重连。</summary>
+    [TestMethod]
+    [TestCategory("TerminalTab")]
+    public void AttachTransport_ClearsTheRemoteExitFlag()
+    {
+        var vm = new TerminalTabViewModel(_terminalEmulator);
+        vm.AttachTransport(ClosingStream(ShellCloseReason.RemoteExited));
+        vm.Start();
+        WaitUntil(() => vm.RemoteShellExited);
+
+        vm.AttachTransport(Substitute.For<IShellStreamWrapper>());
+        Assert.IsFalse(vm.RemoteShellExited);
+    }
+
+    /// <summary>一条读一次就到头的流,并按 <paramref name="reason" /> 交代原因。</summary>
+    private static IShellStreamWrapper ClosingStream(ShellCloseReason reason)
+    {
+        IShellStreamWrapper stream = Substitute.For<IShellStreamWrapper>();
+        stream.CanRead.Returns(true);
+        stream.CloseReason.Returns(reason);
+        stream
+            .ReadAsync(Arg.Any<byte[]>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(0));
+        return stream;
+    }
+
+    /// <summary>等一个后台读循环推出来的状态;读循环在别的线程上,只能轮询。</summary>
+    private static void WaitUntil(Func<bool> condition)
+    {
+        DateTime deadline = DateTime.UtcNow.AddSeconds(5);
+        while (!condition() && DateTime.UtcNow < deadline)
+        {
+            Thread.Sleep(10);
+        }
+    }
+
     [TestMethod]
     [TestCategory("TerminalTab")]
     public void DetachTransport_ClearsBridgeAndShellStream()

@@ -17,6 +17,21 @@ public class ShellStreamWrapper(RemoteProcess process) : IShellStreamWrapper
     /// <summary>读端发出 EOF 前始终保持可读(Stream ReadAsync 返回 0 表示 EOF)。</summary>
     public bool CanRead => !_disposed && !_readEof;
 
+    /// <summary>
+    /// 读端为什么走到了头。SSH 协议层本来就把这两件事分得很清楚,只是被下面那圈
+    /// catch 归一成 EOF 之后丢了 —— 这里把它记回来。
+    /// </summary>
+    /// <remarks>
+    /// <list type="bullet">
+    ///   <item><b>远端 shell 退出</b>:对端发 <c>SSH_MSG_CHANNEL_CLOSE</c>,
+    ///     Tmds.Ssh 把它翻成流上的一次干净 EOF(读返回 0,不抛)。</item>
+    ///   <item><b>连接中断</b>:通道读会抛 —— 走 <c>ReadAsStream</c> 时是一个包着
+    ///     <c>Ssh*ClosedException</c> 的 <see cref="IOException" />。</item>
+    /// </list>
+    /// 于是「返回 0 且没抛」就是且仅是远端自己退了,这正是 #383 要认出来的那个信号。
+    /// </remarks>
+    public ShellCloseReason CloseReason { get; private set; } = ShellCloseReason.Unknown;
+
     /// <summary>RemoteProcess 存活且通道未断时可写入。</summary>
     public bool CanWrite => !_disposed && !_channelClosed;
 
@@ -31,7 +46,10 @@ public class ShellStreamWrapper(RemoteProcess process) : IShellStreamWrapper
     public void WriteLine(string line) =>
         throw new NotSupportedException("WriteLine is not supported. Use WriteAsync instead.");
 
-    /// <summary>从远程进程标准输出读原始字节。EOF 时返回 0 并设置 _readEof。</summary>
+    /// <summary>
+    /// 从远程进程标准输出读原始字节。EOF 时返回 0 并设置 _readEof,同时把
+    /// <see cref="CloseReason" /> 记成本次结束的真实原因。
+    /// </summary>
     public async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
     {
         if (_disposed || _readEof) return 0;
@@ -41,13 +59,29 @@ public class ShellStreamWrapper(RemoteProcess process) : IShellStreamWrapper
             int bytesRead = await _outputStream
                 .ReadAsync(buffer.AsMemory(offset, count), cancellationToken)
                 .ConfigureAwait(false);
-            if (bytesRead == 0) _readEof = true;
+
+            // 没抛就读到 0:对端正常关闭了通道 —— 远端 shell 自己退了(exit / logout / 被 kill)。
+            if (bytesRead == 0) EndRead(ShellCloseReason.RemoteExited);
             return bytesRead;
         }
-        catch (SshChannelClosedException) { _readEof = true; return 0; }
-        catch (ObjectDisposedException) { _readEof = true; return 0; }
-        catch (IOException) { _readEof = true; return 0; }
-        catch (OperationCanceledException) { _readEof = true; return 0; }
+
+        // 通道/连接在读之中断掉:不是用户让它结束的,自动重连该管这一类。
+        catch (SshChannelClosedException) { EndRead(ShellCloseReason.ConnectionLost); return 0; }
+        catch (IOException) { EndRead(ShellCloseReason.ConnectionLost); return 0; }
+
+        // 我们自己在拆:关标签、点断开、释放。远端没给出任何结论。
+        catch (ObjectDisposedException) { EndRead(ShellCloseReason.LocalTeardown); return 0; }
+        catch (OperationCanceledException) { EndRead(ShellCloseReason.LocalTeardown); return 0; }
+    }
+
+    /// <summary>标记读端到此为止,并记下第一次给出的原因(后续读一律短路,不再改写)。</summary>
+    private void EndRead(ShellCloseReason reason)
+    {
+        _readEof = true;
+        if (CloseReason == ShellCloseReason.Unknown)
+        {
+            CloseReason = reason;
+        }
     }
 
     /// <summary>

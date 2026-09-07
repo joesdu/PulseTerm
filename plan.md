@@ -1782,3 +1782,67 @@ MCP 默认 **`ScopeKind.All` = 允许全部**,与 IM 授权「空 = 一个都不
 在一块 320px 高的矮屏上确认表单确实需要滚动、而滚动条仍是收起的 —— 把
 `AllowAutoHide="False"` 贴回去,这条会红。`DESIGN.md` 5.8 补了两条:展开时机,以及
 "`AllowAutoHide=false` 等于常驻展开,不要拿它当'让人看见能滚'的手段"。
+
+## 44. 2026-09-06 exit 之后不该被自动连回来;SFTP 通道跟着 SSH 一起收(#383)
+
+用户反馈:建立连接后用 `exit` 正常退出,自动重连立刻把它连了回来 —— 换句话说,
+**开着自动重连就退不掉**。
+
+### 一、根因:「用户不想连了」只认了一个入口
+
+`ReconnectPolicy.ShouldReconnect` 的四个条件里,代表用户意图的只有
+`userRequestedDisconnect`,而它**只**由工具栏「断开」按钮置位。在远端敲 `exit`
+说的是同一句话,却走的是另一条路:远端 shell 退出 → 通道关闭 → 桥 `Closed`
+→ `MarkDisconnected`,全程没人把这层意思记下来,于是判定里它和掉线毫无区别。
+
+更下面一层还丢了一次信息。SSH 协议本来把这两件事分得很清楚:
+
+- 远端 shell 退出 → 对端发 `SSH_MSG_CHANNEL_CLOSE` → 读端拿到一次**干净的 EOF**;
+- 连接中断(RST / 超时 / sshd 没了)→ 通道读**抛异常**(走 `ReadAsStream` 时是包着
+  `Ssh*ClosedException` 的 `IOException`)。
+
+但 `ShellStreamWrapper.ReadAsync` 把两者一律归一成"返回 0"(这个归一本身是对的 ——
+掉线不是崩溃,抛出去只会让读循环带着异常收尾),原因就此蒸发。桥只看得到"读到 0",
+宿主只看得到"断了"。
+
+### 二、修法:结论仍是 EOF,原因单独留一份
+
+- 新增 `ShellCloseReason`(`Unknown` / `RemoteExited` / `ConnectionLost` / `LocalTeardown`),
+  `IShellStreamWrapper.CloseReason` 交代读端为什么走到头。`ShellStreamWrapper` 按上面那条
+  协议事实填写:没抛而读到 0 = `RemoteExited`,抛了 = `ConnectionLost`,我们自己在拆 =
+  `LocalTeardown`。`ConPtyShellStream` 只有一种收场(`RemoteExited`);
+  `PluginTerminalShellStream` 报 `Unknown` —— 插件的传输层什么都可能抛,宿主分不出也不该猜,
+  按连接中断处理即与改动前完全一致。
+- `SshTerminalBridge.Closed` 由 `Action` 改成 `Action<ShellCloseReason>`,只负责转述,不做判断。
+- `TerminalTabViewModel.RemoteShellExited` 记住这次是不是远端自己退的,在 `AttachTransport`
+  里与 `UserRequestedDisconnect` 一起复位(否则一次 exit 会永久禁掉该标签的自动重连)。
+- `ReconnectPolicy.ShouldReconnect` 加第五个条件 `remoteShellExited`,**不给默认值** ——
+  这个类存在的理由就是"两处判定必须一致",能被忘掉的参数等于没加。三处消费点一并补齐:
+  掉线后的排程、倒计时到点时的复查、睡眠唤醒后的批量重连。
+
+### 三、顺带:SFTP 的生命周期挂到 SSH 上,而不是挂在调用方的记性上
+
+SFTP **复用主 SSH 连接**(DI 注册处 `inner.OpenSftpClientAsync()`,刻意不在主连接之外另开
+一条:那样的连接无人持有、无人释放,还绕过用户可见的连接生命周期)。既然是同一条连接上的
+通道,SSH 一断,缓存里的 SFTP 客户端就只是个还占着句柄的死物。
+
+原先靠 `MainWindowViewModel` 在断开/关标签时记得调一次 `CloseSftpForTab` —— 主路径是对的,
+但断开的入口不止一个(标签断开、关标签、隧道面板直接 `DisconnectAsync`、退出应用),
+靠约定维持不变量迟早漏一个。改为 `SftpService` 订阅
+`ISshConnectionService.SessionDisconnected`,在服务层收口;`DisposeAsync` 里退订。
+VM 里那次调用保留 —— 它还顺手驱逐文件面板(`EvictFileBrowser`),两者职责不同,
+且 `CloseSessionAsync` 本就是幂等的。
+
+### 四、验收
+
+`dotnet test VelaShell.slnx` 全绿。新增用例:
+
+- `ReconnectPolicyTests.ARemoteShellThatExitedIsNotDraggedBack` 钉住新条件;
+- `TerminalTabViewModelTests` 三条走**真实链路**(替身流 → 桥 → 标签):exit 被记住、
+  掉线不被误认成 exit、重连挂上新传输后标志复位。把 `OnBridgeClosed` 里那行改成
+  `RemoteShellExited = false`,第一条与第三条会红;
+- `TerminalBridgeTests` 两条钉住桥如实转述原因、抛异常那条路一律报 `ConnectionLost`;
+- `SftpServiceTests.ASshDisconnect_TakesTheSftpChannelWithIt` 钉住服务层收口。
+
+文档同步:velashell-docs `zh/host/交互与界面规格.md` 与 `en/host/interaction-and-ui-specs.md`
+的「断开连接状态」补上自动重连的适用边界(只救没人要它结束的断开,四种例外)。

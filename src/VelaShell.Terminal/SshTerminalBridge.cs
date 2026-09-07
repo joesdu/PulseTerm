@@ -152,8 +152,12 @@ public class SshTerminalBridge : IDisposable
     /// 服务器重启):读循环自行结束,而非经由 <see cref="Dispose" />。
     /// 使会话可转为断开状态并就地重连。
     /// 主动拆除期间不会触发。在读取线程上触发——按需封送。
+    /// <para>
+    /// 参数是「为什么结束」:<c>exit</c> 与掉线在这里必须分得开,否则宿主只能
+    /// 把两者一视同仁地自动连回去,用户就退不掉了(#383)。
+    /// </para>
     /// </summary>
-    public event Action? Closed;
+    public event Action<ShellCloseReason>? Closed;
 
     /// <summary>
     /// 可选的 ZMODEM 路由器。非 null 时,读循环会先经它路由每一段输出字节
@@ -275,6 +279,9 @@ public class SshTerminalBridge : IDisposable
         // 更大的读取缓冲意味着更少的 await 与更大的自然批次。
         byte[] buffer = ArrayPool<byte>.Shared.Rent(16384);
         bool remoteClosed = false;
+
+        // 结束的原因由流给出(它才知道是干净的 EOF 还是抛出来的),读循环只负责转述。
+        ShellCloseReason closeReason = ShellCloseReason.Unknown;
         try
         {
             while (!token.IsCancellationRequested && _shellStream.CanRead)
@@ -282,8 +289,9 @@ public class SshTerminalBridge : IDisposable
                 int bytesRead = await _shellStream.ReadAsync(buffer, 0, buffer.Length, token).ConfigureAwait(false);
                 if (bytesRead == 0)
                 {
-                    // EOF:远端已关闭通道(exit / 重启 / 连接断开)。
+                    // EOF:远端已关闭通道(exit / 重启 / 连接断开)。到底是哪一种,问流。
                     remoteClosed = true;
+                    closeReason = _shellStream.CloseReason;
                     break;
                 }
 
@@ -347,6 +355,7 @@ public class SshTerminalBridge : IDisposable
             if (!token.IsCancellationRequested)
             {
                 remoteClosed = true;
+                closeReason = _shellStream.CloseReason;
             }
         }
         catch (OperationCanceledException)
@@ -359,7 +368,9 @@ public class SshTerminalBridge : IDisposable
         }
         catch (Exception ex)
         {
+            // 抛到这里的都不是「远端 shell 正常退出」—— 那条路是干净的 EOF,不经过 catch。
             remoteClosed = true;
+            closeReason = ShellCloseReason.ConnectionLost;
             Error?.Invoke(ex);
         }
         finally
@@ -370,7 +381,7 @@ public class SshTerminalBridge : IDisposable
         // 表示远端主动关闭,但不包括我们自身 Dispose() 驱动的拆除。
         if (remoteClosed && !_disposed)
         {
-            Closed?.Invoke();
+            Closed?.Invoke(closeReason);
         }
     }
 
