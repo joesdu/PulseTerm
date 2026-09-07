@@ -14,6 +14,7 @@ public sealed class SseStub : IDisposable
 {
     private readonly HttpListener _listener;
     private readonly TaskCompletionSource<string> _request = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TaskCompletionSource _released = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly Lock _gate = new();
     private readonly List<string> _bodies = [];
 
@@ -48,7 +49,18 @@ public sealed class SseStub : IDisposable
     /// 逐事件下发的间隔(&gt;0 时按空行切开、分块发送)。整段一次性写出去的话,
     /// 界面会在同一拍里收到全部增量,"流式渲染到底有没有在流"就测不出来了。
     /// </param>
-    public SseStub(string sse, TimeSpan delay = default, string? jsonContent = null, TimeSpan chunkDelay = default)
+    /// <param name="hold">
+    /// 收下请求后<b>挂住不回</b>,直到测试调用 <see cref="Release" />。要观察"这一轮还在跑"
+    /// 时的界面,用它而不是 <paramref name="delay" />:延时是在赌"我这几句断言跑得比它快",
+    /// CI 上机器一慢就赌输 —— 轮次早收尾了,排队芯片也就跟着没了(macOS runner 上
+    /// <c>ClickingAQueuedChip_TakesTheMessageBack</c> 正是这么挂的)。挂住则与机器快慢无关。
+    /// </param>
+    public SseStub(
+        string sse,
+        TimeSpan delay = default,
+        string? jsonContent = null,
+        TimeSpan chunkDelay = default,
+        bool hold = false)
     {
         // 端口交给系统挑,避免并行跑测试时撞车
         var probe = new TcpListener(IPAddress.Loopback, 0);
@@ -86,6 +98,12 @@ public sealed class SseStub : IDisposable
                         _bodies.Add(body);
                     }
                     _request.TrySetResult(body);
+                    if (hold)
+                    {
+                        // 放行是一次性的:放开之后本轮与后续请求都照常走
+                        // (排队那句作为下一轮发出去时,不该再被挡一次)。
+                        await _released.Task;
+                    }
                     if (delay > TimeSpan.Zero)
                     {
                         await Task.Delay(delay);
@@ -126,6 +144,12 @@ public sealed class SseStub : IDisposable
         });
     }
 
+    /// <summary>
+    /// 放行被 <c>hold</c> 挂住的回应 —— 测试把"这一轮还在跑"时要看的都看完了,再让它答完。
+    /// 多次调用无害;没挂住时调用也无害。
+    /// </summary>
+    public void Release() => _released.TrySetResult();
+
     /// <summary>一份最小的非流式 Chat Completions 回应。</summary>
     private static string CompletionJson(string content)
         => "{\"id\":\"1\",\"object\":\"chat.completion\",\"created\":1,\"model\":\"m\","
@@ -137,6 +161,9 @@ public sealed class SseStub : IDisposable
     public void Dispose()
     {
         _request.TrySetCanceled();
+        // 挂住的那一轮多半没人来放行(用例按了停止,或断言中途就失败了):
+        // 取消掉,监听线程从 await 里出来直接收摊,不留一个永远等下去的任务。
+        _released.TrySetCanceled();
         _listener.Close();
     }
 }
