@@ -18,7 +18,10 @@ namespace VelaShell.Plugin.Ai.Tests;
 /// </remarks>
 public sealed partial class ChatPanelViewUiTests
 {
-    /// <summary>一段慢吞吞的流式回应,好让测试有工夫在"处理中"里插话。</summary>
+    /// <summary>
+    /// 一段流式回应。本文件的用例都用 <c>hold: true</c> 把它扣在服务端,
+    /// 看完"处理中"该看的再 <c>Release()</c> —— 插话的窗口由测试自己开合,不靠延时去赌。
+    /// </summary>
     private const string SlowReply = """
     data: {"id":"1","object":"chat.completion.chunk","created":1,"model":"m","choices":[{"index":0,"delta":{"content":"在看了。"},"finish_reason":"stop"}]}
 
@@ -58,7 +61,7 @@ public sealed partial class ChatPanelViewUiTests
     {
         OnUi(async () =>
         {
-            using var stub = new SseStub(SlowReply, delay: TimeSpan.FromMilliseconds(700));
+            using var stub = new SseStub(SlowReply, hold: true);
             using var context = new TestPluginContext();
             (Window window, ChatPanelView panel) = await ShowWithStubAsync(context, stub);
             try
@@ -80,6 +83,8 @@ public sealed partial class ChatPanelViewUiTests
                 Assert.IsEmpty(input.Text, "排完队输入框就该空了,否则用户会再敲一次回车");
                 Assert.HasCount(1, stub.Requests, "不许打断正在跑的这一次请求");
 
+                // 排队的都看完了,这才让这一轮答完
+                stub.Release();
                 Assert.IsTrue(await WaitForAsync(() => stub.Requests.Count >= 2, maxRounds: 200),
                     "这一轮答完,排队的那句该自己发出去");
                 Assert.Contains("只看最近一小时的", stub.Requests[1],
@@ -103,7 +108,8 @@ public sealed partial class ChatPanelViewUiTests
     {
         OnUi(async () =>
         {
-            using var stub = new SseStub(SlowReply, delay: TimeSpan.FromSeconds(30));
+            // 挂住不回:这一轮要被按停,回应压根不需要来
+            using var stub = new SseStub(SlowReply, hold: true);
             using var context = new TestPluginContext();
             (Window window, ChatPanelView panel) = await ShowWithStubAsync(context, stub);
             try
@@ -139,7 +145,7 @@ public sealed partial class ChatPanelViewUiTests
     {
         OnUi(async () =>
         {
-            using var stub = new SseStub(SlowReply, delay: TimeSpan.FromMilliseconds(700));
+            using var stub = new SseStub(SlowReply, hold: true);
             using var context = new TestPluginContext();
             (Window window, ChatPanelView panel) = await ShowWithStubAsync(context, stub);
             try
@@ -153,12 +159,15 @@ public sealed partial class ChatPanelViewUiTests
                 await PumpAsync(10);
 
                 WrapPanel queued = Find<WrapPanel>(panel, "QueuedBar");
+                Assert.HasCount(1, queued.Children, "这一句该排在那儿等着被撤回");
                 var chip = (Border)queued.Children[0];
                 chip.RaiseEvent(new PointerPressedEventArgs(chip, new Pointer(0, PointerType.Mouse, true),
                     chip, default, 0, new PointerPointProperties(), KeyModifiers.None));
                 await PumpAsync(5);
 
                 Assert.IsFalse(queued.IsVisible, "撤回之后这一行就该收掉");
+                // 撤回完成,这才让这一轮答完 —— 队里已经没人,不该再发第二次
+                stub.Release();
                 Assert.IsTrue(await WaitForAsync(() => !Find<Button>(panel, "StopButton").IsVisible, maxRounds: 200),
                     "这一轮该正常答完");
                 await PumpAsync(20);
