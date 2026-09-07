@@ -1,8 +1,10 @@
 using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Input;
+using Avalonia.Layout;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using NSubstitute;
@@ -207,6 +209,44 @@ public sealed class ConnectionProfileViewUiTests
             Point origin = connect.TranslatePoint(default, window) ?? default;
             Assert.IsLessThanOrEqualTo(window.Bounds.Height + 0.5, origin.Y + connect.Bounds.Height,
                 "「连接」按钮必须留在窗口可视区域内。");
+
+            window.Close();
+        }, CancellationToken.None).GetAwaiter().GetResult();
+    }
+
+    /// <summary>
+    /// 新建连接一打开,表单右侧不能顶着一条已经展开的粗滚动条。
+    /// </summary>
+    /// <remarks>
+    /// 这里原先写死了 <c>ScrollViewer.AllowAutoHide="False"</c>,本意是"表单被高度上限截断时
+    /// 别让人以为字段没了";但这个开关在 Avalonia 里的含义是【常驻展开】
+    /// (<c>ScrollBar.UpdateIsExpandedState</c>:不许自动隐藏就是 <c>IsExpanded=true</c>),
+    /// 于是 Redis 这类字段多的协议一打开,滚动条就是滑道 + 两端箭头的完全展开态,
+    /// 和全应用其它地方对不上。未激活态本就是一根可见的 2px 细条(见 ScrollBarStyleTests),
+    /// 截断照样看得见,affordance 并不靠常驻展开来给。
+    /// </remarks>
+    [TestMethod]
+    public void FormScrollBar_StartsCollapsed_EvenWhenTheFormIsTruncated()
+    {
+        _session.Dispatch(() =>
+        {
+            var vm = new ConnectionProfileViewModel { Host = "127.0.0.1" };
+            var window = new ConnectionProfileView { DataContext = vm };
+            window.Show();
+            // 同 Form_Scrolls… 那条:压一块矮屏,逼出真正需要滚动的表单。
+            window.MaxHeight = 320;
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            ScrollViewer form = window.GetVisualDescendants().OfType<ScrollViewer>()
+                .First(scroll => scroll.GetVisualParent() is Grid);
+            Assert.IsGreaterThan(form.Viewport.Height, form.Extent.Height, "前提:表单确实放不下。");
+            Assert.IsTrue(form.AllowAutoHide, "表单不该按住 AllowAutoHide —— 那等于让滚动条常驻展开。");
+
+            ScrollBar vertical = form.GetVisualDescendants().OfType<ScrollBar>()
+                .Single(bar => ReferenceEquals(bar.TemplatedParent, form) &&
+                               bar.Orientation == Orientation.Vertical);
+            Assert.IsFalse(vertical.IsExpanded, "鼠标还没碰上去就展开了:一进来看到的就是粗滚动条。");
 
             window.Close();
         }, CancellationToken.None).GetAwaiter().GetResult();
