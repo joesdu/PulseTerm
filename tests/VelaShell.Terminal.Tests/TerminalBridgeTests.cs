@@ -243,10 +243,52 @@ public class TerminalBridgeTests
 
         bool closed = false;
         using var bridge = new SshTerminalBridge(_terminal, _shellStream);
-        bridge.Closed += () => closed = true;
+        bridge.Closed += _ => closed = true;
         bridge.Start();
 
         WaitUntil(() => closed);
+    }
+
+    /// <summary>关闭原因原样转述给宿主,不在桥里被抹平(#383)。</summary>
+    /// <remarks>
+    /// 桥自己无从分辨 exit 与掉线 —— 两者在它眼里都是"读到 0"。知道差别的是流,
+    /// 所以桥的职责只有一条:把流给出的结论完整带上去,让宿主据此决定要不要自动重连。
+    /// </remarks>
+    [TestMethod]
+    public void ReadLoop_WhenRemoteShellExits_ReportsThatReason()
+    {
+        _shellStream.CanRead.Returns(true);
+        _shellStream.CloseReason.Returns(ShellCloseReason.RemoteExited);
+        _shellStream.ReadAsync(Arg.Any<byte[]>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(0));
+
+        ShellCloseReason? reported = null;
+        using var bridge = new SshTerminalBridge(_terminal, _shellStream);
+        bridge.Closed += reason => reported = reason;
+        bridge.Start();
+
+        WaitUntil(() => reported is not null);
+        Assert.AreEqual(ShellCloseReason.RemoteExited, reported);
+    }
+
+    /// <summary>读取抛异常的那条路不可能是"shell 正常退出",一律报连接中断。</summary>
+    [TestMethod]
+    public void ReadLoop_WhenReadThrows_ReportsConnectionLost()
+    {
+        _shellStream.CanRead.Returns(true);
+
+        // 流可能已经把原因记成别的了;抛出来的这一路不看它,直接下结论。
+        _shellStream.CloseReason.Returns(ShellCloseReason.RemoteExited);
+        _shellStream.ReadAsync(Arg.Any<byte[]>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns<Task<int>>(_ => throw new IOException("connection reset"));
+
+        ShellCloseReason? reported = null;
+        using var bridge = new SshTerminalBridge(_terminal, _shellStream);
+        bridge.Closed += reason => reported = reason;
+        bridge.Start();
+
+        WaitUntil(() => reported is not null);
+        Assert.AreEqual(ShellCloseReason.ConnectionLost, reported);
     }
 
     [TestMethod]
@@ -263,7 +305,7 @@ public class TerminalBridgeTests
 
         bool closed = false;
         var bridge = new SshTerminalBridge(_terminal, _shellStream);
-        bridge.Closed += () => closed = true;
+        bridge.Closed += _ => closed = true;
         bridge.Start();
 
         Thread.Sleep(100);

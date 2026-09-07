@@ -12,19 +12,56 @@ namespace VelaShell.Core.Sftp;
 /// 基于 SSH 会话的 SFTP 文件操作服务:按会话缓存并复用 SFTP 客户端,提供目录浏览、
 /// 上传/下载、删除、重命名、权限设置等远端文件系统操作。
 /// </summary>
-public class SftpService(
-    ISshConnectionService connectionService,
-    Func<SshSession, ISftpClientWrapper>? sftpClientFactory = null,
-    ISettingsService? settingsService = null) : ISftpService
+public class SftpService : ISftpService
 {
-    private readonly ISshConnectionService _connectionService = connectionService ?? throw new ArgumentNullException(nameof(connectionService));
+    private readonly ISshConnectionService _connectionService;
+    private readonly Func<SshSession, ISftpClientWrapper>? _sftpClientFactory;
+    private readonly ISettingsService? _settingsService;
     private readonly ConcurrentDictionary<Guid, ISftpClientWrapper> _sftpClients = new();
 
     /// <summary>属主/属组的数字 id → 名称翻译(按会话缓存,见 RemoteIdentityResolver)。</summary>
-    private readonly RemoteIdentityResolver _identities = new(connectionService);
+    private readonly RemoteIdentityResolver _identities;
 
     /// <summary>SFTP 客户端创建的按会话单飞闸(见 GetOrCreateSftpClientAsync)。</summary>
     private readonly ConcurrentDictionary<Guid, SemaphoreSlim> _clientGates = new();
+
+    /// <summary>
+    /// 构造服务,并把 SFTP 通道的生命周期挂到 SSH 会话的生命周期上。
+    /// </summary>
+    /// <remarks>
+    /// SFTP 不是一条独立的连接:它是**主 SSH 连接上的一个通道**
+    /// (见 DI 注册处的 <c>OpenSftpClientAsync</c> —— 刻意复用主连接,
+    /// 不在主连接之外偷偷另开一条)。既然如此,SSH 一断,这边缓存的客户端就已经是个
+    /// 死物,只是还占着字典与非托管句柄。
+    /// <para>
+    /// 因此清理在这里订阅 <see cref="ISshConnectionService.SessionDisconnected" />,
+    /// 而不是靠每个断开入口自己记得调一次 <see cref="CloseSessionAsync" /> ——
+    /// 断开的入口不止一个(标签断开、关标签、隧道面板、退出应用),
+    /// 靠约定去维持这个不变量,迟早会漏掉一个。
+    /// </para>
+    /// </remarks>
+    public SftpService(
+        ISshConnectionService connectionService,
+        Func<SshSession, ISftpClientWrapper>? sftpClientFactory = null,
+        ISettingsService? settingsService = null)
+    {
+        _connectionService = connectionService ?? throw new ArgumentNullException(nameof(connectionService));
+        _sftpClientFactory = sftpClientFactory;
+        _settingsService = settingsService;
+        _identities = new(connectionService);
+        _connectionService.SessionDisconnected += OnSshSessionDisconnected;
+    }
+
+    /// <summary>
+    /// SSH 会话断了 —— 连它上面那条 SFTP 通道一起收掉。
+    /// </summary>
+    /// <remarks>
+    /// 即发即忘:这是断开路径上的清理,拖慢它没有意义,失败也没有可补救的动作
+    /// (要关的东西已经跟着连接一起没了)。<see cref="CloseSessionAsync" /> 内部
+    /// 对已死的客户端本就是尽力而为。
+    /// </remarks>
+    private void OnSshSessionDisconnected(SshSession session) =>
+        _ = CloseSessionAsync(session.SessionId);
 
     /// <summary>列出指定会话下远端目录的条目(自动剔除 "." 与 ".." )。</summary>
     public async Task<List<RemoteFileInfo>> ListDirectoryAsync(Guid sessionId, string path, CancellationToken cancellationToken = default)
@@ -473,6 +510,8 @@ public class SftpService(
     /// <summary>断开并释放所有缓存的 SFTP 客户端,尽力清理全部会话资源。</summary>
     public async ValueTask DisposeAsync()
     {
+        // 先退订:连接服务比本服务活得久时,悬着的委托会把已释放的实例一直吊在内存里。
+        _connectionService.SessionDisconnected -= OnSshSessionDisconnected;
         foreach (KeyValuePair<Guid, ISftpClientWrapper> kvp in _sftpClients)
         {
             try
@@ -642,13 +681,13 @@ public class SftpService(
     /// <summary>带宽限制(设置 → 文件传输):返回字节/秒,0 = 不限速。</summary>
     private async Task<(long UploadBps, long DownloadBps, bool PreserveTimestamps)> GetTransferTuningAsync()
     {
-        if (settingsService is null)
+        if (_settingsService is null)
         {
             return (0, 0, true);
         }
         try
         {
-            TransferOptions t = (await settingsService.GetSnapshotAsync().ConfigureAwait(false)).Transfer;
+            TransferOptions t = (await _settingsService.GetSnapshotAsync().ConfigureAwait(false)).Transfer;
             long up = t.BandwidthLimitEnabled ? (long)Math.Max(0, t.UploadLimitMBps) * 1024 * 1024 : 0;
             long down = t.BandwidthLimitEnabled ? (long)Math.Max(0, t.DownloadLimitMBps) * 1024 * 1024 : 0;
             return (up, down, t.PreserveTimestamps);
@@ -741,11 +780,11 @@ public class SftpService(
             {
                 throw new InvalidOperationException($"Session {sessionId} is not connected");
             }
-            if (sftpClientFactory == null)
+            if (_sftpClientFactory == null)
             {
                 throw new InvalidOperationException("SFTP client factory not configured");
             }
-            ISftpClientWrapper client = sftpClientFactory(session);
+            ISftpClientWrapper client = _sftpClientFactory(session);
             await client.ConnectAsync(cancellationToken).ConfigureAwait(false);
             _sftpClients[sessionId] = client;
             return client;

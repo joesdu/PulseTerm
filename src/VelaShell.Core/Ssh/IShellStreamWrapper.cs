@@ -14,6 +14,17 @@ public interface IShellStreamWrapper : IDisposable
     /// <summary>获取一个值,指示流当前是否支持写入。</summary>
     bool CanWrite { get; }
 
+    /// <summary>读端走到头的原因;<see cref="ReadAsync" /> 返回 0 之后才有意义。</summary>
+    /// <remarks>
+    /// 各实现都把「远端 shell 退出」与「连接中断」归一成了返回 0 —— 掉线不是崩溃,
+    /// 抛出去只会让读循环带着异常收尾。但归一之后这两件事在上层就分不开了,
+    /// 而自动重连恰恰只该管后者(#383):在远端敲 <c>exit</c> 之后又被自动连回来,
+    /// 用户根本退不掉。于是结论仍然是 EOF,原因单独留一份在这里。
+    /// 分不清的实现返回 <see cref="ShellCloseReason.Unknown" />,按连接中断处理,
+    /// 即维持原有的自动重连行为。
+    /// </remarks>
+    ShellCloseReason CloseReason { get; }
+
     /// <summary>等待与给定正则表达式匹配的输出,直到指定的超时时间。</summary>
     /// <param name="regex">用于匹配到来输出的正则表达式。</param>
     /// <param name="timeout">等待匹配的最长时间。</param>

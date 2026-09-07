@@ -40,6 +40,17 @@ internal sealed class PluginTerminalShellStream(IProtocolTerminalSession session
     /// <summary>流是否可写。</summary>
     public bool CanWrite => !_disposed;
 
+    /// <summary>
+    /// 读端走到头的原因:插件协议一律 <see cref="ShellCloseReason.Unknown" />。
+    /// </summary>
+    /// <remarks>
+    /// 这里的归一化(见类型注释第 1 条)是**有损**的:插件的传输层什么都可能抛,
+    /// 宿主既分不出「对端正常收线」还是「链路断了」,也不该替某个具体协议去猜。
+    /// 报 Unknown 即按连接中断处理,自动重连行为与本属性引入之前完全一致 ——
+    /// 要更准的判断,得由协议插件自己给出结论,而不是在这一层拍脑袋。
+    /// </remarks>
+    public ShellCloseReason CloseReason => ShellCloseReason.Unknown;
+
     /// <summary>插件协议没有登录握手可供匹配,恒返回 <see langword="null" />。</summary>
     public string? Expect(string regex, TimeSpan timeout) => null;
 

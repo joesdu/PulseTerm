@@ -25,21 +25,33 @@ public static class ReconnectPolicy
     /// <remarks>
     /// <list type="bullet">
     /// <item><b>用户自己点了断开的不碰</b> —— 那是明确的意图,自动连回去等于跟用户较劲。</item>
+    /// <item><b>远端 shell 自己退出的不碰</b> —— 在远端敲 <c>exit</c> / <c>logout</c>
+    /// 与点断开按钮是同一个意图,只是入口不同。漏掉这一条的后果是用户
+    /// **退不掉**:exit 之后标签自己又连上了(#383)。</item>
     /// <item><b>本地终端不自动重开</b> —— shell 退出(<c>exit</c>)是用户意图,
     /// 自动拉起会没完没了。</item>
     /// </list>
+    /// <para>
+    /// 反过来,只有"没人要它结束"的断开才该救:掉线、超时、服务端崩溃。
+    /// </para>
     /// </remarks>
     /// <param name="autoReconnectEnabled">设置里的自动重连开关。</param>
     /// <param name="isDisconnected">当前是否处于断开状态。</param>
     /// <param name="userRequestedDisconnect">是不是用户主动断开的。</param>
     /// <param name="isLocalShell">是不是本地终端。</param>
+    /// <param name="remoteShellExited">远端 shell 是不是自己正常退出的。</param>
     /// <returns>符合条件时为 true。</returns>
     public static bool ShouldReconnect(
         bool autoReconnectEnabled,
         bool isDisconnected,
         bool userRequestedDisconnect,
-        bool isLocalShell) =>
-        autoReconnectEnabled && isDisconnected && !userRequestedDisconnect && !isLocalShell;
+        bool isLocalShell,
+        bool remoteShellExited) =>
+        autoReconnectEnabled
+        && isDisconnected
+        && !userRequestedDisconnect
+        && !isLocalShell
+        && !remoteShellExited;
 
     /// <summary>
     /// 还能不能再试一次。

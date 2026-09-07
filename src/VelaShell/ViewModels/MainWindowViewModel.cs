@@ -2662,7 +2662,8 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
                     autoReconnectEnabled: true,
                     tab.ConnectionStatus == SessionStatus.Disconnected,
                     tab.UserRequestedDisconnect,
-                    tab.LocalShell is not null))
+                    tab.LocalShell is not null,
+                    tab.RemoteShellExited))
             {
                 tab.ResetReconnectAttempts();
                 _ = ReconnectTabAsync(tab);
@@ -2721,12 +2722,14 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
 
         // 无头单元测试在没有 Avalonia 应用的情况下构造此 VM;此处无计时器。
         // 本地终端不自动重开:shell 退出(exit)是用户意图,自动拉起会没完没了。
+        // 远端 shell 退出同理 —— 在远端敲 exit 和点断开按钮说的是同一句话(#383)。
         if (Application.Current is null
             || !ReconnectPolicy.ShouldReconnect(
                    settings.General.AutoReconnect,
                    isDisconnected: true,
                    tab.UserRequestedDisconnect,
-                   tab.LocalShell is not null))
+                   tab.LocalShell is not null,
+                   tab.RemoteShellExited))
         {
             return;
         }
@@ -2753,13 +2756,15 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         DispatcherTimer.RunOnce(
             () =>
             {
-                // 等待期间用户可能已手动重连、关掉标签或主动断开。
+                // 等待期间用户可能已手动重连、关掉标签、主动断开,
+                // 或者(重连成功后)在远端敲了 exit —— 后者同样不该再被拉回来。
                 if (
                     tab
                         is
                     {
                         ConnectionStatus: SessionStatus.Disconnected,
-                        UserRequestedDisconnect: false
+                        UserRequestedDisconnect: false,
+                        RemoteShellExited: false
                     }
                     && TerminalTabs.Contains(tab)
                 )

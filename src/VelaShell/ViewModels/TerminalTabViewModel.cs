@@ -399,6 +399,18 @@ public class TerminalTabViewModel : TabViewModel, IDisposable
     /// </summary>
     public bool UserRequestedDisconnect { get; private set; }
 
+    /// <summary>
+    /// true = 本次断开是远端 shell 自己退出的(在远端敲了 <c>exit</c> / <c>logout</c>),
+    /// 自动重连不介入;重新挂载传输时复位。
+    /// </summary>
+    /// <remarks>
+    /// 与 <see cref="UserRequestedDisconnect" /> 是同一件事的两个入口:一个是点了断开按钮,
+    /// 一个是在远端敲了 exit —— 都是用户说「这条会话到此为止」。之前只认前者,
+    /// 于是 exit 之后标签自己又连回来,用户按常规办法根本退不掉(#383)。
+    /// 两个标志分开留是因为它们的复位时机与判定来源不同,合并会含糊掉「谁说的」。
+    /// </remarks>
+    public bool RemoteShellExited { get; private set; }
+
     /// <summary>本标签在状态栏显示的连接摘要,例如 "SSH • root@host:22"。</summary>
     public string ConnectionSummary { get; init; } = string.Empty;
 
@@ -744,6 +756,7 @@ public class TerminalTabViewModel : TabViewModel, IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
         DetachTransport();
         UserRequestedDisconnect = false;
+        RemoteShellExited = false;
         ShellStream = shellStream;
         var bridge = new SshTerminalBridge(TerminalEmulator, shellStream);
         bridge.Closed += OnBridgeClosed;
@@ -814,8 +827,13 @@ public class TerminalTabViewModel : TabViewModel, IDisposable
             observer);
     }
 
-    private void OnBridgeClosed()
+    private void OnBridgeClosed(ShellCloseReason reason)
     {
+        // 远端 shell 自己退了 = 用户意图,与点断开按钮同等对待:自动重连不再介入(#383)。
+        // 必须赶在 MarkDisconnected 之前置位 —— 它同步触发 Disconnected,
+        // 宿主就在那个事件里当场决定要不要排一次重连。
+        RemoteShellExited = reason == ShellCloseReason.RemoteExited;
+
         // 在读线程上触发;将响应式状态变更封送到 UI 线程。
         if (Dispatcher.UIThread.CheckAccess())
         {

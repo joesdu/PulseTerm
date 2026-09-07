@@ -15,6 +15,7 @@ public class SftpServiceTests
     private readonly Guid _sessionId;
     private readonly ISftpClientWrapper _sftpClient;
     private readonly SftpService _sftpService;
+    private readonly SshSession _session;
 
     public SftpServiceTests()
     {
@@ -34,9 +35,34 @@ public class SftpServiceTests
             },
             Status = SessionStatus.Connected
         };
+        _session = session;
         _connectionService.GetSession(_sessionId).Returns(session);
         _sftpClient.IsConnected.Returns(true);
         _sftpService = new SftpService(_connectionService, _ => _sftpClient);
+    }
+
+    /// <summary>SSH 一断,挂在它上面的 SFTP 通道跟着收掉。</summary>
+    /// <remarks>
+    /// SFTP 复用的就是主 SSH 连接(DI 处 <c>OpenSftpClientAsync</c> 刻意不另开连接),
+    /// 所以连接一没,缓存里那个客户端就只是个还占着句柄的死物。清理挂在
+    /// <c>SessionDisconnected</c> 上而不是各个断开入口里 —— 入口有好几个
+    /// (标签断开、关标签、隧道面板、退出应用),靠约定迟早漏一个。
+    /// </remarks>
+    [TestMethod]
+    public async Task ASshDisconnect_TakesTheSftpChannelWithIt()
+    {
+        // 先让服务真的建出并缓存一个客户端,否则没有东西可关。
+        _sftpClient.WorkingDirectory.Returns("/home/testuser");
+        await _sftpService.GetWorkingDirectoryAsync(_sessionId);
+
+        var disposed = new TaskCompletionSource();
+        _sftpClient.When(c => c.Dispose()).Do(_ => disposed.TrySetResult());
+
+        _connectionService.SessionDisconnected += Raise.Event<Action<SshSession>>(_session);
+
+        // 清理是即发即忘的:断开路径不等它,所以这里得等。
+        await disposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        _sftpClient.Received(1).Disconnect();
     }
 
     [TestMethod]
