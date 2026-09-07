@@ -561,6 +561,42 @@ public class MainWindowViewModelTests
     }
 
     [TestMethod]
+    [TestCategory("UI")]
+    public async Task FileBrowser_ConnectingTab_HidesPreviousSessionPanelImmediately()
+    {
+        var settingsService = new MemorySettingsService(
+            new AppSettings { TerminalBehavior = new() { AutoOpenFileBrowser = false } });
+        MainWindowViewModel vm = await CreateInitializedVmAsync(settingsService);
+
+        TerminalTabViewModel first = CreateConnectedSshTab();
+        vm.Open(first);
+        vm.ToggleFileBrowser();
+        Assert.IsTrue(vm.FileBrowser.IsVisible, "手动打开:当前标签的面板展示。");
+
+        // 新开一个标签:会话 id 要到握手完成才分配,这段时间下方不能还挂着
+        // 上一个会话的文件面板(#385)。
+        var connecting = new TerminalTabViewModel(Substitute.For<ITerminalEmulator>())
+        {
+            Profile = new() { Name = "next", Host = "next.example" },
+            ConnectionStatus = SessionStatus.Connecting,
+        };
+        vm.Open(connecting);
+
+        Assert.IsFalse(
+            vm.FileBrowser.IsVisible,
+            "连接中的新标签必须立即收起上一个会话的面板,而不是等连上才消失(#385)。");
+        Assert.AreEqual(
+            Guid.Empty,
+            vm.FileBrowser.SessionId,
+            "连接中的新标签下方是空占位,不指向任何会话。");
+
+        // 上一个标签自己的开关状态不受这次占位替换影响,切回去照旧展示。
+        vm.Activate(first);
+        Assert.IsTrue(vm.FileBrowser.IsVisible, "切回原标签:面板恢复展示。");
+        Assert.AreEqual(first.SessionId, vm.FileBrowser.SessionId);
+    }
+
+    [TestMethod]
     [TestCategory("SessionTree")]
     public async Task ActiveTerminalTab_FollowsSavedProfileWhenSettingEnabled()
     {

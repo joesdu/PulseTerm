@@ -1382,21 +1382,22 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
             return;
         }
 
-        // 本地终端(ConPTY)与插件终端协议(Telnet…)都没有 SFTP 会话:不得继续展示
-        // 上一个 SSH 会话的文件面板,否则切到 PowerShell / Telnet 标签后下方仍显示上一个
-        // SSH 会话的文件面板。换成隐藏的空占位;上一个面板不 Detach(仍按其会话缓存),
-        // 其开关状态留在缓存实例与所属标签上,切回远程标签时恢复展示。
-        // 注意不能靠下面那句 SessionId == Guid.Empty 兜底 —— 它是 return 而不是换占位。
-        if (tab.LocalShell is not null || tab.Profile?.ConnectionType == ConnectionType.Plugin)
+        // 这三种标签都没有可用的 SFTP 会话,不得继续展示上一个 SSH 会话的文件面板:
+        //   1. 本地终端(ConPTY)与插件终端协议(Telnet…)—— 它们压根没有 SFTP 通道,
+        //      否则切到 PowerShell / Telnet 标签后下方仍显示上一个 SSH 会话的文件面板;
+        //   2. 还在握手的 SSH 标签 —— 会话 id 要到握手完成才分配(见 RunHandshakeAsync),
+        //      在那之前 SessionId 是 Guid.Empty。这一条以前只是 return,于是新开标签期间
+        //      下方仍挂着上一个会话的文件面板,直到连上才换掉(#385)。
+        // 统一换成隐藏的空占位;上一个面板不 Detach(仍按其会话缓存),其开关状态留在
+        // 缓存实例与所属标签上,切回那个标签时恢复展示。
+        if (tab.LocalShell is not null
+            || tab.Profile?.ConnectionType == ConnectionType.Plugin
+            || tab.SessionId == Guid.Empty)
         {
             if (FileBrowser.SessionId != Guid.Empty || FileBrowser.IsVisible)
             {
                 FileBrowser = CreatePlaceholderFileBrowser();
             }
-            return;
-        }
-        if (tab.SessionId == Guid.Empty)
-        {
             return;
         }
         if (FileBrowser.SessionId == tab.SessionId)
@@ -2702,14 +2703,44 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
         {
             return;
         }
+        // 先问清楚"接下来会不会自动重连",再决定要报几条 —— 顺序反过来的话,
+        // 断线那一条已经推出去了,后面的倒计时只能在它旁边再叠一条同义的。
+        // 无头单元测试在没有 Avalonia 应用的情况下构造此 VM;此处无计时器。
+        // 本地终端不自动重开:shell 退出(exit)是用户意图,自动拉起会没完没了。
+        // 远端 shell 退出同理 —— 在远端敲 exit 和点断开按钮说的是同一句话(#383)。
+        int maxRetries = Math.Max(1, settings.General.MaxRetries);
+        bool autoReconnectApplies =
+            Application.Current is not null
+            && ReconnectPolicy.ShouldReconnect(
+                   settings.General.AutoReconnect,
+                   isDisconnected: true,
+                   tab.UserRequestedDisconnect,
+                   tab.LocalShell is not null,
+                   tab.RemoteShellExited);
+        if (autoReconnectApplies)
+        {
+            tab.MaxReconnectAttempts = maxRetries; // 全部自动重连路径共用同一权威值(设置审计 C-02)
+        }
+        bool willAutoReconnect =
+            autoReconnectApplies
+            && ReconnectPolicy.HasAttemptsLeft(tab.ReconnectAttempts, maxRetries);
+
         if (settings.General.NotifyOnDisconnect)
         {
-            // 断线带一个「立即重连」按钮:这是用户看到这条消息时唯一想做的事,
-            // 而原先它只是状态栏里一句会被下一条消息盖掉的文字。
-            Toasts.Error(
-                Strings.Format("Msg_TabDisconnected", tab.Title),
-                Strings.Get("Toast_ReconnectNow"),
-                () => _ = ReconnectTabAsync(tab));
+            // 只在"没人会替你重连"时才单报一条断线。会自动重连的时候,下面那条倒计时
+            // 已经把断开、还剩几次、下次什么时候都说全了 —— 再叠一条「已断开 + 立即重连」
+            // 是同一件事说两遍,而且两条一起占掉右下角,谁也没多告诉用户一个字。
+            // 反过来,重连不介入(关了开关、次数用尽、本地 shell)时,这条带按钮的提示
+            // 就是唯一的出口,必须留着。
+            if (!willAutoReconnect)
+            {
+                // 断线带一个「立即重连」按钮:这是用户看到这条消息时唯一想做的事,
+                // 而原先它只是状态栏里一句会被下一条消息盖掉的文字。
+                Toasts.Error(
+                    Strings.Format("Msg_TabDisconnected", tab.Title),
+                    Strings.Get("Toast_ReconnectNow"),
+                    () => _ = ReconnectTabAsync(tab));
+            }
             if (!ReferenceEquals(ActiveTerminalTab, tab))
             {
                 tab.HasBellAlert = true;
@@ -2720,22 +2751,7 @@ public class MainWindowViewModel : ReactiveObject, Services.Plugins.ITerminalRes
             SystemSound.Alert();
         }
 
-        // 无头单元测试在没有 Avalonia 应用的情况下构造此 VM;此处无计时器。
-        // 本地终端不自动重开:shell 退出(exit)是用户意图,自动拉起会没完没了。
-        // 远端 shell 退出同理 —— 在远端敲 exit 和点断开按钮说的是同一句话(#383)。
-        if (Application.Current is null
-            || !ReconnectPolicy.ShouldReconnect(
-                   settings.General.AutoReconnect,
-                   isDisconnected: true,
-                   tab.UserRequestedDisconnect,
-                   tab.LocalShell is not null,
-                   tab.RemoteShellExited))
-        {
-            return;
-        }
-        int maxRetries = Math.Max(1, settings.General.MaxRetries);
-        tab.MaxReconnectAttempts = maxRetries; // 全部自动重连路径共用同一权威值(设置审计 C-02)
-        if (!ReconnectPolicy.HasAttemptsLeft(tab.ReconnectAttempts, maxRetries))
+        if (!willAutoReconnect)
         {
             return;
         }
